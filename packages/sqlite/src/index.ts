@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type ClosureHistory, type CommitStatus, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type FeedbackEvent, type FrozenEvidence, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -89,6 +89,9 @@ const schema = `
     desired_projection_hash TEXT,
     status TEXT NOT NULL CHECK (status IN ('PENDING', 'APPLIED', 'VERIFIED', 'FAILED')),
     attempt INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TEXT,
+    next_attempt_at TEXT,
+    retry_exhausted INTEGER NOT NULL DEFAULT 0 CHECK (retry_exhausted IN (0, 1)),
     last_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -107,6 +110,7 @@ const schema = `
     work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
     trigger_type TEXT NOT NULL,
     source_snapshot_id TEXT NOT NULL,
+    source_block_uuid TEXT,
     formal_version INTEGER NOT NULL,
     priority_class TEXT NOT NULL CHECK (priority_class IN ('NORMAL', 'INTERACTIVE', 'SYSTEM_RECOVERY')),
     attempt INTEGER NOT NULL DEFAULT 0,
@@ -123,6 +127,49 @@ const schema = `
     paused INTEGER NOT NULL CHECK (paused IN (0, 1)),
     updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS context_associations (
+    id TEXT PRIMARY KEY,
+    work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    graph_id TEXT NOT NULL,
+    block_uuid TEXT NOT NULL,
+    page_name TEXT,
+    source_version_hash TEXT NOT NULL,
+    origin TEXT NOT NULL CHECK (origin IN ('USER_EXPLICIT', 'AGENT_INFERRED', 'SYSTEM_STRUCTURAL')),
+    basis_run_id TEXT,
+    status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'INVALIDATED')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS context_associations_active_idx ON context_associations(work_object_id, graph_id, block_uuid) WHERE status='ACTIVE';
+  CREATE INDEX IF NOT EXISTS context_associations_source_idx ON context_associations(graph_id, block_uuid);
+  CREATE TABLE IF NOT EXISTS association_corrections (
+    id TEXT PRIMARY KEY,
+    graph_id TEXT NOT NULL,
+    block_uuid TEXT NOT NULL,
+    scope_snapshot TEXT NOT NULL,
+    rejected_work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    affirmed_work_object_id TEXT REFERENCES work_objects(id),
+    user_decision_ref TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS association_corrections_source_idx ON association_corrections(graph_id, block_uuid);
+  CREATE TABLE IF NOT EXISTS governance_issues (
+    id TEXT PRIMARY KEY,
+    work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+    dimension TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('UNKNOWN', 'CONFLICT', 'BOUNDARY_CANDIDATE')),
+    status TEXT NOT NULL CHECK (status IN ('OPEN', 'RESOLVED', 'SUPERSEDED')),
+    summary TEXT NOT NULL,
+    evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+    source_snapshot_id TEXT NOT NULL,
+    formal_version INTEGER NOT NULL,
+    correlation_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    resolved_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS governance_issues_open_idx ON governance_issues(work_object_id, dimension, status);
+  CREATE UNIQUE INDEX IF NOT EXISTS governance_issues_open_dedupe_idx ON governance_issues(work_object_id, dimension, type, source_snapshot_id) WHERE status='OPEN';
   CREATE TABLE IF NOT EXISTS skill_versions (
     id TEXT NOT NULL, version TEXT NOT NULL, content_hash TEXT NOT NULL, package_json TEXT NOT NULL,
     registered_at TEXT NOT NULL, PRIMARY KEY(id, version)
@@ -211,6 +258,9 @@ export class SqliteStore {
     this.#migrateV6();
     this.#migrateV7();
     this.#migrateV8();
+    this.#migrateV9();
+    this.#migrateV10();
+    this.#migrateV11();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -324,6 +374,68 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (8, ?)").run(new Date().toISOString());
   }
 
+  #migrateV9(): void {
+    const additions = [
+      ["projection_obligations", "last_attempt_at", "TEXT"],
+      ["projection_obligations", "next_attempt_at", "TEXT"],
+      ["projection_obligations", "retry_exhausted", "INTEGER NOT NULL DEFAULT 0"],
+    ] as const;
+    for (const [table, column, definition] of additions) if (!this.#hasColumn(table, column)) this.#database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (9, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV10(): void {
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS context_associations (
+      id TEXT PRIMARY KEY,
+      work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+      graph_id TEXT NOT NULL,
+      block_uuid TEXT NOT NULL,
+      page_name TEXT,
+      source_version_hash TEXT NOT NULL,
+      origin TEXT NOT NULL CHECK (origin IN ('USER_EXPLICIT', 'AGENT_INFERRED', 'SYSTEM_STRUCTURAL')),
+      basis_run_id TEXT,
+      status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'INVALIDATED')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE UNIQUE INDEX IF NOT EXISTS context_associations_active_idx ON context_associations(work_object_id, graph_id, block_uuid) WHERE status='ACTIVE'");
+    this.#database.exec("CREATE INDEX IF NOT EXISTS context_associations_source_idx ON context_associations(graph_id, block_uuid)");
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS association_corrections (
+      id TEXT PRIMARY KEY,
+      graph_id TEXT NOT NULL,
+      block_uuid TEXT NOT NULL,
+      scope_snapshot TEXT NOT NULL,
+      rejected_work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+      affirmed_work_object_id TEXT REFERENCES work_objects(id),
+      user_decision_ref TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS association_corrections_source_idx ON association_corrections(graph_id, block_uuid)");
+    this.#database.exec(`CREATE TABLE IF NOT EXISTS governance_issues (
+      id TEXT PRIMARY KEY,
+      work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+      dimension TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('UNKNOWN', 'CONFLICT', 'BOUNDARY_CANDIDATE')),
+      status TEXT NOT NULL CHECK (status IN ('OPEN', 'RESOLVED', 'SUPERSEDED')),
+      summary TEXT NOT NULL,
+      evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+      source_snapshot_id TEXT NOT NULL,
+      formal_version INTEGER NOT NULL,
+      correlation_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      resolved_at TEXT
+    )`);
+    this.#database.exec("CREATE INDEX IF NOT EXISTS governance_issues_open_idx ON governance_issues(work_object_id, dimension, status)");
+    this.#database.exec("CREATE UNIQUE INDEX IF NOT EXISTS governance_issues_open_dedupe_idx ON governance_issues(work_object_id, dimension, type, source_snapshot_id) WHERE status='OPEN'");
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (10, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV11(): void {
+    if (!this.#hasColumn("reconcile_jobs", "source_block_uuid")) this.#database.exec("ALTER TABLE reconcile_jobs ADD COLUMN source_block_uuid TEXT");
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (11, ?)").run(new Date().toISOString());
+  }
+
   close(): void { this.#database.close(); }
   schemaVersion(): number { return Number((this.#database.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as { version: number }).version); }
 
@@ -401,8 +513,8 @@ export class SqliteStore {
   }
 
   putProjectionObligation(obligation: ProjectionObligation): void {
-    this.#database.prepare(`INSERT INTO projection_obligations(id, commit_id, work_object_id, formal_version, target_anchor_id, desired_projection_hash, status, attempt, last_error, created_at, updated_at)
-      VALUES (@id, @commitId, @workObjectId, @formalVersion, @targetAnchorId, @desiredProjectionHash, @status, @attempt, @lastError, @createdAt, @updatedAt)`).run(obligation);
+    this.#database.prepare(`INSERT INTO projection_obligations(id, commit_id, work_object_id, formal_version, target_anchor_id, desired_projection_hash, status, attempt, last_attempt_at, next_attempt_at, retry_exhausted, last_error, created_at, updated_at)
+      VALUES (@id, @commitId, @workObjectId, @formalVersion, @targetAnchorId, @desiredProjectionHash, @status, @attempt, @lastAttemptAt, @nextAttemptAt, @retryExhausted, @lastError, @createdAt, @updatedAt)`).run({ ...obligation, retryExhausted: obligation.retryExhausted ? 1 : 0 });
   }
 
   getProjectionObligationForCommit(commitId: string): ProjectionObligation | null {
@@ -411,7 +523,9 @@ export class SqliteStore {
     return {
       id: String(row.id), commitId: String(row.commit_id), workObjectId: String(row.work_object_id), formalVersion: Number(row.formal_version),
       targetAnchorId: String(row.target_anchor_id), desiredProjectionHash: row.desired_projection_hash === null ? null : String(row.desired_projection_hash),
-      status: row.status as ProjectionObligation["status"], attempt: Number(row.attempt), lastError: row.last_error === null ? null : String(row.last_error),
+      status: row.status as ProjectionObligation["status"], attempt: Number(row.attempt),
+      lastAttemptAt: row.last_attempt_at === null ? null : String(row.last_attempt_at), nextAttemptAt: row.next_attempt_at === null ? null : String(row.next_attempt_at),
+      retryExhausted: Number(row.retry_exhausted) === 1, lastError: row.last_error === null ? null : String(row.last_error),
       createdAt: String(row.created_at), updatedAt: String(row.updated_at),
     };
   }
@@ -423,9 +537,10 @@ export class SqliteStore {
     return rows.map((row) => this.getProjectionObligationForCommit(row.commit_id)!).filter(Boolean);
   }
 
-  transitionProjectionObligation(commitId: string, status: ProjectionObligation["status"], update: { updatedAt: string; lastError?: string | null; attempt?: number }): void {
-    const changed = this.#database.prepare(`UPDATE projection_obligations SET status=?, updated_at=?, last_error=COALESCE(?, last_error), attempt=COALESCE(?, attempt) WHERE commit_id=?`)
-      .run(status, update.updatedAt, update.lastError ?? null, update.attempt ?? null, commitId);
+  transitionProjectionObligation(commitId: string, status: ProjectionObligation["status"], update: { updatedAt: string; lastError?: string | null; attempt?: number; lastAttemptAt?: string | null; nextAttemptAt?: string | null; retryExhausted?: boolean }): void {
+    const changed = this.#database.prepare(`UPDATE projection_obligations SET status=?, updated_at=?, last_error=COALESCE(?, last_error), attempt=COALESCE(?, attempt),
+      last_attempt_at=COALESCE(?, last_attempt_at), next_attempt_at=COALESCE(?, next_attempt_at), retry_exhausted=COALESCE(?, retry_exhausted) WHERE commit_id=?`)
+      .run(status, update.updatedAt, update.lastError ?? null, update.attempt ?? null, update.lastAttemptAt ?? null, update.nextAttemptAt ?? null, update.retryExhausted === undefined ? null : update.retryExhausted ? 1 : 0, commitId);
     if (!changed.changes) throw new Error("PROJECTION_OBLIGATION_NOT_FOUND");
   }
 
@@ -502,6 +617,13 @@ export class SqliteStore {
   getEvidence(id: string): FrozenEvidence | null {
     const row = this.#database.prepare("SELECT * FROM evidence_references WHERE id=?").get(id) as Record<string, unknown> | undefined;
     return row ? { id: String(row.id), workObjectId: String(row.work_object_id), sourceType: "LOGSEQ_BLOCK", graphId: String(row.graph_id), externalId: String(row.external_id), frozenContent: String(row.frozen_content), contentHash: String(row.content_hash), frozenAt: String(row.created_at), locator: JSON.parse(String(row.locator_json)) as FrozenEvidence["locator"] } : null;
+  }
+
+  listEvidence(workObjectId?: string): FrozenEvidence[] {
+    const rows = workObjectId
+      ? (this.#database.prepare("SELECT id FROM evidence_references WHERE work_object_id=? ORDER BY created_at,rowid").all(workObjectId) as Array<{ id: string }>)
+      : (this.#database.prepare("SELECT id FROM evidence_references ORDER BY created_at,rowid").all() as Array<{ id: string }>);
+    return rows.map((row) => this.getEvidence(row.id)!).filter(Boolean);
   }
 
   evidenceWatermark(workObjectId: string): number {
@@ -654,8 +776,8 @@ export class SqliteStore {
   }
 
   insertReconcileJob(job: ReconcileJob): void {
-    this.#database.prepare(`INSERT INTO reconcile_jobs(id,work_object_id,trigger_type,source_snapshot_id,formal_version,priority_class,attempt,not_before,status,last_error,last_outcome,created_at,updated_at)
-      VALUES (@id,@workObjectId,@triggerType,@sourceSnapshotId,@formalVersion,@priorityClass,@attempt,@notBefore,@status,@lastError,@lastOutcome,@createdAt,@updatedAt)`).run({ ...job, lastOutcome: null });
+    this.#database.prepare(`INSERT INTO reconcile_jobs(id,work_object_id,trigger_type,source_snapshot_id,source_block_uuid,formal_version,priority_class,attempt,not_before,status,last_error,last_outcome,created_at,updated_at)
+      VALUES (@id,@workObjectId,@triggerType,@sourceSnapshotId,@sourceBlockUuid,@formalVersion,@priorityClass,@attempt,@notBefore,@status,@lastError,@lastOutcome,@createdAt,@updatedAt)`).run({ ...job, lastOutcome: null, sourceBlockUuid: job.sourceBlockUuid ?? null });
   }
 
   invalidateActiveReconcileJobs(workObjectId: string, at: string): void {
@@ -724,10 +846,107 @@ export class SqliteStore {
     return row?.paused === 1;
   }
 
+  putContextAssociation(association: ContextAssociation): void {
+    this.#database.prepare(`INSERT INTO context_associations(id, work_object_id, graph_id, block_uuid, page_name, source_version_hash, origin, basis_run_id, status, created_at, updated_at)
+      VALUES (@id, @workObjectId, @graphId, @blockUuid, @pageName, @sourceVersionHash, @origin, @basisRunId, @status, @createdAt, @updatedAt)`)
+      .run({ ...association, graphId: association.sourceRef.graphId, blockUuid: association.sourceRef.blockUuid, pageName: association.sourceRef.pageName ?? null, basisRunId: association.basisRunId ?? null });
+  }
+
+  getContextAssociation(id: string): ContextAssociation | null {
+    const row = this.#database.prepare("SELECT * FROM context_associations WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    return row ? this.#mapContextAssociation(row) : null;
+  }
+
+  findActiveContextAssociation(workObjectId: string, graphId: string, blockUuid: string): ContextAssociation | null {
+    const row = this.#database.prepare("SELECT * FROM context_associations WHERE work_object_id=? AND graph_id=? AND block_uuid=? AND status='ACTIVE'").get(workObjectId, graphId, blockUuid) as Record<string, unknown> | undefined;
+    return row ? this.#mapContextAssociation(row) : null;
+  }
+
+  listContextAssociations(workObjectId?: string, status?: ContextAssociation["status"]): ContextAssociation[] {
+    const rows = workObjectId
+      ? (status ? this.#database.prepare("SELECT * FROM context_associations WHERE work_object_id=? AND status=? ORDER BY created_at,id").all(workObjectId, status) : this.#database.prepare("SELECT * FROM context_associations WHERE work_object_id=? ORDER BY created_at,id").all(workObjectId))
+      : (status ? this.#database.prepare("SELECT * FROM context_associations WHERE status=? ORDER BY created_at,id").all(status) : this.#database.prepare("SELECT * FROM context_associations ORDER BY created_at,id").all());
+    return (rows as Array<Record<string, unknown>>).map((row) => this.#mapContextAssociation(row));
+  }
+
+  invalidateContextAssociation(id: string, at: string): void {
+    const changed = this.#database.prepare("UPDATE context_associations SET status='INVALIDATED', updated_at=? WHERE id=? AND status='ACTIVE'").run(at, id);
+    if (!changed.changes) throw new Error("CONTEXT_ASSOCIATION_NOT_ACTIVE");
+  }
+
+  findActiveCorrection(graphId: string, blockUuid: string, rejectedWorkObjectId: string): AssociationCorrection | null {
+    const row = this.#database.prepare("SELECT * FROM association_corrections WHERE graph_id=? AND block_uuid=? AND rejected_work_object_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(graphId, blockUuid, rejectedWorkObjectId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return this.#mapAssociationCorrection(row);
+  }
+
+  putAssociationCorrection(correction: AssociationCorrection): void {
+    this.#database.prepare(`INSERT INTO association_corrections(id, graph_id, block_uuid, scope_snapshot, rejected_work_object_id, affirmed_work_object_id, user_decision_ref, created_at)
+      VALUES (@id, @graphId, @blockUuid, @scopeSnapshot, @rejectedWorkObjectId, @affirmedWorkObjectId, @userDecisionRef, @createdAt)`)
+      .run({ ...correction, graphId: correction.sourceRef.graphId, blockUuid: correction.sourceRef.blockUuid });
+  }
+
+  putGovernanceIssue(issue: GovernanceIssue): void {
+    this.#database.prepare(`INSERT INTO governance_issues(id, work_object_id, dimension, type, status, summary, evidence_ids_json, source_snapshot_id, formal_version, correlation_id, created_at, updated_at, resolved_at)
+      VALUES (@id, @workObjectId, @dimension, @type, @status, @summary, @evidenceIds, @sourceSnapshotId, @formalVersion, @correlationId, @createdAt, @updatedAt, @resolvedAt)`)
+      .run({ ...issue, evidenceIds: encode(issue.evidenceIds) });
+  }
+
+  findOpenGovernanceIssue(workObjectId: string, dimension: string, type: GovernanceIssue["type"], sourceSnapshotId: string): GovernanceIssue | null {
+    const row = this.#database.prepare("SELECT * FROM governance_issues WHERE work_object_id=? AND dimension=? AND type=? AND source_snapshot_id=? AND status='OPEN'").get(workObjectId, dimension, type, sourceSnapshotId) as Record<string, unknown> | undefined;
+    return row ? this.#mapGovernanceIssue(row) : null;
+  }
+
+  getGovernanceIssue(id: string): GovernanceIssue | null {
+    const row = this.#database.prepare("SELECT * FROM governance_issues WHERE id=?").get(id) as Record<string, unknown> | undefined;
+    return row ? this.#mapGovernanceIssue(row) : null;
+  }
+
+  listGovernanceIssues(workObjectId?: string, status?: GovernanceIssue["status"]): GovernanceIssue[] {
+    const rows = workObjectId
+      ? (status ? this.#database.prepare("SELECT * FROM governance_issues WHERE work_object_id=? AND status=? ORDER BY created_at,id").all(workObjectId, status) : this.#database.prepare("SELECT * FROM governance_issues WHERE work_object_id=? ORDER BY created_at,id").all(workObjectId))
+      : (status ? this.#database.prepare("SELECT * FROM governance_issues WHERE status=? ORDER BY created_at,id").all(status) : this.#database.prepare("SELECT * FROM governance_issues ORDER BY created_at,id").all());
+    return (rows as Array<Record<string, unknown>>).map((row) => this.#mapGovernanceIssue(row));
+  }
+
+  transitionGovernanceIssue(id: string, status: GovernanceIssue["status"], at: string): void {
+    const changed = this.#database.prepare("UPDATE governance_issues SET status=?, updated_at=?, resolved_at=? WHERE id=?").run(status, at, status === "OPEN" ? null : at, id);
+    if (!changed.changes) throw new Error("GOVERNANCE_ISSUE_NOT_FOUND");
+  }
+
+  #mapContextAssociation(row: Record<string, unknown>): ContextAssociation {
+    return {
+      id: String(row.id), workObjectId: String(row.work_object_id),
+      sourceRef: { graphId: String(row.graph_id), blockUuid: String(row.block_uuid), ...(row.page_name === null ? {} : { pageName: String(row.page_name) }) },
+      sourceVersionHash: String(row.source_version_hash), origin: row.origin as ContextAssociation["origin"],
+      ...(row.basis_run_id === null ? {} : { basisRunId: String(row.basis_run_id) }), status: row.status as ContextAssociation["status"],
+      createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    };
+  }
+
+  #mapAssociationCorrection(row: Record<string, unknown>): AssociationCorrection {
+    return {
+      id: String(row.id), sourceRef: { graphId: String(row.graph_id), blockUuid: String(row.block_uuid) },
+      scopeSnapshot: String(row.scope_snapshot), rejectedWorkObjectId: String(row.rejected_work_object_id),
+      affirmedWorkObjectId: row.affirmed_work_object_id === null ? null : String(row.affirmed_work_object_id),
+      userDecisionRef: String(row.user_decision_ref), createdAt: String(row.created_at),
+    };
+  }
+
+  #mapGovernanceIssue(row: Record<string, unknown>): GovernanceIssue {
+    return {
+      id: String(row.id), workObjectId: String(row.work_object_id), dimension: String(row.dimension),
+      type: row.type as GovernanceIssue["type"], status: row.status as GovernanceIssue["status"], summary: String(row.summary),
+      evidenceIds: decode(String(row.evidence_ids_json)) as string[], sourceSnapshotId: String(row.source_snapshot_id),
+      formalVersion: Number(row.formal_version), correlationId: row.correlation_id === null ? null : String(row.correlation_id),
+      createdAt: String(row.created_at), updatedAt: String(row.updated_at), resolvedAt: row.resolved_at === null ? null : String(row.resolved_at),
+    };
+  }
+
   #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {
     return {
       id: String(row.id), workObjectId: String(row.work_object_id), triggerType: row.trigger_type as ReconcileTriggerType,
-      sourceSnapshotId: String(row.source_snapshot_id), formalVersion: Number(row.formal_version),
+      sourceSnapshotId: String(row.source_snapshot_id), sourceBlockUuid: row.source_block_uuid === null ? null : String(row.source_block_uuid), formalVersion: Number(row.formal_version),
       priorityClass: row.priority_class as ReconcilePriorityClass, attempt: Number(row.attempt),
       notBefore: row.not_before === null ? null : String(row.not_before), status: row.status as ReconcileJob["status"],
       lastError: row.last_error === null ? null : String(row.last_error),

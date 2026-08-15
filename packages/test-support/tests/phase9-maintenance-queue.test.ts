@@ -68,14 +68,22 @@ async function waitForFocus(client: KernelClient, workObjectId: string, expected
   assert.fail(`focus did not converge to ${expected}`);
 }
 
+async function waitForJob(client: KernelClient, jobId: string, outcome = "CONFIRMED_CHANGE") {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const jobs = (await client.maintenanceStatus()).jobs;
+    if (jobs.some((job) => job.id === jobId && job.status === "DONE" && job.lastOutcome === outcome)) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(`job ${jobId} did not finish with ${outcome}`);
+}
+
 test("GP9-1/GP9-2: one source burst queues one persistent reconcile; built-in loop commits and clears coverage", async () => {
   const value = await setup("burst");
   try {
     const observed = await observe(value, "下一步：验证后台维护会自动更新当前推进");
     assert.equal(observed.job.status, "QUEUED");
     await waitForFocus(value.client, value.workObjectId, "验证后台维护会自动更新当前推进");
-    const jobs = (await value.client.maintenanceStatus()).jobs;
-    assert.equal(jobs.some((job) => job.id === observed.job.id && job.status === "DONE" && job.lastOutcome === "CONFIRMED_CHANGE"), true);
+    await waitForJob(value.client, observed.job.id);
     assert.equal((await value.client.maintenanceStatus("QUEUED")).jobs.length, 0);
   } finally { value.stop(); await value.service.close(); }
 });

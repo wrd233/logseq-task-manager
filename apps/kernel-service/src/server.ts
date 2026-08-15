@@ -4,14 +4,14 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, join } from "node:path";
 
 import { DeterministicCurrentFocusAgent, DeterministicEngagementAgent, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
+import { parseSemanticOperation, type CurrentFocusAgent, type EngagementAgent, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -47,7 +47,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const miniProjectSkill = options.miniProjectSkill ?? await loadMiniProjectGovernanceSkill(options.workspaceRoot);
   const workIntentSkill = options.workIntentSkill ?? await loadWorkIntentMaintenanceSkill(options.workspaceRoot);
   const miniProjectTaste = options.miniProjectTaste ?? await loadMiniProjectTaste(options.workspaceRoot);
-  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey });
+  const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
   const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now });
@@ -98,6 +98,41 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const jobs = status && allowed.has(status as ReconcileJob["status"]) ? maintenance.jobs(status as ReconcileJob["status"]) : maintenance.jobs();
         send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs }); return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/context") {
+        send(response, 200, { associations: kernel.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/context/associate") {
+        const value = await body(request) as Parameters<Kernel["associateContext"]>[0];
+        send(response, 201, { association: kernel.associateContext(value) }); return;
+      }
+      const contextInvalidate = /^\/v1\/context\/([^/]+)\/invalidate$/u.exec(url.pathname);
+      if (request.method === "POST" && contextInvalidate) {
+        send(response, 200, { association: kernel.invalidateContextAssociation(decodeURIComponent(contextInvalidate[1]!)) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/context/corrections") {
+        const value = await body(request) as Parameters<Kernel["recordAssociationCorrection"]>[0];
+        send(response, 201, { correction: kernel.recordAssociationCorrection(value) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/issues") {
+        const status = url.searchParams.get("status");
+        const allowed = new Set<GovernanceIssue["status"]>(["OPEN", "RESOLVED", "SUPERSEDED"]);
+        send(response, 200, { issues: kernel.listGovernanceIssues(url.searchParams.get("object") ?? undefined, status && allowed.has(status as GovernanceIssue["status"]) ? status as GovernanceIssue["status"] : undefined) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/issues") {
+        const value = await body(request) as Parameters<Kernel["upsertGovernanceIssue"]>[0];
+        send(response, 201, { issue: kernel.upsertGovernanceIssue(value) }); return;
+      }
+      const issueMatch = /^\/v1\/issues\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && issueMatch) {
+        const issue = kernel.listGovernanceIssues().find((item) => item.id === decodeURIComponent(issueMatch[1]!));
+        if (!issue) { send(response, 404, { error: { code: "ISSUE_NOT_FOUND", message: "Governance Issue not found." } }); return; }
+        send(response, 200, { issue }); return;
+      }
+      const issueTransition = /^\/v1\/issues\/([^/]+)\/(resolve|supersede)$/u.exec(url.pathname);
+      if (request.method === "POST" && issueTransition) {
+        const issue = issueTransition[2] === "resolve" ? kernel.resolveGovernanceIssue(decodeURIComponent(issueTransition[1]!)) : kernel.supersedeGovernanceIssue(decodeURIComponent(issueTransition[1]!));
+        send(response, 200, { issue }); return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/graph/search") { const value = await body(request) as { query: string; limit?: number; runId?: string }; send(response, 200, await external.search({ query: value.query, limit: value.limit ?? 20, ...(value.runId ? { runId: value.runId } : {}) })); return; }
       const graphBlock = /^\/v1\/graph\/blocks\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && graphBlock) { send(response, 200, await external.readBlock({ blockUuid: decodeURIComponent(graphBlock[1]!), ...(url.searchParams.get("run") ? { runId: url.searchParams.get("run")! } : {}) })); return; }
@@ -140,6 +175,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: store.listFeedback() }); return; }
       if (request.method === "POST" && url.pathname === "/v1/feedback/strong-positive") { const value = await body(request) as { commitId: string; actor: { type: "USER"; id: string }; userComment?: string | null }; kernel.recordStrongPositive(value); send(response, 200, { recorded: true }); return; }
       const evidenceMatch = /^\/v1\/evidence\/([^/]+)$/u.exec(url.pathname);
+      if (request.method === "GET" && url.pathname === "/v1/evidence") {
+        send(response, 200, { evidence: kernel.listEvidence(url.searchParams.get("object") ?? undefined) }); return;
+      }
       if (request.method === "GET" && evidenceMatch) {
         const evidence = store.getEvidence(decodeURIComponent(evidenceMatch[1]!));
         if (!evidence) { send(response, 404, { error: { code: "EVIDENCE_NOT_FOUND", message: "Evidence not found." } }); return; }
@@ -208,6 +246,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const status = url.searchParams.get("status");
         const allowed = new Set<NonNullable<Parameters<Kernel["listProjectionObligations"]>[0]>>(["PENDING", "APPLIED", "VERIFIED", "FAILED"]);
         send(response, 200, { obligations: kernel.listProjectionObligations(status && allowed.has(status as never) ? status as never : undefined) }); return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/projection-health") {
+        send(response, 200, kernel.projectionHealth()); return;
       }
       const completeMatch = /^\/v1\/commits\/([^/]+)\/complete$/u.exec(url.pathname);
       if (request.method === "POST" && completeMatch) {

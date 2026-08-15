@@ -50,7 +50,21 @@ export class MaintenanceCoordinator {
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new Error("MAINTENANCE_TARGET_NOT_FOUND");
     if (object.lifecycle !== "OPEN") throw new Error("MAINTENANCE_TARGET_NOT_OPEN");
-    if (observation.graphId !== anchor.graphId || observation.sourceBlockUuid !== anchor.externalId) throw new Error("SOURCE_CHANGE_ANCHOR_MISMATCH");
+    if (observation.graphId !== anchor.graphId) throw new Error("SOURCE_CHANGE_ANCHOR_MISMATCH");
+    if (observation.sourceBlockUuid !== anchor.externalId) {
+      const existing = this.#store.findActiveContextAssociation(object.id, observation.graphId, observation.sourceBlockUuid);
+      if (!existing) {
+        try {
+          this.#kernel.associateContext({
+            workObjectId: object.id,
+            sourceRef: { graphId: observation.graphId, blockUuid: observation.sourceBlockUuid },
+            sourceVersionHash: observation.sourceContentHash,
+            origin: "SYSTEM_STRUCTURAL",
+            at: observation.observedAt,
+          });
+        } catch { /* correction may block automatic association; the job below still lets reconciliation read the delta */ }
+      }
+    }
     const snapshotId = stableHash([observation.workObjectId, observation.graphId, observation.sourceBlockUuid, observation.sourceContentHash, observation.sourceMarker ?? null, observation.observedAt]);
     const previous = this.#store.getSourceCoverage(object.id);
     const at = this.#now();
@@ -64,7 +78,7 @@ export class MaintenanceCoordinator {
     });
     const job: ReconcileJob = {
       id: deterministicUuid(`reconcile:${object.id}:${snapshotId}`), workObjectId: object.id, triggerType: "WORK_BURST_ENDED",
-      sourceSnapshotId: snapshotId, formalVersion: object.version, priorityClass: "NORMAL", attempt: 0, notBefore: null,
+      sourceSnapshotId: snapshotId, sourceBlockUuid: observation.sourceBlockUuid, formalVersion: object.version, priorityClass: "NORMAL", attempt: 0, notBefore: null,
       status: "QUEUED", lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -79,7 +93,7 @@ export class MaintenanceCoordinator {
     const at = this.#now();
     const job: ReconcileJob = {
       id: deterministicUuid(`reconcile:manual:${workObjectId}:${at}`), workObjectId, triggerType: "MANUAL_RECONCILE",
-      sourceSnapshotId: snapshotId, formalVersion: object.version, priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
+      sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
       lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -120,7 +134,7 @@ export class MaintenanceCoordinator {
       }
       const status = this.#broker.status();
       if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
-      const outcome = await this.#reconcileOpenObject(object.id, anchor.externalId, job);
+      const outcome = await this.#reconcileOpenObject(object.id, job.sourceBlockUuid ?? anchor.externalId, job);
       this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), outcome);
       return this.#store.getReconcileJob(job.id);
     } catch (error) {
@@ -132,9 +146,12 @@ export class MaintenanceCoordinator {
   async drainProjectionObligations(): Promise<number> {
     const status = this.#broker.status();
     if (!status.available) return 0;
+    const at = this.#now();
     let drained = 0;
     for (const obligation of this.#store.listProjectionObligations()) {
       if (obligation.status !== "PENDING" && obligation.status !== "FAILED") continue;
+      if (obligation.retryExhausted) continue;
+      if (obligation.nextAttemptAt && obligation.nextAttemptAt > at) continue;
       const commit = this.#store.getCommit(obligation.commitId);
       if (!commit || commit.status !== "COMMITTED") continue;
       const effect = commit.graphEffect as GraphEffect;
@@ -160,6 +177,13 @@ export class MaintenanceCoordinator {
     const evidenceMaterial = response(await this.#broker.request({ kind: "READ_EVIDENCE", graphId: target.graphId, blockUuid: sourceBlockUuid }), "READ_EVIDENCE").material;
     const evidenceId = `maintenance-evidence:${job.id}`;
     this.#kernel.freezeEvidence({ evidenceId, workObjectId, snapshot: evidenceMaterial });
+    const object = this.#store.getWorkObject(workObjectId)!;
+    // Context is read widely but never frozen here; only the Primary Anchor material is Evidence.
+    const contexts = this.#store.listContextAssociations(workObjectId, "ACTIVE");
+    for (const context of contexts.slice(0, 12)) {
+      try { response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK"); }
+      catch { /* missing context material must not block reconciliation */ }
+    }
     let changed = false;
     let terminalOutcome: MaintenanceReconcileOutcome = "NO_CHANGE";
     const engagementRun = await this.#kernel.runEngagementAgent({ runId: `maintenance-engagement:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot });
@@ -169,8 +193,21 @@ export class MaintenanceCoordinator {
       const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: pending.graphEffect }), "APPLY_EFFECT");
       this.#kernel.complete(pending.commit.id, applied.result, applied.snapshot);
       changed = true;
-    } else if (engagementRun.run.result.outcome !== "NO_PROPOSAL") {
-      terminalOutcome = engagementRun.run.result.outcome === "NEEDS_MORE_CONTEXT" ? "UNKNOWN" : "UNKNOWN";
+      for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "engagement")) this.#kernel.resolveGovernanceIssue(issue.id);
+    } else {
+      const reason = engagementRun.run.reasonCode;
+      if (reason === "PARKING_REQUIRES_USER_DECISION") {
+        terminalOutcome = "BOUNDARY_CANDIDATE";
+        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "BOUNDARY_CANDIDATE", summary: "Engagement judgment requires a USER decision; automatic reconciliation stopped.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+      } else if (reason === "SCOPE_UNCLEAR") {
+        terminalOutcome = "UNKNOWN";
+        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "UNKNOWN", summary: "Evidence does not clearly bind the observed blocker to this WorkObject.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+      }
+    }
+    const conflictDetected = /没有其他可做|只能等/iu.test(evidenceMaterial.content) && /还可以继续|仍可继续/iu.test(evidenceMaterial.content);
+    if (conflictDetected) {
+      terminalOutcome = "CONFLICT";
+      this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "engagement", type: "CONFLICT", summary: "Source material contains contradictory engagement directions; no automatic choice was made.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
     }
     const focusRun = await this.#kernel.runCurrentFocusAgent({ runId: `maintenance-focus:${job.id}`, workObjectId, evidenceIds: [evidenceId], snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot });
     if (focusRun.proposal && focusRun.revision) {
@@ -179,6 +216,16 @@ export class MaintenanceCoordinator {
       const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: pending.graphEffect }), "APPLY_EFFECT");
       this.#kernel.complete(pending.commit.id, applied.result, applied.snapshot);
       changed = true;
+      for (const issue of this.#store.listGovernanceIssues(workObjectId, "OPEN").filter((item) => item.dimension === "current_focus")) this.#kernel.resolveGovernanceIssue(issue.id);
+    } else if (!conflictDetected && terminalOutcome === "NO_CHANGE") {
+      const reason = focusRun.run.reasonCode;
+      if (reason === "AMBIGUOUS" || reason === "INSUFFICIENT_EVIDENCE") {
+        terminalOutcome = "UNKNOWN";
+        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "current_focus", type: "UNKNOWN", summary: `current_focus cannot be safely inferred: ${reason}.`, evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+      } else if (reason === "SCOPE_EXPANSION") {
+        terminalOutcome = "BOUNDARY_CANDIDATE";
+        this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: "current_focus", type: "BOUNDARY_CANDIDATE", summary: "Source implies a lifecycle, identity, or scope change that automatic maintenance must not apply.", evidenceIds: [evidenceId], sourceSnapshotId: job.sourceSnapshotId, formalVersion: object.version, correlationId: job.id });
+      }
     }
     if (changed) return "CONFIRMED_CHANGE";
     return terminalOutcome;

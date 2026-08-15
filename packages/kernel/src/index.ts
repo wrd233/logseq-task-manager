@@ -1,6 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
@@ -27,6 +27,9 @@ export interface KernelOptions {
   workIntentSkill?: SkillPackage;
   miniProjectTaste?: TasteProfile;
   graphSnapshotKey?: string;
+  projectionMaxAttempts?: number;
+  projectionBackoffBaseMs?: number;
+  projectionTemporaryBackoffMs?: number;
 }
 
 function deterministicUuid(seed: string): string {
@@ -111,6 +114,9 @@ export class Kernel {
   readonly #workIntentSkill: SkillPackage | null;
   readonly #miniProjectTaste: TasteProfile | null;
   readonly #graphSnapshotKey: string | null;
+  readonly #projectionMaxAttempts: number;
+  readonly #projectionBackoffBaseMs: number;
+  readonly #projectionTemporaryBackoffMs: number;
 
   constructor(store: SqliteStore, options: KernelOptions = {}) {
     this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined); this.#authorizedUserId = options.authorizedUserId ?? "local-user";
@@ -118,6 +124,9 @@ export class Kernel {
     this.#engagementAgent = options.engagementAgent ?? null; this.#engagementSkill = options.engagementSkill ?? null;
     this.#miniProjectSkill = options.miniProjectSkill ?? null; this.#workIntentSkill = options.workIntentSkill ?? null; this.#miniProjectTaste = options.miniProjectTaste ?? null;
     this.#graphSnapshotKey = options.graphSnapshotKey ?? null;
+    this.#projectionMaxAttempts = options.projectionMaxAttempts ?? 5;
+    this.#projectionBackoffBaseMs = options.projectionBackoffBaseMs ?? 2_000;
+    this.#projectionTemporaryBackoffMs = options.projectionTemporaryBackoffMs ?? 30_000;
   }
 
   approvedSkills(): readonly SkillPackage[] {
@@ -145,8 +154,11 @@ export class Kernel {
     return content;
   }
 
-  freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): FrozenEvidence {
-    const object = this.#store.getWorkObject(input.workObjectId);
+  listEvidence(workObjectId?: string): FrozenEvidence[] {
+    return this.#store.listEvidence(workObjectId);
+  }
+
+  freezeEvidence(input: { evidenceId: string; workObjectId: string; snapshot: TrustedGraphEvidenceMaterial }): FrozenEvidence {    const object = this.#store.getWorkObject(input.workObjectId);
     const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
     if (!object || !anchor) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Evidence target or primary anchor does not exist.");
     if (input.snapshot.graphId !== anchor.graphId) throw new KernelError("EVIDENCE_GRAPH_MISMATCH", "Evidence must come from the target WorkObject's Graph.");
@@ -690,7 +702,8 @@ export class Kernel {
         this.#store.transitionCommit(commitId, "COMMITTED", { updatedAt: now });
         const obligation: ProjectionObligation = {
           id: deterministicUuid(`projection:${commitId}`), commitId, workObjectId: object.id, formalVersion: object.version,
-          targetAnchorId: anchor.id, desiredProjectionHash: resultingProjectionHash(graphEffect), status: "PENDING", attempt: 0, lastError: null,
+          targetAnchorId: anchor.id, desiredProjectionHash: resultingProjectionHash(graphEffect), status: "PENDING", attempt: 0,
+          lastAttemptAt: null, nextAttemptAt: null, retryExhausted: false, lastError: null,
           createdAt: now, updatedAt: now,
         };
         this.#store.putProjectionObligation(obligation);
@@ -838,10 +851,10 @@ export class Kernel {
       (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash &&
       (effect.type !== "CHANGE_CLOSURE_FIELDS" || (actual.sourceMarker ?? null) === (effect.resultingSourceMarker ?? null));
     if (!valid) {
-      this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: "PROJECTION_VERIFY_MISMATCH" });
+      this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastAttemptAt: at, nextAttemptAt: this.#projectionNextAttemptAt(at, obligation.attempt + 1), lastError: "PROJECTION_VERIFY_MISMATCH", retryExhausted: obligation.attempt + 1 >= this.#projectionMaxAttempts });
       throw new KernelError("PROJECTION_VERIFY_MISMATCH", "Graph result does not match the deterministic projection obligation.", commitId);
     }
-    this.#store.transitionProjectionObligation(commitId, "VERIFIED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: null });
+    this.#store.transitionProjectionObligation(commitId, "VERIFIED", { updatedAt: at, attempt: obligation.attempt + 1, lastAttemptAt: at, nextAttemptAt: null, retryExhausted: false, lastError: null });
     return this.#store.getProjectionObligationForCommit(commitId)!;
   }
 
@@ -849,12 +862,116 @@ export class Kernel {
     const obligation = this.#store.getProjectionObligationForCommit(commitId);
     if (!obligation) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Formal projection obligation does not exist for this commit.", commitId);
     const at = this.#now();
-    this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastError: reason.slice(0, 200) });
+    const temporary = /GRAPH_ADAPTER_OFFLINE|GRAPH_GATEWAY_TIMEOUT|GRAPH_BROKER_CLOSED|fetch failed|ECONNREFUSED/u.test(reason);
+    const nextAttempt = temporary ? this.#afterMs(at, this.#projectionTemporaryBackoffMs) : this.#projectionNextAttemptAt(at, obligation.attempt + 1);
+    const attempt = temporary ? obligation.attempt : obligation.attempt + 1;
+    const retryExhausted = attempt >= this.#projectionMaxAttempts;
+    this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt, lastAttemptAt: at, nextAttemptAt: retryExhausted ? null : nextAttempt, retryExhausted, lastError: reason.slice(0, 200) });
     return this.#store.getProjectionObligationForCommit(commitId)!;
   }
 
   listProjectionObligations(status?: ProjectionObligation["status"]): ProjectionObligation[] {
     return this.#store.listProjectionObligations(status);
+  }
+
+  associateContext(input: { id?: string; workObjectId: string; sourceRef: ContextAssociation["sourceRef"]; sourceVersionHash: string; origin: ContextAssociation["origin"]; basisRunId?: string | null; at?: string }): ContextAssociation {
+    const object = this.#store.getWorkObject(input.workObjectId);
+    if (!object || object.lifecycle !== "OPEN") throw new KernelError("CONTEXT_TARGET_INVALID", "Context Association requires an OPEN Formal WorkObject.");
+    const correction = this.#store.findActiveCorrection(input.sourceRef.graphId, input.sourceRef.blockUuid, object.id);
+    if (correction) throw new KernelError("ASSOCIATION_CORRECTION_BLOCKS", "An active Association Correction prevents automatic association of this source with this WorkObject.");
+    const existing = this.#store.findActiveContextAssociation(object.id, input.sourceRef.graphId, input.sourceRef.blockUuid);
+    if (existing) return existing;
+    const at = input.at ?? this.#now();
+    const association: ContextAssociation = {
+      id: input.id ?? deterministicUuid(`context:${object.id}:${input.sourceRef.graphId}:${input.sourceRef.blockUuid}`),
+      workObjectId: object.id, sourceRef: input.sourceRef, sourceVersionHash: input.sourceVersionHash, origin: input.origin,
+      ...(input.basisRunId ? { basisRunId: input.basisRunId } : {}), status: "ACTIVE", createdAt: at, updatedAt: at,
+    };
+    this.#store.putContextAssociation(association);
+    return association;
+  }
+
+  listContextAssociations(workObjectId?: string, status?: ContextAssociation["status"]): ContextAssociation[] {
+    return this.#store.listContextAssociations(workObjectId, status);
+  }
+
+  invalidateContextAssociation(id: string): ContextAssociation {
+    const at = this.#now();
+    this.#store.invalidateContextAssociation(id, at);
+    return this.#store.getContextAssociation(id)!;
+  }
+
+  recordAssociationCorrection(input: { id?: string; sourceRef: AssociationCorrection["sourceRef"]; scopeSnapshot: string; rejectedWorkObjectId: string; affirmedWorkObjectId?: string | null; userDecisionRef: string; at?: string }): AssociationCorrection {
+    const object = this.#store.getWorkObject(input.rejectedWorkObjectId);
+    if (!object) throw new KernelError("ASSOCIATION_TARGET_NOT_FOUND", "Rejected WorkObject does not exist.");
+    if (input.affirmedWorkObjectId && !this.#store.getWorkObject(input.affirmedWorkObjectId)) throw new KernelError("ASSOCIATION_TARGET_NOT_FOUND", "Affirmed WorkObject does not exist.");
+    const at = input.at ?? this.#now();
+    const correction: AssociationCorrection = {
+      id: input.id ?? deterministicUuid(`correction:${input.sourceRef.graphId}:${input.sourceRef.blockUuid}:${object.id}`),
+      sourceRef: input.sourceRef, scopeSnapshot: input.scopeSnapshot, rejectedWorkObjectId: object.id,
+      affirmedWorkObjectId: input.affirmedWorkObjectId ?? null, userDecisionRef: input.userDecisionRef, createdAt: at,
+    };
+    this.#store.transaction(() => {
+      for (const association of this.#store.listContextAssociations(object.id).filter((item) => item.sourceRef.graphId === input.sourceRef.graphId && item.sourceRef.blockUuid === input.sourceRef.blockUuid && item.status === "ACTIVE")) {
+        this.#store.invalidateContextAssociation(association.id, at);
+      }
+      this.#store.putAssociationCorrection(correction);
+    });
+    return correction;
+  }
+
+  upsertGovernanceIssue(input: { id?: string; workObjectId: string; dimension: string; type: GovernanceIssue["type"]; summary: string; evidenceIds?: readonly string[]; sourceSnapshotId: string; formalVersion: number; correlationId?: string | null; at?: string }): GovernanceIssue {
+    const object = this.#store.getWorkObject(input.workObjectId);
+    if (!object) throw new KernelError("ISSUE_TARGET_NOT_FOUND", "Governance Issue target does not exist.");
+    const existing = this.#store.findOpenGovernanceIssue(object.id, input.dimension, input.type, input.sourceSnapshotId);
+    if (existing) return existing;
+    const at = input.at ?? this.#now();
+    const issue: GovernanceIssue = {
+      id: input.id ?? deterministicUuid(`issue:${object.id}:${input.dimension}:${input.type}:${input.sourceSnapshotId}`),
+      workObjectId: object.id, dimension: input.dimension, type: input.type, status: "OPEN", summary: input.summary,
+      evidenceIds: input.evidenceIds ?? [], sourceSnapshotId: input.sourceSnapshotId, formalVersion: input.formalVersion,
+      correlationId: input.correlationId ?? null, createdAt: at, updatedAt: at, resolvedAt: null,
+    };
+    this.#store.putGovernanceIssue(issue);
+    return issue;
+  }
+
+  resolveGovernanceIssue(id: string): GovernanceIssue {
+    const at = this.#now();
+    this.#store.transitionGovernanceIssue(id, "RESOLVED", at);
+    return this.#store.getGovernanceIssue(id)!;
+  }
+
+  supersedeGovernanceIssue(id: string): GovernanceIssue {
+    const at = this.#now();
+    this.#store.transitionGovernanceIssue(id, "SUPERSEDED", at);
+    return this.#store.getGovernanceIssue(id)!;
+  }
+
+  listGovernanceIssues(workObjectId?: string, status?: GovernanceIssue["status"]): GovernanceIssue[] {
+    return this.#store.listGovernanceIssues(workObjectId, status);
+  }
+
+  projectionHealth(): { backlog: number; oldestPendingAt: string | null; retrying: number; degraded: number; lastError: string | null } {
+    const obligations = this.#store.listProjectionObligations();
+    const open = obligations.filter((item) => item.status === "PENDING" || (item.status === "FAILED" && !item.retryExhausted));
+    const degraded = obligations.filter((item) => item.retryExhausted && item.status !== "VERIFIED");
+    const oldest = open.map((item) => item.createdAt).sort()[0] ?? null;
+    return {
+      backlog: open.length,
+      oldestPendingAt: oldest,
+      retrying: open.filter((item) => item.status === "FAILED").length,
+      degraded: degraded.length,
+      lastError: obligations.map((item) => item.lastError).filter((value): value is string => value !== null).at(-1) ?? null,
+    };
+  }
+
+  #afterMs(at: string, ms: number): string {
+    return new Date(Date.parse(at) + ms).toISOString();
+  }
+
+  #projectionNextAttemptAt(at: string, attempt: number): string {
+    return this.#afterMs(at, Math.min(this.#projectionBackoffBaseMs * 2 ** Math.max(0, attempt - 1), this.#projectionBackoffBaseMs * 32));
   }
 
   recoveryList(): Array<{ commit: StoredCommit; action: RecoveryAction }> {

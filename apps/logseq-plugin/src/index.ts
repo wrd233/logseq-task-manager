@@ -151,17 +151,17 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK"): P
   const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
   const title = stable.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
   const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
-  const pending = await api.prepare(operation, snapshot);
+  const formal = await api.commitFormal(operation, snapshot);
   let result;
-  try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
+  try { result = await adapter.applyGraphEffect(formal.graphEffect); }
   catch (error) {
-    await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error));
+    await api.graphProjectionFailed(formal.commit.id, error instanceof Error ? error.message : String(error));
     throw error;
   }
-  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid }));
-  await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
-  if (committed.commit.targetId) await logseq.FileStorage.setItem(currentWorkObjectKey, committed.commit.targetId);
-  await logseq.UI.showMsg(`已正式化；Commit ${committed.commit.id}`, "success");
+  await api.verifyFormalProjection(formal.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid }));
+  await logseq.FileStorage.setItem(recentCommitKey, formal.commit.id);
+  if (formal.commit.targetId) await logseq.FileStorage.setItem(currentWorkObjectKey, formal.commit.targetId);
+  await logseq.UI.showMsg(`已正式化；Commit ${formal.commit.id}`, "success");
 }
 
 async function letAgentUpdateCurrentFocus(): Promise<void> {
@@ -364,6 +364,16 @@ async function main(): Promise<void> {
   const stopSourceObserver = startSourceChangeObserver({
     onChanged: (callback) => logseq.DB.onChanged(callback),
     getCurrentGraph: () => logseq.App.getCurrentGraph(),
+    getBlockContext: async (uuid) => {
+      const block = logseqBlock(await logseq.Editor.getBlock(uuid));
+      if (!block) return null;
+      const page = (await logseq.Editor.getBlock(uuid)) as { page?: { name?: unknown } } | null;
+      return { pageName: typeof page?.page?.name === "string" ? page.page.name : null, content: block.content };
+    },
+    getPageBlocksTree: async (pageName) => {
+      const tree = await logseq.Editor.getPageBlocksTree(pageName);
+      return tree as Array<{ uuid: string; content?: string; children?: unknown[] }> | null;
+    },
   }, {
     client: () => client(),
     isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),

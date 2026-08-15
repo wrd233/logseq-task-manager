@@ -639,6 +639,9 @@ export interface ProjectionObligation {
   desiredProjectionHash: string | null;
   status: ProjectionObligationStatus;
   attempt: number;
+  lastAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  retryExhausted: boolean;
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
@@ -659,6 +662,7 @@ export interface ReconcileJob {
   workObjectId: string;
   triggerType: ReconcileTriggerType;
   sourceSnapshotId: string;
+  sourceBlockUuid: string | null;
   formalVersion: number;
   priorityClass: ReconcilePriorityClass;
   attempt: number;
@@ -689,6 +693,57 @@ export interface SourceChangeObservation {
 }
 
 export type MaintenanceReconcileOutcome = "NO_CHANGE" | "CONFIRMED_CHANGE" | "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE" | "NEEDS_MORE_CONTEXT";
+
+export interface SourceRef {
+  graphId: string;
+  blockUuid: string;
+  pageName?: string | null;
+  contentHash?: string | null;
+}
+
+export type ContextAssociationOrigin = "USER_EXPLICIT" | "AGENT_INFERRED" | "SYSTEM_STRUCTURAL";
+export type ContextAssociationStatus = "ACTIVE" | "INVALIDATED";
+
+export interface ContextAssociation {
+  id: string;
+  workObjectId: string;
+  sourceRef: SourceRef;
+  sourceVersionHash: string;
+  origin: ContextAssociationOrigin;
+  basisRunId?: string | null;
+  status: ContextAssociationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssociationCorrection {
+  id: string;
+  sourceRef: SourceRef;
+  scopeSnapshot: string;
+  rejectedWorkObjectId: string;
+  affirmedWorkObjectId: string | null;
+  userDecisionRef: string;
+  createdAt: string;
+}
+
+export type GovernanceIssueType = "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE";
+export type GovernanceIssueStatus = "OPEN" | "RESOLVED" | "SUPERSEDED";
+
+export interface GovernanceIssue {
+  id: string;
+  workObjectId: string;
+  dimension: string;
+  type: GovernanceIssueType;
+  status: GovernanceIssueStatus;
+  summary: string;
+  evidenceIds: readonly string[];
+  sourceSnapshotId: string;
+  formalVersion: number;
+  correlationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
 
 export interface GraphAdapter {
   readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;

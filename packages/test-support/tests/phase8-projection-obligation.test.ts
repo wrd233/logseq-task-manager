@@ -11,16 +11,16 @@ import { FakeGraphAdapter } from "../src/index.ts";
 
 const at = "2026-08-15T00:00:00.000Z";
 
-async function start(directory: string, graph: FakeGraphAdapter) {
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at });
+async function start(directory: string, graph: FakeGraphAdapter, options: { projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; now?: () => string } = {}) {
+  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: options.now ?? (() => at), ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}) });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   return { service, client, graph };
 }
 
-async function setup(label: string) {
+async function setup(label: string, options: { projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; now?: () => string } = {}) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase8-${label}-`));
   const graph = new FakeGraphAdapter(() => at);
-  const { service, client } = await start(directory, graph);
+  const { service, client } = await start(directory, graph, options);
   const source = graph.seedNaturalRecord("graph-phase8", `source-${label}`, "下一步：验证离线提交后投影收敛");
   const prepared = await client.prepare(parseSemanticOperation({ operationId: `formalize-${label}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "投影义务验证", anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);
   const created = await graph.applyGraphEffect(prepared.graphEffect as GraphEffect);
@@ -93,6 +93,28 @@ test("A2: projection worker drains a durable obligation automatically once the G
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     assert.fail("projection obligation did not auto-converge");
+  } finally { stop(); await value.service.close(); }
+});
+
+test("projection retry is bounded and degrades instead of hot-looping on a persistent Graph failure", async () => {
+  const value = await setup("bounded-retry", { projectionMaxAttempts: 2, projectionBackoffBaseMs: 5, now: () => new Date().toISOString() });
+  const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.source.graphId, graph: value.graph });
+  try {
+    for (let attempt = 0; attempt < 20 && !(await value.client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    const committed = await value.client.commitFormal(waitingOperation(value.workObjectId, 1, value.createProjectionHash, value.evidenceDependency, "bounded"), null);
+    value.graph.editManagedProjection(value.source.graphId, value.source.sourceBlockUuid, "用户已改");
+    for (let attempt = 0; attempt < 400; attempt += 1) {
+      const obligation = (await value.client.listProjectionObligations()).obligations.find((item) => item.commitId === committed.commit.id);
+      if (obligation?.retryExhausted) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    const obligation = (await value.client.listProjectionObligations()).obligations.find((item) => item.commitId === committed.commit.id)!;
+    assert.equal(obligation.retryExhausted, true);
+    assert.ok(obligation.attempt <= 2);
+    assert.ok(obligation.lastError);
+    const health = await value.client.projectionHealth();
+    assert.equal(health.degraded, 1);
+    assert.equal(health.backlog, 0);
   } finally { stop(); await value.service.close(); }
 });
 

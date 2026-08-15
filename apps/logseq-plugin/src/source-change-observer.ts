@@ -3,9 +3,12 @@ import type { KernelClient } from "@task-copilot/client/browser";
 import { graphIdentity } from "./graph-adapter.ts";
 
 interface ChangedBlock { uuid?: unknown; content?: unknown }
+export interface BlockContext { pageName: string | null; content: string }
 export interface SourceChangeObserverHost {
   onChanged(callback: (event: { blocks?: readonly ChangedBlock[] }) => void): () => void;
   getCurrentGraph(): Promise<unknown>;
+  getBlockContext?(uuid: string): Promise<BlockContext | null>;
+  getPageBlocksTree?(pageName: string): Promise<Array<{ uuid: string; content?: string; children?: unknown[] }> | null>;
 }
 
 export interface SourceChangeObserverOptions {
@@ -39,12 +42,50 @@ export function startSourceChangeObserver(host: SourceChangeObserverHost, option
         const anchor = entry.anchor && typeof entry.anchor === "object" && !Array.isArray(entry.anchor) ? entry.anchor as { externalId?: unknown } : null;
         if (typeof anchor?.externalId === "string" && anchor.externalId.trim()) anchors.set(anchor.externalId, entry.object.id);
       }
+      const ancestryCache = new Map<string, Map<string, string | null>>();
+      const ancestorOwner = async (uuid: string): Promise<{ workObjectId: string; contextBlockUuid: string } | null> => {
+        if (anchors.has(uuid)) return { workObjectId: anchors.get(uuid)!, contextBlockUuid: uuid };
+        if (!host.getBlockContext || !host.getPageBlocksTree) return null;
+        const context = await host.getBlockContext(uuid);
+        if (!context?.pageName) return null;
+        let parentByUuid = ancestryCache.get(context.pageName);
+        if (!parentByUuid) {
+          const built = new Map<string, string | null>();
+          const visit = (blocks: Array<{ uuid: string; children?: unknown[] }>, parent: string | null) => {
+            for (const block of blocks) {
+              built.set(block.uuid, parent);
+              if (Array.isArray(block.children)) visit(block.children as Array<{ uuid: string; children?: unknown[] }>, block.uuid);
+            }
+          };
+          const roots = await host.getPageBlocksTree(context.pageName);
+          if (roots) visit(roots, null);
+          parentByUuid = built;
+          ancestryCache.set(context.pageName, built);
+        }
+        let current: string | null | undefined = uuid;
+        while (current) {
+          current = parentByUuid.get(current) ?? null;
+          if (current && anchors.has(current)) return { workObjectId: anchors.get(current)!, contextBlockUuid: uuid };
+        }
+        return null;
+      };
       for (const [uuid, item] of changed) {
-        if (!anchors.has(uuid) || options.isSelfWritten?.(uuid)) continue;
+        const owner = await ancestorOwner(uuid);
+        if (!owner || options.isSelfWritten?.(uuid)) continue;
         const canonical = canonicalizeGraphContent(item.content);
         const match = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(canonical);
+        if (owner.contextBlockUuid !== uuid) {
+          try {
+            await client.associateContext({
+              workObjectId: owner.workObjectId,
+              sourceRef: { graphId, blockUuid: uuid },
+              sourceVersionHash: stableHash(canonical),
+              origin: "SYSTEM_STRUCTURAL",
+            });
+          } catch { /* correction may block automatic association; still report the source change for reconciliation */ }
+        }
         await client.recordSourceChange({
-          workObjectId: anchors.get(uuid)!,
+          workObjectId: owner.workObjectId,
           graphId,
           sourceBlockUuid: uuid,
           sourceContentHash: stableHash(canonical),

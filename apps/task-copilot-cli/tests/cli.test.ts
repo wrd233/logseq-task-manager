@@ -21,6 +21,16 @@ const client = {
   showProposal: async (id: string) => ({ proposal: { id } as never, revision: { proposalId: id } as never }),
   listFeedback: async () => ({ feedback: [] }),
   addReferenceCuration: async () => ({ receipt: {} as never }), listCurationReceipts: async () => ({ receipts: [] }),
+  listEvidence: async () => ({ evidence: [] }),
+  listContextAssociations: async () => ({ associations: [] }), associateContext: async () => ({ association: {} as never }),
+  invalidateContextAssociation: async () => ({ association: {} as never }), recordAssociationCorrection: async () => ({ correction: {} as never }),
+  listGovernanceIssues: async () => ({ issues: [] }), showGovernanceIssue: async () => ({ issue: {} as never }),
+  resolveGovernanceIssue: async () => ({ issue: {} as never }), supersedeGovernanceIssue: async () => ({ issue: {} as never }),
+  projectionHealth: async () => ({ backlog: 0, oldestPendingAt: null, retrying: 0, degraded: 0, lastError: null }),
+  listProjectionObligations: async () => ({ obligations: [] }),
+  maintenanceStatus: async () => ({ globalPaused: false, jobs: [] }),
+  setMaintenancePause: async () => ({ paused: true }),
+  reconcileMaintenance: async () => ({ job: {} as never }),
 };
 
 test("all reference commands support machine-readable output", async () => {
