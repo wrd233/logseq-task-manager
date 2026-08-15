@@ -129,7 +129,7 @@ export class DiscoveryCoordinator {
         run.candidateIds = [...new Set([...run.candidateIds, candidate.id])];
         mark(judgment.sourceHandles, "CANDIDATE", null, { candidateId: candidate.id });
       }
-      for (const source of sources) if (!handled.has(source.handle)) mark([source.handle], "UNRESOLVED", "JUDGMENT_DID_NOT_COVER_SOURCE");
+      for (const source of sources) if (!handled.has(source.handle)) { mark([source.handle], "UNRESOLVED", "JUDGMENT_DID_NOT_COVER_SOURCE"); invalid += 1; }
 
       for (const outcome of sourceOutcomes.values()) this.#store.putDiscoveryRunSource(outcome);
       run.noCandidateCount = [...sourceOutcomes.values()].filter((item) => item.outcome === "NO_CANDIDATE").length;
