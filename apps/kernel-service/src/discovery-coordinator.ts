@@ -73,6 +73,7 @@ export class DiscoveryCoordinator {
       }
       const existingObjects = this.#existingObjects(sources.length);
       const judgments = await this.#executor.judge({ scope, contextPack: sources, existingObjects, profile: this.#profile });
+      run.tokenUsage = this.#executor.tokenUsage ?? null;
       run.latencyMs = Date.now() - startedMs;
       const candidates: FormalizationCandidate[] = [];
       const handled = new Set<string>();

@@ -22,5 +22,12 @@
 | Governance issue cross-dimension resolve | `current_focus` judgment lists an `engagement` issue id | Issue stays `OPEN`; only same-dimension judgment resolves it | `phase10-context-governance.test.ts` |
 | Execution profile scope overreach | Profile excludes a data scope or caps items/chars | Context Pack contains only scoped, capped, truncated items | `phase10-context-governance.test.ts` |
 | DeepSeek incomplete judgment | Missing handles / unbalanced JSON | Strict parser throws; no auto-fill, no semantic repair, no Formal mutation | `packages/agent/tests/agent.test.ts` |
+| Discovery invalid target | `ASSOCIATE_EXISTING` names a missing WorkObject | Run becomes `PARTIAL`; source stays `UNRESOLVED`; no association or Graph write | `phase12-discovery.test.ts` |
+| Discovery prompt injection | Source text instructs auto-CREATE/auto-纳入 | Source treated as data; `NO_CANDIDATE`; no candidate, package, USER event, or object | `phase12-discovery.test.ts` |
+| Stale candidate source | Source changed after mature package was presented | Old trusted “纳入” returns `USER_DECISION_STALE`; package/decision STALE; no CREATE | `phase12-discovery.test.ts` |
+| Duplicate discovery | Same source set run twice | One candidate identity merges; no duplicate candidate or package | `phase12-discovery.test.ts` |
+| Discovery Graph offline | No Graph Adapter connected | Run `FAILED` with `GRAPH_ADAPTER_OFFLINE`; zero candidates/writes | `phase12-discovery.test.ts` |
+| Organize-today while paused | global maintenance pause active | Explicit one-off runs; `pauseRespected=true`; pause stays set afterwards | `phase12-discovery.test.ts` |
+| Materialized candidate rediscovered | Same source set re-observed after CREATE | Judgment suppressed as `ALREADY_COVERED`; no duplicate candidate | `phase12-discovery.test.ts` + real chain |
 
 No case silently overwrote user content or deleted Ledger history. The failure hooks exist only at the Kernel's system-boundary option and are not exposed through the public HTTP API.

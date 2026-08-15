@@ -236,6 +236,7 @@ ${truncated}`;
 
 export class DeepSeekDiscoveryExecutor implements DiscoveryExecutor {
   readonly id = "deepseek-discovery";
+  tokenUsage: { inputTokens?: number | null; outputTokens?: number | null } | null = null;
   readonly #apiKey: string;
   readonly #model: string;
   readonly #baseUrl: string;
@@ -308,7 +309,8 @@ ${truncated}`;
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`DEEPSEEK_HTTP_${response.status}`);
-      const payload = await response.json() as { output_text?: string; output?: Array<{ type?: string; text?: string; content?: Array<{ text?: string }> }> };
+      const payload = await response.json() as { output_text?: string; output?: Array<{ type?: string; text?: string; content?: Array<{ text?: string }> }>; usage?: { input_tokens?: number; output_tokens?: number } };
+      if (payload.usage) this.tokenUsage = { inputTokens: payload.usage.input_tokens ?? null, outputTokens: payload.usage.output_tokens ?? null };
       let text = typeof payload.output_text === "string" ? payload.output_text : "";
       if (Array.isArray(payload.output)) {
         const parts = payload.output.filter((part) => part.type !== "reasoning").map((part) => part.text ?? part.content?.map((item) => item.text ?? "").join("") ?? "").join("");

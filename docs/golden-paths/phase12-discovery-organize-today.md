@@ -1,6 +1,6 @@
 # Golden Path：Phase 12 Discovery / Formalization Candidate / 整理今天
 
-> 状态：2026-08-15。自动化链与 fault injection 全绿；真实 Logseq Desktop 联合链见后续 evidence。
+> 状态：2026-08-15。自动化链、fault injection、真实 Logseq Desktop `整理今天 → 纳入 → CREATE` 联合链均已通过。真实链证据在本机 `/tmp/tc-phase12-real/`。
 
 ## 链 A：Natural Journal → Existing Object
 
@@ -39,6 +39,27 @@
 
 - `parseDiscoveryJudgments` 对 kind/reason/target/handles 严格校验；
 - `DeepSeekDiscoveryExecutor` profile gate / typed array 解析本地 HTTP 验证。
+
+## Real Logseq Desktop proof（2026-08-15）
+
+隔离 Kernel `/tmp/tc-phase12-real/` + 保护测试 Graph（gitignored `logseq/`）+ Fake Discovery executor：
+
+```text
+journal/2026-08-15 自然页写入两条 synthetic 记录
+  candidate block（含真实检查清单语义 + deterministic fixture directive）
+  one-off block
+-> Plugin 命令面板运行 “Task Copilot vNext：整理今天”
+-> bounded Discovery -> Candidate(d5ba0938…) + NO_CANDIDATE(one-off)
+-> mature package(建议创建TASK「真实整理发布检查清单」)
+-> Plugin 命令面板运行 “Task Copilot vNext：回应当前决策”
+-> requestTextPrompt 输入 “纳入”
+-> TrustedUserEvent(user-event-7fc542ad…) -> UserDecision(716328c5…)
+-> CREATE commit(9ca82370…) actor=USER -> projection VERIFIED
+-> WorkObject(8b15789d…) TASK「真实整理发布检查清单」version 1
+-> Candidate MATERIALIZED，实验页清理，Plugin descriptor 恢复
+```
+
+证据：`/tmp/tc-phase12-real/real-chain-evidence.json`、`real-chain-screenshot.png`（不入 Git）。
 
 ## Real Graph restraint 口径
 

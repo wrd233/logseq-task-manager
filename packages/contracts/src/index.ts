@@ -837,6 +837,7 @@ export interface DiscoveryJudgeInput {
 
 export interface DiscoveryExecutor {
   readonly id: string;
+  tokenUsage?: { inputTokens?: number | null; outputTokens?: number | null } | null;
   judge(input: DiscoveryJudgeInput): Promise<DiscoveryJudgment[]>;
 }
 
