@@ -265,6 +265,115 @@ async function respondToDecisionPackage(): Promise<void> {
   await logseq.UI.showMsg(`已按你的授权执行；Commit ${executed.commit.id}`, "success");
 }
 
+async function dailyPanel(): Promise<void> {
+  const api = await client();
+  const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
+  const root = document.createElement("div");
+  root.dataset.taskCopilotDailyPanel = "true";
+  root.style.cssText = "box-sizing:border-box;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.32);font-family:var(--ls-font-family,system-ui,sans-serif);";
+  const panel = document.createElement("div");
+  panel.style.cssText = "box-sizing:border-box;width:min(720px,100%);max-height:92vh;overflow:auto;padding:20px;border-radius:12px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);box-shadow:0 20px 60px rgba(0,0,0,.3);";
+  const close = document.createElement("button"); close.textContent = "关闭"; close.style.cssText = "float:right;border:1px solid #ccc;border-radius:6px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;"; close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
+  const tabs = document.createElement("div"); tabs.style.cssText = "display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;";
+  const view = document.createElement("div");
+  const render = (name: string) => {
+    tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "600"; button.style.opacity = "0.75"; });
+    const active = tabs.querySelector(`[data-tab="${name}"]`) as HTMLButtonElement | null;
+    if (active) { active.disabled = true; active.style.opacity = "1"; active.style.fontWeight = "700"; }
+    if (name === "now") {
+      view.replaceChildren();
+      const title = document.createElement("h2"); title.textContent = "现在"; title.style.cssText = "margin:0 0 10px;font-size:22px;";
+      view.append(title);
+      if (!now.items.length) { const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;"; view.append(empty); }
+      for (const item of now.items) {
+        const card = document.createElement("section"); card.style.cssText = "border:1px solid #e3e3e3;border-radius:10px;padding:12px;margin-bottom:10px;";
+        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 4px;font-size:17px;";
+        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:13px;color:#555;";
+        const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:14px;";
+        const cont = document.createElement("p"); cont.textContent = `继续：${item.continuationPoint}`; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
+        card.append(h, why, reality, cont);
+        if (item.workObjectId) {
+          const open = document.createElement("button"); open.textContent = "打开 Logseq 原文"; open.style.cssText = "border:1px solid #bbb;border-radius:6px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;margin-right:6px;";
+          open.onclick = () => { void openObjectAnchor(api, item.workObjectId!); };
+          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
+          discuss.onclick = () => { void openObjectConversation(api, item.workObjectId!, item.title); };
+          card.append(open, discuss);
+        }
+        view.append(card);
+      }
+    } else if (name === "confirm") {
+      view.replaceChildren();
+      const h = document.createElement("h2"); h.textContent = "待我确认"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
+      view.append(h);
+      if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;"; view.append(empty); }
+      for (const item of confirmations.items) {
+        const card = document.createElement("section"); card.style.cssText = "border:1px solid #e3e3e3;border-radius:10px;padding:12px;margin-bottom:10px;";
+        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 4px;font-size:17px;";
+        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 8px;font-size:13px;color:#555;";
+        const button = document.createElement("button"); button.textContent = "回应当前决策"; button.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 12px;cursor:pointer;";
+        button.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("respond-decision", respondToDecisionPackage); };
+        card.append(title, why, button); view.append(card);
+      }
+    } else if (name === "projects") {
+      view.replaceChildren();
+      const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
+      view.append(h);
+      const renderNode = (node: import("@task-copilot/contracts").WorkMapNode, depth: number) => {
+        const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 14}px;padding:5px 0;font-size:14px;`;
+        const label = document.createElement("span"); label.textContent = `${node.title}（${node.kind}）${node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : ""}`;
+        const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "margin-left:8px;border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;";
+        open.onclick = () => { void openObjectAnchor(api, node.workObjectId); };
+        row.append(label, open); view.append(row);
+        for (const child of node.children) renderNode(child, depth + 1);
+      };
+      for (const node of workMap.roots) renderNode(node, 0);
+    } else {
+      view.replaceChildren();
+      const h = document.createElement("h2"); h.textContent = "更多"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
+      const rows = [
+        `图连接：${system.graphAvailable ? "正常" : "离线"}`,
+        `后台维护：${system.maintenancePaused ? "已暂停" : "运行中"}`,
+        `投影积压：${system.projectionBacklog}`,
+        `需要恢复：${system.recoveryCount}`,
+        system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行",
+      ];
+      for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 6px;font-size:14px;color:#444;"; view.append(p); }
+      const organize = document.createElement("button"); organize.textContent = "运行整理今天"; organize.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 12px;cursor:pointer;";
+      organize.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("organize-today", organizeTodayCommand); };
+      view.append(organize);
+    }
+  };
+  for (const [key, label] of [["now", "现在"], ["confirm", "待我确认"], ["projects", "项目"], ["more", "更多"]] as const) {
+    const button = document.createElement("button"); button.dataset.tab = key; button.textContent = label; button.style.cssText = "border:1px solid #ccc;border-radius:6px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;";
+    button.onclick = () => render(key); tabs.append(button);
+  }
+  panel.append(close, tabs, view); root.append(panel);
+  document.body.replaceChildren(root);
+  logseq.setMainUIAttrs({ draggable: true, resizable: true });
+  logseq.setMainUIInlineStyle({ position: "fixed", inset: "0", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
+  logseq.showMainUI({ autoFocus: true });
+  render("now");
+}
+
+async function openObjectAnchor(api: KernelClient, workObjectId: string): Promise<void> {
+  const anchors = await api.listObjectAnchorIndex();
+  const anchor = anchors.objects.find((item) => item.object.id === workObjectId)?.anchor as { externalId?: string } | undefined;
+  if (!anchor?.externalId) throw new Error("这个事项还没有 Logseq 原文。");
+  await logseq.Editor.openInRightSidebar(anchor.externalId);
+  await logseq.UI.showMsg("已打开 Logseq 原文。", "success");
+}
+
+async function openObjectConversation(api: KernelClient, workObjectId: string, title: string): Promise<void> {
+  const pack = await api.objectContextPack(workObjectId);
+  const text = `Task Copilot 对象上下文：${title}
+对象 ID：${workObjectId}
+${pack.pack.reentrySummary}
+
+下一步建议在 DSH 中运行：object context ${workObjectId}`;
+  try { await navigator.clipboard.writeText(text); await logseq.UI.showMsg("对象上下文已复制；在 DSH 中运行 object context <id> 开始讨论。", "success", { timeout: 8000 }); }
+  catch { await logseq.UI.showMsg(`对象 ID：${workObjectId}；在 DSH 中运行 object context ${workObjectId}。`, "success", { timeout: 8000 }); }
+}
+
 async function currentTaskContext() {
   const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
@@ -432,6 +541,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-respond-decision", label: "Task Copilot vNext：回应当前决策" }, () => void guarded("respond-decision", respondToDecisionPackage));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-organize-today", label: "Task Copilot vNext：整理今天" }, () => void guarded("organize-today", organizeTodayCommand));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-open-daily", label: "Task Copilot vNext：打开今天" }, () => void guarded("open-daily", dailyPanel));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 

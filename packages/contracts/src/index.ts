@@ -1011,6 +1011,96 @@ export type UserDecisionCompileResult =
   | { kind: "AMBIGUOUS"; reason: string }
   | { kind: "UNSUPPORTED"; reason: string };
 
+export interface ObjectContextPack {
+  workObjectId: string;
+  title: string;
+  kind: WorkObjectKind;
+  formalVersion: number;
+  lifecycle: WorkObject["lifecycle"];
+  engagement: WorkObject["engagement"];
+  currentFocus: string | null;
+  waitingCondition: WaitingCondition | null;
+  desiredOutcome: string | null;
+  completionChecks: readonly string[];
+  recentChanges: readonly string[];
+  contextRefs: readonly SourceRef[];
+  openIssues: readonly GovernanceIssue[];
+  pendingDecisionPackages: readonly string[];
+  activeChildren: readonly { workObjectId: string; title: string; kind: WorkObjectKind; currentFocus: string | null }[];
+  reentrySummary: string;
+  allowedAgentActions: readonly string[];
+  userOnlyActions: readonly string[];
+  freshness: { graphAvailable: boolean; sourceCoverage: "ALIGNED" | "UNCOVERED_CHANGES" | "UNKNOWN" };
+}
+
+export interface NowProjectionItem {
+  id: string;
+  source: "FORMAL" | "NATURAL_FRONTIER";
+  workObjectId: string | null;
+  title: string;
+  kind: WorkObjectKind | "FRONTIER";
+  whyNow: string;
+  currentReality: string;
+  meaningfulChanges: readonly string[];
+  continuationPoint: string;
+  engagement: WorkObject["engagement"];
+  waitingSummary: string | null;
+  pendingDecisionCount: number;
+  coverageHonesty: string;
+  provenance: string;
+}
+
+export interface NowProjection {
+  items: readonly NowProjectionItem[];
+  generatedAt: string;
+  graphAvailable: boolean;
+}
+
+export interface ConfirmationProjectionItem {
+  packageId: string;
+  candidateId: string | null;
+  title: string;
+  summary: string;
+  impact: string;
+  whyNow: string;
+  evidenceCount: number;
+  status: "OPEN" | "STALE";
+}
+
+export interface ConfirmationProjection {
+  items: readonly ConfirmationProjectionItem[];
+  generatedAt: string;
+}
+
+export interface WorkMapNode {
+  workObjectId: string;
+  title: string;
+  kind: WorkObjectKind;
+  lifecycle: WorkObject["lifecycle"];
+  engagement: WorkObject["engagement"];
+  currentFocus: string | null;
+  desiredOutcome: string | null;
+  children: readonly WorkMapNode[];
+}
+
+export interface WorkMapProjection {
+  roots: readonly WorkMapNode[];
+  total: number;
+  generatedAt: string;
+}
+
+export interface SystemProjection {
+  status: "ok" | "degraded";
+  graphAvailable: boolean;
+  maintenancePaused: boolean;
+  projectionBacklog: number;
+  projectionDegraded: number;
+  lastDiscovery: { id: string; status: string; remainingCount: number; summaryText: string } | null;
+  recoveryCount: number;
+  executorId: string;
+  generatedAt: string;
+}
+
 export interface GraphAdapter {
   readGraphSnapshot(input: GraphSnapshotInput): Promise<GraphSnapshot>;
   readEvidenceMaterial(input: { graphId: string; blockUuid: string }, proofKey: string): Promise<TrustedGraphEvidenceMaterial>;

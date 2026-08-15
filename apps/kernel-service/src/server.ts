@@ -8,6 +8,7 @@ import { parseSemanticOperation, type CognitionExecutor, type CurrentFocusAgent,
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { DiscoveryCoordinator } from "./discovery-coordinator.ts";
+import { ProjectionCoordinator } from "./projection-coordinator.ts";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
@@ -66,6 +67,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
   } : { id: "builtin-fake-discovery", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null });
   const discovery = new DiscoveryCoordinator(kernel, store, broker, maintenance, discoveryExecutor, discoveryProfile, { ...(options.now ? { now: options.now } : {}), ...(options.journalPageNames ? { journalPageNames: options.journalPageNames } : {}) });
+  const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, { ...(options.now ? { now: options.now } : {}) });
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -113,6 +115,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const jobs = status && allowed.has(status as ReconcileJob["status"]) ? maintenance.jobs(status as ReconcileJob["status"]) : maintenance.jobs();
         send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs }); return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/projections/now") { send(response, 200, projections.now()); return; }
+      if (request.method === "GET" && url.pathname === "/v1/projections/confirmations") { send(response, 200, projections.confirmations()); return; }
+      if (request.method === "GET" && url.pathname === "/v1/projections/workmap") { send(response, 200, projections.workMap()); return; }
+      if (request.method === "GET" && url.pathname === "/v1/projections/system") { send(response, 200, projections.system()); return; }
       if (request.method === "POST" && url.pathname === "/v1/organize/today") {
         const value = await body(request) as { date?: string };
         send(response, 200, await discovery.organizeToday(value)); return;
@@ -240,11 +246,18 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/ownerships") { send(response, 200, { ownerships: kernel.listOwnerships() }); return; }
+      if (request.method === "POST" && url.pathname === "/v1/ownerships") { const value = await body(request) as { childId: string; ownerId: string; actor: { type: "USER"; id: string } }; send(response, 201, { ownership: kernel.assignUserOwnership(value) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects/anchors") {
         send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
+      const objectContextMatch = /^\/v1\/objects\/([^/]+)\/context$/u.exec(url.pathname);
+      if (request.method === "GET" && objectContextMatch) {
+        const pack = projections.objectContext(decodeURIComponent(objectContextMatch[1]!));
+        if (!pack) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, { pack }); return;
+      }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
         const object = store.getWorkObject(decodeURIComponent(objectMatch[1]!));

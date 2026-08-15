@@ -5,7 +5,7 @@ import { ClientError, type KernelClient } from "@task-copilot/client";
 export interface CliIO { out: (line: string) => void; err: (line: string) => void; readInput?: (path: string) => Promise<string> }
 
 type CliClient = Pick<KernelClient,
-  "status" | "agentBootstrap" | "listSkills" | "showSkill" | "listObjects" | "showObject" | "showClosure" | "showCommit" | "listRecovery" |
+  "status" | "agentBootstrap" | "listSkills" | "showSkill" | "listObjects" | "showObject" | "objectContextPack" | "showClosure" | "showCommit" | "listRecovery" |
   "graphStatus" | "graphSearch" | "graphBlock" | "graphPage" | "freezeExternalEvidence" | "showEvidence" | "listEvidence" | "startExternalAgentRun" |
   "finishExternalAgentRun" | "showAgentRun" | "listAgentRunReads" | "showProposal" | "applyExternalProposal" | "listFeedback" |
   "listTasteProfiles" | "showTasteProfile" | "addReferenceCuration" | "listCurationReceipts" |
@@ -22,7 +22,7 @@ Commands:
   agent bootstrap
   skill list | skill show <id>
   taste list | taste show <id>
-  object list [--lifecycle OPEN] [--engagement ACTIONABLE|WAITING] | object show <id>
+  object list [--lifecycle OPEN] [--engagement ACTIONABLE|WAITING] | object show <id> | object context <id>
   graph status | graph search --query <text> [--limit N] [--run <runId>]
   graph block show <uuid> [--run <runId>] | graph page show <name> [--limit N] [--run <runId>]
   evidence freeze --object <id> --block <uuid> [--id <evidenceId>]
@@ -70,6 +70,7 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.length === 3 && words[0] === "taste" && words[1] === "show") value = await client.showTasteProfile(words[2]!);
     else if (words.join(" ") === "object list") { const lifecycle = option(args, "--lifecycle"); const engagement = option(args, "--engagement"); if (lifecycle && !["OPEN", "COMPLETED", "CANCELLED"].includes(lifecycle)) usage("--lifecycle must be OPEN, COMPLETED, or CANCELLED."); if (engagement && !["ACTIONABLE", "WAITING", "PARKED"].includes(engagement)) usage("--engagement must be ACTIONABLE, WAITING, or PARKED."); const listed = await client.listObjects(); value = { objects: listed.objects.filter((item) => (!lifecycle || item.lifecycle === lifecycle) && (!engagement || item.engagement === engagement)) }; }
     else if (words.length === 3 && words[0] === "object" && words[1] === "show") value = await client.showObject(words[2]!);
+    else if (words.length === 3 && words[0] === "object" && words[1] === "context") value = await client.objectContextPack(words[2]!);
     else if (words.length === 3 && words[0] === "closure" && words[1] === "show") value = await client.showClosure(words[2]!);
     else if (words.length === 3 && words[0] === "commit" && words[1] === "show") value = await client.showCommit(words[2]!);
     else if (words.join(" ") === "recovery list") value = await client.listRecovery();

@@ -135,6 +135,11 @@ export class Kernel {
 
   tasteProfiles(): readonly TasteProfile[] { return this.#miniProjectTaste ? [this.#miniProjectTaste] : []; }
 
+  assignUserOwnership(input: { childId: string; ownerId: string; actor: Actor; at?: string }): PrimaryOwnership {
+    this.#authorize(input.actor);
+    return this.assignPrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, ...(input.at ? { at: input.at } : {}) });
+  }
+
   assignPrimaryOwnership(input: { childId: string; ownerId: string; at?: string }): PrimaryOwnership {
     const at = input.at ?? this.#now();
     const ownership = createPrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, at, objects: this.#store.listWorkObjects(), existing: this.#store.listOwnerships() });

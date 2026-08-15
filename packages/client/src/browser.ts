@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, AssociationCorrection, ClosureHistory, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, DiscoveryRun, DiscoveryRunSourceOutcome, DiscoveryScope, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FormalizationCandidate, FormalizationEvidence, FrozenEvidence, GovernanceDimension, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, OrganizeTodayResult, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, TasteProfile, TrustedGraphEvidenceMaterial, TrustedUserEvent, UserDecision, UserDecisionCompileResult, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, AssociationCorrection, ClosureHistory, ConfirmationProjection, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, DiscoveryRun, DiscoveryRunSourceOutcome, DiscoveryScope, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FormalizationCandidate, FormalizationEvidence, FrozenEvidence, GovernanceDimension, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, NowProjection, ObjectContextPack, OrganizeTodayResult, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, SystemProjection, TasteProfile, TrustedGraphEvidenceMaterial, TrustedUserEvent, UserDecision, UserDecisionCompileResult, WorkMapProjection, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string; userChannelToken?: string }
@@ -57,8 +57,15 @@ export class KernelClient {
   listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
   listObjectAnchorIndex(): Promise<{ objects: Array<{ object: WorkObject; anchor: unknown }> }> { return this.#request("GET", "/v1/objects/anchors"); }
+  listObjectAnchors(): Promise<{ objects: Array<{ object: WorkObject; anchor: unknown }> }> { return this.#request("GET", "/v1/objects/anchors"); }
+  nowProjection(): Promise<NowProjection> { return this.#request("GET", "/v1/projections/now"); }
+  confirmationProjection(): Promise<ConfirmationProjection> { return this.#request("GET", "/v1/projections/confirmations"); }
+  workMapProjection(): Promise<WorkMapProjection> { return this.#request("GET", "/v1/projections/workmap"); }
+  systemProjection(): Promise<SystemProjection> { return this.#request("GET", "/v1/projections/system"); }
+
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
+  objectContextPack(id: string): Promise<{ pack: ObjectContextPack }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/context`); }
   showClosure(id: string): Promise<{ closure: ClosureHistory }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure`); }
   showCommit(id: string): Promise<{ commit: StoredCommit }> { return this.#request("GET", `/v1/commits/${encodeURIComponent(id)}`); }
   listRecovery(): Promise<{ recovery: RecoveryItem[] }> { return this.#request("GET", "/v1/recovery"); }

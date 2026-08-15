@@ -9,6 +9,7 @@ const client = {
   listSkills: async () => ({ skills: [] }), showSkill: async () => ({ skill: {} as never, resultContract: {} }),
   listTasteProfiles: async () => ({ profiles: [] }), showTasteProfile: async () => ({ profile: {} as never }),
   listObjects: async () => ({ objects: [{ id: "work-01", kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" }] }),
+  objectContextPack: async () => ({ pack: {} as never }),
   showObject: async (id: string) => ({ object: { id, kind: "TASK" as const, title: "Task", lifecycle: "OPEN" as const, engagement: "ACTIONABLE" as const, waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" }, anchor: null }),
   showClosure: async () => ({ closure: { current: null, completions: [], cancellations: [], amendments: [], reopens: [] } }),
   showCommit: async (id: string) => ({ commit: { id } as never }),
