@@ -1,6 +1,7 @@
 import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
 import { BlockIdentityCache, contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "./block-context.ts";
+import { installFormalMarkerHost, type FormalMarkerHost } from "./formal-marker-host.ts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gateway-worker.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
@@ -26,6 +27,7 @@ let contextMenuHoverUuid: string | null = null;
 let blockIdentityRefreshPromise: Promise<void> | null = null;
 let lastBlockIdentityRefreshAt = 0;
 let blockContextTrackerDispose: (() => void) | null = null;
+let formalMarkerHost: FormalMarkerHost | null = null;
 
 async function applyGraphEffect(adapter: LogseqGraphAdapter, effect: GraphEffect) {
   const writesDoneMarker = effect.type === "CHANGE_CLOSURE_FIELDS" && effect.expectedSourceMarker !== "DONE" && effect.resultingSourceMarker === "DONE";
@@ -429,6 +431,8 @@ body.tc-sidebar-resizing,body.tc-sidebar-resizing *{user-select:none!important}
 [data-tc-toolbar-button]{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 5px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--ls-icon-color,#666)}
 [data-tc-toolbar-button]:hover{background:var(--ls-secondary-background-color,transparent);color:var(--ls-primary-text-color,#222)}
 [data-tc-toolbar-button][data-active="true"]{background:var(--ls-secondary-background-color,transparent);color:var(--ls-link-text-color,#4f74b8);box-shadow:inset 0 -2px 0 var(--ls-link-text-color,#4f74b8)}
+[data-tc-formal-marker]:hover{opacity:.78!important}
+[data-tc-formal-marker]:focus-visible{opacity:.78!important;outline:1px solid var(--ls-link-text-color,#4f74b8);outline-offset:1px}
 `);
 }
 
@@ -479,6 +483,16 @@ async function openPanelAtObject(objectId: string): Promise<void> {
   await dailyPanel(objectId);
 }
 
+function ensureFormalMarkerHost(): FormalMarkerHost {
+  if (formalMarkerHost) return formalMarkerHost;
+  formalMarkerHost = installFormalMarkerHost({
+    document: () => topDocument(),
+    lookupFormal: (uuid) => blockIdentityCache.lookup(uuid),
+    onOpen: (uuid) => void openObjectFromBlock(uuid),
+  });
+  return formalMarkerHost;
+}
+
 async function refreshBlockIdentityCache(api: KernelClient): Promise<void> {
   if (blockIdentityRefreshPromise) { await blockIdentityRefreshPromise; return; }
   lastBlockIdentityRefreshAt = Date.now();
@@ -486,6 +500,7 @@ async function refreshBlockIdentityCache(api: KernelClient): Promise<void> {
     try {
       const result = await api.listObjectAnchorIndex();
       blockIdentityCache.replace(result.objects);
+      formalMarkerHost?.rescan();
       if (contextMenuHoverUuid) void syncContextMenuForUuid(contextMenuHoverUuid);
     } catch (error) { console.warn("block-identity-refresh", error); }
     finally { blockIdentityRefreshPromise = null; }
@@ -998,7 +1013,8 @@ async function main(): Promise<void> {
   window.setTimeout(() => { ensureToolbarPinned(); syncToolbarState(); }, 300);
   registerContextMenuItems({ kind: "ORDINARY" });
   blockContextTrackerDispose = installBlockContextTracker();
-  void guarded("block-index", async () => refreshBlockIdentityCache(await client()));
+  ensureFormalMarkerHost();
+  void guarded("block-index", async () => { const api = await client(); await refreshBlockIdentityCache(api); formalMarkerHost?.rescan(); });
   window.setTimeout(() => syncToolbarState(), 500);
   const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
   const stopGraphWorker = startGraphGatewayWorker({
@@ -1023,7 +1039,7 @@ async function main(): Promise<void> {
     isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),
     onError: (error) => { if (error instanceof Error && !/请先运行|DESCRIPTOR_INVALID/u.test(error.message)) console.warn("source-change-observer", error); },
   });
-  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; blockContextTrackerDispose?.(); blockContextTrackerDispose = null; unregisterContextMenuItems(); topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); });
+  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; blockContextTrackerDispose?.(); blockContextTrackerDispose = null; formalMarkerHost?.dispose(); formalMarkerHost = null; unregisterContextMenuItems(); topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
