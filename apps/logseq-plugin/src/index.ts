@@ -621,9 +621,9 @@ async function dailyPanel(): Promise<void> {
   applySidebarLayout();
   logseq.showMainUI({ autoFocus: true });
   applySidebarLayout();
-  hostLayoutDispose = installHostLayoutObserver();
+  hostLayoutDispose?.(); hostLayoutDispose = installHostLayoutObserver();
   root.tabIndex = -1; root.focus();
-  panelKeydownDispose = (() => {
+  panelKeydownDispose?.(); panelKeydownDispose = (() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); closeDailyPanel(); } };
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
