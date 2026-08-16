@@ -31,7 +31,7 @@
 4. **M11 “只是聊不要改”**：正确不落地 mutation。
 5. **M13 “先别改”**：正确 stop。
 6. **P03 “我觉得现在最重要的是采购规格书”**：正确给出低风险 `SET_CURRENT_FOCUS` 建议。
-7. **P01/P04 显示 Project 缺少 Objective 导致 agent 需要问项目目标**；本轮未实现 ProjectIntent，记录为 DEFERRED_BY_DESIGN，作为 Phase 17 窄闭环的输入信号。
+7. **P01/P04 显示 Project 缺少 Objective 导致 agent 需要问项目目标**；本轮未实现 ProjectIntent，记录为 DEFERRED_BY_DESIGN，作为 Phase 17 窄闭环的输入信号。（Phase 17 已实现，见下文。）
 
 ## 结论
 

@@ -21,9 +21,9 @@ Production `ClosureAssessment` 不再使用 Evidence 数量门槛。`evidence.le
 
 ## 2. Host 汇总规则
 
-- 任何 CONTRADICTED / objectiveContradiction / outcomeContradiction / scopeMismatch → CONFLICT
+- 任何 CONTRADICTED / objectiveJudgment.status=CONTRADICTED 的 objectiveContradiction / outcomeContradiction / scopeMismatch → CONFLICT
 - 任何 UNSATISFIED → NOT_READY
-- 任何 UNKNOWN → UNKNOWN
+- 有 UNKNOWN：全部 UNKNOWN → UNKNOWN；已有 SATISFIED 且仍有 UNKNOWN（部分已证明）→ NOT_READY
 - 全部 SATISFIED 且 objectiveJudgment SATISFIED → READY（无 desiredOutcome 的 MiniProject 以 checks 为准；Project Objective 必须独立满足）
 
 ## 3. No Semantic Repair

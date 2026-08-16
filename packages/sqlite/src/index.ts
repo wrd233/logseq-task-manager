@@ -4,6 +4,8 @@ import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCo
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
+const SUPPORTED_SCHEMA_VERSION = 22;
+
 const schema = `
   PRAGMA foreign_keys = ON;
   CREATE TABLE IF NOT EXISTS schema_versions (
@@ -399,6 +401,11 @@ export class SqliteStore {
     this.#database.pragma("journal_mode = WAL");
     this.#database.exec(schema);
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (1, ?)").run(new Date().toISOString());
+    const existing = Number((this.#database.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as { version: number }).version);
+    if (existing > SUPPORTED_SCHEMA_VERSION) {
+      this.#database.close();
+      throw new Error(`SCHEMA_VERSION_TOO_NEW:${existing}:${SUPPORTED_SCHEMA_VERSION}`);
+    }
     this.#migrateV2();
     this.#migrateV3();
     this.#migrateV4();
@@ -1241,14 +1248,6 @@ export class SqliteStore {
       ? { type: "COMPLETED" as const, record, amendments: applied, outcomeSummary: applied.reduce((value, item) => item.replacementOutcomeSummary ?? value, record.outcomeSummary), evidenceIds }
       : { type: "CANCELLED" as const, record, amendments: applied, reason: applied.reduce((value, item) => item.replacementCancellationReason ?? value, record.reason), evidenceIds };
     return { current, completions, cancellations, amendments, reopens };
-  }
-
-  resolveClosureRecord(id: string, excludedAmendmentId: string | null = null): ClosureHistory["current"] {
-    const record = this.getClosureRecord(id); if (!record) return null;
-    const rows = this.#database.prepare("SELECT record_json,commit_id FROM closure_amendments WHERE target_closure_record_id=? ORDER BY created_at,rowid").all(id) as Array<{ record_json: string; commit_id: string }>;
-    const amendments = rows.filter((row) => row.commit_id !== excludedAmendmentId && Boolean(this.#database.prepare("SELECT 1 FROM commits WHERE id=? AND status='COMMITTED' AND compensated_by IS NULL").get(row.commit_id))).map((row) => decode(row.record_json) as ClosureAmendment);
-    const evidenceIds = [...new Set([...record.evidenceIds, ...amendments.flatMap((item) => item.addEvidenceIds)])];
-    return "completedAt" in record ? { type: "COMPLETED", record, amendments, outcomeSummary: amendments.reduce((value, item) => item.replacementOutcomeSummary ?? value, record.outcomeSummary), evidenceIds } : { type: "CANCELLED", record, amendments, reason: amendments.reduce((value, item) => item.replacementCancellationReason ?? value, record.reason), evidenceIds };
   }
 
   putEvidence(evidence: FrozenEvidence): void {

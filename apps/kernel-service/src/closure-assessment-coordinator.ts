@@ -38,6 +38,7 @@ export class ClosureAssessmentCoordinator {
 
   start(): void {
     if (this.#timer) return;
+    this.scan();
     this.#timer = setInterval(() => { void this.tickClosure().catch((error) => console.warn("[closure-assessment] tick failed", error)); }, this.#intervalMs);
   }
 
@@ -142,7 +143,7 @@ export class ClosureAssessmentCoordinator {
       });
       this.#store.putClosureAssessment(assessment);
       this.#store.completeClosureAssessmentJob(job.id, at, assessment.readiness);
-      this.#store.recordMaintenanceSuccess("global", at);
+      this.#store.recordMaintenanceSuccess("closure", at);
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 200) : "CLOSURE_ASSESSMENT_FAILED";
       if (this.#superseded(job)) {
@@ -153,7 +154,7 @@ export class ClosureAssessmentCoordinator {
         this.#store.deferClosureAssessmentJob(job.id, message, new Date(Date.parse(at) + 3_600_000).toISOString(), at);
         return;
       }
-      this.#store.recordMaintenanceFailure("global", at);
+      this.#store.recordMaintenanceFailure("closure", at);
       const next = new Date(Date.parse(at) + this.#retryBackoffMs * Math.min(2 ** Math.max(0, job.attempt - 1), 8)).toISOString();
       this.#store.failClosureAssessmentJob(job.id, message, next, at, this.#maxAttempts);
     }

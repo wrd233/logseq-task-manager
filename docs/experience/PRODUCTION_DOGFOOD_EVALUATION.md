@@ -42,9 +42,8 @@
 - 覆盖：re-entry（24 context reads）、focus proposal/apply、同 proposal 重复提交（24/24 返回同一 proposal/commit，无新 mutation）、just-talk NO_PROPOSAL（12）、MiniProject BOUNDARY_REVIEW（12）、NEEDS_MORE_CONTEXT 单点提问（3）、Project WAITING 进入/恢复（6/6）、closure handoff 只生成 DecisionPackage、reopened work 后 re-entry（1）。
 - 终态：OPEN packages **0**（用户 defer 16 个 boundary packages 后）、stale 0、recovery 0、errors 0。
 - 证据：`/tmp/tc-agent-replay/agent-replay.json`。
-- 限制：这是 scripted decision replay（DSH 剧本），不是真实 LLM 多轮语义质量评估；DeepSeek 对话质量仍待 runtime key。
+- 限制：这是 scripted decision replay（DSH 剧本），不是真实 LLM 多轮语义质量评估；真实 DeepSeek 多轮对话质量观测列为 RC 阶段持续观察项（不再阻塞）。
 
 ## 7. 待补
 
-- 真实 DeepSeek gold-set（40 cases）与 latency/token 复跑：等 runtime `DEEPSEEK_API_KEY`。
-- 真实 DeepSeek 多轮对话质量观测（repeated-question / stop behavior）：同为 key 阻塞。
+- 真实 DeepSeek 多轮对话质量观测（repeated-question / stop behavior）：RC 阶段持续观察项，非本轮 blocker。

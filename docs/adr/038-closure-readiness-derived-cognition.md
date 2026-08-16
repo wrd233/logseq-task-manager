@@ -14,7 +14,7 @@
   - 无 WorkIntent（MiniProject）→ UNKNOWN
   - 无 ProjectIntent（Project）→ UNKNOWN
   - OPEN CONFLICT Governance Issue → CONFLICT
-  - 最小 Frozen Evidence：MiniProject 完成检查数、Project KR 数（Objective-only 至少 1 条）
+  - 最小 Frozen Evidence 门槛只决定“是否值得进入语义评估”，不再以数量决定 READY（本轮语义由 ADR 040 接管；本节数量门槛已被 ADR 040 supersede）。
 - 不做 percentage、Objective achieved flag、KR lifecycle、generic score。
 - 后台可以维护 assessment；`NOT_READY/UNKNOWN → READY` 可以成为 meaningful change，但 READY 不自动生成 COMPLETE DecisionPackage。
 - False READY 优先保守：证据不足永远 UNKNOWN。

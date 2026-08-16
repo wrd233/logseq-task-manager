@@ -1,6 +1,6 @@
 # Closure Semantic Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-19 Round 12，Fake pipeline + real Desktop；DeepSeek gold-set 复跑待 runtime key。
+> 状态：2026-08-19 Round 12，Fake pipeline + real Desktop + real DeepSeek 40-case eval 已完成。
 
 ## 1. Fake / deterministic pipeline
 

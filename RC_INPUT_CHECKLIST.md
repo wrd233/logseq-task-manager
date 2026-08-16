@@ -87,7 +87,7 @@
 
 - now / workmap / system / object-context(open+closed) / closure-assessment cached：7 次采样 min/p50 全部 **1–2ms**（`/tmp/tc-phase16-ux/perf.json`）
 - 36-object Day1–Day5 dogfood：maintenance 16 cognition calls；Day5 Now 3 / Confirmation 0 / WorkMap 36 / system HEALTHY
-- 真实 DeepSeek closure latency 待 runtime key 复跑
+- 真实 DeepSeek closure latency 已实测：avg ≈18.0s/case；tokens ≈67k in / 65k out（40-case 全量累计，`/tmp/tc-closure-semantic-eval.json`）
 
 ## Dogfood findings（首轮 harness + real Desktop）
 

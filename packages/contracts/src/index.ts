@@ -1256,6 +1256,7 @@ export interface SystemProjection {
   runtimeFailedJobs: number;
   runtimeClosureQueuedJobs: number;
   runtimeClosureFailedJobs: number;
+  runtimeClosureDegraded: boolean;
   generatedAt: string;
 }
 

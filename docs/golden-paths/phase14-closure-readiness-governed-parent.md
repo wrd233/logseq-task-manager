@@ -7,14 +7,14 @@
 
 1. MiniProject 无 WorkIntent → `UNKNOWN`（blockers 说明缺意图依据）。
 2. 存在 OPEN formal child → `NOT_READY`，blocker 为开放子对象。
-3. child 关闭 + 每个 completion check 有 frozen evidence → `READY`。
+3. child 关闭 + 有可分析 Frozen Evidence → deterministic gate 通过，进入异步语义评估；语义归因全部满足后才 `READY`（Phase 15 语义已接管，详见 `phase15-closure-semantic-assessment.md`）。
 4. 全程没有 percentage / Objective achieved flag / score；assessment 绑定 `objectVersion:projectIntentRevision` 语义修订。
 
 证据：`phase14-closure.test.ts` "MiniProject closure readiness is UNKNOWN without intent, NOT_READY with open child, READY with evidence"。
 
 ## GP14-2：Project READY → USER-only Complete
 
-1. ProjectIntent 存在、KR 有 frozen evidence、无 OPEN descendant → deterministic `READY`。
+1. ProjectIntent 存在、KR 有 frozen evidence、无 OPEN descendant → deterministic gate 通过，进入异步语义评估；KR + Objective 语义满足后才 `READY`（不再按 evidence 数量）。
 2. USER 通过 trusted Plugin channel 创建 `COMPLETE_WORK_OBJECT` Decision Package 并确认。
 3. Kernel 执行 Complete Formal Commit；裸 bearer / External Agent 直接 Complete 被拒绝。
 4. parent 仍有 OPEN child 时 Complete 失败：`PARENT_HAS_OPEN_CHILDREN`，无 silent cascade。

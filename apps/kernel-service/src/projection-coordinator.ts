@@ -107,10 +107,6 @@ export class ProjectionCoordinator {
    * persisted synchronously; a gate-passing object gets a coalesced background
    * job and the caller sees the last good (possibly stale) assessment.
    */
-  closureAssessment(workObjectId: string): ClosureAssessment | null {
-    return this.closureAssessmentState(workObjectId).assessment;
-  }
-
   closureAssessmentState(workObjectId: string): { assessment: ClosureAssessment | null; fresh: boolean; queued: boolean } {
     const object = this.#store.getWorkObject(workObjectId);
     if (!object || object.lifecycle !== "OPEN") return { assessment: null, fresh: false, queued: false };
@@ -341,11 +337,15 @@ export class ProjectionCoordinator {
     const queued = this.#maintenance.jobs("QUEUED").length;
     const failed = this.#maintenance.jobs("FAILED").length;
     const runtimeHealth = this.#store.getRuntimeHealth("global");
+    const closureHealth = this.#store.getRuntimeHealth("closure");
     const paused = this.#maintenance.isPaused("global", null);
     const degraded = health.degraded > 0 || runtimeHealth.consecutiveFailures >= 2;
-    const runtimeStatus: SystemProjection["runtimeStatus"] = paused ? "PAUSED" : degraded ? "DEGRADED" : queued > 0 || health.backlog > 0 ? "CATCHING_UP" : "HEALTHY";
+    const closureDegraded = closureHealth.consecutiveFailures >= 2;
+    const runtimeStatus: SystemProjection["runtimeStatus"] = paused ? "PAUSED" : degraded || closureDegraded ? "DEGRADED" : queued > 0 || health.backlog > 0 ? "CATCHING_UP" : "HEALTHY";
     const runtimeSummary = runtimeStatus === "PAUSED" ? "后台维护已暂停；你的笔记仍会正常记录，恢复后会继续追上。"
-      : runtimeStatus === "DEGRADED" ? "后台理解暂时不可用；你的笔记不受影响，恢复后会继续追上。"
+      : runtimeStatus === "DEGRADED" && closureDegraded && !degraded ? "完成情况评估暂时不可用；你的笔记和正式数据不受影响，恢复后会重新评估。"
+      : runtimeStatus === "DEGRADED" && degraded && !closureDegraded ? "后台理解暂时不可用；你的笔记不受影响，恢复后会继续追上。"
+      : runtimeStatus === "DEGRADED" ? "部分后台理解暂时不可用；你的笔记和正式数据不受影响，恢复后会继续追上。"
       : runtimeStatus === "CATCHING_UP" ? "正在补齐最近的变化。"
       : "一切正常，后台维护中。";
     return {
@@ -355,6 +355,7 @@ export class ProjectionCoordinator {
       recoveryCount: this.#store.listRecovery().length, executorId: this.#discovery.listRuns()[0]?.executorId ?? "unknown",
       runtimeStatus, runtimeSummary, runtimeQueuedJobs: queued, runtimeFailedJobs: failed,
       runtimeClosureQueuedJobs: this.#closure.jobs("QUEUED").length + this.#closure.jobs("RUNNING").length, runtimeClosureFailedJobs: this.#closure.jobs("FAILED").length,
+      runtimeClosureDegraded: closureDegraded,
       generatedAt: this.#now(),
     };
   }

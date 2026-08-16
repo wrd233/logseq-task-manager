@@ -52,7 +52,7 @@ export function parseClosureSemanticJudgment(value: unknown): ClosureSemanticJud
 
 export function parseClosureAssessmentText(text: string): ClosureSemanticJudgment {
   const cleaned = text.trim();
-  const markerPattern = /\{"kind"\s*:\s*"(?:MINI_PROJECT|PROJECT)"/gu;
+  const markerPattern = /\{\s*"kind"\s*:\s*"(?:MINI_PROJECT|PROJECT)"/gu;
   const markers = [...cleaned.matchAll(markerPattern)].map((match) => match.index);
   // Try each typed-JSON candidate from last to first; syntax-only, no semantic repair.
   let lastError: unknown = null;
@@ -174,7 +174,10 @@ ${closureContextText(input).slice(0, Math.max(0, input.profile.maxInputChars))}`
         body: JSON.stringify({
           model: input.profile.modelAlias ?? this.#model,
           input: prompt,
-          max_output_tokens: input.profile.maxOutputTokens ?? 4096,
+          max_output_tokens: input.profile.maxOutputTokens ?? 8192,
+          // API structured-output hint (strict=false here): the API then constrains shape,
+          // while this parser + the host keep all semantic validation. No semantic repair.
+          text: { format: { type: "json_schema", name: "closure_assessment", schema: input.skill.schema, strict: false } },
           ...(input.profile.reasoningEffort ? { reasoning: { effort: input.profile.reasoningEffort } } : {}),
         }),
         signal: controller.signal,

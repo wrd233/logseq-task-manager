@@ -11,6 +11,6 @@
 | Amendment targets wrong Closure ID | rejected; original Closure/lifecycle unchanged | cancellation/amend/reopen integration |
 | Cancellation Graph throw | pending `KERNEL_APPLIED`; same recovery semantics as completion | cancellation failure integration |
 | Completion marker response lost | retry recognizes safe partial state and converges same effect | real Graph Adapter response-loss test |
-| MiniProject/Project completion | Task-only Domain error | Domain and Kernel integration tests |
+| MiniProject/Project completion | 历史记录：Phase 5 时为 Task-only Domain error；Phase 13.5/14 起已实现 USER-only + governed parent closure | Domain and Kernel integration tests |
 
 Every case is checked at the cross-medium boundary. A prepared or Kernel-applied transaction is not presented as completed business state, and current effective Closure queries include only committed, uncompensated records.

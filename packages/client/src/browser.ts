@@ -61,7 +61,6 @@ export class KernelClient {
   listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
   listObjectAnchorIndex(): Promise<{ objects: Array<{ object: WorkObject; anchor: unknown }> }> { return this.#request("GET", "/v1/objects/anchors"); }
-  listObjectAnchors(): Promise<{ objects: Array<{ object: WorkObject; anchor: unknown }> }> { return this.#request("GET", "/v1/objects/anchors"); }
   nowProjection(): Promise<NowProjection> { return this.#request("GET", "/v1/projections/now"); }
   confirmationProjection(): Promise<ConfirmationProjection> { return this.#request("GET", "/v1/projections/confirmations"); }
   workMapProjection(): Promise<WorkMapProjection> { return this.#request("GET", "/v1/projections/workmap"); }
