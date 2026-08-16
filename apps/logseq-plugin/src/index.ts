@@ -111,6 +111,18 @@ function gatewayBlock(value: unknown, fallbackPage: string | null = null): { uui
   return { uuid: item.uuid, content, pageName: typeof page?.name === "string" ? page.name : fallbackPage };
 }
 
+function journalPageNameFallbacks(pageName: string): string[] {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(pageName);
+  if (!match) return [pageName];
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return [pageName];
+  const day = date.getDate();
+  const ordinal = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+  const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()]!;
+  const monthLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][date.getMonth()]!;
+  return [pageName, `${monthShort} ${day}${ordinal}, ${date.getFullYear()}`, `${monthLong} ${day}${ordinal}, ${date.getFullYear()}`];
+}
+
 function graphGatewayReadHost(): GraphGatewayReadHost {
   return {
     search: async (query, limit) => {
@@ -127,7 +139,11 @@ function graphGatewayReadHost(): GraphGatewayReadHost {
     },
     readBlock: async (uuid) => gatewayBlock(await logseq.Editor.getBlock(uuid, { includeChildren: true })),
     readPage: async (pageName) => {
-      const roots = await logseq.Editor.getPageBlocksTree(pageName); if (!roots) return null;
+      let roots: Awaited<ReturnType<typeof logseq.Editor.getPageBlocksTree>> = null;
+      for (const name of journalPageNameFallbacks(pageName)) {
+        roots = await logseq.Editor.getPageBlocksTree(name); if (roots) break;
+      }
+      if (!roots) return null;
       const values: Array<{ uuid: string; content: string; pageName: string | null }> = [];
       const visit = (candidate: unknown) => {
         const item = gatewayBlock(candidate, pageName); if (item) values.push(item);
@@ -203,10 +219,10 @@ async function letAgentUpdateCurrentFocus(): Promise<void> {
   await logseq.UI.showMsg(`Fake Agent 已更新当前推进；Commit ${committed.commit.id}；Evidence ${evidenceId}；可用“撤销最近一次提交”恢复。`, "success");
 }
 
-async function letAgentReconcileEngagement(): Promise<void> {
+async function letAgentReconcileEngagement(blockUuid?: string): Promise<void> {
   const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
-  const selected = logseqBlock(await logseq.Editor.getCurrentBlock());
+  const selected = logseqBlock(blockUuid ? await logseq.Editor.getBlock(blockUuid) : await logseq.Editor.getCurrentBlock());
   if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const api = await client();
   const target = await api.showObject(workObjectId);
@@ -650,6 +666,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize-mini-project", label: "Task Copilot vNext：正式化当前记录为 MiniProject" }, () => void guarded("formalize-mini-project", () => formalizeCurrentRecord("MINI_PROJECT")));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-focus", label: "Task Copilot vNext：让 Agent 更新当前推进" }, () => void guarded("agent-current-focus", letAgentUpdateCurrentFocus));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-agent-engagement", label: "Task Copilot vNext：让 Agent 对账可行动状态" }, () => void guarded("agent-engagement", letAgentReconcileEngagement));
+  logseq.App.registerCommand("$commands$", { key: "task-copilot-vnext-agent-engagement", label: "Task Copilot vNext：让 Agent 对账可行动状态" }, () => void guarded("agent-engagement", letAgentReconcileEngagement));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-complete-task", label: "Task Copilot vNext：完成当前 Task" }, () => void guarded("complete-task", completeCurrentTask));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-cancel-task", label: "Task Copilot vNext：取消当前 Task" }, () => void guarded("cancel-task", cancelCurrentTask));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-reopen-task", label: "Task Copilot vNext：重新打开当前 Task" }, () => void guarded("reopen-task", reopenCurrentTask));
@@ -664,6 +681,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-organize-today", label: "Task Copilot vNext：整理今天" }, () => void guarded("organize-today", organizeTodayCommand));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-open-daily", label: "Task Copilot vNext：打开今天" }, () => void guarded("open-daily", dailyPanel));
   (window as unknown as { taskCopilotOpenDailyPanel?: () => void }).taskCopilotOpenDailyPanel = () => void guarded("open-daily", dailyPanel);
+  (window as unknown as { taskCopilotOpenDailyPanel?: () => void; taskCopilotReconcileEngagementForBlock?: (blockUuid: string) => void }).taskCopilotReconcileEngagementForBlock = (blockUuid) => void guarded("agent-engagement-block", () => letAgentReconcileEngagement(blockUuid));
   await logseq.UI.showMsg("Task Copilot vNext 已就绪。", "success");
 }
 
