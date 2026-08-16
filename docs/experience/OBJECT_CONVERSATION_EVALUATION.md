@@ -38,3 +38,33 @@
 - Conversation bootstrap 足够恢复对象现实；低风险 / 边界路径符合权限模型。
 - 最大风险是“重复问同一核心缺口”，已写入 `docs/agent/object-conversation-guide.md`。
 - 不保存完整 transcript / CoT；只有聚合评估结果。
+
+---
+
+# Phase 17 multi-turn 实测（2026-08-16，EXPERIENCE / EMPIRICAL）
+
+- 环境：`/tmp/tc-demo` Kernel + repo `logseq/` Graph；DeepSeek-V4-Flash。
+- Harness：`/tmp/tc-phase17-ux/multiturn-eval.json`（ephemeral，不持久化 transcript/CoT）。
+
+## Scenarios
+
+| Scenario | 结果 |
+| --- | --- |
+| mini-focus-flow（5 turns, FAST） | Agent 建议 current_focus；用户“按你说的改”后 harness 真实 apply → formalVersion 1→2；下一轮基于新 pack 继续，stop 正确 |
+| mini-correction（3 turns, DEEP） | Agent 先判断不应 WAITING；用户纠正后接受并保持 ACTIONABLE，未坚持旧判断 |
+| mini-just-talk（3 turns, FAST） | `actionAllowed=false` 全程 0 mutation，给观点不落地 |
+| project-intent-formation（3 turns, DEEP） | 正确读取现有 ProjectIntent；“KR 不写死”后不生成 KR；输出边界建议不自动执行 |
+| project-intent-boundary-resume（2 turns, DEEP） | 用户表达方向变化时 Agent 先对照现有 Objective，未重复盘问，未误授权 |
+
+## Latency（real DeepSeek）
+
+- FAST simple questions：avg ≈ 2.7s（n=2，1794/3636ms）
+- DEEP same questions：avg ≈ 8.4s（n=2，2779/14003ms）
+- 对比 Phase16B 统一 high reasoning：~23.3s/turn
+
+## Findings
+
+- 真实 low-risk apply 后必须 refresh ObjectContext；否则下一轮会基于旧 formalVersion。
+- “先别改 / 只是聊”需要在 session state 中显式关闭 actionAllowed，模型单靠 prompt 不稳定。
+- DEEP 边界建议需要 max_output_tokens ≥ 4000，否则 reasoning 会吃掉输出预算产生空 JSON。
+- 用户纠正不需要新字段：下一轮 compact state 保留 corrected belief 即可。

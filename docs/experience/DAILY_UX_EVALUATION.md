@@ -63,3 +63,27 @@
 - Afternoon reply：冻结厂商新版证据 → External Engagement Agent `WAITING→ACTIONABLE` low-risk apply → `COMMITTED`。
 - Evening：Now 只 resurface 一条对象，`changesSinceLastSeen=2`，formalVersion 3。
 
+
+---
+
+# Phase 17 / 16C 迭代（2026-08-16，EXPERIENCE / EMPIRICAL）
+
+## V2（workspace coexistence + Object Surface）
+
+- 改变：header 收敛为 `Task Copilot ×`；tabs 去边框；Now 整卡点击进入 Object Surface；卡片按钮降为文本 link；WorkMap 整行点击、类型弱标签、Project 行显示 currentPhase；More 分「系统 / 工具」；Confirmation 空 whyNow 不渲染。
+- 观察：正文区比 Phase16B 多出约 2vw；Project Object Surface 可显示 Objective/KR/Phase；小窗口 960×640 可用。
+- 截图：`/tmp/tc-phase17-ux/ui/v2-*.png`。
+
+## V3（copy / density polish）
+
+- 改变：移除 `状态变为 可推进` 式内部表达，映射为用户语言；Project reentry summary 变为 `目前聚焦在「实施准备」`；ProjectIntent revision 后 Now 可 resurface（`项目目标或阶段有更新`）。
+- 观察：V3 Now 只有 1 条高价值卡，卡片字段全部有现实依据；Project 详情 3 秒内可回答“为什么存在 / 当前在哪 / frontier / 继续”。
+- 截图：`/tmp/tc-phase17-ux/ui/v3-*.png`。
+
+## Project daily simulation
+
+- Morning：ProjectIntent revision 1（Objective + 2 KR + 采购与实施准备），frontier = 采购规格书整理 / 法务探针验证。
+- Midday：自然材料 PAGE discovery `已完成 8 条记录的语义整理`。
+- Afternoon：Trusted USER 确认 currentPhase → `实施准备`（ProjectIntent revision 2，Project formal version 不变）。
+- Evening：Now Project card 出现 `上次看过以后有新的正式变化`，reality = `目标：…；当前：实施准备`。
+- 证据：`/tmp/tc-phase17-ux/project-daily.json`。

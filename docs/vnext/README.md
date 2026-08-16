@@ -1,6 +1,6 @@
 # Task Copilot vNext 设计与实施文档集
 
-> 版本：2026-08-16 深度治理轮 + Phase 16B 推进  
+> 版本：2026-08-16 深度治理轮 + Phase 17/16C 推进  
 > 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
 > 适用仓库：`wrd233/logseq-task-manager`
 
@@ -218,7 +218,7 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-当前基线已完成 Phase 12 + 12.5 + 16A（四入口 semantic projections / Thin Daily UI / Object Re-entry / External Agent conversation bootstrap），并正在推进 Phase 16B（USER authority 修复、cognitive read baseline / Now attention semantics、Confirmation 直接动作、bounded ObjectContext / Project frontier、真实 DSH 对话与 UI 迭代）；下一轮按真实体验选择 Phase 13 unattended cognition、Phase 16C thin UX refinement，或窄范围 ProjectIntent closure，不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5 + 16A + 16B（Trusted USER boundary、cognitive read baseline、四入口 Thin UI、bounded ObjectContext、multi-turn bootstrap），并正在推进 Phase 17 + 16C：ProjectIntent 窄闭环、ephemeral stateful object conversation、FAST/DEEP reasoning profiles、UI 与 Logseq workspace 共存；下一轮优先根据真实体验选择 Phase 13 unattended cognition / profile UX，或 Phase 16D polish，不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
