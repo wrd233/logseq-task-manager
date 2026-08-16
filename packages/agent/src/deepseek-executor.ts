@@ -233,7 +233,7 @@ ${truncated}`;
         body: JSON.stringify({
           model: input.profile.modelAlias ?? this.#model,
           input: prompt,
-          max_output_tokens: 1024,
+          max_output_tokens: input.profile.maxOutputTokens ?? 1024,
           ...(input.profile.reasoningEffort ? { reasoning: { effort: input.profile.reasoningEffort } } : {}),
         }),
         signal: controller.signal,
@@ -328,7 +328,7 @@ ${truncated}`;
         body: JSON.stringify({
           model: input.profile.modelAlias ?? this.#model,
           input: prompt,
-          max_output_tokens: 16000,
+          max_output_tokens: input.profile.maxOutputTokens ?? 16000,
           ...(input.profile.reasoningEffort ? { reasoning: { effort: input.profile.reasoningEffort } } : {}),
         }),
         signal: controller.signal,

@@ -770,11 +770,25 @@ export interface ExecutionProfile {
   allowedDataScope: readonly string[];
   maxContextItems: number;
   maxInputChars: number;
-  reasoningEffort?: "high" | "max";
+  reasoningEffort?: "low" | "medium" | "high" | "max";
+  maxOutputTokens?: number;
   timeoutMs: number;
   retryBudget: number;
   credentialRef: string | null;
 }
+
+/** Cognition-only reasoning budget profiles. They never change formal authority. */
+export const CONVERSATION_FAST_PROFILE = {
+  id: "conversation-fast", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+  allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 8, maxInputChars: 18_000,
+  reasoningEffort: "low", maxOutputTokens: 800, timeoutMs: 20_000, retryBudget: 1, credentialRef: "DEEPSEEK_API_KEY",
+} as const satisfies ExecutionProfile;
+
+export const CONVERSATION_DEEP_PROFILE = {
+  id: "conversation-deep", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+  allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 16, maxInputChars: 28_000,
+  reasoningEffort: "high", maxOutputTokens: 2_000, timeoutMs: 45_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
+} as const satisfies ExecutionProfile;
 
 export interface CognitionJudgeInput {
   object: WorkObject;

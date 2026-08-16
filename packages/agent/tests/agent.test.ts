@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import test from "node:test";
 
-import type { ExecutionProfile, FrozenEvidence, SkillPackage, WorkObject } from "@task-copilot/contracts";
+import { CONVERSATION_DEEP_PROFILE, CONVERSATION_FAST_PROFILE, type ExecutionProfile, type FrozenEvidence, type SkillPackage, type WorkObject } from "@task-copilot/contracts";
 import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
@@ -174,4 +174,12 @@ test("Discovery parser validates ATTACH_TO_CANDIDATE and maturity gates", () => 
   if (parsed[1]!.kind === "FORMALIZATION_CANDIDATE") assert.equal(parsed[1]!.maturity, "READY_FOR_DECISION");
   assert.throws(() => parseDiscoveryJudgments([{ kind: "ATTACH_TO_CANDIDATE", sourceHandles: ["D1"], rationaleSummary: "x" }]), /DEEPSEEK_DISCOVERY_CANDIDATE_INVALID/u);
   assert.throws(() => parseDiscoveryJudgments([{ kind: "FORMALIZATION_CANDIDATE", sourceHandles: ["D1"], recommendedKind: "TASK", recommendedOwnerId: null, proposedTitle: "x", proposedWorkIntent: null, maturity: "MAYBE", rationaleSummary: "x" }]), /DEEPSEEK_DISCOVERY_MATURITY_INVALID/u);
+});
+
+test("conversation reasoning profiles split fast and deep budgets without changing authority semantics", () => {
+  assert.equal(CONVERSATION_FAST_PROFILE.reasoningEffort, "low");
+  assert.equal(CONVERSATION_DEEP_PROFILE.reasoningEffort, "high");
+  assert.ok(CONVERSATION_FAST_PROFILE.maxOutputTokens! < CONVERSATION_DEEP_PROFILE.maxOutputTokens!);
+  assert.equal(CONVERSATION_FAST_PROFILE.executor, "DEEPSEEK");
+  assert.equal(CONVERSATION_DEEP_PROFILE.credentialRef, "DEEPSEEK_API_KEY");
 });
