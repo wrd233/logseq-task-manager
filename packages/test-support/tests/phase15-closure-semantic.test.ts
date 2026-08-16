@@ -217,6 +217,36 @@ test("OPEN closure package is proactively STALE after child reopen or new eviden
   } finally { await value.service.close(); }
 });
 
+test("closure budget defers secondary assessments without consuming attempts or touching formal state", async () => {
+  const assessor = new ControlledAssessor(miniReadyResult("evidence-a"));
+  const directory = await mkdtemp(join(tmpdir(), `task-copilot-closure-budget-`));
+  const remoteProfile: ExecutionProfile = { id: "test-remote-closure", executor: "DEEPSEEK", remoteEnabled: true, modelAlias: "test", allowedDataScope: ["formal_state", "frozen_evidence"], maxContextItems: 24, maxInputChars: 24_000, maxRemoteCallsPerRun: 1, maxRemoteCallsPerHour: 1, timeoutMs: 5_000, retryBudget: 0, credentialRef: "test" };
+  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), requireTrustedUserChannel: false, now: () => at, closureAssessor: assessor, closureExecutionProfile: remoteProfile, closureAssessmentIntervalMs: 60_000, miniProjectClosureSkill: skills.miniProject, projectClosureSkill: skills.project });
+  const plugin = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at, graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64) } as PluginKernelDescriptor);
+  const graph = new FakeGraphAdapter(() => at); const graphId = "graph-closure-budget";
+  try {
+    const miniId = await formalize(plugin, graph, graphId, "mini", "MINI_PROJECT", "采购规格书整理");
+    graph.seedNaturalRecord(graphId, "evidence-a", "设备参数已确认");
+    const setup = await freeze(plugin, graph, graphId, miniId, "evidence-a", "evidence-a");
+    await setMiniIntent(plugin, graph, graphId, miniId, setup.id, setup.contentHash);
+    service.closure.scan();
+    await service.closure.tickClosure();
+    const ready = await plugin.closureAssessment(miniId);
+    assert.equal(ready.assessment.readiness, "READY");
+    assert.equal(assessor.calls, 1);
+
+    graph.seedNaturalRecord(graphId, "evidence-b", "设备参数已确认，复核记录归档");
+    await freeze(plugin, graph, graphId, miniId, "evidence-b", "evidence-b");
+    await service.closure.tickClosure();
+    const deferred = service.closure.jobs().find((job) => job.workObjectId === miniId && job.lastError === "DEFERRED_BY_BUDGET");
+    assert.ok(deferred, "hourly closure budget must defer instead of calling the model");
+    assert.equal(assessor.calls, 1);
+    assert.equal((await plugin.showObject(miniId)).object.lifecycle, "OPEN");
+    const after = await plugin.closureAssessment(miniId);
+    assert.equal(after.fresh, false, "budget deferral must keep the assessment stale, never fabricate READY");
+  } finally { await service.close(); }
+});
+
 test("READY surfaces once in Now and stops repeating after the user opens the object", async () => {
   const assessor = new ControlledAssessor(miniReadyResult("evidence-a"));
   const value = await setup(assessor);

@@ -1,6 +1,6 @@
 # Task Copilot vNext 设计与实施文档集
 
-> 版本：2026-08-19 Phase 13.5 Runtime Hardening + Outcome/Closure 收口  
+> 版本：2026-08-19 Round 12 Production Dogfood & Feature Freeze（closure semantic pipeline 已落地）  
 > 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
 > 适用仓库：`wrd233/logseq-task-manager`
 
@@ -218,7 +218,7 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended Formal maintenance runtime、ExecutionProfile budget/pause、runtime health、single-instance lease、RUNNING-job supersession、honest health recovery）与 Phase 14（derived ClosureReadiness、governed parent closure、USER-only Complete/Cancel/Reopen/Amend 扩展到 MiniProject/Project、External Agent closure handoff 只走 DecisionPackage）。下一阶段按真实体验做更长的 lifecycle dogfood 与 DeepSeek closure eval 复跑，或先做 Phase16D polish；不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended runtime、health、single instance、supersession）与 Phase 14（derived ClosureReadiness、governed parent closure）与 Phase 15 首轮（evidence-grounded semantic closure assessment：deterministic gate → async cached DEEP assessor → host aggregation，见 ADR 040/041；golden path `phase15-closure-semantic-assessment.md`）。Round 12 进行中：40-case closure gold set、Day1–Day5 36-object long-horizon dogfood、Feature Freeze（ADR 042）与 RC_INPUT_CHECKLIST 已建立；待 runtime key 下 DeepSeek gold-set 复跑与真实 Desktop 复跑。下一阶段只允许 Reliability / Release Candidate；不要从旧 01–04 反推架构。
 
 任何新想法先问：
 

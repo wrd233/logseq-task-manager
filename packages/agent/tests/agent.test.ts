@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 
 import { CONVERSATION_DEEP_PROFILE, CONVERSATION_FAST_PROFILE, type ExecutionProfile, type FrozenEvidence, type SkillPackage, type WorkObject } from "@task-copilot/contracts";
-import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
+import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, extractStructuredJudgmentText, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill, parseClosureSemanticJudgment, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "../src/index.ts";
 
 const target: WorkObject = { id: "work-01", kind: "TASK", title: "上架服务器", lifecycle: "OPEN", engagement: "ACTIONABLE", waitingCondition: null, currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "now", updatedAt: "now" };
 const skill = { id: "current-focus-maintenance", version: "0.1.0", contentHash: "a".repeat(64) } as SkillPackage;
@@ -182,4 +182,17 @@ test("conversation reasoning profiles split fast and deep budgets without changi
   assert.ok(CONVERSATION_FAST_PROFILE.maxOutputTokens! < CONVERSATION_DEEP_PROFILE.maxOutputTokens!);
   assert.equal(CONVERSATION_FAST_PROFILE.executor, "DEEPSEEK");
   assert.equal(CONVERSATION_DEEP_PROFILE.credentialRef, "DEEPSEEK_API_KEY");
+});
+
+test("closure semantic parser is strict and never repairs missing or invalid fields", () => {
+  const parsed = parseClosureSemanticJudgment({
+    kind: "MINI_PROJECT",
+    items: [{ key: "C0", status: "SATISFIED", supportingEvidenceIds: ["E1"], rationale: "直接证明" }],
+    objectiveJudgment: { status: "SATISFIED", objectiveContradiction: null, scopeMismatch: null, outcomeContradiction: null, summary: "ok" },
+  });
+  assert.equal(parsed.items[0]?.status, "SATISFIED");
+  assert.deepEqual(parsed.items[0]?.supportingEvidenceIds, ["E1"]);
+  assert.throws(() => parseClosureSemanticJudgment({ kind: "TASK", items: [], objectiveJudgment: {} }), /DEEPSEEK_CLOSURE_KIND_INVALID/u);
+  assert.throws(() => parseClosureSemanticJudgment({ kind: "MINI_PROJECT", items: [], objectiveJudgment: { status: "MAYBE" } }), /DEEPSEEK_CLOSURE_ITEM_STATUS_INVALID/u);
+  assert.throws(() => parseClosureSemanticJudgment({ kind: "MINI_PROJECT", items: [{ key: "C0", status: "SATISFIED", supportingEvidenceIds: [1], rationale: "x" }], objectiveJudgment: { status: "UNKNOWN", objectiveContradiction: null, scopeMismatch: null, outcomeContradiction: null, summary: "x" } }), /DEEPSEEK_CLOSURE_EVIDENCE_ID_INVALID/u);
 });
