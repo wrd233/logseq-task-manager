@@ -258,6 +258,10 @@ export async function backupRestore(backupPath: string, stateDir = stateDirector
   try {
     if ((check.prepare("PRAGMA integrity_check").get() as Record<string, unknown>).integrity_check !== "ok") throw new Error("BACKUP_INTEGRITY_FAILED");
   } finally { check.close(); }
+  // A restored snapshot must never carry the old runtime lease into a fresh start.
+  const writable = new Database(temporary);
+  try { writable.prepare("DELETE FROM runtime_leases").run(); } catch { /* pre-v20 backup without lease table is fine */ }
+  writable.close();
   let previousBackup: string | null = null;
   if (await exists(paths.dbPath)) {
     previousBackup = `${paths.dbPath}.pre-restore-${Date.now()}`;

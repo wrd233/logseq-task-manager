@@ -48,9 +48,13 @@ test("backup inspect rejects missing manifest, corrupt DB, schema mismatch, and 
   await rm(stateDir, { recursive: true, force: true }); await rm(future, { recursive: true, force: true });
 });
 
-test("restore validates and atomically replaces the current database while keeping the previous file", async () => {
+test("restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases", async () => {
   const stateDir = await mkdtemp(join(tmpdir(), "tc-backup-restore-"));
   const { dbPath } = statePaths(stateDir); seedDatabase(dbPath);
+  const lease = new Database(dbPath);
+  lease.exec("CREATE TABLE runtime_leases (scope_key TEXT PRIMARY KEY, instance_id TEXT NOT NULL, pid INTEGER NOT NULL, acquired_at TEXT NOT NULL, heartbeat_at TEXT NOT NULL, lease_token TEXT NOT NULL)");
+  lease.prepare("INSERT INTO runtime_leases(scope_key,instance_id,pid,acquired_at,heartbeat_at,lease_token) VALUES ('runtime:x','old-instance',123,'now','now','t')").run();
+  lease.close();
   const info = await backupCreate(stateDir);
   const db = new Database(dbPath); db.prepare("INSERT OR REPLACE INTO work_objects(id,kind,title,lifecycle,engagement,current_focus,desired_outcome,completion_checks_json,waiting_condition_json,version,created_at,updated_at) VALUES ('w2','TASK','恢复后不应存在','OPEN','ACTIONABLE',NULL,NULL,'[]',NULL,1,'now','now')").run(); db.close();
   const result = await backupRestore(info.path, stateDir);
@@ -58,6 +62,7 @@ test("restore validates and atomically replaces the current database while keepi
   assert.ok(result.previousBackup);
   const restored = new Database(dbPath, { readonly: true });
   assert.equal((restored.prepare("SELECT COUNT(*) AS count FROM work_objects").get() as { count: number }).count, 1);
+  assert.equal((restored.prepare("SELECT COUNT(*) AS count FROM runtime_leases").get() as { count: number }).count, 0);
   restored.close();
   await rm(stateDir, { recursive: true, force: true });
 });
