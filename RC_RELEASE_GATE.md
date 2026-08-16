@@ -21,11 +21,13 @@
 | Docs | PASS | ADR 040–043 / golden paths / experience / RC_INPUT_CHECKLIST 与代码一致 |
 | Known Issues | 见下 | 全部为 RC_KNOWN_ISSUE 或 DEFERRED_1.X |
 
-## Final decision (draft)
+## Final decision
 
-**RC_READY**（待本轮最终 npm run check + secret audit + 最终 eval 复核确认）
+**RC_READY**
 
 Release Blocker: **0**
+
+Evidence: final `npm run check` green（216 tests）；backup/restore/service/doctor/migration/soak 实测完成；DeepSeek 40-case false READY=0；secret audit clean；`logseq/` 与 `tmp/` untracked。
 
 RC Known Issues:
 1. Windows/Linux 未做真实 Desktop soak（代码路径支持但未实测）。

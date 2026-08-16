@@ -34,6 +34,7 @@
 - 103 Formal WorkObjects（8 Projects / 25 MiniProjects / 70 Tasks），synthetic clock Day1–12。
 - Day8 再次 provider failure + recovery；每天 source bursts 与 drain。
 - Day12 终态：HEALTHY；Now 3；Confirmation 0；OPEN packages/candidates/issues 0；closure assessments 43 DONE；历史 failed jobs 10 保留不洗白。
+- 资源/增长基线（12 天后）：SQLite 274 pages / ~1.1MB；work_objects 103；commits 115；reconcile_jobs 53；closure_assessment_jobs 51；closure_assessments 37；decision_packages 3；evidence 11；projection_obligations 8；无 freelist 膨胀，无 leak/runaway 迹象。
 - 证据：`/tmp/tc-soak20/dogfood.json`（harness `tmp/phase20-soak.mts`）。
 
 ## 6. DeepSeek structured output

@@ -1,6 +1,6 @@
 # Task Copilot vNext 设计与实施文档集
 
-> 版本：2026-08-19 Round 12 Production Dogfood & Feature Freeze（closure semantic pipeline + real DeepSeek eval 完成）  
+> 版本：2026-08-19 Phase 20 RC gate complete（**RC_READY**）  
 > 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
 > 适用仓库：`wrd233/logseq-task-manager`
 
@@ -218,7 +218,7 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended runtime、health、single instance、supersession）与 Phase 14（derived ClosureReadiness、governed parent closure）与 Phase 15（evidence-grounded semantic closure assessment：deterministic gate → async cached DEEP assessor → host aggregation，见 ADR 040/041；golden path `phase15-closure-semantic-assessment.md`）。Round 12 已建立：40-case closure gold set（真实 DeepSeek false READY=0 / false NOT_READY=0）、Day1–Day5 36-object long-horizon dogfood、真实 Desktop closure 链、24-conversation Agent replay、Feature Freeze（ADR 042）与 RC_INPUT_CHECKLIST。下一阶段只允许 Reliability / Release Candidate；不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended runtime、health、single instance、supersession）与 Phase 14（derived ClosureReadiness、governed parent closure）与 Phase 15（evidence-grounded semantic closure assessment：deterministic gate → async cached DEEP assessor → host aggregation，见 ADR 040/041）与 Phase 20（backup/restore、service lifecycle、doctor、migration v16–v22、12-day 103-object soak、security defaults，见 ADR 043 与 `RC_RELEASE_GATE.md`）。下一阶段只允许小范围真实使用 + blocker-only fixes，然后 vNext 1.0；不要从旧 01–04 反推架构。
 
 任何新想法先问：
 
