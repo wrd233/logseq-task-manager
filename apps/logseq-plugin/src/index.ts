@@ -487,7 +487,7 @@ async function currentTaskContext() {
   const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
   const api = await client(); const target = await api.showObject(workObjectId);
-  if (target.object.kind !== "TASK") throw new Error("Phase 5 仅支持 Task Closure；MiniProject / Project 仍明确拒绝。");
+  if (target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看「结束评估」，就绪后由你确认结束。");
   const anchor = target.anchor as AnchorView | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
   const { adapter, graphId } = await adapterForCurrentGraph(); if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
   return { api, target, anchor, adapter, graphId };

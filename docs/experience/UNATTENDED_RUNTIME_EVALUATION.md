@@ -36,3 +36,10 @@
 - `normal-now.png` / `normal-more.png`
 - `ui-health-degraded.png`
 - `now-after-catchup.png`
+
+## Round 11 update（Phase 13.5 Runtime Hardening）
+
+- 第 1 条“多 Kernel 实例是真实故障源”已落地修复：SQLite `runtime_leases` 单实例 lease，第二实例同 DB 启动即 `KERNEL_INSTANCE_ALREADY_RUNNING`（真实进程 exit 1 验证），stale lease 可接管。
+- 真实 source-during-run soak：4/4 个对象在 RUNNING 期间注入新 source-change，旧 RUNNING job 全部 STALE + `lastOutcome=SUPERSEDED`，新 job DONE，无假 completion error。
+- 真实 budget/health 语义由 `phase13-runtime.test.ts` + `real-soak.json` 覆盖：Graph offline 消耗 0 remote budget；连续失败 ≥2 → DEGRADED，只有真正成功才回 HEALTHY。
+- 证据：`/tmp/tc-phase135-runtime/real-soak.json`。
