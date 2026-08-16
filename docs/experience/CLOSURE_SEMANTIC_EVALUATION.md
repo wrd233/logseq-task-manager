@@ -11,13 +11,13 @@
   - Fake assessor 是显式 test scaffolding，低召回符合预期；真实语义判断以 DeepSeek 为准
 - 生产测试证明 count 门槛已移除：`phase14-closure.test.ts` 两条“无关 Evidence 数量达标”只到 UNKNOWN，显式归因后才 READY。
 
-## 1b. Real DeepSeek 40-case eval（2026-08-19）
+## 1b. Real DeepSeek 40-case eval（2026-08-19，final）
 
 - **false READY = 0；false NOT_READY = 0**
-- readiness 35/40；item status 47/53；evidence attribution 23/24；invalid evidence ref 0
-- model/format failure 2/40：全部 fail-safe 为 null（保守，不产生 READY），原因主要是模型输出 `[E1]` 未加引号等非法 JSON——按 no semantic repair 原则拒绝，不修补
-- conflict detection 5/8 次，miss 的 3 例全部仍是 UNKNOWN/NOT_READY，没有危险误判
-- avg latency ≈ 18.0s/case；token 累计 ≈ 67k input / 65k output
+- readiness 39/40；CONFLICT recall 8/8；item status 52/53；evidence attribution 23/24；invalid evidence ref 0；format failure 0
+- 唯一分歧：M18（检查满足但目标被证据否定）模型判 CONFLICT，gold 预期 NOT_READY —— 同为非 READY 保守态，无安全影响
+- avg latency ≈ 12.0s/case；token 累计 ≈ 84k input / 49k output
+- API structured-output hint（`json_schema strict:false`）已启用；Host validation 未删
 - 最终验收案例：M02 数量够但无关 → NOT_READY；P02 过程证据 + 最新严重故障 → CONFLICT
 - 证据：`/tmp/tc-closure-semantic-eval.json`
 

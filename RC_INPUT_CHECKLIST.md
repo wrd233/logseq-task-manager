@@ -18,7 +18,7 @@
 
 ## Release Blockers
 
-- [x] DeepSeek closure gold-set eval（40 cases）：false READY = 0，false NOT_READY = 0；readiness 39/40；CONFLICT recall 8/8；attribution 23/24；structured-output hint 后 format failure 1/40（fail-safe null）；avg latency ≈10.8s
+- [x] DeepSeek closure gold-set eval（40 cases）：false READY = 0，false NOT_READY = 0；readiness 39/40；CONFLICT recall 8/8；item 52/53；attribution 23/24；format failure 0；avg latency ≈12.0s
 - [x] 10+ MiniProject / 10+ Project 多轮 Agent conversation replay（24 conversations / 69 turns，scripted DSH 剧本，0 errors；真实 DeepSeek 对话质量列为 RC 持续观察）
 - [x] 真实 Logseq Desktop 上以新 async closure UI 完整走一次：Evidence → READY → USER 结束 → closed re-entry（closed re-entry 残留已修复）
 - [x] Day1–Day5 long-horizon dogfood 首轮 + Phase20 12-day 103-object long soak（Day12 终态 HEALTHY / Now 3 / Confirmation 0 / OPEN packages·candidates·issues 0）
