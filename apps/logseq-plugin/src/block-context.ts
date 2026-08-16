@@ -3,7 +3,7 @@ export type BlockContextObjectKind = "TASK" | "MINI_PROJECT" | "PROJECT";
 
 export type BlockIdentity =
   | { kind: "ORDINARY" }
-  | { kind: "FORMAL"; workObjectId: string; objectKind: BlockContextObjectKind };
+  | { kind: "FORMAL"; workObjectId: string; objectKind: BlockContextObjectKind; title?: string; engagement?: string; lifecycle?: string };
 
 export type BlockContextActionId =
   | "FORMALIZE_TASK"
@@ -13,7 +13,7 @@ export type BlockContextActionId =
   | "RECONCILE_OBJECT";
 
 export interface AnchorIdentityInput {
-  object: { id?: unknown; kind?: unknown };
+  object: { id?: unknown; kind?: unknown; title?: unknown; engagement?: unknown; lifecycle?: unknown };
   anchor?: unknown;
 }
 
@@ -37,7 +37,11 @@ export function buildBlockIdentityIndex(entries: readonly AnchorIdentityInput[])
     const workObjectId = entry.object?.id;
     const objectKind = normalizeObjectKind(entry.object?.kind);
     if (typeof externalId !== "string" || !externalId || typeof workObjectId !== "string" || !workObjectId || !objectKind) continue;
-    index.set(externalId, { kind: "FORMAL", workObjectId, objectKind });
+    const identity: Extract<BlockIdentity, { kind: "FORMAL" }> = { kind: "FORMAL", workObjectId, objectKind };
+    if (typeof entry.object?.title === "string") identity.title = entry.object.title;
+    if (typeof entry.object?.engagement === "string") identity.engagement = entry.object.engagement;
+    if (typeof entry.object?.lifecycle === "string") identity.lifecycle = entry.object.lifecycle;
+    index.set(externalId, identity);
   }
   return index;
 }
