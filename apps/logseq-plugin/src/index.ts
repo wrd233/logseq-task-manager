@@ -5,6 +5,7 @@ import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gate
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
 import { readRecoveryVerificationSnapshot } from "./recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
+import { clampSidebarWidth, parseSidebarWidth, sidebarLayoutSpec, SIDEBAR_DEFAULT_WIDTH, type SidebarLayoutSpec } from "./sidebar-layout.ts";
 import { startSourceChangeObserver } from "./source-change-observer.ts";
 import { requestTextPrompt } from "./text-prompt.ts";
 
@@ -300,33 +301,163 @@ async function respondToDecisionPackage(packageId?: string): Promise<void> {
   await logseq.UI.showMsg(`已按你的授权执行；Commit ${executed.commit.id}`, "success");
 }
 
+const sidebarWidthKey = "task-copilot-vnext-sidebar-width";
+let sidebarWidth = SIDEBAR_DEFAULT_WIDTH;
+let hostLayoutDispose: (() => void) | null = null;
+let panelKeydownDispose: (() => void) | null = null;
+let sidebarDrag: { pointerId: number; startScreenX: number; startWidth: number } | null = null;
+
+function topDocument(): Document | null {
+  try { return window.top?.document ?? null; } catch { return null; }
+}
+
+function hostWindow(): Window | null {
+  try { return window.top ?? null; } catch { return null; }
+}
+
+function headerHeight(doc: Document): number {
+  const rect = doc.querySelector(".cp__header")?.getBoundingClientRect();
+  const value = rect ? Math.round(rect.height) : 48;
+  return value > 0 ? value : 48;
+}
+
+function reservedWidths(doc: Document): { left: number; right: number } {
+  const view = doc.defaultView;
+  const measure = (element: Element | null) => {
+    if (!element || !view || view.getComputedStyle(element).display === "none") return 0;
+    return Math.max(0, Math.round(element.getBoundingClientRect().width));
+  };
+  return { left: measure(doc.querySelector("#left-sidebar")), right: measure(doc.querySelector(".cp__right-sidebar")) };
+}
+
+function syncPanelMode(spec: SidebarLayoutSpec): void {
+  const root = document.querySelector<HTMLElement>("[data-task-copilot-daily-panel]");
+  if (!root) return;
+  root.dataset.tcMode = spec.mode;
+  const handle = root.querySelector<HTMLElement>("[data-tc-resize-handle]");
+  const back = root.querySelector<HTMLElement>("[data-tc-compact-back]");
+  if (handle) handle.style.display = spec.mode === "DOCKED" ? "block" : "none";
+  if (back) back.style.display = spec.mode === "COMPACT" ? "" : "none";
+}
+
+function applySidebarLayout(): SidebarLayoutSpec | null {
+  const doc = topDocument(); const view = hostWindow();
+  if (!doc || !view) return null;
+  const viewport = doc.documentElement.clientWidth || view.innerWidth || 0;
+  const reserved = reservedWidths(doc);
+  const spec = sidebarLayoutSpec({ viewportWidth: viewport, sidebarWidth, leftReserved: reserved.left, rightReserved: reserved.right });
+  doc.documentElement.style.setProperty("--tc-sidebar-width", `${spec.sidebarWidth}px`);
+  doc.body.classList.toggle("tc-sidebar-docked", spec.mode === "DOCKED");
+  doc.body.classList.toggle("tc-sidebar-compact", spec.mode === "COMPACT");
+  const top = headerHeight(doc);
+  const container = doc.querySelector<HTMLElement>("#task-copilot-vnext_lsp_main");
+  if (container) {
+    const base = `position:fixed;top:${top}px;height:calc(100vh - ${top}px);z-index:10000;pointer-events:auto;background:transparent;box-sizing:border-box;`;
+    if (spec.mode === "DOCKED") {
+      container.style.cssText = `${base}left:${spec.panelLeft}px;right:auto;bottom:auto;width:${spec.panelWidth}px;border-left:1px solid var(--ls-border-color,#e3e3e3);`;
+    } else {
+      const leftEdge = spec.panelLeft > 0 ? "border-left:1px solid var(--ls-border-color,#e3e3e3);" : "";
+      const rightEdge = spec.panelRight > 0 ? "border-right:1px solid var(--ls-border-color,#e3e3e3);" : "";
+      container.style.cssText = `${base}left:${spec.panelLeft}px;right:${spec.panelRight}px;bottom:auto;width:auto;${leftEdge}${rightEdge}`;
+    }
+  }
+  syncPanelMode(spec);
+  return spec;
+}
+
+function scheduleSidebarLayout(): void {
+  window.setTimeout(() => applySidebarLayout(), 60);
+}
+
+function installHostLayoutObserver(): () => void {
+  const doc = topDocument(); const view = hostWindow();
+  if (!doc || !view) return () => undefined;
+  const schedule = () => scheduleSidebarLayout();
+  view.addEventListener("resize", schedule);
+  const left = doc.querySelector("#left-sidebar"); const right = doc.querySelector(".cp__right-sidebar");
+  const mutations = new MutationObserver(schedule);
+  for (const element of [left, right]) if (element) mutations.observe(element, { attributes: true, attributeFilter: ["class", "style"] });
+  let sizes: globalThis.ResizeObserver | null = null;
+  if (typeof ResizeObserver === "function") {
+    sizes = new ResizeObserver(schedule);
+    if (left) sizes.observe(left);
+    if (right) sizes.observe(right);
+  }
+  return () => { view.removeEventListener("resize", schedule); mutations.disconnect(); if (sizes) sizes.disconnect(); };
+}
+
+function persistSidebarWidth(): void {
+  void logseq.FileStorage.setItem(sidebarWidthKey, String(sidebarWidth)).catch(() => undefined);
+}
+
+function installPanelStyle(): void {
+  if (document.querySelector("#task-copilot-panel-style")) return;
+  const style = document.createElement("style");
+  style.id = "task-copilot-panel-style";
+  style.textContent = `
+html,body{margin:0;height:100%;overflow:hidden}
+[data-task-copilot-daily-panel] ::-webkit-scrollbar{width:8px;height:8px}
+[data-task-copilot-daily-panel] ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:4px}
+[data-task-copilot-daily-panel] ::-webkit-scrollbar-track{background:transparent}
+[data-tc-resize-handle]::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:1px;background:var(--ls-border-color,#e3e3e3);opacity:.75}
+[data-tc-resize-handle]:hover::after,[data-tc-resize-handle]:focus-visible::after{background:var(--ls-link-text-color,#4f74b8);opacity:.95;width:2px}
+`;
+  document.head.append(style);
+}
+
+function installHostLayoutStyle(): void {
+  logseq.provideStyle(`
+:root{--tc-sidebar-width:384px}
+body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}
+body.tc-sidebar-compact #main-content-container{margin-right:0}
+body.tc-sidebar-resizing,body.tc-sidebar-resizing *{user-select:none!important}
+`);
+}
+
+function closeDailyPanel(): void {
+  document.querySelector("[data-task-copilot-daily-panel]")?.remove();
+  hostLayoutDispose?.(); hostLayoutDispose = null;
+  panelKeydownDispose?.(); panelKeydownDispose = null;
+  sidebarDrag = null;
+  const doc = topDocument();
+  if (doc) { doc.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); }
+  void logseq.hideMainUI({ restoreEditingCursor: true });
+}
+
 async function dailyPanel(): Promise<void> {
   const api = await client();
   const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
+  sidebarWidth = parseSidebarWidth(await logseq.FileStorage.getItem(sidebarWidthKey).catch(() => null));
   const root = document.createElement("div");
   root.dataset.taskCopilotDailyPanel = "true";
-  root.style.cssText = "box-sizing:border-box;width:clamp(320px,44vw,460px);height:100vh;overflow:auto;padding:12px 14px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);border-left:1px solid var(--ls-border-color,#e3e3e3);box-shadow:-8px 0 24px rgba(0,0,0,.10);font-family:var(--ls-font-family,system-ui,sans-serif);";
-  const header = document.createElement("div"); header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;";
-  const brand = document.createElement("div"); brand.textContent = "Task Copilot"; brand.style.cssText = "font-size:13px;font-weight:700;letter-spacing:.02em;opacity:.85;";
-  const close = document.createElement("button"); close.textContent = "×"; close.title = "关闭"; close.style.cssText = "border:none;background:transparent;font-size:20px;line-height:1;cursor:pointer;color:inherit;opacity:.55;padding:0 2px;";
-  close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
-  header.append(brand, close);
-  const tabs = document.createElement("div"); tabs.style.cssText = "display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--ls-border-color,#e3e3e3);";
-  const view = document.createElement("div");
+  root.style.cssText = "box-sizing:border-box;width:100%;height:100vh;overflow:hidden;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);font-family:var(--ls-font-family,system-ui,sans-serif);display:flex;flex-direction:column;position:relative;";
+  const header = document.createElement("div"); header.style.cssText = "flex:none;display:flex;align-items:center;gap:8px;padding:9px 14px 7px;";
+  const brand = document.createElement("div"); brand.textContent = "Task Copilot"; brand.style.cssText = "font-size:13px;font-weight:700;letter-spacing:.02em;opacity:.9;";
+  const compactBack = document.createElement("button"); compactBack.dataset.tcCompactBack = "true"; compactBack.textContent = "← Logseq"; compactBack.title = "返回 Logseq 主工作区"; compactBack.setAttribute("aria-label", "返回 Logseq 主工作区");
+  compactBack.style.cssText = "border:1px solid var(--ls-border-color,#ccc);border-radius:5px;background:transparent;color:inherit;padding:2px 8px;font-size:12px;cursor:pointer;display:none;";
+  compactBack.onclick = () => closeDailyPanel();
+  const close = document.createElement("button"); close.textContent = "×"; close.title = "关闭 Task Copilot"; close.setAttribute("aria-label", "关闭 Task Copilot");
+  close.style.cssText = "border:none;background:transparent;font-size:19px;line-height:1;cursor:pointer;color:inherit;opacity:.55;padding:0 2px;margin-left:auto;";
+  close.onclick = () => closeDailyPanel();
+  header.append(compactBack, brand, close);
+  const tabs = document.createElement("div"); tabs.style.cssText = "flex:none;display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--ls-border-color,#e3e3e3);";
+  const view = document.createElement("div"); view.dataset.tcScrollView = "true"; view.style.cssText = "flex:1 1 auto;min-height:0;overflow-y:auto;padding:12px 14px 20px;";
 
   const render = (name: string, objectId: string | null = null) => {
-    tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "500"; button.style.opacity = "0.7"; });
+    tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "500"; button.style.boxShadow = "none"; });
     const active = tabs.querySelector(`[data-tab="${name}"]`) as HTMLButtonElement | null;
-    if (active && !objectId) { active.disabled = true; active.style.opacity = "1"; active.style.fontWeight = "700"; }
+    if (active && !objectId) { active.disabled = true; active.style.fontWeight = "700"; active.style.boxShadow = "inset 0 -2px 0 var(--ls-link-text-color,#4f74b8)"; }
     if (name === "now") {
       view.replaceChildren();
-      const title = document.createElement("h2"); title.textContent = "现在"; title.style.cssText = "margin:0 0 10px;font-size:18px;";
-      view.append(title);
-      if (!now.items.length) { const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;font-size:13px;"; view.append(empty); }
+      if (!now.items.length) {
+        const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;font-size:13px;";
+        const quiet = document.createElement("p"); quiet.textContent = "后台会在真正值得你注意时再把事情带回来。"; quiet.style.cssText = "color:#999;font-size:12px;margin:4px 0 0;";
+        view.append(empty, quiet);
+      }
       for (const item of now.items) {
-        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;";
+        const card = document.createElement("section"); card.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:10px 0;margin:0;cursor:pointer;";
         if (item.workObjectId) card.onclick = () => render("now", item.workObjectId);
-        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 3px;font-size:15px;";
+        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 3px;font-size:15px;font-weight:600;";
         const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:13px;";
         const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;";
         const cont = document.createElement("p"); cont.textContent = item.continuationPoint; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
@@ -348,26 +479,22 @@ async function dailyPanel(): Promise<void> {
       }
     } else if (name === "confirm") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "待我确认"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
-      view.append(h);
       if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;font-size:13px;"; view.append(empty); }
       for (const item of confirmations.items) {
-        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
-        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 5px;font-size:15px;";
+        const card = document.createElement("section"); card.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:10px 0;margin:0;";
+        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 5px;font-size:15px;font-weight:600;";
         const impact = document.createElement("p"); impact.textContent = item.impact; impact.style.cssText = "margin:0 0 4px;font-size:13px;";
         const fragments: HTMLElement[] = [title, impact];
         if (item.whyNow) { const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:12px;color:#666;"; fragments.push(why); }
-        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;";
+        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;";
         const accept = document.createElement("button"); accept.textContent = "确认"; accept.disabled = item.status === "STALE"; accept.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 12px;cursor:pointer;";
-        accept.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("accept-decision", async () => { if (await acceptDecisionPackage(item.packageId)) await dailyPanel(); }); };
+        accept.onclick = () => { closeDailyPanel(); void guarded("accept-decision", async () => { if (await acceptDecisionPackage(item.packageId)) await dailyPanel(); }); };
         const defer = document.createElement("button"); defer.textContent = "先不改"; defer.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 12px;cursor:pointer;color:inherit;";
-        defer.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("defer-decision", () => deferDecisionPackage(item.packageId)); };
+        defer.onclick = () => { closeDailyPanel(); void guarded("defer-decision", () => deferDecisionPackage(item.packageId)); };
         actions.append(accept, defer); card.append(...fragments, actions); view.append(card);
       }
     } else if (name === "projects") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
-      view.append(h);
       const renderNode = (node: WorkMapNode, depth: number) => {
         const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 12}px;padding:7px 4px;font-size:14px;display:flex;align-items:baseline;gap:6px;border-bottom:1px solid rgba(128,128,128,.12);cursor:pointer;`;
         row.onclick = () => render("projects", node.workObjectId);
@@ -380,23 +507,21 @@ async function dailyPanel(): Promise<void> {
       for (const node of workMap.roots) renderNode(node, 0);
     } else if (name === "more") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "更多"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
-      view.append(h);
       const group = (title: string, rows: string[]) => {
-        const label = document.createElement("p"); label.textContent = title; label.style.cssText = "margin:10px 0 4px;font-size:11px;color:#888;text-transform:uppercase;";
+        const label = document.createElement("p"); label.textContent = title; label.style.cssText = "margin:10px 0 4px;font-size:11px;font-weight:600;color:#888;";
         view.append(label);
-        for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:#444;"; view.append(p); }
+        for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:#444;overflow-wrap:anywhere;"; view.append(p); }
       };
       const systemRows = [system.runtimeSummary];
       if (system.runtimeStatus === "DEGRADED" || system.runtimeStatus === "CATCHING_UP") systemRows.push(`待处理：${system.runtimeQueuedJobs} · 失败：${system.runtimeFailedJobs}`);
       if (!system.graphAvailable) systemRows.push("图连接：离线，恢复后会自动继续。");
       group("系统", systemRows);
       group("工具", [system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行"]);
-      const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+      const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;";
       const pause = document.createElement("button"); pause.textContent = system.maintenancePaused ? "恢复后台维护" : "暂停后台维护"; pause.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;";
       pause.onclick = () => void guarded("toggle-maintenance", async () => { await api.setMaintenancePause("global", !system.maintenancePaused); await dailyPanel(); });
       const organize = document.createElement("button"); organize.textContent = "运行整理今天"; organize.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 10px;cursor:pointer;";
-      organize.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("organize-today", organizeTodayCommand); };
+      organize.onclick = () => { closeDailyPanel(); void guarded("organize-today", organizeTodayCommand); };
       actions.append(pause, organize); view.append(actions);
     }
     if (objectId) {
@@ -406,53 +531,53 @@ async function dailyPanel(): Promise<void> {
         view.replaceChildren();
         const back = document.createElement("button"); back.textContent = "‹ 返回"; back.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;margin-bottom:8px;font-size:13px;";
         back.onclick = () => render(objectId === null ? "now" : pack.kind === "PROJECT" ? "projects" : "now");
-        const title = document.createElement("h2"); title.textContent = pack.title; title.style.cssText = "margin:0 0 6px;font-size:18px;";
+        const title = document.createElement("h2"); title.textContent = pack.title; title.style.cssText = "margin:0 0 6px;font-size:17px;font-weight:700;";
         view.append(back, title);
         if (pack.projectIntent) {
-          const intent = document.createElement("section"); intent.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
+          const intent = document.createElement("section"); intent.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:2px 0 10px;margin-bottom:8px;";
           if (pack.projectIntent.objective) { const objective = document.createElement("p"); objective.textContent = `目标：${pack.projectIntent.objective}`; objective.style.cssText = "margin:0 0 4px;font-size:14px;"; intent.append(objective); }
           if (pack.projectIntent.currentPhase) { const phase = document.createElement("p"); phase.textContent = `当前阶段：${pack.projectIntent.currentPhase}`; phase.style.cssText = "margin:0 0 4px;font-size:12px;color:#555;"; intent.append(phase); }
           if (pack.projectIntent.keyResults.length) {
-            const krTitle = document.createElement("p"); krTitle.textContent = "结果边界"; krTitle.style.cssText = "margin:4px 0 2px;font-size:11px;color:#888;"; intent.append(krTitle);
-            for (const kr of pack.projectIntent.keyResults) { const p = document.createElement("p"); p.textContent = `• ${kr.text}`; p.style.cssText = "margin:0 0 2px;font-size:13px;"; intent.append(p); }
+            const krTitle = document.createElement("p"); krTitle.textContent = "结果边界"; krTitle.style.cssText = "margin:4px 0 2px;font-size:11px;font-weight:600;color:#888;"; intent.append(krTitle);
+            for (const kr of pack.projectIntent.keyResults) { const p = document.createElement("p"); p.textContent = `• ${kr.text}`; p.style.cssText = "margin:0 0 2px;font-size:13px;overflow-wrap:anywhere;"; intent.append(p); }
           }
           view.append(intent);
         }
-        const reality = document.createElement("p"); reality.textContent = pack.reentrySummary; reality.style.cssText = "margin:0 0 8px;font-size:14px;";
+        const reality = document.createElement("p"); reality.textContent = pack.reentrySummary; reality.style.cssText = "margin:0 0 8px;font-size:14px;overflow-wrap:anywhere;";
         view.append(reality);
         if (pack.recentChanges.length) { const changes = document.createElement("p"); changes.textContent = `最近变化：${pack.recentChanges.slice(0, 3).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;"; view.append(changes); }
         if (pack.activeChildren.length) {
-          const childrenTitle = document.createElement("p"); childrenTitle.textContent = "当前重点"; childrenTitle.style.cssText = "margin:8px 0 2px;font-size:11px;color:#888;"; view.append(childrenTitle);
-          for (const child of pack.activeChildren) { const p = document.createElement("p"); p.textContent = `• ${child.title}${child.reason ? ` — ${child.reason}` : ""}`; p.style.cssText = "margin:0 0 2px;font-size:13px;"; view.append(p); }
+          const childrenTitle = document.createElement("p"); childrenTitle.textContent = "当前重点"; childrenTitle.style.cssText = "margin:8px 0 2px;font-size:11px;font-weight:600;color:#888;"; view.append(childrenTitle);
+          for (const child of pack.activeChildren) { const p = document.createElement("p"); p.textContent = `• ${child.title}${child.reason ? ` — ${child.reason}` : ""}`; p.style.cssText = "margin:0 0 2px;font-size:13px;overflow-wrap:anywhere;"; view.append(p); }
         }
         if (pack.closureAssessment && pack.kind !== "TASK") {
           const assessment = pack.closureAssessment;
-          const closure = document.createElement("section"); closure.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin:8px 0;";
+          const closure = document.createElement("section"); closure.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:2px 0 10px;margin:8px 0;";
           const label = document.createElement("p"); label.textContent = !pack.closureAssessmentFresh ? "完成情况正在重新评估"
             : assessment.readiness === "READY" ? "已具备结束条件"
             : assessment.readiness === "CONFLICT" ? "当前存在冲突，不能判断已经完成"
             : assessment.readiness === "NOT_READY" ? "当前还不能结束"
-            : "完成情况还不确定"; label.style.cssText = "margin:0 0 4px;font-size:13px;font-weight:600;";
+            : "完成情况还不确定"; label.style.cssText = `margin:0 0 4px;font-size:13px;font-weight:600;${assessment.readiness === "CONFLICT" ? "color:#b02a37;" : assessment.readiness === "READY" && pack.closureAssessmentFresh ? "color:var(--ls-link-text-color,#4f74b8);" : ""}`;
           closure.append(label);
-          if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;"; closure.append(blockers); }
+          if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;overflow-wrap:anywhere;"; closure.append(blockers); }
           if (assessment.checks.length) {
             for (const check of assessment.checks) {
               const glyph = check.status === "SATISFIED" ? "✓" : check.status === "UNSATISFIED" ? "✗" : check.status === "CONTRADICTED" ? "⚠" : "○";
-              const p = document.createElement("p"); p.textContent = `${glyph} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;";
+              const p = document.createElement("p"); p.textContent = `${glyph} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;overflow-wrap:anywhere;";
               closure.append(p);
               if (check.rationale && check.status !== "SATISFIED") { const reason = document.createElement("p"); reason.textContent = `  ${check.rationale}`; reason.style.cssText = "margin:0 0 4px;font-size:11px;color:#777;"; closure.append(reason); }
             }
           }
           if (assessment.readiness === "READY" && pack.closureAssessmentFresh) {
-            const closeButton = document.createElement("button"); closeButton.textContent = `结束这个${pack.kind === "PROJECT" ? "项目" : "子项目"}`; closeButton.style.cssText = "margin-top:6px;border:1px solid #b00;border-radius:5px;background:transparent;color:#b00;padding:4px 10px;cursor:pointer;";
-            closeButton.onclick = () => void guarded("close-object", async () => { if (await closeObjectFromAssessment(api, objectId, pack.title, assessment.evidenceIds)) { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); await dailyPanel(); } });
+            const closeButton = document.createElement("button"); closeButton.textContent = `结束这个${pack.kind === "PROJECT" ? "项目" : "子项目"}`; closeButton.style.cssText = "margin-top:6px;border:1px solid #b02a37;border-radius:5px;background:transparent;color:#b02a37;padding:4px 10px;cursor:pointer;";
+            closeButton.onclick = () => void guarded("close-object", async () => { if (await closeObjectFromAssessment(api, objectId, pack.title, assessment.evidenceIds)) { closeDailyPanel(); await dailyPanel(); } });
             closure.append(closeButton);
           }
           view.append(closure);
         } else if (pack.lifecycle === "COMPLETED" || pack.lifecycle === "CANCELLED") {
           const closed = document.createElement("p"); closed.textContent = pack.lifecycle === "COMPLETED" ? "已完成" : "已取消"; closed.style.cssText = "margin:8px 0 0;font-size:13px;color:#555;"; view.append(closed);
         }
-        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;margin-top:10px;";
+        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;";
         if (pack.lifecycle === "OPEN") {
           const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
           discuss.onclick = () => void openObjectConversation(api, objectId, pack.title);
@@ -465,18 +590,47 @@ async function dailyPanel(): Promise<void> {
     }
   };
   for (const [key, label] of [["now", "现在"], ["confirm", "待我确认"], ["projects", "项目"], ["more", "更多"]] as const) {
-    const button = document.createElement("button"); button.dataset.tab = key; button.textContent = label; button.style.cssText = "border:none;background:transparent;padding:6px 10px 7px;cursor:pointer;color:inherit;font-size:13px;";
+    const button = document.createElement("button"); button.dataset.tab = key; button.textContent = label; button.style.cssText = "border:none;background:transparent;padding:7px 8px 8px;cursor:pointer;color:inherit;font-size:13px;font-weight:500;";
     button.onclick = () => render(key); tabs.append(button);
   }
-  const panel = document.createElement("div");
-  panel.style.cssText = "box-sizing:border-box;min-height:100%;";
-  panel.append(header, tabs, view); root.append(panel);
+  const handle = document.createElement("div");
+  handle.dataset.tcResizeHandle = "true"; handle.setAttribute("role", "separator"); handle.setAttribute("aria-orientation", "vertical"); handle.setAttribute("aria-label", "调整 Task Copilot 宽度"); handle.title = "拖动调整 Task Copilot 宽度（300–520px）";
+  handle.style.cssText = "position:absolute;top:0;bottom:0;left:0;width:9px;margin-left:-4px;cursor:col-resize;touch-action:none;z-index:20;display:block;";
+  handle.addEventListener("pointerdown", (event) => {
+    if (root.dataset.tcMode === "COMPACT") return;
+    event.preventDefault(); event.stopPropagation();
+    const doc = topDocument();
+    sidebarDrag = { pointerId: event.pointerId, startScreenX: event.screenX, startWidth: sidebarWidth };
+    handle.setPointerCapture(event.pointerId);
+    doc?.body.classList.add("tc-sidebar-resizing");
+  });
+  handle.addEventListener("pointermove", (event) => {
+    if (!sidebarDrag || sidebarDrag.pointerId !== event.pointerId) return;
+    const next = clampSidebarWidth(sidebarDrag.startWidth + (sidebarDrag.startScreenX - event.screenX));
+    if (next !== sidebarWidth) { sidebarWidth = next; applySidebarLayout(); }
+  });
+  const endDrag = (event: PointerEvent) => {
+    if (!sidebarDrag || sidebarDrag.pointerId !== event.pointerId) return;
+    sidebarDrag = null; topDocument()?.body.classList.remove("tc-sidebar-resizing"); persistSidebarWidth();
+  };
+  handle.addEventListener("pointerup", endDrag); handle.addEventListener("pointercancel", endDrag);
+
+  root.append(header, tabs, view, handle);
   document.body.replaceChildren(root);
-  logseq.setMainUIAttrs({ draggable: true, resizable: true });
-  logseq.setMainUIInlineStyle({ position: "fixed", top: "0", right: "0", width: "clamp(320px,44vw,460px)", height: "100vh", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
+  logseq.setMainUIAttrs({ draggable: false, resizable: false });
+  applySidebarLayout();
   logseq.showMainUI({ autoFocus: true });
+  applySidebarLayout();
+  hostLayoutDispose = installHostLayoutObserver();
+  root.tabIndex = -1; root.focus();
+  panelKeydownDispose = (() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); closeDailyPanel(); } };
+    document.addEventListener("keydown", onKey, { capture: true });
+    return () => document.removeEventListener("keydown", onKey, { capture: true });
+  })();
   render("now");
 }
+
 
 async function closeObjectFromAssessment(api: KernelClient, workObjectId: string, title: string, evidenceIds: readonly string[]): Promise<boolean> {
   const target = await api.showObject(workObjectId);
@@ -633,6 +787,8 @@ async function guarded(label: string, action: () => Promise<void>): Promise<void
 }
 
 async function main(): Promise<void> {
+  installPanelStyle();
+  installHostLayoutStyle();
   const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
   const stopGraphWorker = startGraphGatewayWorker({
     connection: async () => { const connection = await descriptor(); const value = await adapterForCurrentGraph(); return { descriptor: connection, ...value, readHost: graphGatewayReadHost() }; },
@@ -656,7 +812,7 @@ async function main(): Promise<void> {
     isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),
     onError: (error) => { if (error instanceof Error && !/请先运行|DESCRIPTOR_INVALID/u.test(error.message)) console.warn("source-change-observer", error); },
   });
-  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); await logseq.hideMainUI(); });
+  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
