@@ -29,3 +29,37 @@
 - 第一版问题：重复 Kernel rerun 时 Now 出现重复卡片 → 已按 id dedupe。
 - 第二版问题：内部 enum 与英文 action 列表只在 ObjectContext API 层，用户面板不显示。
 - 第三版：面板 tabs 用「现在 / 待我确认 / 项目 / 更多」，按钮用用户语言。
+
+---
+
+# Phase 16B 迭代（2026-08-16，EXPERIENCE / EMPIRICAL）
+
+## V1（full-screen modal）
+
+- 操作：CDP 打开 `window.taskCopilotOpenDailyPanel()`。
+- 观察：Now 出现 4 张几乎相同的卡（`最近有正式变化 / 保持可推进 / 继续推进当前事项`）；WorkMap 显示 `海丝项目（PROJECT）`；Confirmation 还是「回应当前决策」。
+- 摩擦：全屏 overlay 挡住笔记；信息重复；enum 泄漏；卡片高度浪费。
+- 截图：`/tmp/tc-phase16b-ux/ui/{now,confirm,workmap,more}-v1.png`。
+
+## V2（side panel）
+
+- 改变：root 从 100vw overlay 改为右侧 drawer（min(430px,52vw)，100vh，border-left）；Now cap 3 + attention weight；卡片只保留 reality / whyNow / continue；WorkMap 弱中文类型标签。
+- 观察：Now 显示 pending decision 对象 + Project + 一个新对象；Confirmation 显示「进入等待：等待厂商新版」和「确认 / 暂不」；WorkMap 可读。
+- 摩擦：Project reality 还是空泛；新对象仍然「已正式化」重复。
+- 截图：`now-v2.png`、`workmap-v2.png`、`small-window-v2.png`。
+
+## V3（reality / since-last-seen）
+
+- 改变：Project reality 显示 child 数；无 baseline 时 whyNow 显示「新正式化的项目，包含 N 个子项」；`currentReality` 显示「还没有明确推进点」而不是「保持可推进」；continue 点改为「和 Agent 讨论下一步」。
+- 观察：早晨 Now 更有信息量；evening 只有一条 `上次看过以后有新的正式变化` 的 WAITING resurface。
+- 小窗口：960×640 侧栏可完整操作，不遮主编辑区。
+- 证据：`/tmp/tc-phase16b-ux/ui/*.png`、`/tmp/tc-phase16b-ux/daily-sim.json`。
+
+## Real daily simulation
+
+- Morning：Now 空（已 baseline）。
+- Midday：在 Journal 新增 3 条自然记录 → PAGE discovery `已完成 4 条记录的语义整理`，无候选（fake executor restraint）。
+- Afternoon：Trusted USER 确认「法务探针验证改为等待厂商新版」→ `engagement=WAITING`。
+- Afternoon reply：冻结厂商新版证据 → External Engagement Agent `WAITING→ACTIONABLE` low-risk apply → `COMMITTED`。
+- Evening：Now 只 resurface 一条对象，`changesSinceLastSeen=2`，formalVersion 3。
+
