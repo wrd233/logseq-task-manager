@@ -416,6 +416,7 @@ export class SqliteStore {
     this.#migrateV17();
     this.#migrateV18();
     this.#migrateV19();
+    this.#migrateV20();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -835,6 +836,71 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (19, ?)").run(new Date().toISOString());
   }
 
+  #migrateV20(): void {
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS runtime_leases (
+        scope_key TEXT PRIMARY KEY,
+        instance_id TEXT NOT NULL,
+        pid INTEGER NOT NULL,
+        acquired_at TEXT NOT NULL,
+        heartbeat_at TEXT NOT NULL,
+        lease_token TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS runtime_health (
+        scope_key TEXT PRIMARY KEY,
+        last_success_at TEXT,
+        last_failure_at TEXT,
+        consecutive_failures INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (20, ?)").run(new Date().toISOString());
+  }
+
+  acquireRuntimeLease(scopeKey: string, instanceId: string, pid: number, leaseToken: string, heartbeatAt: string, ttlMs: number): void {
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      const row = this.#database.prepare("SELECT * FROM runtime_leases WHERE scope_key=?").get(scopeKey) as { instance_id: string; pid: number; heartbeat_at: string } | undefined;
+      if (row) {
+        const fresh = Date.parse(heartbeatAt) - Date.parse(row.heartbeat_at) <= ttlMs;
+        if (fresh && row.instance_id !== instanceId) throw new Error("KERNEL_INSTANCE_ALREADY_RUNNING");
+        this.#database.prepare("UPDATE runtime_leases SET instance_id=?, pid=?, heartbeat_at=?, lease_token=? WHERE scope_key=?").run(instanceId, pid, heartbeatAt, leaseToken, scopeKey);
+      } else {
+        this.#database.prepare("INSERT INTO runtime_leases(scope_key,instance_id,pid,acquired_at,heartbeat_at,lease_token) VALUES (?,?,?,?,?,?)").run(scopeKey, instanceId, pid, heartbeatAt, heartbeatAt, leaseToken);
+      }
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  releaseRuntimeLease(scopeKey: string, instanceId: string): void {
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database.prepare("DELETE FROM runtime_leases WHERE scope_key=? AND instance_id=?").run(scopeKey, instanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  recordMaintenanceSuccess(scopeKey: string, at: string): void {
+    this.#database.prepare(`INSERT INTO runtime_health(scope_key,last_success_at,last_failure_at,consecutive_failures,updated_at)
+      VALUES (?,?,NULL,0,?) ON CONFLICT(scope_key) DO UPDATE SET last_success_at=excluded.last_success_at, last_failure_at=NULL, consecutive_failures=0, updated_at=excluded.updated_at`).run(scopeKey, at, at);
+  }
+
+  recordMaintenanceFailure(scopeKey: string, at: string): void {
+    this.#database.prepare(`INSERT INTO runtime_health(scope_key,last_success_at,last_failure_at,consecutive_failures,updated_at)
+      VALUES (?,NULL,?,1,?) ON CONFLICT(scope_key) DO UPDATE SET last_failure_at=excluded.last_failure_at, consecutive_failures=consecutive_failures+1, updated_at=excluded.updated_at`).run(scopeKey, at, at);
+  }
+
+  getRuntimeHealth(scopeKey: string): { lastSuccessAt: string | null; lastFailureAt: string | null; consecutiveFailures: number } {
+    const row = this.#database.prepare("SELECT * FROM runtime_health WHERE scope_key=?").get(scopeKey) as { last_success_at: string | null; last_failure_at: string | null; consecutive_failures: number } | undefined;
+    return row ? { lastSuccessAt: row.last_success_at === null ? null : String(row.last_success_at), lastFailureAt: row.last_failure_at === null ? null : String(row.last_failure_at), consecutiveFailures: Number(row.consecutive_failures) } : { lastSuccessAt: null, lastFailureAt: null, consecutiveFailures: 0 };
+  }
+
   putProjectIntent(intent: ProjectIntent): void {
     this.#database.prepare(`INSERT INTO project_intents(work_object_id, objective, key_results_json, scope, current_phase, revision, created_at, updated_at)
       VALUES (@workObjectId, @objective, @keyResults, @scope, @currentPhase, @revision, @createdAt, @updatedAt)
@@ -1216,7 +1282,7 @@ export class SqliteStore {
   }
 
   invalidateActiveReconcileJobs(workObjectId: string, at: string): void {
-    this.#database.prepare("UPDATE reconcile_jobs SET status='STALE', updated_at=? WHERE work_object_id=? AND status IN ('QUEUED','RUNNING')").run(at, workObjectId);
+    this.#database.prepare("UPDATE reconcile_jobs SET status='STALE', updated_at=? WHERE work_object_id=? AND status='QUEUED'").run(at, workObjectId);
   }
 
   enqueueReconcileJob(job: ReconcileJob): void {
@@ -1259,6 +1325,21 @@ export class SqliteStore {
       if (!changed.changes) throw new Error("RECONCILE_JOB_NOT_RUNNING");
       this.markSourceCovered(workObjectId, snapshotId, formalVersion, at);
     });
+  }
+
+  completeReconcileJobAsSuperseded(id: string, at: string): ReconcileJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      const job = this.#mapReconcileJob(row);
+      this.#database.prepare("UPDATE reconcile_jobs SET status='STALE', last_outcome='SUPERSEDED', last_error='SUPERSEDED_BY_NEWER_JOB', updated_at=? WHERE id=?").run(at, id);
+      return { ...job, status: "STALE" as const, lastOutcome: "SUPERSEDED", lastError: "SUPERSEDED_BY_NEWER_JOB", updatedAt: at };
+    });
+  }
+
+  hasQueuedReconcileJobNewerThan(workObjectId: string, currentJobId: string, createdAt: string): boolean {
+    const row = this.#database.prepare("SELECT 1 FROM reconcile_jobs WHERE work_object_id=? AND status='QUEUED' AND id<>? AND created_at>=? LIMIT 1").get(workObjectId, currentJobId, createdAt);
+    return Boolean(row);
   }
 
   failReconcileJob(id: string, reason: string, nextNotBefore: string, at: string, maxAttempts: number): ReconcileJob {

@@ -693,7 +693,7 @@ export interface SourceChangeObservation {
   observedAt: string;
 }
 
-export type MaintenanceReconcileOutcome = "NO_CHANGE" | "CONFIRMED_CHANGE" | "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE" | "NEEDS_MORE_CONTEXT";
+export type MaintenanceReconcileOutcome = "NO_CHANGE" | "CONFIRMED_CHANGE" | "UNKNOWN" | "CONFLICT" | "BOUNDARY_CANDIDATE" | "NEEDS_MORE_CONTEXT" | "SUPERSEDED";
 
 export interface SourceRef {
   graphId: string;

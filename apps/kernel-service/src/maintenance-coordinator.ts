@@ -159,24 +159,18 @@ export class MaintenanceCoordinator {
         const next = new Date(Date.parse(at) + this.#retryBackoffMs).toISOString();
         return this.#store.refreshReconcileJobSemanticRevision(job.id, object.version, currentSemanticRevision, next, at);
       }
-      if (this.#profile.executor !== "FAKE" && this.#profile.remoteEnabled) {
-        const runLimit = this.#profile.maxRemoteCallsPerRun ?? 1;
-        if (this.#remoteCallsThisRun >= runLimit) {
-          return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
-        }
-        const hourLimit = this.#profile.maxRemoteCallsPerHour;
-        if (hourLimit && !this.#store.consumeRemoteCallBudget(`remote:${this.#profile.id}`, hourLimit, at)) {
-          return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
-        }
-        this.#remoteCallsThisRun += 1;
-      }
       const status = this.#broker.status();
       if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
       const outcome = await this.#reconcileOpenObject(object.id, job.sourceBlockUuid ?? anchor.externalId, job);
+      if (outcome === "SUPERSEDED") return this.#store.getReconcileJob(job.id);
       this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), outcome);
+      this.#store.recordMaintenanceSuccess("global", this.#now());
       return this.#store.getReconcileJob(job.id);
     } catch (error) {
-      return this.#requeue(job, error instanceof Error ? error.message.slice(0, 200) : "MAINTENANCE_FAILED");
+      const message = error instanceof Error ? error.message.slice(0, 200) : "MAINTENANCE_FAILED";
+      if (message === "DEFERRED_BY_BUDGET") return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
+      this.#store.recordMaintenanceFailure("global", this.#now());
+      return this.#requeue(job, message);
     }
   }
 
@@ -217,8 +211,17 @@ export class MaintenanceCoordinator {
     const object = this.#store.getWorkObject(workObjectId)!;
     const target = this.#kernel.targetSnapshotInput(workObjectId);
     const snapshot = response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: target }), "READ_TARGET_SNAPSHOT").snapshot;
+    if (this.#superseded(job)) {
+      this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
+      return "SUPERSEDED";
+    }
     const pack = await this.#buildContextPack(object, target.graphId, sourceBlockUuid);
+    this.#reserveRemoteCall();
     const judgment = await this.#cognition.judge({ object, contextPack: pack, openIssues: this.#store.listGovernanceIssues(workObjectId, "OPEN"), profile: this.#profile });
+    if (this.#superseded(job)) {
+      this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
+      return "SUPERSEDED";
+    }
     const byHandle = new Map(pack.map((item) => [item.handle, item]));
     const handles = (value: string[]): ContextPackItem[] => value.map((handle) => byHandle.get(handle)).filter((item): item is ContextPackItem => Boolean(item));
     const selectedItems = handles(this.#selectedHandles(judgment));
@@ -231,6 +234,10 @@ export class MaintenanceCoordinator {
     }).sort()]);
 
     if (judgment.kind === "CONFIRMED_CHANGE") {
+      if (this.#superseded(job)) {
+        this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
+        return "SUPERSEDED";
+      }
       const evidence = await this.#freshEvidence(evidenceIds, handles(judgment.supportingContextHandles).map((item) => item.sourceRef!).filter(Boolean));
       if (judgment.proposedOperation.type === "SET_CURRENT_FOCUS") {
         const runId = `cognition-focus:${job.id}`;
@@ -264,6 +271,19 @@ export class MaintenanceCoordinator {
     }
     this.#kernel.upsertGovernanceIssue({ workObjectId, dimension: judgment.dimension, type: "BOUNDARY_CANDIDATE", summary: judgment.summary, evidenceIds, sourceSnapshotId: issueKey, formalVersion: object.version, correlationId: job.id });
     return "BOUNDARY_CANDIDATE";
+  }
+
+  #superseded(job: ReconcileJob): boolean {
+    return this.#store.hasQueuedReconcileJobNewerThan(job.workObjectId, job.id, job.createdAt);
+  }
+
+  #reserveRemoteCall(): void {
+    if (this.#profile.executor === "FAKE" || !this.#profile.remoteEnabled) return;
+    const runLimit = this.#profile.maxRemoteCallsPerRun ?? 1;
+    if (this.#remoteCallsThisRun >= runLimit) throw new Error("DEFERRED_BY_BUDGET");
+    const hourLimit = this.#profile.maxRemoteCallsPerHour;
+    if (hourLimit && !this.#store.consumeRemoteCallBudget(`remote:${this.#profile.id}`, hourLimit, this.#now())) throw new Error("DEFERRED_BY_BUDGET");
+    this.#remoteCallsThisRun += 1;
   }
 
   #selectedHandles(judgment: SemanticJudgment): string[] {

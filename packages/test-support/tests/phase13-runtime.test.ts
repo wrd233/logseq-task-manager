@@ -7,6 +7,7 @@ import test from "node:test";
 import { KernelClient, type PluginKernelDescriptor } from "@task-copilot/client";
 import { parseSemanticOperation, stableHash, type CognitionExecutor, type ExecutionProfile, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse, type SemanticJudgment, type WorkObject } from "@task-copilot/contracts";
 import { startKernelServer } from "@task-copilot/kernel-service";
+import { SqliteStore } from "@task-copilot/sqlite";
 import { FakeGraphAdapter } from "../src/index.ts";
 
 const at = "2026-08-18T09:00:00.000Z";
@@ -126,7 +127,7 @@ test("Project semantic revision refreshes queued maintenance instead of running 
   } finally { await value.service.close(); }
 });
 
-test("runtime health reports PAUSED and DEGRADED without affecting formal reads", async () => {
+test("runtime health reports PAUSED and DEGRADED and recovers only after real success", async () => {
   const executor = new CountingExecutor(); executor.mode = "FAIL";
   const value = await setup("health", executor, { ...remoteBudgetProfile, maxRemoteCallsPerHour: 100 });
   try {
@@ -134,17 +135,115 @@ test("runtime health reports PAUSED and DEGRADED without affecting formal reads"
     const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
     try {
       for (let index = 0; index < 40 && !(await value.client.graphStatus()).available; index += 1) await new Promise((resolve) => setTimeout(resolve, 5));
-      value.graph.editNaturalContent(value.graphId, "source-health", "健康状态材料");
-      const snapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-health" });
-      await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-health", sourceContentHash: snapshot.sourceContentHash, sourceMarker: snapshot.sourceMarker ?? null, observedAt: at });
+      const change = async (content: string) => {
+        value.graph.editNaturalContent(value.graphId, "source-health", content);
+        const snapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-health" });
+        await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-health", sourceContentHash: snapshot.sourceContentHash, sourceMarker: snapshot.sourceMarker ?? null, observedAt: at });
+      };
+      await change("健康状态材料一");
       await value.client.setMaintenancePause("global", true);
       assert.equal((await value.client.systemProjection()).runtimeStatus, "PAUSED");
       await value.client.setMaintenancePause("global", false);
       await value.service.maintenance.tick();
+      await change("健康状态材料二");
+      await value.service.maintenance.tick();
       const system = await value.client.systemProjection();
       assert.equal(system.runtimeStatus, "DEGRADED");
-      assert.equal(system.runtimeFailedJobs, 1);
+      assert.equal(system.runtimeFailedJobs, 2);
       assert.equal((await value.client.showObject(taskId)).object.lifecycle, "OPEN");
+      executor.mode = "NO_CHANGE";
+      await change("健康状态材料三");
+      await value.service.maintenance.tick();
+      assert.equal((await value.client.systemProjection()).runtimeStatus, "HEALTHY");
+    } finally { stop(); }
+  } finally { await value.service.close(); }
+});
+
+class BlockingExecutor extends CountingExecutor {
+  enteredResolve: (() => void) | null = null;
+  entered = new Promise<void>((resolve) => { this.enteredResolve = resolve; });
+  release: (() => void) | null = null;
+  gate = new Promise<void>((resolve) => { this.release = resolve; });
+  override async judge(input: Parameters<CognitionExecutor["judge"]>[0]): Promise<SemanticJudgment> {
+    this.enteredResolve?.();
+    await this.gate;
+    return super.judge(input);
+  }
+}
+
+test("single kernel instance lease rejects a second active runtime and recovers after close", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "task-copilot-phase13-lease-"));
+  const databasePath = join(directory, "kernel.sqlite");
+  const descriptorPath = join(directory, "kernel.json");
+  const first = await startKernelServer({ databasePath, descriptorPath, token: "token", requireTrustedUserChannel: false });
+  await assert.rejects(startKernelServer({ databasePath, descriptorPath: join(directory, "kernel-2.json"), token: "token-2", requireTrustedUserChannel: false }), /KERNEL_INSTANCE_ALREADY_RUNNING/u);
+  await first.close();
+  const second = await startKernelServer({ databasePath, descriptorPath, token: "token-3", requireTrustedUserChannel: false });
+  await second.close();
+});
+
+test("stale runtime lease is recoverable after crash-like abandonment", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "task-copilot-phase13-stale-lease-"));
+  const databasePath = join(directory, "kernel.sqlite");
+  const stale = new SqliteStore(databasePath);
+  stale.acquireRuntimeLease(`runtime:${databasePath}`, "stale-instance", 99_999, "stale-token", new Date(Date.now() - 60_000).toISOString(), 30_000);
+  stale.close();
+  const service = await startKernelServer({ databasePath, descriptorPath: join(directory, "kernel.json"), token: "token", requireTrustedUserChannel: false });
+  await service.close();
+});
+
+test("a RUNNING reconcile job is superseded safely by a newer source generation", async () => {
+  const executor = new BlockingExecutor();
+  const value = await setup("supersession", executor, { ...remoteBudgetProfile, maxRemoteCallsPerHour: 10 });
+  try {
+    const taskId = await formalize(value.client, value.graph, value.graphId, "run", "TASK", "运行中任务", "source-run");
+    const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+    try {
+      for (let index = 0; index < 40 && !(await value.client.graphStatus()).available; index += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+      value.graph.editNaturalContent(value.graphId, "source-run", "第一代变更");
+      const snapshot1 = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-run" });
+      const firstChange = await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-run", sourceContentHash: snapshot1.sourceContentHash, sourceMarker: snapshot1.sourceMarker ?? null, observedAt: at });
+      const running = value.service.maintenance.tick();
+      await executor.entered;
+      value.graph.editNaturalContent(value.graphId, "source-run", "第二代变更");
+      const snapshot2 = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-run" });
+      await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-run", sourceContentHash: snapshot2.sourceContentHash, sourceMarker: snapshot2.sourceMarker ?? null, observedAt: at });
+      executor.release!();
+      await running;
+      const oldJob = value.service.store.getReconcileJob(firstChange.job.id);
+      assert.equal(oldJob?.status, "STALE");
+      assert.equal(oldJob?.lastOutcome, "SUPERSEDED");
+      assert.equal(executor.calls, 1);
+      await value.service.maintenance.tick();
+      assert.equal(executor.calls, 2);
+    } finally { stop(); }
+  } finally { await value.service.close(); }
+});
+
+test("graph-offline attempt does not consume remote budget", async () => {
+  const executor = new CountingExecutor();
+  const value = await setup("budget-offline", executor, { ...remoteBudgetProfile, maxRemoteCallsPerHour: 1, maxRemoteCallsPerRun: 1 });
+  try {
+    const taskId = await formalize(value.client, value.graph, value.graphId, "off", "TASK", "离线预算对象", "source-off");
+    value.graph.editNaturalContent(value.graphId, "source-off", "离线前变更");
+    let snapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-off" });
+    await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-off", sourceContentHash: snapshot.sourceContentHash, sourceMarker: snapshot.sourceMarker ?? null, observedAt: at });
+    await value.service.maintenance.tick();
+    assert.equal(executor.calls, 0);
+    const stop = startBridge({ baseUrl: value.service.baseUrl, bridgeToken: value.service.graphBridgeToken, snapshotKey: value.service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
+    try {
+      for (let index = 0; index < 40 && !(await value.client.graphStatus()).available; index += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+      value.graph.editNaturalContent(value.graphId, "source-off", "在线变更一");
+      snapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-off" });
+      await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-off", sourceContentHash: snapshot.sourceContentHash, sourceMarker: snapshot.sourceMarker ?? null, observedAt: at });
+      await value.service.maintenance.tick();
+      assert.equal(executor.calls, 1);
+      value.graph.editNaturalContent(value.graphId, "source-off", "在线变更二");
+      snapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-off" });
+      await value.client.recordSourceChange({ workObjectId: taskId, graphId: value.graphId, sourceBlockUuid: "source-off", sourceContentHash: snapshot.sourceContentHash, sourceMarker: snapshot.sourceMarker ?? null, observedAt: at });
+      await value.service.maintenance.tick();
+      assert.equal(executor.calls, 1);
+      assert.equal(value.service.maintenance.jobs("QUEUED").some((job) => job.lastError === "DEFERRED_BY_BUDGET"), true);
     } finally { stop(); }
   } finally { await value.service.close(); }
 });

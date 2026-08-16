@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
@@ -37,7 +37,7 @@ async function removeOwnedDescriptor(path: string, token: string): Promise<void>
   catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
 }
 
-export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore; maintenance: MaintenanceCoordinator; broker: GraphRequestBroker }> {
+export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore; maintenance: MaintenanceCoordinator; broker: GraphRequestBroker; instanceId: string }> {
   const token = options.token ?? randomBytes(32).toString("hex");
   const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   const graphBridgeToken = options.graphBridgeToken ?? randomBytes(32).toString("hex");
@@ -49,6 +49,15 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const graphDescriptorPath = options.graphDescriptorPath ?? join(dirname(options.descriptorPath), "graph-adapter.json");
   await mkdir(dirname(options.databasePath), { recursive: true });
   const store = new SqliteStore(options.databasePath);
+  const instanceId = `kernel:${randomUUID()}`;
+  const leaseToken = randomBytes(16).toString("hex");
+  const leaseScope = `runtime:${options.databasePath}`;
+  const leaseTtlMs = 30_000;
+  const heartbeatLease = () => store.acquireRuntimeLease(leaseScope, instanceId, process.pid, leaseToken, new Date().toISOString(), leaseTtlMs);
+  heartbeatLease();
+  const leaseTimer = setInterval(() => {
+    try { heartbeatLease(); } catch (error) { console.warn("[kernel] runtime lease heartbeat failed", error); }
+  }, 10_000);
   const currentFocusSkill = options.currentFocusSkill ?? await loadCurrentFocusSkill(options.workspaceRoot);
   const engagementSkill = options.engagementSkill ?? await loadEngagementReconciliationSkill(options.workspaceRoot);
   const miniProjectSkill = options.miniProjectSkill ?? await loadMiniProjectGovernanceSkill(options.workspaceRoot);
@@ -423,11 +432,13 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
   await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt });
   return {
-    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker,
+    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker, instanceId,
     close: async () => {
+      clearInterval(leaseTimer);
       maintenance.stop();
       broker.close();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      try { store.releaseRuntimeLease(leaseScope, instanceId); } catch (error) { console.warn("[kernel] runtime lease release failed", error); }
       store.close();
       await removeOwnedDescriptor(options.descriptorPath, token); await removeOwnedDescriptor(graphDescriptorPath, token);
     },
