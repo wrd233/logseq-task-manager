@@ -36,6 +36,7 @@ In Logseq, select the relevant fact block and run `Task Copilot vNext：让 Agen
 
 ```sh
 npm install
+npm run build
 npm run task-copilot -- service start
 npm run task-copilot -- service status
 npm run task-copilot -- doctor

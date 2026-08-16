@@ -6,7 +6,7 @@
 
 - macOS + Logseq Desktop 0.10.15（真实实测基线）。
 - Node.js 20.20.x（项目 engines：`>=20.19 <21`；这是正式支持版本）。
-- 本仓库 clone + 在仓库根目录执行 `npm install`。
+- 本仓库 clone + 在仓库根目录执行 `npm install && npm run build`。
 - 可选的 DeepSeek API Key：只有环境变量 `DEEPSEEK_API_KEY` 这一种方式；不要写进任何文件。
 
 > 所有命令都在仓库根目录执行。统一写法是 `npm run task-copilot -- ...`。如果你希望使用更短的 `task-copilot ...`，可以执行一次 `npm link`；这不是必须步骤。

@@ -2,6 +2,7 @@
 
 > 状态：2026-08-16 Phase 20 收口。每项只能 PASS / PASS_WITH_KNOWN_ISSUE / FAIL。
 > 规则：RELEASE_BLOCKER = 0 才允许 RC_READY。
+> Authoritative source hierarchy：当前代码/tests → RC_RELEASE_GATE → RC_INPUT_CHECKLIST → README/docs/vnext/README → User/Developer guides → Experience docs（历史证据）。历史 run 保留原数字，但 Final Gate 只引用最新 authoritative run。
 
 | Gate | 结论 | 证据 / Known Issue |
 | --- | --- | --- |
