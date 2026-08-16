@@ -190,7 +190,10 @@ test("user completion closes one Task with a minimal immutable record and clears
   assert.deepEqual(completed.object, { ...open, lifecycle: "COMPLETED", engagement: null, waitingCondition: null, currentFocus: null, version: 3, updatedAt: "2026-08-13T02:00:00.000Z" });
   assert.deepEqual(completed.record, { id: "completion-01", workObjectId: open.id, completedAt: "2026-08-13T02:00:00.000Z", outcomeSummary: "确认防火墙开放 443", evidenceIds: [], createdBy: { type: "USER", id: "local-user" } });
   assert.throws(() => completeWorkObject(completed.object, { recordId: "completion-02", actor: { type: "USER", id: "local-user" }, outcomeSummary: "重复", evidenceIds: [], expectedVersion: 3, at: "2026-08-13T03:00:00.000Z" }), /CLOSURE_LIFECYCLE_INVALID/u);
-  assert.throws(() => completeWorkObject(createWorkObject({ id: "mini-close", kind: "MINI_PROJECT", title: "不得关闭", at: open.createdAt }), { recordId: "completion-mini", actor: { type: "USER", id: "local-user" }, outcomeSummary: "完成", evidenceIds: [], expectedVersion: 1, at: open.updatedAt }), /TASK_CLOSURE_KIND_UNSUPPORTED/u);
+  const miniClosed = completeWorkObject(createWorkObject({ id: "mini-close", kind: "MINI_PROJECT", title: "小型项目", at: open.createdAt }), { recordId: "completion-mini", actor: { type: "USER", id: "local-user" }, outcomeSummary: "验收通过", evidenceIds: [], expectedVersion: 1, at: open.updatedAt });
+  assert.equal(miniClosed.object.lifecycle, "COMPLETED");
+  assert.equal(miniClosed.object.engagement, null);
+  assert.equal(miniClosed.record.workObjectId, "mini-close");
 });
 
 test("cancellation, reopen, and amendment preserve closure history", () => {
@@ -198,7 +201,10 @@ test("cancellation, reopen, and amendment preserve closure history", () => {
   const cancelled = cancelWorkObject(open, { recordId: "cancel-01", actor: { type: "USER", id: "local-user" }, reason: "  业务方取消需求  ", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [], expectedVersion: 1, at: "2026-08-13T02:00:00.000Z" });
   assert.equal(cancelled.object.lifecycle, "CANCELLED");
   assert.equal(cancelled.record.reason, "业务方取消需求");
-  assert.throws(() => cancelWorkObject(createWorkObject({ id: "project-close", kind: "PROJECT", title: "不得关闭", at: open.createdAt }), { recordId: "cancel-project", actor: { type: "USER", id: "local-user" }, reason: "不得关闭", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [], expectedVersion: 1, at: open.updatedAt }), /TASK_CLOSURE_KIND_UNSUPPORTED/u);
+  const projectCancelled = cancelWorkObject(createWorkObject({ id: "project-close", kind: "PROJECT", title: "项目收口", at: open.createdAt }), { recordId: "cancel-project", actor: { type: "USER", id: "local-user" }, reason: "方向调整", replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [], expectedVersion: 1, at: open.updatedAt });
+  assert.equal(projectCancelled.object.lifecycle, "CANCELLED");
+  assert.equal(projectCancelled.object.waitingCondition, null);
+  assert.equal(projectCancelled.record.reason, "方向调整");
   const amendment = amendClosure(cancelled.record, { amendmentId: "amend-01", workObjectId: open.id, actor: { type: "USER", id: "local-user" }, reason: "原原因不准确", replacementCancellationReason: "业务方向发生变化", addEvidenceIds: ["evidence-01"], at: "2026-08-13T03:00:00.000Z" });
   assert.equal(cancelled.record.reason, "业务方取消需求");
   assert.equal(amendment.replacementCancellationReason, "业务方向发生变化");
