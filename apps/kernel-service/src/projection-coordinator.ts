@@ -40,6 +40,7 @@ export class ProjectionCoordinator {
       const waitingRecentlyChanged = recent.some((commit) => commit.operationType === "CHANGE_ENGAGEMENT" && (commit.after as { engagement?: string | null } | null)?.engagement === "WAITING");
       const reviewDue = object.waitingCondition?.reviewAt !== null && object.waitingCondition?.reviewAt !== undefined && object.waitingCondition.reviewAt <= at;
       const coverage = this.#maintenance.coverage(object.id);
+      const childCount = this.#store.listOwnerships().filter((ownership) => ownership.ownerId === object.id).length;
       const hasUncoveredChanges = coverage?.hasUncoveredChanges ?? false;
       const hasPendingDecision = pending.length > 0;
       const hasRecentMeaningfulChange = recent.length > 0;
@@ -65,12 +66,12 @@ export class ProjectionCoordinator {
       if (hasUncoveredChanges) whyNowParts.push("自然记录有新变化，等待对齐");
       if (resurfacedWaiting) whyNowParts.push(object.engagement === "WAITING" ? "等待有变化，值得回来复查" : "");
       if (hasRecentMeaningfulChange && baseline) whyNowParts.push("上次看过以后有新的正式变化");
-      if (!baseline && hasRecentMeaningfulChange) whyNowParts.push("最近有正式变化");
+      if (!baseline && hasRecentMeaningfulChange) whyNowParts.push(object.kind === "PROJECT" ? `新正式化的项目，包含 ${childCount} 个子项` : "新正式化，可以从这里恢复");
       if (!whyNowParts.length) whyNowParts.push("当前现实值得恢复");
       items.push({
         id: `formal:${object.id}`, source: "FORMAL", workObjectId: object.id, title: object.title, kind: object.kind,
-        whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object),
-        meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : "继续推进当前事项"),
+        whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object, childCount),
+        meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : object.kind === "PROJECT" ? "和 Agent 讨论项目下一步" : "和 Agent 讨论下一步"),
         engagement: object.engagement, waitingSummary: object.waitingCondition?.description ?? null,
         pendingDecisionCount: pending.length, coverageHonesty: hasUncoveredChanges ? "部分新记录尚未完成语义整理" : "现实已对齐",
         provenance: `formal-v${object.version}@${object.updatedAt}`, lastSeenAt: baseline?.lastViewedAt ?? null, changesSinceLastSeen: baseline ? recent.length : 0,
@@ -86,9 +87,12 @@ export class ProjectionCoordinator {
         coverageHonesty: "自然边界，未正式化", provenance: `candidate-r${candidate.revision}`, lastSeenAt: null, changesSinceLastSeen: 0,
       });
     }
-    items.sort((a, b) => (b.pendingDecisionCount - a.pendingDecisionCount) || (b.changesSinceLastSeen - a.changesSinceLastSeen) || b.provenance.localeCompare(a.provenance));
+    items.sort((a, b) => {
+      const weight = (item: NowProjectionItem) => (item.pendingDecisionCount > 0 ? 4 : 0) + (item.engagement === "WAITING" ? 2 : 0) + (item.changesSinceLastSeen > 0 ? 1 : 0) + (item.kind === "PROJECT" ? 1 : 0) + (item.source === "NATURAL_FRONTIER" ? 2 : 0);
+      return weight(b) - weight(a) || b.provenance.localeCompare(a.provenance);
+    });
     const unique = [...new Map(items.map((item) => [item.id, item])).values()];
-    return { items: unique.slice(0, 4), generatedAt: at, graphAvailable: this.#broker.status().available };
+    return { items: unique.slice(0, 3), generatedAt: at, graphAvailable: this.#broker.status().available };
   }
 
   async objectContext(workObjectId: string): Promise<ObjectContextPack | null> {
@@ -237,10 +241,11 @@ export class ProjectionCoordinator {
     return { ...node, children: (children.get(node.workObjectId) ?? []).map((child) => this.#attach(child, children)) };
   }
 
-  #reality(object: { engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null }): string {
+  #reality(object: { kind: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null }, childCount = 0): string {
     if (object.engagement === "WAITING") return `在等待：${object.waitingCondition?.description ?? "等待条件"}`;
     if (object.currentFocus) return `当前推进：${object.currentFocus}`;
     if (object.desiredOutcome) return `目标：${object.desiredOutcome}`;
-    return "保持可推进，暂无明确聚焦";
+    if (object.kind === "PROJECT" && childCount > 0) return `${childCount} 个子项在推进，还没到项目级聚焦`;
+    return "还没有明确推进点";
   }
 }

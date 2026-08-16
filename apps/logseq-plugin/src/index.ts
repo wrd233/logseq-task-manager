@@ -289,10 +289,10 @@ async function dailyPanel(): Promise<void> {
   const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
   const root = document.createElement("div");
   root.dataset.taskCopilotDailyPanel = "true";
-  root.style.cssText = "box-sizing:border-box;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.32);font-family:var(--ls-font-family,system-ui,sans-serif);";
+  root.style.cssText = "box-sizing:border-box;width:min(430px,52vw);height:100vh;overflow:auto;padding:14px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);border-left:1px solid var(--ls-border-color,#e3e3e3);box-shadow:-8px 0 24px rgba(0,0,0,.12);font-family:var(--ls-font-family,system-ui,sans-serif);";
   const panel = document.createElement("div");
-  panel.style.cssText = "box-sizing:border-box;width:min(720px,100%);max-height:92vh;overflow:auto;padding:20px;border-radius:12px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);box-shadow:0 20px 60px rgba(0,0,0,.3);";
-  const close = document.createElement("button"); close.textContent = "关闭"; close.style.cssText = "float:right;border:1px solid #ccc;border-radius:6px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;"; close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
+  panel.style.cssText = "box-sizing:border-box;min-height:100%;";
+  const close = document.createElement("button"); close.textContent = "关闭"; close.style.cssText = "border:1px solid #ccc;border-radius:6px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;"; close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
   const tabs = document.createElement("div"); tabs.style.cssText = "display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;";
   const view = document.createElement("div");
   const render = (name: string) => {
@@ -305,18 +305,24 @@ async function dailyPanel(): Promise<void> {
       view.append(title);
       if (!now.items.length) { const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;"; view.append(empty); }
       for (const item of now.items) {
-        const card = document.createElement("section"); card.style.cssText = "border:1px solid #e3e3e3;border-radius:10px;padding:12px;margin-bottom:10px;";
-        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 4px;font-size:17px;";
-        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:13px;color:#555;";
-        const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:14px;";
+        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
+        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 2px;font-size:16px;";
+        const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:13px;color:var(--ls-primary-text-color,#222);";
+        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;";
         const cont = document.createElement("p"); cont.textContent = `继续：${item.continuationPoint}`; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
-        card.append(h, why, reality, cont);
+        const fragments: HTMLElement[] = [h, reality, why, cont];
+        if (item.meaningfulChanges.length && item.lastSeenAt) {
+          const changes = document.createElement("p"); changes.textContent = `上次以后：${item.meaningfulChanges.slice(0, 2).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;";
+          fragments.splice(3, 0, changes);
+        }
+        card.append(...fragments);
         if (item.workObjectId) {
-          const open = document.createElement("button"); open.textContent = "打开 Logseq 原文"; open.style.cssText = "border:1px solid #bbb;border-radius:6px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;margin-right:6px;";
+          const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
+          const open = document.createElement("button"); open.textContent = "打开原文"; open.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 8px;cursor:pointer;color:inherit;";
           open.onclick = () => { void openObjectAnchor(api, item.workObjectId!); };
-          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
+          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 8px;cursor:pointer;";
           discuss.onclick = () => { void openObjectConversation(api, item.workObjectId!, item.title); };
-          card.append(open, discuss);
+          actions.append(open, discuss); card.append(actions);
         }
         view.append(card);
       }
@@ -342,12 +348,12 @@ async function dailyPanel(): Promise<void> {
       const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
       view.append(h);
       const renderNode = (node: WorkMapNode, depth: number) => {
-        const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 14}px;padding:5px 0;font-size:14px;`;
+        const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 12}px;padding:5px 0;font-size:14px;display:flex;align-items:center;gap:6px;`;
         const kindLabel = node.kind === "PROJECT" ? "项目" : node.kind === "MINI_PROJECT" ? "子项目" : "任务";
         const statusText = node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : "";
         const label = document.createElement("span"); label.textContent = `${node.title}${statusText}`;
-        const kind = document.createElement("span"); kind.textContent = kindLabel; kind.style.cssText = "margin-left:6px;font-size:11px;color:#888;";
-        const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "margin-left:8px;border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;";
+        const kind = document.createElement("span"); kind.textContent = kindLabel; kind.style.cssText = "font-size:11px;color:#888;";
+        const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;";
         open.onclick = () => { void openObjectAnchor(api, node.workObjectId); };
         row.append(label, kind, open); view.append(row);
         for (const child of node.children) renderNode(child, depth + 1);
@@ -376,7 +382,7 @@ async function dailyPanel(): Promise<void> {
   panel.append(close, tabs, view); root.append(panel);
   document.body.replaceChildren(root);
   logseq.setMainUIAttrs({ draggable: true, resizable: true });
-  logseq.setMainUIInlineStyle({ position: "fixed", inset: "0", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
+  logseq.setMainUIInlineStyle({ position: "fixed", top: "0", right: "0", width: "min(430px,52vw)", height: "100vh", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
   logseq.showMainUI({ autoFocus: true });
   render("now");
 }

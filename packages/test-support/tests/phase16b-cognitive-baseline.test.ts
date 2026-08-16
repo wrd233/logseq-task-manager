@@ -57,6 +57,9 @@ test("Cognitive baseline: Now changes are relative to the last time the user act
     assert.equal(item!.changesSinceLastSeen, 1);
     assert.equal(item!.lastSeenAt, at);
     assert.match(item!.meaningfulChanges[0]!, /标题更新/);
+    const pack = (await value.client.objectContextPack(taskId)).pack;
+    assert.equal(pack.formalVersion, 2);
+    assert.match(pack.recentChanges[0]!, /标题改为/);
     await value.client.markObjectViewed(taskId);
     const third = await value.client.nowProjection();
     assert.equal(third.items.some((candidate) => candidate.workObjectId === taskId), false);

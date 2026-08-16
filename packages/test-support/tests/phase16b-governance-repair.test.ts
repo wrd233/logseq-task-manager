@@ -80,6 +80,8 @@ test("USER-actor Formal mutation requires the Plugin trusted channel; a bare bea
     const result = await value.graph.applyGraphEffect(prepared.graphEffect as GraphEffect);
     await value.plugin.complete(prepared.commit.id, result, await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source" }));
     assert.equal((await value.plugin.showObject(prepared.commit.targetId!)).object.title, "通道边界验证");
+    await assert.rejects(value.external.markObjectViewed(prepared.commit.targetId!), /TRUSTED_USER_CHANNEL_REQUIRED/u);
+    assert.equal((await value.plugin.markObjectViewed(prepared.commit.targetId!)).baseline.lastViewedFormalVersion, 1);
   } finally { value.stop(); await value.service.close(); }
 });
 
