@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { KernelClient } from "@task-copilot/client";
+import { KernelClient, type PluginKernelDescriptor } from "@task-copilot/client";
 import { parseSemanticOperation, stableHash, type GraphEffect, type GraphGatewayRequestEnvelope, type GraphGatewayResponse } from "@task-copilot/contracts";
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
@@ -48,14 +48,37 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 async function setup(kind: "TASK" | "MINI_PROJECT" = "TASK") {
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-phase6-"));
   const databasePath = join(directory, "kernel.sqlite"); const descriptorPath = join(directory, "kernel.json");
-  const service = await startKernelServer({ databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
+  const plugin = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at, graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: service.userChannelToken } as PluginKernelDescriptor);
   const graph = new FakeGraphAdapter(() => at); const graphId = "graph-phase6"; const source = graph.seedNaturalRecord(graphId, "source", "TODO 验证外部 Agent 治理");
   const prepared = await client.prepare(parseSemanticOperation({ operationId: `phase6-formalize-${kind}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title: kind === "MINI_PROJECT" ? "虚拟机模板与镜像规范" : "验证外部 Agent 治理", anchor: { graphId, blockUuid: "source", sourceContentHash: source.sourceContentHash } } }), source);
   const result = await graph.applyGraphEffect(prepared.graphEffect as GraphEffect); await client.complete(prepared.commit.id, result, await graph.readGraphSnapshot({ graphId, sourceBlockUuid: "source" }));
   const records = new Map<string, { content: string; pageName: string }>(); const stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId, graph, records });
   for (let attempt = 0; attempt < 20 && !(await client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
-  return { service, client, graph, graphId, workObjectId: prepared.commit.targetId!, records, stop, databasePath, descriptorPath };
+  return { service, client, plugin, graph, graphId, workObjectId: prepared.commit.targetId!, records, stop, databasePath, descriptorPath };
+}
+
+async function acceptPackage(plugin: KernelClient, packageId: string, presentationRevision: string) {
+  const event = await plugin.createTrustedUserEvent({ exactUserUtterance: "确认", packageId, presentationRevision });
+  const compiled = await plugin.compileUserDecision({ trustedUserEventId: event.event.id });
+  assert.equal(compiled.kind, "AUTHORIZED_DECISION");
+  if (compiled.kind !== "AUTHORIZED_DECISION") throw new Error("unreachable");
+  return plugin.executeUserDecision(compiled.decision.id);
+}
+
+function expectCommit(result: Awaited<ReturnType<KernelClient["applyExternalProposal"]>>) {
+  if (!("commit" in result)) throw new Error("expected a committed proposal, got a decision package");
+  return result;
+}
+
+async function waitForProjectionHealth(client: KernelClient) {
+  for (let index = 0; index < 100; index += 1) {
+    const health = await client.projectionHealth();
+    if (health.backlog === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("PROJECTION_BACKLOG_TIMEOUT");
 }
 
 test("MiniProject governance supports one-question Grill, continuous low-risk apply, no-change, and boundary stop", async () => {
@@ -71,17 +94,19 @@ test("MiniProject governance supports one-question Grill, continuous low-risk ap
 
     const intent = await value.client.startExternalAgentRun({ runId: "run-mini-intent", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
     const proposed = await value.client.finishExternalAgentRun(intent.run.id, { outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome: "形成一份可评审的虚拟机模板与镜像规范", completionChecks: ["覆盖模板、镜像、版本和发布约束", "通过运维与安全联合评审"] }, reasonCode: "MINIMUM_COMMITMENT_REACHED", rationaleSummary: "一个核心输出与两项完成标准已足够。" });
-    assert.equal(proposed.revision?.operationType, "UPDATE_WORK_INTENT"); assert.equal(proposed.revision?.skill.id, "work-intent-maintenance"); const intentCommit = await value.client.applyExternalProposal(proposed.proposal!.id); assert.equal(intentCommit.commit.status, "COMMITTED");
+    assert.equal(proposed.revision?.operationType, "UPDATE_WORK_INTENT"); assert.equal(proposed.revision?.skill.id, "work-intent-maintenance"); const intentPackage = await value.client.applyExternalProposal(proposed.proposal!.id); assert.ok("package" in intentPackage); const intentCommit = (await acceptPackage(value.plugin, intentPackage.package.id, intentPackage.package.presentationRevision)).commit; assert.equal(intentCommit.status, "COMMITTED"); assert.equal(intentCommit.actor.type, "USER"); assert.equal(intentCommit.operationType, "UPDATE_WORK_INTENT");
     const afterIntent = (await value.client.showObject(value.workObjectId)).object; assert.equal(afterIntent.desiredOutcome, "形成一份可评审的虚拟机模板与镜像规范"); assert.equal(afterIntent.version, 2);
+    await waitForProjectionHealth(value.client);
 
     const focus = await value.client.startExternalAgentRun({ runId: "run-mini-focus", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
     const focusProposal = await value.client.finishExternalAgentRun(focus.run.id, { outcome: "PROPOSAL", change: { type: "SET_CURRENT_FOCUS", currentFocus: "梳理现有模板差异" }, reasonCode: "CURRENT_BOTTLENECK", rationaleSummary: "当前推进明确。" });
-    assert.equal(focusProposal.revision?.skill.id, "current-focus-maintenance"); const focusCommit = await value.client.applyExternalProposal(focusProposal.proposal!.id); assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, "梳理现有模板差异");
+    assert.equal(focusProposal.revision?.skill.id, "current-focus-maintenance"); expectCommit(await value.client.applyExternalProposal(focusProposal.proposal!.id)); assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, "梳理现有模板差异");
 
     const correction = await value.client.startExternalAgentRun({ runId: "run-mini-correction", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
     const correctedProposal = await value.client.finishExternalAgentRun(correction.run.id, { outcome: "PROPOSAL", change: { type: "UPDATE_WORK_INTENT", desiredOutcome: "形成一份可评审的虚拟机模板与镜像规范", completionChecks: ["覆盖模板、镜像、版本和发布约束"] }, reasonCode: "LATE_UNDERSTANDING_CORRECTION", rationaleSummary: "后来确认联合评审不是硬完成门槛，只修正依赖该理解的完成标准。" });
-    const corrected = await value.client.applyExternalProposal(correctedProposal.proposal!.id); const afterCorrection = (await value.client.showObject(value.workObjectId)).object;
-    assert.equal(afterCorrection.currentFocus, "梳理现有模板差异"); assert.deepEqual(afterCorrection.completionChecks, ["覆盖模板、镜像、版本和发布约束"]); assert.notEqual(corrected.commit.id, intentCommit.commit.id); assert.notEqual(corrected.commit.id, focusCommit.commit.id);
+    const correctedPackage = await value.client.applyExternalProposal(correctedProposal.proposal!.id); assert.ok("package" in correctedPackage); const corrected = (await acceptPackage(value.plugin, correctedPackage.package.id, correctedPackage.package.presentationRevision)).commit; const afterCorrection = (await value.client.showObject(value.workObjectId)).object;
+    assert.equal(afterCorrection.currentFocus, "梳理现有模板差异"); assert.deepEqual(afterCorrection.completionChecks, ["覆盖模板、镜像、版本和发布约束"]); assert.notEqual(corrected.id, intentCommit.id); assert.equal(corrected.actor.type, "USER");
+    await waitForProjectionHealth(value.client);
 
     value.records.set("resource-block", { content: "现有镜像版本清单", pageName: "Phase 7 Governance Acceptance" });
     const curationRun = await value.client.startExternalAgentRun({ runId: "run-mini-curation", purpose: "MINI_PROJECT_GOVERNANCE", workObjectId: value.workObjectId, evidenceIds: [frozen.evidence.id], executorId: "fresh-codex", governanceCorrelationId: correlation });
@@ -110,8 +135,8 @@ test("External CLI executor reuses Skills, records reads separately, and commits
     await value.client.graphSearch({ query: "交换机", limit: 10, runId: started.run.id }); await value.client.graphBlock("focus-evidence", started.run.id);
     const finished = await value.client.finishExternalAgentRun(started.run.id, { outcome: "PROPOSAL", currentFocus: "补充交换机参数并完善规格说明", reasonCode: "NEW_ACTIONABLE_FOCUS", rationaleSummary: "记录给出了明确下一步。" });
     assert.equal(finished.revision?.skill.contentHash, bootstrap.skills.find((item) => item.id === "current-focus-maintenance")?.contentHash); assert.equal((await value.client.listAgentRunReads(started.run.id)).receipts.length, 2); assert.equal(finished.revision?.evidenceDependencies.length, 1);
-    const applied = await value.client.applyExternalProposal(finished.proposal!.id); assert.equal(applied.commit.status, "COMMITTED"); assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, "补充交换机参数并完善规格说明");
-    assert.equal((await value.client.applyExternalProposal(finished.proposal!.id)).commit.id, applied.commit.id);
+    const applied = expectCommit(await value.client.applyExternalProposal(finished.proposal!.id)); assert.equal(applied.commit.status, "COMMITTED"); assert.equal((await value.client.showObject(value.workObjectId)).object.currentFocus, "补充交换机参数并完善规格说明");
+    assert.equal(expectCommit(await value.client.applyExternalProposal(finished.proposal!.id)).commit.id, applied.commit.id);
     assert.equal((await value.client.finishExternalAgentRun(started.run.id, { outcome: "PROPOSAL", currentFocus: "补充交换机参数并完善规格说明", reasonCode: "NEW_ACTIONABLE_FOCUS", rationaleSummary: "记录给出了明确下一步。" })).proposal?.id, finished.proposal!.id);
 
     value.records.set("wait-evidence", { content: "厂商尚未提供兼容版本，拿到新版本前无法继续部署。", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "wait-evidence", value.records.get("wait-evidence")!.content);
@@ -209,7 +234,7 @@ test("External apply invalidates stale Evidence and safely retries a transient G
     const result = await retry.client.finishExternalAgentRun("run-retry", { outcome: "PROPOSAL", currentFocus: "验证交换机配置", reasonCode: "FOCUS", rationaleSummary: "明确" });
     retry.graph.failNextApply(); await assert.rejects(retry.client.applyExternalProposal(result.proposal!.id), /GRAPH_APPLY_PENDING/u);
     assert.equal((await retry.client.listRecovery()).recovery[0]?.action, "RESUME_GRAPH_APPLY");
-    const applied = await retry.client.applyExternalProposal(result.proposal!.id); assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.recovered, true);
+    const applied = expectCommit(await retry.client.applyExternalProposal(result.proposal!.id)); assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.recovered, true);
   } finally { retry.stop(); await retry.service.close(); }
 });
 
@@ -223,11 +248,11 @@ test("a pending External proposal resumes after Kernel restart and Plugin worker
     value.graph.failNextApply(); await assert.rejects(value.client.applyExternalProposal(result.proposal!.id), /GRAPH_APPLY_PENDING/u);
     stop(); await service.close();
 
-    service = await startKernelServer({ databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token-2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "c".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+    service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token-2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "c".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
     const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
     stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId: value.graphId, graph: value.graph, records: value.records });
     for (let attempt = 0; attempt < 20 && !(await client.graphStatus()).available; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 5));
-    const applied = await client.applyExternalProposal(result.proposal!.id);
+    const applied = expectCommit(await client.applyExternalProposal(result.proposal!.id));
     assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.recovered, true);
     assert.equal((await client.showObject(value.workObjectId)).object.currentFocus, "核对恢复路径");
   } finally { stop(); await service.close(); }

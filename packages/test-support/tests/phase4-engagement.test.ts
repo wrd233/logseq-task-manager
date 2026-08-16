@@ -13,7 +13,7 @@ const at = "2026-08-13T08:00:00.000Z";
 
 async function setup(label: string, options: { engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage } = {}) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase4-${label}-`));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase4", `source-${label}`, "配置生产服务器网络");

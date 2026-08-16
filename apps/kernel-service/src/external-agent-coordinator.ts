@@ -1,4 +1,4 @@
-import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
 import { KernelError } from "@task-copilot/kernel";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
@@ -90,7 +90,7 @@ export class ExternalAgentCoordinator {
     this.#store.putCurationReceipt(receipt); return receipt;
   }
 
-  async applyProposal(proposalId: string): Promise<{ commit: StoredCommit; recovered: boolean }> {
+  async applyProposal(proposalId: string): Promise<{ commit: StoredCommit; recovered: boolean } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> {
     const stored = this.#store.getProposal(proposalId);
     if (!stored) throw new KernelError("PROPOSAL_NOT_FOUND", "Proposal does not exist.");
     if (stored.proposal.status === "APPLIED" && stored.proposal.appliedCommitId) return { commit: this.#store.getCommit(stored.proposal.appliedCommitId)!, recovered: true };
@@ -104,7 +104,11 @@ export class ExternalAgentCoordinator {
       return { evidenceId: dependency.evidenceId, ...material };
     }));
     const operationId = `external-apply-${proposalId}`;
-    const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : stored.revision.operationType === "UPDATE_WORK_INTENT" ? this.#kernel.applyWorkIntentProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
+    if (stored.revision.operationType === "UPDATE_WORK_INTENT") {
+      const packaged = this.#kernel.packageWorkIntentProposal({ operationId, proposalId, snapshot, evidence });
+      return { package: packaged.pkg, candidates: packaged.candidates, recovered: false };
+    }
+    const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
     return { commit: await this.#applyPending(pending.commit, pending.graphEffect), recovered: false };
   }
 

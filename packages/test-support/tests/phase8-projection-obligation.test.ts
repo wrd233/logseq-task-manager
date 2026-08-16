@@ -12,7 +12,7 @@ import { FakeGraphAdapter } from "../src/index.ts";
 const at = "2026-08-15T00:00:00.000Z";
 
 async function start(directory: string, graph: FakeGraphAdapter, options: { projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; now?: () => string } = {}) {
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: options.now ?? (() => at), ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}) });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: options.now ?? (() => at), ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}) });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   return { service, client, graph };
 }

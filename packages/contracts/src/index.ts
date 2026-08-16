@@ -1,5 +1,5 @@
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
-export type { CancellationRecord, ClosureAmendment, CompletionRecord, ReopenRecord, WorkObject } from "@task-copilot/domain";
+export type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 export type ActorType = "USER" | "SYSTEM" | "AGENT";
 export interface Actor { type: ActorType; id: string }
@@ -12,7 +12,7 @@ export type CommitStatus =
   | "RECOVERY_REQUIRED"
   | "ABORTED";
 
-export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "UNDO_COMMIT";
+export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "ASSIGN_PARENT" | "UNDO_COMMIT";
 export const OPERATION_CONTRACT_VERSION = 1 as const;
 export const APPROVED_CURRENT_FOCUS_SKILL = {
   id: "current-focus-maintenance",
@@ -539,7 +539,7 @@ export function parseMiniProjectAgentResult(value: unknown): MiniProjectAgentRes
   throw new ContractError("AGENT_RESULT_OUTCOME_INVALID", "MiniProject result outcome is unsupported.");
 }
 
-export type ProposalStatus = "OPEN" | "APPLIED" | "DISMISSED" | "INVALIDATED";
+export type ProposalStatus = "OPEN" | "APPLIED" | "PACKAGED" | "DISMISSED" | "INVALIDATED";
 export interface CurrentFocusProposalRevision {
   proposalId: string;
   revision: number;
@@ -953,6 +953,13 @@ export interface DecisionCandidate {
   parameters: unknown;
   evidenceIds: readonly string[];
   status: "OPEN" | "ACCEPTED" | "REJECTED" | "DEFERRED";
+}
+
+export interface AssignParentDecisionParameters {
+  childId: string;
+  ownerId: string;
+  childVersion: number;
+  previousOwnerId: string | null;
 }
 
 export interface DecisionPackage {

@@ -15,7 +15,7 @@ const at = "2026-08-13T00:00:00.000Z";
 async function setup(label: string, content = "下一步：准备服务器上架并完成管理口网络配置", options: { currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage } = {}) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-${label}-`));
   const databasePath = join(directory, "kernel.sqlite");
-  const service = await startKernelServer({ databasePath, descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath, descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at, ...options });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase3", `source-${label}`, content);

@@ -43,7 +43,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 async function setup(label: string) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase9-${label}-`));
   const databasePath = join(directory, "kernel.sqlite"); const descriptorPath = join(directory, "kernel.json");
-  const service = await startKernelServer({ databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath, descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const graph = new FakeGraphAdapter(() => at); const graphId = `graph-phase9-${label}`;
   const source = graph.seedNaturalRecord(graphId, "source", "TODO 后台维护起点");
@@ -124,7 +124,7 @@ test("GP9-4: stale active job is superseded by the latest source snapshot instea
 test("reconcile queue and coverage survive Kernel restart and continue from the persisted job", async () => {
   const value = await setup("restart");
   value.stop(); await value.service.close();
-  const service = await startKernelServer({ databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500 });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const stop = startBridge({ baseUrl: service.baseUrl, bridgeToken: service.graphBridgeToken, snapshotKey: service.graphSnapshotKey, graphId: value.graphId, graph: value.graph });
   try {

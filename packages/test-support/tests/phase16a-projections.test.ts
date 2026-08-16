@@ -29,7 +29,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 }
 async function setup(label: string) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase16a-${label}-`));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at, journalPageNames: (date) => [`journal-${date}`] });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at, journalPageNames: (date) => [`journal-${date}`] });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at, graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64) } as PluginKernelDescriptor);
   const graph = new FakeGraphAdapter(() => at); const graphId = `graph-phase16a-${label}`;
   return { directory, service, client, graph, graphId };
@@ -77,7 +77,11 @@ test("Object Context Pack gives bounded re-entry reality for an object", async (
     await waitForGraph(value.client);
     const projectId = await formalize(value.client, value.graph, value.graphId, "project", "PROJECT", "海丝项目", "anchor-project");
     const miniId = await formalize(value.client, value.graph, value.graphId, "mini", "MINI_PROJECT", "采购规格书整理", "anchor-mini");
-    await fetch(`${value.service.baseUrl}/v1/ownerships`, { method: "POST", headers: { authorization: `Bearer ${value.service.token}`, "content-type": "application/json" }, body: JSON.stringify({ childId: miniId, ownerId: projectId, actor: { type: "USER", id: "local-user" } }) });
+    const ownershipPkg = (await value.client.createOwnershipDecisionPackage({ childId: miniId, ownerId: projectId, summary: `把「采购规格书整理」归入「海丝项目」`, rationale: "正式归属变化，不移动自然笔记。" })).pkg;
+    const ownershipEvent = await value.client.createTrustedUserEvent({ exactUserUtterance: "确认", packageId: ownershipPkg.id, presentationRevision: ownershipPkg.presentationRevision });
+    const ownershipCompiled = await value.client.compileUserDecision({ trustedUserEventId: ownershipEvent.event.id });
+    assert.equal(ownershipCompiled.kind, "AUTHORIZED_DECISION");
+    if (ownershipCompiled.kind === "AUTHORIZED_DECISION") await value.client.executeUserDecision(ownershipCompiled.decision.id);
     await value.client.associateContext({ workObjectId: miniId, sourceRef: { graphId: value.graphId, blockUuid: "context-block" }, sourceVersionHash: "hash", origin: "AGENT_INFERRED" });
     value.graph.seedNaturalRecord(value.graphId, "context-block", "采购规格书支持材料");
     const pack = (await value.client.objectContextPack(miniId)).pack;
@@ -109,6 +113,7 @@ test("Object conversation path: re-entry context, low-risk agent apply, USER bou
     const finished = await value.client.finishExternalAgentRun(run.run.id, { outcome: "PROPOSAL", currentFocus: "整理供应商历史报价", reasonCode: "CONTEXT_AWARE_FOCUS", rationaleSummary: "当前记录给出了唯一明确的下一步" });
     assert.ok(finished.proposal);
     const applied = await value.client.applyExternalProposal(finished.proposal.id);
+    assert.ok("commit" in applied); if (!("commit" in applied)) throw new Error("unreachable");
     assert.equal(applied.commit.status, "COMMITTED");
     const refreshed = (await value.client.objectContextPack(miniId)).pack;
     assert.equal(refreshed.currentFocus, "整理供应商历史报价");

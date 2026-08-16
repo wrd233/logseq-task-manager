@@ -3,7 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import { loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { graphEvidenceProofPayload, parseSemanticOperation, stableHash, type AgentRunReceipt, type Proposal, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { graphEvidenceProofPayload, parseSemanticOperation, stableHash, type AgentRunReceipt, type GraphEffect, type Proposal, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { Kernel, KernelError } from "../src/index.ts";
 
@@ -15,8 +15,8 @@ const operation = () => parseSemanticOperation({
 const sourceSnapshot = { graphId: "graph-01", sourceBlockUuid: "source-01", sourceContentHash: "a1b2c3d4", projection: null } as const;
 
 test("governed UPDATE_WORK_INTENT commits, verifies, and Undo restores sparse intent", async () => {
-  const store = new SqliteStore(":memory:"); const skill = await loadMiniProjectGovernanceSkill(); const workIntentSkill = await loadWorkIntentMaintenanceSkill(); const taste = await loadMiniProjectTaste(); const proofKey = "b".repeat(64); let crashAfterGraph = false;
-  const kernel = new Kernel(store, { now: () => at, miniProjectSkill: skill, workIntentSkill, miniProjectTaste: taste, graphSnapshotKey: proofKey, afterStage: (stage) => { if (stage === "GRAPH_APPLIED" && crashAfterGraph) throw new Error("work-intent-restart"); } });
+  const store = new SqliteStore(":memory:"); const skill = await loadMiniProjectGovernanceSkill(); const workIntentSkill = await loadWorkIntentMaintenanceSkill(); const taste = await loadMiniProjectTaste(); const proofKey = "b".repeat(64);
+  const kernel = new Kernel(store, { now: () => at, miniProjectSkill: skill, workIntentSkill, miniProjectTaste: taste, graphSnapshotKey: proofKey });
   const create = parseSemanticOperation({ operationId: "mini-create", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "MINI_PROJECT", title: "虚拟机模板与镜像规范", anchor: { graphId: "graph-01", blockUuid: "source-01", sourceContentHash: "a1b2c3d4" } } });
   const created = kernel.prepare(create, sourceSnapshot); if (created.graphEffect.type !== "UPSERT_MANAGED_PROJECTION") assert.fail();
   kernel.complete(created.commit.id, { commitId: created.graphEffect.commitId, effectId: created.graphEffect.effectId, effectType: created.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: created.graphEffect.projection.projectionHash, appliedAt: at }, { ...sourceSnapshot, projection: created.graphEffect.projection });
@@ -30,19 +30,20 @@ test("governed UPDATE_WORK_INTENT commits, verifies, and Undo restores sparse in
   const revision = { proposalId: proposal.id, revision: 1, operationType: "UPDATE_WORK_INTENT", operationContractVersion: 1, desiredOutcome: "形成一份可评审规范", completionChecks: ["覆盖模板与镜像约束", "通过联合评审"], expectedVersion: 1, expectedProjectionHash: created.graphEffect.projection.projectionHash, evidenceDependencies: [{ evidenceId: "evidence-mini", contentHash }], skill: skillIdentity, agentRunId: run.id, governanceCorrelationId: "governance-01", taste: tasteIdentity, risk: "LOW", createdAt: at } satisfies WorkIntentProposalRevision;
   store.putProposal(proposal, revision);
   const material = { graphId: "graph-01", blockUuid: "source-01", content, sourceContentHash: stableHash(content) }; const fresh = { evidenceId: "evidence-mini", ...material, proof: createHmac("sha256", proofKey).update(graphEvidenceProofPayload(material)).digest("hex") };
-  const pending = kernel.applyWorkIntentProposal({ operationId: "apply-mini", proposalId: proposal.id, snapshot: { ...sourceSnapshot, projection: created.graphEffect.projection }, evidence: [fresh] }); if (pending.graphEffect.type !== "UPDATE_WORK_INTENT_FIELDS") assert.fail();
-  const afterProjection = pending.graphEffect.resultingProjection!;
-  crashAfterGraph = true;
-  assert.throws(() => kernel.complete(pending.commit.id, { commitId: pending.graphEffect.commitId, effectId: pending.graphEffect.effectId, effectType: pending.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: afterProjection.projectionHash, appliedAt: at }, { ...sourceSnapshot, projection: afterProjection }), /work-intent-restart/u);
-  const restarted = new Kernel(store, { now: () => at, miniProjectSkill: skill, workIntentSkill, miniProjectTaste: taste, graphSnapshotKey: proofKey });
-  assert.equal(restarted.recoveryList()[0]?.action, "VERIFY_GRAPH");
-  const committed = restarted.verifyRecoveredGraph(pending.commit.id, { ...sourceSnapshot, projection: afterProjection });
-  assert.equal(committed.status, "COMMITTED"); assert.equal(store.getWorkObject(workObjectId)?.desiredOutcome, "形成一份可评审规范");
-  restarted.recordStrongPositive({ commitId: committed.id, actor: { type: "USER", id: "local-user" } });
-  assert.deepEqual(store.listFeedback().map((item) => item.signalStrength), ["WEAK_ACCEPTANCE", "STRONG_POSITIVE"]);
-  const undo = restarted.prepareUndo({ operationId: "undo-mini", actor: { type: "USER", id: "local-user" }, commitId: committed.id }, { ...sourceSnapshot, projection: afterProjection }); if (undo.graphEffect.type !== "UPDATE_WORK_INTENT_FIELDS") assert.fail();
-  restarted.complete(undo.commit.id, { commitId: undo.graphEffect.commitId, effectId: undo.graphEffect.effectId, effectType: undo.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: undo.graphEffect.resultingProjection!.projectionHash, appliedAt: at }, { ...sourceSnapshot, projection: undo.graphEffect.resultingProjection! });
-  assert.equal(store.getWorkObject(workObjectId)?.desiredOutcome, null); assert.deepEqual(store.getWorkObject(workObjectId)?.completionChecks, []); assert.equal(store.listFeedback().at(-1)?.signalStrength, "CORRECTIVE"); store.close();
+  const snapshot = { ...sourceSnapshot, projection: created.graphEffect.projection };
+  assert.throws(() => kernel.applyWorkIntentProposal({ operationId: "apply-mini", proposalId: proposal.id, snapshot, evidence: [fresh] }), /WORK_INTENT_USER_DECISION_REQUIRED/u);
+  const packaged = kernel.packageWorkIntentProposal({ operationId: "package-mini", proposalId: proposal.id, snapshot, evidence: [fresh] });
+  assert.equal(packaged.pkg.status, "OPEN"); assert.equal(store.getProposal(proposal.id)?.proposal.status, "PACKAGED");
+  const event = kernel.recordTrustedUserEvent({ sourceChannel: "PLUGIN_USER_CHANNEL", sourceCapability: null, exactUserUtterance: "确认", packageId: packaged.pkg.id, presentationRevision: packaged.pkg.presentationRevision });
+  const compiled = kernel.compileUserDecision({ trustedUserEventId: event.id });
+  assert.equal(compiled.kind, "AUTHORIZED_DECISION"); if (compiled.kind !== "AUTHORIZED_DECISION") assert.fail();
+  const executed = kernel.executeUserDecision(compiled.decision.id);
+  assert.equal(executed.commit.actor.type, "USER"); assert.equal(executed.commit.status, "COMMITTED"); assert.equal(executed.projectionObligation?.status, "PENDING");
+  assert.equal(store.getWorkObject(workObjectId)?.desiredOutcome, "形成一份可评审规范");
+  const afterProjection = (executed.commit.graphEffect as Extract<GraphEffect, { type: "UPDATE_WORK_INTENT_FIELDS" }>).resultingProjection!;
+  const undo = kernel.prepareUndo({ operationId: "undo-mini", actor: { type: "USER", id: "local-user" }, commitId: executed.commit.id }, { ...sourceSnapshot, projection: afterProjection }); if (undo.graphEffect.type !== "UPDATE_WORK_INTENT_FIELDS") assert.fail();
+  kernel.complete(undo.commit.id, { commitId: undo.graphEffect.commitId, effectId: undo.graphEffect.effectId, effectType: undo.graphEffect.type, graphId: "graph-01", sourceBlockUuid: "source-01", projectionHash: undo.graphEffect.resultingProjection!.projectionHash, appliedAt: at }, { ...sourceSnapshot, projection: undo.graphEffect.resultingProjection! });
+  assert.equal(store.getWorkObject(workObjectId)?.desiredOutcome, null); assert.deepEqual(store.getWorkObject(workObjectId)?.completionChecks, []); store.close();
 });
 
 test("CREATE_WORK_OBJECT reaches success only after exact Graph verification", () => {

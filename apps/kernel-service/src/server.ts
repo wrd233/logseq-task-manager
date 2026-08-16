@@ -13,7 +13,7 @@ import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -42,6 +42,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   const graphBridgeToken = options.graphBridgeToken ?? randomBytes(32).toString("hex");
   const userChannelToken = options.userChannelToken ?? randomBytes(32).toString("hex");
+  const requireTrustedUserChannel = options.requireTrustedUserChannel ?? true;
+  const assertTrustedUserChannel = (request: IncomingMessage): void => {
+    if (requireTrustedUserChannel && request.headers["x-task-copilot-user-channel"] !== userChannelToken) throw new KernelError("TRUSTED_USER_CHANNEL_REQUIRED", "USER-authorized Formal mutation requires the Plugin USER-channel capability.");
+  };
   const graphDescriptorPath = options.graphDescriptorPath ?? join(dirname(options.descriptorPath), "graph-adapter.json");
   await mkdir(dirname(options.databasePath), { recursive: true });
   const store = new SqliteStore(options.databasePath);
@@ -246,7 +250,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/ownerships") { send(response, 200, { ownerships: kernel.listOwnerships() }); return; }
-      if (request.method === "POST" && url.pathname === "/v1/ownerships") { const value = await body(request) as { childId: string; ownerId: string; actor: { type: "USER"; id: string } }; send(response, 201, { ownership: kernel.assignUserOwnership(value) }); return; }
+      if (request.method === "POST" && url.pathname === "/v1/ownerships") { send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Ownership changes require a trusted USER decision; no direct ownership mutation route exists." } }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects/anchors") {
         send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;
@@ -278,7 +282,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       if (request.method === "GET" && url.pathname === "/v1/recovery") { send(response, 200, { recovery: kernel.recoveryList() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: store.listFeedback() }); return; }
-      if (request.method === "POST" && url.pathname === "/v1/feedback/strong-positive") { const value = await body(request) as { commitId: string; actor: { type: "USER"; id: string }; userComment?: string | null }; kernel.recordStrongPositive(value); send(response, 200, { recorded: true }); return; }
+      if (request.method === "POST" && url.pathname === "/v1/feedback/strong-positive") { assertTrustedUserChannel(request); const value = await body(request) as { commitId: string; actor: { type: "USER"; id: string }; userComment?: string | null }; kernel.recordStrongPositive(value); send(response, 200, { recorded: true }); return; }
       const evidenceMatch = /^\/v1\/evidence\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && url.pathname === "/v1/evidence") {
         send(response, 200, { evidence: kernel.listEvidence(url.searchParams.get("object") ?? undefined) }); return;
@@ -321,29 +325,35 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const proposalRevisionMatch = /^\/v1\/proposals\/([^/]+)\/revisions$/u.exec(url.pathname);
       if (request.method === "POST" && proposalRevisionMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as Omit<Parameters<Kernel["reviseProposal"]>[0], "proposalId">;
         send(response, 201, kernel.reviseProposal({ ...value, proposalId: decodeURIComponent(proposalRevisionMatch[1]!) })); return;
       }
       const proposalDismissMatch = /^\/v1\/proposals\/([^/]+)\/dismiss$/u.exec(url.pathname);
       if (request.method === "POST" && proposalDismissMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { actor: Parameters<Kernel["dismissProposal"]>[0]["actor"] };
         send(response, 200, { proposal: kernel.dismissProposal({ proposalId: decodeURIComponent(proposalDismissMatch[1]!), actor: value.actor }) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/commits/prepare") {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { operation: unknown; snapshot: Parameters<Kernel["prepare"]>[1] };
         send(response, 202, kernel.prepare(parseSemanticOperation(value.operation), value.snapshot)); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/commits/commit") {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { operation: unknown; snapshot?: Parameters<Kernel["commitFormal"]>[1] };
         send(response, 200, kernel.commitFormal(parseSemanticOperation(value.operation), value.snapshot ?? null)); return;
       }
       const projectionVerifyMatch = /^\/v1\/commits\/([^/]+)\/projection\/verify$/u.exec(url.pathname);
       if (request.method === "POST" && projectionVerifyMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { result: Parameters<Kernel["verifyFormalProjection"]>[1]; snapshot: Parameters<Kernel["verifyFormalProjection"]>[2] };
         send(response, 200, { obligation: kernel.verifyFormalProjection(decodeURIComponent(projectionVerifyMatch[1]!), value.result, value.snapshot) }); return;
       }
       const projectionFailedMatch = /^\/v1\/commits\/([^/]+)\/projection\/failed$/u.exec(url.pathname);
       if (request.method === "POST" && projectionFailedMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { reason: string };
         send(response, 200, { obligation: kernel.graphProjectionFailed(decodeURIComponent(projectionFailedMatch[1]!), value.reason) }); return;
       }
@@ -357,16 +367,19 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const completeMatch = /^\/v1\/commits\/([^/]+)\/complete$/u.exec(url.pathname);
       if (request.method === "POST" && completeMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { result: Parameters<Kernel["complete"]>[1]; snapshot: Parameters<Kernel["complete"]>[2] };
         send(response, 200, { commit: kernel.complete(decodeURIComponent(completeMatch[1]!), value.result, value.snapshot) }); return;
       }
       const failMatch = /^\/v1\/commits\/([^/]+)\/graph-failed$/u.exec(url.pathname);
       if (request.method === "POST" && failMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { reason: string };
         send(response, 200, { commit: kernel.graphApplyFailed(decodeURIComponent(failMatch[1]!), value.reason) }); return;
       }
       const undoMatch = /^\/v1\/commits\/([^/]+)\/undo\/prepare$/u.exec(url.pathname);
       if (request.method === "POST" && undoMatch) {
+        assertTrustedUserChannel(request);
         const value = await body(request) as { operationId: string; actor: Parameters<Kernel["prepareUndo"]>[0]["actor"]; snapshot: Parameters<Kernel["prepareUndo"]>[1] };
         send(response, 202, kernel.prepareUndo({ operationId: value.operationId, actor: value.actor, commitId: decodeURIComponent(undoMatch[1]!) }, value.snapshot)); return;
       }

@@ -11,7 +11,7 @@ test("service binds to loopback, writes a private descriptor, and rejects missin
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-kernel-"));
   const stateDirectory = join(directory, "first-run-state");
   const descriptorPath = join(stateDirectory, "kernel.json");
-  const server = await startKernelServer({ databasePath: join(stateDirectory, "kernel.sqlite"), descriptorPath, token: "test-token" });
+  const server = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(stateDirectory, "kernel.sqlite"), descriptorPath, token: "test-token" });
   try {
     assert.match(server.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
     assert.equal((await stat(descriptorPath)).mode & 0o777, 0o600);

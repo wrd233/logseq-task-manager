@@ -46,7 +46,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 
 async function setup(label: string, input: { discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile } = {}) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase125-${label}-`));
-  const service = await startKernelServer({
+  const service = await startKernelServer({ requireTrustedUserChannel: false, 
     databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64),
     now: () => at, graphRequestTimeoutMs: 500, journalPageNames: (date) => [`journal-${date}`],
     ...(input.discoveryExecutor ? { discoveryExecutor: input.discoveryExecutor } : {}),

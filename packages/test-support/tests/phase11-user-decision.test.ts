@@ -13,7 +13,7 @@ const at = "2026-08-15T13:00:00.000Z";
 
 async function setup(label: string) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase11-${label}-`));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at, graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64) } as PluginKernelDescriptor);
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-phase11", "source", "TODO 授权链目标");
@@ -43,7 +43,7 @@ test("unique Decision Package + natural-language acceptance becomes an immutable
     assert.equal(executed.decision.status, "EXECUTED");
     assert.equal(executed.commit.actor.type, "USER");
     assert.equal(executed.commit.status, "COMMITTED");
-    assert.equal(executed.projectionObligation.status, "PENDING");
+    assert.equal(executed.projectionObligation!.status, "PENDING");
     const object = (await value.client.showObject(value.workObjectId)).object;
     assert.equal(object.title, "授权链已改名");
     assert.equal(object.version, 2);

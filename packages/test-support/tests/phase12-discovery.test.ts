@@ -46,7 +46,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 
 async function setup(label: string) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase12-${label}-`));
-  const service = await startKernelServer({
+  const service = await startKernelServer({ requireTrustedUserChannel: false, 
     databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64),
     now: () => at, graphRequestTimeoutMs: 500, journalPageNames: (date) => [`journal-${date}`],
   });
@@ -267,7 +267,7 @@ test("discovery candidates and run receipts survive Kernel restart", async () =>
     candidateId = (await value.client.listFormalizationCandidates("OPEN")).candidates[0]!.id;
   } finally { stop(); await value.service.close(); }
 
-  const restarted = await startKernelServer({ databasePath: join(value.directory, "kernel.sqlite"), descriptorPath: join(value.directory, "kernel-restarted.json"), token: "token2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at });
+  const restarted = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(value.directory, "kernel.sqlite"), descriptorPath: join(value.directory, "kernel-restarted.json"), token: "token2", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), userChannelToken: "c".repeat(64), now: () => at });
   const restartedClient = new KernelClient({ schemaVersion: 1, baseUrl: restarted.baseUrl, token: restarted.token, pid: process.pid, startedAt: at } as PluginKernelDescriptor);
   try {
     assert.equal((await restartedClient.showFormalizationCandidate(candidateId)).candidate.proposedTitle, "重启后仍存在");

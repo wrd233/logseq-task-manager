@@ -1,4 +1,4 @@
-import type { Actor, AgentRunReceipt, AssociationCorrection, ClosureHistory, ConfirmationProjection, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, DiscoveryRun, DiscoveryRunSourceOutcome, DiscoveryScope, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FormalizationCandidate, FormalizationEvidence, FrozenEvidence, GovernanceDimension, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, NowProjection, ObjectContextPack, OrganizeTodayResult, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, SystemProjection, TasteProfile, TrustedGraphEvidenceMaterial, TrustedUserEvent, UserDecision, UserDecisionCompileResult, WorkMapProjection, WorkObject } from "@task-copilot/contracts";
+import type { Actor, AgentRunReceipt, AssociationCorrection, AssignParentDecisionParameters, ClosureHistory, ConfirmationProjection, ContextAssociation, CurationReceipt, DecisionCandidate, DecisionPackage, DiscoveryRun, DiscoveryRunSourceOutcome, DiscoveryScope, EngagementProposalRevision, FeedbackEvent, FormalCommitResult, FormalizationCandidate, FormalizationEvidence, FrozenEvidence, GovernanceDimension, GovernanceIssue, GraphApplyResult, GraphBlockRead, GraphGatewayStatus, GraphPageRead, GraphReadReceipt, GraphSearchMatch, GraphSnapshot, NowProjection, ObjectContextPack, OrganizeTodayResult, PrimaryOwnership, ProjectionObligation, Proposal, ProposalRevision, ReconcileJob, SemanticOperation, SkillPackage, SourceChangeObservation, StoredCommit, SystemProjection, TasteProfile, TrustedGraphEvidenceMaterial, TrustedUserEvent, UserDecision, UserDecisionCompileResult, WorkMapProjection, WorkObject } from "@task-copilot/contracts";
 
 export interface KernelDescriptor { schemaVersion: 1; baseUrl: string; token: string; pid: number; startedAt: string }
 export interface PluginKernelDescriptor extends KernelDescriptor { graphSnapshotKey: string; graphBridgeToken: string; userChannelToken?: string }
@@ -32,7 +32,11 @@ export class KernelClient {
   readonly #userChannelToken: string | null;
   constructor(descriptor: KernelDescriptor) { this.#descriptor = descriptor; this.#userChannelToken = (descriptor as PluginKernelDescriptor).userChannelToken ?? null; }
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${this.#descriptor.token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) };
+    const init: RequestInit = {
+      method,
+      headers: { authorization: `Bearer ${this.#descriptor.token}`, ...(this.#userChannelToken ? { "x-task-copilot-user-channel": this.#userChannelToken } : {}), ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    };
     const response = await fetch(`${this.#descriptor.baseUrl}${path}`, init);
     const value = await response.json() as { error?: { code: string; message: string } } & T;
     if (!response.ok) throw new ClientError(value.error?.code ?? "HTTP_ERROR", value.error?.message ?? response.statusText, response.status);
@@ -52,7 +56,7 @@ export class KernelClient {
   startExternalAgentRun(input: { runId: string; purpose: AgentRunReceipt["purpose"]; workObjectId: string; evidenceIds: readonly string[]; executorId: string; governanceCorrelationId?: string }): Promise<{ run: AgentRunReceipt }> { return this.#request("POST", "/v1/external/agent-runs/start", input); }
   finishExternalAgentRun(id: string, result: unknown): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", `/v1/external/agent-runs/${encodeURIComponent(id)}/finish`, { result }); }
   listAgentRunReads(id: string): Promise<{ receipts: GraphReadReceipt[] }> { return this.#request("GET", `/v1/agent-runs/${encodeURIComponent(id)}/reads`); }
-  applyExternalProposal(id: string): Promise<{ commit: StoredCommit; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/apply`, {}); }
+  applyExternalProposal(id: string): Promise<{ commit: StoredCommit; recovered: boolean } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/apply`, {}); }
   addReferenceCuration(input: { receiptId: string; runId: string; workObjectId: string; referenceBlockUuid: string; section: "资源" | "支撑交付物"; existingSectionUuid?: string | null }): Promise<{ receipt: CurationReceipt }> { return this.#request("POST", "/v1/external/curation/add-reference", input); }
   listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
@@ -64,6 +68,7 @@ export class KernelClient {
   systemProjection(): Promise<SystemProjection> { return this.#request("GET", "/v1/projections/system"); }
 
   listActionableObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects/actionable"); }
+  listOwnerships(): Promise<{ ownerships: PrimaryOwnership[] }> { return this.#request("GET", "/v1/ownerships"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
   objectContextPack(id: string): Promise<{ pack: ObjectContextPack }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/context`); }
   showClosure(id: string): Promise<{ closure: ClosureHistory }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure`); }
@@ -97,7 +102,17 @@ export class KernelClient {
     return value;
   }
   compileUserDecision(input: { trustedUserEventId: string }): Promise<UserDecisionCompileResult> { return this.#request("POST", "/v1/user-decisions/compile", input); }
-  executeUserDecision(id: string): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation }> { return this.#request("POST", `/v1/user-decisions/${encodeURIComponent(id)}/execute`, {}); }
+  executeUserDecision(id: string): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null }> { return this.#request("POST", `/v1/user-decisions/${encodeURIComponent(id)}/execute`, {}); }
+  createOwnershipDecisionPackage(input: { id?: string; childId: string; ownerId: string; summary: string; rationale: string; issueRefs?: readonly string[] }): Promise<{ pkg: DecisionPackage; candidates: DecisionCandidate[] }> {
+    const parameters: AssignParentDecisionParameters = { childId: input.childId, ownerId: input.ownerId, childVersion: 0, previousOwnerId: null };
+    return this.#request("POST", "/v1/decision-packages", {
+      workObjectId: input.childId,
+      summary: input.summary,
+      rationale: input.rationale,
+      issueRefs: input.issueRefs ?? [],
+      candidates: [{ operationType: "ASSIGN_PARENT", parameters }],
+    });
+  }
   listUserDecisions(packageId?: string): Promise<{ decisions: UserDecision[] }> { return this.#request("GET", `/v1/user-decisions${packageId ? `?package=${encodeURIComponent(packageId)}` : ""}`); }
   runDiscovery(scope: DiscoveryScope, input: { continuationToken?: string | null } = {}): Promise<{ run: DiscoveryRun }> { return this.#request("POST", "/v1/discovery/run", { scope, ...input }); }
   listDiscoveryRuns(): Promise<{ runs: DiscoveryRun[] }> { return this.#request("GET", "/v1/discovery/runs"); }

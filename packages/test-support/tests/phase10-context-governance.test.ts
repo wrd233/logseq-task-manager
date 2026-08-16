@@ -42,7 +42,7 @@ function startBridge(input: { baseUrl: string; bridgeToken: string; snapshotKey:
 
 async function setup(label: string, cognitionExecutor?: CognitionExecutor, executionProfile?: ExecutionProfile) {
   const directory = await mkdtemp(join(tmpdir(), `task-copilot-phase10-${label}-`));
-  const service = await startKernelServer({
+  const service = await startKernelServer({ requireTrustedUserChannel: false, 
     databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => at, graphRequestTimeoutMs: 500,
     ...(cognitionExecutor ? { cognitionExecutor } : {}), ...(executionProfile ? { executionProfile } : {}),
   });

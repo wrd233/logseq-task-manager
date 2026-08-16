@@ -14,7 +14,7 @@ const at = "2026-08-12T00:00:00.000Z";
 
 test("natural Logseq record -> explicit formalize -> audit -> safe compensation Undo", async () => {
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-golden-"));
-  const service = await startKernelServer({ databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at });
+  const service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath: join(directory, "kernel.sqlite"), descriptorPath: join(directory, "kernel.json"), token: "token", now: () => at });
   try {
     const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
     const graph = new FakeGraphAdapter(() => at);
@@ -50,7 +50,7 @@ test("Graph adapter throw never becomes client-visible success and remains recov
   const descriptorPath = join(directory, "kernel.json");
   const graph = new FakeGraphAdapter(() => at);
   const source = graph.seedNaturalRecord("graph-02", "source-02", "故障演练");
-  let service = await startKernelServer({ databasePath, descriptorPath, token: "token-1", now: () => at });
+  let service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath, descriptorPath, token: "token-1", now: () => at });
   const client = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
   const pending = await client.prepare(parseSemanticOperation({ operationId: "failure-01", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "故障演练", anchor: { graphId: source.graphId, blockUuid: source.sourceBlockUuid, sourceContentHash: source.sourceContentHash } } }), source);
   graph.failNextApply();
@@ -58,7 +58,7 @@ test("Graph adapter throw never becomes client-visible success and remains recov
   assert.equal((await client.listRecovery()).recovery[0]?.commit.status, "KERNEL_APPLIED");
   await service.close();
 
-  service = await startKernelServer({ databasePath, descriptorPath, token: "token-2", now: () => at });
+  service = await startKernelServer({ requireTrustedUserChannel: false,  databasePath, descriptorPath, token: "token-2", now: () => at });
   try {
     const restarted = new KernelClient({ schemaVersion: 1, baseUrl: service.baseUrl, token: service.token, pid: process.pid, startedAt: at });
     assert.equal((await restarted.listRecovery()).recovery[0]?.action, "RESUME_GRAPH_APPLY");
