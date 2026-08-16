@@ -35,7 +35,7 @@ export class ProjectionCoordinator {
       const objectCommits = allCommits.filter((commit) => commit.targetId === object.id).sort((a, b) => ((a.after as { version?: number } | null)?.version ?? 0) - ((b.after as { version?: number } | null)?.version ?? 0) || a.id.localeCompare(b.id));
       const baseline = this.#store.getUserReadBaseline(object.id);
       const recent = baseline
-        ? objectCommits.filter((commit) => ((commit.after as { version?: number } | null)?.version ?? 0) > baseline.lastViewedFormalVersion)
+        ? objectCommits.filter((commit) => ((commit.after as { version?: number } | null)?.version ?? 0) > baseline.lastViewedFormalVersion || (commit.operationType === "UPDATE_PROJECT_INTENT" && commit.updatedAt > baseline.lastViewedAt))
         : objectCommits.filter((commit) => ((commit.after as { version?: number } | null)?.version ?? 0) > 0).slice(-2);
       const waitingRecentlyChanged = recent.some((commit) => commit.operationType === "CHANGE_ENGAGEMENT" && (commit.after as { engagement?: string | null } | null)?.engagement === "WAITING");
       const reviewDue = object.waitingCondition?.reviewAt !== null && object.waitingCondition?.reviewAt !== undefined && object.waitingCondition.reviewAt <= at;
@@ -50,11 +50,12 @@ export class ProjectionCoordinator {
       if (!(resurfacedWaiting || actionableSignal || pendingWithRealitySignal)) continue;
       const meaningful = recent.map((commit) => {
         const after = commit.after as { engagement?: string | null; currentFocus?: string | null; title?: string; lifecycle?: string | null } | null;
-        if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? `进入等待：${object.waitingCondition?.description ?? ""}` : "恢复可推进";
+        if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? `进入等待：${(after as { waitingCondition?: { description?: string } | null } | null)?.waitingCondition?.description ?? ""}` : "恢复可推进";
         if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进更新为「${after?.currentFocus ?? ""}」`;
         if (commit.operationType === "RENAME_WORK_OBJECT") return `标题更新为「${after?.title ?? ""}」`;
         if (commit.operationType === "CREATE_WORK_OBJECT") return "已正式化";
         if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准有更新";
+        if (commit.operationType === "UPDATE_PROJECT_INTENT") return "项目目标或阶段有更新";
         if (commit.operationType === "ASSIGN_PARENT") return "正式归属有更新";
         if (commit.operationType === "COMPLETE_WORK_OBJECT") return "已完成";
         if (commit.operationType === "CANCEL_WORK_OBJECT") return "已取消";
@@ -101,12 +102,14 @@ export class ProjectionCoordinator {
     const commits = this.#store.listCommits().filter((commit) => commit.targetId === object.id && commit.status === "COMMITTED").sort((a, b) => ((a.after as { version?: number } | null)?.version ?? 0) - ((b.after as { version?: number } | null)?.version ?? 0));
     const changes = commits.slice(-3).reverse().map((commit) => {
       const after = commit.after as { currentFocus?: string | null; engagement?: string | null; title?: string } | null;
-      if (commit.operationType === "CHANGE_ENGAGEMENT") return `状态变为 ${after?.engagement === "WAITING" ? "等待" : "可推进"}`;
+      if (commit.operationType === "CREATE_WORK_OBJECT") return "新正式化";
+      if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? "进入等待" : "恢复可推进";
       if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进：${after?.currentFocus ?? "已清空"}`;
       if (commit.operationType === "RENAME_WORK_OBJECT") return `标题改为「${after?.title ?? ""}」`;
       if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准更新";
+      if (commit.operationType === "UPDATE_PROJECT_INTENT") return "项目目标或阶段更新";
       if (commit.operationType === "ASSIGN_PARENT") return "正式归属更新";
-      return commit.operationType;
+      return "正式状态有更新";
     });
     const associations = this.#store.listContextAssociations(object.id, "ACTIVE").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)).slice(0, 6);
     const contextRefs = await Promise.all(associations.map(async (association) => {
@@ -137,11 +140,14 @@ export class ProjectionCoordinator {
     }).sort((a, b) => Number(b.reason.includes("决定")) - Number(a.reason.includes("决定")) || Number(b.engagement === "WAITING") - Number(a.engagement === "WAITING") || Number(b.reason.includes("变化")) - Number(a.reason.includes("变化")) || a.title.localeCompare(b.title)).slice(0, object.kind === "TASK" ? 0 : 3);
     const coverage = this.#maintenance.coverage(object.id);
     const issues = this.#store.listGovernanceIssues(object.id, "OPEN").slice(0, 3);
+    const projectIntent = object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id) : null;
     const summary = object.engagement === "WAITING"
       ? `${object.title} 正在等待：${object.waitingCondition?.description ?? ""}`
       : object.currentFocus
         ? `${object.title} 当前推进：${object.currentFocus}`
-        : `${object.title} 目前可推进，暂无明确聚焦`;
+        : object.kind === "PROJECT" && projectIntent?.objective
+          ? `${object.title} 目前聚焦在「${projectIntent.currentPhase ?? "项目方向"}」`
+          : `${object.title} 目前可推进`;
     return {
       workObjectId: object.id, title: object.title, kind: object.kind, formalVersion: object.version,
       lifecycle: object.lifecycle, engagement: object.engagement, currentFocus: object.currentFocus,
@@ -168,7 +174,7 @@ export class ProjectionCoordinator {
       return {
         packageId: pkg.id, candidateId: formalization?.id ?? null, title: pkg.summary, summary: pkg.summary,
         impact: candidate ? this.#decisionImpact(pkg, candidate) : "需要你确认的正式变化",
-        whyNow: stale ? "这个建议刚刚发生了变化，请重新看一下" : formalization?.maturity === "READY_FOR_DECISION" ? "边界已经清晰，只差你的确认" : "这条确认已经准备好",
+        whyNow: stale ? "这个建议刚刚发生了变化，请重新看一下" : formalization?.maturity === "READY_FOR_DECISION" ? "边界已经清晰，只差你的确认" : "",
         evidenceCount: candidate?.evidenceIds.length ?? formalization?.evidenceRefs.length ?? 0,
         status: stale ? "STALE" as const : "OPEN" as const,
       };

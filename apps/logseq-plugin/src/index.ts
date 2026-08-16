@@ -289,27 +289,31 @@ async function dailyPanel(): Promise<void> {
   const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
   const root = document.createElement("div");
   root.dataset.taskCopilotDailyPanel = "true";
-  root.style.cssText = "box-sizing:border-box;width:min(430px,52vw);height:100vh;overflow:auto;padding:14px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);border-left:1px solid var(--ls-border-color,#e3e3e3);box-shadow:-8px 0 24px rgba(0,0,0,.12);font-family:var(--ls-font-family,system-ui,sans-serif);";
-  const panel = document.createElement("div");
-  panel.style.cssText = "box-sizing:border-box;min-height:100%;";
-  const close = document.createElement("button"); close.textContent = "关闭"; close.style.cssText = "border:1px solid #ccc;border-radius:6px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;"; close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
-  const tabs = document.createElement("div"); tabs.style.cssText = "display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;";
+  root.style.cssText = "box-sizing:border-box;width:clamp(320px,44vw,460px);height:100vh;overflow:auto;padding:12px 14px;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);border-left:1px solid var(--ls-border-color,#e3e3e3);box-shadow:-8px 0 24px rgba(0,0,0,.10);font-family:var(--ls-font-family,system-ui,sans-serif);";
+  const header = document.createElement("div"); header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;";
+  const brand = document.createElement("div"); brand.textContent = "Task Copilot"; brand.style.cssText = "font-size:13px;font-weight:700;letter-spacing:.02em;opacity:.85;";
+  const close = document.createElement("button"); close.textContent = "×"; close.title = "关闭"; close.style.cssText = "border:none;background:transparent;font-size:20px;line-height:1;cursor:pointer;color:inherit;opacity:.55;padding:0 2px;";
+  close.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); };
+  header.append(brand, close);
+  const tabs = document.createElement("div"); tabs.style.cssText = "display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--ls-border-color,#e3e3e3);";
   const view = document.createElement("div");
-  const render = (name: string) => {
-    tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "600"; button.style.opacity = "0.75"; });
+
+  const render = (name: string, objectId: string | null = null) => {
+    tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "500"; button.style.opacity = "0.7"; });
     const active = tabs.querySelector(`[data-tab="${name}"]`) as HTMLButtonElement | null;
-    if (active) { active.disabled = true; active.style.opacity = "1"; active.style.fontWeight = "700"; }
+    if (active && !objectId) { active.disabled = true; active.style.opacity = "1"; active.style.fontWeight = "700"; }
     if (name === "now") {
       view.replaceChildren();
-      const title = document.createElement("h2"); title.textContent = "现在"; title.style.cssText = "margin:0 0 10px;font-size:22px;";
+      const title = document.createElement("h2"); title.textContent = "现在"; title.style.cssText = "margin:0 0 10px;font-size:18px;";
       view.append(title);
-      if (!now.items.length) { const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;"; view.append(empty); }
+      if (!now.items.length) { const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;font-size:13px;"; view.append(empty); }
       for (const item of now.items) {
-        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
-        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 2px;font-size:16px;";
-        const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:13px;color:var(--ls-primary-text-color,#222);";
+        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;";
+        if (item.workObjectId) card.onclick = () => render("now", item.workObjectId);
+        const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 3px;font-size:15px;";
+        const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:13px;";
         const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;";
-        const cont = document.createElement("p"); cont.textContent = `继续：${item.continuationPoint}`; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
+        const cont = document.createElement("p"); cont.textContent = item.continuationPoint; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
         const fragments: HTMLElement[] = [h, reality, why, cont];
         if (item.meaningfulChanges.length && item.lastSeenAt) {
           const changes = document.createElement("p"); changes.textContent = `上次以后：${item.meaningfulChanges.slice(0, 2).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;";
@@ -317,72 +321,107 @@ async function dailyPanel(): Promise<void> {
         }
         card.append(...fragments);
         if (item.workObjectId) {
-          const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
-          const open = document.createElement("button"); open.textContent = "打开原文"; open.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 8px;cursor:pointer;color:inherit;";
-          open.onclick = () => { void openObjectAnchor(api, item.workObjectId!); };
-          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 8px;cursor:pointer;";
-          discuss.onclick = () => { void openObjectConversation(api, item.workObjectId!, item.title); };
+          const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;font-size:12px;";
+          const open = document.createElement("button"); open.textContent = "打开原文"; open.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;";
+          open.onclick = (event) => { event.stopPropagation(); void openObjectAnchor(api, item.workObjectId!); };
+          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;";
+          discuss.onclick = (event) => { event.stopPropagation(); void openObjectConversation(api, item.workObjectId!, item.title); };
           actions.append(open, discuss); card.append(actions);
         }
         view.append(card);
       }
     } else if (name === "confirm") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "待我确认"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
+      const h = document.createElement("h2"); h.textContent = "待我确认"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
       view.append(h);
-      if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;"; view.append(empty); }
+      if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;font-size:13px;"; view.append(empty); }
       for (const item of confirmations.items) {
-        const card = document.createElement("section"); card.style.cssText = "border:1px solid #e3e3e3;border-radius:10px;padding:12px;margin-bottom:10px;";
-        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 6px;font-size:17px;";
-        const impact = document.createElement("p"); impact.textContent = item.impact; impact.style.cssText = "margin:0 0 4px;font-size:14px;color:#222;";
-        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:13px;color:#555;";
-        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
-        const accept = document.createElement("button"); accept.textContent = "确认"; accept.disabled = item.status === "STALE"; accept.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 14px;cursor:pointer;";
+        const card = document.createElement("section"); card.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
+        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 5px;font-size:15px;";
+        const impact = document.createElement("p"); impact.textContent = item.impact; impact.style.cssText = "margin:0 0 4px;font-size:13px;";
+        const fragments: HTMLElement[] = [title, impact];
+        if (item.whyNow) { const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:12px;color:#666;"; fragments.push(why); }
+        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;";
+        const accept = document.createElement("button"); accept.textContent = "确认"; accept.disabled = item.status === "STALE"; accept.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 12px;cursor:pointer;";
         accept.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("accept-decision", async () => { if (await acceptDecisionPackage(item.packageId)) await dailyPanel(); }); };
-        const defer = document.createElement("button"); defer.textContent = "暂不"; defer.style.cssText = "border:1px solid #bbb;border-radius:6px;background:transparent;padding:6px 14px;cursor:pointer;color:inherit;";
+        const defer = document.createElement("button"); defer.textContent = "先不改"; defer.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 12px;cursor:pointer;color:inherit;";
         defer.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("defer-decision", () => deferDecisionPackage(item.packageId)); };
-        actions.append(accept, defer); card.append(title, impact, why, actions); view.append(card);
+        actions.append(accept, defer); card.append(...fragments, actions); view.append(card);
       }
     } else if (name === "projects") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
+      const h = document.createElement("h2"); h.textContent = "项目"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
       view.append(h);
       const renderNode = (node: WorkMapNode, depth: number) => {
-        const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 12}px;padding:5px 0;font-size:14px;display:flex;align-items:center;gap:6px;`;
-        const kindLabel = node.kind === "PROJECT" ? "项目" : node.kind === "MINI_PROJECT" ? "子项目" : "任务";
-        const statusText = node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : "";
+        const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 12}px;padding:7px 4px;font-size:14px;display:flex;align-items:baseline;gap:6px;border-bottom:1px solid rgba(128,128,128,.12);cursor:pointer;`;
+        row.onclick = () => render("projects", node.workObjectId);
+        const statusText = node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : node.currentPhase ? ` · ${node.currentPhase}` : "";
         const label = document.createElement("span"); label.textContent = `${node.title}${statusText}`;
-        const kind = document.createElement("span"); kind.textContent = kindLabel; kind.style.cssText = "font-size:11px;color:#888;";
-        const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;";
-        open.onclick = () => { void openObjectAnchor(api, node.workObjectId); };
-        row.append(label, kind, open); view.append(row);
+        const kind = document.createElement("span"); kind.textContent = node.kind === "PROJECT" ? "项目" : node.kind === "MINI_PROJECT" ? "子项目" : "任务"; kind.style.cssText = "font-size:10px;color:#999;margin-left:2px;";
+        row.append(label, kind); view.append(row);
         for (const child of node.children) renderNode(child, depth + 1);
       };
       for (const node of workMap.roots) renderNode(node, 0);
-    } else {
+    } else if (name === "more") {
       view.replaceChildren();
-      const h = document.createElement("h2"); h.textContent = "更多"; h.style.cssText = "margin:0 0 10px;font-size:22px;";
-      const rows = [
-        `图连接：${system.graphAvailable ? "正常" : "离线"}`,
-        `后台维护：${system.maintenancePaused ? "已暂停" : "运行中"}`,
-        `笔记同步待处理：${system.projectionBacklog}`,
-        `系统恢复项：${system.recoveryCount}`,
-        system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行",
-      ];
-      for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 6px;font-size:14px;color:#444;"; view.append(p); }
-      const organize = document.createElement("button"); organize.textContent = "运行整理今天"; organize.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 12px;cursor:pointer;";
+      const h = document.createElement("h2"); h.textContent = "更多"; h.style.cssText = "margin:0 0 10px;font-size:18px;";
+      view.append(h);
+      const group = (title: string, rows: string[]) => {
+        const label = document.createElement("p"); label.textContent = title; label.style.cssText = "margin:10px 0 4px;font-size:11px;color:#888;text-transform:uppercase;";
+        view.append(label);
+        for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:#444;"; view.append(p); }
+      };
+      group("系统", [`图连接：${system.graphAvailable ? "正常" : "离线"}`, `后台维护：${system.maintenancePaused ? "已暂停" : "运行中"}`, `笔记同步待处理：${system.projectionBacklog}`, `系统恢复项：${system.recoveryCount}`]);
+      group("工具", [system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行"]);
+      const organize = document.createElement("button"); organize.textContent = "运行整理今天"; organize.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 10px;cursor:pointer;";
       organize.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("organize-today", organizeTodayCommand); };
       view.append(organize);
     }
+    if (objectId) {
+      void guarded("object-surface", async () => {
+        const pack = (await api.objectContextPack(objectId)).pack;
+        await api.markObjectViewed(objectId).catch(() => undefined);
+        view.replaceChildren();
+        const back = document.createElement("button"); back.textContent = "‹ 返回"; back.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;margin-bottom:8px;font-size:13px;";
+        back.onclick = () => render(objectId === null ? "now" : pack.kind === "PROJECT" ? "projects" : "now");
+        const title = document.createElement("h2"); title.textContent = pack.title; title.style.cssText = "margin:0 0 6px;font-size:18px;";
+        view.append(back, title);
+        if (pack.projectIntent) {
+          const intent = document.createElement("section"); intent.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin-bottom:8px;";
+          if (pack.projectIntent.objective) { const objective = document.createElement("p"); objective.textContent = `目标：${pack.projectIntent.objective}`; objective.style.cssText = "margin:0 0 4px;font-size:14px;"; intent.append(objective); }
+          if (pack.projectIntent.currentPhase) { const phase = document.createElement("p"); phase.textContent = `当前阶段：${pack.projectIntent.currentPhase}`; phase.style.cssText = "margin:0 0 4px;font-size:12px;color:#555;"; intent.append(phase); }
+          if (pack.projectIntent.keyResults.length) {
+            const krTitle = document.createElement("p"); krTitle.textContent = "结果边界"; krTitle.style.cssText = "margin:4px 0 2px;font-size:11px;color:#888;"; intent.append(krTitle);
+            for (const kr of pack.projectIntent.keyResults) { const p = document.createElement("p"); p.textContent = `• ${kr.text}`; p.style.cssText = "margin:0 0 2px;font-size:13px;"; intent.append(p); }
+          }
+          view.append(intent);
+        }
+        const reality = document.createElement("p"); reality.textContent = pack.reentrySummary; reality.style.cssText = "margin:0 0 8px;font-size:14px;";
+        view.append(reality);
+        if (pack.recentChanges.length) { const changes = document.createElement("p"); changes.textContent = `最近变化：${pack.recentChanges.slice(0, 3).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;"; view.append(changes); }
+        if (pack.activeChildren.length) {
+          const childrenTitle = document.createElement("p"); childrenTitle.textContent = "当前重点"; childrenTitle.style.cssText = "margin:8px 0 2px;font-size:11px;color:#888;"; view.append(childrenTitle);
+          for (const child of pack.activeChildren) { const p = document.createElement("p"); p.textContent = `• ${child.title}${child.reason ? ` — ${child.reason}` : ""}`; p.style.cssText = "margin:0 0 2px;font-size:13px;"; view.append(p); }
+        }
+        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;margin-top:10px;";
+        const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
+        discuss.onclick = () => void openObjectConversation(api, objectId, pack.title);
+        const open = document.createElement("button"); open.textContent = "打开原文"; open.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;";
+        open.onclick = () => void openObjectAnchor(api, objectId);
+        actions.append(discuss, open); view.append(actions);
+      });
+    }
   };
   for (const [key, label] of [["now", "现在"], ["confirm", "待我确认"], ["projects", "项目"], ["more", "更多"]] as const) {
-    const button = document.createElement("button"); button.dataset.tab = key; button.textContent = label; button.style.cssText = "border:1px solid #ccc;border-radius:6px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;";
+    const button = document.createElement("button"); button.dataset.tab = key; button.textContent = label; button.style.cssText = "border:none;background:transparent;padding:6px 10px 7px;cursor:pointer;color:inherit;font-size:13px;";
     button.onclick = () => render(key); tabs.append(button);
   }
-  panel.append(close, tabs, view); root.append(panel);
+  const panel = document.createElement("div");
+  panel.style.cssText = "box-sizing:border-box;min-height:100%;";
+  panel.append(header, tabs, view); root.append(panel);
   document.body.replaceChildren(root);
   logseq.setMainUIAttrs({ draggable: true, resizable: true });
-  logseq.setMainUIInlineStyle({ position: "fixed", top: "0", right: "0", width: "min(430px,52vw)", height: "100vh", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
+  logseq.setMainUIInlineStyle({ position: "fixed", top: "0", right: "0", width: "clamp(320px,44vw,460px)", height: "100vh", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
   logseq.showMainUI({ autoFocus: true });
   render("now");
 }
