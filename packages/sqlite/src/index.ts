@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -413,6 +413,7 @@ export class SqliteStore {
     this.#migrateV13();
     this.#migrateV14();
     this.#migrateV15();
+    this.#migrateV17();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -790,6 +791,19 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (16, ?)").run(new Date().toISOString());
   }
 
+  #migrateV17(): void {
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS user_read_baselines (
+        work_object_id TEXT PRIMARY KEY REFERENCES work_objects(id) ON DELETE CASCADE,
+        last_viewed_formal_version INTEGER NOT NULL,
+        last_viewed_at TEXT NOT NULL,
+        last_seen_commit_id TEXT,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (17, ?)").run(new Date().toISOString());
+  }
+
   close(): void { this.#database.close(); }
   schemaVersion(): number { return Number((this.#database.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as { version: number }).version); }
 
@@ -813,6 +827,17 @@ export class SqliteStore {
 
   listActionableWorkObjects(): WorkObject[] {
     return (this.#database.prepare("SELECT id FROM work_objects WHERE lifecycle='OPEN' AND engagement='ACTIONABLE' ORDER BY created_at,id").all() as Array<{ id: string }>).map(({ id }) => this.getWorkObject(id)!);
+  }
+
+  putUserReadBaseline(baseline: UserReadBaseline): void {
+    this.#database.prepare(`INSERT INTO user_read_baselines(work_object_id, last_viewed_formal_version, last_viewed_at, last_seen_commit_id, updated_at)
+      VALUES (@workObjectId, @lastViewedFormalVersion, @lastViewedAt, @lastSeenCommitId, @updatedAt)
+      ON CONFLICT(work_object_id) DO UPDATE SET last_viewed_formal_version=excluded.last_viewed_formal_version, last_viewed_at=excluded.last_viewed_at, last_seen_commit_id=excluded.last_seen_commit_id, updated_at=excluded.updated_at`).run({ ...baseline, updatedAt: baseline.lastViewedAt });
+  }
+
+  getUserReadBaseline(workObjectId: string): UserReadBaseline | null {
+    const row = this.#database.prepare("SELECT * FROM user_read_baselines WHERE work_object_id=?").get(workObjectId) as { work_object_id: string; last_viewed_formal_version: number; last_viewed_at: string; last_seen_commit_id: string | null; updated_at: string } | undefined;
+    return row ? { workObjectId: String(row.work_object_id), lastViewedFormalVersion: Number(row.last_viewed_formal_version), lastViewedAt: String(row.last_viewed_at), lastSeenCommitId: row.last_seen_commit_id === null ? null : String(row.last_seen_commit_id) } : null;
   }
 
   putOwnership(ownership: PrimaryOwnership): void {

@@ -242,15 +242,34 @@ async function organizeTodayCommand(): Promise<void> {
   await logseq.UI.showMsg(`Task Copilot：整理今天\n${result.summaryText}${suffix}`, pending > 0 ? "warning" : "success", { timeout: 12000 });
 }
 
-async function respondToDecisionPackage(): Promise<void> {
+async function acceptDecisionPackage(packageId: string): Promise<boolean> {
+  const api = await client();
+  const pkg = (await api.listDecisionPackages("OPEN")).packages.find((item) => item.id === packageId);
+  if (!pkg) { await logseq.UI.showMsg("这条建议已经不在待确认列表里了。", "warning"); return false; }
+  const event = await api.createTrustedUserEvent({ exactUserUtterance: "确认", packageId: pkg.id, presentationRevision: pkg.presentationRevision });
+  const compiled = await api.compileUserDecision({ trustedUserEventId: event.event.id });
+  if (compiled.kind !== "AUTHORIZED_DECISION") {
+    await logseq.UI.showMsg(compiled.kind === "STALE" ? "这个建议刚刚发生了变化，请重新看一下。" : "这条确认没有形成授权，没有执行任何正式变化。", "warning");
+    return false;
+  }
+  const executed = await api.executeUserDecision(compiled.decision.id);
+  await logseq.FileStorage.setItem(recentCommitKey, executed.commit.id);
+  await logseq.UI.showMsg("已按你的授权执行。", "success");
+  return true;
+}
+
+async function deferDecisionPackage(packageId: string): Promise<void> {
+  const api = await client();
+  await api.deferDecisionPackage(packageId);
+  await logseq.UI.showMsg("已暂不处理；不会改变候选或 Taste，之后整理时还可以重新出现。", "success");
+}
+
+async function respondToDecisionPackage(packageId?: string): Promise<void> {
   const api = await client();
   const open = (await api.listDecisionPackages("OPEN")).packages;
   if (!open.length) throw new Error("当前没有待回应的决策。");
-  let pkg = open[0] ?? null;
-  if (open.length > 1) {
-    const selected = await requestTextPrompt({ title: "选择要回应的决策", label: "Package ID", confirmLabel: "选择" });
-    pkg = open.find((item) => item.id === selected?.trim()) ?? null;
-  }
+  if (packageId) { await acceptDecisionPackage(packageId); return; }
+  const pkg = open[0] ?? null;
   if (!pkg) throw new Error("没有选中有效的 Decision Package。");
   const utterance = await requestTextPrompt({ title: `回应当前决策：${pkg.summary}`, label: "你的回应（同意 / 好的 / 确认 …）", initialValue: "同意", confirmLabel: "提交回应" });
   if (!utterance) return;
@@ -308,11 +327,15 @@ async function dailyPanel(): Promise<void> {
       if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;"; view.append(empty); }
       for (const item of confirmations.items) {
         const card = document.createElement("section"); card.style.cssText = "border:1px solid #e3e3e3;border-radius:10px;padding:12px;margin-bottom:10px;";
-        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 4px;font-size:17px;";
-        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 8px;font-size:13px;color:#555;";
-        const button = document.createElement("button"); button.textContent = "回应当前决策"; button.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 12px;cursor:pointer;";
-        button.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("respond-decision", respondToDecisionPackage); };
-        card.append(title, why, button); view.append(card);
+        const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 6px;font-size:17px;";
+        const impact = document.createElement("p"); impact.textContent = item.impact; impact.style.cssText = "margin:0 0 4px;font-size:14px;color:#222;";
+        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:13px;color:#555;";
+        const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+        const accept = document.createElement("button"); accept.textContent = "确认"; accept.disabled = item.status === "STALE"; accept.style.cssText = "border:1px solid #bbb;border-radius:6px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:6px 14px;cursor:pointer;";
+        accept.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("accept-decision", async () => { if (await acceptDecisionPackage(item.packageId)) await dailyPanel(); }); };
+        const defer = document.createElement("button"); defer.textContent = "暂不"; defer.style.cssText = "border:1px solid #bbb;border-radius:6px;background:transparent;padding:6px 14px;cursor:pointer;color:inherit;";
+        defer.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("defer-decision", () => deferDecisionPackage(item.packageId)); };
+        actions.append(accept, defer); card.append(title, impact, why, actions); view.append(card);
       }
     } else if (name === "projects") {
       view.replaceChildren();
@@ -320,10 +343,13 @@ async function dailyPanel(): Promise<void> {
       view.append(h);
       const renderNode = (node: WorkMapNode, depth: number) => {
         const row = document.createElement("div"); row.style.cssText = `margin-left:${depth * 14}px;padding:5px 0;font-size:14px;`;
-        const label = document.createElement("span"); label.textContent = `${node.title}（${node.kind}）${node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : ""}`;
+        const kindLabel = node.kind === "PROJECT" ? "项目" : node.kind === "MINI_PROJECT" ? "子项目" : "任务";
+        const statusText = node.engagement === "WAITING" ? " · 等待" : node.currentFocus ? ` · ${node.currentFocus}` : "";
+        const label = document.createElement("span"); label.textContent = `${node.title}${statusText}`;
+        const kind = document.createElement("span"); kind.textContent = kindLabel; kind.style.cssText = "margin-left:6px;font-size:11px;color:#888;";
         const open = document.createElement("button"); open.textContent = "打开"; open.style.cssText = "margin-left:8px;border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;";
         open.onclick = () => { void openObjectAnchor(api, node.workObjectId); };
-        row.append(label, open); view.append(row);
+        row.append(label, kind, open); view.append(row);
         for (const child of node.children) renderNode(child, depth + 1);
       };
       for (const node of workMap.roots) renderNode(node, 0);
@@ -333,8 +359,8 @@ async function dailyPanel(): Promise<void> {
       const rows = [
         `图连接：${system.graphAvailable ? "正常" : "离线"}`,
         `后台维护：${system.maintenancePaused ? "已暂停" : "运行中"}`,
-        `投影积压：${system.projectionBacklog}`,
-        `需要恢复：${system.recoveryCount}`,
+        `笔记同步待处理：${system.projectionBacklog}`,
+        `系统恢复项：${system.recoveryCount}`,
         system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行",
       ];
       for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 6px;font-size:14px;color:#444;"; view.append(p); }
@@ -359,11 +385,13 @@ async function openObjectAnchor(api: KernelClient, workObjectId: string): Promis
   const anchors = await api.listObjectAnchorIndex();
   const anchor = anchors.objects.find((item) => item.object.id === workObjectId)?.anchor as { externalId?: string } | undefined;
   if (!anchor?.externalId) throw new Error("这个事项还没有 Logseq 原文。");
+  await api.markObjectViewed(workObjectId).catch(() => undefined);
   await logseq.Editor.openInRightSidebar(anchor.externalId);
   await logseq.UI.showMsg("已打开 Logseq 原文。", "success");
 }
 
 async function openObjectConversation(api: KernelClient, workObjectId: string, title: string): Promise<void> {
+  await api.markObjectViewed(workObjectId).catch(() => undefined);
   const pack = await api.objectContextPack(workObjectId);
   const text = `Task Copilot 对象上下文：${title}
 对象 ID：${workObjectId}

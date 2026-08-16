@@ -1,4 +1,4 @@
-import type { ConfirmationProjection, NowProjection, NowProjectionItem, ObjectContextPack, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
+import type { ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { DiscoveryCoordinator } from "./discovery-coordinator.ts";
@@ -28,71 +28,111 @@ export class ProjectionCoordinator {
     const at = this.#now();
     const packages = this.#store.listDecisionPackages("OPEN");
     const objects = this.#store.listWorkObjects().filter((object) => object.lifecycle === "OPEN");
-    const commits = this.#store.listCommits().filter((commit) => commit.status === "COMMITTED");
+    const allCommits = this.#store.listCommits().filter((commit) => commit.status === "COMMITTED");
     const items: NowProjectionItem[] = [];
     for (const object of objects) {
       const pending = packages.filter((pkg) => pkg.workObjectId === object.id);
-      const recent = commits.filter((commit) => commit.targetId === object.id).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 2);
+      const objectCommits = allCommits.filter((commit) => commit.targetId === object.id).sort((a, b) => ((a.after as { version?: number } | null)?.version ?? 0) - ((b.after as { version?: number } | null)?.version ?? 0) || a.id.localeCompare(b.id));
+      const baseline = this.#store.getUserReadBaseline(object.id);
+      const recent = baseline
+        ? objectCommits.filter((commit) => ((commit.after as { version?: number } | null)?.version ?? 0) > baseline.lastViewedFormalVersion)
+        : objectCommits.filter((commit) => ((commit.after as { version?: number } | null)?.version ?? 0) > 0).slice(-2);
+      const waitingRecentlyChanged = recent.some((commit) => commit.operationType === "CHANGE_ENGAGEMENT" && (commit.after as { engagement?: string | null } | null)?.engagement === "WAITING");
+      const reviewDue = object.waitingCondition?.reviewAt !== null && object.waitingCondition?.reviewAt !== undefined && object.waitingCondition.reviewAt <= at;
       const coverage = this.#maintenance.coverage(object.id);
+      const hasUncoveredChanges = coverage?.hasUncoveredChanges ?? false;
+      const hasPendingDecision = pending.length > 0;
+      const hasRecentMeaningfulChange = recent.length > 0;
+      const resurfacedWaiting = object.engagement === "WAITING" && (waitingRecentlyChanged || reviewDue || hasUncoveredChanges);
+      const actionableSignal = object.engagement !== "WAITING" && (hasRecentMeaningfulChange || hasUncoveredChanges);
+      const pendingWithRealitySignal = hasPendingDecision && (hasRecentMeaningfulChange || hasUncoveredChanges || resurfacedWaiting);
+      if (!(resurfacedWaiting || actionableSignal || pendingWithRealitySignal)) continue;
       const meaningful = recent.map((commit) => {
-        const after = commit.after as { engagement?: string | null; currentFocus?: string | null; title?: string } | null;
-        if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? "进入等待" : "恢复可推进";
-        if (commit.operationType === "SET_CURRENT_FOCUS") return `推进点更新：${after?.currentFocus ?? ""}`;
-        if (commit.operationType === "RENAME_WORK_OBJECT") return `标题更新为：${after?.title ?? ""}`;
+        const after = commit.after as { engagement?: string | null; currentFocus?: string | null; title?: string; lifecycle?: string | null } | null;
+        if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? `进入等待：${object.waitingCondition?.description ?? ""}` : "恢复可推进";
+        if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进更新为「${after?.currentFocus ?? ""}」`;
+        if (commit.operationType === "RENAME_WORK_OBJECT") return `标题更新为「${after?.title ?? ""}」`;
         if (commit.operationType === "CREATE_WORK_OBJECT") return "已正式化";
-        if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成检查有更新";
+        if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准有更新";
+        if (commit.operationType === "ASSIGN_PARENT") return "正式归属有更新";
         if (commit.operationType === "COMPLETE_WORK_OBJECT") return "已完成";
         if (commit.operationType === "CANCEL_WORK_OBJECT") return "已取消";
         if (commit.operationType === "REOPEN_WORK_OBJECT") return "已重新打开";
         return "有新的正式变化";
       });
       const whyNowParts: string[] = [];
-      if (pending.length) whyNowParts.push(`有 ${pending.length} 个决定等你确认`);
-      if (coverage?.hasUncoveredChanges) whyNowParts.push("自然记录有新变化，等待对齐");
-      if (object.engagement === "WAITING") whyNowParts.push("正在等待，需要复查");
-      if (object.currentFocus) whyNowParts.push("有明确的当前推进点");
-      if (recent.length) whyNowParts.push("最近发生过正式变化");
-      if (!whyNowParts.length) continue;
+      if (hasPendingDecision && pendingWithRealitySignal) whyNowParts.push(`有 ${pending.length} 个决定需要你确认`);
+      if (hasUncoveredChanges) whyNowParts.push("自然记录有新变化，等待对齐");
+      if (resurfacedWaiting) whyNowParts.push(object.engagement === "WAITING" ? "等待有变化，值得回来复查" : "");
+      if (hasRecentMeaningfulChange && baseline) whyNowParts.push("上次看过以后有新的正式变化");
+      if (!baseline && hasRecentMeaningfulChange) whyNowParts.push("最近有正式变化");
+      if (!whyNowParts.length) whyNowParts.push("当前现实值得恢复");
       items.push({
         id: `formal:${object.id}`, source: "FORMAL", workObjectId: object.id, title: object.title, kind: object.kind,
-        whyNow: whyNowParts.join("；"), currentReality: this.#reality(object),
-        meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "等待条件") : "继续推进当前事项"),
+        whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object),
+        meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : "继续推进当前事项"),
         engagement: object.engagement, waitingSummary: object.waitingCondition?.description ?? null,
-        pendingDecisionCount: pending.length, coverageHonesty: coverage?.hasUncoveredChanges ? "部分新记录尚未完成语义整理" : "现实已对齐",
-        provenance: `formal-v${object.version}@${object.updatedAt}`,
+        pendingDecisionCount: pending.length, coverageHonesty: hasUncoveredChanges ? "部分新记录尚未完成语义整理" : "现实已对齐",
+        provenance: `formal-v${object.version}@${object.updatedAt}`, lastSeenAt: baseline?.lastViewedAt ?? null, changesSinceLastSeen: baseline ? recent.length : 0,
       });
     }
-    const candidates = this.#store.listFormalizationCandidates("OPEN").filter((candidate) => candidate.maturity === "READY_FOR_DECISION");
+    const candidates = this.#store.listFormalizationCandidates("OPEN").filter((candidate) => candidate.maturity === "READY_FOR_DECISION" && !candidate.decisionPackageId);
     for (const candidate of candidates) {
       items.push({
         id: `candidate:${candidate.id}`, source: "NATURAL_FRONTIER", workObjectId: null, title: candidate.proposedTitle ?? "一个值得正式化的方向",
-        kind: candidate.recommendedKind === "UNRESOLVED" ? "FRONTIER" : candidate.recommendedKind, whyNow: "已经成熟到值得你确认", currentReality: "还是自然记录中的独立边界",
-        meaningfulChanges: [`发现于 ${candidate.createdAt}`, candidate.rationaleSummary], continuationPoint: "去“待我确认”查看",
-        engagement: null, waitingSummary: null, pendingDecisionCount: candidate.decisionPackageId ? 1 : 0,
-        coverageHonesty: "自然边界，未正式化", provenance: `candidate-r${candidate.revision}`,
+        kind: candidate.recommendedKind === "UNRESOLVED" ? "FRONTIER" : candidate.recommendedKind, whyNow: "有一个自然边界已经成熟，但还没有生成确认", currentReality: "还是自然记录中的独立边界",
+        meaningfulChanges: [`发现于 ${candidate.createdAt}`, candidate.rationaleSummary], continuationPoint: "继续观察或整理今天",
+        engagement: null, waitingSummary: null, pendingDecisionCount: 0,
+        coverageHonesty: "自然边界，未正式化", provenance: `candidate-r${candidate.revision}`, lastSeenAt: null, changesSinceLastSeen: 0,
       });
     }
-    items.sort((a, b) => (b.pendingDecisionCount - a.pendingDecisionCount) || (b.meaningfulChanges.length - a.meaningfulChanges.length));
+    items.sort((a, b) => (b.pendingDecisionCount - a.pendingDecisionCount) || (b.changesSinceLastSeen - a.changesSinceLastSeen) || b.provenance.localeCompare(a.provenance));
     const unique = [...new Map(items.map((item) => [item.id, item])).values()];
     return { items: unique.slice(0, 4), generatedAt: at, graphAvailable: this.#broker.status().available };
   }
 
-  objectContext(workObjectId: string): ObjectContextPack | null {
+  async objectContext(workObjectId: string): Promise<ObjectContextPack | null> {
     const object = this.#store.getWorkObject(workObjectId);
     if (!object) return null;
-    const commits = this.#store.listCommits().filter((commit) => commit.targetId === object.id && commit.status === "COMMITTED").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
-    const changes = commits.map((commit) => {
+    const commits = this.#store.listCommits().filter((commit) => commit.targetId === object.id && commit.status === "COMMITTED").sort((a, b) => ((a.after as { version?: number } | null)?.version ?? 0) - ((b.after as { version?: number } | null)?.version ?? 0));
+    const changes = commits.slice(-3).reverse().map((commit) => {
       const after = commit.after as { currentFocus?: string | null; engagement?: string | null; title?: string } | null;
-      if (commit.operationType === "CHANGE_ENGAGEMENT") return `状态变为 ${after?.engagement ?? ""}`;
-      if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进：${after?.currentFocus ?? ""}`;
-      if (commit.operationType === "RENAME_WORK_OBJECT") return `标题：${after?.title ?? ""}`;
-      if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成检查更新";
+      if (commit.operationType === "CHANGE_ENGAGEMENT") return `状态变为 ${after?.engagement === "WAITING" ? "等待" : "可推进"}`;
+      if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进：${after?.currentFocus ?? "已清空"}`;
+      if (commit.operationType === "RENAME_WORK_OBJECT") return `标题改为「${after?.title ?? ""}」`;
+      if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准更新";
+      if (commit.operationType === "ASSIGN_PARENT") return "正式归属更新";
       return commit.operationType;
     });
+    const associations = this.#store.listContextAssociations(object.id, "ACTIVE").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)).slice(0, 6);
+    const contextRefs = await Promise.all(associations.map(async (association) => {
+      let snippet: string | null = null;
+      let sourceHash = association.sourceVersionHash;
+      try {
+        const status = this.#broker.status();
+        if (status.available && status.graphId === association.sourceRef.graphId) {
+          const value = await this.#broker.request({ kind: "READ_BLOCK", graphId: association.sourceRef.graphId, blockUuid: association.sourceRef.blockUuid });
+          if (value.kind === "READ_BLOCK") { snippet = value.block.content.slice(0, 200); sourceHash = value.block.contentHash; }
+        }
+      } catch { /* context pack must stay available when Graph is offline */ }
+      return { sourceRef: association.sourceRef, snippet, sourceHash, role: association.origin };
+    }));
     const children = this.#store.listOwnerships().filter((ownership) => ownership.ownerId === object.id).map((ownership) => this.#store.getWorkObject(ownership.childId)).filter((child): child is NonNullable<typeof child> => Boolean(child));
+    const pendingPackages = this.#store.listDecisionPackages("OPEN").filter((pkg) => pkg.workObjectId === object.id);
+    const allCommits = this.#store.listCommits().filter((commit) => commit.status === "COMMITTED");
+    const activeChildren = children.map((child) => {
+      const childCommits = allCommits.filter((commit) => commit.targetId === child.id);
+      const recent = childCommits.length > 0;
+      const hasPending = pendingPackages.some((pkg) => pkg.workObjectId === child.id);
+      const reasons: string[] = [];
+      if (hasPending) reasons.push("有决定等你确认");
+      if (child.engagement === "WAITING") reasons.push("在等待");
+      if (child.currentFocus) reasons.push("有明确推进点");
+      if (recent) reasons.push("最近有正式变化");
+      return { workObjectId: child.id, title: child.title, kind: child.kind, currentFocus: child.currentFocus, engagement: child.engagement, reason: reasons.length ? reasons.slice(0, 2).join("；") : "属于当前对象" };
+    }).sort((a, b) => Number(b.reason.includes("决定")) - Number(a.reason.includes("决定")) || Number(b.engagement === "WAITING") - Number(a.engagement === "WAITING") || Number(b.reason.includes("变化")) - Number(a.reason.includes("变化")) || a.title.localeCompare(b.title)).slice(0, object.kind === "TASK" ? 0 : 3);
     const coverage = this.#maintenance.coverage(object.id);
-    const issues = this.#store.listGovernanceIssues(object.id, "OPEN");
-    const packages = this.#store.listDecisionPackages("OPEN").filter((pkg) => pkg.workObjectId === object.id).map((pkg) => pkg.id);
+    const issues = this.#store.listGovernanceIssues(object.id, "OPEN").slice(0, 3);
     const summary = object.engagement === "WAITING"
       ? `${object.title} 正在等待：${object.waitingCondition?.description ?? ""}`
       : object.currentFocus
@@ -103,9 +143,9 @@ export class ProjectionCoordinator {
       lifecycle: object.lifecycle, engagement: object.engagement, currentFocus: object.currentFocus,
       waitingCondition: object.waitingCondition, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks,
       recentChanges: changes,
-      contextRefs: this.#store.listContextAssociations(object.id, "ACTIVE").map((association) => association.sourceRef),
-      openIssues: issues, pendingDecisionPackages: packages,
-      activeChildren: children.map((child) => ({ workObjectId: child.id, title: child.title, kind: child.kind, currentFocus: child.currentFocus })),
+      contextRefs,
+      openIssues: issues, pendingDecisionPackages: pendingPackages.slice(0, 3).map((pkg) => pkg.id),
+      activeChildren,
       reentrySummary: summary,
       allowedAgentActions: ["SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "CONTEXT_ASSOCIATION", "ADD_REFERENCE"],
       userOnlyActions: ["COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "CREATE_WORK_OBJECT", "OWNERSHIP", "UPDATE_WORK_INTENT"],
@@ -116,14 +156,48 @@ export class ProjectionCoordinator {
   confirmations(): ConfirmationProjection {
     const at = this.#now();
     const items = this.#store.listDecisionPackages("OPEN").map((pkg) => {
-      const candidate = pkg.workObjectId ? null : this.#store.getFormalizationCandidateByPackage(pkg.id);
+      const candidates = this.#store.listDecisionCandidates(pkg.id, "OPEN");
+      const candidate = candidates[0] ?? null;
+      const formalization = pkg.workObjectId ? null : this.#store.getFormalizationCandidateByPackage(pkg.id);
+      const stale = Boolean(formalization && pkg.candidateRevision !== null && formalization.revision > pkg.candidateRevision);
       return {
-        packageId: pkg.id, candidateId: candidate?.id ?? null, title: pkg.summary, summary: pkg.summary, impact: "会创建一个新的正式事项或改变当前正式边界",
-        whyNow: candidate?.maturity === "READY_FOR_DECISION" ? "边界已经清晰，只差你的确认" : "这条确认已经准备好", evidenceCount: candidate?.evidenceRefs.length ?? 0,
-        status: "OPEN" as const,
+        packageId: pkg.id, candidateId: formalization?.id ?? null, title: pkg.summary, summary: pkg.summary,
+        impact: candidate ? this.#decisionImpact(pkg, candidate) : "需要你确认的正式变化",
+        whyNow: stale ? "这个建议刚刚发生了变化，请重新看一下" : formalization?.maturity === "READY_FOR_DECISION" ? "边界已经清晰，只差你的确认" : "这条确认已经准备好",
+        evidenceCount: candidate?.evidenceIds.length ?? formalization?.evidenceRefs.length ?? 0,
+        status: stale ? "STALE" as const : "OPEN" as const,
       };
     });
     return { items, generatedAt: at };
+  }
+
+  #decisionImpact(pkg: DecisionPackage, candidate: DecisionCandidate): string {
+    if (candidate.operationType === "CREATE_WORK_OBJECT") {
+      const params = candidate.parameters as { input?: { kind?: string; title?: string }; ownerId?: string | null } | null;
+      const owner = params?.ownerId ? this.#store.getWorkObject(params.ownerId) : null;
+      return `新建一个正式${params?.input?.kind === "PROJECT" ? "项目" : params?.input?.kind === "MINI_PROJECT" ? "MiniProject" : "任务"}「${params?.input?.title ?? pkg.summary}」${owner ? `，归入「${owner.title}」` : ""}；原始笔记不移动。`;
+    }
+    if (candidate.operationType === "ASSIGN_PARENT") {
+      const params = candidate.parameters as { childId?: string; ownerId?: string } | null;
+      const child = params?.childId ? this.#store.getWorkObject(params.childId) : null;
+      const owner = params?.ownerId ? this.#store.getWorkObject(params.ownerId) : null;
+      return `把「${child?.title ?? "该事项"}」正式归入「${owner?.title ?? "指定项目"}」；自然笔记不移动。`;
+    }
+    if (candidate.operationType === "UPDATE_WORK_INTENT") {
+      const params = candidate.parameters as { input?: { desiredOutcome?: string | null; completionChecks?: readonly string[] } } | null;
+      const checks = params?.input?.completionChecks?.length ? `，并把完成标准设为 ${params.input.completionChecks.length} 项` : "";
+      return params?.input?.desiredOutcome ? `把期望结果更新为「${params.input.desiredOutcome}」${checks}` : `清空期望结果${checks}`;
+    }
+    if (candidate.operationType === "CHANGE_ENGAGEMENT") {
+      const params = candidate.parameters as { input?: { from?: string; to?: string; waiting?: { description?: string } | null } } | null;
+      return params?.input?.to === "WAITING" ? `进入等待：${params.input.waiting?.description ?? "等待外部条件"}` : "恢复为可推进";
+    }
+    if (candidate.operationType === "RENAME_WORK_OBJECT") return "只修改正式标题，其他都不动";
+    if (candidate.operationType === "COMPLETE_WORK_OBJECT") return "正式关闭这个任务，并记录完成结果";
+    if (candidate.operationType === "CANCEL_WORK_OBJECT") return "正式取消这个任务，并记录取消原因";
+    if (candidate.operationType === "REOPEN_WORK_OBJECT") return "重新打开这个任务";
+    if (candidate.operationType === "AMEND_CLOSURE") return "修订这个任务的结算说明，原记录保留";
+    return "执行一条已准备好的正式变化";
   }
 
   workMap(): WorkMapProjection {

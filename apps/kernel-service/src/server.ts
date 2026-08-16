@@ -209,6 +209,11 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && packageCandidates) {
         send(response, 200, { candidates: kernel.listDecisionCandidates(decodeURIComponent(packageCandidates[1]!)) }); return;
       }
+      const packageDefer = /^\/v1\/decision-packages\/([^/]+)\/defer$/u.exec(url.pathname);
+      if (request.method === "POST" && packageDefer) {
+        assertTrustedUserChannel(request);
+        send(response, 200, { package: kernel.deferDecisionPackage(decodeURIComponent(packageDefer[1]!)) }); return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/user-events") {
         if (request.headers["x-task-copilot-user-channel"] !== userChannelToken) { send(response, 401, { error: { code: "TRUSTED_USER_CHANNEL_REQUIRED", message: "A Plugin USER-channel capability is required." } }); return; }
         const value = await body(request) as Omit<Parameters<Kernel["recordTrustedUserEvent"]>[0], "sourceChannel">;
@@ -256,9 +261,15 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
+      const viewedMatch = /^\/v1\/objects\/([^/]+)\/viewed$/u.exec(url.pathname);
+      if (request.method === "POST" && viewedMatch) {
+        assertTrustedUserChannel(request);
+        const baseline = kernel.markObjectViewed(decodeURIComponent(viewedMatch[1]!));
+        send(response, 200, { baseline }); return;
+      }
       const objectContextMatch = /^\/v1\/objects\/([^/]+)\/context$/u.exec(url.pathname);
       if (request.method === "GET" && objectContextMatch) {
-        const pack = projections.objectContext(decodeURIComponent(objectContextMatch[1]!));
+        const pack = await projections.objectContext(decodeURIComponent(objectContextMatch[1]!));
         if (!pack) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
         send(response, 200, { pack }); return;
       }

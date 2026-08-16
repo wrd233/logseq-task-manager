@@ -1018,6 +1018,29 @@ export type UserDecisionCompileResult =
   | { kind: "AMBIGUOUS"; reason: string }
   | { kind: "UNSUPPORTED"; reason: string };
 
+export interface UserReadBaseline {
+  workObjectId: string;
+  lastViewedFormalVersion: number;
+  lastViewedAt: string;
+  lastSeenCommitId: string | null;
+}
+
+export interface ObjectContextRef {
+  sourceRef: SourceRef;
+  snippet: string | null;
+  sourceHash: string;
+  role: ContextAssociationOrigin;
+}
+
+export interface ObjectContextChild {
+  workObjectId: string;
+  title: string;
+  kind: WorkObjectKind;
+  currentFocus: string | null;
+  engagement: WorkObject["engagement"];
+  reason: string;
+}
+
 export interface ObjectContextPack {
   workObjectId: string;
   title: string;
@@ -1030,10 +1053,10 @@ export interface ObjectContextPack {
   desiredOutcome: string | null;
   completionChecks: readonly string[];
   recentChanges: readonly string[];
-  contextRefs: readonly SourceRef[];
+  contextRefs: readonly ObjectContextRef[];
   openIssues: readonly GovernanceIssue[];
   pendingDecisionPackages: readonly string[];
-  activeChildren: readonly { workObjectId: string; title: string; kind: WorkObjectKind; currentFocus: string | null }[];
+  activeChildren: readonly ObjectContextChild[];
   reentrySummary: string;
   allowedAgentActions: readonly string[];
   userOnlyActions: readonly string[];
@@ -1055,6 +1078,8 @@ export interface NowProjectionItem {
   pendingDecisionCount: number;
   coverageHonesty: string;
   provenance: string;
+  lastSeenAt: string | null;
+  changesSinceLastSeen: number;
 }
 
 export interface NowProjection {

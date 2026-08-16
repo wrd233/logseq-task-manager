@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
@@ -143,6 +143,18 @@ export class Kernel {
   }
 
   listOwnerships(): PrimaryOwnership[] { return this.#store.listOwnerships(); }
+
+  markObjectViewed(workObjectId: string, at?: string): UserReadBaseline {
+    const object = this.#store.getWorkObject(workObjectId);
+    if (!object) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Cannot mark an unknown WorkObject as viewed.");
+    const viewedAt = at ?? this.#now();
+    const latest = this.#store.listCommits()
+      .filter((commit) => commit.targetId === object.id && commit.status === "COMMITTED")
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+    const baseline: UserReadBaseline = { workObjectId: object.id, lastViewedFormalVersion: object.version, lastViewedAt: viewedAt, lastSeenCommitId: latest?.id ?? null };
+    this.#store.putUserReadBaseline(baseline);
+    return baseline;
+  }
 
   targetSnapshotInput(workObjectId: string): GraphSnapshotInput {
     const object = this.#store.getWorkObject(workObjectId); const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
@@ -1018,6 +1030,13 @@ export class Kernel {
 
   listDecisionPackages(status?: DecisionPackage["status"]): DecisionPackage[] { return this.#store.listDecisionPackages(status); }
   listDecisionCandidates(packageId: string, status?: DecisionCandidate["status"]): DecisionCandidate[] { return this.#store.listDecisionCandidates(packageId, status); }
+
+  deferDecisionPackage(packageId: string): DecisionPackage {
+    const pkg = this.#store.getDecisionPackage(packageId);
+    if (!pkg || pkg.status !== "OPEN") throw new KernelError("DECISION_PACKAGE_NOT_OPEN", "Only an OPEN Decision Package can be deferred.");
+    this.#store.transitionDecisionPackage(packageId, "REJECTED", this.#now());
+    return this.#store.getDecisionPackage(packageId)!;
+  }
 
   recordTrustedUserEvent(input: { id?: string; sourceChannel: "PLUGIN_USER_CHANNEL"; sourceCapability: string | null; exactUserUtterance: string; packageId: string | null; presentationRevision?: string | null; correlationId?: string | null; at?: string }): TrustedUserEvent {
     if (input.sourceChannel !== "PLUGIN_USER_CHANNEL") throw new KernelError("TRUSTED_USER_SOURCE_INVALID", "Only the Plugin user channel can create trusted USER events.");
