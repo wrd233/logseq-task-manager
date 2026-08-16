@@ -1,4 +1,4 @@
-import type { ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
+import type { ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, ProjectIntent, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { DiscoveryCoordinator } from "./discovery-coordinator.ts";
@@ -70,7 +70,7 @@ export class ProjectionCoordinator {
       if (!whyNowParts.length) whyNowParts.push("当前现实值得恢复");
       items.push({
         id: `formal:${object.id}`, source: "FORMAL", workObjectId: object.id, title: object.title, kind: object.kind,
-        whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object, childCount),
+        whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object, childCount, this.#store.getProjectIntent(object.id)),
         meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : object.kind === "PROJECT" ? "和 Agent 讨论项目下一步" : "和 Agent 讨论下一步"),
         engagement: object.engagement, waitingSummary: object.waitingCondition?.description ?? null,
         pendingDecisionCount: pending.length, coverageHonesty: hasUncoveredChanges ? "部分新记录尚未完成语义整理" : "现实已对齐",
@@ -150,6 +150,7 @@ export class ProjectionCoordinator {
       contextRefs,
       openIssues: issues, pendingDecisionPackages: pendingPackages.slice(0, 3).map((pkg) => pkg.id),
       activeChildren,
+      projectIntent: object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id) : null,
       reentrySummary: summary,
       allowedAgentActions: ["SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "CONTEXT_ASSOCIATION", "ADD_REFERENCE"],
       userOnlyActions: ["COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "CREATE_WORK_OBJECT", "OWNERSHIP", "UPDATE_WORK_INTENT"],
@@ -192,6 +193,13 @@ export class ProjectionCoordinator {
       const checks = params?.input?.completionChecks?.length ? `，并把完成标准设为 ${params.input.completionChecks.length} 项` : "";
       return params?.input?.desiredOutcome ? `把期望结果更新为「${params.input.desiredOutcome}」${checks}` : `清空期望结果${checks}`;
     }
+    if (candidate.operationType === "UPDATE_PROJECT_INTENT") {
+      const params = candidate.parameters as { input?: { objective?: string | null; keyResults?: readonly { text: string }[]; scope?: string | null; currentPhase?: string | null } } | null;
+      const objective = params?.input?.objective ? `把项目目标定为「${params.input.objective}」` : "清空项目目标";
+      const krs = params?.input?.keyResults?.length ? `，并设置 ${params.input.keyResults.length} 项结果边界` : "";
+      const phase = params?.input?.currentPhase ? `；当前阶段：${params.input.currentPhase}` : "";
+      return `${objective}${krs}${phase}。只改变正式项目方向，不移动任何笔记。`;
+    }
     if (candidate.operationType === "CHANGE_ENGAGEMENT") {
       const params = candidate.parameters as { input?: { from?: string; to?: string; waiting?: { description?: string } | null } } | null;
       return params?.input?.to === "WAITING" ? `进入等待：${params.input.waiting?.description ?? "等待外部条件"}` : "恢复为可推进";
@@ -210,7 +218,7 @@ export class ProjectionCoordinator {
     for (const object of objects) {
       const node: WorkMapNode = {
         workObjectId: object.id, title: object.title, kind: object.kind, lifecycle: object.lifecycle, engagement: object.engagement,
-        currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, children: [],
+        currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, currentPhase: object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id)?.currentPhase ?? null : null, children: [],
       };
       const owner = this.#store.getOwnershipByChild(object.id);
       if (owner) {
@@ -241,11 +249,12 @@ export class ProjectionCoordinator {
     return { ...node, children: (children.get(node.workObjectId) ?? []).map((child) => this.#attach(child, children)) };
   }
 
-  #reality(object: { kind: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null }, childCount = 0): string {
+  #reality(object: { kind: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null }, childCount = 0, projectIntent: ProjectIntent | null = null): string {
     if (object.engagement === "WAITING") return `在等待：${object.waitingCondition?.description ?? "等待条件"}`;
     if (object.currentFocus) return `当前推进：${object.currentFocus}`;
     if (object.desiredOutcome) return `目标：${object.desiredOutcome}`;
-    if (object.kind === "PROJECT" && childCount > 0) return `${childCount} 个子项在推进，还没到项目级聚焦`;
+    if (object.kind === "PROJECT" && projectIntent?.objective) return `目标：${projectIntent.objective}${projectIntent.currentPhase ? `；当前：${projectIntent.currentPhase}` : ""}`;
+    if (object.kind === "PROJECT" && childCount > 0) return `${childCount} 个子项在推进，项目方向还没写下来`;
     return "还没有明确推进点";
   }
 }

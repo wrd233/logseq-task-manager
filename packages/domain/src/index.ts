@@ -26,6 +26,22 @@ export interface WorkObject {
   updatedAt: string;
 }
 
+export interface ProjectKeyResult {
+  id: string;
+  text: string;
+}
+
+export interface ProjectIntent {
+  workObjectId: string;
+  objective: string | null;
+  keyResults: readonly ProjectKeyResult[];
+  scope: string | null;
+  currentPhase: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PrimaryAnchor {
   id: string;
   workObjectId: string;
@@ -238,6 +254,36 @@ export function updateWorkIntent(
   const completionChecks = [...new Set(input.completionChecks.map((value) => required(value, "COMPLETION_CHECK_REQUIRED", "Completion check", 300)))];
   if (object.desiredOutcome === desiredOutcome && JSON.stringify(object.completionChecks) === JSON.stringify(completionChecks)) throw new DomainError("WORK_INTENT_UNCHANGED", "WorkIntent already matches the requested value.");
   return { ...object, desiredOutcome, completionChecks, version: object.version + 1, updatedAt: timestamp(input.at) };
+}
+
+export function updateProjectIntent(
+  current: ProjectIntent | null,
+  input: { workObjectId: string; objective: string | null; keyResults: readonly { id?: string; text: string }[]; scope: string | null; currentPhase: string | null; expectedRevision: number; at: string },
+): ProjectIntent {
+  if (input.expectedRevision !== (current?.revision ?? 0)) throw new DomainError("PROJECT_INTENT_REVISION_MISMATCH", `Expected ProjectIntent revision ${current?.revision ?? 0}, found ${input.expectedRevision}.`);
+  const objective = input.objective?.trim() || null;
+  if (objective && objective.length > 500) throw new DomainError("PROJECT_OBJECTIVE_TOO_LONG", "Project objective exceeds 500 characters.");
+  if (input.keyResults.length > 5) throw new DomainError("PROJECT_KEY_RESULTS_TOO_MANY", "ProjectIntent supports at most 5 Key Results.");
+  const seenTexts = new Set<string>();
+  const keyResults: ProjectKeyResult[] = input.keyResults.map((value, index) => {
+    const text = required(value.text, "PROJECT_KEY_RESULT_REQUIRED", "Key Result", 300);
+    const normalized = text;
+    if (seenTexts.has(normalized)) throw new DomainError("PROJECT_KEY_RESULT_DUPLICATE", "ProjectIntent Key Results must be unique.");
+    seenTexts.add(normalized);
+    const id = value.id?.trim() || `kr:${input.workObjectId}:${index + 1}`;
+    if (id.length > 160) throw new DomainError("PROJECT_KEY_RESULT_ID_TOO_LONG", "Key Result id exceeds 160 characters.");
+    return { id, text: normalized };
+  });
+  if (new Set(keyResults.map((item) => item.id)).size !== keyResults.length) throw new DomainError("PROJECT_KEY_RESULT_ID_DUPLICATE", "ProjectIntent Key Result ids must be unique.");
+  const scope = input.scope?.trim() || null;
+  if (scope && scope.length > 1000) throw new DomainError("PROJECT_SCOPE_TOO_LONG", "Project scope exceeds 1000 characters.");
+  const currentPhase = input.currentPhase?.trim() || null;
+  if (currentPhase && currentPhase.length > 200) throw new DomainError("PROJECT_PHASE_TOO_LONG", "Project current phase exceeds 200 characters.");
+  const at = timestamp(input.at);
+  if (current && current.objective === objective && current.scope === scope && current.currentPhase === currentPhase && JSON.stringify(current.keyResults) === JSON.stringify(keyResults)) {
+    throw new DomainError("PROJECT_INTENT_UNCHANGED", "ProjectIntent already matches the requested value.");
+  }
+  return { workObjectId: input.workObjectId, objective, keyResults, scope, currentPhase, revision: (current?.revision ?? 0) + 1, createdAt: current?.createdAt ?? at, updatedAt: at };
 }
 
 export function changeEngagement(

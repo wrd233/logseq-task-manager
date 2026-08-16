@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -414,6 +414,7 @@ export class SqliteStore {
     this.#migrateV14();
     this.#migrateV15();
     this.#migrateV17();
+    this.#migrateV18();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -802,6 +803,34 @@ export class SqliteStore {
       );
     `);
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (17, ?)").run(new Date().toISOString());
+  }
+
+  #migrateV18(): void {
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS project_intents (
+        work_object_id TEXT PRIMARY KEY REFERENCES work_objects(id) ON DELETE CASCADE,
+        objective TEXT,
+        key_results_json TEXT NOT NULL DEFAULT '[]',
+        scope TEXT,
+        current_phase TEXT,
+        revision INTEGER NOT NULL CHECK (revision > 0),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (18, ?)").run(new Date().toISOString());
+  }
+
+  putProjectIntent(intent: ProjectIntent): void {
+    this.#database.prepare(`INSERT INTO project_intents(work_object_id, objective, key_results_json, scope, current_phase, revision, created_at, updated_at)
+      VALUES (@workObjectId, @objective, @keyResults, @scope, @currentPhase, @revision, @createdAt, @updatedAt)
+      ON CONFLICT(work_object_id) DO UPDATE SET objective=excluded.objective, key_results_json=excluded.key_results_json, scope=excluded.scope, current_phase=excluded.current_phase, revision=excluded.revision, updated_at=excluded.updated_at`)
+      .run({ ...intent, keyResults: JSON.stringify(intent.keyResults) });
+  }
+
+  getProjectIntent(workObjectId: string): ProjectIntent | null {
+    const row = this.#database.prepare("SELECT * FROM project_intents WHERE work_object_id=?").get(workObjectId) as { work_object_id: string; objective: string | null; key_results_json: string; scope: string | null; current_phase: string | null; revision: number; created_at: string; updated_at: string } | undefined;
+    return row ? { workObjectId: String(row.work_object_id), objective: row.objective === null ? null : String(row.objective), keyResults: decode(row.key_results_json) as ProjectIntent["keyResults"], scope: row.scope === null ? null : String(row.scope), currentPhase: row.current_phase === null ? null : String(row.current_phase), revision: Number(row.revision), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
   }
 
   close(): void { this.#database.close(); }

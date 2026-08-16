@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
-import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
@@ -143,6 +143,12 @@ export class Kernel {
   }
 
   listOwnerships(): PrimaryOwnership[] { return this.#store.listOwnerships(); }
+
+  getProjectIntent(workObjectId: string): ProjectIntent | null {
+    const object = this.#store.getWorkObject(workObjectId);
+    if (!object || object.kind !== "PROJECT") throw new KernelError("PROJECT_INTENT_TARGET_INVALID", "ProjectIntent is formal only for PROJECT WorkObjects.");
+    return this.#store.getProjectIntent(workObjectId);
+  }
 
   markObjectViewed(workObjectId: string, at?: string): UserReadBaseline {
     const object = this.#store.getWorkObject(workObjectId);
@@ -1000,8 +1006,10 @@ export class Kernel {
 
   createDecisionPackage(input: { id?: string; workObjectId?: string | null; summary: string; rationale: string; candidateRevision?: number | null; issueRefs?: readonly string[]; candidates: Array<{ id?: string; operationType: DecisionCandidate["operationType"]; parameters: unknown; evidenceIds?: readonly string[] }> }): { pkg: DecisionPackage; candidates: DecisionCandidate[] } {
     const ownershipCandidates = input.candidates.filter((candidate) => candidate.operationType === "ASSIGN_PARENT");
-    if (ownershipCandidates.length && (ownershipCandidates.length !== input.candidates.length || input.candidates.length !== 1)) throw new KernelError("DECISION_OPERATION_MIXED", "ASSIGN_PARENT is a dedicated ownership boundary and cannot be mixed with other operations.");
-    const workObjectId = ownershipCandidates.length ? (ownershipCandidates[0]!.parameters as AssignParentDecisionParameters).childId : input.workObjectId ?? null;
+    const projectIntentCandidates = input.candidates.filter((candidate) => candidate.operationType === "UPDATE_PROJECT_INTENT");
+    const dedicated = [...ownershipCandidates, ...projectIntentCandidates];
+    if (dedicated.length && (dedicated.length !== input.candidates.length || input.candidates.length !== 1)) throw new KernelError("DECISION_OPERATION_MIXED", "ASSIGN_PARENT and UPDATE_PROJECT_INTENT are dedicated boundary operations and cannot be mixed.");
+    const workObjectId = ownershipCandidates.length ? (ownershipCandidates[0]!.parameters as AssignParentDecisionParameters).childId : projectIntentCandidates.length ? ((projectIntentCandidates[0]!.parameters as { target?: { workObjectId?: unknown } } | null)?.target?.workObjectId as string | undefined) ?? null : input.workObjectId ?? null;
     const object = workObjectId ? this.#store.getWorkObject(workObjectId) : null;
     if (workObjectId && !object) throw new KernelError("DECISION_TARGET_NOT_FOUND", "Decision Package target does not exist.");
     const at = this.#now();
@@ -1020,6 +1028,33 @@ export class Kernel {
         const previousOwnerId = this.#store.getOwnershipByChild(raw.childId)?.ownerId ?? null;
         createPrimaryOwnership({ childId: raw.childId, ownerId: raw.ownerId, at, objects: this.#store.listWorkObjects(), existing: this.#store.listOwnerships() });
         parameters = { childId: raw.childId, ownerId: raw.ownerId, childVersion: child.version, previousOwnerId } satisfies AssignParentDecisionParameters;
+      } else if (candidate.operationType === "UPDATE_PROJECT_INTENT") {
+        const raw = candidate.parameters as { target?: { workObjectId?: unknown }; expectedIntentRevision?: unknown; input?: { objective?: unknown; keyResults?: unknown; scope?: unknown; currentPhase?: unknown } } | null;
+        if (!raw?.target || raw.target.workObjectId !== pkg.workObjectId) throw new KernelError("DECISION_PROJECT_INTENT_TARGET_MISMATCH", "UPDATE_PROJECT_INTENT target must match the Decision Package workObjectId.");
+        const project = this.#store.getWorkObject(pkg.workObjectId!);
+        if (!project || project.kind !== "PROJECT") throw new KernelError("PROJECT_INTENT_TARGET_INVALID", "ProjectIntent is formal only for PROJECT WorkObjects.");
+        const current = this.#store.getProjectIntent(project.id);
+        const inputValue = raw.input ?? {};
+        if (typeof raw.expectedIntentRevision !== "number" || raw.expectedIntentRevision !== (current?.revision ?? 0)) throw new KernelError("PROJECT_INTENT_REVISION_MISMATCH", "UPDATE_PROJECT_INTENT package is stale against the current ProjectIntent revision.");
+        if (inputValue.objective !== null && typeof inputValue.objective !== "string") throw new KernelError("DECISION_PROJECT_INTENT_PARAMS_INVALID", "UPDATE_PROJECT_INTENT requires an explicit objective or null.");
+        if (!Array.isArray(inputValue.keyResults)) throw new KernelError("DECISION_PROJECT_INTENT_PARAMS_INVALID", "UPDATE_PROJECT_INTENT keyResults must be an array.");
+        const rawKeyResults = inputValue.keyResults.map((item) => {
+          const value = item as { id?: unknown; text?: unknown } | null;
+          const id = typeof value?.id === "string" && value.id.trim() ? value.id : null;
+          return { ...(id ? { id } : {}), text: typeof value?.text === "string" ? value.text : "" };
+        });
+        if (inputValue.scope !== null && inputValue.scope !== undefined && typeof inputValue.scope !== "string") throw new KernelError("DECISION_PROJECT_INTENT_PARAMS_INVALID", "UPDATE_PROJECT_INTENT scope must be text, null, or omitted.");
+        if (inputValue.currentPhase !== null && inputValue.currentPhase !== undefined && typeof inputValue.currentPhase !== "string") throw new KernelError("DECISION_PROJECT_INTENT_PARAMS_INVALID", "UPDATE_PROJECT_INTENT currentPhase must be text, null, or omitted.");
+        const normalized = updateProjectIntent(current, {
+          workObjectId: project.id,
+          objective: inputValue.objective as string | null,
+          keyResults: rawKeyResults,
+          scope: inputValue.scope === undefined ? null : inputValue.scope as string | null,
+          currentPhase: inputValue.currentPhase === undefined ? null : inputValue.currentPhase as string | null,
+          expectedRevision: raw.expectedIntentRevision,
+          at,
+        });
+        parameters = { target: { workObjectId: project.id, expectedVersion: project.version }, expectedIntentRevision: raw.expectedIntentRevision, input: { objective: normalized.objective, keyResults: normalized.keyResults.map((item) => ({ id: item.id, text: item.text })), scope: normalized.scope, currentPhase: normalized.currentPhase } };
       }
       return { id: candidate.id ?? deterministicUuid(`candidate:${pkg.id}:${candidate.operationType}`), packageId: pkg.id, operationType: candidate.operationType, parameters, evidenceIds: candidate.evidenceIds ?? [], status: "OPEN" as const, createdAt: at };
     });
@@ -1128,11 +1163,57 @@ export class Kernel {
     return { decision: this.#store.getUserDecision(decision.id)!, commit, projectionObligation: null };
   }
 
+  #executeProjectIntentDecision(decision: UserDecision): { decision: UserDecision; commit: StoredCommit; projectionObligation: null } {
+    const params = decision.parameters as { target?: { workObjectId?: string; expectedVersion?: number }; expectedIntentRevision?: number; input?: { objective?: string | null; keyResults?: readonly { id?: string; text: string }[]; scope?: string | null; currentPhase?: string | null } } | null;
+    const targetId = params?.target?.workObjectId;
+    if (!targetId || decision.workObjectIds[0] !== targetId) throw new KernelError("USER_DECISION_TARGET_MISMATCH", "UPDATE_PROJECT_INTENT decision target does not match its parameters.");
+    const project = this.#store.getWorkObject(targetId);
+    if (!project || project.kind !== "PROJECT") throw new KernelError("PROJECT_INTENT_TARGET_INVALID", "ProjectIntent is formal only for PROJECT WorkObjects.");
+    if ((decision.inputVersions[project.id] ?? project.version) !== project.version) {
+      this.#store.updateUserDecisionExecution(decision.id, "STALE", this.#now(), []);
+      if (decision.packageId) this.#store.transitionDecisionPackage(decision.packageId, "STALE", this.#now());
+      throw new KernelError("USER_DECISION_STALE", "Project formal version changed after authorization.");
+    }
+    const current = this.#store.getProjectIntent(project.id);
+    if (typeof params!.expectedIntentRevision !== "number" || params!.expectedIntentRevision !== (current?.revision ?? 0)) {
+      this.#store.updateUserDecisionExecution(decision.id, "STALE", this.#now(), []);
+      if (decision.packageId) this.#store.transitionDecisionPackage(decision.packageId, "STALE", this.#now());
+      throw new KernelError("USER_DECISION_STALE", "ProjectIntent revision changed after authorization.");
+    }
+    const input = params!.input;
+    if (!input || !Array.isArray(input.keyResults)) throw new KernelError("USER_DECISION_PARAMS_INVALID", "UPDATE_PROJECT_INTENT decision parameters are invalid.");
+    const at = this.#now();
+    const updated = updateProjectIntent(current, {
+      workObjectId: project.id, objective: input.objective ?? null, keyResults: input.keyResults, scope: input.scope ?? null, currentPhase: input.currentPhase ?? null,
+      expectedRevision: params!.expectedIntentRevision!, at,
+    });
+    const commit: StoredCommit = {
+      id: deterministicUuid(`commit:${decision.id}`), status: "COMMITTED", actor: { type: "USER", id: this.#authorizedUserId }, operationType: "UPDATE_PROJECT_INTENT", targetId: project.id,
+      operation: { operationId: `decision:${decision.id}`, type: "UPDATE_PROJECT_INTENT", actor: { type: "USER", id: this.#authorizedUserId }, input: { objective: updated.objective, keyResults: updated.keyResults, scope: updated.scope, currentPhase: updated.currentPhase }, preconditions: [{ kind: "PROJECT_VERSION", expected: project.version }, { kind: "PROJECT_INTENT_REVISION", expected: params!.expectedIntentRevision }] },
+      preconditions: [{ kind: "PROJECT_VERSION", expected: project.version }, { kind: "PROJECT_INTENT_REVISION", expected: params!.expectedIntentRevision }], before: current, after: updated,
+      inverse: current ? { objective: current.objective, keyResults: current.keyResults, scope: current.scope, currentPhase: current.currentPhase, revision: current.revision } : { objective: null, keyResults: [], scope: null, currentPhase: null, revision: 0 }, graphEffect: null, graphResult: null, failureReason: null, compensationFor: null, compensatedBy: null, governance: null,
+      createdAt: at, updatedAt: at,
+    };
+    this.#store.transaction(() => {
+      this.#store.putProjectIntent(updated);
+      this.#store.insertCommit(commit);
+      this.#store.updateUserDecisionExecution(decision.id, "EXECUTED", at, [commit.id]);
+      if (decision.packageId) {
+        this.#store.transitionDecisionPackage(decision.packageId, "ACCEPTED", at);
+        for (const candidate of this.#store.listDecisionCandidates(decision.packageId, "OPEN")) this.#store.transitionDecisionCandidate(candidate.id, "ACCEPTED");
+      }
+    });
+    return { decision: this.#store.getUserDecision(decision.id)!, commit, projectionObligation: null };
+  }
+
   executeUserDecision(id: string): { decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null } {
     const decision = this.#store.getUserDecision(id);
     if (!decision || decision.status !== "AUTHORIZED") throw new KernelError("USER_DECISION_NOT_AUTHORIZED", "User Decision is missing or not authorized for execution.");
     if (decision.operationType === "ASSIGN_PARENT") {
       return this.#executeOwnershipDecision(decision);
+    }
+    if (decision.operationType === "UPDATE_PROJECT_INTENT") {
+      return this.#executeProjectIntentDecision(decision);
     }
     if (decision.operationType === "CREATE_WORK_OBJECT") {
       const params = decision.parameters as { anchor?: { graphId?: string; blockUuid?: string; sourceContentHash?: string }; input?: { kind?: WorkObject["kind"]; title?: string }; ownerId?: string | null; proposedWorkIntent?: { desiredOutcome?: string | null; completionChecks?: readonly string[] } | null };

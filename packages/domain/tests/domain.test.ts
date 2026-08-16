@@ -12,6 +12,7 @@ import {
   renameWorkObject,
   restoreEngagement,
   restoreWorkObject,
+  updateProjectIntent,
   updateWorkIntent,
   setCurrentFocus,
   type WorkObject,
@@ -217,4 +218,19 @@ test("completion of a WAITING Task clears open state and compensation restores i
   assert.equal(restored.engagement, "WAITING");
   assert.deepEqual(restored.waitingCondition, waiting.waitingCondition);
   assert.equal(restored.currentFocus, "跟进验收");
+});
+
+test("ProjectIntent is sparse, revision-bound, and never generates more than five KRs", () => {
+  const first = updateProjectIntent(null, { workObjectId: "project-01", objective: "  完成独立基础设施建设并形成可交接的运维能力  ", keyResults: [{ text: "核心设备采购与部署完成" }, { text: "独立组网和平台建设完成" }], scope: null, currentPhase: "采购与实施准备", expectedRevision: 0, at: "2026-08-17T01:00:00.000Z" });
+  assert.equal(first.objective, "完成独立基础设施建设并形成可交接的运维能力");
+  assert.equal(first.revision, 1);
+  assert.equal(first.keyResults.length, 2);
+  assert.equal(first.currentPhase, "采购与实施准备");
+  assert.throws(() => updateProjectIntent(null, { workObjectId: "project-01", objective: "目标", keyResults: Array.from({ length: 6 }, (_, index) => ({ text: `KR${index}` })), scope: null, currentPhase: null, expectedRevision: 0, at: "2026-08-17T01:00:00.000Z" }), /PROJECT_KEY_RESULTS_TOO_MANY/u);
+  assert.throws(() => updateProjectIntent(first, { workObjectId: "project-01", objective: "目标", keyResults: [], scope: null, currentPhase: null, expectedRevision: 0, at: "2026-08-17T01:00:00.000Z" }), /PROJECT_INTENT_REVISION_MISMATCH/u);
+  assert.throws(() => updateProjectIntent(first, { workObjectId: "project-01", objective: first.objective, keyResults: first.keyResults, scope: first.scope, currentPhase: first.currentPhase, expectedRevision: 1, at: "2026-08-17T01:00:00.000Z" }), /PROJECT_INTENT_UNCHANGED/u);
+  const second = updateProjectIntent(first, { workObjectId: "project-01", objective: first.objective, keyResults: [...first.keyResults, { text: "验收与运维材料形成" }], scope: "以采购、网络、平台为边界", currentPhase: first.currentPhase, expectedRevision: 1, at: "2026-08-17T01:10:00.000Z" });
+  assert.equal(second.revision, 2);
+  assert.equal(second.keyResults.length, 3);
+  assert.equal(second.scope, "以采购、网络、平台为边界");
 });

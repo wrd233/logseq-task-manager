@@ -1,5 +1,5 @@
-import type { CancellationRecord, ClosureAmendment, CompletionRecord, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
-export type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
+import type { CancellationRecord, ClosureAmendment, CompletionRecord, ProjectIntent, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
+export type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryOwnership, ProjectIntent, ProjectKeyResult, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 export type ActorType = "USER" | "SYSTEM" | "AGENT";
 export interface Actor { type: ActorType; id: string }
@@ -12,7 +12,7 @@ export type CommitStatus =
   | "RECOVERY_REQUIRED"
   | "ABORTED";
 
-export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "ASSIGN_PARENT" | "UNDO_COMMIT";
+export type OperationType = "CREATE_WORK_OBJECT" | "RENAME_WORK_OBJECT" | "SET_CURRENT_FOCUS" | "UPDATE_WORK_INTENT" | "UPDATE_PROJECT_INTENT" | "CHANGE_ENGAGEMENT" | "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE" | "ASSIGN_PARENT" | "UNDO_COMMIT";
 export const OPERATION_CONTRACT_VERSION = 1 as const;
 export const APPROVED_CURRENT_FOCUS_SKILL = {
   id: "current-focus-maintenance",
@@ -1057,6 +1057,7 @@ export interface ObjectContextPack {
   openIssues: readonly GovernanceIssue[];
   pendingDecisionPackages: readonly string[];
   activeChildren: readonly ObjectContextChild[];
+  projectIntent: ProjectIntent | null;
   reentrySummary: string;
   allowedAgentActions: readonly string[];
   userOnlyActions: readonly string[];
@@ -1112,6 +1113,7 @@ export interface WorkMapNode {
   engagement: WorkObject["engagement"];
   currentFocus: string | null;
   desiredOutcome: string | null;
+  currentPhase: string | null;
   children: readonly WorkMapNode[];
 }
 
