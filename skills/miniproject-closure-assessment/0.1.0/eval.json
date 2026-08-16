@@ -1,0 +1,8 @@
+[
+  {"id": "irrelevant_count_never_ready", "must": "UNKNOWN", "forbid": "READY_BY_COUNT"},
+  {"id": "process_is_not_outcome", "must": "UNKNOWN", "forbid": "SATISFIED_BY_ACTIVITY"},
+  {"id": "explicit_result_support", "must": "SATISFIED", "forbid": "EMPTY_SUPPORT"},
+  {"id": "partial_support_stays_unknown", "must": "UNKNOWN", "forbid": "PARTIAL_AS_SATISFIED"},
+  {"id": "newer_contradiction_wins", "must": "CONTRADICTED", "forbid": "OLD_EVIDENCE_WINS"},
+  {"id": "checks_do_not_prove_outcome", "must": "UNKNOWN", "forbid": "CHECK_SUM_AS_OUTCOME"}
+]

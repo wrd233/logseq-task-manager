@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureAssessment, type ClosureCheckAssessment, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureAssessment, type ClosureAssessmentJob, type ClosureCheckAssessment, type ClosureGateSnapshot, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -418,6 +418,7 @@ export class SqliteStore {
     this.#migrateV19();
     this.#migrateV20();
     this.#migrateV21();
+    this.#migrateV22();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -877,6 +878,30 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (21, ?)").run(new Date().toISOString());
   }
 
+  #migrateV22(): void {
+    if (!this.#hasColumn("closure_assessments", "evidence_watermark")) this.#database.exec("ALTER TABLE closure_assessments ADD COLUMN evidence_watermark INTEGER NOT NULL DEFAULT 0");
+    if (!this.#hasColumn("closure_assessments", "gate_json")) this.#database.exec("ALTER TABLE closure_assessments ADD COLUMN gate_json TEXT NOT NULL DEFAULT '{\"pass\":false,\"reasonCode\":\"UNASSESSED\",\"blockers\":[]}'");
+    if (!this.#hasColumn("closure_assessments", "readiness_changed_at")) this.#database.exec("ALTER TABLE closure_assessments ADD COLUMN readiness_changed_at TEXT");
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS closure_assessment_jobs (
+        id TEXT PRIMARY KEY,
+        work_object_id TEXT NOT NULL REFERENCES work_objects(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        semantic_revision TEXT NOT NULL,
+        evidence_watermark INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL CHECK (status IN ('QUEUED','RUNNING','DONE','FAILED','STALE')),
+        attempt INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        last_outcome TEXT,
+        not_before TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS closure_assessment_jobs_claim_idx ON closure_assessment_jobs(status, created_at, id);
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (22, ?)").run(new Date().toISOString());
+  }
+
   acquireRuntimeLease(scopeKey: string, instanceId: string, pid: number, leaseToken: string, heartbeatAt: string, ttlMs: number): void {
     this.#database.exec("BEGIN IMMEDIATE");
     try {
@@ -929,21 +954,99 @@ export class SqliteStore {
   }
 
   putClosureAssessment(assessment: ClosureAssessment): void {
-    this.#database.prepare(`INSERT INTO closure_assessments(work_object_id,kind,readiness,semantic_revision,assessed_at,blockers_json,checks_json,contradiction_summary,evidence_ids_json,provenance,updated_at)
-      VALUES (@workObjectId,@kind,@readiness,@semanticRevision,@assessedAt,@blockers,@checks,@contradictionSummary,@evidenceIds,@provenance,@assessedAt)
-      ON CONFLICT(work_object_id) DO UPDATE SET kind=excluded.kind, readiness=excluded.readiness, semantic_revision=excluded.semantic_revision, assessed_at=excluded.assessed_at, blockers_json=excluded.blockers_json, checks_json=excluded.checks_json, contradiction_summary=excluded.contradiction_summary, evidence_ids_json=excluded.evidence_ids_json, provenance=excluded.provenance, updated_at=excluded.updated_at`)
-      .run({ ...assessment, blockers: JSON.stringify(assessment.blockers), checks: JSON.stringify(assessment.checks), evidenceIds: JSON.stringify(assessment.evidenceIds) });
+    this.transaction(() => {
+      const previous = this.getClosureAssessment(assessment.workObjectId);
+      const readinessChangedAt = assessment.readiness === "READY"
+        ? previous?.readiness === "READY" && previous.readinessChangedAt ? previous.readinessChangedAt : assessment.assessedAt
+        : null;
+      this.#database.prepare(`INSERT INTO closure_assessments(work_object_id,kind,readiness,semantic_revision,evidence_watermark,assessed_at,blockers_json,checks_json,contradiction_summary,evidence_ids_json,provenance,gate_json,readiness_changed_at,updated_at)
+        VALUES (@workObjectId,@kind,@readiness,@semanticRevision,@evidenceWatermark,@assessedAt,@blockers,@checks,@contradictionSummary,@evidenceIds,@provenance,@gate,@readinessChangedAt,@assessedAt)
+        ON CONFLICT(work_object_id) DO UPDATE SET kind=excluded.kind, readiness=excluded.readiness, semantic_revision=excluded.semantic_revision, evidence_watermark=excluded.evidence_watermark, assessed_at=excluded.assessed_at, blockers_json=excluded.blockers_json, checks_json=excluded.checks_json, contradiction_summary=excluded.contradiction_summary, evidence_ids_json=excluded.evidence_ids_json, provenance=excluded.provenance, gate_json=excluded.gate_json, readiness_changed_at=excluded.readiness_changed_at, updated_at=excluded.updated_at`)
+        .run({ ...assessment, blockers: JSON.stringify(assessment.blockers), checks: JSON.stringify(assessment.checks), evidenceIds: JSON.stringify(assessment.evidenceIds), gate: JSON.stringify(assessment.gate), readinessChangedAt });
+    });
   }
 
   getClosureAssessment(workObjectId: string): ClosureAssessment | null {
     const row = this.#database.prepare("SELECT * FROM closure_assessments WHERE work_object_id=?").get(workObjectId) as Record<string, unknown> | undefined;
     if (!row) return null;
+    const checks = decode(String(row.checks_json)) as Array<Record<string, unknown>>;
     return {
       workObjectId: String(row.work_object_id), kind: row.kind as ClosureAssessment["kind"], readiness: row.readiness as ClosureAssessment["readiness"],
-      semanticRevision: String(row.semantic_revision), assessedAt: String(row.assessed_at), blockers: decode(String(row.blockers_json)) as string[],
-      checks: decode(String(row.checks_json)) as ClosureCheckAssessment[], contradictionSummary: row.contradiction_summary === null ? null : String(row.contradiction_summary),
+      semanticRevision: String(row.semantic_revision), evidenceWatermark: Number(row.evidence_watermark ?? 0), assessedAt: String(row.assessed_at),
+      blockers: decode(String(row.blockers_json)) as string[],
+      checks: checks.map((item) => ({ text: String(item.text ?? ""), status: item.status as ClosureCheckAssessment["status"], evidenceIds: Array.isArray(item.evidenceIds) ? item.evidenceIds.map(String) : [], rationale: String(item.rationale ?? "") })),
+      contradictionSummary: row.contradiction_summary === null ? null : String(row.contradiction_summary),
       evidenceIds: decode(String(row.evidence_ids_json)) as string[], provenance: row.provenance as ClosureAssessment["provenance"],
+      gate: decode(String(row.gate_json ?? "{\"pass\":false,\"reasonCode\":\"UNASSESSED\",\"blockers\":[]}")) as ClosureGateSnapshot,
+      readinessChangedAt: row.readiness_changed_at === null || row.readiness_changed_at === undefined ? null : String(row.readiness_changed_at),
     };
+  }
+
+  enqueueClosureAssessmentJob(job: ClosureAssessmentJob): void {
+    this.transaction(() => {
+      this.#database.prepare("UPDATE closure_assessment_jobs SET status='STALE', last_outcome='SUPERSEDED', updated_at=? WHERE work_object_id=? AND status='QUEUED'").run(job.updatedAt, job.workObjectId);
+      this.#database.prepare("DELETE FROM closure_assessment_jobs WHERE id=? AND status<>'RUNNING'").run(job.id);
+      this.#database.prepare(`INSERT INTO closure_assessment_jobs(id,work_object_id,kind,semantic_revision,evidence_watermark,status,attempt,last_error,last_outcome,not_before,created_at,updated_at)
+        VALUES (@id,@workObjectId,@kind,@semanticRevision,@evidenceWatermark,@status,@attempt,@lastError,@lastOutcome,@notBefore,@createdAt,@updatedAt)`).run(job);
+    });
+  }
+
+  listClosureAssessmentJobs(status?: ClosureAssessmentJob["status"]): ClosureAssessmentJob[] {
+    const rows = status
+      ? (this.#database.prepare("SELECT * FROM closure_assessment_jobs WHERE status=? ORDER BY created_at, id").all(status) as Array<Record<string, unknown>>)
+      : (this.#database.prepare("SELECT * FROM closure_assessment_jobs ORDER BY created_at, id").all() as Array<Record<string, unknown>>);
+    return rows.map((row) => this.#mapClosureAssessmentJob(row));
+  }
+
+  claimNextClosureAssessmentJob(at: string): ClosureAssessmentJob | null {
+    return this.transaction(() => {
+      const row = this.#database.prepare(`SELECT * FROM closure_assessment_jobs WHERE status='QUEUED' AND (not_before IS NULL OR not_before<=?) ORDER BY created_at, id LIMIT 1`).get(at) as Record<string, unknown> | undefined;
+      if (!row) return null;
+      const job = this.#mapClosureAssessmentJob(row);
+      this.#database.prepare("UPDATE closure_assessment_jobs SET status='RUNNING', attempt=attempt+1, updated_at=? WHERE id=?").run(at, job.id);
+      return { ...job, status: "RUNNING" as const, attempt: job.attempt + 1, updatedAt: at };
+    });
+  }
+
+  completeClosureAssessmentJob(id: string, at: string, outcome: string): void {
+    const changed = this.#database.prepare("UPDATE closure_assessment_jobs SET status='DONE', last_error=NULL, last_outcome=?, updated_at=? WHERE id=? AND status='RUNNING'").run(outcome, at, id);
+    if (!changed.changes) throw new Error("CLOSURE_ASSESSMENT_JOB_NOT_RUNNING");
+  }
+
+  completeClosureAssessmentJobAsSuperseded(id: string, at: string): ClosureAssessmentJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM closure_assessment_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("CLOSURE_ASSESSMENT_JOB_NOT_RUNNING");
+      const job = this.#mapClosureAssessmentJob(row);
+      this.#database.prepare("UPDATE closure_assessment_jobs SET status='STALE', last_outcome='SUPERSEDED', last_error='SUPERSEDED_BY_NEWER_JOB', updated_at=? WHERE id=?").run(at, id);
+      return { ...job, status: "STALE" as const, lastOutcome: "SUPERSEDED", lastError: "SUPERSEDED_BY_NEWER_JOB", updatedAt: at };
+    });
+  }
+
+  hasQueuedClosureAssessmentJobNewerThan(workObjectId: string, currentJobId: string, createdAt: string): boolean {
+    const row = this.#database.prepare("SELECT 1 FROM closure_assessment_jobs WHERE work_object_id=? AND status='QUEUED' AND id<>? AND created_at>=? LIMIT 1").get(workObjectId, currentJobId, createdAt);
+    return Boolean(row);
+  }
+
+  failClosureAssessmentJob(id: string, reason: string, nextNotBefore: string, at: string, maxAttempts: number): ClosureAssessmentJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM closure_assessment_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("CLOSURE_ASSESSMENT_JOB_NOT_RUNNING");
+      const job = this.#mapClosureAssessmentJob(row);
+      const status = job.attempt >= maxAttempts ? "FAILED" as const : "QUEUED" as const;
+      this.#database.prepare("UPDATE closure_assessment_jobs SET status=?, last_error=?, not_before=?, updated_at=? WHERE id=?").run(status, reason, status === "QUEUED" ? nextNotBefore : null, at, id);
+      return { ...job, status, lastError: reason, notBefore: status === "QUEUED" ? nextNotBefore : null, updatedAt: at };
+    });
+  }
+
+  deferClosureAssessmentJob(id: string, reason: string, nextNotBefore: string, at: string): ClosureAssessmentJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM closure_assessment_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("CLOSURE_ASSESSMENT_JOB_NOT_RUNNING");
+      const job = this.#mapClosureAssessmentJob(row);
+      this.#database.prepare("UPDATE closure_assessment_jobs SET status='QUEUED', last_error=?, not_before=?, updated_at=? WHERE id=?").run(reason, nextNotBefore, at, id);
+      return { ...job, status: "QUEUED" as const, lastError: reason, notBefore: nextNotBefore, updatedAt: at };
+    });
   }
 
   getProjectIntent(workObjectId: string): ProjectIntent | null {
@@ -1801,6 +1904,16 @@ export class SqliteStore {
   getFormalizationCandidateByPackage(packageId: string): FormalizationCandidate | null {
     const row = this.#database.prepare("SELECT id FROM formalization_candidates WHERE decision_package_id=?").get(packageId) as { id: string } | undefined;
     return row ? this.getFormalizationCandidate(row.id) : null;
+  }
+
+  #mapClosureAssessmentJob(row: Record<string, unknown>): ClosureAssessmentJob {
+    return {
+      id: String(row.id), workObjectId: String(row.work_object_id), kind: row.kind as ClosureAssessmentJob["kind"],
+      semanticRevision: String(row.semantic_revision), evidenceWatermark: Number(row.evidence_watermark ?? 0),
+      status: row.status as ClosureAssessmentJob["status"], attempt: Number(row.attempt ?? 0),
+      lastError: row.last_error === null ? null : String(row.last_error), lastOutcome: row.last_outcome === null ? null : String(row.last_outcome),
+      notBefore: row.not_before === null ? null : String(row.not_before), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    };
   }
 
   #mapReconcileJob(row: Record<string, unknown>): ReconcileJob {

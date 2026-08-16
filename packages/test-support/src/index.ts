@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 
 import { graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
+export { CLOSURE_GOLD_SET, type ClosureGoldCase } from "./closure-gold-set.ts";
+
 type SourceMarker = Exclude<GraphSnapshot["sourceMarker"], undefined>;
 interface RecordState { content: string; projection: ManagedProjection | null; marker: SourceMarker }
 

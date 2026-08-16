@@ -1,0 +1,19 @@
+[
+  {
+    "scenario": "KR supported but objective not proven",
+    "input": "KR K0=基础设施建设完成, K1=平台稳定上线; E1=设备已上架, E2=平台已部署",
+    "items": [
+      {"key": "K0", "status": "SATISFIED", "supportingEvidenceIds": ["E1"], "rationale": "E1 states the infrastructure result."},
+      {"key": "K1", "status": "UNKNOWN", "supportingEvidenceIds": [], "rationale": "Deployment is process; stable operation is not proven."}
+    ],
+    "objectiveJudgment": {"status": "UNKNOWN", "objectiveContradiction": null, "scopeMismatch": null, "outcomeContradiction": null, "summary": "Stable launch is not proven, so the objective is not fulfilled."}
+  },
+  {
+    "scenario": "latest run records contradict stable launch",
+    "input": "KR K1=平台稳定上线; E1=平台已部署, E2=最新运行记录显示持续严重故障",
+    "items": [
+      {"key": "K1", "status": "CONTRADICTED", "supportingEvidenceIds": ["E1", "E2"], "rationale": "Older deployment support is contradicted by latest failure records."}
+    ],
+    "objectiveJudgment": {"status": "CONTRADICTED", "objectiveContradiction": "E2 显示稳定上线目标尚未实现。", "scopeMismatch": null, "outcomeContradiction": "最新运行记录与稳定上线目标矛盾。", "summary": "Stable operation is contradicted by the newest evidence."}
+  }
+]

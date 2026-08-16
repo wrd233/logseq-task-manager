@@ -207,6 +207,37 @@ export interface ClosureCheckAssessment {
   text: string;
   status: "SATISFIED" | "UNSATISFIED" | "UNKNOWN" | "CONTRADICTED";
   evidenceIds: readonly string[];
+  rationale: string;
+}
+
+export type ClosureItemStatus = "SATISFIED" | "UNSATISFIED" | "UNKNOWN" | "CONTRADICTED";
+
+export interface ClosureItemJudgment {
+  /** MiniProject: `C0`..; Project: the KR id when present, otherwise `K0`.. */
+  key: string;
+  status: ClosureItemStatus;
+  supportingEvidenceIds: readonly string[];
+  rationale: string;
+}
+
+export interface ClosureObjectiveJudgment {
+  status: ClosureItemStatus;
+  objectiveContradiction: string | null;
+  scopeMismatch: string | null;
+  outcomeContradiction: string | null;
+  summary: string;
+}
+
+export interface ClosureSemanticJudgment {
+  kind: "MINI_PROJECT" | "PROJECT";
+  items: readonly ClosureItemJudgment[];
+  objectiveJudgment: ClosureObjectiveJudgment;
+}
+
+export interface ClosureGateSnapshot {
+  pass: boolean;
+  reasonCode: string | null;
+  blockers: readonly string[];
 }
 
 export interface ClosureAssessment {
@@ -214,12 +245,45 @@ export interface ClosureAssessment {
   kind: WorkObjectKind;
   readiness: ClosureReadiness;
   semanticRevision: string;
+  evidenceWatermark: number;
   assessedAt: string;
   blockers: readonly string[];
   checks: readonly ClosureCheckAssessment[];
   contradictionSummary: string | null;
   evidenceIds: readonly string[];
-  provenance: "DETERMINISTIC" | "AGENT" | "STALE";
+  provenance: "DETERMINISTIC" | "AGENT";
+  gate: ClosureGateSnapshot;
+  /** Set when this assessment first became READY; preserved while READY is re-confirmed. */
+  readinessChangedAt: string | null;
+}
+
+export interface ClosureAssessmentJob {
+  id: string;
+  workObjectId: string;
+  kind: WorkObjectKind;
+  semanticRevision: string;
+  evidenceWatermark: number;
+  status: "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "STALE";
+  attempt: number;
+  lastError: string | null;
+  lastOutcome: string | null;
+  notBefore: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClosureAssessorInput {
+  object: WorkObject;
+  projectIntent: ProjectIntent | null;
+  evidence: readonly FrozenEvidence[];
+  profile: ExecutionProfile;
+  skill: SkillPackage;
+}
+
+export interface ClosureAssessor {
+  readonly id: string;
+  tokenUsage?: { inputTokens?: number | null; outputTokens?: number | null } | null;
+  assess(input: ClosureAssessorInput): Promise<ClosureSemanticJudgment>;
 }
 
 export interface ClosureHistory { current: EffectiveClosure | null; completions: readonly CompletionRecord[]; cancellations: readonly CancellationRecord[]; amendments: readonly ClosureAmendment[]; reopens: readonly ReopenRecord[] }
@@ -814,6 +878,19 @@ export const CONVERSATION_DEEP_PROFILE = {
   reasoningEffort: "high", maxOutputTokens: 2_000, timeoutMs: 45_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
 } as const satisfies ExecutionProfile;
 
+/** Closure semantic assessment: slow is fine, but it must never block Object reads. */
+export const CLOSURE_ASSESSMENT_PROFILE = {
+  id: "closure-assessment", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+  allowedDataScope: ["formal_state", "frozen_evidence"], maxContextItems: 24, maxInputChars: 24_000,
+  reasoningEffort: "high", maxOutputTokens: 4_096, maxRemoteCallsPerRun: 1, maxRemoteCallsPerHour: 6,
+  timeoutMs: 60_000, retryBudget: 1, credentialRef: "DEEPSEEK_API_KEY",
+} as const satisfies ExecutionProfile;
+
+export const FAKE_CLOSURE_ASSESSMENT_PROFILE = {
+  id: "builtin-fake-closure", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["formal_state", "frozen_evidence"],
+  maxContextItems: 24, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null,
+} as const satisfies ExecutionProfile;
+
 export interface CognitionJudgeInput {
   object: WorkObject;
   contextPack: ContextPackItem[];
@@ -1097,6 +1174,8 @@ export interface ObjectContextPack {
   activeChildren: readonly ObjectContextChild[];
   projectIntent: ProjectIntent | null;
   closureAssessment: ClosureAssessment | null;
+  /** False means the cached assessment is stale and a background reassessment is running/queued. */
+  closureAssessmentFresh: boolean;
   reentrySummary: string;
   allowedAgentActions: readonly string[];
   userOnlyActions: readonly string[];
@@ -1175,6 +1254,8 @@ export interface SystemProjection {
   runtimeSummary: string;
   runtimeQueuedJobs: number;
   runtimeFailedJobs: number;
+  runtimeClosureQueuedJobs: number;
+  runtimeClosureFailedJobs: number;
   generatedAt: string;
 }
 

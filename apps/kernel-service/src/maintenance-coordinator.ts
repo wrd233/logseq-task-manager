@@ -27,6 +27,7 @@ export interface MaintenanceCoordinatorOptions {
   intervalMs?: number;
   maxAttempts?: number;
   retryBackoffMs?: number;
+  onRecordSourceChange?: (workObjectId: string) => void;
   cognitionExecutor?: CognitionExecutor;
   executionProfile?: ExecutionProfile;
 }
@@ -39,6 +40,7 @@ export class MaintenanceCoordinator {
   readonly #intervalMs: number;
   readonly #maxAttempts: number;
   readonly #retryBackoffMs: number;
+  readonly #onRecordSourceChange: ((workObjectId: string) => void) | null;
   readonly #cognition: CognitionExecutor;
   readonly #profile: ExecutionProfile;
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -52,6 +54,7 @@ export class MaintenanceCoordinator {
     this.#intervalMs = options.intervalMs ?? 1_000;
     this.#maxAttempts = options.maxAttempts ?? 5;
     this.#retryBackoffMs = options.retryBackoffMs ?? 30_000;
+    this.#onRecordSourceChange = options.onRecordSourceChange ?? null;
     this.#cognition = cognition;
     this.#profile = profile;
   }
@@ -103,6 +106,7 @@ export class MaintenanceCoordinator {
       status: "QUEUED", lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
+    this.#onRecordSourceChange?.(object.id);
     return { coverage: this.#store.getSourceCoverage(object.id)!, job };
   }
 

@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "items", "objectiveJudgment"],
+  "properties": {
+    "kind": { "const": "PROJECT" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "status", "supportingEvidenceIds", "rationale"],
+        "properties": {
+          "key": { "type": "string" },
+          "status": { "enum": ["SATISFIED", "UNSATISFIED", "UNKNOWN", "CONTRADICTED"] },
+          "supportingEvidenceIds": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string", "maxLength": 300 }
+        }
+      }
+    },
+    "objectiveJudgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "objectiveContradiction", "scopeMismatch", "outcomeContradiction", "summary"],
+      "properties": {
+        "status": { "enum": ["SATISFIED", "UNSATISFIED", "UNKNOWN", "CONTRADICTED"] },
+        "objectiveContradiction": { "type": ["string", "null"], "maxLength": 500 },
+        "scopeMismatch": { "type": ["string", "null"], "maxLength": 500 },
+        "outcomeContradiction": { "type": ["string", "null"], "maxLength": 500 },
+        "summary": { "type": "string", "maxLength": 800 }
+      }
+    }
+  }
+}

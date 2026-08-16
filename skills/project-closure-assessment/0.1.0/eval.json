@@ -1,0 +1,8 @@
+[
+  {"id": "process_not_outcome", "must": "UNKNOWN", "forbid": "DEPLOY_AS_STABLE"},
+  {"id": "latest_contradiction_wins", "must": "CONTRADICTED", "forbid": "OLD_EVIDENCE_WINS"},
+  {"id": "kr_supported_not_objective", "must": "UNKNOWN", "forbid": "KR_SUM_AS_OBJECTIVE"},
+  {"id": "count_never_ready", "must": "UNKNOWN", "forbid": "READY_BY_COUNT"},
+  {"id": "explicit_attribution", "must": "SATISFIED", "forbid": "EMPTY_SUPPORT"},
+  {"id": "children_closed_not_outcome", "must": "UNKNOWN", "forbid": "CHILD_CLOSURE_AS_OUTCOME"}
+]

@@ -1,0 +1,7 @@
+{
+  "id": "project-closure-assessment",
+  "version": "0.1.0",
+  "operation": "CLOSURE_ASSESSMENT",
+  "risk": "DERIVED_ONLY",
+  "description": "Evidence-grounded semantic judgment of one Project's Objective and Key Results."
+}

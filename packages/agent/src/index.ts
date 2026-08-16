@@ -7,6 +7,8 @@ import type { AgentCurrentFocusResult, AgentEngagementResult, CurrentFocusAgent,
 
 export { FakeContextAwareExecutor } from "./fake-context-cognition.ts";
 export { FakeDiscoveryExecutor } from "./fake-discovery.ts";
+export { FakeClosureAssessor } from "./fake-closure-assessor.ts";
+export { DeepSeekClosureAssessor, parseClosureAssessmentText, parseClosureSemanticJudgment } from "./deepseek-closure-assessor.ts";
 export { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, extractStructuredJudgmentText, parseDeepSeekJudgmentText, parseDiscoveryJudgments, parseSemanticJudgment } from "./deepseek-executor.ts";
 
 const skillFiles = ["manifest.json", "policy.md", "schema.json", "examples.json", "eval.json"] as const;
@@ -33,6 +35,14 @@ export async function loadMiniProjectGovernanceSkill(root = fileURLToPath(new UR
 
 export async function loadWorkIntentMaintenanceSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
   return loadSkill(join(root, "skills", "work-intent-maintenance", "0.1.0"));
+}
+
+export async function loadMiniProjectClosureAssessmentSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  return loadSkill(join(root, "skills", "miniproject-closure-assessment", "0.1.0"));
+}
+
+export async function loadProjectClosureAssessmentSkill(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<SkillPackage> {
+  return loadSkill(join(root, "skills", "project-closure-assessment", "0.1.0"));
 }
 
 export async function loadMiniProjectTaste(root = fileURLToPath(new URL("../../../", import.meta.url))): Promise<TasteProfile> {

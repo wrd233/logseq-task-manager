@@ -3,8 +3,8 @@ import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
-import { DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeContextAwareExecutor, FakeDiscoveryExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { parseSemanticOperation, type CognitionExecutor, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
+import { DeepSeekClosureAssessor, DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeClosureAssessor, FakeContextAwareExecutor, FakeDiscoveryExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectClosureAssessmentSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadProjectClosureAssessmentSkill, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
+import { CLOSURE_ASSESSMENT_PROFILE, FAKE_CLOSURE_ASSESSMENT_PROFILE, parseSemanticOperation, type ClosureAssessor, type CognitionExecutor, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { DiscoveryCoordinator } from "./discovery-coordinator.ts";
@@ -12,8 +12,9 @@ import { ProjectionCoordinator } from "./projection-coordinator.ts";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
+import { ClosureAssessmentCoordinator } from "./closure-assessment-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -37,7 +38,7 @@ async function removeOwnedDescriptor(path: string, token: string): Promise<void>
   catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
 }
 
-export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore; maintenance: MaintenanceCoordinator; broker: GraphRequestBroker; instanceId: string }> {
+export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore; maintenance: MaintenanceCoordinator; broker: GraphRequestBroker; instanceId: string; closure: ClosureAssessmentCoordinator }> {
   const token = options.token ?? randomBytes(32).toString("hex");
   const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   const graphBridgeToken = options.graphBridgeToken ?? randomBytes(32).toString("hex");
@@ -63,6 +64,16 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const miniProjectSkill = options.miniProjectSkill ?? await loadMiniProjectGovernanceSkill(options.workspaceRoot);
   const workIntentSkill = options.workIntentSkill ?? await loadWorkIntentMaintenanceSkill(options.workspaceRoot);
   const miniProjectTaste = options.miniProjectTaste ?? await loadMiniProjectTaste(options.workspaceRoot);
+  const miniProjectClosureSkill = options.miniProjectClosureSkill ?? await loadMiniProjectClosureAssessmentSkill(options.workspaceRoot);
+  const projectClosureSkill = options.projectClosureSkill ?? await loadProjectClosureAssessmentSkill(options.workspaceRoot);
+  const closureAssessor = options.closureAssessor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekClosureAssessor() : new FakeClosureAssessor());
+  const closureProfile = options.closureExecutionProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? CLOSURE_ASSESSMENT_PROFILE : FAKE_CLOSURE_ASSESSMENT_PROFILE);
+  const closure = new ClosureAssessmentCoordinator(store, closureAssessor, closureProfile, {
+    ...(options.now ? { now: options.now } : {}), skills: { miniProject: miniProjectClosureSkill, project: projectClosureSkill },
+    ...(options.closureAssessmentIntervalMs !== undefined ? { intervalMs: options.closureAssessmentIntervalMs } : {}),
+    ...(options.closureAssessmentMaxAttempts !== undefined ? { maxAttempts: options.closureAssessmentMaxAttempts } : {}),
+    ...(options.closureAssessmentRetryBackoffMs !== undefined ? { retryBackoffMs: options.closureAssessmentRetryBackoffMs } : {}),
+  });
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
@@ -75,7 +86,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const maintenanceIntervalMs = options.maintenanceIntervalMs ?? (process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS) : undefined);
   const maintenanceMaxAttempts = options.maintenanceMaxAttempts ?? (process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS ? Number(process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS) : undefined);
   const maintenanceRetryBackoffMs = options.maintenanceRetryBackoffMs ?? (process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS) : undefined);
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}) }, cognitionExecutor, executionProfile);
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, onRecordSourceChange: (workObjectId) => closure.requestAssessment(workObjectId), ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}) }, cognitionExecutor, executionProfile);
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
   const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -83,7 +94,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
   } : { id: "builtin-fake-discovery", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null });
   const discovery = new DiscoveryCoordinator(kernel, store, broker, maintenance, discoveryExecutor, discoveryProfile, { ...(options.now ? { now: options.now } : {}), ...(options.journalPageNames ? { journalPageNames: options.journalPageNames } : {}) });
-  const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, { ...(options.now ? { now: options.now } : {}) });
+  const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, closure, { ...(options.now ? { now: options.now } : {}) });
+  const afterFormalChange = (targetId: string | null | undefined): void => {
+    if (!targetId) return;
+    closure.requestAssessment(targetId);
+    const owner = store.getOwnershipByChild(targetId);
+    if (owner) closure.requestAssessment(owner.ownerId);
+  };
+  const closureStaleSweepTimer = setInterval(() => { try { projections.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -129,7 +147,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const status = url.searchParams.get("status");
         const allowed = new Set<ReconcileJob["status"]>(["QUEUED", "RUNNING", "DONE", "FAILED", "STALE"]);
         const jobs = status && allowed.has(status as ReconcileJob["status"]) ? maintenance.jobs(status as ReconcileJob["status"]) : maintenance.jobs();
-        send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs }); return;
+        send(response, 200, { globalPaused: maintenance.isPaused("global", null), jobs, closureJobs: closure.jobs() }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/projections/now") { send(response, 200, projections.now()); return; }
       if (request.method === "GET" && url.pathname === "/v1/projections/confirmations") { send(response, 200, projections.confirmations()); return; }
@@ -246,6 +264,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         }
         const result = kernel.executeUserDecision(decisionId);
         if (result.decision.operationType === "CREATE_WORK_OBJECT" && result.decision.packageId) discovery.markMaterializedByPackage(result.decision.packageId, result.commit.targetId!);
+        afterFormalChange(result.commit.targetId);
         send(response, 200, result); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/user-decisions") {
@@ -256,7 +275,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && graphBlock) { send(response, 200, await external.readBlock({ blockUuid: decodeURIComponent(graphBlock[1]!), ...(url.searchParams.get("run") ? { runId: url.searchParams.get("run")! } : {}) })); return; }
       const graphPage = /^\/v1\/graph\/pages\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && graphPage) { send(response, 200, await external.readPage({ pageName: decodeURIComponent(graphPage[1]!), limit: Number(url.searchParams.get("limit") ?? 50), ...(url.searchParams.get("run") ? { runId: url.searchParams.get("run")! } : {}) })); return; }
-      if (request.method === "POST" && url.pathname === "/v1/external/evidence/freeze") { const value = await body(request) as { evidenceId: string; workObjectId: string; blockUuid: string }; send(response, 201, { evidence: await external.freezeEvidence(value) }); return; }
+      if (request.method === "POST" && url.pathname === "/v1/external/evidence/freeze") { const value = await body(request) as { evidenceId: string; workObjectId: string; blockUuid: string }; const evidence = await external.freezeEvidence(value); closure.requestAssessment(evidence.workObjectId); send(response, 201, { evidence }); return; }
       if (request.method === "POST" && url.pathname === "/v1/external/agent-runs/start") { const value = await body(request) as Parameters<ExternalAgentCoordinator["startRun"]>[0]; send(response, 201, { run: await external.startRun(value) }); return; }
       const externalFinish = /^\/v1\/external\/agent-runs\/([^/]+)\/finish$/u.exec(url.pathname);
       if (request.method === "POST" && externalFinish) { const value = await body(request) as { result: unknown }; send(response, 200, external.finishRun({ runId: decodeURIComponent(externalFinish[1]!), result: value.result })); return; }
@@ -287,9 +306,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const closureAssessmentMatch = /^\/v1\/objects\/([^/]+)\/closure-assessment$/u.exec(url.pathname);
       if (request.method === "GET" && closureAssessmentMatch) {
-        const assessment = projections.closureAssessment(decodeURIComponent(closureAssessmentMatch[1]!));
-        if (!assessment) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
-        send(response, 200, { assessment }); return;
+        const state = projections.closureAssessmentState(decodeURIComponent(closureAssessmentMatch[1]!));
+        if (!state.assessment) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, state); return;
       }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
@@ -323,7 +342,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       if (request.method === "POST" && url.pathname === "/v1/evidence/freeze") {
         const value = await body(request) as Parameters<Kernel["freezeEvidence"]>[0];
-        send(response, 201, { evidence: kernel.freezeEvidence(value) }); return;
+        const evidence = kernel.freezeEvidence(value);
+        closure.requestAssessment(evidence.workObjectId);
+        send(response, 201, { evidence }); return;
       }
       const runMatch = /^\/v1\/agent-runs\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && runMatch) {
@@ -372,7 +393,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/commits/commit") {
         assertTrustedUserChannel(request);
         const value = await body(request) as { operation: unknown; snapshot?: Parameters<Kernel["commitFormal"]>[1] };
-        send(response, 200, kernel.commitFormal(parseSemanticOperation(value.operation), value.snapshot ?? null)); return;
+        const result = kernel.commitFormal(parseSemanticOperation(value.operation), value.snapshot ?? null);
+        afterFormalChange(result.commit.targetId);
+        send(response, 200, result); return;
       }
       const projectionVerifyMatch = /^\/v1\/commits\/([^/]+)\/projection\/verify$/u.exec(url.pathname);
       if (request.method === "POST" && projectionVerifyMatch) {
@@ -398,7 +421,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && completeMatch) {
         assertTrustedUserChannel(request);
         const value = await body(request) as { result: Parameters<Kernel["complete"]>[1]; snapshot: Parameters<Kernel["complete"]>[2] };
-        send(response, 200, { commit: kernel.complete(decodeURIComponent(completeMatch[1]!), value.result, value.snapshot) }); return;
+        const commit = kernel.complete(decodeURIComponent(completeMatch[1]!), value.result, value.snapshot);
+        afterFormalChange(commit.targetId);
+        send(response, 200, { commit }); return;
       }
       const failMatch = /^\/v1\/commits\/([^/]+)\/graph-failed$/u.exec(url.pathname);
       if (request.method === "POST" && failMatch) {
@@ -434,14 +459,17 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   if (!address || typeof address === "string") throw new Error("KERNEL_ADDRESS_INVALID");
   const baseUrl = `http://127.0.0.1:${address.port}`;
   maintenance.start();
+  closure.start();
   const startedAt = (options.now ?? (() => new Date().toISOString()))();
   await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
   await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt });
   return {
-    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker, instanceId,
+    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker, instanceId, closure,
     close: async () => {
       clearInterval(leaseTimer);
+      clearInterval(closureStaleSweepTimer);
       maintenance.stop();
+      closure.stop();
       broker.close();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       try { store.releaseRuntimeLease(leaseScope, instanceId); } catch (error) { console.warn("[kernel] runtime lease release failed", error); }

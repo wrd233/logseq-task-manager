@@ -1,6 +1,8 @@
-import type { ClosureAssessment, ClosureCheckAssessment, ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, ProjectIntent, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
+import type { ClosureAssessment, ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, ProjectIntent, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
+import type { ClosureAssessmentCoordinator } from "./closure-assessment-coordinator.ts";
+import { computeClosureGate, currentSemanticRevision, deterministicClosureAssessment, gateSnapshot, sameGate, semanticRevisionFor } from "./closure-gate.ts";
 import type { DiscoveryCoordinator } from "./discovery-coordinator.ts";
 import type { GraphRequestBroker } from "./graph-broker.ts";
 import type { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
@@ -13,14 +15,16 @@ export class ProjectionCoordinator {
   readonly #discovery: DiscoveryCoordinator;
   readonly #maintenance: MaintenanceCoordinator;
   readonly #broker: GraphRequestBroker;
+  readonly #closure: ClosureAssessmentCoordinator;
   readonly #now: () => string;
 
-  constructor(store: SqliteStore, kernel: Kernel, discovery: DiscoveryCoordinator, maintenance: MaintenanceCoordinator, broker: GraphRequestBroker, options: ProjectionCoordinatorOptions = {}) {
+  constructor(store: SqliteStore, kernel: Kernel, discovery: DiscoveryCoordinator, maintenance: MaintenanceCoordinator, broker: GraphRequestBroker, closure: ClosureAssessmentCoordinator, options: ProjectionCoordinatorOptions = {}) {
     this.#store = store;
     this.#kernel = kernel;
     this.#discovery = discovery;
     this.#maintenance = maintenance;
     this.#broker = broker;
+    this.#closure = closure;
     this.#now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -44,10 +48,11 @@ export class ProjectionCoordinator {
       const hasUncoveredChanges = coverage?.hasUncoveredChanges ?? false;
       const hasPendingDecision = pending.length > 0;
       const hasRecentMeaningfulChange = recent.length > 0;
+      const readySinceLastSeen = this.#closureReadySinceLastSeen(object, baseline?.lastViewedAt ?? null);
       const resurfacedWaiting = object.engagement === "WAITING" && (waitingRecentlyChanged || reviewDue || hasUncoveredChanges);
       const actionableSignal = object.engagement !== "WAITING" && (hasRecentMeaningfulChange || hasUncoveredChanges);
       const pendingWithRealitySignal = hasPendingDecision && (hasRecentMeaningfulChange || hasUncoveredChanges || resurfacedWaiting);
-      if (!(resurfacedWaiting || actionableSignal || pendingWithRealitySignal)) continue;
+      if (!(resurfacedWaiting || actionableSignal || pendingWithRealitySignal || readySinceLastSeen)) continue;
       const meaningful = recent.map((commit) => {
         const after = commit.after as { engagement?: string | null; currentFocus?: string | null; title?: string; lifecycle?: string | null } | null;
         if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? `进入等待：${(after as { waitingCondition?: { description?: string } | null } | null)?.waitingCondition?.description ?? ""}` : "恢复可推进";
@@ -64,6 +69,7 @@ export class ProjectionCoordinator {
       });
       const whyNowParts: string[] = [];
       if (hasPendingDecision && pendingWithRealitySignal) whyNowParts.push(`有 ${pending.length} 个决定需要你确认`);
+      if (readySinceLastSeen) { meaningful.push("完成情况已具备结束条件"); whyNowParts.push("完成情况已具备结束条件，可以收口"); }
       if (hasUncoveredChanges) whyNowParts.push("自然记录有新变化，等待对齐");
       if (resurfacedWaiting) whyNowParts.push(object.engagement === "WAITING" ? "等待有变化，值得回来复查" : "");
       if (hasRecentMeaningfulChange && baseline) whyNowParts.push("上次看过以后有新的正式变化");
@@ -72,7 +78,7 @@ export class ProjectionCoordinator {
       items.push({
         id: `formal:${object.id}`, source: "FORMAL", workObjectId: object.id, title: object.title, kind: object.kind,
         whyNow: whyNowParts.filter(Boolean).join("；"), currentReality: this.#reality(object, childCount, this.#store.getProjectIntent(object.id)),
-        meaningfulChanges: meaningful, continuationPoint: object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : object.kind === "PROJECT" ? "和 Agent 讨论项目下一步" : "和 Agent 讨论下一步"),
+        meaningfulChanges: meaningful, continuationPoint: readySinceLastSeen && !object.currentFocus ? "查看结束评估并决定是否收口" : object.currentFocus ?? (object.engagement === "WAITING" ? (object.waitingCondition?.description ?? "复查等待条件") : object.kind === "PROJECT" ? "和 Agent 讨论项目下一步" : "和 Agent 讨论下一步"),
         engagement: object.engagement, waitingSummary: object.waitingCondition?.description ?? null,
         pendingDecisionCount: pending.length, coverageHonesty: hasUncoveredChanges ? "部分新记录尚未完成语义整理" : "现实已对齐",
         provenance: `formal-v${object.version}@${object.updatedAt}`, lastSeenAt: baseline?.lastViewedAt ?? null, changesSinceLastSeen: baseline ? recent.length : 0,
@@ -89,77 +95,87 @@ export class ProjectionCoordinator {
       });
     }
     items.sort((a, b) => {
-      const weight = (item: NowProjectionItem) => (item.pendingDecisionCount > 0 ? 4 : 0) + (item.engagement === "WAITING" ? 2 : 0) + (item.changesSinceLastSeen > 0 ? 1 : 0) + (item.kind === "PROJECT" ? 1 : 0) + (item.source === "NATURAL_FRONTIER" ? 2 : 0);
+      const weight = (item: NowProjectionItem) => (item.pendingDecisionCount > 0 ? 4 : 0) + (item.meaningfulChanges.includes("完成情况已具备结束条件") ? 3 : 0) + (item.engagement === "WAITING" ? 2 : 0) + (item.changesSinceLastSeen > 0 ? 1 : 0) + (item.kind === "PROJECT" ? 1 : 0) + (item.source === "NATURAL_FRONTIER" ? 2 : 0);
       return weight(b) - weight(a) || b.provenance.localeCompare(a.provenance);
     });
     const unique = [...new Map(items.map((item) => [item.id, item])).values()];
     return { items: unique.slice(0, 3), generatedAt: at, graphAvailable: this.#broker.status().available };
   }
 
+  /**
+   * Object reads only ever see a cached assessment. Deterministic blockers are
+   * persisted synchronously; a gate-passing object gets a coalesced background
+   * job and the caller sees the last good (possibly stale) assessment.
+   */
   closureAssessment(workObjectId: string): ClosureAssessment | null {
-    const object = this.#store.getWorkObject(workObjectId);
-    if (!object) return null;
-    const projectIntent = object.kind === "PROJECT" ? this.#store.getProjectIntent(workObjectId) : null;
-    const semanticRevision = object.kind === "PROJECT" ? `${object.version}:${projectIntent?.revision ?? 0}` : String(object.version);
-    const evidence = this.#store.listEvidence(workObjectId);
-    const openChildren = this.#openDescendants(workObjectId);
-    const issues = this.#store.listGovernanceIssues(workObjectId, "OPEN");
-    const conflict = issues.find((issue) => issue.type === "CONFLICT") ?? null;
-    const blockers: string[] = [];
-    let readiness: ClosureAssessment["readiness"];
-    let checks: ClosureCheckAssessment[] = [];
-    if (conflict) {
-      readiness = "CONFLICT";
-      blockers.push(conflict.summary);
-    } else if (object.kind === "TASK") {
-      readiness = "READY";
-    } else if (object.kind === "MINI_PROJECT") {
-      if (!object.desiredOutcome && object.completionChecks.length === 0) {
-        readiness = "UNKNOWN";
-        blockers.push("这个子项目的最终结果还没有写清。");
-      } else if (openChildren.length) {
-        readiness = "NOT_READY";
-        blockers.push(...openChildren.map((child) => `${child.title} 还在进行。`));
-      } else {
-        checks = object.completionChecks.map((text) => ({ text, status: evidence.length >= object.completionChecks.length ? "SATISFIED" as const : "UNKNOWN" as const, evidenceIds: evidence.map((item) => item.id) }));
-        readiness = object.completionChecks.length > 0 && evidence.length >= object.completionChecks.length ? "READY" : "UNKNOWN";
-        if (readiness !== "READY") blockers.push("完成检查还缺少足够冻结依据。");
-      }
-    } else {
-      if (!projectIntent?.objective) {
-        readiness = "UNKNOWN";
-        blockers.push("项目目标还没有写清，无法判断是否完成。");
-      } else if (openChildren.length) {
-        readiness = "NOT_READY";
-        blockers.push(...openChildren.map((child) => `${child.title} 还在进行。`));
-      } else {
-        const requiredEvidence = Math.max(1, projectIntent.keyResults.length);
-        const objectiveOnly = projectIntent.keyResults.length === 0;
-        readiness = evidence.length >= requiredEvidence ? "READY" : objectiveOnly ? "UNKNOWN" : "NOT_READY";
-        if (readiness !== "READY") blockers.push(objectiveOnly ? "项目目标还缺少足够冻结依据。" : "结果边界还缺少足够冻结依据。");
-      }
-    }
-    const assessment: ClosureAssessment = {
-      workObjectId: object.id, kind: object.kind, readiness, semanticRevision, assessedAt: this.#now(),
-      blockers, checks, contradictionSummary: conflict?.summary ?? null, evidenceIds: evidence.map((item) => item.id), provenance: "DETERMINISTIC",
-    };
-    this.#store.putClosureAssessment(assessment);
-    return assessment;
+    return this.closureAssessmentState(workObjectId).assessment;
   }
 
-  #openDescendants(workObjectId: string): Array<{ id: string; title: string }> {
-    const result: Array<{ id: string; title: string }> = [];
-    const queue = [workObjectId];
-    while (queue.length) {
-      const owner = queue.shift()!;
-      for (const ownership of this.#store.listOwnerships().filter((item) => item.ownerId === owner)) {
-        const child = this.#store.getWorkObject(ownership.childId);
-        if (!child) continue;
-        if (child.lifecycle === "OPEN") result.push({ id: child.id, title: child.title });
-        queue.push(child.id);
+  closureAssessmentState(workObjectId: string): { assessment: ClosureAssessment | null; fresh: boolean; queued: boolean } {
+    const object = this.#store.getWorkObject(workObjectId);
+    if (!object || object.lifecycle !== "OPEN") return { assessment: null, fresh: false, queued: false };
+    const gate = computeClosureGate(this.#store, object);
+    const revision = semanticRevisionFor(object, object.kind === "PROJECT" ? (this.#store.getProjectIntent(workObjectId)?.revision ?? 0) : null);
+    const watermark = this.#store.evidenceWatermark(workObjectId);
+    if (!gate.pass) {
+      const cached = this.#store.getClosureAssessment(workObjectId);
+      const fresh = Boolean(cached && cached.semanticRevision === revision && cached.evidenceWatermark === watermark && sameGate(cached.gate, gateSnapshot(gate)) && cached.provenance === "DETERMINISTIC" && cached.readiness === gate.readiness);
+      if (!fresh) {
+        const assessment = deterministicClosureAssessment(this.#store, object, this.#now());
+        this.#store.putClosureAssessment(assessment);
+        return { assessment, fresh: true, queued: false };
+      }
+      return { assessment: cached, fresh: true, queued: false };
+    }
+    const cached = this.#store.getClosureAssessment(workObjectId);
+    const fresh = Boolean(cached && cached.semanticRevision === revision && cached.evidenceWatermark === watermark && sameGate(cached.gate, gateSnapshot(gate)) && cached.provenance === "AGENT");
+    if (!fresh) this.#closure.requestAssessment(workObjectId);
+    const queued = this.#closure.jobs("QUEUED").some((job) => job.workObjectId === workObjectId) || this.#closure.jobs("RUNNING").some((job) => job.workObjectId === workObjectId);
+    const assessment = cached ?? { ...deterministicClosureAssessment(this.#store, object, this.#now()), blockers: ["完成情况正在重新评估。"] };
+    return { assessment, fresh, queued };
+  }
+
+  /** Proactive fail-closed hygiene for OPEN closure packages; final Kernel checks remain authoritative. */
+  sweepStaleClosurePackages(): number {
+    const at = this.#now();
+    let stale = 0;
+    for (const pkg of this.#store.listDecisionPackages("OPEN")) {
+      if (!pkg.workObjectId) continue;
+      const candidate = this.#store.listDecisionCandidates(pkg.id, "OPEN")[0] ?? null;
+      if (!candidate || !["COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(candidate.operationType)) continue;
+      if (this.#closurePackageStale(pkg, candidate)) {
+        this.#store.transitionDecisionPackage(pkg.id, "STALE", at);
+        stale += 1;
       }
     }
-    return result;
+    return stale;
+  }
+
+  #closurePackageStale(pkg: DecisionPackage, candidate: DecisionCandidate): boolean {
+    const params = candidate.parameters as { target?: { workObjectId?: string }; input?: { targetClosureRecordId?: string; evidenceIds?: readonly string[] } } | null;
+    const workObjectId = params?.target?.workObjectId ?? pkg.workObjectId;
+    if (!workObjectId) return true;
+    const object = this.#store.getWorkObject(workObjectId);
+    if (!object) return true;
+    if ((pkg.targetVersions[workObjectId] ?? 0) !== object.version) return true;
+    if (candidate.operationType === "COMPLETE_WORK_OBJECT" || candidate.operationType === "CANCEL_WORK_OBJECT") {
+      const gate = computeClosureGate(this.#store, object);
+      if (!gate.pass && candidate.operationType === "COMPLETE_WORK_OBJECT") return true;
+    }
+    if (candidate.operationType === "REOPEN_WORK_OBJECT" && object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") return true;
+    if (candidate.operationType === "AMEND_CLOSURE") {
+      const current = this.#store.getCurrentClosureRecord(workObjectId);
+      if (!current || params?.input?.targetClosureRecordId !== current.id) return true;
+    }
+    for (const evidenceId of params?.input?.evidenceIds ?? []) {
+      const evidence = this.#store.getEvidence(evidenceId);
+      if (!evidence || evidence.workObjectId !== workObjectId) return true;
+    }
+    if (candidate.operationType === "COMPLETE_WORK_OBJECT") {
+      const state = this.closureAssessmentState(workObjectId);
+      if (state.assessment?.readiness !== "READY" || !state.fresh) return true;
+    }
+    return false;
   }
 
   async objectContext(workObjectId: string): Promise<ObjectContextPack | null> {
@@ -219,6 +235,7 @@ export class ProjectionCoordinator {
         : object.kind === "PROJECT" && projectIntent?.objective
           ? `${object.title} 目前聚焦在「${projectIntent.currentPhase ?? "项目方向"}」`
           : `${object.title} 目前可推进`;
+    const closureState = object.lifecycle === "OPEN" ? this.closureAssessmentState(object.id) : { assessment: null as ClosureAssessment | null, fresh: false };
     return {
       workObjectId: object.id, title: object.title, kind: object.kind, formalVersion: object.version,
       lifecycle: object.lifecycle, engagement: object.engagement, currentFocus: object.currentFocus,
@@ -228,7 +245,8 @@ export class ProjectionCoordinator {
       openIssues: issues, pendingDecisionPackages: pendingPackages.slice(0, 3).map((pkg) => pkg.id),
       activeChildren,
       projectIntent: object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id) : null,
-      closureAssessment: object.lifecycle === "OPEN" ? this.closureAssessment(object.id) : null,
+      closureAssessment: closureState.assessment,
+      closureAssessmentFresh: closureState.fresh,
       reentrySummary: summary,
       allowedAgentActions: ["SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "CONTEXT_ASSOCIATION", "ADD_REFERENCE"],
       userOnlyActions: ["COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "CREATE_WORK_OBJECT", "OWNERSHIP", "UPDATE_WORK_INTENT"],
@@ -238,6 +256,7 @@ export class ProjectionCoordinator {
 
   confirmations(): ConfirmationProjection {
     const at = this.#now();
+    this.sweepStaleClosurePackages();
     const items = this.#store.listDecisionPackages("OPEN").map((pkg) => {
       const candidates = this.#store.listDecisionCandidates(pkg.id, "OPEN");
       const candidate = candidates[0] ?? null;
@@ -330,12 +349,28 @@ export class ProjectionCoordinator {
       maintenancePaused: paused, projectionBacklog: health.backlog, projectionDegraded: health.degraded,
       lastDiscovery: last ? { id: last.id, status: last.status, remainingCount: last.remainingCount, summaryText: last.summaryText } : null,
       recoveryCount: this.#store.listRecovery().length, executorId: this.#discovery.listRuns()[0]?.executorId ?? "unknown",
-      runtimeStatus, runtimeSummary, runtimeQueuedJobs: queued, runtimeFailedJobs: failed, generatedAt: this.#now(),
+      runtimeStatus, runtimeSummary, runtimeQueuedJobs: queued, runtimeFailedJobs: failed,
+      runtimeClosureQueuedJobs: this.#closure.jobs("QUEUED").length + this.#closure.jobs("RUNNING").length, runtimeClosureFailedJobs: this.#closure.jobs("FAILED").length,
+      generatedAt: this.#now(),
     };
   }
 
   #attach(node: WorkMapNode, children: Map<string, WorkMapNode[]>): WorkMapNode {
     return { ...node, children: (children.get(node.workObjectId) ?? []).map((child) => this.#attach(child, children)) };
+  }
+
+  #closureReadySinceLastSeen(object: { id: string; kind: string }, lastViewedAt: string | null): boolean {
+    if (object.kind === "TASK") return false;
+    const stored = this.#store.getWorkObject(object.id);
+    if (!stored || stored.lifecycle !== "OPEN") return false;
+    const gate = computeClosureGate(this.#store, stored);
+    if (!gate.pass) return false;
+    const cached = this.#store.getClosureAssessment(object.id);
+    const revision = currentSemanticRevision(this.#store, object.id);
+    if (!cached || cached.readiness !== "READY" || cached.provenance !== "AGENT" || !cached.readinessChangedAt) return false;
+    if (cached.semanticRevision !== revision || cached.evidenceWatermark !== this.#store.evidenceWatermark(object.id) || !sameGate(cached.gate, gateSnapshot(gate))) return false;
+    if (lastViewedAt && cached.readinessChangedAt <= lastViewedAt) return false;
+    return true;
   }
 
   #reality(object: { kind: string; engagement: string | null; waitingCondition: { description: string } | null; currentFocus: string | null; desiredOutcome: string | null }, childCount = 0, projectIntent: ProjectIntent | null = null): string {

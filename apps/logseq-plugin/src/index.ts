@@ -412,13 +412,22 @@ async function dailyPanel(): Promise<void> {
         if (pack.closureAssessment && pack.kind !== "TASK") {
           const assessment = pack.closureAssessment;
           const closure = document.createElement("section"); closure.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin:8px 0;";
-          const label = document.createElement("p"); label.textContent = assessment.readiness === "READY" ? "已具备结束条件" : assessment.readiness === "CONFLICT" ? "当前存在冲突，不能判断已经完成" : "还不能结束"; label.style.cssText = "margin:0 0 4px;font-size:13px;font-weight:600;";
+          const label = document.createElement("p"); label.textContent = !pack.closureAssessmentFresh ? "完成情况正在重新评估"
+            : assessment.readiness === "READY" ? "已具备结束条件"
+            : assessment.readiness === "CONFLICT" ? "当前存在冲突，不能判断已经完成"
+            : assessment.readiness === "NOT_READY" ? "当前还不能结束"
+            : "完成情况还不确定"; label.style.cssText = "margin:0 0 4px;font-size:13px;font-weight:600;";
           closure.append(label);
           if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;"; closure.append(blockers); }
           if (assessment.checks.length) {
-            for (const check of assessment.checks) { const p = document.createElement("p"); p.textContent = `${check.status === "SATISFIED" ? "✓" : "○"} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;"; closure.append(p); }
+            for (const check of assessment.checks) {
+              const glyph = check.status === "SATISFIED" ? "✓" : check.status === "UNSATISFIED" ? "✗" : check.status === "CONTRADICTED" ? "⚠" : "○";
+              const p = document.createElement("p"); p.textContent = `${glyph} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;";
+              closure.append(p);
+              if (check.rationale && check.status !== "SATISFIED") { const reason = document.createElement("p"); reason.textContent = `  ${check.rationale}`; reason.style.cssText = "margin:0 0 4px;font-size:11px;color:#777;"; closure.append(reason); }
+            }
           }
-          if (assessment.readiness === "READY") {
+          if (assessment.readiness === "READY" && pack.closureAssessmentFresh) {
             const closeButton = document.createElement("button"); closeButton.textContent = `结束这个${pack.kind === "PROJECT" ? "项目" : "子项目"}`; closeButton.style.cssText = "margin-top:6px;border:1px solid #b00;border-radius:5px;background:transparent;color:#b00;padding:4px 10px;cursor:pointer;";
             closeButton.onclick = () => void guarded("close-object", async () => { if (await closeObjectFromAssessment(api, objectId, pack.title, assessment.evidenceIds)) { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); await dailyPanel(); } });
             closure.append(closeButton);

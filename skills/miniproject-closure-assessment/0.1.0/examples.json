@@ -1,0 +1,17 @@
+[
+  {
+    "scenario": "check result proven by one evidence",
+    "input": "completionChecks C0=设备参数已确认; Evidence E1=设备参数已确认，评审记录已归档",
+    "items": [{"key": "C0", "status": "SATISFIED", "supportingEvidenceIds": ["E1"], "rationale": "E1 states the exact check result."}],
+    "objectiveJudgment": {"status": "UNKNOWN", "objectiveContradiction": null, "scopeMismatch": null, "outcomeContradiction": null, "summary": "No desiredOutcome given; checks alone carry the outcome."}
+  },
+  {
+    "scenario": "budget approval does not prove specification check",
+    "input": "completionChecks C0=参数确认, C1=规格书审核; Evidence E1=采购会议召开, E2=预算审批通过",
+    "items": [
+      {"key": "C0", "status": "UNKNOWN", "supportingEvidenceIds": [], "rationale": "Meeting is activity, not parameter confirmation."},
+      {"key": "C1", "status": "UNKNOWN", "supportingEvidenceIds": [], "rationale": "Budget approval is not a specification review result."}
+    ],
+    "objectiveJudgment": {"status": "UNKNOWN", "objectiveContradiction": null, "scopeMismatch": null, "outcomeContradiction": null, "summary": "Evidence count is irrelevant; nothing proves the checks."}
+  }
+]
