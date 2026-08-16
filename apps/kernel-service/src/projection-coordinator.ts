@@ -250,8 +250,10 @@ export class ProjectionCoordinator {
     const last = runs.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
     const queued = this.#maintenance.jobs("QUEUED").length;
     const failed = this.#maintenance.jobs("FAILED").length;
+    const recentJobs = this.#maintenance.jobs().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+    const latestJob = recentJobs[0] ?? null;
     const paused = this.#maintenance.isPaused("global", null);
-    const degraded = health.degraded > 0 || failed > 0;
+    const degraded = health.degraded > 0 || latestJob?.status === "FAILED";
     const runtimeStatus: SystemProjection["runtimeStatus"] = paused ? "PAUSED" : degraded ? "DEGRADED" : queued > 0 || health.backlog > 0 ? "CATCHING_UP" : "HEALTHY";
     const runtimeSummary = runtimeStatus === "PAUSED" ? "后台维护已暂停；你的笔记仍会正常记录，恢复后会继续追上。"
       : runtimeStatus === "DEGRADED" ? "后台理解暂时不可用；你的笔记不受影响，恢复后会继续追上。"
