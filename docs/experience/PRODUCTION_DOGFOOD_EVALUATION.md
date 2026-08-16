@@ -36,7 +36,15 @@
 2. `GET /v1/objects/:id/closure-assessment` 对已关闭对象原先 404 → 改为 200 + `{assessment:null}`，Object 存在就返回状态。
 3. FakeGraph non-Task anchor 若带 TODO marker，真实 Graph 语义会 closure precondition fail → harness 已按真实语义 seed 无 marker 的 MiniProject/Project。
 
-## 6. 待补
+## 6. Agent multi-turn replay（24 conversations）
+
+- 12 MiniProject + 12 Project，真实 Kernel + Graph bridge + External Agent HTTP 链，69 turns。
+- 覆盖：re-entry（24 context reads）、focus proposal/apply、同 proposal 重复提交（24/24 返回同一 proposal/commit，无新 mutation）、just-talk NO_PROPOSAL（12）、MiniProject BOUNDARY_REVIEW（12）、NEEDS_MORE_CONTEXT 单点提问（3）、Project WAITING 进入/恢复（6/6）、closure handoff 只生成 DecisionPackage、reopened work 后 re-entry（1）。
+- 终态：OPEN packages **0**（用户 defer 16 个 boundary packages 后）、stale 0、recovery 0、errors 0。
+- 证据：`/tmp/tc-agent-replay/agent-replay.json`。
+- 限制：这是 scripted decision replay（DSH 剧本），不是真实 LLM 多轮语义质量评估；DeepSeek 对话质量仍待 runtime key。
+
+## 7. 待补
 
 - 真实 DeepSeek gold-set（40 cases）与 latency/token 复跑：等 runtime `DEEPSEEK_API_KEY`。
-- 10+ MiniProject / 10+ Project 多轮 Agent conversation replay：下一步在 `tmp/` 做 DSH 剧本回放。
+- 真实 DeepSeek 多轮对话质量观测（repeated-question / stop behavior）：同为 key 阻塞。
