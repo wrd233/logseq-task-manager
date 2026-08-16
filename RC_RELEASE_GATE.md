@@ -37,6 +37,14 @@ Release Blocker: **0**
 
 Evidence: final `npm run check` green（216 tests）；backup/restore/service/doctor/migration/soak 实测完成；DeepSeek 40-case false READY=0；secret audit clean；`logseq/` 与 `tmp/` untracked。
 
+## Metadata sweep decision
+
+**RC_METADATA_READY**
+
+- 日期/指标/状态与 Git 事实一致；release docs 不再含 synthetic future date。
+- Clean clone（Node 20.20.2 与 Node 24）按 User Guide 原样可执行：install → build → start → status → doctor → backup → stop → restore → start → doctor。
+- Suggested RC tag：`vnext-1.0.0-rc.1`；candidate SHA 以最终 report 中的 HEAD 为准。
+
 RC Known Issues:
 1. Windows/Linux 未做真实 Desktop soak（代码路径支持但未实测）。
 2. Plugin 设置中的 `kernelDescriptorJson` 明文可见；descriptor token 每次 Kernel 启动轮换，且只写 Plugin 私有 FileStorage，建议 RC 使用期保持本机。
