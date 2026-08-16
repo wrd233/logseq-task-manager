@@ -143,11 +143,12 @@ export function aggregateClosureSemanticJudgment(input: {
     return { text: item.text, status, evidenceIds: raw.supportingEvidenceIds, rationale: raw.rationale };
   });
   const objectiveRequired = object.kind === "PROJECT" || Boolean(object.desiredOutcome);
+  const objectiveContradicted = judgment.objectiveJudgment.status === "CONTRADICTED";
   const contradictions = [
     ...checks.filter((check) => check.status === "CONTRADICTED").map((check) => `「${check.text}」与最新依据冲突`),
-    ...(judgment.objectiveJudgment.objectiveContradiction ? [judgment.objectiveJudgment.objectiveContradiction] : []),
-    ...(judgment.objectiveJudgment.outcomeContradiction ? [judgment.objectiveJudgment.outcomeContradiction] : []),
-    ...(judgment.objectiveJudgment.scopeMismatch ? [judgment.objectiveJudgment.scopeMismatch] : []),
+    ...(objectiveContradicted && judgment.objectiveJudgment.objectiveContradiction ? [judgment.objectiveJudgment.objectiveContradiction] : []),
+    ...(objectiveContradicted && judgment.objectiveJudgment.outcomeContradiction ? [judgment.objectiveJudgment.outcomeContradiction] : []),
+    ...(objectiveContradicted && judgment.objectiveJudgment.scopeMismatch ? [judgment.objectiveJudgment.scopeMismatch] : []),
   ];
   let readiness: ClosureAssessment["readiness"];
   let blockers: string[] = [];
@@ -158,7 +159,9 @@ export function aggregateClosureSemanticJudgment(input: {
     readiness = "NOT_READY";
     blockers = checks.filter((check) => check.status === "UNSATISFIED").map((check) => `「${check.text}」尚未满足：${check.rationale || "缺少结果依据"}`);
   } else if (checks.some((check) => check.status === "UNKNOWN")) {
-    readiness = "UNKNOWN";
+    // Partially proven (some checks satisfied, some unknown) is actionable NOT_READY;
+    // nothing proven at all stays conservative UNKNOWN.
+    readiness = checks.some((check) => check.status === "SATISFIED") ? "NOT_READY" : "UNKNOWN";
     blockers = checks.filter((check) => check.status === "UNKNOWN").map((check) => `「${check.text}」还缺少可证明的依据：${check.rationale || "尚无支持证据"}`);
   } else if (!objectiveRequired) {
     readiness = "READY";

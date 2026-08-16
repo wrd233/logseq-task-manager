@@ -52,10 +52,26 @@ export function parseClosureSemanticJudgment(value: unknown): ClosureSemanticJud
 
 export function parseClosureAssessmentText(text: string): ClosureSemanticJudgment {
   const cleaned = text.trim();
+  const markerPattern = /\{"kind"\s*:\s*"(?:MINI_PROJECT|PROJECT)"/gu;
+  const markers = [...cleaned.matchAll(markerPattern)].map((match) => match.index);
+  // Try each typed-JSON candidate from last to first; syntax-only, no semantic repair.
+  let lastError: unknown = null;
+  for (const explicitStart of markers.reverse()) {
+    try {
+      const end = balancedJsonEnd(cleaned, explicitStart);
+      if (end > explicitStart) return parseClosureSemanticJudgment(JSON.parse(cleaned.slice(explicitStart, end + 1)));
+    } catch (error) { lastError = error; }
+  }
   const firstObject = cleaned.indexOf("{");
   const firstArray = cleaned.indexOf("[");
   const start = firstObject < 0 ? firstArray : firstArray < 0 ? firstObject : Math.min(firstObject, firstArray);
   if (start < 0) throw new Error("DEEPSEEK_CLOSURE_JSON_NOT_FOUND");
+  const end = balancedJsonEnd(cleaned, start);
+  if (end < start) throw lastError instanceof Error ? lastError : new Error("DEEPSEEK_CLOSURE_JSON_NOT_FOUND");
+  return parseClosureSemanticJudgment(JSON.parse(cleaned.slice(start, end + 1)));
+}
+
+function balancedJsonEnd(cleaned: string, start: number): number {
   const stack: string[] = []; let inString = false; let escaped = false; let end = -1;
   for (let index = start; index < cleaned.length; index += 1) {
     const char = cleaned[index]!;
@@ -69,12 +85,11 @@ export function parseClosureAssessmentText(text: string): ClosureSemanticJudgmen
     else if (char === "{" || char === "[") stack.push(char);
     else if (char === "}" || char === "]") {
       const opener = stack.pop();
-      if ((char === "}" && opener !== "{") || (char === "]" && opener !== "[")) throw new Error("DEEPSEEK_CLOSURE_JSON_NOT_FOUND");
+      if ((char === "}" && opener !== "{") || (char === "]" && opener !== "[")) return -1;
       if (stack.length === 0) { end = index; break; }
     }
   }
-  if (end < 0) throw new Error("DEEPSEEK_CLOSURE_JSON_NOT_FOUND");
-  return parseClosureSemanticJudgment(JSON.parse(cleaned.slice(start, end + 1)));
+  return end;
 }
 
 function closureContextText(input: Parameters<ClosureAssessor["assess"]>[0]): string {
@@ -97,6 +112,7 @@ ${evidence || "(none)"}`;
 export class DeepSeekClosureAssessor implements ClosureAssessor {
   readonly id = "deepseek-closure-assessor";
   tokenUsage: { inputTokens?: number | null; outputTokens?: number | null } | null = null;
+  lastRawText: string | null = null;
   readonly #apiKey: string;
   readonly #model: string;
   readonly #baseUrl: string;
@@ -144,6 +160,8 @@ Evaluation rules:
 ${JSON.stringify(input.skill.eval, null, 2)}
 
 Return exactly one JSON object. Do not repair missing fields. Prefer UNKNOWN over a false SATISFIED.
+supportingEvidenceIds must be a JSON array of double-quoted strings like ["E1"], never [E1].
+Emit the JSON object last; any reasoning before it is ignored by syntax-only extraction.
 
 ${closureContextText(input).slice(0, Math.max(0, input.profile.maxInputChars))}`;
 
@@ -166,10 +184,18 @@ ${closureContextText(input).slice(0, Math.max(0, input.profile.maxInputChars))}`
       if (payload.usage) this.tokenUsage = { inputTokens: payload.usage.input_tokens ?? null, outputTokens: payload.usage.output_tokens ?? null };
       let text = typeof payload.output_text === "string" ? payload.output_text : "";
       if (Array.isArray(payload.output)) {
-        const parts = payload.output.filter((part) => part.type !== "reasoning").map((part) => part.text ?? part.content?.map((item) => item.text ?? "").join("") ?? "").join("");
-        text = `${text}${parts}`;
+        const nonReasoning = payload.output.filter((part) => part.type !== "reasoning");
+        if (nonReasoning.length) {
+          const parts = nonReasoning.map((part) => part.text ?? part.content?.map((item) => item.text ?? "").join("") ?? "").join("");
+          text = `${text}${parts}`;
+        } else {
+          // Some providers put the only JSON in the reasoning channel; still syntax-only extraction, never semantic repair.
+          const parts = payload.output.map((part) => part.text ?? part.content?.map((item) => item.text ?? "").join("") ?? "").join("");
+          text = `${text}${parts}`;
+        }
       }
-      return parseClosureAssessmentText(text.trim());
+      this.lastRawText = text.trim();
+      return parseClosureAssessmentText(this.lastRawText);
     } finally {
       clearTimeout(timeout);
     }

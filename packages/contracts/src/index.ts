@@ -882,8 +882,8 @@ export const CONVERSATION_DEEP_PROFILE = {
 export const CLOSURE_ASSESSMENT_PROFILE = {
   id: "closure-assessment", executor: "DEEPSEEK", modelAlias: "deepseek-v4-flash", remoteEnabled: true,
   allowedDataScope: ["formal_state", "frozen_evidence"], maxContextItems: 24, maxInputChars: 24_000,
-  reasoningEffort: "high", maxOutputTokens: 4_096, maxRemoteCallsPerRun: 1, maxRemoteCallsPerHour: 6,
-  timeoutMs: 60_000, retryBudget: 1, credentialRef: "DEEPSEEK_API_KEY",
+  reasoningEffort: "medium", maxOutputTokens: 8_192, maxRemoteCallsPerRun: 1, maxRemoteCallsPerHour: 6,
+  timeoutMs: 120_000, retryBudget: 1, credentialRef: "DEEPSEEK_API_KEY",
 } as const satisfies ExecutionProfile;
 
 export const FAKE_CLOSURE_ASSESSMENT_PROFILE = {

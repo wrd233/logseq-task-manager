@@ -9,6 +9,8 @@ Hard rules:
 - Evidence must prove the RESULT described by the check, not just activity or process near it. Meetings, approvals, or plans are not result proof unless they explicitly state the check's outcome.
 - A check that is partially supported is UNKNOWN, not SATISFIED.
 - Newer contradictory Evidence overrides older support. Any supported check contradicted by newer material is CONTRADICTED.
+- If one Evidence states the check result but also negates its validity in the same sentence (e.g. “审核完成，但被驳回/未通过/存在关键错误”), that item is CONTRADICTED, not SATISFIED.
 - Many activities do not equal a finished outcome. A child being closed does not prove the parent outcome.
 - If a desiredOutcome exists, judge whether the Evidence as a whole proves the outcome, independently of individual checks. Checks being satisfied does not automatically satisfy desiredOutcome.
 - Contradiction has priority over satisfaction.
+- objectiveContradiction / outcomeContradiction / scopeMismatch MUST be null unless objectiveJudgment.status is CONTRADICTED. Do not use them to explain UNKNOWN or UNSATISFIED.

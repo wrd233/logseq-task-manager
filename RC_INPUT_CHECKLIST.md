@@ -18,8 +18,8 @@
 
 ## Release Blockers
 
-- [ ] DeepSeek closure gold-set eval（40 cases）在真实 runtime key 下复跑，且 false READY = 0（当前 key 未注入 shell；fake pipeline 已跑，false READY = 0）
-- [x] 10+ MiniProject / 10+ Project 多轮 Agent conversation replay（24 conversations / 69 turns，scripted DSH 剧本，0 errors；真实 DeepSeek 对话质量另待 key）
+- [x] DeepSeek closure gold-set eval（40 cases）：false READY = 0，false NOT_READY = 0；readiness 35/40；attribution 23/24；2 例 model-format failure fail-safe 为 null（详见 `docs/experience/CLOSURE_SEMANTIC_EVALUATION.md`）
+- [x] 10+ MiniProject / 10+ Project 多轮 Agent conversation replay（24 conversations / 69 turns，scripted DSH 剧本，0 errors；真实 DeepSeek 对话质量另待后续观测）
 - [x] 真实 Logseq Desktop 上以新 async closure UI 完整走一次：Evidence → READY → USER 结束 → closed re-entry（2026-08-19 已完成；closed re-entry 残留已修复）
 - [x] Day1–Day5 long-horizon dogfood 首轮（FakeGraph + 真实 Kernel，36 objects）已完成；真实 Graph/Desktop 长周期仍建议 RC 前复跑
 

@@ -5,6 +5,8 @@ import { CLOSURE_GOLD_SET } from "../packages/test-support/src/closure-gold-set.
 import { aggregateClosureSemanticJudgment } from "../apps/kernel-service/src/closure-gate.ts";
 
 const fake = process.argv.includes("--fake");
+const onlyArg = process.argv.find((arg) => arg.startsWith("--only="));
+const only = onlyArg ? onlyArg.slice("--only=".length).split(",").map((id) => id.trim()).filter(Boolean) : [];
 const assessor = fake ? new FakeClosureAssessor() : new DeepSeekClosureAssessor();
 const profile = fake ? FAKE_CLOSURE_ASSESSMENT_PROFILE : CLOSURE_ASSESSMENT_PROFILE;
 const skills = { miniProject: await loadMiniProjectClosureAssessmentSkill(), project: await loadProjectClosureAssessmentSkill() };
@@ -28,15 +30,18 @@ function projectIntent(input: (typeof CLOSURE_GOLD_SET)[number]): ProjectIntent 
 
 const started = Date.now();
 const results: Array<Record<string, unknown>> = [];
+let tokenInputTotal = 0; let tokenOutputTotal = 0;
 let falseReady = 0; let falseNotReady = 0; let readinessCorrect = 0;
 let unknownRestraint = 0; let conflictDetected = 0; let conflictMissed = 0;
 let itemStatusTotal = 0; let itemStatusCorrect = 0; let attributionTotal = 0; let attributionCorrect = 0;
 let invalidRefs = 0; let parseFailures = 0;
 
-for (const item of CLOSURE_GOLD_SET) {
+for (const item of CLOSURE_GOLD_SET.filter((entry) => only.length === 0 || only.includes(entry.id))) {
   const latencyStart = Date.now();
   let outcome: ClosureAssessment | null = null;
   let error: string | null = null;
+  let objective: unknown = null;
+  let tokens: { inputTokens?: number | null; outputTokens?: number | null } | null = null;
   try {
     const judgment = await assessor.assess({
       object: workObject(`case-${item.id}`, item), projectIntent: projectIntent(item),
@@ -44,6 +49,9 @@ for (const item of CLOSURE_GOLD_SET) {
       profile,
       skill: item.kind === "PROJECT" ? skills.project : skills.miniProject,
     });
+    objective = judgment.objectiveJudgment;
+    tokens = assessor.tokenUsage ?? null;
+    tokenInputTotal += tokens?.inputTokens ?? 0; tokenOutputTotal += tokens?.outputTokens ?? 0;
     outcome = aggregateClosureSemanticJudgment({
       object: workObject(`case-${item.id}`, item), projectIntent: projectIntent(item), judgment,
       allowedEvidenceIds: new Set(item.evidence.map((evidence) => evidence.id)),
@@ -54,6 +62,7 @@ for (const item of CLOSURE_GOLD_SET) {
     if (/EVIDENCE_REF_INVALID|ITEM_MISSING|KIND_MISMATCH|DUPLICATE/u.test(error)) invalidRefs += 1;
     else parseFailures += 1;
   }
+  const raw = error && !fake ? assessor.lastRawText?.slice(0, 4000) : null;
   const actual: ClosureReadiness | null = outcome?.readiness ?? null;
   const expected = item.expected.readiness;
   if (actual === expected) readinessCorrect += 1;
@@ -74,14 +83,14 @@ for (const item of CLOSURE_GOLD_SET) {
       if (JSON.stringify(expectedIds) === JSON.stringify(actualIds)) attributionCorrect += 1;
     }
   }
-  results.push({ id: item.id, kind: item.kind, expected: item.expected.readiness, actual, error, checks: outcome?.checks.map((check) => ({ text: check.text, status: check.status, evidenceIds: check.evidenceIds })) ?? null, objectiveStatus: error ? null : null, latencyMs: Date.now() - latencyStart });
+  results.push({ id: item.id, kind: item.kind, expected: item.expected.readiness, actual, error, raw, checks: outcome?.checks.map((check) => ({ text: check.text, status: check.status, evidenceIds: check.evidenceIds })) ?? null, objective, tokens, latencyMs: Date.now() - latencyStart });
 }
 
 const summary = {
-  at: new Date().toISOString(), fake, scenarios: CLOSURE_GOLD_SET.length, elapsedMs: Date.now() - started,
+  at: new Date().toISOString(), fake, scenarios: results.length, elapsedMs: Date.now() - started,
   falseReady, falseNotReady, readinessCorrect, unknownRestraint, conflictDetected, conflictMissed,
   itemStatusTotal, itemStatusCorrect, attributionTotal, attributionCorrect, invalidRefs, parseFailures,
-  tokenUsage: assessor.tokenUsage ?? null,
+  tokenInputTotal, tokenOutputTotal, tokenUsage: assessor.tokenUsage ?? null,
 };
 const output = { summary, results };
 await writeFile("/tmp/tc-closure-semantic-eval.json", JSON.stringify(output, null, 2));

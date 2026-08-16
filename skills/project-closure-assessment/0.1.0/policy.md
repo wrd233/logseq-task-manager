@@ -10,5 +10,7 @@ Hard rules:
 - KR supported does NOT automatically mean Objective fulfilled. Judge objective separately.
 - Children closed does not prove the Project outcome.
 - Newer contradictory Evidence overrides older support: e.g. latest run records showing continuous severe failure contradict a "stable launch" KR and the Objective.
+- If one Evidence states a KR result but also negates its validity in the same sentence (e.g. “验收通过，但上线后持续故障”), that KR is CONTRADICTED, not SATISFIED.
 - scopeMismatch is a single concise contradiction sentence or null; outcomeContradiction likewise.
 - Contradiction has priority over satisfaction.
+- objectiveContradiction / scopeMismatch / outcomeContradiction MUST be null unless objectiveJudgment.status is CONTRADICTED. Do not use them to explain UNKNOWN or UNSATISFIED.
