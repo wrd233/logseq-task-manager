@@ -71,7 +71,7 @@ export class KernelClient {
   listOwnerships(): Promise<{ ownerships: PrimaryOwnership[] }> { return this.#request("GET", "/v1/ownerships"); }
   showObject(id: string): Promise<{ object: WorkObject; anchor: unknown }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}`); }
   objectContextPack(id: string): Promise<{ pack: ObjectContextPack }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/context`); }
-  closureAssessment(id: string): Promise<{ assessment: ClosureAssessment; fresh: boolean; queued: boolean }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure-assessment`); }
+  closureAssessment(id: string): Promise<{ assessment: ClosureAssessment | null; fresh: boolean; queued: boolean }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure-assessment`); }
   markObjectViewed(id: string): Promise<{ baseline: UserReadBaseline }> { return this.#request("POST", `/v1/objects/${encodeURIComponent(id)}/viewed`, {}); }
   showClosure(id: string): Promise<{ closure: ClosureHistory }> { return this.#request("GET", `/v1/objects/${encodeURIComponent(id)}/closure`); }
   showCommit(id: string): Promise<{ commit: StoredCommit }> { return this.#request("GET", `/v1/commits/${encodeURIComponent(id)}`); }

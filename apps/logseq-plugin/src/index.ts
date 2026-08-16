@@ -437,11 +437,14 @@ async function dailyPanel(): Promise<void> {
           const closed = document.createElement("p"); closed.textContent = pack.lifecycle === "COMPLETED" ? "已完成" : "已取消"; closed.style.cssText = "margin:8px 0 0;font-size:13px;color:#555;"; view.append(closed);
         }
         const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;margin-top:10px;";
-        const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
-        discuss.onclick = () => void openObjectConversation(api, objectId, pack.title);
+        if (pack.lifecycle === "OPEN") {
+          const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
+          discuss.onclick = () => void openObjectConversation(api, objectId, pack.title);
+          actions.append(discuss);
+        }
         const open = document.createElement("button"); open.textContent = "打开原文"; open.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:5px 10px;cursor:pointer;color:inherit;";
         open.onclick = () => void openObjectAnchor(api, objectId);
-        actions.append(discuss, open); view.append(actions);
+        actions.append(open); view.append(actions);
       });
     }
   };

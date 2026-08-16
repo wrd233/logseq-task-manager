@@ -19,8 +19,9 @@
 ## Release Blockers
 
 - [ ] DeepSeek closure gold-set eval（40 cases）在真实 runtime key 下复跑，且 false READY = 0（当前 key 未注入 shell；fake pipeline 已跑，false READY = 0）
-- [ ] 真实 Logseq Desktop 上以新 async closure UI 完整走一次：Evidence → READY → USER 结束 → closed re-entry（harness 已覆盖 Kernel 链路，Desktop 待 reload 新 build 后验证）
-- [ ] Day1–Day5 long-horizon dogfood 在真实 Graph / Desktop 至少复跑一轮（当前为 FakeGraph + 真实 Kernel 的 36-object synthetic clock 结果）
+- [ ] 10+ MiniProject / 10+ Project 多轮 Agent conversation replay（DSH 剧本）尚未做
+- [x] 真实 Logseq Desktop 上以新 async closure UI 完整走一次：Evidence → READY → USER 结束 → closed re-entry（2026-08-19 已完成；closed re-entry 残留已修复）
+- [x] Day1–Day5 long-horizon dogfood 首轮（FakeGraph + 真实 Kernel，36 objects）已完成；真实 Graph/Desktop 长周期仍建议 RC 前复跑
 
 ## Known Issues
 
@@ -82,15 +83,16 @@
 | projection backlog | YES | NO | bounded retry + DEGRADED 后恢复 |
 | user correction | YES | NO | correction 各回各层 |
 
-## Performance baseline（FakeGraph 本地）
+## Performance baseline（本地实测）
 
-- ObjectContext / closure-assessment GET：同步 cached，不等待模型（test 断言 <1s 且 assessor calls=0）
+- now / workmap / system / object-context(open+closed) / closure-assessment cached：7 次采样 min/p50 全部 **1–2ms**（`/tmp/tc-phase16-ux/perf.json`）
 - 36-object Day1–Day5 dogfood：maintenance 16 cognition calls；Day5 Now 3 / Confirmation 0 / WorkMap 36 / system HEALTHY
 - 真实 DeepSeek closure latency 待 runtime key 复跑
 
-## Dogfood findings（首轮 harness）
+## Dogfood findings（首轮 harness + real Desktop）
 
 - final Now = 3（都是真正值得恢复的对象），无重复/READY 堆积
 - Confirmation = 0，无陈旧 package；OPEN packages/candidates/issues 全部为 0
 - 失败日 DEGRADED 只描述真相；Day5 真实成功后回 HEALTHY，旧 FAILED 计数保留
 - quiet WAITING 4 个中仅 1 个因真实回复变化 resurface；无 waiting 噪音
+- 真实 Desktop：READY Object Surface → 点击结束 → trusted USER commit 成功；closed re-entry “目前可推进/和 Agent 讨论”残留已修复

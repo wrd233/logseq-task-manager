@@ -228,13 +228,17 @@ export class ProjectionCoordinator {
     const coverage = this.#maintenance.coverage(object.id);
     const issues = this.#store.listGovernanceIssues(object.id, "OPEN").slice(0, 3);
     const projectIntent = object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id) : null;
-    const summary = object.engagement === "WAITING"
-      ? `${object.title} 正在等待：${object.waitingCondition?.description ?? ""}`
-      : object.currentFocus
-        ? `${object.title} 当前推进：${object.currentFocus}`
-        : object.kind === "PROJECT" && projectIntent?.objective
-          ? `${object.title} 目前聚焦在「${projectIntent.currentPhase ?? "项目方向"}」`
-          : `${object.title} 目前可推进`;
+    const summary = object.lifecycle === "COMPLETED"
+      ? `${object.title} 已完成`
+      : object.lifecycle === "CANCELLED"
+        ? `${object.title} 已取消`
+        : object.engagement === "WAITING"
+          ? `${object.title} 正在等待：${object.waitingCondition?.description ?? ""}`
+          : object.currentFocus
+            ? `${object.title} 当前推进：${object.currentFocus}`
+            : object.kind === "PROJECT" && projectIntent?.objective
+              ? `${object.title} 目前聚焦在「${projectIntent.currentPhase ?? "项目方向"}」`
+              : `${object.title} 目前可推进`;
     const closureState = object.lifecycle === "OPEN" ? this.closureAssessmentState(object.id) : { assessment: null as ClosureAssessment | null, fresh: false };
     return {
       workObjectId: object.id, title: object.title, kind: object.kind, formalVersion: object.version,

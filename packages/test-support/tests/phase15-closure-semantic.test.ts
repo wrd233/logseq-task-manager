@@ -9,6 +9,8 @@ import { parseSemanticOperation, type ClosureAssessor, type ClosureSemanticJudgm
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
 
+function nonNull<T>(value: T | null | undefined): T { assert.ok(value); return value; }
+
 const at = "2026-08-19T09:00:00.000Z";
 
 class ControlledAssessor implements ClosureAssessor {
@@ -82,7 +84,7 @@ test("deterministic gate blocks without any assessor call and Object GET never w
     const miniId = await formalize(value.plugin, value.graph, value.graphId, "mini", "MINI_PROJECT", "采购规格书整理");
     const started = Date.now();
     const initial = await value.plugin.closureAssessment(miniId);
-    assert.equal(initial.assessment.readiness, "UNKNOWN");
+    assert.equal(nonNull(initial.assessment).readiness, "UNKNOWN");
     assert.equal(initial.fresh, true);
     assert.equal(initial.queued, false);
     assert.ok(Date.now() - started < 1_000);
@@ -95,7 +97,7 @@ test("deterministic gate blocks without any assessor call and Object GET never w
     const stale = await value.plugin.closureAssessment(miniId);
     assert.equal(stale.fresh, false);
     assert.equal(stale.queued, true);
-    assert.ok(stale.assessment.readiness === "UNKNOWN" || stale.assessment.readiness === "NOT_READY");
+    assert.ok(nonNull(stale.assessment).readiness === "UNKNOWN" || nonNull(stale.assessment).readiness === "NOT_READY");
     assert.equal(assessor.calls, 0, "Object GET must not synchronously call the model");
   } finally { await value.service.close(); }
 });
@@ -128,7 +130,7 @@ test("background closure job converges; RUNNING result is superseded by newer ev
     assert.equal(superseded?.lastOutcome, "SUPERSEDED");
     const current = await value.plugin.closureAssessment(miniId);
     assert.equal(current.fresh, false, "Old RUNNING result must never become current");
-    assert.notEqual(current.assessment?.readiness, "READY");
+    assert.notEqual(nonNull(current.assessment)?.readiness, "READY");
   } finally { await value.service.close(); }
 });
 
@@ -148,15 +150,15 @@ test("host never repairs model output: empty support is UNKNOWN and invalid evid
     value.service.closure.scan();
     await value.service.closure.tickClosure();
     const first = await value.plugin.closureAssessment(miniId);
-    assert.equal(first.assessment.readiness, "UNKNOWN");
-    assert.equal(first.assessment.checks[0]?.status, "UNKNOWN");
-    assert.deepEqual(first.assessment.checks[0]?.evidenceIds, []);
+    assert.equal(nonNull(first.assessment).readiness, "UNKNOWN");
+    assert.equal(nonNull(first.assessment).checks[0]?.status, "UNKNOWN");
+    assert.deepEqual(nonNull(first.assessment).checks[0]?.evidenceIds, []);
 
     assessor.result = { ...emptySupport, items: [{ key: "C0", status: "SATISFIED", supportingEvidenceIds: ["ghost-evidence"], rationale: "不存在" }] };
     value.service.closure.requestAssessment(miniId);
     await value.service.closure.tickClosure();
     const second = await value.plugin.closureAssessment(miniId);
-    assert.notEqual(second.assessment.readiness, "READY");
+    assert.notEqual(nonNull(second.assessment).readiness, "READY");
     const invalidJob = value.service.closure.jobs().find((job) => job.workObjectId === miniId && job.lastError?.includes("CLOSURE_RESULT_EVIDENCE_REF_INVALID"));
     assert.ok(invalidJob);
   } finally { await value.service.close(); }
@@ -178,9 +180,9 @@ test("contradictory semantic result becomes CONFLICT and is never presented as r
     value.service.closure.scan();
     await value.service.closure.tickClosure();
     const state = await value.plugin.closureAssessment(miniId);
-    assert.equal(state.assessment.readiness, "CONFLICT");
-    assert.ok(state.assessment.contradictionSummary);
-    assert.equal(state.assessment.checks[0]?.status, "CONTRADICTED");
+    assert.equal(nonNull(state.assessment).readiness, "CONFLICT");
+    assert.ok(nonNull(state.assessment).contradictionSummary);
+    assert.equal(nonNull(state.assessment).checks[0]?.status, "CONTRADICTED");
   } finally { await value.service.close(); }
 });
 
@@ -201,9 +203,9 @@ test("OPEN closure package is proactively STALE after child reopen or new eviden
     value.service.closure.scan();
     await value.service.closure.tickClosure();
     const ready = await value.plugin.closureAssessment(miniId);
-    assert.equal(ready.assessment.readiness, "READY");
+    assert.equal(nonNull(ready.assessment).readiness, "READY");
     const miniSnapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-mini" });
-    const pkg = (await value.plugin.createDecisionPackage({ workObjectId: miniId, summary: "结束采购规格书整理", rationale: "语义评估已具备结束条件", candidates: [{ operationType: "COMPLETE_WORK_OBJECT", parameters: { target: { workObjectId: miniId, expectedVersion: 2, expectedProjectionHash: miniSnapshot.projection!.projectionHash }, input: { outcomeSummary: "规格书定稿", evidenceIds: ready.assessment.evidenceIds } } }] })).pkg;
+    const pkg = (await value.plugin.createDecisionPackage({ workObjectId: miniId, summary: "结束采购规格书整理", rationale: "语义评估已具备结束条件", candidates: [{ operationType: "COMPLETE_WORK_OBJECT", parameters: { target: { workObjectId: miniId, expectedVersion: 2, expectedProjectionHash: miniSnapshot.projection!.projectionHash }, input: { outcomeSummary: "规格书定稿", evidenceIds: nonNull(ready.assessment).evidenceIds } } }] })).pkg;
     assert.ok((await value.plugin.listDecisionPackages("OPEN")).packages.some((item) => item.id === pkg.id));
 
     // Child reopen invalidates the package before any user response.
@@ -232,7 +234,7 @@ test("closure budget defers secondary assessments without consuming attempts or 
     service.closure.scan();
     await service.closure.tickClosure();
     const ready = await plugin.closureAssessment(miniId);
-    assert.equal(ready.assessment.readiness, "READY");
+    assert.equal(nonNull(ready.assessment).readiness, "READY");
     assert.equal(assessor.calls, 1);
 
     graph.seedNaturalRecord(graphId, "evidence-b", "设备参数已确认，复核记录归档");

@@ -9,6 +9,8 @@ import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contract
 import { startKernelServer } from "@task-copilot/kernel-service";
 import { FakeGraphAdapter } from "../src/index.ts";
 
+function nonNull<T>(value: T | null | undefined): T { assert.ok(value); return value; }
+
 const at = "2026-08-19T09:00:00.000Z";
 
 async function setup(label: string) {
@@ -45,7 +47,7 @@ test("MiniProject readiness never uses evidence count; irrelevant evidence stays
   const value = await setup("mini");
   try {
     const miniId = await formalize(value.plugin, value.graph, value.graphId, "mini", "MINI_PROJECT", "采购规格书整理");
-    let assessment = (await value.plugin.closureAssessment(miniId)).assessment;
+    let assessment = nonNull((await value.plugin.closureAssessment(miniId)).assessment);
     assert.equal(assessment.readiness, "UNKNOWN");
     // Two irrelevant frozen evidence: meeting held + budget approved. Count says 2, semantics says nothing.
     const irrelevantA = await freeze(value.plugin, value.graph, value.graphId, miniId, "source-mini", "evidence-mini-a");
@@ -55,7 +57,7 @@ test("MiniProject readiness never uses evidence count; irrelevant evidence stays
     await accept(value.plugin, pkg.id, pkg.presentationRevision);
     const childId = await formalize(value.plugin, value.graph, value.graphId, "child", "TASK", "最终版本审核");
     value.service.store.putOwnership({ childId, ownerId: miniId, createdAt: at });
-    assessment = (await value.plugin.closureAssessment(miniId)).assessment;
+    assessment = nonNull((await value.plugin.closureAssessment(miniId)).assessment);
     assert.equal(assessment.readiness, "NOT_READY");
     const childSnapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-child" });
     const childClosed = await value.plugin.prepare(parseSemanticOperation({ operationId: "close-child", type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target: { workObjectId: childId, expectedVersion: 1, expectedProjectionHash: childSnapshot.projection!.projectionHash }, input: { outcomeSummary: "审核完成", evidenceIds: [] } }), childSnapshot);
@@ -63,7 +65,7 @@ test("MiniProject readiness never uses evidence count; irrelevant evidence stays
     await value.plugin.complete(childClosed.commit.id, childResult, await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-child" }));
     value.service.closure.scan();
     await value.service.closure.tickClosure();
-    assessment = (await value.plugin.closureAssessment(miniId)).assessment;
+    assessment = nonNull((await value.plugin.closureAssessment(miniId)).assessment);
     assert.equal(assessment.readiness, "UNKNOWN");
     assert.equal(assessment.provenance, "AGENT");
     for (const check of assessment.checks) { assert.equal(check.status, "UNKNOWN"); assert.deepEqual(check.evidenceIds, []); }
@@ -77,7 +79,7 @@ test("MiniProject readiness never uses evidence count; irrelevant evidence stays
     void parameter; void scope; void outcome;
     value.service.closure.scan();
     await value.service.closure.tickClosure();
-    assessment = (await value.plugin.closureAssessment(miniId)).assessment;
+    assessment = nonNull((await value.plugin.closureAssessment(miniId)).assessment);
     assert.equal(assessment.readiness, "READY");
     assert.equal(assessment.provenance, "AGENT");
     const parameterCheck = assessment.checks.find((check) => check.text === "设备参数已确认");
@@ -93,13 +95,13 @@ test("Project readiness requires semantically supported KRs and a supported Obje
   const value = await setup("project");
   try {
     const projectId = await formalize(value.plugin, value.graph, value.graphId, "project", "PROJECT", "海丝独立建设");
-    let assessment = (await value.plugin.closureAssessment(projectId)).assessment;
+    let assessment = nonNull((await value.plugin.closureAssessment(projectId)).assessment);
     assert.equal(assessment.readiness, "UNKNOWN");
     const intentPkg = (await value.plugin.createDecisionPackage({ workObjectId: projectId, summary: "设置项目目标与 KR", rationale: "测试", candidates: [{ operationType: "UPDATE_PROJECT_INTENT", parameters: { target: { workObjectId: projectId }, expectedIntentRevision: 0, input: { objective: "完成独立基础设施建设并形成可交接的运维能力", keyResults: [{ text: "设备部署完成" }, { text: "平台建设完成" }], currentPhase: "验收" } } }] })).pkg;
     await accept(value.plugin, intentPkg.id, intentPkg.presentationRevision);
     const childId = await formalize(value.plugin, value.graph, value.graphId, "child", "TASK", "法务探针验证");
     value.service.store.putOwnership({ childId, ownerId: projectId, createdAt: at });
-    assessment = (await value.plugin.closureAssessment(projectId)).assessment;
+    assessment = nonNull((await value.plugin.closureAssessment(projectId)).assessment);
     assert.equal(assessment.readiness, "NOT_READY");
     const childSnapshot = await value.graph.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: "source-child" });
     const childClosed = await value.plugin.prepare(parseSemanticOperation({ operationId: "close-child", type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target: { workObjectId: childId, expectedVersion: 1, expectedProjectionHash: childSnapshot.projection!.projectionHash }, input: { outcomeSummary: "验证完成", evidenceIds: [] } }), childSnapshot);
@@ -113,7 +115,7 @@ test("Project readiness requires semantically supported KRs and a supported Obje
     await freeze(value.plugin, value.graph, value.graphId, projectId, "evidence-objective", "evidence-objective");
     value.service.closure.scan();
     await value.service.closure.tickClosure();
-    assessment = (await value.plugin.closureAssessment(projectId)).assessment;
+    assessment = nonNull((await value.plugin.closureAssessment(projectId)).assessment);
     assert.equal(assessment.readiness, "READY");
     assert.equal(assessment.provenance, "AGENT");
     const krDevice = assessment.checks.find((check) => check.text === "设备部署完成");
@@ -127,6 +129,9 @@ test("Project readiness requires semantically supported KRs and a supported Obje
     const executed = await accept(value.plugin, closePkg.id, closePkg.presentationRevision);
     assert.equal(executed.commit.actor.type, "USER");
     assert.equal((await value.plugin.showObject(projectId)).object.lifecycle, "COMPLETED");
+    const closedPack = (await value.plugin.objectContextPack(projectId)).pack;
+    assert.equal(closedPack.reentrySummary, "海丝独立建设 已完成");
+    assert.equal(closedPack.closureAssessment, null);
   } finally { await value.service.close(); }
 });
 

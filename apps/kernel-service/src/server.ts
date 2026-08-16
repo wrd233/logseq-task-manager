@@ -306,9 +306,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const closureAssessmentMatch = /^\/v1\/objects\/([^/]+)\/closure-assessment$/u.exec(url.pathname);
       if (request.method === "GET" && closureAssessmentMatch) {
-        const state = projections.closureAssessmentState(decodeURIComponent(closureAssessmentMatch[1]!));
-        if (!state.assessment) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
-        send(response, 200, state); return;
+        const workObjectId = decodeURIComponent(closureAssessmentMatch[1]!);
+        if (!store.getWorkObject(workObjectId)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, projections.closureAssessmentState(workObjectId)); return;
       }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
