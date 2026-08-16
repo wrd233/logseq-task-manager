@@ -371,11 +371,17 @@ async function dailyPanel(): Promise<void> {
         view.append(label);
         for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:#444;"; view.append(p); }
       };
-      group("系统", [`图连接：${system.graphAvailable ? "正常" : "离线"}`, `后台维护：${system.maintenancePaused ? "已暂停" : "运行中"}`, `笔记同步待处理：${system.projectionBacklog}`, `系统恢复项：${system.recoveryCount}`]);
+      const systemRows = [system.runtimeSummary];
+      if (system.runtimeStatus === "DEGRADED" || system.runtimeStatus === "CATCHING_UP") systemRows.push(`待处理：${system.runtimeQueuedJobs} · 失败：${system.runtimeFailedJobs}`);
+      if (!system.graphAvailable) systemRows.push("图连接：离线，恢复后会自动继续。");
+      group("系统", systemRows);
       group("工具", [system.lastDiscovery ? `最近整理：${system.lastDiscovery.summaryText}` : "最近整理：还没有运行"]);
+      const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+      const pause = document.createElement("button"); pause.textContent = system.maintenancePaused ? "恢复后台维护" : "暂停后台维护"; pause.style.cssText = "border:1px solid #bbb;border-radius:5px;background:transparent;padding:4px 10px;cursor:pointer;color:inherit;";
+      pause.onclick = () => void guarded("toggle-maintenance", async () => { await api.setMaintenancePause("global", !system.maintenancePaused); await dailyPanel(); });
       const organize = document.createElement("button"); organize.textContent = "运行整理今天"; organize.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 10px;cursor:pointer;";
       organize.onclick = () => { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); void guarded("organize-today", organizeTodayCommand); };
-      view.append(organize);
+      actions.append(pause, organize); view.append(actions);
     }
     if (objectId) {
       void guarded("object-surface", async () => {

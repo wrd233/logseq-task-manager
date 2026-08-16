@@ -415,6 +415,7 @@ export class SqliteStore {
     this.#migrateV15();
     this.#migrateV17();
     this.#migrateV18();
+    this.#migrateV19();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -821,6 +822,19 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (18, ?)").run(new Date().toISOString());
   }
 
+  #migrateV19(): void {
+    if (!this.#hasColumn("reconcile_jobs", "semantic_revision")) this.#database.exec("ALTER TABLE reconcile_jobs ADD COLUMN semantic_revision TEXT NOT NULL DEFAULT ''");
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS runtime_budgets (
+        scope_key TEXT PRIMARY KEY,
+        calls INTEGER NOT NULL,
+        window_started_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (19, ?)").run(new Date().toISOString());
+  }
+
   putProjectIntent(intent: ProjectIntent): void {
     this.#database.prepare(`INSERT INTO project_intents(work_object_id, objective, key_results_json, scope, current_phase, revision, created_at, updated_at)
       VALUES (@workObjectId, @objective, @keyResults, @scope, @currentPhase, @revision, @createdAt, @updatedAt)
@@ -1197,8 +1211,8 @@ export class SqliteStore {
   }
 
   insertReconcileJob(job: ReconcileJob): void {
-    this.#database.prepare(`INSERT INTO reconcile_jobs(id,work_object_id,trigger_type,source_snapshot_id,source_block_uuid,formal_version,priority_class,attempt,not_before,status,last_error,last_outcome,created_at,updated_at)
-      VALUES (@id,@workObjectId,@triggerType,@sourceSnapshotId,@sourceBlockUuid,@formalVersion,@priorityClass,@attempt,@notBefore,@status,@lastError,@lastOutcome,@createdAt,@updatedAt)`).run({ ...job, lastOutcome: null, sourceBlockUuid: job.sourceBlockUuid ?? null });
+    this.#database.prepare(`INSERT INTO reconcile_jobs(id,work_object_id,trigger_type,source_snapshot_id,source_block_uuid,formal_version,semantic_revision,priority_class,attempt,not_before,status,last_error,last_outcome,created_at,updated_at)
+      VALUES (@id,@workObjectId,@triggerType,@sourceSnapshotId,@sourceBlockUuid,@formalVersion,@semanticRevision,@priorityClass,@attempt,@notBefore,@status,@lastError,@lastOutcome,@createdAt,@updatedAt)`).run({ ...job, lastOutcome: null, sourceBlockUuid: job.sourceBlockUuid ?? null });
   }
 
   invalidateActiveReconcileJobs(workObjectId: string, at: string): void {
@@ -1255,6 +1269,41 @@ export class SqliteStore {
       const status = job.attempt >= maxAttempts ? "FAILED" as const : "QUEUED" as const;
       this.#database.prepare("UPDATE reconcile_jobs SET status=?, last_error=?, not_before=?, updated_at=? WHERE id=?").run(status, reason, status === "QUEUED" ? nextNotBefore : null, at, id);
       return { ...job, status, lastError: reason, notBefore: status === "QUEUED" ? nextNotBefore : null, updatedAt: at };
+    });
+  }
+
+  deferReconcileJob(id: string, reason: string, nextNotBefore: string, at: string): ReconcileJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      const job = this.#mapReconcileJob(row);
+      this.#database.prepare("UPDATE reconcile_jobs SET status='QUEUED', last_error=?, not_before=?, updated_at=? WHERE id=?").run(reason, nextNotBefore, at, id);
+      return { ...job, status: "QUEUED" as const, lastError: reason, notBefore: nextNotBefore, updatedAt: at };
+    });
+  }
+
+  refreshReconcileJobSemanticRevision(id: string, formalVersion: number, semanticRevision: string, nextNotBefore: string, at: string): ReconcileJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      const job = this.#mapReconcileJob(row);
+      this.#database.prepare("UPDATE reconcile_jobs SET status='QUEUED', formal_version=?, semantic_revision=?, not_before=?, last_error='SEMANTIC_REVISION_CHANGED', updated_at=? WHERE id=?").run(formalVersion, semanticRevision, nextNotBefore, at, id);
+      return { ...job, status: "QUEUED" as const, formalVersion, semanticRevision, notBefore: nextNotBefore, lastError: "SEMANTIC_REVISION_CHANGED", updatedAt: at };
+    });
+  }
+
+  consumeRemoteCallBudget(scopeKey: string, maxCallsPerHour: number, now: string): boolean {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM runtime_budgets WHERE scope_key=?").get(scopeKey) as { calls: number; window_started_at: string } | undefined;
+      const windowMs = 3_600_000;
+      const fresh = row && Date.parse(now) - Date.parse(row.window_started_at) < windowMs;
+      if (!fresh) {
+        this.#database.prepare("INSERT INTO runtime_budgets(scope_key,calls,window_started_at,updated_at) VALUES (?,1,?,?) ON CONFLICT(scope_key) DO UPDATE SET calls=1, window_started_at=excluded.window_started_at, updated_at=excluded.updated_at").run(scopeKey, now, now);
+        return true;
+      }
+      if (row!.calls >= maxCallsPerHour) return false;
+      this.#database.prepare("UPDATE runtime_budgets SET calls=calls+1, updated_at=? WHERE scope_key=?").run(now, scopeKey);
+      return true;
     });
   }
 
@@ -1639,6 +1688,7 @@ export class SqliteStore {
     return {
       id: String(row.id), workObjectId: String(row.work_object_id), triggerType: row.trigger_type as ReconcileTriggerType,
       sourceSnapshotId: String(row.source_snapshot_id), sourceBlockUuid: row.source_block_uuid === null ? null : String(row.source_block_uuid), formalVersion: Number(row.formal_version),
+      semanticRevision: typeof row.semantic_revision === "string" ? row.semantic_revision : "",
       priorityClass: row.priority_class as ReconcilePriorityClass, attempt: Number(row.attempt),
       notBefore: row.not_before === null ? null : String(row.not_before), status: row.status as ReconcileJob["status"],
       lastError: row.last_error === null ? null : String(row.last_error),

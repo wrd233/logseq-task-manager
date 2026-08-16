@@ -51,7 +51,7 @@ export class ProjectionCoordinator {
       const meaningful = recent.map((commit) => {
         const after = commit.after as { engagement?: string | null; currentFocus?: string | null; title?: string; lifecycle?: string | null } | null;
         if (commit.operationType === "CHANGE_ENGAGEMENT") return after?.engagement === "WAITING" ? `进入等待：${(after as { waitingCondition?: { description?: string } | null } | null)?.waitingCondition?.description ?? ""}` : "恢复可推进";
-        if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进更新为「${after?.currentFocus ?? ""}」`;
+        if (commit.operationType === "SET_CURRENT_FOCUS") return "当前推进已更新";
         if (commit.operationType === "RENAME_WORK_OBJECT") return `标题更新为「${after?.title ?? ""}」`;
         if (commit.operationType === "CREATE_WORK_OBJECT") return "已正式化";
         if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准有更新";
@@ -107,7 +107,12 @@ export class ProjectionCoordinator {
       if (commit.operationType === "SET_CURRENT_FOCUS") return `当前推进：${after?.currentFocus ?? "已清空"}`;
       if (commit.operationType === "RENAME_WORK_OBJECT") return `标题改为「${after?.title ?? ""}」`;
       if (commit.operationType === "UPDATE_WORK_INTENT") return "目标或完成标准更新";
-      if (commit.operationType === "UPDATE_PROJECT_INTENT") return "项目目标或阶段更新";
+      if (commit.operationType === "UPDATE_PROJECT_INTENT") {
+        const before = commit.before as { currentPhase?: string | null; objective?: string | null } | null;
+        const afterIntent = commit.after as { currentPhase?: string | null; objective?: string | null } | null;
+        if (before?.currentPhase && afterIntent?.currentPhase && before.currentPhase !== afterIntent.currentPhase) return `阶段：${before.currentPhase} → ${afterIntent.currentPhase}`;
+        return before?.objective !== afterIntent?.objective ? "项目目标已更新" : "项目方向已更新";
+      }
       if (commit.operationType === "ASSIGN_PARENT") return "正式归属更新";
       return "正式状态有更新";
     });
@@ -243,11 +248,21 @@ export class ProjectionCoordinator {
     const health = this.#kernel.projectionHealth();
     const runs = this.#discovery.listRuns();
     const last = runs.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
+    const queued = this.#maintenance.jobs("QUEUED").length;
+    const failed = this.#maintenance.jobs("FAILED").length;
+    const paused = this.#maintenance.isPaused("global", null);
+    const degraded = health.degraded > 0 || failed > 0;
+    const runtimeStatus: SystemProjection["runtimeStatus"] = paused ? "PAUSED" : degraded ? "DEGRADED" : queued > 0 || health.backlog > 0 ? "CATCHING_UP" : "HEALTHY";
+    const runtimeSummary = runtimeStatus === "PAUSED" ? "后台维护已暂停；你的笔记仍会正常记录，恢复后会继续追上。"
+      : runtimeStatus === "DEGRADED" ? "后台理解暂时不可用；你的笔记不受影响，恢复后会继续追上。"
+      : runtimeStatus === "CATCHING_UP" ? "正在补齐最近的变化。"
+      : "一切正常，后台维护中。";
     return {
-      status: health.degraded > 0 || health.backlog > 5 ? "degraded" : "ok", graphAvailable: this.#broker.status().available,
-      maintenancePaused: this.#maintenance.isPaused("global", null), projectionBacklog: health.backlog, projectionDegraded: health.degraded,
+      status: degraded || health.backlog > 5 ? "degraded" : "ok", graphAvailable: this.#broker.status().available,
+      maintenancePaused: paused, projectionBacklog: health.backlog, projectionDegraded: health.degraded,
       lastDiscovery: last ? { id: last.id, status: last.status, remainingCount: last.remainingCount, summaryText: last.summaryText } : null,
-      recoveryCount: this.#store.listRecovery().length, executorId: this.#discovery.listRuns()[0]?.executorId ?? "unknown", generatedAt: this.#now(),
+      recoveryCount: this.#store.listRecovery().length, executorId: this.#discovery.listRuns()[0]?.executorId ?? "unknown",
+      runtimeStatus, runtimeSummary, runtimeQueuedJobs: queued, runtimeFailedJobs: failed, generatedAt: this.#now(),
     };
   }
 

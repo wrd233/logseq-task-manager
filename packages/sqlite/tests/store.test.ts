@@ -24,7 +24,7 @@ test("vNext schema stores normalized current state without embedding an anchor i
     currentFocus: null, desiredOutcome: null, completionChecks: [], version: 1, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z",
   });
   assert.equal(store.getAnchorForWorkObject("work-01")?.externalId, "source-01");
-  assert.equal(store.schemaVersion(), 18);
+  assert.equal(store.schemaVersion(), 19);
   store.close();
 });
 
@@ -91,6 +91,6 @@ test("schema v4 keeps immutable Closure records and resolves only the current ef
   assert.equal(history.completions.length, 1);
   assert.equal(history.amendments.length, 1);
   assert.equal(history.reopens.length, 1);
-  assert.equal(store.schemaVersion(), 18);
+  assert.equal(store.schemaVersion(), 19);
   store.close();
 });

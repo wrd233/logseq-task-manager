@@ -13,7 +13,7 @@ import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -37,7 +37,7 @@ async function removeOwnedDescriptor(path: string, token: string): Promise<void>
   catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
 }
 
-export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore }> {
+export async function startKernelServer(options: StartKernelOptions): Promise<{ baseUrl: string; token: string; graphSnapshotKey: string; graphBridgeToken: string; userChannelToken: string; graphDescriptorPath: string; close: () => Promise<void>; store: SqliteStore; maintenance: MaintenanceCoordinator; broker: GraphRequestBroker }> {
   const token = options.token ?? randomBytes(32).toString("hex");
   const graphSnapshotKey = options.graphSnapshotKey ?? randomBytes(32).toString("hex");
   const graphBridgeToken = options.graphBridgeToken ?? randomBytes(32).toString("hex");
@@ -59,11 +59,11 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
   const cognitionExecutor = options.cognitionExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekV4FlashExecutor() : new FakeContextAwareExecutor());
   const executionProfile = options.executionProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
-    id: "deepseek-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
-    allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 8, maxInputChars: 24_000,
-    reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
+    id: "deepseek-unattended-fast", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
+    allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 8, maxInputChars: 18_000,
+    reasoningEffort: "low" as const, maxOutputTokens: 900, maxRemoteCallsPerRun: 1, maxRemoteCallsPerHour: 12, timeoutMs: 20_000, retryBudget: 1, credentialRef: "DEEPSEEK_API_KEY",
   } : { id: "builtin-fake", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["formal_state", "current_workobject_context"], maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null });
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now }, cognitionExecutor, executionProfile);
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, ...(options.maintenanceIntervalMs !== undefined ? { intervalMs: options.maintenanceIntervalMs } : {}), ...(options.maintenanceMaxAttempts !== undefined ? { maxAttempts: options.maintenanceMaxAttempts } : {}), ...(options.maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: options.maintenanceRetryBackoffMs } : {}) }, cognitionExecutor, executionProfile);
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
   const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -420,7 +420,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
   await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt });
   return {
-    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store,
+    baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker,
     close: async () => {
       maintenance.stop();
       broker.close();

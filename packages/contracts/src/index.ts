@@ -664,6 +664,7 @@ export interface ReconcileJob {
   sourceSnapshotId: string;
   sourceBlockUuid: string | null;
   formalVersion: number;
+  semanticRevision: string;
   priorityClass: ReconcilePriorityClass;
   attempt: number;
   notBefore: string | null;
@@ -772,6 +773,8 @@ export interface ExecutionProfile {
   maxInputChars: number;
   reasoningEffort?: "low" | "medium" | "high" | "max";
   maxOutputTokens?: number;
+  maxRemoteCallsPerRun?: number;
+  maxRemoteCallsPerHour?: number;
   timeoutMs: number;
   retryBudget: number;
   credentialRef: string | null;
@@ -1146,6 +1149,10 @@ export interface SystemProjection {
   lastDiscovery: { id: string; status: string; remainingCount: number; summaryText: string } | null;
   recoveryCount: number;
   executorId: string;
+  runtimeStatus: "HEALTHY" | "CATCHING_UP" | "PAUSED" | "DEGRADED";
+  runtimeSummary: string;
+  runtimeQueuedJobs: number;
+  runtimeFailedJobs: number;
   generatedAt: string;
 }
 

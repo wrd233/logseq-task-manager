@@ -14,6 +14,14 @@ export const FAKE_COGNITION_PROFILE: ExecutionProfile = {
   maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null,
 };
 
+function semanticRevision(workObjectId: string, store: SqliteStore): string {
+  const object = store.getWorkObject(workObjectId);
+  if (!object) return "missing";
+  if (object.kind !== "PROJECT") return String(object.version);
+  const intent = store.getProjectIntent(workObjectId);
+  return `${object.version}:${intent?.revision ?? 0}`;
+}
+
 export interface MaintenanceCoordinatorOptions {
   now?: (() => string) | undefined;
   intervalMs?: number;
@@ -34,6 +42,7 @@ export class MaintenanceCoordinator {
   readonly #cognition: CognitionExecutor;
   readonly #profile: ExecutionProfile;
   #timer: ReturnType<typeof setInterval> | null = null;
+  #remoteCallsThisRun = 0;
 
   constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, options: MaintenanceCoordinatorOptions = {}, cognition: CognitionExecutor, profile: ExecutionProfile) {
     this.#kernel = kernel;
@@ -90,7 +99,7 @@ export class MaintenanceCoordinator {
     });
     const job: ReconcileJob = {
       id: deterministicUuid(`reconcile:${object.id}:${snapshotId}`), workObjectId: object.id, triggerType: "WORK_BURST_ENDED",
-      sourceSnapshotId: snapshotId, sourceBlockUuid: observation.sourceBlockUuid, formalVersion: object.version, priorityClass: "NORMAL", attempt: 0, notBefore: null,
+      sourceSnapshotId: snapshotId, sourceBlockUuid: observation.sourceBlockUuid, formalVersion: object.version, semanticRevision: semanticRevision(object.id, this.#store), priorityClass: "NORMAL", attempt: 0, notBefore: null,
       status: "QUEUED", lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -105,7 +114,7 @@ export class MaintenanceCoordinator {
     const at = this.#now();
     const job: ReconcileJob = {
       id: `reconcile:manual:${workObjectId}:${randomUUID()}`, workObjectId, triggerType: "MANUAL_RECONCILE",
-      sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
+      sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, semanticRevision: semanticRevision(workObjectId, this.#store), priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
       lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -126,6 +135,7 @@ export class MaintenanceCoordinator {
   jobs(status?: ReconcileJob["status"]): ReconcileJob[] { return this.#store.listReconcileJobs(status); }
 
   async tick(): Promise<ReconcileJob | null> {
+    this.#remoteCallsThisRun = 0;
     await this.drainProjectionObligations().catch((error) => console.warn("[maintenance] projection drain failed", error));
     const at = this.#now();
     const job = this.#store.claimNextReconcileJob(at);
@@ -143,6 +153,22 @@ export class MaintenanceCoordinator {
       if (object.lifecycle !== "OPEN") {
         this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), "NO_CHANGE");
         return this.#store.getReconcileJob(job.id);
+      }
+      const currentSemanticRevision = semanticRevision(object.id, this.#store);
+      if (job.semanticRevision && job.semanticRevision !== currentSemanticRevision) {
+        const next = new Date(Date.parse(at) + this.#retryBackoffMs).toISOString();
+        return this.#store.refreshReconcileJobSemanticRevision(job.id, object.version, currentSemanticRevision, next, at);
+      }
+      if (this.#profile.executor !== "FAKE" && this.#profile.remoteEnabled) {
+        const runLimit = this.#profile.maxRemoteCallsPerRun ?? 1;
+        if (this.#remoteCallsThisRun >= runLimit) {
+          return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
+        }
+        const hourLimit = this.#profile.maxRemoteCallsPerHour;
+        if (hourLimit && !this.#store.consumeRemoteCallBudget(`remote:${this.#profile.id}`, hourLimit, at)) {
+          return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
+        }
+        this.#remoteCallsThisRun += 1;
       }
       const status = this.#broker.status();
       if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
@@ -181,6 +207,10 @@ export class MaintenanceCoordinator {
   #requeue(job: ReconcileJob, reason: string): ReconcileJob {
     const next = new Date(Date.parse(this.#now()) + this.#retryBackoffMs * Math.min(2 ** Math.max(0, job.attempt - 1), 8)).toISOString();
     return this.#store.failReconcileJob(job.id, reason, next, this.#now(), this.#maxAttempts);
+  }
+
+  #defer(job: ReconcileJob, reason: string, nextNotBefore: string): ReconcileJob {
+    return this.#store.deferReconcileJob(job.id, reason, nextNotBefore, this.#now());
   }
 
   async #reconcileOpenObject(workObjectId: string, sourceBlockUuid: string, job: ReconcileJob): Promise<MaintenanceReconcileOutcome> {
