@@ -48,8 +48,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     if (requireTrustedUserChannel && request.headers["x-task-copilot-user-channel"] !== userChannelToken) throw new KernelError("TRUSTED_USER_CHANNEL_REQUIRED", "USER-authorized Formal mutation requires the Plugin USER-channel capability.");
   };
   const graphDescriptorPath = options.graphDescriptorPath ?? join(dirname(options.descriptorPath), "graph-adapter.json");
-  await mkdir(dirname(options.databasePath), { recursive: true });
+  await mkdir(dirname(options.databasePath), { recursive: true, mode: 0o700 });
   const store = new SqliteStore(options.databasePath);
+  await chmod(options.databasePath, 0o600).catch(() => undefined);
   const instanceId = `kernel:${randomUUID()}`;
   const leaseToken = randomBytes(16).toString("hex");
   const leaseScope = `runtime:${options.databasePath}`;
@@ -121,7 +122,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Route not found." } }); return;
       }
       if (request.headers.authorization !== `Bearer ${token}`) { send(response, 401, { error: { code: "AUTH_REQUIRED", message: "A valid local capability token is required." } }); return; }
-      if (request.method === "GET" && url.pathname === "/v1/status") { send(response, 200, { status: "ok", schemaVersion: store.schemaVersion(), pid: process.pid }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/status") { send(response, 200, { status: "ok", schemaVersion: store.schemaVersion(), pid: process.pid, deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/agent/bootstrap") { send(response, 200, external.bootstrap()); return; }
       if (request.method === "GET" && url.pathname === "/v1/skills") { send(response, 200, { skills: external.skills() }); return; }
       const skillMatch = /^\/v1\/skills\/([^/]+)$/u.exec(url.pathname);
@@ -255,6 +256,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const decisionExecute = /^\/v1\/user-decisions\/([^/]+)\/execute$/u.exec(url.pathname);
       if (request.method === "POST" && decisionExecute) {
+        assertTrustedUserChannel(request);
         const decisionId = decodeURIComponent(decisionExecute[1]!);
         const decision = kernel.listUserDecisions().find((item) => item.id === decisionId);
         if (decision?.operationType === "CREATE_WORK_OBJECT" && decision.packageId && !(await discovery.validateMaterializationPackage(decision.packageId))) {

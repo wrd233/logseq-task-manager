@@ -15,11 +15,12 @@ async function sources(directory) {
 const rules = [
   { directory: "packages/domain/src", forbidden: ["@logseq", "better-sqlite3", "node:http", "@task-copilot/client"], label: "Domain is infrastructure-free" },
   { directory: "apps/logseq-plugin/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "node:sqlite"], label: "Plugin never writes SQLite" },
-  { directory: "apps/task-copilot-cli/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "node:sqlite"], label: "CLI never opens SQLite" },
+  { directory: "apps/task-copilot-cli/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "node:sqlite"], label: "CLI never opens SQLite outside local-runtime", allowed: ["apps/task-copilot-cli/src/local-runtime.ts"] },
   { directory: "packages/agent/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "@logseq", "node:http"], label: "Agent executor owns no formal writer or transport" },
 ];
 for (const rule of rules) {
   for (const path of await sources(rule.directory)) {
+    if (rule.allowed?.includes(path)) continue;
     const content = await readFile(path, "utf8");
     for (const token of rule.forbidden) if (content.includes(token)) throw new Error(`${rule.label}: ${path} contains ${token}`);
   }

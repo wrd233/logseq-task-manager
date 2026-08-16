@@ -34,7 +34,7 @@ Commands:
   projection health | projection list [--status PENDING|FAILED|VERIFIED|APPLIED]
   maintenance status | maintenance pause --scope global|object --paused true|false [--object <id>] | maintenance reconcile --object <id>
   decision-package list [--status OPEN|ACCEPTED|REJECTED|STALE] | decision-package show <id>
-  decision execute <id> | user-decision list [--package <id>]   # compile only via trusted Plugin user channel
+  user-decision list [--package <id>]   # decision execute is available only through the trusted Plugin USER channel
   discovery run --today [--date <YYYY-MM-DD>] | discovery run --page <name> --graph <id>
   discovery run list | discovery run show <id>
   candidate list [--status OPEN|MATERIALIZED|DISMISSED|EXPIRED] | candidate show <id> | candidate mature <id> | candidate dismiss <id>
@@ -109,7 +109,7 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     else if (words.length === 3 && words[0] === "candidate" && words[1] === "dismiss") value = await client.dismissFormalizationCandidate(words[2]!);
     else if (words.join(" ") === "organize today") value = await client.organizeToday(option(args, "--date") ? { date: option(args, "--date")! } : {});
     else if (words.join(" ") === "decision compile") usage("decision compile is available only through the trusted Plugin USER channel; External Agents cannot impersonate USER.");
-    else if (words.length === 3 && words[0] === "decision" && words[1] === "execute") value = await client.executeUserDecision(words[2]!);
+    else if (words.length === 3 && words[0] === "decision" && words[1] === "execute") usage("decision execute is available only through the trusted Plugin USER channel; External Agents cannot impersonate USER.");
     else if (words.join(" ") === "user-decision list") value = await client.listUserDecisions(option(args, "--package"));
     else if (words.join(" ") === "agent-run start") {
       const purpose = required(args, "--purpose"); if (purpose !== "current-focus" && purpose !== "engagement" && purpose !== "miniproject") usage("--purpose must be current-focus, engagement, or miniproject."); const evidenceIds = options(args, "--evidence"); if (!evidenceIds.length) usage("At least one --evidence is required.");

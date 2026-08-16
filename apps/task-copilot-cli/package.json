@@ -6,5 +6,5 @@
   "exports": "./src/cli.ts",
   "bin": { "task-copilot": "./dist/main.js" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test tests/*.test.ts", "start": "tsx src/main.ts" },
-  "dependencies": { "@task-copilot/client": "0.2.0" }
+  "dependencies": { "@task-copilot/client": "0.2.0", "better-sqlite3": "11.7.0" }
 }

@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { startKernelServer } from "./server.ts";
 
+process.umask(0o077);
 const stateDirectory = process.env.TASK_COPILOT_STATE_DIR ?? join(homedir(), ".task-copilot-vnext");
 const service = await startKernelServer({ databasePath: join(stateDirectory, "task-copilot.sqlite"), descriptorPath: join(stateDirectory, "kernel.json") });
 console.log(JSON.stringify({ event: "kernel.ready", baseUrl: service.baseUrl }));

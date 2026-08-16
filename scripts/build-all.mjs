@@ -7,7 +7,7 @@ for (const [entry, output] of [
   ["apps/task-copilot-cli/src/main.ts", "apps/task-copilot-cli/dist/main.js"],
 ]) {
   await mkdir(fileURLToPath(new URL(`../${output.split("/").slice(0, -1).join("/")}/`, import.meta.url)), { recursive: true });
-  await build({ entryPoints: [fileURLToPath(new URL(`../${entry}`, import.meta.url))], bundle: true, platform: "node", format: "esm", target: "node20", outfile: fileURLToPath(new URL(`../${output}`, import.meta.url)), external: output.includes("kernel-service") ? ["better-sqlite3"] : [] });
+  await build({ entryPoints: [fileURLToPath(new URL(`../${entry}`, import.meta.url))], bundle: true, platform: "node", format: "esm", target: "node20", outfile: fileURLToPath(new URL(`../${output}`, import.meta.url)), external: output.includes("kernel-service") || output.includes("task-copilot-cli") ? ["better-sqlite3"] : [] });
 }
 
 await import(new URL("../apps/logseq-plugin/scripts/build.mjs", import.meta.url));
