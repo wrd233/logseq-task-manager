@@ -1,4 +1,4 @@
-import type { ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, ProjectIntent, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
+import type { ClosureAssessment, ClosureCheckAssessment, ConfirmationProjection, DecisionCandidate, DecisionPackage, NowProjection, NowProjectionItem, ObjectContextPack, ProjectIntent, SystemProjection, WorkMapNode, WorkMapProjection } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import type { DiscoveryCoordinator } from "./discovery-coordinator.ts";
@@ -96,6 +96,72 @@ export class ProjectionCoordinator {
     return { items: unique.slice(0, 3), generatedAt: at, graphAvailable: this.#broker.status().available };
   }
 
+  closureAssessment(workObjectId: string): ClosureAssessment | null {
+    const object = this.#store.getWorkObject(workObjectId);
+    if (!object) return null;
+    const projectIntent = object.kind === "PROJECT" ? this.#store.getProjectIntent(workObjectId) : null;
+    const semanticRevision = object.kind === "PROJECT" ? `${object.version}:${projectIntent?.revision ?? 0}` : String(object.version);
+    const evidence = this.#store.listEvidence(workObjectId);
+    const openChildren = this.#openDescendants(workObjectId);
+    const issues = this.#store.listGovernanceIssues(workObjectId, "OPEN");
+    const conflict = issues.find((issue) => issue.type === "CONFLICT") ?? null;
+    const blockers: string[] = [];
+    let readiness: ClosureAssessment["readiness"];
+    let checks: ClosureCheckAssessment[] = [];
+    if (conflict) {
+      readiness = "CONFLICT";
+      blockers.push(conflict.summary);
+    } else if (object.kind === "TASK") {
+      readiness = "READY";
+    } else if (object.kind === "MINI_PROJECT") {
+      if (!object.desiredOutcome && object.completionChecks.length === 0) {
+        readiness = "UNKNOWN";
+        blockers.push("这个子项目的最终结果还没有写清。");
+      } else if (openChildren.length) {
+        readiness = "NOT_READY";
+        blockers.push(...openChildren.map((child) => `${child.title} 还在进行。`));
+      } else {
+        checks = object.completionChecks.map((text) => ({ text, status: evidence.length >= object.completionChecks.length ? "SATISFIED" as const : "UNKNOWN" as const, evidenceIds: evidence.map((item) => item.id) }));
+        readiness = object.completionChecks.length > 0 && evidence.length >= object.completionChecks.length ? "READY" : "UNKNOWN";
+        if (readiness !== "READY") blockers.push("完成检查还缺少足够冻结依据。");
+      }
+    } else {
+      if (!projectIntent?.objective) {
+        readiness = "UNKNOWN";
+        blockers.push("项目目标还没有写清，无法判断是否完成。");
+      } else if (openChildren.length) {
+        readiness = "NOT_READY";
+        blockers.push(...openChildren.map((child) => `${child.title} 还在进行。`));
+      } else {
+        const requiredEvidence = Math.max(1, projectIntent.keyResults.length);
+        const objectiveOnly = projectIntent.keyResults.length === 0;
+        readiness = evidence.length >= requiredEvidence ? "READY" : objectiveOnly ? "UNKNOWN" : "NOT_READY";
+        if (readiness !== "READY") blockers.push(objectiveOnly ? "项目目标还缺少足够冻结依据。" : "结果边界还缺少足够冻结依据。");
+      }
+    }
+    const assessment: ClosureAssessment = {
+      workObjectId: object.id, kind: object.kind, readiness, semanticRevision, assessedAt: this.#now(),
+      blockers, checks, contradictionSummary: conflict?.summary ?? null, evidenceIds: evidence.map((item) => item.id), provenance: "DETERMINISTIC",
+    };
+    this.#store.putClosureAssessment(assessment);
+    return assessment;
+  }
+
+  #openDescendants(workObjectId: string): Array<{ id: string; title: string }> {
+    const result: Array<{ id: string; title: string }> = [];
+    const queue = [workObjectId];
+    while (queue.length) {
+      const owner = queue.shift()!;
+      for (const ownership of this.#store.listOwnerships().filter((item) => item.ownerId === owner)) {
+        const child = this.#store.getWorkObject(ownership.childId);
+        if (!child) continue;
+        if (child.lifecycle === "OPEN") result.push({ id: child.id, title: child.title });
+        queue.push(child.id);
+      }
+    }
+    return result;
+  }
+
   async objectContext(workObjectId: string): Promise<ObjectContextPack | null> {
     const object = this.#store.getWorkObject(workObjectId);
     if (!object) return null;
@@ -162,6 +228,7 @@ export class ProjectionCoordinator {
       openIssues: issues, pendingDecisionPackages: pendingPackages.slice(0, 3).map((pkg) => pkg.id),
       activeChildren,
       projectIntent: object.kind === "PROJECT" ? this.#store.getProjectIntent(object.id) : null,
+      closureAssessment: object.lifecycle === "OPEN" ? this.closureAssessment(object.id) : null,
       reentrySummary: summary,
       allowedAgentActions: ["SET_CURRENT_FOCUS", "CHANGE_ENGAGEMENT", "CONTEXT_ASSOCIATION", "ADD_REFERENCE"],
       userOnlyActions: ["COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "CREATE_WORK_OBJECT", "OWNERSHIP", "UPDATE_WORK_INTENT"],

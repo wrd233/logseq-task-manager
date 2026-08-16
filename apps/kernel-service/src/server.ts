@@ -285,6 +285,12 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         if (!pack) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
         send(response, 200, { pack }); return;
       }
+      const closureAssessmentMatch = /^\/v1\/objects\/([^/]+)\/closure-assessment$/u.exec(url.pathname);
+      if (request.method === "GET" && closureAssessmentMatch) {
+        const assessment = projections.closureAssessment(decodeURIComponent(closureAssessmentMatch[1]!));
+        if (!assessment) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, { assessment }); return;
+      }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
         const object = store.getWorkObject(decodeURIComponent(objectMatch[1]!));

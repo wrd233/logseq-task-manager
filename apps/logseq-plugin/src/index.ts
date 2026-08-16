@@ -409,6 +409,24 @@ async function dailyPanel(): Promise<void> {
           const childrenTitle = document.createElement("p"); childrenTitle.textContent = "当前重点"; childrenTitle.style.cssText = "margin:8px 0 2px;font-size:11px;color:#888;"; view.append(childrenTitle);
           for (const child of pack.activeChildren) { const p = document.createElement("p"); p.textContent = `• ${child.title}${child.reason ? ` — ${child.reason}` : ""}`; p.style.cssText = "margin:0 0 2px;font-size:13px;"; view.append(p); }
         }
+        if (pack.closureAssessment && pack.kind !== "TASK") {
+          const assessment = pack.closureAssessment;
+          const closure = document.createElement("section"); closure.style.cssText = "border:1px solid var(--ls-border-color,#e3e3e3);border-radius:8px;padding:10px 12px;margin:8px 0;";
+          const label = document.createElement("p"); label.textContent = assessment.readiness === "READY" ? "已具备结束条件" : assessment.readiness === "CONFLICT" ? "当前存在冲突，不能判断已经完成" : "还不能结束"; label.style.cssText = "margin:0 0 4px;font-size:13px;font-weight:600;";
+          closure.append(label);
+          if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;"; closure.append(blockers); }
+          if (assessment.checks.length) {
+            for (const check of assessment.checks) { const p = document.createElement("p"); p.textContent = `${check.status === "SATISFIED" ? "✓" : "○"} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;"; closure.append(p); }
+          }
+          if (assessment.readiness === "READY") {
+            const closeButton = document.createElement("button"); closeButton.textContent = `结束这个${pack.kind === "PROJECT" ? "项目" : "子项目"}`; closeButton.style.cssText = "margin-top:6px;border:1px solid #b00;border-radius:5px;background:transparent;color:#b00;padding:4px 10px;cursor:pointer;";
+            closeButton.onclick = () => void guarded("close-object", async () => { if (await closeObjectFromAssessment(api, objectId, pack.title, assessment.evidenceIds)) { root.remove(); void logseq.hideMainUI({ restoreEditingCursor: true }); await dailyPanel(); } });
+            closure.append(closeButton);
+          }
+          view.append(closure);
+        } else if (pack.lifecycle === "COMPLETED" || pack.lifecycle === "CANCELLED") {
+          const closed = document.createElement("p"); closed.textContent = pack.lifecycle === "COMPLETED" ? "已完成" : "已取消"; closed.style.cssText = "margin:8px 0 0;font-size:13px;color:#555;"; view.append(closed);
+        }
         const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:10px;margin-top:10px;";
         const discuss = document.createElement("button"); discuss.textContent = "和 Agent 讨论"; discuss.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:5px 10px;cursor:pointer;";
         discuss.onclick = () => void openObjectConversation(api, objectId, pack.title);
@@ -430,6 +448,18 @@ async function dailyPanel(): Promise<void> {
   logseq.setMainUIInlineStyle({ position: "fixed", top: "0", right: "0", width: "clamp(320px,44vw,460px)", height: "100vh", zIndex: 10000, pointerEvents: "auto", background: "transparent" });
   logseq.showMainUI({ autoFocus: true });
   render("now");
+}
+
+async function closeObjectFromAssessment(api: KernelClient, workObjectId: string, title: string, evidenceIds: readonly string[]): Promise<boolean> {
+  const target = await api.showObject(workObjectId);
+  const projection = await expectedProjection(api, target);
+  const pkg = (await api.createDecisionPackage({
+    workObjectId,
+    summary: `结束「${title}」`,
+    rationale: "结束条件已具备；正式结束只会标记承诺兑现，不会移动或删除自然笔记。",
+    candidates: [{ operationType: "COMPLETE_WORK_OBJECT", parameters: { target: { workObjectId, expectedVersion: target.object.version, expectedProjectionHash: projection.projectionHash }, input: { outcomeSummary: target.object.title, evidenceIds } } }],
+  })).pkg;
+  return acceptDecisionPackage(pkg.id);
 }
 
 async function openObjectAnchor(api: KernelClient, workObjectId: string): Promise<void> {

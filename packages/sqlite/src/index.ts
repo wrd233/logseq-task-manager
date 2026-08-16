@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
+import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureAssessment, type ClosureCheckAssessment, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
@@ -417,6 +417,7 @@ export class SqliteStore {
     this.#migrateV18();
     this.#migrateV19();
     this.#migrateV20();
+    this.#migrateV21();
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -857,6 +858,25 @@ export class SqliteStore {
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (20, ?)").run(new Date().toISOString());
   }
 
+  #migrateV21(): void {
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS closure_assessments (
+        work_object_id TEXT PRIMARY KEY REFERENCES work_objects(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        readiness TEXT NOT NULL CHECK (readiness IN ('READY','NOT_READY','UNKNOWN','CONFLICT')),
+        semantic_revision TEXT NOT NULL,
+        assessed_at TEXT NOT NULL,
+        blockers_json TEXT NOT NULL DEFAULT '[]',
+        checks_json TEXT NOT NULL DEFAULT '[]',
+        contradiction_summary TEXT,
+        evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+        provenance TEXT NOT NULL DEFAULT 'DETERMINISTIC',
+        updated_at TEXT NOT NULL
+      );
+    `);
+    this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (21, ?)").run(new Date().toISOString());
+  }
+
   acquireRuntimeLease(scopeKey: string, instanceId: string, pid: number, leaseToken: string, heartbeatAt: string, ttlMs: number): void {
     this.#database.exec("BEGIN IMMEDIATE");
     try {
@@ -906,6 +926,24 @@ export class SqliteStore {
       VALUES (@workObjectId, @objective, @keyResults, @scope, @currentPhase, @revision, @createdAt, @updatedAt)
       ON CONFLICT(work_object_id) DO UPDATE SET objective=excluded.objective, key_results_json=excluded.key_results_json, scope=excluded.scope, current_phase=excluded.current_phase, revision=excluded.revision, updated_at=excluded.updated_at`)
       .run({ ...intent, keyResults: JSON.stringify(intent.keyResults) });
+  }
+
+  putClosureAssessment(assessment: ClosureAssessment): void {
+    this.#database.prepare(`INSERT INTO closure_assessments(work_object_id,kind,readiness,semantic_revision,assessed_at,blockers_json,checks_json,contradiction_summary,evidence_ids_json,provenance,updated_at)
+      VALUES (@workObjectId,@kind,@readiness,@semanticRevision,@assessedAt,@blockers,@checks,@contradictionSummary,@evidenceIds,@provenance,@assessedAt)
+      ON CONFLICT(work_object_id) DO UPDATE SET kind=excluded.kind, readiness=excluded.readiness, semantic_revision=excluded.semantic_revision, assessed_at=excluded.assessed_at, blockers_json=excluded.blockers_json, checks_json=excluded.checks_json, contradiction_summary=excluded.contradiction_summary, evidence_ids_json=excluded.evidence_ids_json, provenance=excluded.provenance, updated_at=excluded.updated_at`)
+      .run({ ...assessment, blockers: JSON.stringify(assessment.blockers), checks: JSON.stringify(assessment.checks), evidenceIds: JSON.stringify(assessment.evidenceIds) });
+  }
+
+  getClosureAssessment(workObjectId: string): ClosureAssessment | null {
+    const row = this.#database.prepare("SELECT * FROM closure_assessments WHERE work_object_id=?").get(workObjectId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      workObjectId: String(row.work_object_id), kind: row.kind as ClosureAssessment["kind"], readiness: row.readiness as ClosureAssessment["readiness"],
+      semanticRevision: String(row.semantic_revision), assessedAt: String(row.assessed_at), blockers: decode(String(row.blockers_json)) as string[],
+      checks: decode(String(row.checks_json)) as ClosureCheckAssessment[], contradictionSummary: row.contradiction_summary === null ? null : String(row.contradiction_summary),
+      evidenceIds: decode(String(row.evidence_ids_json)) as string[], provenance: row.provenance as ClosureAssessment["provenance"],
+    };
   }
 
   getProjectIntent(workObjectId: string): ProjectIntent | null {

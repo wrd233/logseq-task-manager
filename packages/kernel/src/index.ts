@@ -168,6 +168,21 @@ export class Kernel {
     return { graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, expectedProjection: projectionFor(object, anchor, closureProjection(this.#store.getClosureHistory(object.id).current)) };
   }
 
+  #openDescendants(workObjectId: string): WorkObject[] {
+    const result: WorkObject[] = [];
+    const queue = [workObjectId];
+    while (queue.length) {
+      const owner = queue.shift()!;
+      for (const ownership of this.#store.listOwnerships().filter((item) => item.ownerId === owner)) {
+        const child = this.#store.getWorkObject(ownership.childId);
+        if (!child) continue;
+        if (child.lifecycle === "OPEN") result.push(child);
+        queue.push(child.id);
+      }
+    }
+    return result;
+  }
+
   #authorize(actor: Actor): void {
     if (actor.type !== "USER" || actor.id !== this.#authorizedUserId) throw new KernelError("ACTOR_NOT_AUTHORIZED", "This slice permits only the configured local user; Agent and System writes require future governance policy.");
   }
@@ -675,25 +690,26 @@ export class Kernel {
         expectedProjection, resultingProjection: projection,
       };
     } else {
-      if (governance || operation.actor.type !== "USER" || operation.actor.id !== this.#authorizedUserId) throw new KernelError("CLOSURE_USER_AUTHORITY_REQUIRED", "Task Closure operations require the configured local USER actor.");
-      if (mode === "formal" && !snapshot) throw new KernelError("GRAPH_SNAPSHOT_REQUIRED", "Closure commits still require a fresh Graph snapshot for marker-aware projection.", null);
-      const graphSnapshot = snapshot!;
+      if (governance || operation.actor.type !== "USER" || operation.actor.id !== this.#authorizedUserId) throw new KernelError("CLOSURE_USER_AUTHORITY_REQUIRED", "Closure operations require the configured local USER actor.");
       before = this.#store.getWorkObject(operation.target.workObjectId);
       if (!before) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Closure target does not exist.");
+      if (mode === "formal" && !snapshot && before.kind === "TASK") throw new KernelError("GRAPH_SNAPSHOT_REQUIRED", "Task Closure commits still require a fresh Graph snapshot for marker-aware projection.", null);
       if (this.#store.hasPendingRecoveryForTarget(before.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Closure target has an incomplete Commit requiring recovery.");
+      if ((operation.type === "COMPLETE_WORK_OBJECT" || operation.type === "CANCEL_WORK_OBJECT") && this.#openDescendants(before.id).length) throw new KernelError("PARENT_HAS_OPEN_CHILDREN", "A WorkObject with OPEN formal children cannot be completed or cancelled without cascade.");
+      const graphSnapshot = snapshot;
       const storedAnchor = this.#store.getAnchorForWorkObject(before.id);
       if (!storedAnchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "Closure target has no primary Graph anchor.");
       anchor = storedAnchor;
       beforeClosure = closureProjection(this.#store.getClosureHistory(before.id).current);
       const authoritativeProjection = projectionFor(before, anchor, beforeClosure);
-      if (operation.target.expectedProjectionHash !== authoritativeProjection.projectionHash || graphSnapshot.projection?.projectionHash !== authoritativeProjection.projectionHash) throw new KernelError("MANAGED_PROJECTION_HASH_MISMATCH", "Closure requires the exact Kernel-derived managed projection.");
+      if (operation.target.expectedProjectionHash !== authoritativeProjection.projectionHash || (graphSnapshot && graphSnapshot.projection?.projectionHash !== authoritativeProjection.projectionHash)) throw new KernelError("MANAGED_PROJECTION_HASH_MISMATCH", "Closure requires the exact Kernel-derived managed projection.");
       if (operation.type === "COMPLETE_WORK_OBJECT") {
-        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Completion Evidence must belong to this Task."); }
+        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Completion Evidence must belong to this WorkObject."); }
         const completed = completeWorkObject(before, { recordId: deterministicUuid(`completion:${commitId}`), actor: operation.actor, outcomeSummary: operation.input.outcomeSummary, evidenceIds: operation.input.evidenceIds, expectedVersion: operation.target.expectedVersion, at: now }); object = completed.object; closureRecord = completed.record;
       } else if (operation.type === "CANCEL_WORK_OBJECT") {
-        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Cancellation Evidence must belong to this Task."); }
+        for (const id of operation.input.evidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Cancellation Evidence must belong to this WorkObject."); }
         if (operation.input.replacementWorkObjectId) {
-          if (operation.input.replacementWorkObjectId === before.id) throw new KernelError("CANCELLATION_REPLACEMENT_INVALID", "A cancelled Task cannot replace itself.");
+          if (operation.input.replacementWorkObjectId === before.id) throw new KernelError("CANCELLATION_REPLACEMENT_INVALID", "A cancelled WorkObject cannot replace itself.");
           if (!this.#store.getWorkObject(operation.input.replacementWorkObjectId)) throw new KernelError("CANCELLATION_REPLACEMENT_NOT_FOUND", "Cancellation replacement WorkObject does not exist.");
         }
         const cancelled = cancelWorkObject(before, { recordId: deterministicUuid(`cancellation:${commitId}`), actor: operation.actor, ...operation.input, expectedVersion: operation.target.expectedVersion, at: now }); object = cancelled.object; closureRecord = cancelled.record;
@@ -703,7 +719,7 @@ export class Kernel {
       } else {
         const target = this.#store.getClosureRecord(operation.input.targetClosureRecordId); const current = this.#store.getCurrentClosureRecord(before.id);
         if (!target || !current || target.id !== current.id) throw new KernelError("CLOSURE_AMENDMENT_TARGET_INVALID", "Amendment must target the current effective Closure record.");
-        for (const id of operation.input.addEvidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Closure Amendment Evidence must belong to this Task."); }
+        for (const id of operation.input.addEvidenceIds) { const evidence = this.#store.getEvidence(id); if (!evidence || evidence.workObjectId !== before.id) throw new KernelError("CLOSURE_EVIDENCE_INVALID", "Closure Amendment Evidence must belong to this WorkObject."); }
         closureRecord = amendClosure(target, { amendmentId: deterministicUuid(`amendment:${commitId}`), workObjectId: before.id, actor: operation.actor, reason: operation.input.reason, ...(operation.input.replacementOutcomeSummary ? { replacementOutcomeSummary: operation.input.replacementOutcomeSummary } : {}), ...(operation.input.replacementCancellationReason ? { replacementCancellationReason: operation.input.replacementCancellationReason } : {}), addEvidenceIds: operation.input.addEvidenceIds, at: now });
         object = advanceClosureAmendment(before, { expectedVersion: operation.target.expectedVersion, at: now });
       }
@@ -714,9 +730,10 @@ export class Kernel {
       const managedClosure = closureProjection(effective) ?? null;
       const projection = projectionFor(object, anchor, managedClosure);
       const explicitCompletion = operation.type === "COMPLETE_WORK_OBJECT";
-      const markerAlreadyDone = graphSnapshot.sourceMarker === "DONE";
-      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: graphSnapshot.sourceMarker ?? null, resultingSourceMarker: explicitCompletion && (graphSnapshot.sourceMarker === "TODO" || graphSnapshot.sourceMarker === "DONE") ? "DONE" : operation.type === "REOPEN_WORK_OBJECT" && graphSnapshot.sourceMarker === "DONE" ? "TODO" : graphSnapshot.sourceMarker ?? null, expectedProjection: graphSnapshot.projection!, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, resultingProjection: projection };
-      if (operation.type === "COMPLETE_WORK_OBJECT" && graphSnapshot.sourceMarker !== "TODO" && !markerAlreadyDone && graphSnapshot.sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
+      const sourceMarker = graphSnapshot?.sourceMarker ?? null;
+      const markerAlreadyDone = sourceMarker === "DONE";
+      graphEffect = { type: "CHANGE_CLOSURE_FIELDS", commitId, effectId: deterministicUuid(`effect:${commitId}:0`), graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, containerUuid: anchor.projectionContainerUuid, stateUuid: anchor.projectionStateUuid, focusUuid: anchor.projectionFocusUuid, expectedSourceMarker: sourceMarker, resultingSourceMarker: before.kind === "TASK" && explicitCompletion && (sourceMarker === "TODO" || sourceMarker === "DONE") ? "DONE" : before.kind === "TASK" && operation.type === "REOPEN_WORK_OBJECT" && sourceMarker === "DONE" ? "TODO" : sourceMarker, expectedProjection: authoritativeProjection, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, closure: managedClosure, expectedProjectionHash: operation.target.expectedProjectionHash, resultingProjectionHash: projection.projectionHash, resultingProjection: projection };
+      if (before.kind === "TASK" && explicitCompletion && sourceMarker !== "TODO" && !markerAlreadyDone && sourceMarker !== null) throw new KernelError("COMPLETION_MARKER_UNSUPPORTED", "Completion supports TODO, already-observed DONE, or markerless Task anchors.");
     }
 
     const commit: StoredCommit = {

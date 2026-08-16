@@ -154,10 +154,9 @@ function evidenceIds(values: readonly string[]): readonly string[] {
   return [...new Set(values.map((id) => required(id, "CLOSURE_EVIDENCE_ID_REQUIRED", "Closure Evidence id", 128)))];
 }
 
-function assertTaskOpen(object: WorkObject, expectedVersion: number): void {
+function assertOpenWorkObject(object: WorkObject, expectedVersion: number): void {
   if (object.version !== expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${expectedVersion}, found ${object.version}.`);
-  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Closure supports Task only.");
-  if (object.lifecycle !== "OPEN") throw new DomainError("CLOSURE_LIFECYCLE_INVALID", "Only an open Task may be completed or cancelled.");
+  if (object.lifecycle !== "OPEN") throw new DomainError("CLOSURE_LIFECYCLE_INVALID", "Only an open WorkObject may be completed or cancelled.");
 }
 
 function terminalObject(object: WorkObject, lifecycle: "COMPLETED" | "CANCELLED", at: string): WorkObject {
@@ -165,14 +164,14 @@ function terminalObject(object: WorkObject, lifecycle: "COMPLETED" | "CANCELLED"
 }
 
 export function completeWorkObject(object: WorkObject, input: { recordId: string; actor: DomainActor; outcomeSummary: string; evidenceIds: readonly string[]; expectedVersion: number; at: string }): { object: WorkObject; record: CompletionRecord } {
-  assertTaskOpen(object, input.expectedVersion);
+  assertOpenWorkObject(object, input.expectedVersion);
   const at = timestamp(input.at);
   const record: CompletionRecord = { id: required(input.recordId, "COMPLETION_RECORD_ID_REQUIRED", "Completion record id", 128), workObjectId: object.id, completedAt: at, outcomeSummary: required(input.outcomeSummary, "COMPLETION_OUTCOME_REQUIRED", "Completion outcome", 500), evidenceIds: evidenceIds(input.evidenceIds), createdBy: actor(input.actor) };
   return { object: terminalObject(object, "COMPLETED", at), record };
 }
 
 export function cancelWorkObject(object: WorkObject, input: { recordId: string; actor: DomainActor; reason: string; replacementWorkObjectId: string | null; remainingWorkNote: string | null; evidenceIds: readonly string[]; expectedVersion: number; at: string }): { object: WorkObject; record: CancellationRecord } {
-  assertTaskOpen(object, input.expectedVersion);
+  assertOpenWorkObject(object, input.expectedVersion);
   const at = timestamp(input.at);
   const record: CancellationRecord = {
     id: required(input.recordId, "CANCELLATION_RECORD_ID_REQUIRED", "Cancellation record id", 128), workObjectId: object.id, cancelledAt: at,
@@ -185,7 +184,7 @@ export function cancelWorkObject(object: WorkObject, input: { recordId: string; 
 
 export function reopenWorkObject(object: WorkObject, input: { recordId: string; previousClosureRecordId: string; actor: DomainActor; reason: string; expectedVersion: number; at: string }): { object: WorkObject; record: ReopenRecord } {
   if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
-  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Reopen supports Task only.");
+  
   if (object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") throw new DomainError("REOPEN_LIFECYCLE_INVALID", "Only a completed or cancelled Task may be reopened.");
   const at = timestamp(input.at);
   const record: ReopenRecord = { id: required(input.recordId, "REOPEN_RECORD_ID_REQUIRED", "Reopen record id", 128), workObjectId: object.id, previousClosureType: object.lifecycle, previousClosureRecordId: required(input.previousClosureRecordId, "PREVIOUS_CLOSURE_RECORD_ID_REQUIRED", "Previous closure record id", 128), reason: required(input.reason, "REOPEN_REASON_REQUIRED", "Reopen reason", 500), reopenedAt: at, createdBy: actor(input.actor) };
@@ -206,7 +205,7 @@ export function amendClosure(target: ClosureRecord, input: { amendmentId: string
 
 export function advanceClosureAmendment(object: WorkObject, input: { expectedVersion: number; at: string }): WorkObject {
   if (object.version !== input.expectedVersion) throw new DomainError("WORK_OBJECT_VERSION_MISMATCH", `Expected version ${input.expectedVersion}, found ${object.version}.`);
-  if (object.kind !== "TASK") throw new DomainError("TASK_CLOSURE_KIND_UNSUPPORTED", "Phase 5 Closure Amendment supports Task only.");
+  
   if (object.lifecycle !== "COMPLETED" && object.lifecycle !== "CANCELLED") throw new DomainError("CLOSURE_AMENDMENT_LIFECYCLE_INVALID", "Only a currently closed Task may receive a Closure Amendment.");
   return { ...object, version: object.version + 1, updatedAt: timestamp(input.at) };
 }

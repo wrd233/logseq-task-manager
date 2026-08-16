@@ -118,14 +118,26 @@ test("an online TODO to DONE observation enters the same USER completion transac
   } finally { await value.service.close(); }
 });
 
-test("Kernel rejects MiniProject and Project Closure in Phase 5", async () => {
+test("governed parent closure succeeds without children and rejects while a child is OPEN", async () => {
   for (const kind of ["MINI_PROJECT", "PROJECT"] as const) {
-    const value = await setup(`task-only-${kind}`, "TODO 不得关闭父对象", kind);
+    const value = await setup(`parent-close-${kind}`, "TODO 父对象关闭", kind);
     try {
       const snapshot = await value.graph.readGraphSnapshot({ graphId: value.source.graphId, sourceBlockUuid: value.source.sourceBlockUuid });
-      await assert.rejects(value.client.prepare(parseSemanticOperation({ operationId: `reject-${kind}`, type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target: target(value, 1, snapshot.projection!.projectionHash), input: { outcomeSummary: "不得关闭", evidenceIds: [] } }), snapshot), /TASK_CLOSURE_KIND_UNSUPPORTED/u);
+      const closed = await apply(value, parseSemanticOperation({ operationId: `close-${kind}`, type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target: target(value, 1, snapshot.projection!.projectionHash), input: { outcomeSummary: "父对象结果已经兑现", evidenceIds: [] } }));
+      assert.equal(closed.commit.status, "COMMITTED");
+      assert.equal((await value.client.showObject(value.workObjectId)).object.lifecycle, "COMPLETED");
     } finally { await value.service.close(); }
   }
+  const parent = await setup("parent-with-open-child", "TODO 有子项的父对象", "MINI_PROJECT");
+  try {
+    const childSource = parent.graph.seedNaturalRecord(parent.source.graphId, "child-source", "TODO 还在进行的子任务");
+    const childPrepared = await parent.client.prepare(parseSemanticOperation({ operationId: "child-for-parent", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "还在进行的子任务", anchor: { graphId: parent.source.graphId, blockUuid: "child-source", sourceContentHash: childSource.sourceContentHash } } }), childSource);
+    const childResult = await parent.graph.applyGraphEffect(childPrepared.graphEffect as GraphEffect);
+    await parent.client.complete(childPrepared.commit.id, childResult, await parent.graph.readGraphSnapshot({ graphId: parent.source.graphId, sourceBlockUuid: "child-source" }));
+    parent.service.store.putOwnership({ childId: childPrepared.commit.targetId!, ownerId: parent.workObjectId, createdAt: at });
+    const snapshot = await parent.graph.readGraphSnapshot({ graphId: parent.source.graphId, sourceBlockUuid: parent.source.sourceBlockUuid });
+    await assert.rejects(parent.client.prepare(parseSemanticOperation({ operationId: "parent-with-child", type: "COMPLETE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, target: target(parent, 1, snapshot.projection!.projectionHash), input: { outcomeSummary: "不应级联", evidenceIds: [] } }), snapshot), /PARENT_HAS_OPEN_CHILDREN/u);
+  } finally { await parent.service.close(); }
 });
 
 test("completing a WAITING focused Task and Undo restore the exact open state while later writes block old Undo", async () => {

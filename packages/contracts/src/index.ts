@@ -201,6 +201,27 @@ export type SemanticOperation = CreateWorkObjectOperation | RenameWorkObjectOper
 export interface EffectiveCompletionClosure { type: "COMPLETED"; record: CompletionRecord; amendments: readonly ClosureAmendment[]; outcomeSummary: string; evidenceIds: readonly string[] }
 export interface EffectiveCancellationClosure { type: "CANCELLED"; record: CancellationRecord; amendments: readonly ClosureAmendment[]; reason: string; evidenceIds: readonly string[] }
 export type EffectiveClosure = EffectiveCompletionClosure | EffectiveCancellationClosure;
+export type ClosureReadiness = "READY" | "NOT_READY" | "UNKNOWN" | "CONFLICT";
+
+export interface ClosureCheckAssessment {
+  text: string;
+  status: "SATISFIED" | "UNSATISFIED" | "UNKNOWN" | "CONTRADICTED";
+  evidenceIds: readonly string[];
+}
+
+export interface ClosureAssessment {
+  workObjectId: string;
+  kind: WorkObjectKind;
+  readiness: ClosureReadiness;
+  semanticRevision: string;
+  assessedAt: string;
+  blockers: readonly string[];
+  checks: readonly ClosureCheckAssessment[];
+  contradictionSummary: string | null;
+  evidenceIds: readonly string[];
+  provenance: "DETERMINISTIC" | "AGENT" | "STALE";
+}
+
 export interface ClosureHistory { current: EffectiveClosure | null; completions: readonly CompletionRecord[]; cancellations: readonly CancellationRecord[]; amendments: readonly ClosureAmendment[]; reopens: readonly ReopenRecord[] }
 export type ManagedClosureProjection = { type: "COMPLETED"; recordId: string; outcomeSummary: string } | { type: "CANCELLED"; recordId: string; reason: string };
 
@@ -1075,6 +1096,7 @@ export interface ObjectContextPack {
   pendingDecisionPackages: readonly string[];
   activeChildren: readonly ObjectContextChild[];
   projectIntent: ProjectIntent | null;
+  closureAssessment: ClosureAssessment | null;
   reentrySummary: string;
   allowedAgentActions: readonly string[];
   userOnlyActions: readonly string[];
