@@ -1,6 +1,6 @@
 # Unattended Runtime Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-18，Phase 13 第一轮 soak / dogfood。
+> 状态：2026-08-16，Phase 13 第一轮 soak / dogfood。
 
 ## 设置
 

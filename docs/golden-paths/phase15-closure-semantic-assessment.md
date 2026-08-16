@@ -1,6 +1,6 @@
 # Phase 15 — Evidence-grounded Closure Assessment Golden Path
 
-> 状态：2026-08-19 测试门禁 + fake gold-set eval + real DeepSeek 40-case eval（false READY=0 / false NOT_READY=0）
+> 状态：2026-08-16 测试门禁 + fake gold-set eval + real DeepSeek 40-case eval（false READY=0 / false NOT_READY=0）
 > 证据：`packages/test-support/tests/phase14-closure.test.ts`、`phase15-closure-semantic.test.ts`、`packages/test-support/src/closure-gold-set.ts`
 
 ## GP15-1：Deterministic Gate First（0 模型调用）

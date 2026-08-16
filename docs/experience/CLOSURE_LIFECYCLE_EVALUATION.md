@@ -1,6 +1,6 @@
 # Closure / Lifecycle Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-19，Phase 13.5 + Outcome/Closure 收口 第一轮 dogfood / eval。
+> 状态：2026-08-16，Phase 13.5 + Outcome/Closure 收口 第一轮 dogfood / eval。
 > 环境：Logseq Desktop 0.10.15 + repo `logseq/` Graph + `/tmp/tc-demo` Kernel（真实进程、真实 SQLite、真实 Graph Adapter）。
 
 ## DeepSeek closure evaluation

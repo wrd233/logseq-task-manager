@@ -2,7 +2,7 @@
 
 Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natural work surface; the Local Kernel Service is the sole authority for formal state and Semantic Commits; the Plugin is a thin UI and Graph Adapter; the CLI is the reference HTTP client.
 
-**Current capability baseline (2026-08-19, schema v22).** Authoritative product/architecture truth lives in [`docs/vnext/05`](docs/vnext/05-Task-Copilot-vNext-产品与治理宪章.md), [`06`](docs/vnext/06-Task-Copilot-vNext-领域模型与Agent架构规范.md), and [`07`](docs/vnext/07-Task-Copilot-vNext-实现路线图与阶段验收.md); the older `01–04` set is historical/superseded.
+**Current capability baseline (2026-08-16, schema v22).** Authoritative product/architecture truth lives in [`docs/vnext/05`](docs/vnext/05-Task-Copilot-vNext-产品与治理宪章.md), [`06`](docs/vnext/06-Task-Copilot-vNext-领域模型与Agent架构规范.md), and [`07`](docs/vnext/07-Task-Copilot-vNext-实现路线图与阶段验收.md); the older `01–04` set is historical/superseded.
 
 - **Formal Commit is independent of Graph availability.** A legal Kernel commit is applied atomically to SQLite Current State + Commit Ledger and then creates a durable `ProjectionObligation`; Graph application is asynchronous, retryable, restart-safe, and can never overwrite a user-edited projection (`POST /v1/commits/commit`, `GET /v1/projection-obligations`, `GET /v1/projection-health`).
 - **Background semantic maintenance is bounded and persistent.** The Plugin mechanically observes Primary Anchor and structural subtree changes, suppresses its own projection writes, waits for a quiet period, and reports source changes into a persistent reconcile queue (`source_coverage` + `reconcile_jobs`, schema v12). A built-in maintenance loop reconciles only Formal WorkObjects with bounded Context Packs and typed semantic judgments; it may update `current_focus` and `ACTIONABLE ↔ WAITING`, never CREATE/PARK/COMPLETE/WorkIntent/ownership.
@@ -32,15 +32,26 @@ Phase 5.5 gives those formal semantics a sparse Logseq-native Writing Language. 
 
 In Logseq, select the relevant fact block and run `Task Copilot vNext：让 Agent 对账可行动状态`. Entering WAITING adds a readable managed Waiting field and removes the object from the actionable query; leaving WAITING removes that field and returns it. Use `Task Copilot vNext：完成当前 Task` for one-action completion, or the separate Cancel/Reopen/Amend/Show Closure commands. `Cmd+Shift+U` invokes the unambiguous recent-Commit Undo path.
 
-Use Node 20.20.x:
+## 普通使用（macOS / Node 20.20.x）
+
+```sh
+npm install
+npm run task-copilot -- service start
+npm run task-copilot -- service status
+npm run task-copilot -- doctor
+```
+
+完整步骤、备份/恢复/升级和故障排查见 [`docs/rc/USER_OPERATIONS_GUIDE.md`](docs/rc/USER_OPERATIONS_GUIDE.md)。所有 `npm run task-copilot -- ...` 命令都在仓库根目录执行；若想使用更短的 `task-copilot ...`，可执行一次 `npm link`。
+
+## 开发调试（workspace 级）
 
 ```sh
 npm run check
 TASK_COPILOT_STATE_DIR=/path/to/private/state npm start --workspace @task-copilot/kernel-service
-TASK_COPILOT_DESCRIPTOR=/path/to/private/state/kernel.json npm start --workspace @task-copilot/cli -- status --json
+TASK_COPILOT_DESCRIPTOR=/path/to/private/state/kernel.json npm run start --workspace @task-copilot/cli -- status --json
 ```
 
 Architecture, ADRs, and acceptance evidence live in [`docs/architecture`](docs/architecture), [`docs/adr`](docs/adr), and [`docs/golden-paths`](docs/golden-paths). The current authority index is [`docs/vnext/README.md`](docs/vnext/README.md). Object Lens and CDP lessons remain non-authoritative reference material in [`docs/experience`](docs/experience).
 
-An external Agent should start with [`docs/agent/external-cli-agent-guide.md`](docs/agent/external-cli-agent-guide.md) and `task-copilot agent bootstrap --json`.
-For a MiniProject Grill, it should then read [`docs/agent/miniproject-governance-guide.md`](docs/agent/miniproject-governance-guide.md), `skill show miniproject-governance`, and `taste show miniproject-governance-taste`.
+An external Agent should start with [`docs/agent/external-cli-agent-guide.md`](docs/agent/external-cli-agent-guide.md) and `npm run task-copilot -- agent bootstrap --json`.
+For a MiniProject Grill, it should then read [`docs/agent/miniproject-governance-guide.md`](docs/agent/miniproject-governance-guide.md), `npm run task-copilot -- skill show miniproject-governance`, and `npm run task-copilot -- taste show miniproject-governance-taste`.

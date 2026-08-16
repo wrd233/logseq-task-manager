@@ -1,7 +1,7 @@
 # ADR 037 — Runtime Single Instance and Reconcile Supersession
 
 - 状态：accepted
-- 日期：2026-08-19
+- 日期：2026-08-16
 
 ## 1. 决定
 

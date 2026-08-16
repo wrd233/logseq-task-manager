@@ -1,6 +1,6 @@
 # Production Dogfood Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-19 Round 12 首轮。FakeGraph + 真实 Kernel Service 的 5-day synthetic-clock 长周期 + 真实 Logseq Desktop closure 链。
+> 状态：2026-08-16 Round 12 首轮。FakeGraph + 真实 Kernel Service 的 5-day synthetic-clock 长周期 + 真实 Logseq Desktop closure 链。
 
 ## 1. Long-horizon setup
 

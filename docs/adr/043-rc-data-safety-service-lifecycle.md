@@ -1,7 +1,7 @@
 # ADR 043 — RC Data Safety and Service Lifecycle
 
 - 状态：accepted
-- 日期：2026-08-19
+- 日期：2026-08-16
 
 ## 1. 决定
 

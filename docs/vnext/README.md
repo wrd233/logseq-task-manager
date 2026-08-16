@@ -1,6 +1,6 @@
 # Task Copilot vNext 设计与实施文档集
 
-> 版本：2026-08-19 Phase 20 RC gate complete（**RC_READY**）  
+> 版本：2026-08-16 Phase 20 RC gate complete（**RC_READY**）  
 > 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
 > 适用仓库：`wrd233/logseq-task-manager`
 

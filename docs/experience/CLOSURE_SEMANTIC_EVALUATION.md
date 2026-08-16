@@ -1,6 +1,6 @@
 # Closure Semantic Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-19 Round 12，Fake pipeline + real Desktop + real DeepSeek 40-case eval 已完成。
+> 状态：2026-08-16 Round 12，Fake pipeline + real Desktop + real DeepSeek 40-case eval 已完成。
 
 ## 1. Fake / deterministic pipeline
 
@@ -11,7 +11,7 @@
   - Fake assessor 是显式 test scaffolding，低召回符合预期；真实语义判断以 DeepSeek 为准
 - 生产测试证明 count 门槛已移除：`phase14-closure.test.ts` 两条“无关 Evidence 数量达标”只到 UNKNOWN，显式归因后才 READY。
 
-## 1b. Real DeepSeek 40-case eval（2026-08-19，final）
+## 1b. Real DeepSeek 40-case eval（2026-08-16，final）
 
 - **false READY = 0；false NOT_READY = 0**
 - readiness 39/40；CONFLICT recall 8/8；item status 52/53；evidence attribution 23/24；invalid evidence ref 0；format failure 0

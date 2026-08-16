@@ -1,7 +1,7 @@
 # ADR 035 — Execution Profile / Budget / Pause
 
 - 状态：accepted
-- 日期：2026-08-18
+- 日期：2026-08-16
 - 关联权威文档：`docs/adr/019/033`
 
 ## 1. 决定

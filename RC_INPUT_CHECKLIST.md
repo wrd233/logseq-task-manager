@@ -1,6 +1,6 @@
 # RC Input Checklist
 
-> 状态：2026-08-19 Round 12 首轮；非正式 Release。下一轮才是 Reliability / Release Candidate。
+> 状态：2026-08-16 Phase 20 RC gate complete（RC_READY）；本清单随 `RC_RELEASE_GATE.md` 保持同步。
 
 ## Frozen capability list
 
@@ -15,6 +15,7 @@
 - Closure：Task marker closure；MiniProject/Project USER-only Complete/Cancel/Reopen/Amend
 - ClosureReadiness：deterministic gate → async semantic assessment → host aggregation（ADR 040/041）
 - Feature Freeze（ADR 042）
+- RC data safety / lifecycle：backup/restore、service start/stop/status、doctor、schema migration contract（ADR 043）
 
 ## Release Blockers
 
@@ -30,7 +31,7 @@
 - 历史 FAILED reconcile jobs 会留在 `runtimeFailedJobs` 计数中，但 health 按“最近连续失败/最近成功”表达，DEGRADED 后只有真正成功才回 HEALTHY（有意设计）
 - `/tmp/tc-demo/service.pid` 可能指向已退出实例；health/lease 以 SQLite runtime_leases 为准
 - Node 24 需要 better-sqlite3 v12（已升级）；平台声明仍以 engines `>=20.19 <21` 为受支持基线
-- DeepSeek closure 模型格式偶发非法 JSON：host 一律 fail-safe（不 READY）；structured-output hint 已把 format failure 降到 1/40
+- DeepSeek closure 模型格式偶发非法 JSON：host 一律 fail-safe（不 READY）；历史 run 1/40，latest final run 0/40
 
 ## Non-blocking polish
 
@@ -40,8 +41,8 @@
 
 ## Migration status
 
-- schema v22：`closure_assessments` 增加 `evidence_watermark / gate_json / readiness_changed_at`；新增 `closure_assessment_jobs`
-- v22 由 SqliteStore 自动迁移；旧 cached assessment 视为 stale 并异步重评估
+- Migration floor：**v16**；v16–v21 → v22 逐版自动迁移并测试；>v22 fail closed（`SCHEMA_VERSION_TOO_NEW`）；<v16 不声明支持。
+- schema v22：`closure_assessments` 增加 `evidence_watermark / gate_json / readiness_changed_at`；新增 `closure_assessment_jobs`；旧 cached assessment 视为 stale 并异步重评估。
 
 ## Startup / shutdown
 
@@ -51,12 +52,12 @@
 
 ## Backup / restore
 
-- `task-copilot backup create|inspect|restore` 已实现：SQLite backup API、manifest(format v1/schemaVersion/appVersion/createdAt/integrity)、目录 0700/DB 0600、secret audit、restore 前 active runtime 拒绝、restore to temp → integrity → atomic rename，失败不破坏当前 DB
+- `npm run task-copilot -- backup create|inspect|restore` 已实现：SQLite backup API、manifest(format v1/schemaVersion/appVersion/createdAt/integrity)、目录 0700/DB 0600、secret audit、restore 前 active runtime 拒绝、restore to temp → integrity → atomic rename，失败不破坏当前 DB
 - Formal truth = SQLite（WAL）；Graph 只是投影。备份只含 SQLite + manifest，不含 descriptor/token/Graph
 
 ## Service lifecycle
 
-- `task-copilot service start|stop|status` + `doctor`（人类输出 + `--json`）
+- `npm run task-copilot -- service start|stop|status` + `doctor`（人类输出 + `--json`）
 - stale pid 不骗人；clean shutdown release lease；same-DB second instance 拒绝；restart soak 12/12 通过
 - Kernel Service 仍 bind 127.0.0.1；`/v1/status` 增加 `deepseekConfigured`（只 boolean，不泄露 key）
 

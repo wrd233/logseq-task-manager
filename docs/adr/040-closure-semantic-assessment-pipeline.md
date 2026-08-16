@@ -1,7 +1,7 @@
 # ADR 040 — Closure Semantic Assessment Pipeline
 
 - 状态：accepted
-- 日期：2026-08-19
+- 日期：2026-08-16
 
 ## 1. 决定
 
@@ -43,4 +43,4 @@ Production `ClosureAssessment` 不再使用 Evidence 数量门槛。`evidence.le
 - `phase14-closure.test.ts`：无关 Evidence 数量达标仍 UNKNOWN；逐项 attribution 后才 READY
 - `phase15-closure-semantic.test.ts`：gate 无模型调用、empty support 降级、invalid ref 失败、contradiction→CONFLICT
 - Gold set：`packages/test-support/src/closure-gold-set.ts`（40 anonymized cases）；`scripts/eval-closure-semantic.ts` 输出 false READY / false NOT_READY / UNKNOWN restraint / CONFLICT detection / attribution accuracy / invalid ref rate / latency / tokens
-- Real DeepSeek 40-case run（2026-08-19，structured-output hint）：**false READY = 0，false NOT_READY = 0**；readiness 39/40（唯一分歧 M18 为 CONFLICT vs 预期 NOT_READY，同为非 READY 保守态）；CONFLICT recall 8/8；item status 52/53；attribution 23/24；invalid evidence ref 0；format failure 0；avg latency ≈ 12.0s；tokens ≈ 84k in / 49k out（全量累计）
+- Real DeepSeek 40-case run（2026-08-16，structured-output hint）：**false READY = 0，false NOT_READY = 0**；readiness 39/40（唯一分歧 M18 为 CONFLICT vs 预期 NOT_READY，同为非 READY 保守态）；CONFLICT recall 8/8；item status 52/53；attribution 23/24；invalid evidence ref 0；format failure 0；avg latency ≈ 12.0s；tokens ≈ 84k in / 49k out（全量累计）

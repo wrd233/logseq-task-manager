@@ -1,7 +1,7 @@
 # ADR 034 — Unattended Formal Maintenance Runtime
 
 - 状态：accepted
-- 日期：2026-08-18
+- 日期：2026-08-16
 - 关联权威文档：Phase 8/9 文档、`docs/adr/019/029/030/031`
 
 ## 1. 决定

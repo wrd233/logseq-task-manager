@@ -1,6 +1,6 @@
 # RC Preflight Evaluation (EXPERIENCE / EMPIRICAL, non-authoritative)
 
-> 状态：2026-08-19 Phase 20 首轮。记录 RC 前置的实测数据与已修问题。
+> 状态：2026-08-16 Phase 20 首轮。记录 RC 前置的实测数据与已修问题。
 
 ## 1. Backup / Restore
 
@@ -41,7 +41,7 @@
 
 - API 实测：`text.format json_schema` + `strict:false` 支持；strict:true 被 API 拒绝。
 - Closure assessor 已加 structured-output hint；host parser/validation 未删。
-- 最新 40-case：falseReady 0 / falseNotReady 0 / readiness 39/40 / CONFLICT recall 8/8 / attribution 23/24 / format failure 1/40（fail-safe null）。
+- 最新 final 40-case：falseReady 0 / falseNotReady 0 / readiness 39/40 / CONFLICT recall 8/8 / attribution 23/24 / format failure **0/40**（此前一次历史 run 为 1/40，均为 fail-safe null）。
 - 修复：marker regex 允许 `{\n "kind"` 空白。
 
 ## 7. 已修 RC 问题

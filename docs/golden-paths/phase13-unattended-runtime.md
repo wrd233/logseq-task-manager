@@ -1,6 +1,6 @@
 # Phase 13 — Unattended Runtime Golden Path
 
-> 状态：2026-08-18 实机 + real DeepSeek 验证
+> 状态：2026-08-16 实机 + real DeepSeek 验证
 > 环境：repo `logseq/` + `/tmp/tc-demo` Kernel + Logseq Desktop 0.10.15
 
 ## GP13-1：Natural Work Burst → Unattended Reconcile

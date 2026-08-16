@@ -1,7 +1,7 @@
 # ADR 039 — Governed Parent Closure and USER-only Lifecycle Completion
 
 - 状态：accepted
-- 日期：2026-08-19
+- 日期：2026-08-16
 
 ## 1. 决定
 

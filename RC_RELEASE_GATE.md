@@ -1,6 +1,6 @@
 # RC Release Gate
 
-> 状态：2026-08-19 Phase 20 收口。每项只能 PASS / PASS_WITH_KNOWN_ISSUE / FAIL。
+> 状态：2026-08-16 Phase 20 收口。每项只能 PASS / PASS_WITH_KNOWN_ISSUE / FAIL。
 > 规则：RELEASE_BLOCKER = 0 才允许 RC_READY。
 
 | Gate | 结论 | 证据 / Known Issue |
@@ -21,6 +21,13 @@
 | Docs | PASS | ADR 040–043 / golden paths / experience / RC_INPUT_CHECKLIST 与代码一致 |
 | Known Issues | 见下 | 全部为 RC_KNOWN_ISSUE 或 DEFERRED_1.X |
 
+## Migration contract
+
+- Minimum supported schema for automatic upgrade: **v16**。
+- v16–v21 → v22：自动迁移，已逐版测试。
+- future schema（>22）：`SCHEMA_VERSION_TOO_NEW`，拒绝迁移和 runtime writer，原数据不修改。
+- <v16：不声明支持；如果旧测试环境需要升级，先 `doctor` / 人工评估，不得假设自动迁移成功。
+
 ## Final decision
 
 **RC_READY**
@@ -33,6 +40,6 @@ RC Known Issues:
 1. Windows/Linux 未做真实 Desktop soak（代码路径支持但未实测）。
 2. Plugin 设置中的 `kernelDescriptorJson` 明文可见；descriptor token 每次 Kernel 启动轮换，且只写 Plugin 私有 FileStorage，建议 RC 使用期保持本机。
 3. 真实 DSH 多轮对话质量回归未在 repo 内自动化；以 Phase17 实机记录 + 24-conversation scripted replay 为当前证据。
-4. DeepSeek 结构化输出仍有偶发非法 JSON（结构化 hint 后 1/40），全部 fail-safe，不产生 false READY。
+4. DeepSeek 历史 run 曾出现非法 JSON（最多 1/40）；最新 final run format failure 0/40。Host parser/semantic validation 继续 fail-safe，不能因 final 0/40 删除。
 
 DEFERRED_1.X：Natural Content Curation / Taste auto-learning / continuous Discovery / provider routing / notification platform / MCP ecosystem / Project report generation / 新 Domain fields。
