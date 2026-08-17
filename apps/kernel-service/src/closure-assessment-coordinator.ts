@@ -3,12 +3,18 @@ import type { ClosureAssessmentJob, ClosureAssessor, ExecutionProfile, SkillPack
 import type { SqliteStore } from "@task-copilot/sqlite";
 import { aggregateClosureSemanticJudgment, computeClosureGate, currentSemanticRevision, deterministicClosureAssessment, gateSnapshot, sameGate, semanticRevisionFor } from "./closure-gate.ts";
 
+export interface ClosureScopeGate {
+  isClosureEnabled(): boolean;
+  isInScope(workObjectId: string): boolean;
+}
+
 export interface ClosureAssessmentCoordinatorOptions {
   now?: () => string;
   intervalMs?: number;
   maxAttempts?: number;
   retryBackoffMs?: number;
   skills?: { miniProject: SkillPackage; project: SkillPackage };
+  scope?: ClosureScopeGate;
 }
 
 export class ClosureAssessmentCoordinator {
@@ -20,6 +26,7 @@ export class ClosureAssessmentCoordinator {
   readonly #maxAttempts: number;
   readonly #retryBackoffMs: number;
   readonly #skills: { miniProject: SkillPackage; project: SkillPackage };
+  readonly #scope: ClosureScopeGate | null;
   #timer: ReturnType<typeof setInterval> | null = null;
   #running = false;
   #remoteCallsThisRun = 0;
@@ -34,6 +41,7 @@ export class ClosureAssessmentCoordinator {
     this.#retryBackoffMs = options.retryBackoffMs ?? 60_000;
     if (!options.skills) throw new Error("CLOSURE_SKILLS_REQUIRED");
     this.#skills = options.skills;
+    this.#scope = options.scope ?? null;
   }
 
   start(): void {
@@ -55,6 +63,7 @@ export class ClosureAssessmentCoordinator {
   requestAssessment(workObjectId: string): void {
     const object = this.#store.getWorkObject(workObjectId);
     if (!object || object.lifecycle !== "OPEN" || object.kind === "TASK") return;
+    if (this.#scope && (!this.#scope.isClosureEnabled() || !this.#scope.isInScope(workObjectId))) return;
     const revision = currentSemanticRevision(this.#store, workObjectId) ?? String(object.version);
     const watermark = this.#store.evidenceWatermark(workObjectId);
     const at = this.#now();
@@ -75,6 +84,7 @@ export class ClosureAssessmentCoordinator {
     const at = this.#now();
     for (const object of this.#store.listWorkObjects()) {
       if (object.lifecycle !== "OPEN" || object.kind === "TASK") continue;
+      if (this.#scope && (!this.#scope.isClosureEnabled() || !this.#scope.isInScope(object.id))) continue;
       const gate = computeClosureGate(this.#store, object);
       const revision = semanticRevisionFor(object, object.kind === "PROJECT" ? (this.#store.getProjectIntent(object.id)?.revision ?? 0) : null);
       const watermark = this.#store.evidenceWatermark(object.id);
@@ -106,6 +116,10 @@ export class ClosureAssessmentCoordinator {
     const at = this.#now();
     const object = this.#store.getWorkObject(job.workObjectId);
     if (!object || object.lifecycle !== "OPEN") { this.#store.completeClosureAssessmentJob(job.id, at, "TARGET_CLOSED"); return; }
+    if (this.#scope && (!this.#scope.isClosureEnabled() || !this.#scope.isInScope(object.id))) {
+      this.#store.completeClosureAssessmentJob(job.id, at, "SCOPE_EXCLUDED");
+      return;
+    }
     const revision = currentSemanticRevision(this.#store, object.id) ?? String(object.version);
     const watermark = this.#store.evidenceWatermark(object.id);
     const gate = computeClosureGate(this.#store, object);

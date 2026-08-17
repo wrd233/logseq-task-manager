@@ -13,8 +13,9 @@ import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
 import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 import { ClosureAssessmentCoordinator } from "./closure-assessment-coordinator.ts";
+import { createDogfoodScope, loadDogfoodConfig, type DogfoodScope } from "./dogfood-scope.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[]; profile?: ConsoleProfile; consoleDistPath?: string }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[]; profile?: ConsoleProfile; consoleDistPath?: string; dogfoodConfigPath?: string; dogfoodScope?: DogfoodScope }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -68,6 +69,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   await mkdir(dirname(options.databasePath), { recursive: true, mode: 0o700 });
   const store = new SqliteStore(options.databasePath);
   await chmod(options.databasePath, 0o600).catch(() => undefined);
+  const dogfoodScope = options.dogfoodScope ?? createDogfoodScope(store, await loadDogfoodConfig(options.dogfoodConfigPath));
   const instanceId = `kernel:${randomUUID()}`;
   const leaseToken = randomBytes(16).toString("hex");
   const leaseScope = `runtime:${options.databasePath}`;
@@ -91,6 +93,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     ...(options.closureAssessmentIntervalMs !== undefined ? { intervalMs: options.closureAssessmentIntervalMs } : {}),
     ...(options.closureAssessmentMaxAttempts !== undefined ? { maxAttempts: options.closureAssessmentMaxAttempts } : {}),
     ...(options.closureAssessmentRetryBackoffMs !== undefined ? { retryBackoffMs: options.closureAssessmentRetryBackoffMs } : {}),
+    scope: dogfoodScope,
   });
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
@@ -104,7 +107,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const maintenanceIntervalMs = options.maintenanceIntervalMs ?? (process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS) : undefined);
   const maintenanceMaxAttempts = options.maintenanceMaxAttempts ?? (process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS ? Number(process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS) : undefined);
   const maintenanceRetryBackoffMs = options.maintenanceRetryBackoffMs ?? (process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS) : undefined);
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, onRecordSourceChange: (workObjectId) => closure.requestAssessment(workObjectId), ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}) }, cognitionExecutor, executionProfile);
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, onRecordSourceChange: (workObjectId) => { if (dogfoodScope.isClosureEnabled() && dogfoodScope.isInScope(workObjectId)) closure.requestAssessment(workObjectId); }, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}), scope: dogfoodScope }, cognitionExecutor, executionProfile);
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
   const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -220,6 +223,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const value = await body(request) as { workObjectId?: unknown };
         if (typeof value.workObjectId !== "string" || !value.workObjectId) throw new KernelError("WORK_OBJECT_ID_REQUIRED", "Console read baseline requires workObjectId.");
         send(response, 200, { baseline: kernel.markObjectViewed(value.workObjectId) }); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/dogfood/correction") {
+        assertTrustedUserChannel(request);
+        const value = await body(request) as { workObjectId?: unknown; utterance?: unknown; evidenceId?: unknown; evidenceContentHash?: unknown };
+        if (typeof value.workObjectId !== "string" || typeof value.utterance !== "string" || !value.utterance.trim() || typeof value.evidenceId !== "string" || typeof value.evidenceContentHash !== "string") {
+          throw new KernelError("USER_CORRECTION_INPUT_INVALID", "Dogfood correction requires workObjectId, utterance, evidenceId, and evidenceContentHash.");
+        }
+        send(response, 200, kernel.applyUserRealityCorrection({ workObjectId: value.workObjectId, utterance: value.utterance, evidenceId: value.evidenceId, evidenceContentHash: value.evidenceContentHash })); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/status") { send(response, 200, { status: "ok", schemaVersion: store.schemaVersion(), pid: process.pid, deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/agent/bootstrap") { send(response, 200, external.bootstrap()); return; }

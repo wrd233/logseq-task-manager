@@ -64,6 +64,7 @@ export class KernelClient {
   consoleWorld(): Promise<ConsoleWorldSnapshot> { return this.#request("GET", "/v1/console/world"); }
   consoleSearch(query: string): Promise<ConsoleSearchResponse> { return this.#request("GET", `/v1/console/search?q=${encodeURIComponent(query)}`); }
   markConsoleObjectViewed(workObjectId: string): Promise<{ baseline: UserReadBaseline }> { return this.#request("POST", "/v1/console/viewed", { workObjectId }); }
+  applyUserRealityCorrection(input: { workObjectId: string; utterance: string; evidenceId: string; evidenceContentHash: string }): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null }> { return this.#request("POST", "/v1/dogfood/correction", input); }
   nowProjection(): Promise<NowProjection> { return this.#request("GET", "/v1/projections/now"); }
   confirmationProjection(): Promise<ConfirmationProjection> { return this.#request("GET", "/v1/projections/confirmations"); }
   workMapProjection(): Promise<WorkMapProjection> { return this.#request("GET", "/v1/projections/workmap"); }

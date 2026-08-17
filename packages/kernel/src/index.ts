@@ -3,6 +3,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
+import { parseUserCorrectionUtterance } from "./user-correction.ts";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
 export type RecoveryAction = "ABORT_PREPARED" | "RESUME_GRAPH_APPLY" | "VERIFY_GRAPH" | "MANUAL_RECONCILIATION";
@@ -160,6 +161,51 @@ export class Kernel {
     const baseline: UserReadBaseline = { workObjectId: object.id, lastViewedFormalVersion: object.version, lastViewedAt: viewedAt, lastSeenCommitId: latest?.id ?? null };
     this.#store.putUserReadBaseline(baseline);
     return baseline;
+  }
+
+  /**
+   * Production Dogfood correction chain: a user says what reality actually is,
+   * the utterance is parsed into a governed USER semantic operation, and the
+   * resulting Formal change is fully auditable. This never gives Agent new
+   * authority; the actor is always the configured local USER.
+   */
+  applyUserRealityCorrection(input: { workObjectId: string; utterance: string; evidenceId: string; evidenceContentHash: string }): { decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null } {
+    this.#authorize({ type: "USER", id: this.#authorizedUserId });
+    const object = this.#store.getWorkObject(input.workObjectId);
+    if (!object) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Cannot correct an unknown WorkObject.");
+    if (object.lifecycle !== "OPEN") throw new KernelError("WORK_OBJECT_NOT_OPEN", "Only OPEN WorkObjects accept reality corrections in this dogfood slice.");
+    const evidence = this.#store.getEvidence(input.evidenceId);
+    if (!evidence || evidence.workObjectId !== object.id || evidence.contentHash !== input.evidenceContentHash) {
+      throw new KernelError("USER_CORRECTION_EVIDENCE_INVALID", "Correction evidence must belong to the target and match its frozen content hash.");
+    }
+    const parsed = parseUserCorrectionUtterance(object, input.utterance);
+    if (!parsed) throw new KernelError("USER_CORRECTION_NEEDS_CLARIFICATION", "Could not parse a supported reality correction from the utterance.");
+    const anchor = this.#store.getAnchorForWorkObject(object.id);
+    if (!anchor) throw new KernelError("WORK_OBJECT_ANCHOR_MISSING", "Correction target has no PrimaryAnchor.");
+    const expectedProjectionHash = projectionFor(object, anchor, closureProjection(this.#store.getClosureHistory(object.id).current)).projectionHash;
+    const at = this.#now();
+    const decision: UserDecision = {
+      id: deterministicIdentityUuid(`decision:correction:${input.workObjectId}:${at}`),
+      workObjectIds: [object.id],
+      operationType: parsed.operationType,
+      parameters: {
+        target: { workObjectId: object.id, expectedVersion: object.version, expectedProjectionHash },
+        input: parsed.input,
+        evidenceDependencies: [{ evidenceId: input.evidenceId, contentHash: input.evidenceContentHash }],
+      },
+      scope: "用户自然语言纠正",
+      exactUserUtterance: input.utterance,
+      minimalDecisionContext: `User corrected automatic maintenance for ${object.title}`,
+      inputVersions: { [object.id]: object.version },
+      status: "AUTHORIZED",
+      packageId: null,
+      authorizationRef: `natural-language:${randomUUID()}`,
+      createdAt: at,
+      executedAt: null,
+      executionRefs: [],
+    };
+    this.#store.putUserDecision(decision);
+    return this.executeUserDecision(decision.id);
   }
 
   targetSnapshotInput(workObjectId: string): GraphSnapshotInput {

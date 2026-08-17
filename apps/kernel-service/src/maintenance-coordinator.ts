@@ -22,6 +22,11 @@ function semanticRevision(workObjectId: string, store: SqliteStore): string {
   return `${object.version}:${intent?.revision ?? 0}`;
 }
 
+export interface MaintenanceScopeGate {
+  isMaintenanceEnabled(): boolean;
+  isInScope(workObjectId: string): boolean;
+}
+
 export interface MaintenanceCoordinatorOptions {
   now?: (() => string) | undefined;
   intervalMs?: number;
@@ -30,6 +35,7 @@ export interface MaintenanceCoordinatorOptions {
   onRecordSourceChange?: (workObjectId: string) => void;
   cognitionExecutor?: CognitionExecutor;
   executionProfile?: ExecutionProfile;
+  scope?: MaintenanceScopeGate;
 }
 
 export class MaintenanceCoordinator {
@@ -43,6 +49,7 @@ export class MaintenanceCoordinator {
   readonly #onRecordSourceChange: ((workObjectId: string) => void) | null;
   readonly #cognition: CognitionExecutor;
   readonly #profile: ExecutionProfile;
+  readonly #scope: MaintenanceScopeGate | null;
   #timer: ReturnType<typeof setInterval> | null = null;
   #remoteCallsThisRun = 0;
 
@@ -57,6 +64,7 @@ export class MaintenanceCoordinator {
     this.#onRecordSourceChange = options.onRecordSourceChange ?? null;
     this.#cognition = cognition;
     this.#profile = profile;
+    this.#scope = options.scope ?? null;
   }
 
   start(): void {
@@ -149,6 +157,10 @@ export class MaintenanceCoordinator {
     const objectPaused = this.#store.isMaintenancePaused(`object:${job.workObjectId}`);
     if (!interactive && (globalPaused || objectPaused)) {
       return this.#requeue(job, "MAINTENANCE_PAUSED");
+    }
+    if (this.#scope && (!this.#scope.isMaintenanceEnabled() || !this.#scope.isInScope(job.workObjectId))) {
+      this.#store.completeReconcileJob(job.id, job.workObjectId, job.sourceSnapshotId, job.formalVersion, this.#now(), "NO_CHANGE");
+      return this.#store.getReconcileJob(job.id);
     }
     try {
       const object = this.#store.getWorkObject(job.workObjectId);
