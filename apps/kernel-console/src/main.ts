@@ -72,11 +72,11 @@ function openInLogseq(workObjectId: string): void {
   const entry = world.objects.find((item) => item.object.id === workObjectId);
   const g = world.environment.graphStatus;
   if (!entry?.anchor || !g.available || (world.environment.expectedGraphId && g.graphId !== world.environment.expectedGraphId)) {
-    alert("当前无法打开工作位置：Logseq 不可用或 Graph 不匹配。");
+    alert("当前无法获取 Logseq 定位信息：Logseq 不可用或 Graph 不匹配。");
     return;
   }
   void navigator.clipboard?.writeText(entry.anchor.externalId).then(() => {
-    alert(`已复制 Block UUID：${entry.anchor?.externalId}\n请在 Logseq 中搜索该 UUID 以定位原文。`);
+    alert(`已复制定位信息，可回到 Logseq 搜索定位。\nBlock UUID：${entry.anchor?.externalId}`);
   }).catch(() => {
     alert(`Block UUID：${entry.anchor?.externalId}`);
   });
@@ -261,7 +261,7 @@ function renderMiniDetail(object: WorkObject): HTMLElement {
     ),
     checks.length ? el("div", { class: "tc-detail-block" },
       el("div", { class: "tc-block-label" }, "完成条件"),
-      ...checks.map((check) => el("div", { class: "tc-check" }, `○ ${check}`)),
+      ...checks.map((check) => el("div", { class: "tc-check" }, `• ${check}`)),
     ) : null,
     changes.length ? el("div", { class: "tc-detail-block" },
       el("div", { class: "tc-block-label" }, "上次以来"),
@@ -279,7 +279,7 @@ function renderMiniDetail(object: WorkObject): HTMLElement {
       el("span", {}, "独立事项"),
     ),
     el("div", { class: "tc-detail-actions" },
-      el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "在 Logseq 中打开"),
+      el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "复制 Logseq 定位信息"),
       el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
       el("span", { class: "tc-evidence-count" }, `依据 ${evidence.length + context.length}`),
     ),
@@ -318,7 +318,7 @@ function renderTaskDetail(object: WorkObject): HTMLElement {
       el("span", {}, "独立事项"),
     ),
     el("div", { class: "tc-detail-actions" },
-      el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "在 Logseq 中打开"),
+      el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "复制 Logseq 定位信息"),
       el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
       el("span", { class: "tc-evidence-count" }, `依据 ${evidence.length + context.length}`),
     ),
@@ -389,7 +389,7 @@ function renderHistory(): HTMLElement {
           ),
           el("p", { class: "tc-situation" }, currentSituation(object, world)),
           el("div", { class: "tc-detail-actions" },
-            el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "在 Logseq 中打开"),
+            el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "复制 Logseq 定位信息"),
             el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
           ),
           technicalOpen ? renderTechnical(object, entry.anchor ?? null) : null,

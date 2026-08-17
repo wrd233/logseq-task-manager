@@ -120,10 +120,8 @@ export function frontierForProject(projectId: string, world: ConsoleWorldSnapsho
 export function meaningfulChanges(object: WorkObject, baseline: UserReadBaseline | null): string[] {
   if (!baseline) return object.version > 1 ? ["正式状态有更新"] : [];
   if (object.version <= baseline.lastViewedFormalVersion) return [];
-  if (object.lifecycle === "COMPLETED") return ["已完成"];
-  if (object.lifecycle === "CANCELLED") return ["已取消"];
-  if (object.engagement === "WAITING") return ["进入等待"];
-  if (object.currentFocus) return ["当前推进有更新"];
+  // Without a per-object semantic history in the Console snapshot we must not
+  // infer events from the final state. "正式状态有更新" is honest and generic.
   return ["正式状态有更新"];
 }
 
@@ -171,14 +169,18 @@ export function attentionItems(world: ConsoleWorldSnapshot): ConsoleAnomaly[] {
   const canVerifyWorkspace = graphStatus.available && (!expectedGraphId || graphStatus.graphId === expectedGraphId);
   if (canVerifyWorkspace) {
     for (const entry of world.objects) {
-      if (!entry.anchor) {
-        anomalies.push({
-          id: `anchor-missing-${entry.object.id}`,
-          workObjectId: entry.object.id,
-          kind: "ANCHOR_MISSING",
-          message: "工作位置缺失",
-          technical: "no primary anchor registered",
-        });
+      if (!entry.anchor && isOpen(entry.object)) {
+        const hasExplainingObligation = world.obligations.some((obligation) => obligation.workObjectId === entry.object.id && (obligation.status === "PENDING" || (obligation.status === "FAILED" && !obligation.retryExhausted) || isStableProjectionAnomaly(obligation)));
+        const hasRecovery = world.recovery.some((item) => item.commit.targetId === entry.object.id);
+        if (!hasExplainingObligation && !hasRecovery) {
+          anomalies.push({
+            id: `anchor-missing-${entry.object.id}`,
+            workObjectId: entry.object.id,
+            kind: "ANCHOR_MISSING",
+            message: "工作位置缺失",
+            technical: "no primary anchor registered and no pending projection/recovery path explains the absence",
+          });
+        }
       }
     }
   }

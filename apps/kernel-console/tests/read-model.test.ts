@@ -103,7 +103,8 @@ test("meaningful changes use object-level baseline version", () => {
   const project = w.objects.find((entry) => entry.object.id === "project-1")!.object;
   assert.deepEqual(meaningfulChanges(project, baseline(project.id, 1)), []);
   assert.deepEqual(meaningfulChanges({ ...project, version: 3 }, baseline(project.id, 2)), ["正式状态有更新"]);
-  assert.deepEqual(meaningfulChanges({ ...project, version: 3, lifecycle: "COMPLETED", engagement: null }, baseline(project.id, 2)), ["已完成"]);
+  // Without real semantic history we must not infer "已完成" from the final state.
+  assert.deepEqual(meaningfulChanges({ ...project, version: 3, lifecycle: "COMPLETED", engagement: null }, baseline(project.id, 2)), ["正式状态有更新"]);
 });
 
 test("independent MiniProject and Task are first-class and unowned is not an anomaly", () => {
@@ -140,4 +141,24 @@ test("attention includes graph mismatch and manual recovery", () => {
   const items = attentionItems(w);
   assert.ok(items.some((item) => item.kind === "GRAPH_MISMATCH"));
   assert.ok(items.some((item) => item.kind === "RECOVERY_REQUIRED"));
+});
+
+test("closed objects without anchors are quiet in Attention", () => {
+  const w = world();
+  const items = attentionItems(w);
+  assert.equal(items.some((item) => item.workObjectId === "project-2" && item.kind === "ANCHOR_MISSING"), false);
+});
+
+test("pending projection explains temporary anchor absence without duplicate Anchor Missing", () => {
+  const w = world({
+    obligations: [obligation({ id: "ob-pending", workObjectId: "mini-3", status: "PENDING", retryExhausted: false, nextAttemptAt: null, lastError: null })],
+  });
+  const items = attentionItems(w);
+  assert.equal(items.some((item) => item.workObjectId === "mini-3" && item.kind === "ANCHOR_MISSING"), false);
+});
+
+test("open object with verified workspace and no explanation still shows Anchor Missing", () => {
+  const w = world();
+  const items = attentionItems(w);
+  assert.equal(items.some((item) => item.workObjectId === "mini-3" && item.kind === "ANCHOR_MISSING"), true);
 });
