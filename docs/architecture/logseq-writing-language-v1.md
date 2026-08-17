@@ -36,6 +36,44 @@ The completion omission rule is deterministic: after trimming surrounding
 whitespace, an outcome equal to the formal title is omitted. It is not an Agent
 judgment.
 
+## Canonical Formal Anchor (RC)
+
+New Task / MiniProject formalization writes a canonical Primary Anchor line so
+Formal Objects are visually identifiable without relying on the marker alone.
+The line is managed by Task Copilot only after formalization; natural user
+blocks are not rewritten at startup.
+
+Task (Logseq marker first — see compatibility note below):
+
+```text
+TODO **[任务]** <Kernel title>
+DONE **[任务]** <Kernel title>
+```
+
+MiniProject:
+
+```text
+**[MiniProject]** <Kernel title> #MiniProject
+```
+
+Project stays an independent Logseq page and is never rendered as a
+`**[Project]**` block line.
+
+### Compatibility note (verified on Desktop 0.10.15)
+
+Logseq only stores TODO/DONE as workflow markers when the marker is the first
+token of the block. `**[任务]** TODO <title>` is rendered by Logseq as an
+ordinary paragraph, not a Task. To satisfy both the bold `[任务]` visual
+language and the native TODO/DONE workflow, the canonical Task form places the
+marker first:
+
+```text
+TODO **[任务]** <title>
+```
+
+The pure formatting functions live in `canonical-writing.ts`; title decoration
+is stripped before it reaches the Kernel.
+
 ## Ordering
 
 Visible managed children use this order:
