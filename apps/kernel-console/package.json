@@ -1,0 +1,16 @@
+{
+  "name": "@task-copilot/kernel-console",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Task Copilot Kernel Console V0 — Formal World Observer",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@task-copilot/client": "0.2.0",
+    "@task-copilot/contracts": "0.2.0"
+  }
+}
