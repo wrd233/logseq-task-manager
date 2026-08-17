@@ -29,6 +29,11 @@ export class FakeContextAwareExecutor implements CognitionExecutor {
     if (/WAITING/u.test(formal) && /已经|已确认|已完成|厂商补丁已到/iu.test(text)) {
       return { kind: "CONFIRMED_CHANGE", dimension: "engagement", proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: "WAITING", to: "ACTIONABLE", waiting: null } }, supportingContextHandles: source.filter((item) => /已经|已确认|已完成|厂商补丁已到/iu.test(item.content)).map((item) => item.handle), rationaleSummary: "The current WaitingCondition is satisfied by direct source material." };
     }
+    const historical = byRole("HISTORICAL_EVIDENCE");
+    const userCorrection = historical.some((item) => /不是|还可以继续|仍可继续|继续本地|继续完成/u.test(item.content));
+    if (/ACTIONABLE/u.test(formal) && userCorrection && /唯一剩余动作必须等待|只能等|没有其他可做/u.test(text)) {
+      return { kind: "NO_CHANGE", dimension: "engagement", supportingContextHandles: historical.map((item) => item.handle), rationaleSummary: "Recent USER correction preserves an actionable internal path despite old waiting context." };
+    }
     if (/ACTIONABLE/u.test(formal) && /本地验证已全部完成[。；\n]?唯一剩余动作必须等待/iu.test(text)) {
       return { kind: "CONFIRMED_CHANGE", dimension: "engagement", proposedOperation: { type: "CHANGE_ENGAGEMENT", transition: { from: "ACTIONABLE", to: "WAITING", waiting: { description: "等待厂商补丁", reviewAt: null } } }, supportingContextHandles: source.filter((item) => /等待厂商补丁|唯一剩余动作/iu.test(item.content)).map((item) => item.handle), rationaleSummary: "No reasonable active path remains; the whole object is blocked on the vendor patch." };
     }
