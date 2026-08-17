@@ -1,0 +1,9 @@
+{
+  "maintenance": true,
+  "formalization": false,
+  "closure": false,
+  "roots": [
+    "project-id-A",
+    "miniproject-id-X"
+  ]
+}
