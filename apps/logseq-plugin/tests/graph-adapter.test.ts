@@ -336,3 +336,44 @@ test("evidence material remains a fresh canonical read bound to the separate pro
   assert.equal(material.content, "自然记录"); assert.equal(material.sourceContentHash, stableHash("自然记录"));
   assert.equal(material.proof, createHmac("sha256", proofKey).update(graphEvidenceProofPayload(material)).digest("hex"));
 });
+
+test("canonical Task source is normalized from legacy prefix-first and completed in place", async () => {
+  const host = new Host("**[任务]** TODO 自然记录");
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  assert.equal((await adapter.applyGraphEffect(upsert)).projectionHash, initial.projectionHash);
+  assert.equal(host.nodes.get("source-01")!.content, "TODO **[任务]** 自然记录");
+  const completed = projection({ lifecycle: "COMPLETED", engagement: null, closure: { type: "COMPLETED", recordId: "completion-canonical", outcomeSummary: "自然记录" } });
+  await adapter.applyGraphEffect(closureEffect(initial, completed, "TODO", "DONE", "complete-canonical"));
+  assert.equal(host.nodes.get("source-01")!.content, "DONE **[任务]** 自然记录");
+});
+
+test("canonical Task rename updates the managed source line", async () => {
+  const host = new Host("TODO **[任务]** 自然记录");
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  await adapter.applyGraphEffect(upsert);
+  const after = reproject(initial, { title: "新标题" });
+  const rename = { type: "UPDATE_MANAGED_FIELD", commitId: "commit-rename", effectId: "effect-rename", graphId: "graph-01", sourceBlockUuid: "source-01", fieldUuid: identity.titleUuid, content: "新标题", expectedProjectionHash: initial.projectionHash, resultingProjectionHash: after.projectionHash, expectedProjection: initial, resultingProjection: after } satisfies GraphEffect;
+  await adapter.applyGraphEffect(rename);
+  assert.equal(host.nodes.get("source-01")!.content, "TODO **[任务]** 新标题");
+});
+
+test("canonical MiniProject source stays idempotent through upsert and rerender", async () => {
+  const host = new Host("**[MiniProject]** 完成采购技术规格书整理 #MiniProject");
+  const mini = projection({ title: "完成采购技术规格书整理" });
+  const miniUpsert = { ...upsert, projection: mini } satisfies GraphEffect;
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  await adapter.applyGraphEffect(miniUpsert);
+  assert.equal(host.nodes.get("source-01")!.content, "**[MiniProject]** 完成采购技术规格书整理 #MiniProject");
+  await adapter.rerenderManagedProjection({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: mini });
+  assert.equal(host.nodes.get("source-01")!.content, "**[MiniProject]** 完成采购技术规格书整理 #MiniProject");
+});
+
+test("natural Task source is never normalized by the Graph Adapter", async () => {
+  const host = new Host("TODO 自然记录");
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  await adapter.applyGraphEffect(upsert);
+  assert.equal(host.nodes.get("source-01")!.content, "TODO 自然记录");
+  const completed = projection({ lifecycle: "COMPLETED", engagement: null, closure: { type: "COMPLETED", recordId: "completion-natural", outcomeSummary: "自然记录" } });
+  await adapter.applyGraphEffect(closureEffect(initial, completed, "TODO", "DONE", "complete-natural"));
+  assert.equal(host.nodes.get("source-01")!.content, "DONE 自然记录");
+});
