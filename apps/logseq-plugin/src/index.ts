@@ -922,6 +922,27 @@ ${pack.pack.reentrySummary}
   catch { await logseq.UI.showMsg(`对象 ID：${workObjectId}；在 DSH 中运行 object context ${workObjectId}。`, "success", { timeout: 8000 }); }
 }
 
+async function correctCurrentReality(): Promise<void> {
+  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+  if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先打开一个正式事项。");
+  const current = logseqBlock(await logseq.Editor.getCurrentBlock());
+  if (!current) throw new Error("请把光标放在写有纠正说明的 Logseq block 上。");
+  const utterance = current.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "").trim();
+  if (!utterance) throw new Error("当前 block 没有可识别的纠正内容。");
+  const api = await client();
+  const target = await api.showObject(workObjectId);
+  const anchor = target.anchor as AnchorView | null;
+  if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
+  const { adapter, graphId } = await adapterForCurrentGraph();
+  if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
+  const evidenceId = `correction-${crypto.randomUUID()}`;
+  const connection = await descriptor();
+  const material = await adapter.readEvidenceMaterial({ graphId, blockUuid: current.uuid }, connection.graphSnapshotKey);
+  const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: material });
+  const result = await api.applyUserRealityCorrection({ workObjectId, utterance, evidenceId: frozen.evidence.id, evidenceContentHash: frozen.evidence.contentHash });
+  await logseq.UI.showMsg(`已按你的纠正更新正式状态；Commit ${result.commit.id}`, "success");
+}
+
 async function currentTaskContext() {
   const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
@@ -1122,6 +1143,7 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-undo", label: "Task Copilot vNext：撤销最近一次提交", keybinding: { binding: "mod+shift+u" } }, () => void guarded("undo", undoRecent));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-recover", label: "Task Copilot vNext：恢复未完成提交" }, () => void guarded("recover", recoverIncomplete));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-rerender", label: "Task Copilot vNext：重新渲染当前正式事项" }, () => void guarded("rerender", rerenderCurrentFormalItem));
+  logseq.App.registerCommandPalette({ key: "task-copilot-vnext-correct-reality", label: "Task Copilot vNext：纠正当前事项的现实" }, () => void guarded("correct-reality", correctCurrentReality));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-respond-decision", label: "Task Copilot vNext：回应当前决策" }, () => void guarded("respond-decision", respondToDecisionPackage));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-organize-today", label: "Task Copilot vNext：整理今天" }, () => void guarded("organize-today", organizeTodayCommand));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-open-daily", label: "Task Copilot vNext：打开今天" }, () => void guarded("open-daily", dailyPanel));
