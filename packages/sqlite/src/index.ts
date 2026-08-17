@@ -1097,6 +1097,10 @@ export class SqliteStore {
     return row ? { workObjectId: String(row.work_object_id), lastViewedFormalVersion: Number(row.last_viewed_formal_version), lastViewedAt: String(row.last_viewed_at), lastSeenCommitId: row.last_seen_commit_id === null ? null : String(row.last_seen_commit_id) } : null;
   }
 
+  listUserReadBaselines(): UserReadBaseline[] {
+    return (this.#database.prepare("SELECT work_object_id FROM user_read_baselines ORDER BY last_viewed_at DESC, work_object_id").all() as Array<{ work_object_id: string }>).map(({ work_object_id }) => this.getUserReadBaseline(String(work_object_id))!);
+  }
+
   putOwnership(ownership: PrimaryOwnership): void {
     this.#database.prepare("INSERT INTO ownerships(child_id, owner_id, created_at) VALUES (?,?,?)").run(ownership.childId, ownership.ownerId, ownership.createdAt);
   }

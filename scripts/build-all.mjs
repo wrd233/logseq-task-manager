@@ -11,3 +11,4 @@ for (const [entry, output] of [
 }
 
 await import(new URL("../apps/logseq-plugin/scripts/build.mjs", import.meta.url));
+await import(new URL("../apps/kernel-console/scripts/build.mjs", import.meta.url));

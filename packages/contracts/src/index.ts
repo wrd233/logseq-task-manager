@@ -1,5 +1,5 @@
-import type { CancellationRecord, ClosureAmendment, CompletionRecord, ProjectIntent, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
-export type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryOwnership, ProjectIntent, ProjectKeyResult, ReopenRecord, WorkObject } from "@task-copilot/domain";
+import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ProjectIntent, ReopenRecord, WaitingCondition, WorkObject, WorkObjectKind } from "@task-copilot/domain";
+export type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ProjectIntent, ProjectKeyResult, ReopenRecord, WorkObject, WorkObjectKind } from "@task-copilot/domain";
 
 export type ActorType = "USER" | "SYSTEM" | "AGENT";
 export interface Actor { type: ActorType; id: string }
@@ -1138,6 +1138,46 @@ export interface UserReadBaseline {
   lastViewedFormalVersion: number;
   lastViewedAt: string;
   lastSeenCommitId: string | null;
+}
+
+export type ConsoleProfile = "production" | "sandbox" | "development";
+
+export interface ConsoleObjectEntry {
+  object: WorkObject;
+  anchor: PrimaryAnchor | null;
+  baseline: UserReadBaseline | null;
+}
+
+export interface ConsoleWorldSnapshot {
+  generatedAt: string;
+  environment: {
+    profile: ConsoleProfile;
+    expectedGraphId: string | null;
+    graphStatus: GraphGatewayStatus;
+  };
+  objects: readonly ConsoleObjectEntry[];
+  projectIntents: readonly { workObjectId: string; intent: ProjectIntent | null }[];
+  ownerships: readonly PrimaryOwnership[];
+  obligations: readonly ProjectionObligation[];
+  recovery: readonly { commit: StoredCommit; action: string }[];
+  contextAssociations: readonly ContextAssociation[];
+  evidence: readonly FrozenEvidence[];
+  system: SystemProjection;
+  projectionHealth: { backlog: number; oldestPendingAt: string | null; retrying: number; degraded: number; lastError: string | null };
+}
+
+export interface ConsoleSearchMatch {
+  workObjectId: string;
+  title: string;
+  kind: WorkObjectKind;
+  matchedFields: readonly string[];
+  snippet: string | null;
+}
+
+export interface ConsoleSearchResponse {
+  query: string;
+  results: readonly ConsoleSearchMatch[];
+  generatedAt: string;
 }
 
 export interface ObjectContextRef {

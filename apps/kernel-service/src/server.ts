@@ -1,10 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile, chmod, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 
 import { DeepSeekClosureAssessor, DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeClosureAssessor, FakeContextAwareExecutor, FakeDiscoveryExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectClosureAssessmentSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadProjectClosureAssessmentSkill, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
-import { CLOSURE_ASSESSMENT_PROFILE, FAKE_CLOSURE_ASSESSMENT_PROFILE, parseSemanticOperation, type ClosureAssessor, type CognitionExecutor, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
+import { CLOSURE_ASSESSMENT_PROFILE, FAKE_CLOSURE_ASSESSMENT_PROFILE, parseSemanticOperation, type ClosureAssessor, type CognitionExecutor, type ConsoleProfile, type ConsoleSearchResponse, type ConsoleWorldSnapshot, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type FrozenEvidence, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
 import { Kernel, KernelError } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { DiscoveryCoordinator } from "./discovery-coordinator.ts";
@@ -14,7 +14,7 @@ import { GraphRequestBroker } from "./graph-broker.ts";
 import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 import { ClosureAssessmentCoordinator } from "./closure-assessment-coordinator.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[] }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[]; profile?: ConsoleProfile; consoleDistPath?: string }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -26,6 +26,23 @@ async function body(request: IncomingMessage): Promise<unknown> {
 function send(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
   response.end(JSON.stringify(value));
+}
+
+async function serveConsoleFile(pathname: string, response: ServerResponse, distPath: string): Promise<void> {
+  const relative = pathname === "/console" || pathname === "/console/" ? "index.html" : pathname.replace(/^\/console\//u, "");
+  const filePath = join(distPath, relative);
+  try {
+    const info = await stat(filePath);
+    if (!info.isFile()) throw new Error("NOT_FILE");
+    const content = await readFile(filePath);
+    const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+    const type = ext === "html" ? "text/html; charset=utf-8" : ext === "js" ? "text/javascript; charset=utf-8" : ext === "css" ? "text/css; charset=utf-8" : ext === "json" ? "application/json; charset=utf-8" : "application/octet-stream";
+    response.writeHead(200, { "content-type": type, "cache-control": "no-store" });
+    response.end(content);
+  } catch {
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    response.end("Kernel Console is not built. Run `npm run build --workspace @task-copilot/kernel-console` first.");
+  }
 }
 
 async function writePrivateJson(path: string, value: unknown): Promise<void> {
@@ -96,6 +113,68 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   } : { id: "builtin-fake-discovery", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null });
   const discovery = new DiscoveryCoordinator(kernel, store, broker, maintenance, discoveryExecutor, discoveryProfile, { ...(options.now ? { now: options.now } : {}), ...(options.journalPageNames ? { journalPageNames: options.journalPageNames } : {}) });
   const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, closure, { ...(options.now ? { now: options.now } : {}) });
+  const consoleDistPath = options.consoleDistPath ?? join(process.cwd(), "apps/kernel-console/dist");
+  const consoleProfile: ConsoleProfile = options.profile ?? (process.env.TASK_COPILOT_PROFILE === "sandbox" ? "sandbox" : process.env.TASK_COPILOT_PROFILE === "development" ? "development" : "production");
+  const consoleWorld = (): ConsoleWorldSnapshot => {
+    const objects = store.listWorkObjects();
+    const entries = objects.map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id), baseline: store.getUserReadBaseline(object.id) }));
+    const graphIds = entries.map((entry) => entry.anchor?.graphId).filter((value): value is string => Boolean(value));
+    const counts = new Map<string, number>();
+    for (const graphId of graphIds) counts.set(graphId, (counts.get(graphId) ?? 0) + 1);
+    let expectedGraphId: string | null = null;
+    let max = 0;
+    for (const [graphId, count] of counts) if (count > max) { max = count; expectedGraphId = graphId; }
+    return {
+      generatedAt: new Date().toISOString(),
+      environment: { profile: consoleProfile, expectedGraphId, graphStatus: broker.status() },
+      objects: entries,
+      projectIntents: objects.filter((object) => object.kind === "PROJECT").map((object) => ({ workObjectId: object.id, intent: store.getProjectIntent(object.id) })),
+      ownerships: store.listOwnerships(),
+      obligations: kernel.listProjectionObligations(),
+      recovery: kernel.recoveryList().map((item) => ({ commit: item.commit, action: item.action })),
+      contextAssociations: store.listContextAssociations(),
+      evidence: store.listEvidence(),
+      system: projections.system(),
+      projectionHealth: kernel.projectionHealth(),
+    };
+  };
+  const consoleSearch = (query: string): ConsoleSearchResponse => {
+    const q = query.trim().toLowerCase();
+    const results: Array<ConsoleSearchResponse["results"][number]> = [];
+    if (!q) return { query, results, generatedAt: new Date().toISOString() };
+    const objects = store.listWorkObjects();
+    const evidenceByObject = new Map<string, FrozenEvidence[]>();
+    for (const evidence of store.listEvidence()) {
+      const list = evidenceByObject.get(evidence.workObjectId) ?? [];
+      list.push(evidence);
+      evidenceByObject.set(evidence.workObjectId, list);
+    }
+    const intents = new Map(objects.filter((object) => object.kind === "PROJECT").map((object) => [object.id, store.getProjectIntent(object.id)] as const));
+    const push = (matched: string[], field: string, value: string | null | undefined): void => {
+      if (typeof value === "string" && value.toLowerCase().includes(q) && !matched.includes(field)) matched.push(field);
+    };
+    for (const object of objects) {
+      const matched: string[] = [];
+      let snippet: string | null = null;
+      push(matched, "标题", object.title);
+      push(matched, "预期成果", object.desiredOutcome);
+      push(matched, "当前推进", object.currentFocus);
+      for (const check of object.completionChecks) if (check.toLowerCase().includes(q)) { matched.push("完成标准"); break; }
+      const intent = intents.get(object.id);
+      push(matched, "项目目标", intent?.objective);
+      push(matched, "当前阶段", intent?.currentPhase);
+      for (const keyResult of intent?.keyResults ?? []) if (keyResult.text.toLowerCase().includes(q)) { matched.push("关键结果"); break; }
+      for (const evidence of evidenceByObject.get(object.id) ?? []) {
+        if (evidence.frozenContent.toLowerCase().includes(q)) {
+          matched.push("依据");
+          snippet = evidence.frozenContent.slice(0, 160);
+          break;
+        }
+      }
+      if (matched.length) results.push({ workObjectId: object.id, title: object.title, kind: object.kind, matchedFields: matched.slice(0, 4), snippet });
+    }
+    return { query, results: results.slice(0, 30), generatedAt: new Date().toISOString() };
+  };
   const afterFormalChange = (targetId: string | null | undefined): void => {
     if (!targetId) return;
     closure.requestAssessment(targetId);
@@ -107,6 +186,11 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     try {
+      if (url.pathname === "/console" || url.pathname.startsWith("/console/")) {
+        await serveConsoleFile(url.pathname, response, consoleDistPath);
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/console/bootstrap") { send(response, 200, { token, profile: consoleProfile }); return; }
       if (url.pathname.startsWith("/v1/graph-adapter/")) {
         if (request.headers["x-task-copilot-graph-bridge"] !== graphBridgeToken) { send(response, 401, { error: { code: "GRAPH_BRIDGE_AUTH_REQUIRED", message: "A valid Graph bridge capability is required." } }); return; }
         if (request.method === "POST" && url.pathname === "/v1/graph-adapter/heartbeat") { const value = await body(request) as { graphId: string }; send(response, 200, { graph: broker.heartbeat(value.graphId) }); return; }
@@ -122,6 +206,16 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Route not found." } }); return;
       }
       if (request.headers.authorization !== `Bearer ${token}`) { send(response, 401, { error: { code: "AUTH_REQUIRED", message: "A valid local capability token is required." } }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/console/world") { send(response, 200, consoleWorld()); return; }
+      if (request.method === "GET" && url.pathname === "/v1/console/search") {
+        const q = url.searchParams.get("q") ?? "";
+        send(response, 200, consoleSearch(q)); return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/console/viewed") {
+        const value = await body(request) as { workObjectId?: unknown };
+        if (typeof value.workObjectId !== "string" || !value.workObjectId) throw new KernelError("WORK_OBJECT_ID_REQUIRED", "Console read baseline requires workObjectId.");
+        send(response, 200, { baseline: kernel.markObjectViewed(value.workObjectId) }); return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/status") { send(response, 200, { status: "ok", schemaVersion: store.schemaVersion(), pid: process.pid, deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/agent/bootstrap") { send(response, 200, external.bootstrap()); return; }
       if (request.method === "GET" && url.pathname === "/v1/skills") { send(response, 200, { skills: external.skills() }); return; }
