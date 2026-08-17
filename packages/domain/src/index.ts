@@ -366,6 +366,22 @@ export function renameWorkObject(
   };
 }
 
+export function replacePrimaryOwnership(input: {
+  childId: string;
+  ownerId: string;
+  previousOwnerId: string;
+  at: string;
+  objects: readonly WorkObject[];
+  existing: readonly PrimaryOwnership[];
+}): PrimaryOwnership {
+  const current = input.existing.find((ownership) => ownership.childId === input.childId);
+  if (!current || current.ownerId !== input.previousOwnerId) {
+    throw new DomainError("OWNERSHIP_PREVIOUS_OWNER_MISMATCH", "Ownership replacement requires the current owner to match previousOwnerId.");
+  }
+  const withoutCurrent = input.existing.filter((ownership) => ownership.childId !== input.childId);
+  return createPrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, at: input.at, objects: input.objects, existing: withoutCurrent });
+}
+
 export function createPrimaryOwnership(input: {
   childId: string;
   ownerId: string;

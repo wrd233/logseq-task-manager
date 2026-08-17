@@ -1105,6 +1105,11 @@ export class SqliteStore {
     this.#database.prepare("INSERT INTO ownerships(child_id, owner_id, created_at) VALUES (?,?,?)").run(ownership.childId, ownership.ownerId, ownership.createdAt);
   }
 
+  replaceOwnership(ownership: PrimaryOwnership): void {
+    this.#database.prepare(`INSERT INTO ownerships(child_id, owner_id, created_at) VALUES (?,?,?)
+      ON CONFLICT(child_id) DO UPDATE SET owner_id=excluded.owner_id, created_at=excluded.created_at`).run(ownership.childId, ownership.ownerId, ownership.createdAt);
+  }
+
   listOwnerships(): PrimaryOwnership[] {
     return (this.#database.prepare("SELECT child_id, owner_id, created_at FROM ownerships ORDER BY created_at, child_id").all() as Array<{ child_id: string; owner_id: string; created_at: string }>).map((row) => ({ childId: row.child_id, ownerId: row.owner_id, createdAt: row.created_at }));
   }
@@ -1468,6 +1473,21 @@ export class SqliteStore {
       const changed = this.#database.prepare("UPDATE reconcile_jobs SET status='DONE', last_error=NULL, last_outcome=?, updated_at=? WHERE id=? AND status='RUNNING'").run(outcome, at, id);
       if (!changed.changes) throw new Error("RECONCILE_JOB_NOT_RUNNING");
       this.markSourceCovered(workObjectId, snapshotId, formalVersion, at);
+    });
+  }
+
+  /**
+   * Completes a reconcile job as skipped by rollout scope without marking the
+   * source as reconciled. Coverage remains `has_uncovered_changes = true`, so
+   * future scope expansion or an explicit reconcile can still process it.
+   */
+  completeReconcileJobSkipped(id: string, at: string, reason: string): ReconcileJob {
+    return this.transaction(() => {
+      const row = this.#database.prepare("SELECT * FROM reconcile_jobs WHERE id=? AND status='RUNNING'").get(id) as Record<string, unknown> | undefined;
+      if (!row) throw new Error("RECONCILE_JOB_NOT_RUNNING");
+      const job = this.#mapReconcileJob(row);
+      this.#database.prepare("UPDATE reconcile_jobs SET status='DONE', last_error=?, last_outcome=?, updated_at=? WHERE id=?").run(reason, reason, at, id);
+      return { ...job, status: "DONE" as const, lastError: reason, lastOutcome: reason as ReconcileJob["lastOutcome"], updatedAt: at };
     });
   }
 

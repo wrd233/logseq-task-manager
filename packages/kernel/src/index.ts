@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
-import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
+import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, replacePrimaryOwnership, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import { parseUserCorrectionUtterance } from "./user-correction.ts";
 
@@ -138,6 +138,12 @@ export class Kernel {
 
   assignPrimaryOwnership(input: { childId: string; ownerId: string; at?: string }): PrimaryOwnership {
     const at = input.at ?? this.#now();
+    const existing = this.#store.getOwnershipByChild(input.childId);
+    if (existing) {
+      const ownership = replacePrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, previousOwnerId: existing.ownerId, at, objects: this.#store.listWorkObjects(), existing: this.#store.listOwnerships() });
+      this.#store.replaceOwnership(ownership);
+      return ownership;
+    }
     const ownership = createPrimaryOwnership({ childId: input.childId, ownerId: input.ownerId, at, objects: this.#store.listWorkObjects(), existing: this.#store.listOwnerships() });
     this.#store.putOwnership(ownership);
     return ownership;

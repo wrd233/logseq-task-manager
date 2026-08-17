@@ -33,36 +33,44 @@ export interface DogfoodScope {
   isClosureEnabled(): boolean;
   isInScope(workObjectId: string): boolean;
   roots(): readonly string[];
+  /** Number of currently resolvable autonomous objects (for startup logging). */
+  effectiveObjectCount(): number;
+}
+
+function resolveScope(store: SqliteStore, roots: readonly string[]): Set<string> {
+  const resolved = new Set<string>();
+  const queue = [...roots];
+  while (queue.length) {
+    const id = queue.shift()!;
+    if (resolved.has(id)) continue;
+    if (!store.getWorkObject(id)) continue;
+    resolved.add(id);
+    for (const ownership of store.listOwnerships()) {
+      if (ownership.ownerId === id && !resolved.has(ownership.childId)) queue.push(ownership.childId);
+    }
+  }
+  return resolved;
 }
 
 /**
- * Dogfood scope is a runtime config, not a Formal fact. When no config is
- * supplied, the system keeps today's unrestricted behaviour so existing tests
- * and non-dogfood deployments are unchanged. When a config with roots is
- * supplied, background autonomous governance is limited to those roots and
- * their current ownership descendants.
+ * Dogfood scope is a runtime config, not a Formal fact.
+ *
+ * - No config supplied: legacy unrestricted behaviour (existing deployments and tests unchanged).
+ * - Config supplied: autonomous governance is limited to configured roots plus their
+ *   *current* ownership descendants, resolved dynamically on every check.
+ * - Config supplied with `roots: []`: autonomous scope is intentionally empty (rollout safety).
  */
 export function createDogfoodScope(store: SqliteStore, config: DogfoodConfig | null): DogfoodScope {
-  const resolved = new Set<string>();
-  if (config) {
-    const queue = [...config.roots];
-    while (queue.length) {
-      const id = queue.shift()!;
-      if (resolved.has(id)) continue;
-      if (!store.getWorkObject(id)) continue;
-      resolved.add(id);
-      for (const ownership of store.listOwnerships()) {
-        if (ownership.ownerId === id && !resolved.has(ownership.childId)) queue.push(ownership.childId);
-      }
-    }
-  }
-  const unrestricted = config === null || config.roots.length === 0;
-  const isInScope = (workObjectId: string): boolean => unrestricted || resolved.has(workObjectId);
+  const legacyUnrestricted = config === null;
   return {
     isMaintenanceEnabled: () => config === null || config.maintenance,
     isFormalizationEnabled: () => config === null || config.formalization,
     isClosureEnabled: () => config === null || config.closure,
-    isInScope,
+    isInScope: (workObjectId) => {
+      if (legacyUnrestricted) return true;
+      return resolveScope(store, config?.roots ?? []).has(workObjectId);
+    },
     roots: () => config?.roots ?? [],
+    effectiveObjectCount: () => (legacyUnrestricted ? store.listWorkObjects().length : resolveScope(store, config?.roots ?? []).size),
   };
 }

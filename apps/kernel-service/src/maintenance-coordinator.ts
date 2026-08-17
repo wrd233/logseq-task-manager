@@ -83,7 +83,7 @@ export class MaintenanceCoordinator {
     if (!object || !anchor) throw new Error("MAINTENANCE_TARGET_NOT_FOUND");
     if (object.lifecycle !== "OPEN") throw new Error("MAINTENANCE_TARGET_NOT_OPEN");
     if (observation.graphId !== anchor.graphId) throw new Error("SOURCE_CHANGE_ANCHOR_MISMATCH");
-    if (observation.sourceBlockUuid !== anchor.externalId) {
+    if (observation.sourceBlockUuid !== anchor.externalId && this.#autonomousAllowed(object.id)) {
       const existing = this.#store.findActiveContextAssociation(object.id, observation.graphId, observation.sourceBlockUuid);
       if (!existing) {
         try {
@@ -158,9 +158,8 @@ export class MaintenanceCoordinator {
     if (!interactive && (globalPaused || objectPaused)) {
       return this.#requeue(job, "MAINTENANCE_PAUSED");
     }
-    if (this.#scope && (!this.#scope.isMaintenanceEnabled() || !this.#scope.isInScope(job.workObjectId))) {
-      this.#store.completeReconcileJob(job.id, job.workObjectId, job.sourceSnapshotId, job.formalVersion, this.#now(), "NO_CHANGE");
-      return this.#store.getReconcileJob(job.id);
+    if (!interactive && !this.#autonomousAllowed(job.workObjectId)) {
+      return this.#store.completeReconcileJobSkipped(job.id, this.#now(), "SKIPPED_BY_DOGFOOD_SCOPE");
     }
     try {
       const object = this.#store.getWorkObject(job.workObjectId);
@@ -221,6 +220,11 @@ export class MaintenanceCoordinator {
 
   #defer(job: ReconcileJob, reason: string, nextNotBefore: string): ReconcileJob {
     return this.#store.deferReconcileJob(job.id, reason, nextNotBefore, this.#now());
+  }
+
+  /** Autonomous governance is allowed only when no rollout scope is configured or the object is currently inside the configured dogfood scope. */
+  #autonomousAllowed(workObjectId: string): boolean {
+    return !this.#scope || (this.#scope.isMaintenanceEnabled() && this.#scope.isInScope(workObjectId));
   }
 
   async #reconcileOpenObject(workObjectId: string, sourceBlockUuid: string, job: ReconcileJob): Promise<MaintenanceReconcileOutcome> {
@@ -339,6 +343,10 @@ export class MaintenanceCoordinator {
           const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: context.sourceRef.graphId, blockUuid: context.sourceRef.blockUuid }), "READ_BLOCK").block;
           add("ASSOCIATED_CONTEXT", context.sourceRef, block.content, block.contentHash);
         } catch { /* missing context must not block */ }
+      }
+      const recentEvidence = this.#store.listEvidence(object.id).sort((a, b) => b.frozenAt.localeCompare(a.frozenAt) || b.id.localeCompare(a.id)).slice(0, 3);
+      for (const evidence of recentEvidence) {
+        add("HISTORICAL_EVIDENCE", { graphId: evidence.graphId, blockUuid: evidence.locator.blockUuid }, evidence.frozenContent, evidence.contentHash);
       }
     }
     const capped = pack.slice(0, Math.max(0, this.#profile.maxContextItems));
