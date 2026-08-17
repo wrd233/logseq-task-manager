@@ -12,5 +12,8 @@
   "dependencies": {
     "@task-copilot/client": "0.2.0",
     "@task-copilot/contracts": "0.2.0"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.11.2"
   }
 }
