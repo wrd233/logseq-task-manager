@@ -186,7 +186,12 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     response.setHeader("x-content-type-options", "nosniff");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     try {
-      if (url.pathname === "/console" || url.pathname.startsWith("/console/")) {
+      if (url.pathname === "/console") {
+        response.writeHead(302, { location: "/console/" });
+        response.end();
+        return;
+      }
+      if (url.pathname.startsWith("/console/")) {
         await serveConsoleFile(url.pathname, response, consoleDistPath);
         return;
       }

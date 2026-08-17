@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { KernelClient, readKernelDescriptor } from "@task-copilot/client";
@@ -30,7 +31,7 @@ test("console world/search/viewed are read-only Kernel Service clients", async (
   const directory = await mkdtemp(join(tmpdir(), "task-copilot-console-api-"));
   const stateDirectory = join(directory, "state");
   const descriptorPath = join(stateDirectory, "kernel.json");
-  const server = await startKernelServer({ requireTrustedUserChannel: false, databasePath: join(stateDirectory, "kernel.sqlite"), descriptorPath, token: "console-test-token", profile: "sandbox" });
+  const server = await startKernelServer({ requireTrustedUserChannel: false, databasePath: join(stateDirectory, "kernel.sqlite"), descriptorPath, token: "console-test-token", profile: "sandbox", consoleDistPath: fileURLToPath(new URL("../../kernel-console/dist", import.meta.url)) });
   try {
     const project = workObject("project-1", { kind: "PROJECT", title: "海丝独立建设" });
     const mini = workObject("mini-1", { kind: "MINI_PROJECT", title: "完成采购技术规格书", desiredOutcome: "形成可采购的规格书", completionChecks: ["范围", "参数"] });
@@ -66,6 +67,14 @@ test("console world/search/viewed are read-only Kernel Service clients", async (
     const bootstrapJson = await bootstrap.json() as { token: string; profile: string };
     assert.equal(bootstrapJson.token, "console-test-token");
     assert.equal(bootstrapJson.profile, "sandbox");
+
+    // /console redirects to /console/ so relative app.js resolves under the console mount.
+    const redirect = await fetch(`${server.baseUrl}/console`, { redirect: "manual" });
+    assert.equal(redirect.status, 302);
+    assert.equal(redirect.headers.get("location"), "/console/");
+    const consolePage = await fetch(`${server.baseUrl}/console/`);
+    assert.equal(consolePage.status, 200);
+    assert.match(await consolePage.text(), /Task Copilot/);
   } finally {
     await server.close();
   }
