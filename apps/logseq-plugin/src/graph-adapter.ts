@@ -1,5 +1,6 @@
 import { canonicalizeGraphContent, graphEvidenceProofPayload, stableHash, type AddReferenceCuration, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type NaturalCurationSnapshot, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
+import { canonicalizeFormalSource, replaceTaskMarker, taskMarkerFromContent } from "./canonical-writing.ts";
 import { logseqBlock as normalizeLogseqBlock, readProjectionByIdentity, type LogseqBlock } from "./projection-reader.ts";
 import { matchesPresentedValue, renderProjection, reviewFieldUuid, type ProjectionBlockIntent } from "./projection-renderer.ts";
 import { readManagedFieldValue } from "./writing-convention.ts";
@@ -21,7 +22,7 @@ interface ProjectionInspection {
 type PresentSourceMarker = Exclude<GraphSnapshot["sourceMarker"], undefined>;
 
 function sourceMarker(content: string): PresentSourceMarker {
-  return (/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(content)?.[1] ?? null) as PresentSourceMarker;
+  return taskMarkerFromContent(content) as PresentSourceMarker;
 }
 
 function semanticCore(projection: ManagedProjection): Omit<ManagedProjection, "projectionHash"> {
@@ -233,6 +234,24 @@ export class LogseqGraphAdapter implements GraphAdapter {
       await this.#removeLegacy(inspection);
       inspection = await this.#inspect(this.#sourceFor(), before);
     }
+
+    const desiredSource = canonicalizeFormalSource(inspection.source.content, {
+      title: after.title,
+      lifecycle: after.lifecycle,
+      marker: sourceMarker(inspection.source.content),
+    });
+    if (desiredSource && canonicalizeGraphContent(inspection.source.content) !== desiredSource) {
+      const fresh = await this.#required(this.#sourceFor(), false);
+      const currentSource = canonicalizeFormalSource(fresh.content, {
+        title: after.title,
+        lifecycle: after.lifecycle,
+        marker: sourceMarker(fresh.content),
+      });
+      if (currentSource && canonicalizeGraphContent(fresh.content) !== currentSource) {
+        await this.#host.updateBlock(fresh.uuid, currentSource);
+      }
+    }
+
     const desired = renderProjection(after);
     const desiredByUuid = new Map(desired.map((intent) => [intent.uuid, intent]));
     const current = inspection.blocks;
@@ -306,8 +325,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
     if (marker !== (effect.expectedSourceMarker ?? null) && marker !== (effect.resultingSourceMarker ?? null)) throw new Error("GRAPH_CLOSURE_PRECONDITION_FAILED");
     if (marker === (effect.resultingSourceMarker ?? null) || effect.resultingSourceMarker === effect.expectedSourceMarker) return;
     if (!effect.resultingSourceMarker) throw new Error("GRAPH_MARKER_REMOVAL_UNSUPPORTED");
-    const natural = source.rawContent.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
-    await this.#host.updateBlock(effect.sourceBlockUuid, `${effect.resultingSourceMarker} ${natural}`);
+    await this.#host.updateBlock(effect.sourceBlockUuid, replaceTaskMarker(source.rawContent, effect.resultingSourceMarker));
   }
 
   async #applyUpsert(effect: Extract<GraphEffect, { type: "UPSERT_MANAGED_PROJECTION" }>): Promise<GraphApplyResult> {
@@ -346,7 +364,13 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const after = changedProjection(effect, before);
       const afterInspection = await this.#inspect(effect.sourceBlockUuid, after);
       const markerAfter = effect.type !== "CHANGE_CLOSURE_FIELDS" || afterInspection.snapshot.sourceMarker === (effect.resultingSourceMarker ?? null);
-      if (afterInspection.snapshot.projection?.projectionHash === after.projectionHash && markerAfter) {
+      const desiredSource = canonicalizeFormalSource(afterInspection.source.content, {
+        title: after.title,
+        lifecycle: after.lifecycle,
+        marker: sourceMarker(afterInspection.source.content),
+      });
+      const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(afterInspection.source.content) !== desiredSource;
+      if (afterInspection.snapshot.projection?.projectionHash === after.projectionHash && markerAfter && !sourceNeedsUpdate) {
         this.#known.set(effect.sourceBlockUuid, after);
         return this.#result(effect, after.projectionHash);
       }

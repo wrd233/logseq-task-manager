@@ -1,9 +1,10 @@
 export type BlockIdentityKind = "ORDINARY" | "FORMAL";
 export type BlockContextObjectKind = "TASK" | "MINI_PROJECT" | "PROJECT";
+export type BlockConsistency = "OK" | "WARNING";
 
 export type BlockIdentity =
   | { kind: "ORDINARY" }
-  | { kind: "FORMAL"; workObjectId: string; objectKind: BlockContextObjectKind; title?: string; engagement?: string; lifecycle?: string };
+  | { kind: "FORMAL"; workObjectId: string; objectKind: BlockContextObjectKind; title?: string; engagement?: string; lifecycle?: string; consistency?: BlockConsistency };
 
 export type BlockContextActionId =
   | "FORMALIZE_TASK"
@@ -15,6 +16,7 @@ export type BlockContextActionId =
 export interface AnchorIdentityInput {
   object: { id?: unknown; kind?: unknown; title?: unknown; engagement?: unknown; lifecycle?: unknown };
   anchor?: unknown;
+  consistency?: "OK" | "WARNING";
 }
 
 export const CONTEXT_ACTION_LABELS: Record<BlockContextActionId, string> = {
@@ -41,6 +43,7 @@ export function buildBlockIdentityIndex(entries: readonly AnchorIdentityInput[])
     if (typeof entry.object?.title === "string") identity.title = entry.object.title;
     if (typeof entry.object?.engagement === "string") identity.engagement = entry.object.engagement;
     if (typeof entry.object?.lifecycle === "string") identity.lifecycle = entry.object.lifecycle;
+    if (entry.consistency === "WARNING") identity.consistency = "WARNING";
     index.set(externalId, identity);
   }
   return index;

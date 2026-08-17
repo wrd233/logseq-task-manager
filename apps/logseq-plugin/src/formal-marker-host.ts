@@ -1,5 +1,5 @@
 import type { BlockIdentity } from "./block-context.ts";
-import { FORMAL_MARKER_GLYPH, FORMAL_MARKER_MAX_ACTIVE, formalMarkerTooltip, isFormalIdentity } from "./formal-marker.ts";
+import { FORMAL_MARKER_MAX_ACTIVE, formalMarkerTooltip, isFormalIdentity, markerGlyphFor } from "./formal-marker.ts";
 
 /**
  * Compatibility layer for rendering the Formal Identity Marker in Logseq
@@ -47,7 +47,8 @@ export function installFormalMarkerHost(options: FormalMarkerHostOptions): Forma
     marker.type = "button";
     marker.dataset.tcFormalMarker = "true";
     marker.dataset.tcFormalUuid = uuid;
-    marker.textContent = FORMAL_MARKER_GLYPH;
+    marker.dataset.tcFormalConsistency = identity.consistency ?? "OK";
+    marker.textContent = markerGlyphFor(identity);
     const tooltip = formalMarkerTooltip(identity);
     marker.title = tooltip;
     marker.setAttribute("aria-label", tooltip);
@@ -74,7 +75,19 @@ export function installFormalMarkerHost(options: FormalMarkerHostOptions): Forma
       const uuid = block.getAttribute("blockid");
       const identity = uuid ? options.lookupFormal(uuid) : { kind: "ORDINARY" } as BlockIdentity;
       if (!isFormalIdentity(identity)) { if (existing) removeMarker(block); continue; }
-      if (existing) { active += 1; continue; }
+      if (existing) {
+        const consistency = identity.consistency ?? "OK";
+        const glyph = markerGlyphFor(identity);
+        if (existing.textContent !== glyph || existing.dataset.tcFormalConsistency !== consistency) {
+          existing.dataset.tcFormalConsistency = consistency;
+          existing.textContent = glyph;
+          const tooltip = formalMarkerTooltip(identity);
+          existing.title = tooltip;
+          existing.setAttribute("aria-label", tooltip);
+        }
+        active += 1;
+        continue;
+      }
       if (active >= maxActive) continue;
       if (injectMarker(block)) active += 1;
     }

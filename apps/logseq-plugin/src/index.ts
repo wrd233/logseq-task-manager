@@ -1,7 +1,9 @@
 import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
-import { parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
+import { canonicalizeGraphContent, parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
 import { BlockIdentityCache, contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "./block-context.ts";
+import { extractTitleFromSourceLine, formatFormalAnchor } from "./canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "./formal-marker-host.ts";
+import { isStableProjectionAnomaly } from "./formal-marker.ts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gateway-worker.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
@@ -28,6 +30,7 @@ let blockIdentityRefreshPromise: Promise<void> | null = null;
 let lastBlockIdentityRefreshAt = 0;
 let blockContextTrackerDispose: (() => void) | null = null;
 let formalMarkerHost: FormalMarkerHost | null = null;
+let consistencyRefreshTimer: number | null = null;
 
 async function applyGraphEffect(adapter: LogseqGraphAdapter, effect: GraphEffect) {
   const writesDoneMarker = effect.type === "CHANGE_CLOSURE_FIELDS" && effect.expectedSourceMarker !== "DONE" && effect.resultingSourceMarker === "DONE";
@@ -178,10 +181,29 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     upsertBlockProperty: (uuid, key, value) => logseq.Editor.upsertBlockProperty(uuid, key, value),
   }, { uuid: current.uuid, content: current.content, isDbGraph: await currentGraphIsDb(logseq.App) });
   const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
-  const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
-  const title = stable.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
-  const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
-  const formal = await api.commitFormal(operation, snapshot);
+  const rawTitle = extractTitleFromSourceLine(stable.content);
+  const canonicalSource = formatFormalAnchor({ kind, title: rawTitle });
+  const originalContent = stable.content;
+  let formal: Awaited<ReturnType<typeof api.commitFormal>>;
+  try {
+    if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
+      selfWrittenSourceUuids.add(stable.uuid);
+      try {
+        await logseq.Editor.updateBlock(stable.uuid, canonicalSource);
+      } finally {
+        window.setTimeout(() => selfWrittenSourceUuids.delete(stable.uuid), 1_000);
+      }
+    }
+    const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
+    const title = extractTitleFromSourceLine(canonicalSource);
+    const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
+    formal = await api.commitFormal(operation, snapshot);
+  } catch (error) {
+    if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
+      try { await logseq.Editor.updateBlock(stable.uuid, originalContent); } catch { /* best-effort restore before any formal object exists */ }
+    }
+    throw error;
+  }
   let result;
   try { result = await adapter.applyGraphEffect(formal.graphEffect); }
   catch (error) {
@@ -433,6 +455,7 @@ body.tc-sidebar-resizing,body.tc-sidebar-resizing *{user-select:none!important}
 [data-tc-toolbar-button][data-active="true"]{background:var(--ls-secondary-background-color,transparent);color:var(--ls-link-text-color,#4f74b8);box-shadow:inset 0 -2px 0 var(--ls-link-text-color,#4f74b8)}
 [data-tc-formal-marker]:hover{opacity:.78!important}
 [data-tc-formal-marker]:focus-visible{opacity:.78!important;outline:1px solid var(--ls-link-text-color,#4f74b8);outline-offset:1px}
+[data-tc-formal-marker][data-tc-formal-consistency="WARNING"]{opacity:.72!important;color:var(--ls-warning-color,#b58900)}
 `);
 }
 
@@ -498,8 +521,23 @@ async function refreshBlockIdentityCache(api: KernelClient): Promise<void> {
   lastBlockIdentityRefreshAt = Date.now();
   blockIdentityRefreshPromise = (async () => {
     try {
-      const result = await api.listObjectAnchorIndex();
-      blockIdentityCache.replace(result.objects);
+      const [result, obligationsResult, recoveryResult] = await Promise.all([
+        api.listObjectAnchorIndex(),
+        api.listProjectionObligations(),
+        api.listRecovery(),
+      ]);
+      const anomalyObjectIds = new Set<string>();
+      for (const obligation of obligationsResult.obligations) {
+        if (isStableProjectionAnomaly(obligation)) anomalyObjectIds.add(obligation.workObjectId);
+      }
+      for (const item of recoveryResult.recovery) {
+        if (item.action === "MANUAL_RECONCILIATION" && typeof item.commit.targetId === "string") anomalyObjectIds.add(item.commit.targetId);
+      }
+      const entries = result.objects.map((entry) => {
+        const objectId = typeof entry.object?.id === "string" ? entry.object.id : "";
+        return objectId && anomalyObjectIds.has(objectId) ? { ...entry, consistency: "WARNING" as const } : entry;
+      });
+      blockIdentityCache.replace(entries);
       formalMarkerHost?.rescan();
       if (contextMenuHoverUuid) void syncContextMenuForUuid(contextMenuHoverUuid);
     } catch (error) { console.warn("block-identity-refresh", error); }
@@ -995,6 +1033,27 @@ async function rerenderCurrentFormalItem(): Promise<void> {
   if (recovery.length) throw new Error("存在未完成 Commit；请先运行“恢复未完成提交”。");
   const version = value.target.object.version;
   const projection = await expectedProjection(value.api, value.target);
+  if (value.target.object.kind === "TASK" || value.target.object.kind === "MINI_PROJECT") {
+    const source = logseqBlock(await logseq.Editor.getBlock(value.anchor.externalId));
+    if (source) {
+      const sourceTitle = extractTitleFromSourceLine(source.content);
+      if (sourceTitle === value.target.object.title) {
+        const canonical = formatFormalAnchor({
+          kind: value.target.object.kind,
+          title: sourceTitle,
+          lifecycle: value.target.object.lifecycle === "COMPLETED" ? "COMPLETED" : "OPEN",
+        });
+        if (canonicalizeGraphContent(source.content) !== canonical) {
+          selfWrittenSourceUuids.add(source.uuid);
+          try {
+            await logseq.Editor.updateBlock(source.uuid, canonical);
+          } finally {
+            window.setTimeout(() => selfWrittenSourceUuids.delete(source.uuid), 1_000);
+          }
+        }
+      }
+    }
+  }
   await value.adapter.rerenderManagedProjection({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId, expectedProjection: projection });
   const after = await value.api.showObject(value.target.object.id);
   if (after.object.version !== version) throw new Error("RERENDER_DOMAIN_VERSION_CHANGED");
@@ -1015,6 +1074,9 @@ async function main(): Promise<void> {
   blockContextTrackerDispose = installBlockContextTracker();
   ensureFormalMarkerHost();
   void guarded("block-index", async () => { const api = await client(); await refreshBlockIdentityCache(api); formalMarkerHost?.rescan(); });
+  consistencyRefreshTimer = window.setInterval(() => {
+    void guarded("consistency-refresh", async () => { const api = await client(); await refreshBlockIdentityCache(api); formalMarkerHost?.rescan(); });
+  }, 30_000);
   window.setTimeout(() => syncToolbarState(), 500);
   const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
   const stopGraphWorker = startGraphGatewayWorker({
@@ -1039,7 +1101,7 @@ async function main(): Promise<void> {
     isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),
     onError: (error) => { if (error instanceof Error && !/请先运行|DESCRIPTOR_INVALID/u.test(error.message)) console.warn("source-change-observer", error); },
   });
-  logseq.beforeunload(async () => { stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; blockContextTrackerDispose?.(); blockContextTrackerDispose = null; formalMarkerHost?.dispose(); formalMarkerHost = null; unregisterContextMenuItems(); topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); });
+  logseq.beforeunload(async () => { if (consistencyRefreshTimer !== null) { window.clearInterval(consistencyRefreshTimer); consistencyRefreshTimer = null; } stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; blockContextTrackerDispose?.(); blockContextTrackerDispose = null; formalMarkerHost?.dispose(); formalMarkerHost = null; unregisterContextMenuItems(); topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
