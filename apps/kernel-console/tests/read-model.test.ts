@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ConsoleWorldSnapshot, ProjectionObligation, UserReadBaseline, WorkObject } from "@task-copilot/contracts";
-import { attentionItems, frontierForProject, independentMiniProjects, independentTasks, meaningfulChanges, projectCards } from "../src/read-model.ts";
+import { attentionItems, coldObjects, frontierForProject, independentMiniProjects, independentTasks, meaningfulChanges, projectCards } from "../src/read-model.ts";
 
 function object(id: string, overrides: Partial<WorkObject> = {}): WorkObject {
   return {
@@ -78,6 +78,14 @@ test("project cards include open and recently completed projects", () => {
   assert.equal(cards.length, 2);
   assert.ok(cards.some((card) => card.object.id === "project-1"));
   assert.ok(cards.some((card) => card.object.id === "project-2" && card.recentlyCompleted));
+});
+
+test("cold history contains only completed/cancelled objects", () => {
+  const w = world();
+  const cold = coldObjects(w);
+  assert.equal(cold.length, 1);
+  assert.equal(cold[0]?.object.id, "project-2");
+  assert.ok(cold.every((entry) => entry.object.lifecycle !== "OPEN"));
 });
 
 test("frontier prefers cohesive MiniProject over its tasks and includes WAITING", () => {

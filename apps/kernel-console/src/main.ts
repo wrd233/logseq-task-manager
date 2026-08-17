@@ -1,11 +1,11 @@
 import { KernelClient } from "@task-copilot/client/browser";
 import type { ConsoleSearchResponse, ConsoleWorldSnapshot, WorkObject } from "@task-copilot/contracts";
 import { clear, el } from "./dom.ts";
-import { attentionItems, childrenOf, contextFor, currentSituation, evidenceFor, independentMiniProjects, independentTasks, kindLabel, meaningfulChanges, parentOf, projectCards } from "./read-model.ts";
+import { attentionItems, childrenOf, coldObjects, contextFor, currentSituation, evidenceFor, independentMiniProjects, independentTasks, kindLabel, meaningfulChanges, parentOf, projectCards } from "./read-model.ts";
 
 interface ConsoleBootstrap { token: string; profile: string }
 
-type View = "formal" | "attention" | "search";
+type View = "formal" | "attention" | "search" | "history";
 
 interface AppState {
   world: ConsoleWorldSnapshot | null;
@@ -108,6 +108,7 @@ function renderHeader(): HTMLElement {
       nav("formal", "正式事项"),
       nav("attention", attentionCount ? `需要注意 ${attentionCount}` : "需要注意"),
       nav("search", "搜索"),
+      nav("history", "历史"),
     ),
     el("div", { class: "tc-env" },
       el("span", { class: "tc-env-name" }, envLabel()),
@@ -134,7 +135,7 @@ function renderFormal(): HTMLElement {
       ...tasks.map((item) => renderIndependentTask(item)),
     ) : null,
     el("section", { class: "tc-section tc-history" },
-      el("button", { class: "tc-history-link", onclick: () => alert("History 在当前 V0 中为弱入口：可在搜索中查找已完成/已取消事项。") },
+      el("button", { class: "tc-history-link", onclick: () => setView("history") },
         `历史 · 已完成/已取消 ${coldCount}`,
       ),
     ),
@@ -282,6 +283,7 @@ function renderMiniDetail(object: WorkObject): HTMLElement {
       el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
       el("span", { class: "tc-evidence-count" }, `依据 ${evidence.length + context.length}`),
     ),
+    renderEvidenceSection(object.id),
     technicalOpen ? renderTechnical(object, entry.anchor ?? null) : null,
   );
 }
@@ -320,6 +322,7 @@ function renderTaskDetail(object: WorkObject): HTMLElement {
       el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
       el("span", { class: "tc-evidence-count" }, `依据 ${evidence.length + context.length}`),
     ),
+    renderEvidenceSection(object.id),
     technicalOpen ? renderTechnical(object, entry.anchor ?? null) : null,
   );
 }
@@ -362,6 +365,34 @@ function renderAttention(): HTMLElement {
           ),
           object ? el("div", { class: "tc-attention-object" }, object.title) : null,
           el("div", { class: "tc-attention-tech" }, item.technical),
+        );
+      }),
+    ),
+  );
+}
+
+function renderHistory(): HTMLElement {
+  const world = state.world!;
+  const cold = coldObjects(world);
+  return el("main", { class: "tc-main" },
+    el("section", { class: "tc-section" },
+      el("h2", { class: "tc-section-title" }, "历史"),
+      cold.length === 0 ? el("p", { class: "tc-empty" }, "暂无已完成或已取消事项。") : null,
+      ...cold.map((entry) => {
+        const object = entry.object;
+        const technicalOpen = state.technicalIds.has(object.id);
+        return el("article", { class: "tc-card tc-history-item" },
+          el("div", { class: "tc-card-head" },
+            el("span", { class: "tc-kind" }, kindLabel(object.kind)),
+            el("h3", { class: "tc-project-name" }, object.title),
+            el("span", { class: "tc-tree-state" }, object.lifecycle === "COMPLETED" ? "已完成" : "已取消"),
+          ),
+          el("p", { class: "tc-situation" }, currentSituation(object, world)),
+          el("div", { class: "tc-detail-actions" },
+            el("button", { class: "tc-button", onclick: () => openInLogseq(object.id) }, "在 Logseq 中打开"),
+            el("button", { class: "tc-button", onclick: () => { toggleTechnical(object.id); render(); } }, technicalOpen ? "收起技术详情" : "技术详情"),
+          ),
+          technicalOpen ? renderTechnical(object, entry.anchor ?? null) : null,
         );
       }),
     ),
@@ -411,6 +442,24 @@ async function runSearch(query: string): Promise<void> {
   if (!query.trim()) { state.searchResults = null; render(); return; }
   state.searchResults = await api.consoleSearch(query);
   render();
+}
+
+function renderEvidenceSection(workObjectId: string): HTMLElement | null {
+  const world = state.world!;
+  const evidence = evidenceFor(world, workObjectId);
+  const context = contextFor(world, workObjectId);
+  if (!evidence.length && !context.length) return null;
+  return el("details", { class: "tc-evidence" },
+    el("summary", {}, `依据 (${evidence.length + context.length})`),
+    ...evidence.map((item) => el("div", { class: "tc-evidence-item" },
+      el("div", { class: "tc-evidence-meta" }, `Frozen · ${new Date(item.frozenAt).toLocaleDateString()}`),
+      el("p", { class: "tc-snippet" }, item.frozenContent.slice(0, 200)),
+    )),
+    ...context.map((item) => el("div", { class: "tc-evidence-item" },
+      el("div", { class: "tc-evidence-meta" }, `Context · ${item.origin} · ${item.sourceRef.blockUuid.slice(0, 8)}…`),
+      el("p", { class: "tc-snippet" }, `来源 Block：${item.sourceRef.blockUuid}`),
+    )),
+  );
 }
 
 function toggleTechnical(workObjectId: string): void {
@@ -513,6 +562,7 @@ function render(): void {
   root.append(style);
   if (state.view === "formal") root.append(renderFormal());
   else if (state.view === "attention") root.append(renderAttention());
+  else if (state.view === "history") root.append(renderHistory());
   else root.append(renderSearch());
 }
 

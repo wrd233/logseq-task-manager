@@ -225,6 +225,10 @@ export function independentTasks(world: ConsoleWorldSnapshot): IndependentTaskIt
     }));
 }
 
+export function coldObjects(world: ConsoleWorldSnapshot): ConsoleObjectEntry[] {
+  return world.objects.filter((entry) => isCold(entry.object));
+}
+
 export function childrenOf(world: ConsoleWorldSnapshot, ownerId: string): ConsoleObjectEntry[] {
   return buildForest(world).childrenByOwner.get(ownerId) ?? [];
 }
