@@ -26,5 +26,5 @@ for (const rule of rules) {
   }
 }
 const server = await readFile("apps/kernel-service/src/server.ts", "utf8");
-if (!server.includes('server.listen(0, "127.0.0.1"')) throw new Error("Kernel Service must bind explicitly to 127.0.0.1");
+if (!/server\.listen\([^,]+,\s*"127\.0\.0\.1"/u.test(server)) throw new Error("Kernel Service must bind explicitly to 127.0.0.1");
 console.log("Dependency boundaries verified.");

@@ -15,7 +15,7 @@ import { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 import { ClosureAssessmentCoordinator } from "./closure-assessment-coordinator.ts";
 import { createDogfoodScope, loadDogfoodConfig, type DogfoodScope } from "./dogfood-scope.ts";
 
-export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[]; profile?: ConsoleProfile; consoleDistPath?: string; dogfoodConfigPath?: string; dogfoodScope?: DogfoodScope }
+export interface StartKernelOptions { databasePath: string; descriptorPath: string; graphDescriptorPath?: string; token?: string; graphSnapshotKey?: string; graphBridgeToken?: string; userChannelToken?: string; requireTrustedUserChannel?: boolean; now?: () => string; maintenanceIntervalMs?: number; maintenanceMaxAttempts?: number; maintenanceRetryBackoffMs?: number; closureAssessor?: ClosureAssessor; closureExecutionProfile?: ExecutionProfile; closureAssessmentIntervalMs?: number; closureAssessmentMaxAttempts?: number; closureAssessmentRetryBackoffMs?: number; miniProjectClosureSkill?: SkillPackage; projectClosureSkill?: SkillPackage; currentFocusAgent?: CurrentFocusAgent; currentFocusSkill?: SkillPackage; engagementAgent?: EngagementAgent; engagementSkill?: SkillPackage; miniProjectSkill?: SkillPackage; workIntentSkill?: SkillPackage; miniProjectTaste?: TasteProfile; workspaceRoot?: string; graphOfflineAfterMs?: number; graphRequestTimeoutMs?: number; projectionMaxAttempts?: number; projectionBackoffBaseMs?: number; projectionTemporaryBackoffMs?: number; cognitionExecutor?: CognitionExecutor; executionProfile?: ExecutionProfile; discoveryExecutor?: DiscoveryExecutor; discoveryProfile?: ExecutionProfile; journalPageNames?: (date: string) => string[]; profile?: ConsoleProfile; consoleDistPath?: string; dogfoodConfigPath?: string; dogfoodScope?: DogfoodScope; port?: number }
 
 async function body(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -187,6 +187,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const closureStaleSweepTimer = setInterval(() => { try { projections.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
+    response.setHeader("access-control-allow-origin", "*");
+    response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
+    response.setHeader("access-control-allow-headers", "authorization, content-type, x-task-copilot-user-channel, x-task-copilot-graph-bridge");
+    if (request.method === "OPTIONS") {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     try {
       if (url.pathname === "/console") {
@@ -566,7 +574,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       send(response, code === "INTERNAL_ERROR" ? 500 : 409, { error: { code, message } });
     }
   });
-  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(options.port ?? 0, "127.0.0.1", resolve); });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("KERNEL_ADDRESS_INVALID");
   const baseUrl = `http://127.0.0.1:${address.port}`;
