@@ -36,6 +36,19 @@ export class FakeGraphAdapter implements GraphAdapter {
     return [...(this.#pages.get(graphId)?.get(pageName) ?? [])];
   }
 
+  exportState(): { records: Array<{ graphId: string; uuid: string; content: string; marker: SourceMarker | null; projection: ManagedProjection | null }>; pages: Record<string, Record<string, string[]>> } {
+    const records = [...this.#records.entries()].map(([key, record]) => {
+      const colon = key.indexOf(":");
+      return { graphId: key.slice(0, colon), uuid: key.slice(colon + 1), content: record.content, marker: record.marker, projection: record.projection ? { ...record.projection } : null };
+    });
+    const pages: Record<string, Record<string, string[]>> = {};
+    for (const [graphId, pageMap] of this.#pages) {
+      pages[graphId] = {};
+      for (const [pageName, blocks] of pageMap) pages[graphId]![pageName] = [...blocks];
+    }
+    return { records, pages };
+  }
+
   naturalContent(graphId: string, sourceBlockUuid: string): string { return this.#record(graphId, sourceBlockUuid).content; }
   editNaturalContent(graphId: string, sourceBlockUuid: string, content: string): void { const record = this.#record(graphId, sourceBlockUuid); record.content = content; const match = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(content); record.marker = match ? match[1] as Exclude<SourceMarker, null> : null; }
   editMarker(graphId: string, sourceBlockUuid: string, marker: Exclude<SourceMarker, null>): void {
