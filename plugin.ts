@@ -88,6 +88,38 @@ logseq.ready(async()=>{
     if(c.root!==root)return viewResult({id:c.id,ok:false,reason:'root-mismatch',at,scope:scope()});
     if(c.op?.type==='locate'){if(!base.some(r=>r.uuid===c.op.uuid))return viewResult({id:c.id,ok:false,reason:'uuid-not-in-view',at});await locate(c.op.uuid);agentNote('Agent 已定位原文');return viewResult({id:c.id,ok:true,uuid:c.op.uuid,at})}
     if(c.op?.type==='query'){const st:any=getViewState();if(st)st.page=page;return viewResult({id:c.id,ok:true,at,state:st})}
+    // Research probe: CSS injection into panel + native block DOM (logseq.provideStyle).
+    if(c.op?.type==='style'){if(typeof c.op.css!=='string')return viewResult({id:c.id,ok:false,reason:'css-required',at});
+      const key='agent-style:'+String(c.op.key??'default');logseq.provideStyle({key,style:c.op.css});
+      return viewResult({id:c.id,ok:true,at,key,cssLength:c.op.css.length})}
+    // Research probe: block history via the host git repo (logseq.Git.execCommand).
+    if(c.op?.type==='history'){try{
+      const args=Array.isArray(c.op.args)?c.op.args:['log','--oneline','-n',String(c.op.n??5)];
+      const out:any=await logseq.Git.execCommand(args);
+      return viewResult({id:c.id,ok:true,at,args,stdout:String(out?.stdout??''),stderr:String(out?.stderr??''),exitCode:out?.exitCode})}
+      catch(err){return viewResult({id:c.id,ok:false,reason:'git-failed:'+String(err),at})}}
+    // Research probe: inspect the host document (native blocks) vs the plugin main-UI document.
+    if(c.op?.type==='dom'){const sel=String(c.op.sel??'.ls-block');const uuid=c.op.uuid??null;const probe=(doc:Document|null)=>{if(!doc)return {accessible:false};
+      const all=doc.querySelectorAll(sel);const target=uuid?doc.querySelector(sel+'[blockid=\"'+uuid+'\"]'):null;
+      return {accessible:true,count:all.length,targetFound:!!target,targetBg:target?getComputedStyle(target).backgroundColor:null,targetBoxShadow:target?getComputedStyle(target).boxShadow:null,sample:all[0]?(all[0] as HTMLElement).className:null};};
+      let host:Document|null=null;try{host=window.parent&&window.parent!==window?window.parent.document:null}catch(err){host=null}
+      return viewResult({id:c.id,ok:true,at,selector:sel,pluginDoc:probe(document),hostDoc:probe(host),hostAccessible:!!host})}
+    // Guarded by an explicit flag so it can never fire by accident.
+    // Research probe: inject CSS into the HOST document (where native blocks live).
+    if(c.op?.type==='host-css'){let host:Document|null=null;try{host=window.parent&&window.parent!==window?window.parent.document:null}catch{host=null}
+      if(!host)return viewResult({id:c.id,ok:false,reason:'host-document-not-accessible',at});
+      const id='probe-host-style-'+String(c.op.key??'default');
+      let el=host.getElementById(id) as HTMLStyleElement|null;
+      if(!el){el=host.createElement('style');el.id=id;host.head.appendChild(el)}
+      el.textContent=String(c.op.css??'');
+      const uuid=c.op.uuid??null;const target=uuid?host.querySelector('.ls-block[blockid=\"'+uuid+'\"]'):null;
+      return viewResult({id:c.id,ok:true,at,styleId:id,cssLength:String(c.op.css??'').length,targetFound:!!target,targetBg:target?getComputedStyle(target).backgroundColor:null})}
+    if(c.op?.type==='git-commit'){if(c.op.confirm!==true)return viewResult({id:c.id,ok:false,reason:'confirm-required',at});
+      try{const msg=String(c.op.message??'probe snapshot');
+        const add:any=await logseq.Git.execCommand(['add','-A']);
+        const out:any=await logseq.Git.execCommand(['commit','-m',msg]);
+        return viewResult({id:c.id,ok:true,at,addExit:add?.exitCode,stdout:String(out?.stdout??''),stderr:String(out?.stderr??''),exitCode:out?.exitCode})}
+      catch(err){return viewResult({id:c.id,ok:false,reason:'git-commit-failed:'+String(err),at})}}
     try{const r=applyViewOp(c.op);agentNote(r.ok?'Agent 调整了视图排列（原文未改）':'Agent 操作被拒绝：'+r.reason);return viewResult({id:c.id,ok:!!r.ok,reason:r.reason,at,scope:scope(),state:getViewState()})}
     catch(err){record({type:'error',where:'view-ops',message:String(err)});return viewResult({id:c.id,ok:false,reason:'apply-failed:'+String(err),at,scope:scope()})}};
   const heartbeat=setInterval(()=>{if(root&&(visible||externalActive)){lastSignature='';void refresh();}void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({measurements:measurements.splice(0),pollGaps:pollGaps.splice(0),visible,layout:layoutState(),graph,root,at:Date.now()})}).catch(()=>{})},2000);
