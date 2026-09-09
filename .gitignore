@@ -1,0 +1,7 @@
+dist/
+node_modules/
+runtime.json
+
+# 证据与快照保留在本地：semantic-audit.json 含真实笔记片段，
+# 其余为实机遥测、截图与会话产物，不进版本库。
+evidence/
