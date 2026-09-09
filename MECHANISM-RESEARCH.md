@@ -73,10 +73,19 @@ hostDoc:   .ls-block count = 14, targetFound = true, hostAccessible = true
 - 原生块：`.ls-block[blockid="<uuid>"]`。
 - 本轮演示：`现状` 绿底、`问一下` 橙底、`TODO` 红字、目标原生块黄底 —— 全部由 Agent 通过 relay 指令注入，已清理。
 
-### 2.3 风险
+### 2.3 生命周期：宿主注入会活过插件重载
+
+实测：向宿主文档注入 `.ls-block[blockid=…]` 样式后重载插件（instance `43b5b8d0` → `df366cf8`），**样式仍然生效**（`targetBg = rgb(255,224,138)`）。原因很直接——`<style>` 挂在宿主文档上，插件文档销毁不会带走它。
+
+这带来一个真实缺陷与一条规范：
+
+- 缺陷：插件重载不会清理自己注入的宿主样式，反复试验会残留、叠加。
+- 规范：宿主注入必须登记 id，并在 `logseq.beforeunload` 里显式移除（已按此修复，见 `plugin.ts` 的 `hostStyles` 登记与卸载清理）。
+
+### 2.4 风险
 
 - 宿主 DOM 的类名与结构**不是 SDK 契约**，Logseq 升级可能失效（与 `scrollToBlockInPage` 高亮同一类风险）。
-- 直接改宿主 DOM 需要克制：只加样式、不改结构，且必须可清理（本轮用固定 id 的 `<style>` 元素，可重复注入与清空）。
+- 直接改宿主 DOM 需要克制：只加样式、不改结构，且必须可清理（用固定 id 的 `<style>` 元素，可重复注入与清空）。
 
 ## ③ 待确认（未开始实现）
 

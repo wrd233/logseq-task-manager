@@ -1,7 +1,7 @@
 import {render,referencedIds,layoutState,getViewState,applyViewOp,type Row,type Snapshot} from './render';
 declare const logseq:any;declare const RUNTIME:{port:number;token:string};
 const endpoint=`http://127.0.0.1:${RUNTIME.port}`;
-const instance=crypto.randomUUID();
+const instance=crypto.randomUUID();const hostStyles:string[]=[];
 let graph='',focus:string|null=null,revealEvent:any=null;let root:string|null=null,selection=0,seq=0,base:Row[]=[],page='',visible=false,externalActive=false,stopped=false;
 let draft:{uuid:string;content:string}|null=null,lastSignature='',reading=false,pollTimer:any,refreshTimer:any;
 let fetchEpoch=0;const off:Array<()=>void>=[];const measurements:any[]=[];
@@ -110,7 +110,7 @@ logseq.ready(async()=>{
       if(!host)return viewResult({id:c.id,ok:false,reason:'host-document-not-accessible',at});
       const id='probe-host-style-'+String(c.op.key??'default');
       let el=host.getElementById(id) as HTMLStyleElement|null;
-      if(!el){el=host.createElement('style');el.id=id;host.head.appendChild(el)}
+      if(!el){el=host.createElement('style');el.id=id;host.head.appendChild(el);hostStyles.push(id)}
       el.textContent=String(c.op.css??'');
       const uuid=c.op.uuid??null;const target=uuid?host.querySelector('.ls-block[blockid=\"'+uuid+'\"]'):null;
       return viewResult({id:c.id,ok:true,at,styleId:id,cssLength:String(c.op.css??'').length,targetFound:!!target,targetBg:target?getComputedStyle(target).backgroundColor:null})}
@@ -123,6 +123,10 @@ logseq.ready(async()=>{
     try{const r=applyViewOp(c.op);agentNote(r.ok?'Agent 调整了视图排列（原文未改）':'Agent 操作被拒绝：'+r.reason);return viewResult({id:c.id,ok:!!r.ok,reason:r.reason,at,scope:scope(),state:getViewState()})}
     catch(err){record({type:'error',where:'view-ops',message:String(err)});return viewResult({id:c.id,ok:false,reason:'apply-failed:'+String(err),at,scope:scope()})}};
   const heartbeat=setInterval(()=>{if(root&&(visible||externalActive)){lastSignature='';void refresh();}void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({measurements:measurements.splice(0),pollGaps:pollGaps.splice(0),visible,layout:layoutState(),graph,root,at:Date.now()})}).catch(()=>{})},2000);
-  logseq.beforeunload(()=>{stopped=true;commands.close();viewOps.close();clearTimeout(pollTimer);clearTimeout(refreshTimer);clearInterval(heartbeat);style(false);logseq.provideStyle({key:'work-view-source-highlight',style:''});for(const f of off)if(typeof f==='function')f()});
+  logseq.beforeunload(()=>{stopped=true;commands.close();viewOps.close();clearTimeout(pollTimer);clearTimeout(refreshTimer);clearInterval(heartbeat);style(false);logseq.provideStyle({key:'work-view-source-highlight',style:''});
+    // Host-document styles outlive the plugin document, so they must be removed explicitly.
+    try{let host:Document|null=window.parent&&window.parent!==window?window.parent.document:null;
+      for(const id of hostStyles)host?.getElementById(id)?.remove();hostStyles.length=0;}catch{}
+    for(const f of off)if(typeof f==='function')f()});
   logseq.UI.showMsg('实时预览已就绪：块右键 → 实时预览此块','success');
 }).catch(e=>{console.error(e);void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupError:String(e),stack:e?.stack,at:Date.now()})})});
