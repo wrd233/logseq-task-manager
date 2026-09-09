@@ -4,6 +4,8 @@
 
 已在本机 Logseq 文件型 Graph 中进行原生操作验证。插件名：**Block Live Preview 实验**。这是独立技术原型，不依赖 Task Copilot Kernel，也不修改工作对象的正式状态。
 
+本目录即 Logseq 记录的外部插件路径 `/Users/wangrundong/work/logseq-live-preview-spike`；移动目录会导致插件静默失效，需在 Logseq 里重新加载。`evidence/`、`dist/`、`runtime.json` 保留在本地、不入版本库（`evidence/` 含真实笔记片段与实机遥测）。
+
 ## 直接使用
 
 1. 在 Logseq 中右键点击一个块左侧的圆点，选择 **实时预览此块**。原生菜单较长时，需要向下滚动。
