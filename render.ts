@@ -2,7 +2,8 @@ import {marked} from './vendor/marked.js';
 import DOMPurify from 'dompurify';
 import {reconcile,move,indent,parse} from './model.mjs';
 export type Row={uuid:string;content:string;depth:number;sourceParent?:string|null;missing?:boolean;outside?:boolean};
-export type Snapshot={instance:string;selection:number;seq:number;root:string|null;graph?:string;rows:Row[];draft:string|null;focus?:string|null;reveal?:{uuid:string;nonce:number};kind:string;observedAt:number;startedAt:number;page?:string;error?:string};
+export type Snapshot={instance:string;selection:number;seq:number;root:string|null;graph?:string;rows:Row[];draft:string|null;focus?:string|null;reveal?:{uuid:string;nonce:number};kind:string;observedAt:number;startedAt:number;page?:string;error?:string;objectUuid?:string|null;objectChain?:Array<{uuid:string;title:string}>;autoFollow?:boolean};
+export type RenderHandlers={onCrumb?:(uuid:string)=>void};
 const rows=document.getElementById('rows')!;
 const views=new Map<string,any>();let key='',items:any[]=[],collapsed=new Set<string>(),selected='',latest:Snapshot,locateFn:any;
 let finishDrag:((e:PointerEvent)=>void)|null=null;document.addEventListener('pointerup',e=>{finishDrag?.(e);finishDrag=null},true);
@@ -18,7 +19,7 @@ export function html(content:string){
  const raw=content.replace(/^\s*id::[^\n]*(?:\n|$)/gm,'');
  let output=DOMPurify.sanitize(marked.parse(raw,{gfm:true,breaks:true}) as string,{FORBID_TAGS:['img','iframe','style','input','button'],FORBID_ATTR:['style']});
  output=output.replace(/^(<p>)?(TODO|DOING|NOW|LATER|WAITING|DONE|CANCELED)\s+/,'$1<span class="task">$2</span>');
- output=output.replace(/(<p>|<\/span>)(?:<strong>)?(?:\[(现状|问一下|注|想法|决定|等待)\]|【(现状|问一下|注|想法|决定|等待)】)(?:<\/strong>)?\s*/,'$1<span class="label">$2$3</span>');
+ output=output.replace(/(<p>|<\/span>)(?:<strong>)?(?:\[(现状|问一下|注|想法|决定|等待|MiniProject|事务|任务|项目卡片|核心输出|阶段性目标|事项)\]|【(现状|问一下|注|想法|决定|等待|MiniProject|事务|任务|项目卡片|核心输出|阶段性目标|事项)】)(?:<\/strong>)?\s*/,'$1<span class="label">$2$3</span>');
  return output;
 }
 export function organize(next:any[]){items=next;render(latest,locateFn);persist()}
@@ -43,6 +44,7 @@ export function getViewState(){
  const source=new Map((s.rows??[]).map((x:any)=>[x.uuid,x]));
  return {graph:s.graph??'',root:s.root,page:s.page??'',instance:s.instance,seq:s.seq,kind:s.kind,
   draft:s.draft??null,focus:s.focus??null,selected,collapsed:[...collapsed],anchor,
+  objectUuid:s.objectUuid??null,objectChain:s.objectChain??[],autoFollow:s.autoFollow!==false,
   items:items.map((x:any)=>({...x})),
   blocks:items.map((x:any)=>{const r:any=source.get(x.uuid)??{uuid:x.uuid,content:'来源暂不可用',missing:true};
    const p=r.missing?null:parse(r.content??'');
@@ -72,9 +74,45 @@ export function applyViewOp(op:any){
   if(unknown.length)return {ok:false,reason:'uuid-not-in-view:'+unknown.slice(0,5).join(',')};
   if(op.items.length!==items.length)return {ok:false,reason:'layout-must-include-every-item:'+items.length};
   organize(op.items.map((x:any)=>({uuid:x.uuid,depth:x.depth})));return {ok:true,items:items.map((x:any)=>({...x}))}}
+ if(type==='prune'){
+  // Drop view references whose source block is gone: rows the plugin marked missing.
+  // Keeps the focused object itself even if its source is temporarily unreadable.
+  const missing=new Set((latest?.rows??[]).filter((x:any)=>x.missing).map((x:any)=>x.uuid));
+  const keep=items.filter((x:any)=>!missing.has(x.uuid)||x.uuid===latest?.root);
+  if(keep.length===items.length)return {ok:false,reason:'nothing-to-prune',debug:{missing:missing.size,rows:(latest?.rows??[]).length,items:items.length}};
+  const removed=items.length-keep.length;
+  organize(keep.map((x:any)=>({uuid:x.uuid,depth:x.depth})));
+  return {ok:true,removed,items:items.map((x:any)=>({...x}))}}
  return {ok:false,reason:'unknown-op:'+String(type)};
 }
-export function render(s:Snapshot,locate?:(uuid:string)=>void){
+// Breadcrumb of ancestor objects above the focused object. Ancestors are clickable;
+// clicking one re-renders that object without expanding its deeper objects.
+function renderCrumbs(s:Snapshot,handlers?:RenderHandlers){
+ // The panel document can be served from Logseq's cache, so create the container
+ // at runtime instead of depending on the static shell markup.
+ let bar=document.getElementById('crumbs');
+ if(!bar){const host=document.getElementById('rows')??document.body;bar=document.createElement('nav');bar.id='crumbs';bar.hidden=true;host.prepend(bar)}
+ if(!document.getElementById('crumbs-style')){const st=document.createElement('style');st.id='crumbs-style';
+  st.textContent='#crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:0 0 9px;padding-bottom:7px;border-bottom:1px dashed #e3eae5}#crumbs[hidden]{display:none}.crumb{font:inherit;font-size:11px;background:transparent;color:#4f7a63;padding:1px 4px;border-radius:3px;cursor:pointer;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.crumb:hover{background:#e4efe8;color:#26543c}.crumb.current{color:#273432;font-weight:600;cursor:default;background:#eef4f0}.crumb-sep{color:#a8b6ad;font-size:11px}';
+  document.head.appendChild(st)}
+ const chain=s.objectChain??[];
+ bar.replaceChildren();
+ if(!chain.length){bar.hidden=true;return}
+ bar.hidden=false;
+ const focused=chain[chain.length-1];
+ for(const [i,node] of chain.entries()){
+  if(i>0){const sep=document.createElement('span');sep.className='crumb-sep';sep.textContent='›';bar.append(sep)}
+  const last=i===chain.length-1;
+  const el=document.createElement(last?'span':'button');
+  el.className='crumb'+(last?' current':'');
+  el.textContent=node.title;
+  el.title=last?'当前对象':('上级对象：'+node.title);
+  if(!last){const b=el as HTMLButtonElement;b.type='button';b.onclick=()=>handlers?.onCrumb?.(node.uuid)}
+  bar.append(el);
+ }
+ bar.dataset.focused=focused.uuid;
+}
+export function render(s:Snapshot,locate?:(uuid:string)=>void,handlers?:RenderHandlers){
  if(s.instance===lastInstance&&s.seq<lastSeq)return;lastInstance=s.instance;lastSeq=s.seq;
  latest=s;locateFn=locate;const newKey='work-view:v1:'+JSON.stringify([s.graph??'unknown',s.root]);
  let savedAnchor=capture();
@@ -109,6 +147,7 @@ export function render(s:Snapshot,locate?:(uuid:string)=>void){
   if(collapsed.has(r.uuid)&&hiddenDepth===null)hiddenDepth=item.depth;
  }
  restore(savedAnchor);
+ renderCrumbs(s,handlers);
  const status=document.getElementById('status')!;status.dataset.kind=s.kind;status.textContent=s.error??`${s.draft?'编辑中':'正文同步'} · ${items.length} 块 · ${s.page??''}`;
  const hiddenFocus=s.focus&&views.get(s.focus)?.element.hidden;const fb=document.getElementById('focus') as HTMLButtonElement;fb.hidden=false;fb.disabled=!s.focus;fb.textContent=!s.focus?'选择原文可在此定位':hiddenFocus?'展开并定位正在编辑的条目':'定位正在编辑的条目';fb.onclick=()=>s.focus&&reveal(s.focus);
  if(s.reveal&&s.reveal.nonce!==lastReveal){lastReveal=s.reveal.nonce;queueMicrotask(()=>reveal(s.reveal!.uuid))}

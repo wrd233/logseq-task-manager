@@ -1,4 +1,5 @@
 import {render,referencedIds,layoutState,getViewState,applyViewOp,type Row,type Snapshot} from './render';
+import {parse} from './model.mjs';
 declare const logseq:any;declare const RUNTIME:{port:number;token:string};
 const endpoint=`http://127.0.0.1:${RUNTIME.port}`;
 const instance=crypto.randomUUID();const hostStyles:string[]=[];
@@ -6,14 +7,52 @@ let graph='',focus:string|null=null,revealEvent:any=null;let root:string|null=nu
 let draft:{uuid:string;content:string}|null=null,lastSignature='',reading=false,pollTimer:any,refreshTimer:any;
 let fetchEpoch=0;const off:Array<()=>void>=[];const measurements:any[]=[];
 let lastPoll=0;const pollGaps:number[]=[];
+// Object-focus: which object the work view currently represents, and its ancestor object chain.
+let objectUuid:string|null=null,objectChain:Array<{uuid:string;title:string}>=[],autoFollow=true;
 function record(event:any){measurements.push(event);if(measurements.length>500)measurements.shift()}
 function flatten(block:any,depth=0,out:Row[]=[],parent:string|null=null){if(!block?.uuid)return out;out.push({uuid:block.uuid,content:block.content??block.title??'',depth,sourceParent:parent});for(const child of block.children??[])if(!Array.isArray(child))flatten(child,depth+1,out,block.uuid);return out}
+// ---- Object focus ----
+// Focusable objects (clicking them may point the work view at them): task-status blocks
+// and blocks carrying an object marker. Other markers stay as context rows.
+const OBJECT_ROLES=new Set(['MiniProject','事务','任务']);
+// Hierarchy levels: every marked block that can contain an object. The breadcrumb walks
+// through these, so [阶段性目标] / [事项] appear between a task and its MiniProject.
+const HIERARCHY_ROLES=new Set(['MiniProject','事务','任务','阶段性目标','事项','项目卡片']);
+function isObject(content:string){const p=parse(content||'');return !!p.task||OBJECT_ROLES.has(p.role??'')}
+function isHierarchyLevel(content:string){const p=parse(content||'');return !!p.task||HIERARCHY_ROLES.has(p.role??'')}
+function objectLabel(content:string){const p=parse(content||'');if(p.task)return '任务';if(p.role)return p.role;return '文本'}
+function blockTitle(content:string){const first=String(content||'').split('\n')[0].replace(/^\s*id::.*/,'').trim();return first.length>42?first.slice(0,42)+'…':first||'(空块)'}
+async function childBlocks(uuid:string):Promise<any[]>{const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});return (b?.children??[]).filter((x:any)=>!Array.isArray(x))}
+async function hasDeeperObject(uuid:string):Promise<boolean>{const kids=await childBlocks(uuid);for(const k of kids){if(isObject(k.content??''))return true;if(await hasDeeperObject(k.uuid))return true}return false}
+async function objectChainOf(uuid:string):Promise<Array<{uuid:string;title:string}>>{const out:Array<{uuid:string;title:string}>=[];let cur:any=uuid,guard=0;
+  while(cur&&guard++<60){const b=await logseq.Editor.getBlock(cur);if(!b)break;out.unshift({uuid:b.uuid,title:blockTitle(b.content??'')});const parentId=b.parent?.id;if(!parentId)break;const p=await logseq.Editor.getBlock(parentId);if(!p||!isHierarchyLevel(p.content??''))break;cur=p.uuid}
+  return out}
+async function focusObject(uuid:string,reason:string){
+  const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});if(!b){logseq.UI.showMsg('该对象暂不可读','warning');return {ok:false,reason:'object-not-readable'}}
+  selection++;fetchEpoch++;root=uuid;objectUuid=uuid;draft=null;base=[];lastSignature='';visible=true;
+  localStorage.setItem('work-view:last:'+graph,uuid);
+  logseq.setMainUIInlineStyle({position:'fixed',top:'48px',right:'0',left:'auto',bottom:'0',width:'44vw',height:'calc(100vh - 48px)',zIndex:50,background:'#f9fbfa',borderLeft:'1px solid #dfe6e2'});
+  style(true);logseq.showMainUI({autoFocus:false});
+  page=(await logseq.Editor.getCurrentPage())?.originalName??'';
+  objectChain=await objectChainOf(uuid);
+  await refresh();
+  record({type:'object-focus',uuid,reason,chain:objectChain.length,at:Date.now()});
+  return {ok:true,uuid,chain:objectChain}
+}
+async function tryAutoFocus(uuid:string){
+  if(!autoFollow||stopped)return {ok:false,reason:'auto-follow-off'};
+  const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});if(!b)return {ok:false,reason:'block-not-readable'};
+  if(!isObject(b.content??''))return {ok:false,reason:'not-an-object'};
+  if(uuid===root)return {ok:false,reason:'already-focused'};
+  if(await hasDeeperObject(uuid))return {ok:false,reason:'has-deeper-object'};
+  const r=await focusObject(uuid,'click');return r;
+}
 function style(open:boolean){logseq.provideStyle({key:'live-preview-reserve',style:open?'#main-content-container{margin-right:44vw!important}.cp__sidebar-main-content{padding-right:12px!important}':''})}
 function publish(kind:string,startedAt=Date.now(),error?:string){
   const rows=base.map(r=>draft?.uuid===r.uuid?{...r,content:draft.content}:r);
   const signature=JSON.stringify([selection,rows,draft?.uuid??null,focus,revealEvent,kind,error]);if(signature===lastSignature)return;lastSignature=signature;
-  const snapshot:Snapshot={instance,selection,seq:++seq,root,graph,focus,reveal:revealEvent,rows,draft:draft?.uuid??null,kind,observedAt:Date.now(),startedAt,page,error};
-  if(visible)render(snapshot,locate);
+  const snapshot:Snapshot={instance,selection,seq:++seq,root,graph,focus,reveal:revealEvent,rows,draft:draft?.uuid??null,kind,observedAt:Date.now(),startedAt,page,error,objectUuid,objectChain,autoFollow};
+  if(visible)render(snapshot,locate,{onCrumb:crumbTo});
   requestAnimationFrame(()=>{record({type:'render',seq:snapshot.seq,kind,rows:rows.length,readToFrameMs:Date.now()-startedAt,observedToFrameMs:Date.now()-snapshot.observedAt,at:Date.now()});});
   // Optional external viewer. No Graph content is persisted by the relay.
   void fetch(endpoint+'/snapshot',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify(snapshot)}).catch(()=>{});
@@ -32,16 +71,20 @@ async function refresh(){
   }catch(e){record({type:'error',where:'refresh',message:String(e)});publish('error',startedAt,'读取失败；保留上次预览，稍后重试')}
 }
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,35)}
-async function select(uuid:string){selection++;fetchEpoch++;root=uuid;draft=null;base=[];lastSignature='';visible=true;
+async function select(uuid:string){selection++;fetchEpoch++;root=uuid;objectUuid=uuid;draft=null;base=[];lastSignature='';visible=true;
   localStorage.setItem('work-view:last:'+graph,uuid);
   logseq.setMainUIInlineStyle({position:'fixed',top:'48px',right:'0',left:'auto',bottom:'0',width:'44vw',height:'calc(100vh - 48px)',zIndex:50,background:'#f9fbfa',borderLeft:'1px solid #dfe6e2'});
   style(true);logseq.showMainUI({autoFocus:false});
-  page=(await logseq.Editor.getCurrentPage())?.originalName??'';await refresh();record({type:'selection',at:Date.now(),selection});
+  page=(await logseq.Editor.getCurrentPage())?.originalName??'';
+  objectChain=await objectChainOf(uuid);
+  await refresh();record({type:'selection',at:Date.now(),selection});
 }
 async function locate(uuid=root){if(!uuid)return;const b=await logseq.Editor.getBlock(uuid);if(!b){logseq.UI.showMsg('来源暂不可用，已保留视图位置','warning');return}const p=await logseq.Editor.getPage(b.page.id);logseq.Editor.scrollToBlockInPage(p.originalName??p.name,uuid);record({type:'locate-source',uuid,at:Date.now()});logseq.provideStyle({key:'work-view-source-highlight',style:'.ls-block[blockid="'+uuid+'"]{background:#d9eee5!important;box-shadow:inset 3px 0 #278365!important;border-radius:4px}'});
   // Native navigation supplies its own target highlight. Do not enter edit mode.
 }
 async function reveal(uuid:string){if(!base.some(r=>r.uuid===uuid)){logseq.UI.showMsg('此块不在当前工作视图中','warning');return}revealEvent={uuid,nonce:Date.now()};visible=true;style(true);logseq.showMainUI({autoFocus:false});publish('focus')}
+// Breadcrumb click: render the ancestor object itself, without expanding its deeper objects.
+async function crumbTo(uuid:string){const r=await focusObject(uuid,'breadcrumb');if(r&&(r as any).ok===false)logseq.UI.showMsg('无法切换到该上级对象','warning')}
 
 async function poll(){
   const startedAt=Date.now();if(lastPoll&&(visible||externalActive)){pollGaps.push(startedAt-lastPoll);if(pollGaps.length>1200)pollGaps.shift()}lastPoll=startedAt;
@@ -61,18 +104,26 @@ async function poll(){
   if(!stopped)pollTimer=setTimeout(poll,Math.max(10,50-(Date.now()-startedAt)));
 }
 function close(){visible=false;style(false);logseq.hideMainUI({restoreEditingCursor:true})}
+// Native blocks live in the host document; the plugin document has no .ls-block.
+function watchHostClicks(){
+  let host:Document|null=null;try{host=window.parent&&window.parent!==window?window.parent.document:null}catch{host=null}
+  if(!host)return ()=>{};
+  const onClick=async(ev:MouseEvent)=>{if(stopped||!autoFollow)return;
+    const el=ev.target as HTMLElement|null;const blockEl=el?.closest?.('.ls-block') as HTMLElement|null;if(!blockEl)return;
+    const uuid=blockEl.getAttribute('blockid');if(!uuid)return;
+    const editing=await logseq.Editor.checkEditing().catch(()=>null);
+    if(typeof editing==='string'&&editing===uuid)return;              // 正在编辑，不抢视图
+    const r=await tryAutoFocus(uuid);
+    record({type:'block-click',uuid,autoFocus:!!(r&&(r as any).ok),reason:(r&&(r as any).reason)||null,at:Date.now()});
+  };
+  host.addEventListener('click',onClick,true);
+  return ()=>{host!.removeEventListener('click',onClick,true)};
+}
 logseq.ready(async()=>{
+ try{
   graph=(await logseq.App.getCurrentGraph())?.path??'';
-  // An explicit ASCII command key works with the installed file-Graph host.
-  off.push(logseq.App.registerCommand('block-context-menu-item',{key:'live-preview-block',label:'实时预览此块'},async(event:any)=>{record({type:'context-menu',at:Date.now(),hasUuid:typeof event?.uuid==='string'});if(event?.uuid)await select(event.uuid)}));
-  off.push(logseq.App.registerCommandPalette({key:'live-preview-current',label:'实时预览当前块',keybinding:{binding:'mod+alt+p'}},async()=>{const b=await logseq.Editor.getCurrentBlock();if(b)await select(b.uuid);else logseq.UI.showMsg('先点击一个块，再打开实时预览','warning')}));
-  off.push(logseq.App.registerCommand('block-context-menu-item',{key:'work-view-reveal',label:'在当前工作视图定位'},async(event:any)=>{if(event?.uuid)await reveal(event.uuid)}));
-  off.push(logseq.DB.onChanged(()=>{if(root&&(visible||externalActive))scheduleRefresh()}));
-  off.push(logseq.App.onCurrentGraphChanged(async()=>{selection++;root=null;base=[];draft=null;publish('missing',Date.now(),'图谱已切换，请重新选择来源块');externalActive=false;close();graph=(await logseq.App.getCurrentGraph())?.path??''}));
-  document.getElementById('close')!.onclick=close;document.getElementById('locate')!.onclick=()=>locate();
-  const external=document.getElementById('external')!;external.style.display='inline';external.onclick=()=>{externalActive=true;logseq.App.openExternalLink(endpoint+'/#'+RUNTIME.token)};
-  const previous=localStorage.getItem('work-view:last:'+graph);if(previous)await select(previous);
-  void poll();
+  // Channel setup comes FIRST: panel DOM may not exist yet, and a throw there must not
+  // leave the plugin half-connected (that happened once during this session).
   const commands=new EventSource(endpoint+'/commands?token='+encodeURIComponent(RUNTIME.token));commands.onmessage=async(e)=>{const c=JSON.parse(e.data);if(c.graph===graph&&c.root===root&&base.some(r=>r.uuid===c.uuid)){await locate(c.uuid);void fetch(endpoint+'/command-result',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({id:c.id,uuid:c.uuid,at:Date.now()})})}};
   // Agent-facing structured view channel. Same relay, same scope guard as locate.
   const viewOps=new EventSource(endpoint+'/view-ops?token='+encodeURIComponent(RUNTIME.token));let lastAgentNote=0;
@@ -85,7 +136,38 @@ logseq.ready(async()=>{
     if(c.op?.type==='scope'){const uuid=c.op.root??c.op.uuid;if(typeof uuid!=='string'||!uuid)return viewResult({id:c.id,ok:false,reason:'scope-root-required',at,scope:scope()});
       const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});if(!b)return viewResult({id:c.id,ok:false,reason:'scope-root-not-readable',at,scope:scope()});
       await select(uuid);agentNote('Agent 切换了工作范围');return viewResult({id:c.id,ok:true,at,scope:scope(),state:getViewState()})}
+    // Read the CURRENT view without asserting a root: scope changes (clicks, breadcrumbs)
+    // race with the relay's heartbeat, so callers need a way to resync.
+    if(c.op?.type==='current'){const st:any=getViewState();if(st)st.page=page;return viewResult({id:c.id,ok:true,at,scope:scope(),state:st})}
     if(c.root!==root)return viewResult({id:c.id,ok:false,reason:'root-mismatch',at,scope:scope()});
+    // Object focus: render one object as the work view root (used by clicks and breadcrumbs).
+    if(c.op?.type==='object-focus'){const uuid=c.op.uuid;if(typeof uuid!=='string'||!uuid)return viewResult({id:c.id,ok:false,reason:'uuid-required',at});
+      const r:any=await focusObject(uuid,c.op.reason??'agent');agentNote(r.ok?'已聚焦对象：'+(c.op.title??''):'无法聚焦该对象');
+      return viewResult({id:c.id,ok:!!r.ok,reason:r.reason,at,state:getViewState()})}
+    if(c.op?.type==='auto-follow'){autoFollow=c.op.enabled!==false;lastSignature='';publish('saved');
+      return viewResult({id:c.id,ok:true,at,autoFollow})}
+    if(c.op?.type==='simulate-click'){const uuid=c.op.uuid;if(typeof uuid!=='string'||!uuid)return viewResult({id:c.id,ok:false,reason:'uuid-required',at});
+      const r:any=await tryAutoFocus(uuid);return viewResult({id:c.id,ok:!!r.ok,reason:r.reason,at,autoFollow,chain:objectChain})}
+    // Test-fixture ops: only used to build/remove synthetic objects during validation.
+    if(c.op?.type==='insert-object'){if(c.op.confirm!==true)return viewResult({id:c.id,ok:false,reason:'confirm-required',at});
+      try{const b:any=await logseq.Editor.insertBlock(c.op.parent,String(c.op.content??''),{sibling:false});
+        return viewResult({id:c.id,ok:!!b,uuid:b?.uuid,at})}
+      catch(err){return viewResult({id:c.id,ok:false,reason:'insert-failed:'+String(err),at})}}
+    // Test-fixture helper: insert a markdown subtree (tab-indented) under a parent.
+    if(c.op?.type==='insert-tree'){if(c.op.confirm!==true)return viewResult({id:c.id,ok:false,reason:'confirm-required',at});
+      try{const lines=String(c.op.markdown??'').replace(/\r/g,'').split('\n').filter(l=>l.trim());
+        const stack:Array<{uuid:string;indent:number}>=[{uuid:c.op.parent,indent:-1}];const made:string[]=[];
+        for(const line of lines){const indent=(line.match(/^\t*/)??[''])[0].length;const text=line.replace(/^\t+/,'').replace(/^-\s*/,'');
+          while(stack.length>1&&stack[stack.length-1].indent>=indent)stack.pop();
+          const parent=stack[stack.length-1].uuid;
+          const b:any=await logseq.Editor.insertBlock(parent,text,{sibling:false});
+          if(!b)throw new Error('insert returned null for: '+text.slice(0,30));
+          stack.push({uuid:b.uuid,indent});made.push(b.uuid);}
+        return viewResult({id:c.id,ok:true,at,uuids:made})}
+      catch(err){return viewResult({id:c.id,ok:false,reason:'insert-tree-failed:'+String(err),at})}}
+    if(c.op?.type==='delete-object'){if(c.op.confirm!==true)return viewResult({id:c.id,ok:false,reason:'confirm-required',at});
+      try{await logseq.Editor.removeBlock(c.op.uuid);return viewResult({id:c.id,ok:true,at})}
+      catch(err){return viewResult({id:c.id,ok:false,reason:'delete-failed:'+String(err),at})}}
     if(c.op?.type==='locate'){if(!base.some(r=>r.uuid===c.op.uuid))return viewResult({id:c.id,ok:false,reason:'uuid-not-in-view',at});await locate(c.op.uuid);agentNote('Agent 已定位原文');return viewResult({id:c.id,ok:true,uuid:c.op.uuid,at})}
     if(c.op?.type==='query'){const st:any=getViewState();if(st)st.page=page;return viewResult({id:c.id,ok:true,at,state:st})}
     // Research probe: CSS injection into panel + native block DOM (logseq.provideStyle).
@@ -101,7 +183,8 @@ logseq.ready(async()=>{
     // Research probe: inspect the host document (native blocks) vs the plugin main-UI document.
     if(c.op?.type==='dom'){const sel=String(c.op.sel??'.ls-block');const uuid=c.op.uuid??null;const probe=(doc:Document|null)=>{if(!doc)return {accessible:false};
       const all=doc.querySelectorAll(sel);const target=uuid?doc.querySelector(sel+'[blockid=\"'+uuid+'\"]'):null;
-      return {accessible:true,count:all.length,targetFound:!!target,targetBg:target?getComputedStyle(target).backgroundColor:null,targetBoxShadow:target?getComputedStyle(target).boxShadow:null,sample:all[0]?(all[0] as HTMLElement).className:null};};
+      const first=all[0] as HTMLElement|null;
+      return {accessible:true,count:all.length,targetFound:!!target,targetBg:target?getComputedStyle(target).backgroundColor:null,targetBoxShadow:target?getComputedStyle(target).boxShadow:null,sample:first?first.className:null,text:first?(first.textContent||'').trim().slice(0,80):null,hidden:first?first.hasAttribute('hidden'):null};};
       let host:Document|null=null;try{host=window.parent&&window.parent!==window?window.parent.document:null}catch(err){host=null}
       return viewResult({id:c.id,ok:true,at,selector:sel,pluginDoc:probe(document),hostDoc:probe(host),hostAccessible:!!host})}
     // Guarded by an explicit flag so it can never fire by accident.
@@ -128,5 +211,20 @@ logseq.ready(async()=>{
     try{let host:Document|null=window.parent&&window.parent!==window?window.parent.document:null;
       for(const id of hostStyles)host?.getElementById(id)?.remove();hostStyles.length=0;}catch{}
     for(const f of off)if(typeof f==='function')f()});
+  // Panel wiring last: every dependency above must already be alive, and a missing
+  // element (panel not rendered yet) must not break the plugin.
+  try{
+    off.push(logseq.App.registerCommand('block-context-menu-item',{key:'live-preview-block',label:'实时预览此块'},async(event:any)=>{record({type:'context-menu',at:Date.now(),hasUuid:typeof event?.uuid==='string'});if(event?.uuid)await select(event.uuid)}));
+    off.push(logseq.App.registerCommandPalette({key:'live-preview-current',label:'实时预览当前块',keybinding:{binding:'mod+alt+p'}},async()=>{const b=await logseq.Editor.getCurrentBlock();if(b)await select(b.uuid);else logseq.UI.showMsg('先点击一个块，再打开实时预览','warning')}));
+    off.push(logseq.App.registerCommand('block-context-menu-item',{key:'work-view-reveal',label:'在当前工作视图定位'},async(event:any)=>{if(event?.uuid)await reveal(event.uuid)}));
+    off.push(logseq.DB.onChanged(()=>{if(root&&(visible||externalActive))scheduleRefresh()}));
+    // Native-block click: auto-render the clicked object only when it is a leaf object.
+    off.push(watchHostClicks());
+    off.push(logseq.App.onCurrentGraphChanged(async()=>{selection++;root=null;base=[];draft=null;publish('missing',Date.now(),'图谱已切换，请重新选择来源块');externalActive=false;close();graph=(await logseq.App.getCurrentGraph())?.path??''}));
+    void poll();
+    const previous=localStorage.getItem('work-view:last:'+graph);if(previous)await select(previous);
+  }catch(e){record({type:'error',where:'startup-wiring',message:String(e)});void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupWiringError:String(e),at:Date.now()})}).catch(()=>{})}
   logseq.UI.showMsg('实时预览已就绪：块右键 → 实时预览此块','success');
+ }catch(e){console.error(e);record({type:'error',where:'startup-early',message:String(e)});
+   void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupEarlyError:String(e),stack:(e as any)?.stack,at:Date.now()})}).catch(()=>{})}
 }).catch(e=>{console.error(e);void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupError:String(e),stack:e?.stack,at:Date.now()})})});

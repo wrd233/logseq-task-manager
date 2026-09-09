@@ -25,7 +25,21 @@ export async function sendOp(op,{graph,root,timeoutMs=4000}={}){
   return {id,ok:false,reason:'timeout-no-plugin-response'};
 }
 export async function state(){const d=await inspect();const t=(d.telemetry??[]).at(-1)??null;return {snapshot:d.snapshot,telemetryLast:t,viewOpsPeers:d.viewOps??0,commandsPeers:d.commands??0,viewResults:(d.viewResults??[]).slice(-3)}}
-export async function liveState({graph,root}={}){return sendOp({type:'query'},{graph,root})}
+// Scope can change while the agent works (clicks, breadcrumbs, scope op) and the relay's
+// snapshot lags behind. Read the live scope from the freshest telemetry heartbeat instead.
+export async function scope(){const d=await inspect();const t=(d.telemetry??[]).at(-1)??null;
+  return {graph:t?.graph??d.graph,root:t?.root??d.root,instance:t?.instance??d.instance};}
+// One-shot op against the live scope, so callers cannot use a stale root by accident.
+// A scope change (click/breadcrumb/scope op) races with the relay heartbeat, so a
+// root-mismatch is retried once against a freshly read scope.
+export async function call(op,opts={}){
+  const s=await scope();const first=await sendOp(op,{...s,...opts});
+  if(first.reason!=='root-mismatch')return first;
+  const s2=await scope();return sendOp(op,{...s2,...opts});
+}
+// Read the plugin's CURRENT view without asserting a root (scope-change race safe).
+export async function current(){const s=await scope();return sendOp({type:'current'},{graph:s.graph,root:s.root});}
+export async function liveState(scopeArg){return scopeArg?sendOp({type:'query'},scopeArg):current()}
 
 const [, , cmd, ...rest] = process.argv;
 if(cmd==='inspect'){console.log(JSON.stringify(await inspect(),null,2))}
