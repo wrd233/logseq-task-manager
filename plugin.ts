@@ -1,5 +1,5 @@
 import {render,referencedIds,layoutState,getViewState,applyViewOp,type Row,type Snapshot} from './render';
-import {parse} from './model.mjs';
+import {ancestry,workObject,clickDecision} from './focus.mjs';
 declare const logseq:any;declare const RUNTIME:{port:number;token:string};
 const endpoint=`http://127.0.0.1:${RUNTIME.port}`;
 const instance=crypto.randomUUID();const hostStyles:string[]=[];
@@ -9,50 +9,55 @@ let fetchEpoch=0;const off:Array<()=>void>=[];const measurements:any[]=[];
 let lastPoll=0;const pollGaps:number[]=[];
 // Object-focus: which object the work view currently represents, and its ancestor object chain.
 let objectUuid:string|null=null,objectChain:Array<{uuid:string;title:string}>=[],autoFollow=true;
+let held:string|null=null,focusEpoch=0;
+function saveScope(){if(root){localStorage.setItem('work-view:last:'+graph,root);localStorage.setItem('work-view:scope:'+graph,JSON.stringify({root,held}))}}
 function record(event:any){measurements.push(event);if(measurements.length>500)measurements.shift()}
 function flatten(block:any,depth=0,out:Row[]=[],parent:string|null=null){if(!block?.uuid)return out;out.push({uuid:block.uuid,content:block.content??block.title??'',depth,sourceParent:parent});for(const child of block.children??[])if(!Array.isArray(child))flatten(child,depth+1,out,block.uuid);return out}
-// ---- Object focus ----
-// Focusable objects (clicking them may point the work view at them): task-status blocks
-// and blocks carrying an object marker. Other markers stay as context rows.
-const OBJECT_ROLES=new Set(['MiniProject','事务','任务']);
-// Hierarchy levels: every marked block that can contain an object. The breadcrumb walks
-// through these, so [阶段性目标] / [事项] appear between a task and its MiniProject.
-const HIERARCHY_ROLES=new Set(['MiniProject','事务','任务','阶段性目标','事项','项目卡片']);
-function isObject(content:string){const p=parse(content||'');return !!p.task||OBJECT_ROLES.has(p.role??'')}
-function isHierarchyLevel(content:string){const p=parse(content||'');return !!p.task||HIERARCHY_ROLES.has(p.role??'')}
-function objectLabel(content:string){const p=parse(content||'');if(p.task)return '任务';if(p.role)return p.role;return '文本'}
-function blockTitle(content:string){const first=String(content||'').split('\n')[0].replace(/^\s*id::.*/,'').trim();return first.length>42?first.slice(0,42)+'…':first||'(空块)'}
-async function childBlocks(uuid:string):Promise<any[]>{const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});return (b?.children??[]).filter((x:any)=>!Array.isArray(x))}
-async function hasDeeperObject(uuid:string):Promise<boolean>{const kids=await childBlocks(uuid);for(const k of kids){if(isObject(k.content??''))return true;if(await hasDeeperObject(k.uuid))return true}return false}
-async function objectChainOf(uuid:string):Promise<Array<{uuid:string;title:string}>>{const out:Array<{uuid:string;title:string}>=[];let cur:any=uuid,guard=0;
-  while(cur&&guard++<60){const b=await logseq.Editor.getBlock(cur);if(!b)break;out.unshift({uuid:b.uuid,title:blockTitle(b.content??'')});const parentId=b.parent?.id;if(!parentId)break;const p=await logseq.Editor.getBlock(parentId);if(!p||!isHierarchyLevel(p.content??''))break;cur=p.uuid}
-  return out}
-async function focusObject(uuid:string,reason:string){
-  const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});if(!b){logseq.UI.showMsg('该对象暂不可读','warning');return {ok:false,reason:'object-not-readable'}}
-  selection++;fetchEpoch++;root=uuid;objectUuid=uuid;draft=null;base=[];lastSignature='';visible=true;
-  localStorage.setItem('work-view:last:'+graph,uuid);
+// All scope changes share a latest-request guard. No async result may revive an old click.
+async function traceOf(uuid:string){try{return await ancestry(uuid,(id:any)=>logseq.Editor.getBlock(id))}catch(e){record({type:'error',where:'ancestry',message:String(e)});return {path:[],objects:[],complete:false}}}
+async function enterScope(uuid:string,reason:string,explicit=false){
+  const epoch=++focusEpoch,g=graph;const trace=await traceOf(uuid);
+  if(epoch!==focusEpoch||g!==graph||stopped)return {ok:false,reason:'superseded'};
+  if(!trace.complete||trace.path[0]!==uuid)return {ok:false,reason:'source-not-readable'};
+  if(!explicit&&!trace.objects.some((x:any)=>x.uuid===uuid))return {ok:false,reason:'not-an-object'};
+  return commitScope(uuid,trace,reason,explicit?'explicit':reason==='breadcrumb'?'breadcrumb':null,epoch);
+}
+async function commitScope(uuid:string,trace:any,reason:string,nextHeld:string|null,epoch:number){
+  const currentPage=await logseq.Editor.getCurrentPage();
+  if(epoch!==focusEpoch||stopped)return {ok:false,reason:'superseded'};
+  held=nextHeld;objectChain=trace.objects;objectUuid=trace.objects.some((x:any)=>x.uuid===uuid)?uuid:null;
+  if(root!==uuid){selection++;fetchEpoch++;root=uuid;draft=null;base=[];focus=null;revealEvent=null;}
+  lastSignature='';visible=true;
+  saveScope();
   logseq.setMainUIInlineStyle({position:'fixed',top:'48px',right:'0',left:'auto',bottom:'0',width:'44vw',height:'calc(100vh - 48px)',zIndex:50,background:'#f9fbfa',borderLeft:'1px solid #dfe6e2'});
   style(true);logseq.showMainUI({autoFocus:false});
-  page=(await logseq.Editor.getCurrentPage())?.originalName??'';
-  objectChain=await objectChainOf(uuid);
-  await refresh();
-  record({type:'object-focus',uuid,reason,chain:objectChain.length,at:Date.now()});
-  return {ok:true,uuid,chain:objectChain}
+  page=currentPage?.originalName??'';await refresh();
+  if(epoch!==focusEpoch)return {ok:false,reason:'superseded'};
+  record({type:'object-focus',uuid,reason,held,chain:objectChain.length,at:Date.now()});
+  return {ok:true,uuid,chain:objectChain,held};
 }
+async function focusObject(uuid:string,reason:string){return enterScope(uuid,reason)}
 async function tryAutoFocus(uuid:string){
   if(!autoFollow||stopped)return {ok:false,reason:'auto-follow-off'};
-  const b=await logseq.Editor.getBlock(uuid,{includeChildren:true});if(!b)return {ok:false,reason:'block-not-readable'};
-  if(!isObject(b.content??''))return {ok:false,reason:'not-an-object'};
-  if(uuid===root)return {ok:false,reason:'already-focused'};
-  if(await hasDeeperObject(uuid))return {ok:false,reason:'has-deeper-object'};
-  const r=await focusObject(uuid,'click');return r;
+  const epoch=++focusEpoch,g=graph,trace=await traceOf(uuid);
+  if(epoch!==focusEpoch||g!==graph||stopped)return {ok:false,reason:'superseded'};
+  const decision=clickDecision({root,held},trace);
+  if(decision.action==='keep'){
+    if(decision.release){held=null;saveScope();lastSignature='';publish('focus')}
+    if(base.some(r=>r.uuid===uuid)){focus=uuid;publish('focus')}
+    return {ok:true,reason:decision.reason,uuid:root};
+  }
+  if(decision.uuid===root){objectChain=trace.objects;held=null;saveScope();focus=uuid;publish('focus');return {ok:true,reason:'already-focused',uuid:root}}
+  const result=await commitScope(decision.uuid,{...trace,objects:trace.objects},'click',null,epoch);
+  if(epoch===focusEpoch){focus=uuid;publish('focus')}
+  return result;
 }
 function style(open:boolean){logseq.provideStyle({key:'live-preview-reserve',style:open?'#main-content-container{margin-right:44vw!important}.cp__sidebar-main-content{padding-right:12px!important}':''})}
 function publish(kind:string,startedAt=Date.now(),error?:string){
   const rows=base.map(r=>draft?.uuid===r.uuid?{...r,content:draft.content}:r);
-  const signature=JSON.stringify([selection,rows,draft?.uuid??null,focus,revealEvent,kind,error]);if(signature===lastSignature)return;lastSignature=signature;
-  const snapshot:Snapshot={instance,selection,seq:++seq,root,graph,focus,reveal:revealEvent,rows,draft:draft?.uuid??null,kind,observedAt:Date.now(),startedAt,page,error,objectUuid,objectChain,autoFollow};
-  if(visible)render(snapshot,locate,{onCrumb:crumbTo});
+  const signature=JSON.stringify([selection,rows,draft?.uuid??null,focus,revealEvent,kind,error,objectUuid,objectChain,held,autoFollow]);if(signature===lastSignature)return;lastSignature=signature;
+  const snapshot:Snapshot={instance,selection,seq:++seq,root,graph,focus,reveal:revealEvent,rows,draft:draft?.uuid??null,kind,observedAt:Date.now(),startedAt,page,error,objectUuid,objectChain,autoFollow,held};
+  if(visible)render(snapshot,locate,{onCrumb:crumbTo,onEnter:(uuid)=>focusObject(uuid,'explicit-object'),onResume:()=>{held=null;saveScope();lastSignature='';publish('focus')},onClose:close});
   requestAnimationFrame(()=>{record({type:'render',seq:snapshot.seq,kind,rows:rows.length,readToFrameMs:Date.now()-startedAt,observedToFrameMs:Date.now()-snapshot.observedAt,at:Date.now()});});
   // Optional external viewer. No Graph content is persisted by the relay.
   void fetch(endpoint+'/snapshot',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify(snapshot)}).catch(()=>{});
@@ -61,30 +66,25 @@ async function refresh(){
   if(!root||stopped)return;const id=root,epoch=++fetchEpoch,scope=selection,startedAt=Date.now();
   try{const block=await logseq.Editor.getBlock(id,{includeChildren:true});if(stopped||scope!==selection||epoch!==fetchEpoch)return;
     if(!block){base=[];draft=null;publish('missing',startedAt,'来源块已删除或暂不可用');return}
-    base=flatten(block);
+    const trace=await traceOf(id);if(scope!==selection||epoch!==fetchEpoch)return;
+    if(trace.complete){objectChain=trace.objects;objectUuid=workObject(block.content)?id:null;}
+    base=flatten(block,0,[],trace.path[1]??null);
     const current=new Set(base.map(r=>r.uuid));
     // Keep already organized references, even after a source block leaves the subtree.
     const saved=JSON.parse(localStorage.getItem('work-view:v1:'+JSON.stringify([graph,root]))??'{}');
     const retained=new Set<string>([...(layoutState().key==='work-view:v1:'+JSON.stringify([graph,root])?referencedIds():[]),...(saved.items??[]).map((r:any)=>r.uuid)]);
     for(const uuid of retained)if(!current.has(uuid)){const b=await logseq.Editor.getBlock(uuid);const parent=b?.parent?.id?await logseq.Editor.getBlock(b.parent.id):null;if(scope!==selection||epoch!==fetchEpoch)return;base.push(b?{uuid,content:b.content??'',depth:0,outside:true,sourceParent:parent?.uuid??null}:{uuid,content:'',depth:0,missing:true})}
     if(draft&&!base.some(r=>r.uuid===draft!.uuid))draft=null;publish(draft?'draft':'saved',startedAt);
-  }catch(e){record({type:'error',where:'refresh',message:String(e)});publish('error',startedAt,'读取失败；保留上次预览，稍后重试')}
+  }catch(e){if(stopped||scope!==selection||epoch!==fetchEpoch)return;record({type:'error',where:'refresh',message:String(e)});publish('error',startedAt,'读取失败；保留上次预览，稍后重试')}
 }
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,35)}
-async function select(uuid:string){selection++;fetchEpoch++;root=uuid;objectUuid=uuid;draft=null;base=[];lastSignature='';visible=true;
-  localStorage.setItem('work-view:last:'+graph,uuid);
-  logseq.setMainUIInlineStyle({position:'fixed',top:'48px',right:'0',left:'auto',bottom:'0',width:'44vw',height:'calc(100vh - 48px)',zIndex:50,background:'#f9fbfa',borderLeft:'1px solid #dfe6e2'});
-  style(true);logseq.showMainUI({autoFocus:false});
-  page=(await logseq.Editor.getCurrentPage())?.originalName??'';
-  objectChain=await objectChainOf(uuid);
-  await refresh();record({type:'selection',at:Date.now(),selection});
-}
+async function select(uuid:string){return enterScope(uuid,'explicit',true)}
 async function locate(uuid=root){if(!uuid)return;const b=await logseq.Editor.getBlock(uuid);if(!b){logseq.UI.showMsg('来源暂不可用，已保留视图位置','warning');return}const p=await logseq.Editor.getPage(b.page.id);logseq.Editor.scrollToBlockInPage(p.originalName??p.name,uuid);record({type:'locate-source',uuid,at:Date.now()});logseq.provideStyle({key:'work-view-source-highlight',style:'.ls-block[blockid="'+uuid+'"]{background:#d9eee5!important;box-shadow:inset 3px 0 #278365!important;border-radius:4px}'});
   // Native navigation supplies its own target highlight. Do not enter edit mode.
 }
 async function reveal(uuid:string){if(!base.some(r=>r.uuid===uuid)){logseq.UI.showMsg('此块不在当前工作视图中','warning');return}revealEvent={uuid,nonce:Date.now()};visible=true;style(true);logseq.showMainUI({autoFocus:false});publish('focus')}
-// Breadcrumb click: render the ancestor object itself, without expanding its deeper objects.
-async function crumbTo(uuid:string){const r=await focusObject(uuid,'breadcrumb');if(r&&(r as any).ok===false)logseq.UI.showMsg('无法切换到该上级对象','warning')}
+// Breadcrumb ascent holds this source subtree until an explicit entry or an outside click.
+async function crumbTo(uuid:string){const r=await focusObject(uuid,'breadcrumb');if(r&&(r as any).ok===false&&(r as any).reason!=='superseded')logseq.UI.showMsg('无法切换到该上级对象','warning')}
 
 async function poll(){
   const startedAt=Date.now();if(lastPoll&&(visible||externalActive)){pollGaps.push(startedAt-lastPoll);if(pollGaps.length>1200)pollGaps.shift()}lastPoll=startedAt;
@@ -111,8 +111,6 @@ function watchHostClicks(){
   const onClick=async(ev:MouseEvent)=>{if(stopped||!autoFollow)return;
     const el=ev.target as HTMLElement|null;const blockEl=el?.closest?.('.ls-block') as HTMLElement|null;if(!blockEl)return;
     const uuid=blockEl.getAttribute('blockid');if(!uuid)return;
-    const editing=await logseq.Editor.checkEditing().catch(()=>null);
-    if(typeof editing==='string'&&editing===uuid)return;              // 正在编辑，不抢视图
     const r=await tryAutoFocus(uuid);
     record({type:'block-click',uuid,autoFocus:!!(r&&(r as any).ok),reason:(r&&(r as any).reason)||null,at:Date.now()});
   };
@@ -214,17 +212,19 @@ logseq.ready(async()=>{
   // Panel wiring last: every dependency above must already be alive, and a missing
   // element (panel not rendered yet) must not break the plugin.
   try{
-    off.push(logseq.App.registerCommand('block-context-menu-item',{key:'live-preview-block',label:'实时预览此块'},async(event:any)=>{record({type:'context-menu',at:Date.now(),hasUuid:typeof event?.uuid==='string'});if(event?.uuid)await select(event.uuid)}));
-    off.push(logseq.App.registerCommandPalette({key:'live-preview-current',label:'实时预览当前块',keybinding:{binding:'mod+alt+p'}},async()=>{const b=await logseq.Editor.getCurrentBlock();if(b)await select(b.uuid);else logseq.UI.showMsg('先点击一个块，再打开实时预览','warning')}));
+    off.push(logseq.App.registerCommand('block-context-menu-item',{key:'live-preview-block',label:'从这个 block 打开工作视图'},async(event:any)=>{record({type:'context-menu',at:Date.now(),hasUuid:typeof event?.uuid==='string'});if(event?.uuid)await select(event.uuid)}));
+    off.push(logseq.App.registerCommandPalette({key:'live-preview-current',label:'从当前 block 打开工作视图',keybinding:{binding:'mod+alt+p'}},async()=>{const b=await logseq.Editor.getCurrentBlock();if(b)await select(b.uuid);else logseq.UI.showMsg('先点击一个块，再打开实时预览','warning')}));
     off.push(logseq.App.registerCommand('block-context-menu-item',{key:'work-view-reveal',label:'在当前工作视图定位'},async(event:any)=>{if(event?.uuid)await reveal(event.uuid)}));
     off.push(logseq.DB.onChanged(()=>{if(root&&(visible||externalActive))scheduleRefresh()}));
-    // Native-block click: auto-render the clicked object only when it is a leaf object.
+    off.push(logseq.App.registerCommand('block-context-menu-item',{key:'work-view-enter-object',label:'以此对象进入工作视图'},async(event:any)=>{if(event?.uuid){const trace=await traceOf(event.uuid);const object=trace.objects.at(-1);if(object)await focusObject(object.uuid,'explicit-object');else logseq.UI.showMsg('此处没有识别出的工作对象','warning')}}));
+    // Ordinary clicks resolve the nearest object through every source context block.
     off.push(watchHostClicks());
-    off.push(logseq.App.onCurrentGraphChanged(async()=>{selection++;root=null;base=[];draft=null;publish('missing',Date.now(),'图谱已切换，请重新选择来源块');externalActive=false;close();graph=(await logseq.App.getCurrentGraph())?.path??''}));
+    off.push(logseq.App.onCurrentGraphChanged(async()=>{selection++;focusEpoch++;fetchEpoch++;held=null;objectUuid=null;objectChain=[];root=null;base=[];draft=null;publish('missing',Date.now(),'图谱已切换，请重新选择来源块');externalActive=false;close();graph=(await logseq.App.getCurrentGraph())?.path??''}));
     void poll();
-    const previous=localStorage.getItem('work-view:last:'+graph);if(previous)await select(previous);
+    const previous=localStorage.getItem('work-view:last:'+graph);if(previous){let saved:any={};try{saved=JSON.parse(localStorage.getItem('work-view:scope:'+graph)??'{}')}catch{}
+      const trace=await traceOf(previous);if(trace.complete)await commitScope(previous,trace,'restore',saved.root===previous?saved.held:'explicit',++focusEpoch);}
   }catch(e){record({type:'error',where:'startup-wiring',message:String(e)});void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupWiringError:String(e),at:Date.now()})}).catch(()=>{})}
-  logseq.UI.showMsg('实时预览已就绪：块右键 → 实时预览此块','success');
+  logseq.UI.showMsg('实时预览已就绪：块右键 → 从这个 block 打开工作视图','success');
  }catch(e){console.error(e);record({type:'error',where:'startup-early',message:String(e)});
    void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupEarlyError:String(e),stack:(e as any)?.stack,at:Date.now()})}).catch(()=>{})}
 }).catch(e=>{console.error(e);void fetch(endpoint+'/telemetry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify({startupError:String(e),stack:e?.stack,at:Date.now()})})});

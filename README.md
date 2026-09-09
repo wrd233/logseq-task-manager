@@ -1,6 +1,6 @@
 # Logseq 工作视图实验
 
-本轮结果见 [PRESENTATION-VALIDATION.md](PRESENTATION-VALIDATION.md)；Agent 介入实机验证见 [AGENT-VALIDATION.md](AGENT-VALIDATION.md)。
+本轮对象聚焦结果见 [OBJECT-FOCUS.md](OBJECT-FOCUS.md)；前轮 Presentation 结果见 [PRESENTATION-VALIDATION.md](PRESENTATION-VALIDATION.md)；Agent 介入实机验证见 [AGENT-VALIDATION.md](AGENT-VALIDATION.md)。
 
 已在本机 Logseq 文件型 Graph 中进行原生操作验证。插件名：**Block Live Preview 实验**。这是独立技术原型，不依赖 Task Copilot Kernel，也不修改工作对象的正式状态。
 
@@ -8,13 +8,14 @@
 
 ## 直接使用
 
-1. 在 Logseq 中右键点击一个块左侧的圆点，选择 **实时预览此块**。原生菜单较长时，需要向下滚动。
-2. 或点击块进入编辑，然后按 **⌘⌥P**（Command + Option + P）。
-3. 右侧显示这个块及其子块；继续在左侧编辑，预览跟随更新。
-4. 想换范围，就对另一个块重复上述操作。普通点击其他块不会自动更换预览范围。
-5. **独立窗口**会在默认浏览器打开同一份预览。此后可以关闭停靠面板，浏览器仍会更新。
-6. 预览圆点用于折叠；不会改变 Logseq 的块结构。**原文**用于定位，预览正文双击也可请求定位。
+1. 普通点击任意内容块，沿原文父链找到最近的 `**[事务]**` / `**[事项]**` / `**[任务]**` 对象，或带 `#MiniProject` 的 `**[MiniProject]**` 对象。普通上下文可穿过，独立 TODO 不是本轮对象。
+2. 顶部 breadcrumb 只显示对象。点击上层后显示 **保持此范围**：内部浏览不再下钻，点击外部对象自然切换。
+3. 要明确进入子对象，使用视图内 **进入**，或原文块右键 **以此对象进入工作视图**。
+4. 要以任意普通块为临时范围，使用块圆点右键 **从这个 block 打开工作视图**，或编辑块后按 **⌘⌥P**。这不改变该块的对象身份。
+5. 拖动手柄调整排列，Tab / Shift+Tab 调整视图缩进，圆点折叠；正文仍在 Logseq 编辑。布局与保持状态可在插件重载后恢复。
+6. **原文**、每行的 ↗ 或正文双击用于定位来源；原文点击已折叠的视图条目时，可主动展开并定位。
 
+当前浏览器接收器依然存在，但本轮聚焦导航验收针对 Logseq 停靠视图。独立窗口按钮当前隐藏。
 停靠预览可独立运行。浏览器预览需要本地 relay 服务保持运行。完全停止采样可在 Logseq 插件管理中禁用本插件；仅关闭外部标签页暂不会停止插件采样。
 
 ## 构建与服务
@@ -36,7 +37,8 @@ Logseq 手动载入插件时选择本目录，**不要选择 dist 子目录**。
 
 | 文件 | 职责 |
 |---|---|
-| plugin.ts | 选块、草稿采样、DB 变化订阅、停靠与外部预览桥接 |
+| plugin.ts | 原文点击、对象范围与临时保持、草稿采样、DB 更新与视图桥接 |
+| focus.mjs | 两类对象识别、完整原文父链、范围决策与初始排列试验 |
 | render.ts | Markdown 净化与渲染，按 UUID 更新行，预览折叠状态 |
 | shell.html | 连续行布局与轻量视觉样式 |
 | server.mjs | 可选本地 HTTP/SSE 中继，内存快照与测量数据 |
@@ -47,7 +49,7 @@ Logseq 手动载入插件时选择本目录，**不要选择 dist 子目录**。
 
 ## Agent 结构化接口
 
-本地 relay 的 `/view-ops` SSE 流是 Agent 唯一入口；插件按 graph+root 校验范围，操作只影响 presentation 状态，不调用任何 Logseq 写接口。
+本地 relay 的 `/view-ops` SSE 流提供结构化操作。`layout/reorder/indent/focus/collapse` 只影响 Presentation；`scope` 明确选择任意块，`object-focus` 只接受本轮识别出的对象。另有历史研究 probe 可写原文或操作 Git，因此整个通道尚不是正式只读安全边界，见 OBJECT-FOCUS.md。
 
 ```sh
 node agent-client.mjs state          # 当前连接与范围概览
@@ -64,7 +66,7 @@ node agent-client.mjs op '{"type":"focus","uuid":"..."}'
 - 从根块子树进入，持续跟踪已纳入 UUID；支持插件重载恢复范围。完整进程重启和重建索引尚未验收。
 - 常见 Markdown 由 Marked 渲染；把 `[现状]`、`[注]` 等标签压缩显示，并隐藏 id:: 行。
 - 不提供 Logseq 完整渲染器：宏、查询、公式、嵌入块、引用展开、Org 格式尚未适配；图片当前主动不渲染。链接不等同于 Logseq 内部导航。
-- 输入中的草稿为只读临时覆盖；本插件没有 updateBlock、moveBlock 等正文写入路径。
+- 输入中的草稿为只读临时覆盖；普通聚焦、视图布局和定位不更新原文。历史 Agent 研究 probe 仍有写入能力，本轮未调用。
 - 约 50ms 的 SDK 采样不是逐按键事件订阅；输入法组合态、后台节流、长块和大树需要后续专门测试。
 - 插件每两秒补发快照。关闭外部标签后的采样回收和进程守护尚未完成。
 
@@ -78,8 +80,10 @@ node agent-client.mjs op '{"type":"focus","uuid":"..."}'
 
 ## Agent 介入的已知限制
 
-- Agent 只能改 presentation 状态；`eligible-for-review` 不是写入授权，本轮没有实现任何写回事务。
+- 正式 Presentation 操作只改视图；`eligible-for-review` 不是写入授权。历史研究 probe 与正式操作需区分，本轮未实现写回事务。
 - `layout` 需要提交全部条目（101 块约 6–8 KB）；更大范围需要增量表达。
 - `move` 不是可逆操作，回滚请用 `layout` 快照，不要用反向 `reorder`。
 - `focus` 只支持单选；没有“用户主动移出引用”的接口，占位会累积。
 - 插件重载仍需人工操作；插件安装路径被移动后 Logseq 会静默失效（已用符号链接修复，见 AGENT-VALIDATION.md §5）。
+
+对象聚焦验证：`node --test focus.test.mjs model.test.mjs plugin-focus.test.mjs`。完整实机矩阵与限制见 [OBJECT-FOCUS.md](OBJECT-FOCUS.md)。
