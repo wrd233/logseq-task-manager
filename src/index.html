@@ -1,0 +1,6 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="vditor/dist/index.css"><link rel="stylesheet" href="style.css"></head><body>
+<header><button id="library" title="返回文档库">‹ 文档库</button><span id="title">长文档</span><details id="more"><summary aria-label="文档选项" title="文档选项">···</summary><div><button id="format" aria-pressed="false">显示格式工具</button><button id="external">在外部编辑器打开</button><button id="source">定位来源引用</button><button id="restore">撤销收纳，恢复原文</button></div></details><button id="close" aria-label="关闭长文档">×</button></header>
+<div id="conflict" hidden>检测到两个版本，暂不覆盖任何一方。<button id="copy">另存草稿并继续编辑</button><button id="reload">另存草稿后加载外部版本</button></div>
+<section id="list"><input id="search" placeholder="搜索文档…" aria-label="搜索长文档全文"><div id="results"></div></section>
+<main id="editor" hidden></main><footer><span id="status" role="status">准备就绪</span><span id="hint">编辑后自动保存</span></footer><div id="resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整左侧文档宽度"></div>
+<script src="sdk.js"></script><script src="vditor/dist/index.min.js"></script><script src="plugin.js"></script></body></html>
