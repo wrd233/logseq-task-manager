@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {synchronize,signature,organization,validate} from './source-sync.mjs';
+const rows=()=>[{uuid:'r',depth:0,content:'root'},{uuid:'a',depth:1,content:'A'},{uuid:'b',depth:2,content:'B'},{uuid:'c',depth:1,content:'C'}];
+function fixture(){let data=rows();return {read:async()=>structuredClone(data),move:async s=>{const i=data.findIndex(x=>x.uuid===s.uuid);let e=i+1;while(e<data.length&&data[e].depth>data[i].depth)e++;const cut=data.splice(i,e-i);const ti=data.findIndex(x=>x.uuid===s.target);let at=ti+1;if(!s.children)while(at<data.length&&data[at].depth>data[ti].depth)at++;const delta=data[ti].depth+(s.children?1:0)-cut[0].depth;cut.forEach(x=>x.depth+=delta);data.splice(at,0,...cut);}}}
+test('source parent/child inversion and sibling reorder preserve every UUID and body',async()=>{const f=fixture(),items=[{uuid:'r',depth:0},{uuid:'c',depth:1},{uuid:'b',depth:1},{uuid:'a',depth:2}];const result=await synchronize({...f,plan:{items,source:signature(rows())},check:async()=>{}});assert.equal(result.ok,true);assert.deepEqual(organization(await f.read()),items);});
+test('stale body preview cannot write',async()=>{const f=fixture();await assert.rejects(()=>synchronize({...f,plan:{items:organization(rows()),source:'old'},check:async()=>{}}),/source-changed/)});
+test('root substitution and missing membership rejected',()=>{assert.throws(()=>validate(rows(),[{uuid:'c',depth:0},...organization(rows()).slice(1)]));assert.throws(()=>validate(rows(),organization(rows()).slice(1)))});
+test('partial failure is explicit, no blind rollback',async()=>{const f=fixture();let count=0;const r=await synchronize({...f,plan:{source:signature(rows()),items:[{uuid:'r',depth:0},{uuid:'c',depth:1},{uuid:'b',depth:1},{uuid:'a',depth:2}]},check:async()=>{if(count++)throw Error('editing-started')}});assert.equal(r.ok,false);assert.equal(r.partial,true);assert.equal(r.applied.length,1)});

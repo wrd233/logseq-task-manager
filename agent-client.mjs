@@ -1,5 +1,6 @@
 // Agent-side structured client for the work view. Talks only to the local relay;
-// it never calls Logseq write APIs, so source text cannot change from here.
+// Only explicit sync-source operations change source organization.
+import {pathToFileURL} from 'node:url';
 import {readFile} from 'node:fs/promises';
 const {port,token}=JSON.parse(await readFile(new URL('./runtime.json',import.meta.url),'utf8'));
 const base=`http://127.0.0.1:${port}`;
@@ -34,13 +35,14 @@ export async function scope(){const d=await inspect();const t=(d.telemetry??[]).
 // root-mismatch is retried once against a freshly read scope.
 export async function call(op,opts={}){
   const s=await scope();const first=await sendOp(op,{...s,...opts});
-  if(first.reason!=='root-mismatch')return first;
+  if(first.reason!=='root-mismatch'||!['query','current'].includes(op.type))return first;
   const s2=await scope();return sendOp(op,{...s2,...opts});
 }
 // Read the plugin's CURRENT view without asserting a root (scope-change race safe).
 export async function current(){const s=await scope();return sendOp({type:'current'},{graph:s.graph,root:s.root});}
 export async function liveState(scopeArg){return scopeArg?sendOp({type:'query'},scopeArg):current()}
 
+if(process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url){
 const [, , cmd, ...rest] = process.argv;
 if(cmd==='inspect'){console.log(JSON.stringify(await inspect(),null,2))}
 else if(cmd==='state'){
@@ -57,3 +59,5 @@ else if(cmd==='op'){
   console.log(JSON.stringify(await sendOp(op,{graph:d.snapshot?.graph,root:d.snapshot?.root}),null,2));
 }
 else console.log('usage: node agent-client.mjs inspect|state|query|op \'{"type":...}\'');
+
+}

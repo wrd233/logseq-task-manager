@@ -49,6 +49,9 @@ Logseq 手动载入插件时选择本目录，**不要选择 dist 子目录**。
 
 ## Agent 结构化接口
 
+最新轻量入口和同步说明见 [AGENT-WORK-VIEW.md](AGENT-WORK-VIEW.md)：`work-view.mjs read / op / sync-preview / sync-apply`。同步只在明确的 sync-apply 中移动原文顺序与层级。
+
+
 本地 relay 的 `/view-ops` SSE 流提供结构化操作。`layout/reorder/indent/focus/collapse` 只影响 Presentation；`scope` 明确选择任意块，`object-focus` 只接受本轮识别出的对象。另有历史研究 probe 可写原文或操作 Git，因此整个通道尚不是正式只读安全边界，见 OBJECT-FOCUS.md。
 
 ```sh
@@ -80,10 +83,18 @@ node agent-client.mjs op '{"type":"focus","uuid":"..."}'
 
 ## Agent 介入的已知限制
 
-- 正式 Presentation 操作只改视图；`eligible-for-review` 不是写入授权。历史研究 probe 与正式操作需区分，本轮未实现写回事务。
+- 正式 Presentation 操作只改视图；`eligible-for-review` 不是写入授权。历史研究 probe 与正式操作需区分，新增显式原文组织同步，但多次 moveBlock 不是原子事务。
 - `layout` 需要提交全部条目（101 块约 6–8 KB）；更大范围需要增量表达。
 - `move` 不是可逆操作，回滚请用 `layout` 快照，不要用反向 `reorder`。
 - `focus` 只支持单选；没有“用户主动移出引用”的接口，占位会累积。
 - 插件重载仍需人工操作；插件安装路径被移动后 Logseq 会静默失效（已用符号链接修复，见 AGENT-VALIDATION.md §5）。
 
 对象聚焦验证：`node --test focus.test.mjs model.test.mjs plugin-focus.test.mjs`。完整实机矩阵与限制见 [OBJECT-FOCUS.md](OBJECT-FOCUS.md)。
+
+## 展示级别（2026-09-11）
+
+每条悬停或键盘聚焦后，可选自动 / 强调 / 正常 / 弱化 / 压缩；压缩保留三行预览和“展开全文”，原始文本按钮可查看完整 Markdown（含渲染器未支持的语法）。子树折叠与正文压缩独立。
+
+本地默认规则：TODO/DOING/NOW、现状/决定/问一下优先强调；其余超过 160 字符或 8 行的正文压缩；短注/想法及完成状态弱化。规则无需 Agent。显式选择及正文展开状态按对象与 UUID 保存，刷新或重载后保留；自动选项清除覆盖。Agent 使用 display 操作，详见 AGENT-WORK-VIEW.md。
+
+构建与 27 个测试通过；真实 Logseq 验证了 Agent 切换级别/恢复自动、展开全文、原始 Markdown 查看和重载恢复。相同对象正文和 sourceDepth 读回一致。不会写回展示级别、删块或改正文。启发式不等于重要性判断，用户和 Agent 可随时覆盖。

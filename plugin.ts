@@ -1,4 +1,5 @@
 import {render,referencedIds,layoutState,getViewState,applyViewOp,type Row,type Snapshot} from './render';
+import {validate,organization,signature,synchronize} from './source-sync.mjs';
 import {ancestry,workObject,clickDecision} from './focus.mjs';
 declare const logseq:any;declare const RUNTIME:{port:number;token:string};
 const endpoint=`http://127.0.0.1:${RUNTIME.port}`;
@@ -10,12 +11,14 @@ let lastPoll=0;const pollGaps:number[]=[];
 // Object-focus: which object the work view currently represents, and its ancestor object chain.
 let objectUuid:string|null=null,objectChain:Array<{uuid:string;title:string}>=[],autoFollow=true;
 let held:string|null=null,focusEpoch=0;
+let syncing=false;
 function saveScope(){if(root){localStorage.setItem('work-view:last:'+graph,root);localStorage.setItem('work-view:scope:'+graph,JSON.stringify({root,held}))}}
 function record(event:any){measurements.push(event);if(measurements.length>500)measurements.shift()}
 function flatten(block:any,depth=0,out:Row[]=[],parent:string|null=null){if(!block?.uuid)return out;out.push({uuid:block.uuid,content:block.content??block.title??'',depth,sourceParent:parent});for(const child of block.children??[])if(!Array.isArray(child))flatten(child,depth+1,out,block.uuid);return out}
 // All scope changes share a latest-request guard. No async result may revive an old click.
 async function traceOf(uuid:string){try{return await ancestry(uuid,(id:any)=>logseq.Editor.getBlock(id))}catch(e){record({type:'error',where:'ancestry',message:String(e)});return {path:[],objects:[],complete:false}}}
 async function enterScope(uuid:string,reason:string,explicit=false){
+  if(syncing)return {ok:false,reason:'source-sync-in-progress'};
   const epoch=++focusEpoch,g=graph;const trace=await traceOf(uuid);
   if(epoch!==focusEpoch||g!==graph||stopped)return {ok:false,reason:'superseded'};
   if(!trace.complete||trace.path[0]!==uuid)return {ok:false,reason:'source-not-readable'};
@@ -38,7 +41,7 @@ async function commitScope(uuid:string,trace:any,reason:string,nextHeld:string|n
 }
 async function focusObject(uuid:string,reason:string){return enterScope(uuid,reason)}
 async function tryAutoFocus(uuid:string){
-  if(!autoFollow||stopped)return {ok:false,reason:'auto-follow-off'};
+  if(syncing||!autoFollow||stopped)return {ok:false,reason:'auto-follow-off'};
   const epoch=++focusEpoch,g=graph,trace=await traceOf(uuid);
   if(epoch!==focusEpoch||g!==graph||stopped)return {ok:false,reason:'superseded'};
   const decision=clickDecision({root,held},trace);
@@ -63,7 +66,7 @@ function publish(kind:string,startedAt=Date.now(),error?:string){
   void fetch(endpoint+'/snapshot',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RUNTIME.token},body:JSON.stringify(snapshot)}).catch(()=>{});
 }
 async function refresh(){
-  if(!root||stopped)return;const id=root,epoch=++fetchEpoch,scope=selection,startedAt=Date.now();
+  if(syncing||!root||stopped)return;const id=root,epoch=++fetchEpoch,scope=selection,startedAt=Date.now();
   try{const block=await logseq.Editor.getBlock(id,{includeChildren:true});if(stopped||scope!==selection||epoch!==fetchEpoch)return;
     if(!block){base=[];draft=null;publish('missing',startedAt,'来源块已删除或暂不可用');return}
     const trace=await traceOf(id);if(scope!==selection||epoch!==fetchEpoch)return;
@@ -129,6 +132,7 @@ logseq.ready(async()=>{
   function agentNote(text:string){const foot=document.getElementById('foot');if(!foot)return;if(Date.now()-lastAgentNote<400)return;lastAgentNote=Date.now();foot.textContent=text;setTimeout(()=>{const f=document.getElementById('foot');if(f)f.textContent='视图组织已保存 · 正文在 Logseq 编辑'},2600)}
   viewOps.onmessage=async(e)=>{const c=JSON.parse(e.data);const at=Date.now();
     const scope=(extra:any={})=>({graphSeen:graph,rootSeen:root,cmdGraph:c.graph,cmdRoot:c.root,...extra});
+    if(syncing)return viewResult({id:c.id,ok:false,reason:'source-sync-in-progress',at});
     if(c.graph!==graph)return viewResult({id:c.id,ok:false,reason:'graph-mismatch',at,scope:scope()});
     // Switching the work scope is the one op that must precede a root match.
     if(c.op?.type==='scope'){const uuid=c.op.root??c.op.uuid;if(typeof uuid!=='string'||!uuid)return viewResult({id:c.id,ok:false,reason:'scope-root-required',at,scope:scope()});
@@ -138,6 +142,25 @@ logseq.ready(async()=>{
     // race with the relay's heartbeat, so callers need a way to resync.
     if(c.op?.type==='current'){const st:any=getViewState();if(st)st.page=page;return viewResult({id:c.id,ok:true,at,scope:scope(),state:st})}
     if(c.root!==root)return viewResult({id:c.id,ok:false,reason:'root-mismatch',at,scope:scope()});
+    if(c.op?.type==='sync-preview'||c.op?.type==='sync-source'){
+      syncing=true;fetchEpoch++;document.body.style.pointerEvents='none';
+      const g=graph,r=root, originalSelection=selection;
+      const read=async()=>{const b=await logseq.Editor.getBlock(r,{includeChildren:true});if(!b)throw Error('source-unavailable');return flatten(b)};
+      const check=async()=>{if(graph!==g||root!==r||selection!==originalSelection)throw Error('scope-changed');if(await logseq.Editor.checkEditing())throw Error('finish-editing-before-sync');if(c.op.type==='sync-source'&&JSON.stringify(organization((getViewState() as any).items))!==JSON.stringify(c.op.plan?.items))throw Error('layout-changed-during-sync');};
+      try {
+        await check();const source=await read(),state:any=getViewState();
+        if(state?.blocks.some((b:any)=>b.missing||b.outside))throw Error('view-has-missing-or-outside-blocks');
+        validate(source,state.items);
+        if(c.op.type==='sync-preview')return viewResult({id:c.id,ok:true,at,plan:{graph:g,root:r,items:organization(state.items),source:signature(source)},before:organization(source),blocks:source});
+        const plan=c.op.plan;
+        if(!plan||plan.graph!==g||plan.root!==r)throw Error('preview-plan-required');
+        if(JSON.stringify(plan.items)!==JSON.stringify(organization(state.items)))throw Error('layout-changed-since-preview');
+        const result=await synchronize({plan,read,check,move:async(step:any)=>{await logseq.Editor.moveBlock(step.uuid,step.target,{children:step.children,before:false})}});
+        agentNote(result.ok?'视图顺序和层级已同步到 Logseq':'同步已停止，请检查原文');
+        return viewResult({id:c.id,...result,at});
+      }catch(err){return viewResult({id:c.id,ok:false,reason:String(err),at})}
+      finally{syncing=false;document.body.style.pointerEvents='';await refresh()}
+    }
     // Object focus: render one object as the work view root (used by clicks and breadcrumbs).
     if(c.op?.type==='object-focus'){const uuid=c.op.uuid;if(typeof uuid!=='string'||!uuid)return viewResult({id:c.id,ok:false,reason:'uuid-required',at});
       const r:any=await focusObject(uuid,c.op.reason??'agent');agentNote(r.ok?'已聚焦对象：'+(c.op.title??''):'无法聚焦该对象');
