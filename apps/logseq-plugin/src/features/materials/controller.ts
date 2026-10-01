@@ -17,6 +17,7 @@ export class Materials {
   private graph = "";
   private current: MaterialRecord | null = null;
   private editor: MarkdownEditor | null = null;
+  private editorDocument: string | null = null;
   private base = "";
   private canonical = "";
   private suppress = false;
@@ -58,7 +59,7 @@ export class Materials {
     const paste = (event: ClipboardEvent) => this.onPaste(event);
     doc?.addEventListener("click", link, true); document.addEventListener("click", link, true); doc?.addEventListener("paste", paste, true);
     this.disposers.push(() => { doc?.removeEventListener("click", link, true); document.removeEventListener("click", link, true); doc?.removeEventListener("paste", paste, true); });
-    this.disposers.push(logseq.App.onCurrentGraphChanged(() => { this.preserveDraft(); this.epoch++; this.current = null; this.store = null; this.contextUuid = null; void this.panel.close(); }));
+    this.disposers.push(logseq.App.onCurrentGraphChanged(() => { this.preserveDraft(); this.cancelSave(); this.composing = false; this.epoch++; this.current = null; this.store = null; this.contextUuid = null; void this.panel.close(); }));
     this.editorRoot.addEventListener("compositionstart", () => { this.composing = true; this.cancelSave(); });
     this.editorRoot.addEventListener("compositionend", () => { this.composing = false; this.scheduleSave(); });
     for (const type of ["beforeinput", "input", "paste"]) this.editorRoot.addEventListener(type, () => { this.inputUntil = Date.now() + 1500; }, true);
@@ -67,6 +68,7 @@ export class Materials {
     this.timer = window.setInterval(() => void this.poll().catch(this.fail), 650);
   }
   private fail = (error: unknown): void => {
+    if (this.disposed) return;
     this.status.textContent = error instanceof Error ? error.message : String(error); this.status.classList.add("wb-error");
     if (this.notifiedError !== this.status.textContent) { this.notifiedError = this.status.textContent; void logseq.UI.showMsg(this.status.textContent, "warning"); }
   };
@@ -81,22 +83,28 @@ export class Materials {
   }
   private cancelSave(): void { if (this.saveTimer !== null) window.clearTimeout(this.saveTimer); this.saveTimer = null; }
   private scheduleSave(): void {
-    this.preserveDraft(); this.cancelSave(); if (!this.composing && this.dirty() && this.conflict.hidden) this.saveTimer = window.setTimeout(() => void this.save().catch(this.fail), 900);
+    this.preserveDraft(); this.cancelSave(); if (!this.disposed && !this.composing && this.dirty() && this.conflict.hidden) this.saveTimer = window.setTimeout(() => void this.save().catch(this.fail), 900);
   }
   private async ensureStore(): Promise<MaterialStore> {
+    const epoch = this.epoch;
+    if (this.disposed) throw new Error("材料模块已关闭。");
     const graph = await logseq.App.getCurrentGraph();
+    if (epoch !== this.epoch || this.disposed) throw new Error("材料 Graph 范围已变化。");
     if (!graph?.path) throw new Error("请先打开本地文件 Graph。");
     const directory = String(logseq.settings?.materialsDirectory ?? "");
     if (!directory.trim()) throw new Error("请先在插件设置中配置 Graph 外的材料目录。");
     const root = normalizeRoot(directory, graph.path);
     if (!this.store || this.graph !== graph.path || this.store.root !== root) {
-      this.graph = graph.path; this.store = new MaterialStore(desktopFiles(() => this.graph), root); await this.store.init();
+      const graphPath = graph.path;
+      this.graph = graphPath; this.store = new MaterialStore(desktopFiles(() => graphPath), root); await this.store.init();
+      if (epoch !== this.epoch || this.disposed) throw new Error("材料 Graph 范围已变化。");
     }
     return this.store;
   }
   async library(rootUuid: string | null = null, content = ""): Promise<void> {
+    if (this.disposed) return;
     const navigation = panels.reserve();
-    await this.leave(); if (!panels.isLatest(navigation)) return;
+    await this.leave(); if (this.disposed || !panels.isLatest(navigation)) return;
     this.epoch++; this.current = null; this.contextUuid = rootUuid; this.conflict.hidden = true;
     this.editorRoot.hidden = true; this.body.hidden = false;
     this.heading.replaceChildren(element("strong", rootUuid ? "当前工作的材料" : "材料库"), button("关联文件", () => void this.associate(rootUuid).catch(this.fail)), button("关闭", () => void this.panel.close()));
@@ -140,8 +148,10 @@ export class Materials {
     if (!target.Vditor) throw new Error("文档编辑器初始化失败。"); return target.Vditor;
   }
   async openDoc(id: string): Promise<void> {
+    if (this.disposed) return;
     const navigation = panels.reserve();
-    await this.leave(); const epoch = ++this.epoch, store = await this.ensureStore();
+    await this.leave(); if (this.disposed || !panels.isLatest(navigation)) return;
+    const epoch = ++this.epoch, store = await this.ensureStore();
     const [record, text] = await Promise.all([store.record(id), store.read(id)]);
     if (epoch !== this.epoch || !panels.isLatest(navigation)) return;
     this.current = record; this.base = text; this.stableExternal = null; this.conflict.hidden = true;
@@ -168,10 +178,17 @@ export class Materials {
       } catch (error) { this.suppress = false; this.fail(error); }
     }
   }
-  private setEditor(text: string): void { if (!this.editor) return; this.suppress = true; this.editor.setValue(text, true); this.canonical = this.editor.getValue(); this.suppress = false; }
-  private async leave(): Promise<void> { this.preserveDraft(); this.cancelSave(); await this.save().catch(() => undefined); }
+  private setEditor(text: string): void {
+    if (!this.editor) return;
+    this.suppress = true;
+    // Reused documents retain focus/undo; switching documents still clears the old undo stack.
+    if (this.editor.getValue() !== text || (this.editorDocument !== null && this.editorDocument !== this.current?.id)) this.editor.setValue(text, true);
+    this.editorDocument = this.current?.id ?? null; this.canonical = this.editor.getValue(); this.suppress = false;
+  }
+  private async leave(): Promise<void> { this.preserveDraft(); this.cancelSave(); await this.save().catch(this.fail); }
   private async save(): Promise<void> {
     if (this.saving) return this.saving;
+    if (this.disposed) return;
     if (!this.current || !this.editor || !this.store || !this.dirty() || this.composing || !this.conflict.hidden) return;
     const epoch = this.epoch, record = this.current, store = this.store, text = this.editor.getValue(), expected = this.base;
     this.preserveDraft(); this.message("保存中…");
@@ -186,7 +203,8 @@ export class Materials {
     this.pollBusy = true; const epoch = this.epoch;
     try {
       const text = await this.store.read(this.current.id);
-      if (epoch !== this.epoch || text === this.base) { this.stableExternal = null; return; }
+      if (epoch !== this.epoch || this.disposed) return;
+      if (text === this.base) { this.stableExternal = null; return; }
       if (this.stableExternal !== text) { this.stableExternal = text; return; }
       if (this.dirty() || this.composing) { this.preserveDraft(); this.conflict.hidden = false; this.message("外部版本变化，当前草稿已保留。"); return; }
       if (Date.now() < this.inputUntil) return;
@@ -195,36 +213,54 @@ export class Materials {
   }
   private async keepDraft(loadExternal: boolean): Promise<void> {
     if (!this.current || !this.editor || !this.store) return;
-    const id = this.current.id, text = this.editor.getValue();
+    const epoch = this.epoch, id = this.current.id, key = this.key(), text = this.editor.getValue();
     const copy = await this.store.create(text, { graph: this.graph, title: `${this.current.title} · 草稿副本`, recoveredFrom: id });
-    localStorage.removeItem(this.key()); this.canonical = text; this.conflict.hidden = true;
+    if (epoch !== this.epoch || this.disposed) return;
+    localStorage.removeItem(key); this.canonical = text; this.conflict.hidden = true;
     await this.openDoc(loadExternal ? id : copy.id);
   }
+  private assertScope(epoch: number): void {
+    if (epoch !== this.epoch || this.disposed) throw new Error("材料 Graph 范围已变化。");
+  }
+  private async sourceAction<T>(epoch: number, graph: string, action: () => Promise<T>): Promise<T> {
+    this.assertScope(epoch);
+    const current = await logseq.App.getCurrentGraph(); this.assertScope(epoch);
+    if (current?.path !== graph) throw new Error("材料 Graph 范围已变化。");
+    const value = await action(); this.assertScope(epoch); return value;
+  }
   private async associate(uuid: string | null = this.contextUuid): Promise<void> {
-    const block = uuid ? await logseq.Editor.getBlock(uuid) : await logseq.Editor.getCurrentBlock();
+    const epoch = this.epoch, currentGraph = await logseq.App.getCurrentGraph(); this.assertScope(epoch);
+    if (!currentGraph?.path) throw new Error("请先打开本地文件 Graph。");
+    const graph = currentGraph.path;
+    const block = await this.sourceAction(epoch, graph, () => uuid ? logseq.Editor.getBlock(uuid) : logseq.Editor.getCurrentBlock());
     if (!block) throw new Error("请先选择关联材料的工作块。");
-    if (await logseq.Editor.checkEditing()) throw new Error("请先结束当前块编辑，再关联文件。");
+    if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("请先结束当前块编辑，再关联文件。");
     const path = await requestTextPrompt({ title: "关联已有 Markdown", label: "文件绝对路径", initialValue: "", confirmLabel: "关联" });
-    if (!path) return;
-    const store = await this.ensureStore();
-    await ensurePersistentSourceIdentity({ getBlock: id => logseq.Editor.getBlock(id), upsertBlockProperty: (id, key, value) => logseq.Editor.upsertBlockProperty(id, key, value) }, { uuid: block.uuid, content: block.content ?? "", isDbGraph: await currentGraphIsDb(logseq.App) });
-    const record = await store.reference(path.trim(), { graph: this.graph, sourceUuid: block.uuid });
-    await logseq.Editor.insertBlock(block.uuid, makeLink(record), { sibling: false });
+    this.assertScope(epoch); if (!path) return;
+    const store = await this.ensureStore(); this.assertScope(epoch);
+    await ensurePersistentSourceIdentity({ getBlock: id => this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(id)), upsertBlockProperty: (id, key, value) => this.sourceAction(epoch, graph, () => logseq.Editor.upsertBlockProperty(id, key, value)) }, { uuid: block.uuid, content: block.content ?? "", isDbGraph: await this.sourceAction(epoch, graph, () => currentGraphIsDb(logseq.App)) });
+    const record = await store.reference(path.trim(), { graph, sourceUuid: block.uuid }); this.assertScope(epoch);
+    await this.sourceAction(epoch, graph, () => logseq.Editor.insertBlock(block.uuid, makeLink(record), { sibling: false }));
     await this.openDoc(record.id);
   }
   private async locate(): Promise<void> {
-    if (!this.current?.sourceUuid || this.current.graph !== this.graph) throw new Error("当前材料没有此 Graph 中的来源。");
-    const block = await logseq.Editor.getBlock(this.current.sourceUuid); if (!block) throw new Error("来源暂不可用。");
-    const page = await logseq.Editor.getPage(block.page.id); if (page) logseq.Editor.scrollToBlockInPage(page.originalName ?? page.name, block.uuid);
+    const record = this.current, graph = this.graph, epoch = this.epoch;
+    if (!record?.sourceUuid || record.graph !== graph) throw new Error("当前材料没有此 Graph 中的来源。");
+    const block = await this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(record.sourceUuid!));
+    if (!block) throw new Error("来源暂不可用。");
+    const page = await this.sourceAction(epoch, graph, () => logseq.Editor.getPage(block.page.id));
+    if (page) await this.sourceAction(epoch, graph, async () => logseq.Editor.scrollToBlockInPage(page.originalName ?? page.name, block.uuid));
   }
   private async restore(): Promise<void> {
-    if (!this.current?.sourceUuid || this.current.graph !== this.graph) throw new Error("请切换到来源 Graph。");
-    if (await logseq.Editor.checkEditing()) throw new Error("请先结束块编辑再恢复原文。");
-    const block = await logseq.Editor.getBlock(this.current.sourceUuid); if (!block) throw new Error("来源暂不可用，捕获原文仍保留。");
-    await logseq.Editor.updateBlock(block.uuid, restoreCapture(block.content ?? "", this.current)); this.message("已恢复收纳原文，外部文件保留。");
+    const record = this.current, graph = this.graph, epoch = this.epoch;
+    if (!record?.sourceUuid || record.graph !== graph) throw new Error("请切换到来源 Graph。");
+    if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("请先结束块编辑再恢复原文。");
+    const block = await this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(record.sourceUuid!));
+    if (!block) throw new Error("来源暂不可用，捕获原文仍保留。");
+    await this.sourceAction(epoch, graph, () => logseq.Editor.updateBlock(block.uuid, restoreCapture(block.content ?? "", record))); this.message("已恢复收纳原文，外部文件保留。");
   }
   private onPaste(event: ClipboardEvent): void {
-    if (!logseq.settings?.materialsAutoCapture || this.pendingCapture) return;
+    if (this.disposed || !logseq.settings?.materialsAutoCapture || this.pendingCapture) return;
     const target = event.target as HTMLTextAreaElement | null, data = event.clipboardData;
     if (target?.tagName !== "TEXTAREA" || !target.closest(".block-editor") || !data || data.files.length || [...data.types].some(type => type.includes("logseq"))) return;
     const plain = data.getData("text/plain"), html = data.getData("text/html");
@@ -233,6 +269,7 @@ export class Materials {
     if (!String(logseq.settings?.materialsDirectory ?? "").trim()) return;
     event.preventDefault(); event.stopImmediatePropagation(); this.pendingCapture = true;
     const uuid = target.closest(".ls-block")?.getAttribute("blockid");
+    const epoch = this.epoch;
     const snapshot = { value: target.value, start: target.selectionStart, end: target.selectionEnd };
     const pending = `workbench:pending:${crypto.randomUUID()}`;
     let capturedRecord: MaterialRecord | null = null;
@@ -243,7 +280,7 @@ export class Materials {
       const source = await logseq.Editor.getBlock(uuid); if (!source) throw new Error("来源块暂不可读。");
       const markdown = html && !/^\s{0,3}(#{1,6}\s|```|~~~)/m.test(plain) ? this.converter.turndown(DOMPurify.sanitize(html)) || plain : plain;
       const record = await store.create(markdown, { graph, sourceUuid: uuid, original: plain, originalHTML: html }); capturedRecord = record;
-      if ((await logseq.App.getCurrentGraph())?.path !== graph || !target.isConnected || target.value !== snapshot.value || target.selectionStart !== snapshot.start || target.selectionEnd !== snapshot.end || hostDocument()?.activeElement !== target) throw new Error("材料已保存，编辑位置发生变化，请从材料库打开。");
+      if (epoch !== this.epoch || this.disposed || (await logseq.App.getCurrentGraph())?.path !== graph || !target.isConnected || target.value !== snapshot.value || target.selectionStart !== snapshot.start || target.selectionEnd !== snapshot.end || hostDocument()?.activeElement !== target) throw new Error("材料已保存，编辑位置发生变化，请从材料库打开。");
       target.focus();
       const persisted = source.properties?.id === uuid;
       if (persisted) target.setSelectionRange(snapshot.start, snapshot.end);
@@ -252,7 +289,7 @@ export class Materials {
       if (!hostDocument()?.execCommand("insertText", false, insertion)) throw new Error("编辑器拒绝插入，材料和原文已保留。");
       localStorage.removeItem(pending);
     })().catch(error => {
-      if (!capturedRecord && target.isConnected && target.value === snapshot.value && target.selectionStart === snapshot.start && target.selectionEnd === snapshot.end && hostDocument()?.activeElement === target) {
+      if (!capturedRecord && epoch === this.epoch && !this.disposed && target.isConnected && target.value === snapshot.value && target.selectionStart === snapshot.start && target.selectionEnd === snapshot.end && hostDocument()?.activeElement === target) {
         target.setSelectionRange(snapshot.start, snapshot.end);
         if (hostDocument()?.execCommand("insertText", false, plain)) localStorage.removeItem(pending);
       }
@@ -260,14 +297,22 @@ export class Materials {
     }).finally(() => { this.pendingCapture = false; });
   }
   async linkedContext(content: string): Promise<object[]> {
-    const store = await this.ensureStore(), ids = new Set([...content.matchAll(/longdoc:\/\/([0-9a-f-]{36})/gi)].map(match => match[1]).filter((id): id is string => !!id));
+    const epoch = this.epoch, store = await this.ensureStore(), graph = this.graph, ids = new Set([...content.matchAll(/longdoc:\/\/([0-9a-f-]{36})/gi)].map(match => match[1]).filter((id): id is string => !!id));
     const values: object[] = [];
     for (const id of ids) {
-      const record = await store.record(id); if (record.graph && record.graph !== this.graph) continue;
+      const record = await store.record(id); if (epoch !== this.epoch || this.disposed) return [];
+      if (record.graph && record.graph !== graph) continue;
       const text = await store.read(id), digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      if (epoch !== this.epoch || this.disposed) return [];
       values.push({ id, kind: "MARKDOWN_FILE", title: record.title, content: text, version: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join(""), sourceUuid: record.sourceUuid ?? null });
     }
     return values;
   }
-  dispose(): void { this.disposed = true; this.epoch++; this.preserveDraft(); this.cancelSave(); window.clearInterval(this.timer); for (const off of this.disposers) off(); this.editor?.destroy(); void this.panel.close(); }
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true; this.epoch++; this.preserveDraft(); this.cancelSave(); window.clearInterval(this.timer);
+    for (const off of this.disposers) off();
+    // An already-started save settles against its captured store before the editor is destroyed.
+    void this.panel.close().catch(this.fail).finally(() => { this.editor?.destroy(); this.editor = null; });
+  }
 }

@@ -16,12 +16,14 @@ export function assertImportBoundaries(path, content) {
   const kernel = absolute.startsWith(`${resolve(repo, "packages/kernel/src")}/`);
   const serviceCapability = /apps\/kernel-service\/src\/(?:projection-coordinator|closure-readiness|closure-gate|closure-assessment-coordinator|maintenance-coordinator|projection-delivery)\.ts$/u.test(absolute);
   const runtime = absolute === resolve(repo, "apps/logseq-plugin/src/plugin-runtime.ts");
+  const pluginHost = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/host")}/`);
   const taskUi = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`);
   const source = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, true, path.endsWith(".mjs") ? ts.ScriptKind.JS : ts.ScriptKind.TS);
   function check(specifier) {
     if (!specifier || !ts.isStringLiteralLike(specifier)) return;
     const name = specifier.text;
     const target = name.startsWith(".") ? resolve(dirname(absolute), name) : name;
+    if (pluginHost && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features")}/`)) throw new Error(`Plugin host must not depend on feature implementations: ${path} imports ${name}`);
     if (runtime && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features")}/`)) throw new Error(`Runtime must not depend on feature controllers: ${path} imports ${name}`);
     if (taskUi && /\/(?:graph-gateway-worker|source-change-observer)\.ts$/u.test(target)) throw new Error(`Task UI must not own background resources: ${path} imports ${name}`);
     if (workView && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`)) {

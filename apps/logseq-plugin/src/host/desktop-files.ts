@@ -1,4 +1,4 @@
-import type { FileIO } from "../features/materials/store.ts";
+import type { FileIO } from "./file-io.ts";
 
 export interface DesktopBridge { doAction(args: unknown[]): Promise<unknown>; openPath(path: string): Promise<unknown> }
 export function desktopBridge(): DesktopBridge {

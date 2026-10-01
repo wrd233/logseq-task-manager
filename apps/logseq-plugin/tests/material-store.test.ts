@@ -1,9 +1,10 @@
+import type { FileIO } from "../src/host/file-io.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile, mkdir, rename, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MaterialStore, ConflictError, makeLink, normalizeRoot, restoreCapture, type FileIO } from "../src/features/materials/store.ts";
+import { MaterialStore, ConflictError, makeLink, normalizeRoot, restoreCapture } from "../src/features/materials/store.ts";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "workbench-material-"));

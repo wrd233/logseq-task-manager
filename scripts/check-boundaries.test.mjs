@@ -35,3 +35,15 @@ test("formal and query capabilities depend on structural ports rather than SQLit
   }
   assert.doesNotThrow(() => assertImportBoundaries("apps/kernel-service/src/server.ts", 'import {SqliteStore} from "@task-copilot/sqlite";'));
 });
+
+for (const extension of ["ts", "mjs"]) {
+  test(`host file capability rejects feature imports in .${extension}`, () => {
+    const path = `apps/logseq-plugin/src/host/desktop-files.${extension}`;
+    for (const code of [
+      'import type { FileIO } from "../features/materials/store.ts";',
+      'export * from "../features/materials/store.ts";',
+      'const store = import("../features/materials/store.ts");',
+    ]) assert.throws(() => assertImportBoundaries(path, code), /host must not depend/u);
+    assert.doesNotThrow(() => assertImportBoundaries(path, 'import type {FileIO} from "./file-io.ts";'));
+  });
+}
