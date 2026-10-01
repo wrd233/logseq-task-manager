@@ -1,0 +1,127 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Window} from 'happy-dom';
+import {setTimeout as delay} from 'node:timers/promises';
+
+test('combined panels preserve source text, load linked material and retain conflicting drafts across switches', async () => {
+  const browser = new Window({url: 'http://localhost/plugin/'});
+  globalThis.window = browser; globalThis.document = browser.document;
+  globalThis.localStorage = browser.localStorage;
+  globalThis.location = browser.location;
+  const files = new Map();
+  const blocks = new Map([
+    ['root', {uuid:'root', content:'TODO **[任务]** 整合工作', parent:{id:'page'}, page:{id:'page'}, children:[{uuid:'a',content:'【注】 资料',parent:{id:'root'},page:{id:'page'}},{uuid:'b',content:'TODO 阅读材料',parent:{id:'root'},page:{id:'page'}}]}],
+    ['a', {uuid:'a',content:'【注】 资料',parent:{id:'root'},page:{id:'page'}}],
+    ['b', {uuid:'b',content:'TODO 阅读材料',parent:{id:'root'},page:{id:'page'}}],
+    ['page', {name:'fixture'}],
+  ]);
+  let active = false;
+  globalThis.logseq = {
+    settings:{materialsDirectory:'/materials'},
+    App:{getCurrentGraph:async()=>({path:'/graph'}),registerCommandPalette:()=>{},onCurrentGraphChanged:()=>()=>{}},
+    Editor:{getBlock:async uuid=>blocks.get(uuid)??null,getCurrentBlock:async()=>blocks.get('root'),checkEditing:async()=>false,registerBlockContextMenuItem:()=>()=>{},getPage:async()=>({name:'fixture'}),scrollToBlockInPage:()=>{}},
+    DB:{onChanged:()=>()=>{}},UI:{showMsg:async()=>{}},
+    setMainUIInlineStyle:()=>{},showMainUI:()=>{active=true;},hideMainUI:()=>{active=false;},
+  };
+  browser.apis = {doAction:async ([op,...args])=>{
+    if(op==='readFile'){if(!files.has(args[0]))throw Error('ENOENT');return files.get(args[0]);}
+    if(op==='writeFile'){files.set(args[1],args[2]);return;}
+    if(op==='mkdir-recur')return;
+    if(op==='rename'){files.set(args[1],files.get(args[0]));files.delete(args[0]);return;}
+    if(op==='listdir')return [...files.keys()].filter(path=>path.startsWith(args[0]+'/'));
+    throw Error('unknown bridge op');
+  },openPath:async()=>{}};
+  let fakeEditor;
+  const rememberEditor = editor => { fakeEditor=editor; };
+  browser.Vditor = class {
+    constructor(root, options){this.value=options.value;rememberEditor(this);globalThis.queueMicrotask(options.after);}
+    getValue(){return this.value;}
+    setValue(text){this.value=text;}
+    destroy(){}
+  };
+  const {WorkView} = await import('../../src/features/work-view/controller.ts');
+  const {Materials} = await import('../../src/features/materials/controller.ts');
+  const {MaterialStore} = await import('../../src/features/materials/store.ts');
+  const io = {read:async path=>files.get(path),write:async(path,text)=>{files.set(path,text);},mkdir:async()=>{},rename:async(from,to)=>{files.set(to,files.get(from));files.delete(from);},list:async path=>[...files.keys()].filter(file=>file.startsWith(path+'/'))};
+  const store = new MaterialStore(io,'/materials');
+  const record = await store.create('# 材料\nbase',{graph:'/graph',sourceUuid:'root'});
+  const materials = new Materials(), work = new WorkView(()=>{});
+  try {
+    const original = JSON.stringify([...blocks]);
+    await work.open('root'); assert.equal(active,true);
+    assert.equal(work.panel.visible,true); assert.equal(browser.document.querySelectorAll('.wb-row').length,3);
+    const snapshot = work.snapshot();
+    assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'reorder',uuid:'b',target:'a',mode:'before'}).ok,true);
+    assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'sync-source'}).ok,false);
+    assert.equal(JSON.stringify([...blocks]),original);
+    await materials.library(); assert.equal(work.panel.visible,false); assert.equal(materials.panel.visible,true);
+    await materials.openDoc(record.id); assert.equal(fakeEditor.value,'# 材料\nbase');
+    fakeEditor.value='# 材料\nlocal';
+    files.set(store.file(record.id),'# 材料\nexternal');
+    await work.open('root');
+    assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
+    assert.equal(files.get(store.file(record.id)),'# 材料\nexternal');
+    const draft=JSON.parse(browser.localStorage.getItem(`workbench:draft:/graph:${record.id}`));
+    assert.equal(draft.text,'# 材料\nlocal'); assert.equal(draft.base,'# 材料\nbase');
+    await materials.openDoc(record.id);
+    assert.equal(fakeEditor.value,'# 材料\nlocal');
+    assert.equal(materials.panel.root.querySelector('.wb-conflict').hidden,false);
+    assert.equal(files.get(store.file(record.id)),'# 材料\nexternal');
+
+    // A failed capture must return the original paste when the editor is still unchanged.
+    globalThis.logseq.settings.materialsAutoCapture=true; globalThis.logseq.settings.materialsDirectory='/graph/invalid';
+    const fixture=browser.document.createElement('div'); fixture.className='ls-block'; fixture.setAttribute('blockid','b');
+    fixture.innerHTML='<div class="block-editor"><textarea></textarea></div>'; browser.document.body.append(fixture);
+    const target=fixture.querySelector('textarea'); target.focus(); target.setSelectionRange(0,0);
+    const plain=Array.from({length:32},(_,i)=>`fixture ${i}`).join('\n'); let fallback=0;
+    browser.document.execCommand=(command,_ui,value)=>{assert.equal(command,'insertText');assert.equal(value,plain);target.value=value;fallback++;return true;};
+    const event=new browser.Event('paste',{bubbles:true,cancelable:true});
+    Object.defineProperty(event,'clipboardData',{value:{files:[],types:['text/plain'],getData:type=>type==='text/plain'?plain:''}});
+    target.dispatchEvent(event);
+    for(let i=0;i<40&&!fallback;i++)await delay(5);
+    assert.equal(event.defaultPrevented,true); assert.equal(fallback,1); assert.equal(target.value,plain);
+    assert.equal([...Array(browser.localStorage.length)].map((_,i)=>browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')),false);
+  } finally {
+    work.dispose(); materials.dispose(); await browser.happyDOM.abort();
+    delete globalThis.logseq; delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location;
+  }
+});
+
+test('task panel preserves sibling modules and cannot mount after a later navigation', async () => {
+  const browser=new Window({url:'http://localhost/plugin/'});
+  globalThis.window=browser; globalThis.document=browser.document; globalThis.MutationObserver=browser.MutationObserver;
+  const {KernelClient}=await import('@task-copilot/client/browser');
+  const {panels}=await import('../../src/workspace/context.ts');
+  const {openTaskCenter}=await import('../../src/features/task-center/controller.ts');
+  const methods=['nowProjection','confirmationProjection','workMapProjection','systemProjection'];
+  const originals=methods.map(key=>KernelClient.prototype[key]);
+  for(const method of methods)KernelClient.prototype[method]=async()=>({items:[],roots:[]});
+  let widthDelay=null;
+  globalThis.logseq={
+    settings:{kernelDescriptorJson:JSON.stringify({schemaVersion:1,baseUrl:'http://127.0.0.1:1',token:'fixture',pid:1,startedAt:'2026-10-01T00:00:00Z',graphSnapshotKey:'a'.repeat(64),graphBridgeToken:'b'.repeat(64)})},
+    FileStorage:{getItem:async key=>key.includes('sidebar-width')&&widthDelay?widthDelay:null,setItem:async()=>{}},
+    setMainUIAttrs:()=>{},showMainUI:()=>{},
+  };
+  browser.document.body.innerHTML='<nav id="workbench-navigation"></nav><section data-workbench-feature="work"></section><section data-workbench-feature="materials"></section>';
+  const siblings=[...browser.document.body.children];
+  try {
+    await openTaskCenter();
+    assert.ok(browser.document.querySelector('[data-task-copilot-daily-panel]'));
+    assert.ok(siblings.every(node=>node.isConnected));
+    await openTaskCenter();
+    assert.equal(browser.document.querySelectorAll('[data-task-copilot-daily-panel]').length,1);
+    browser.document.querySelector('[data-task-copilot-daily-panel]').remove();panels.release('tasks');
+    let release;
+    widthDelay=new Promise(resolve=>{release=resolve;});
+    const oldNavigation=openTaskCenter();
+    await delay(5);
+    await panels.activate('work'); release(null);
+    await oldNavigation;
+    assert.equal(panels.active,'work');
+    assert.equal(browser.document.querySelector('[data-task-copilot-daily-panel]'),null);
+    assert.ok(siblings.every(node=>node.isConnected));
+  } finally {
+    methods.forEach((key,i)=>{KernelClient.prototype[key]=originals[i];});panels.release('work');panels.release('tasks');
+    await browser.happyDOM.abort();delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.MutationObserver;
+  }
+});

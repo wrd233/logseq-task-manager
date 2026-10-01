@@ -1,0 +1,59 @@
+# 工作台首版整合
+
+一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
+
+整合起点为本地 `vnext` 的 `07e9f0e`，迁入来源为工作视图 `88a3d10` 与长文档 `171fa66`。两个原型没有共同祖先，采用按能力移植；保留原型分支和来源记录。用户确认没有真实原型数据需要迁移，原文排列同步不进入首版。
+
+## 使用
+
+使用 Node 20，执行 `npm ci`、`npm run build`。在 Logseq 加载 `apps/logseq-plugin`，插件 ID 仍为 `task-copilot-vnext`。
+
+- 工作视图：块右键“工作台：从此块打开工作视图”，或在当前块运行“工作台：从当前块打开工作视图”。快捷键 `Cmd/Ctrl+Alt+P`。原文继续在 Logseq 编辑，拖动、Tab 缩进、折叠和展示级别保存为本地视图状态。
+- 材料：先配置 `materialsDirectory`，使用 Graph 外的独立目录；运行“工作台：关联已有 Markdown 文件”。关联不搬迁文件，工作块下新增引用。点击 `longdoc://` 引用可在共同面板内编辑，也可以用外部编辑器打开。
+- 长文本自动收纳默认关闭，配置目录后通过 `materialsAutoCapture` 开启。原始粘贴、捕获记录和保存历史分别保留；原生撤销移除引用和本次插入的来源 id，外部文件继续保留。
+- 任务：使用原有 TC 入口或共同面板的“任务”。填写 Kernel descriptor 后使用原有正式化、今天、事项详情、Closure、Undo 和恢复操作。
+
+三个模块的启用设置修改后重载插件。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
+
+粘贴收纳失败且编辑位置仍未改变时，回退到原文粘贴。未完成的捕获原文也缓存于插件本地存储，可从材料库的恢复入口另存；清理插件缓存前应先恢复这些记录。
+
+## 代码安排
+
+```text
+apps/logseq-plugin/src/
+  index.ts                         # 设置、模块组合与统一入口
+  host/                            # 面板与桌面文件桥接
+  workspace/context.ts             # 范围引用与面板切换协调
+  features/
+    work-view/                     # 导航、模型、展示与操作白名单
+    materials/                     # 文件记录、编辑、收纳、冲突
+    task-center/controller.ts      # 保留 vNext 任务控制器
+  graph-adapter.ts, source-identity.ts, ...  # 原有正式投影适配
+```
+
+纯展示模型与测试沿用原型，类型声明提供 TypeScript 接口。Marked 15.0.12 的原型分发文件与许可证保留在 `work-view/vendor/`；DOMPurify、Vditor 和富文本转换器统一进入 workspace lockfile。无需第二个插件或原型 relay 服务。
+
+## 数据安排与边界
+
+- 原文在 Graph 或原来的 Markdown 文件。关联文件的位置不变。
+- 收纳文件、关联与捕获记录、历史放在配置目录中。`.longdoc/<id>.json` 是每篇材料的独立记录；文档库从这些记录扫描，不使用原型的共享可覆盖 catalog。整个目录连同隐藏目录应一起备份。
+- 正式任务状态仍在 Kernel SQLite；视图布局与未保存草稿按 Graph 和范围保存于插件本地存储。
+- 文件写入使用前后版本比较、历史备份、临时文件与读回核对。Web Locks 协调同源插件窗口；外部程序的极端并发写入没有跨进程原子比较交换保证。
+- 目前材料目标是 macOS 文件 Graph 与本地 Markdown。PDF、图片、目录适配、独立多根工作区和 Kernel 外部文件 Evidence 契约仍是后续需求。
+- 普通块仅打开视图时不会写入 `id::`；因此索引重建后其恢复能力仍有限。显式关联文件或收纳时才保存来源身份。
+
+## 本地协作接口
+
+插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回已登记文档正文与 SHA-256。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
+
+展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。
+
+## 需求地图与验证
+
+[交互 HTML](requirements.html)从本质需求展开到叶子能力，分别标注实现状态与默认启用条件。搜索、状态筛选、展开、详情和导出只作用于此设计快照。更新 `requirements.json` 后运行 `npm run docs:requirements`；生成器校验 ID、状态与实现路径，生成不依赖网络的 HTML。
+
+`npm run check` 包含全仓类型、lint、测试、构建、依赖边界、Taste 与需求地图检查。新增回归覆盖多实例材料创建、来源不被展示操作修改、模块切换后的冲突草稿、禁用写探针、未来 schema 不被修改、恢复前 WAL 快照与 Console 跨站凭证读取。
+
+实机验证使用 [隔离环境](../rc/LOGSEQ_SANDBOX.md)，应用、home、profile、Graph、Kernel 和材料目录均在 `tmp/logseq-sandbox/`。生产 Logseq 不参与装载或验收。
+
+本轮结果与未验收边界见 [验证记录](VALIDATION.md)。

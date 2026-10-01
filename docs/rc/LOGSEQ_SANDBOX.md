@@ -31,7 +31,7 @@ npm run sandbox:stop
 
 这是进程与数据路径隔离，未建立操作系统容器。回归操作必须始终验证当前 Graph 路径位于测试目录。
 
-## 2026-10-01 实机验证
+## 2026-10-01 Desktop 基线验证（整合前）
 
 环境：macOS x86_64、Logseq 0.10.9、SDK 0.3.4、插件 0.2.0、Node 20.20.2；分支从 `origin/vnext` 的 `4f9b826` 开始。
 
@@ -50,4 +50,4 @@ npm run sandbox:stop
 
 详细本地证据位于 `tmp/logseq-sandbox/evidence/`：`isolation-runtime.json`、`task-completed-db.json`、`task-undone-db.json`、`task-reload.json`、`offline-edit.json`、`first-run-fallback.json`、`final-db.json`、`production-after.json`、截图和 `check.log`。这些证据包含测试环境本地路径，均不提交。
 
-本轮只验证上述 Desktop 基础链路，未重新执行真实 DeepSeek Gate、长期 soak、迁移或恢复发布 Gate。此前代码审查发现的 Console bootstrap/CORS、future-schema 拒绝前写入及恢复 WAL 风险仍需独立处理。
+该次基线只验证上述 Desktop 基础链路，未重新执行真实 DeepSeek Gate、长期 soak、迁移或恢复发布 Gate。当时待处理的 Console bootstrap、future-schema 拒绝前写入及恢复 WAL 风险已在后续整合中补上回归与修复；三模块和材料的新增验收见 [整合验证记录](../integration/VALIDATION.md)。

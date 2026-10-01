@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/tmp/**", "e2e-runtime/**"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/tmp/**", "**/vendor/**", "e2e-runtime/**"],
   },
   {
     files: ["**/*.ts"],
@@ -13,5 +13,9 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "error"
     }
+  },
+  {
+    files: ["apps/logseq-plugin/tests/integration/*.mjs"],
+    languageOptions: { globals: { crypto: "readonly" } },
   }
 );

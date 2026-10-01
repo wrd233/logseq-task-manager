@@ -1,8 +1,10 @@
-# Task Copilot vNext
+# Task Copilot 工作台
 
-Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natural work surface; the Local Kernel Service is the sole authority for formal state and Semantic Commits; the Plugin is a thin UI and Graph Adapter; the CLI is the reference HTTP client.
+Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext 任务管理整合为一个 Logseq 插件。工作视图与材料可独立使用，本地 Kernel 继续管理正式任务状态与语义提交。
 
-**Current capability baseline (2026-08-16, schema v22).** Authoritative product/architecture truth lives in [`docs/vnext/05`](docs/vnext/05-Task-Copilot-vNext-产品与治理宪章.md), [`06`](docs/vnext/06-Task-Copilot-vNext-领域模型与Agent架构规范.md), and [`07`](docs/vnext/07-Task-Copilot-vNext-实现路线图与阶段验收.md); the older `01–04` set is historical/superseded.
+当前整合结构、启用方法与边界见 [整合说明](docs/integration/README.md)；[交互需求树](docs/integration/requirements.html)展示从核心需求到实现位置和默认启用情况。需求数据在 `docs/integration/requirements.json`，运行 `npm run docs:requirements` 更新 HTML。
+
+**Formal Kernel baseline (2026-08-16, schema v22).** Formal task semantics and governance are defined in [`docs/vnext/05`](docs/vnext/05-Task-Copilot-vNext-产品与治理宪章.md), [`06`](docs/vnext/06-Task-Copilot-vNext-领域模型与Agent架构规范.md), and [`07`](docs/vnext/07-Task-Copilot-vNext-实现路线图与阶段验收.md); the older `01–04` set is historical/superseded. The integrated plugin scope and module boundaries are defined in [the integration guide](docs/integration/README.md) and [requirements map](docs/integration/requirements.html).
 
 - **Formal Commit is independent of Graph availability.** A legal Kernel commit is applied atomically to SQLite Current State + Commit Ledger and then creates a durable `ProjectionObligation`; Graph application is asynchronous, retryable, restart-safe, and can never overwrite a user-edited projection (`POST /v1/commits/commit`, `GET /v1/projection-obligations`, `GET /v1/projection-health`).
 - **Background semantic maintenance is bounded and persistent.** The Plugin mechanically observes Primary Anchor and structural subtree changes, suppresses its own projection writes, waits for a quiet period, and reports source changes into a persistent reconcile queue (`source_coverage` + `reconcile_jobs`, schema v12). A built-in maintenance loop reconciles only Formal WorkObjects with bounded Context Packs and typed semantic judgments; it may update `current_focus` and `ACTIONABLE ↔ WAITING`, never CREATE/PARK/COMPLETE/WorkIntent/ownership.
@@ -22,9 +24,9 @@ Task Copilot vNext is a local-first trusted work kernel. Logseq remains the natu
 - **Formalization still requires trusted USER authorization.** `Candidate → Decision Package → Plugin Trusted USER Channel → “纳入” → CREATE_WORK_OBJECT → Formal Commit → Projection`; External Agents can discover and recommend but never create; `object context <id>` gives them bounded re-entry reality and explicit allowed/user-only action boundaries.
 - **Failure principle:** Natural Work Fail Open, Formal Governance Fail Closed. Kernel/Agent/DeepSeek outage never blocks ordinary Logseq work; unclear authorization never fabricates a Formal mutation.
 
-**Current**: Phase 20 Reliability / Release Candidate — RC gate complete: backup/restore, service lifecycle, doctor, migration v16–v22, 12-day 103-object long soak, security defaults, and final DeepSeek closure eval (false READY=0) all landed (see [`RC_RELEASE_GATE.md`](RC_RELEASE_GATE.md), [`RC_INPUT_CHECKLIST.md`](RC_INPUT_CHECKLIST.md), [`docs/rc/USER_OPERATIONS_GUIDE.md`](docs/rc/USER_OPERATIONS_GUIDE.md)).
+**Kernel baseline**: Phase 20 Reliability / Release Candidate — RC gate complete: backup/restore, service lifecycle, doctor, migration v16–v22, 12-day 103-object long soak, security defaults, and final DeepSeek closure eval (false READY=0) all landed (see [`RC_RELEASE_GATE.md`](RC_RELEASE_GATE.md), [`RC_INPUT_CHECKLIST.md`](RC_INPUT_CHECKLIST.md), [`docs/rc/USER_OPERATIONS_GUIDE.md`](docs/rc/USER_OPERATIONS_GUIDE.md)).
 **Completed**: Phase 12/12.5/12.6 Discovery, Phase 13/13.5 unattended runtime + hardening, Phase 14 closure readiness + governed parent closure, Phase 15 evidence-grounded semantic closure assessment, Phase 16A/16B/16C/17 UX and conversation, Phase 20 RC preflight.
-**Next**: hold the Feature Freeze (ADR 042); small-scale real use with blocker-only fixes, then vNext 1.0.
+**Current development**: 工作视图、外部材料与任务界面的首版整合。原文排列同步明确不进入本版；旧 Feature Freeze 记录保留为历史决策，新的插件产品范围以整合说明和需求树为准。
 
 Phase 5 adds user-only Task Closure. A user can explicitly complete or cancel a Task, reopen it with a reason, amend the current Closure without overwriting its original record, inspect durable Closure history, and safely undo the most recent Closure Commit. Online `TODO → DONE` is interpreted as another user command and enters the same Kernel transaction. Agents cannot complete, cancel, reopen, or amend Closure. Phase 13.5/14 extends the same USER-only closure to MiniProject and Project: derived readiness is shown without an Objective-achieved percentage, a parent cannot close while a formal descendant is OPEN, Reopen never cascades, and an External Agent can only hand closure intent to the user through a Decision Package.
 

@@ -126,7 +126,9 @@ require(${JSON.stringify(`./${originalMain}`)});
   const descriptor = readFileSync(join(paths.state, "graph-adapter.json"), "utf8");
   const settings = join(paths.home, ".logseq/settings");
   mkdirSync(settings, { recursive: true });
-  writeFileSync(join(settings, "task-copilot-vnext.json"), JSON.stringify({ disabled: false, kernelDescriptorJson: descriptor }), { mode: 0o600 });
+  const settingsPath = join(settings, "task-copilot-vnext.json");
+  const previousSettings = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf8")) : {};
+  writeFileSync(settingsPath, JSON.stringify({ ...previousSettings, disabled: false, kernelDescriptorJson: descriptor }), { mode: 0o600 });
   // Kernel tokens rotate on restart. Update only this lab's private cache, too.
   const storage = join(paths.home, ".logseq/storages/task-copilot-vnext");
   mkdirSync(storage, { recursive: true });
