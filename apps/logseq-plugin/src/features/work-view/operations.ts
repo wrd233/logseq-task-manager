@@ -4,13 +4,17 @@ import { levels } from "./display.mjs";
 export interface ViewPresentation { items: LayoutItem[]; collapsed: string[]; overrides: Record<string, string>; expanded: string[]; selected: string }
 export type ViewResult = {ok: false; reason: string} | {ok: true; state: ViewPresentation};
 
+export function copyPresentation(state: ViewPresentation): ViewPresentation {
+  return { items: state.items.map(item => ({ ...item })), collapsed: [...state.collapsed], overrides: { ...state.overrides }, expanded: [...state.expanded], selected: state.selected };
+}
+
 /** Closed presentation-only vocabulary: source writers and research probes have no route. */
 export function applyPresentation(state: ViewPresentation, input: unknown, scope: {graph: string; root: string | null; seq: number}): ViewResult {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {ok: false, reason: "operation-required"};
   const op = input as Record<string, unknown>;
   if (op.graph !== scope.graph || op.root !== scope.root) return {ok: false, reason: "scope-mismatch"};
   if (op.expectedSeq !== scope.seq) return {ok: false, reason: "stale-view"};
-  const next: ViewPresentation = {items: state.items.map(item => ({...item})), collapsed: [...state.collapsed], overrides: {...state.overrides}, expanded: [...state.expanded], selected: state.selected};
+  const next = copyPresentation(state);
   if (!["layout", "reorder", "indent", "collapse", "display", "focus"].includes(String(op.type))) return {ok: false, reason: "unsupported-presentation-operation"};
   const has = (uuid: unknown): uuid is string => typeof uuid === "string" && state.items.some(item => item.uuid === uuid);
   if (op.type === "layout") {
