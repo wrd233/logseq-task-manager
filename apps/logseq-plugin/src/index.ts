@@ -7,6 +7,7 @@ import { isStableProjectionAnomaly } from "./formal-marker.ts";
 import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "./graph-adapter.ts";
 import { startGraphGatewayWorker, type GraphGatewayReadHost } from "./graph-gateway-worker.ts";
 import { registerOnlineDoneMarkerCommand } from "./marker-command.ts";
+import { readOptionalPrivateItem } from "./private-storage.ts";
 import { readRecoveryVerificationSnapshot } from "./recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "./source-identity.ts";
 import { clampSidebarWidth, parseSidebarWidth, sidebarLayoutSpec, SIDEBAR_DEFAULT_WIDTH, type SidebarLayoutSpec } from "./sidebar-layout.ts";
@@ -44,7 +45,7 @@ async function applyGraphEffect(adapter: LogseqGraphAdapter, effect: GraphEffect
 }
 
 async function descriptor() {
-  const stored = await logseq.FileStorage.getItem(descriptorKey);
+  const stored = await readOptionalPrivateItem(logseq.FileStorage, descriptorKey);
   const configured = logseq.settings?.kernelDescriptorJson;
   const raw = typeof stored === "string" && stored.trim() ? stored : typeof configured === "string" ? configured : "";
   if (typeof raw !== "string" || !raw.trim()) throw new Error("请先运行“Task Copilot vNext：连接 Kernel”并导入 descriptor。");

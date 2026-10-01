@@ -62,7 +62,7 @@ Forbidden 永远不变：`CREATE_WORK_OBJECT, SPLIT, MERGE, KIND_CHANGE, PROJECT
 
 ## 8. Tests
 
-`npm run check` = typecheck + lint + 216 tests + build + boundary + taste eval。新增 RC suites：
+`npm run check` = typecheck + lint + workspace tests + sandbox process-ownership tests + build + boundary + taste eval。2026-10-01 本地检查共 286 tests，通过记录见 [独立 Desktop 测试环境](LOGSEQ_SANDBOX.md)。新增 RC suites：
 - `apps/task-copilot-cli/tests/local-runtime.test.ts`
 - `packages/sqlite/tests/migration-rc.test.ts`
 - `packages/test-support/tests/phase15-closure-semantic.test.ts`

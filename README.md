@@ -46,6 +46,8 @@ npm run task-copilot -- doctor
 
 ## 开发调试（workspace 级）
 
+本地已有生产 Logseq 时，使用[独立 Desktop 测试环境](docs/rc/LOGSEQ_SANDBOX.md)。它复制应用并隔离 home、profile、Graph 和 Kernel；启动/停止仅操作测试进程。
+
 ```sh
 npm run check
 TASK_COPILOT_STATE_DIR=/path/to/private/state npm start --workspace @task-copilot/kernel-service

@@ -18,7 +18,12 @@
     "build": "node scripts/build-all.mjs && node scripts/check-built-binaries.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "taste:eval": "node scripts/evaluate-taste-candidate.mjs --candidate 0.1.1",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:boundaries && npm run taste:eval",
+    "sandbox:prepare": "node scripts/logseq-sandbox.mjs prepare",
+    "sandbox:start": "node scripts/logseq-sandbox.mjs start",
+    "sandbox:stop": "node scripts/logseq-sandbox.mjs stop",
+    "sandbox:status": "node scripts/logseq-sandbox.mjs status",
+    "test:sandbox": "node --test scripts/logseq-sandbox.test.mjs",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:sandbox && npm run build && npm run check:boundaries && npm run taste:eval",
     "task-copilot": "tsx apps/task-copilot-cli/src/main.ts"
   },
   "devDependencies": {
