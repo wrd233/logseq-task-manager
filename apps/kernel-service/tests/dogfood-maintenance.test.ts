@@ -1,3 +1,4 @@
+import { ProjectionDelivery } from "../src/projection-delivery.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -33,7 +34,7 @@ function setup(scope: { isMaintenanceEnabled(): boolean; isInScope(id: string): 
   store.putAnchor(anchor("outside"));
   const broker = new GraphRequestBroker({});
   const cognition = new SpyCognition();
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: () => at, scope }, cognition, FAKE_COGNITION_PROFILE);
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { delivery: new ProjectionDelivery(store, kernel, broker, () => at), now: () => at, scope }, cognition, FAKE_COGNITION_PROFILE);
   return { store, maintenance, cognition };
 }
 

@@ -394,6 +394,14 @@ function mapCommit(row: CommitRow): StoredCommit {
   };
 }
 
+function mapUserReadBaseline(row: Record<string, unknown>): UserReadBaseline {
+  return { workObjectId: String(row.work_object_id), lastViewedFormalVersion: Number(row.last_viewed_formal_version), lastViewedAt: String(row.last_viewed_at), lastSeenCommitId: row.last_seen_commit_id === null ? null : String(row.last_seen_commit_id) };
+}
+
+function mapWorkObject(row: Record<string, unknown>): WorkObject {
+  return { id: String(row.id), kind: row.kind as WorkObject["kind"], title: String(row.title), lifecycle: row.lifecycle as WorkObject["lifecycle"], engagement: row.engagement as WorkObject["engagement"], waitingCondition: decode(row.waiting_condition_json === null ? null : String(row.waiting_condition_json)) as WorkObject["waitingCondition"], currentFocus: row.current_focus === null ? null : String(row.current_focus), desiredOutcome: row.desired_outcome === null ? null : String(row.desired_outcome), completionChecks: decode(String(row.completion_checks_json)) as string[], version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
+}
+
 export class SqliteStore {
   readonly #database: Database.Database;
 
@@ -1086,15 +1094,19 @@ export class SqliteStore {
 
   getWorkObject(id: string): WorkObject | null {
     const row = this.#database.prepare("SELECT * FROM work_objects WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-    return row ? { id: String(row.id), kind: row.kind as WorkObject["kind"], title: String(row.title), lifecycle: row.lifecycle as WorkObject["lifecycle"], engagement: row.engagement as WorkObject["engagement"], waitingCondition: decode(row.waiting_condition_json === null ? null : String(row.waiting_condition_json)) as WorkObject["waitingCondition"], currentFocus: row.current_focus === null ? null : String(row.current_focus), desiredOutcome: row.desired_outcome === null ? null : String(row.desired_outcome), completionChecks: decode(String(row.completion_checks_json)) as string[], version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) } : null;
+    return row ? mapWorkObject(row) : null;
   }
 
   listWorkObjects(): WorkObject[] {
-    return (this.#database.prepare("SELECT id FROM work_objects ORDER BY created_at, id").all() as Array<{ id: string }>).map(({ id }) => this.getWorkObject(id)!);
+    return (this.#database.prepare("SELECT * FROM work_objects ORDER BY created_at, id").all() as Array<Record<string, unknown>>).map(mapWorkObject);
+  }
+
+  listChildWorkObjects(ownerId: string): WorkObject[] {
+    return (this.#database.prepare("SELECT w.* FROM ownerships o JOIN work_objects w ON w.id=o.child_id WHERE o.owner_id=? ORDER BY o.child_id").all(ownerId) as Array<Record<string, unknown>>).map(mapWorkObject);
   }
 
   listActionableWorkObjects(): WorkObject[] {
-    return (this.#database.prepare("SELECT id FROM work_objects WHERE lifecycle='OPEN' AND engagement='ACTIONABLE' ORDER BY created_at,id").all() as Array<{ id: string }>).map(({ id }) => this.getWorkObject(id)!);
+    return (this.#database.prepare("SELECT * FROM work_objects WHERE lifecycle='OPEN' AND engagement='ACTIONABLE' ORDER BY created_at,id").all() as Array<Record<string, unknown>>).map(mapWorkObject);
   }
 
   putUserReadBaseline(baseline: UserReadBaseline): void {
@@ -1105,11 +1117,11 @@ export class SqliteStore {
 
   getUserReadBaseline(workObjectId: string): UserReadBaseline | null {
     const row = this.#database.prepare("SELECT * FROM user_read_baselines WHERE work_object_id=?").get(workObjectId) as { work_object_id: string; last_viewed_formal_version: number; last_viewed_at: string; last_seen_commit_id: string | null; updated_at: string } | undefined;
-    return row ? { workObjectId: String(row.work_object_id), lastViewedFormalVersion: Number(row.last_viewed_formal_version), lastViewedAt: String(row.last_viewed_at), lastSeenCommitId: row.last_seen_commit_id === null ? null : String(row.last_seen_commit_id) } : null;
+    return row ? mapUserReadBaseline(row) : null;
   }
 
   listUserReadBaselines(): UserReadBaseline[] {
-    return (this.#database.prepare("SELECT work_object_id FROM user_read_baselines ORDER BY last_viewed_at DESC, work_object_id").all() as Array<{ work_object_id: string }>).map(({ work_object_id }) => this.getUserReadBaseline(String(work_object_id))!);
+    return (this.#database.prepare("SELECT * FROM user_read_baselines ORDER BY last_viewed_at DESC, work_object_id").all() as Array<Record<string, unknown>>).map(mapUserReadBaseline);
   }
 
   putOwnership(ownership: PrimaryOwnership): void {
@@ -1173,8 +1185,12 @@ export class SqliteStore {
     return row ? mapCommit(row) : null;
   }
 
-  listCommits(): StoredCommit[] {
-    return (this.#database.prepare("SELECT * FROM commits ORDER BY created_at, id").all() as CommitRow[]).map(mapCommit);
+  listCommits(query: { targetId?: string; status?: CommitStatus } = {}): StoredCommit[] {
+    const clauses: string[] = [], values: string[] = [];
+    if (query.targetId !== undefined) { clauses.push("target_id = ?"); values.push(query.targetId); }
+    if (query.status !== undefined) { clauses.push("status = ?"); values.push(query.status); }
+    const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+    return (this.#database.prepare(`SELECT * FROM commits${where} ORDER BY created_at, id`).all(...values) as CommitRow[]).map(mapCommit);
   }
 
   listRecovery(): StoredCommit[] {

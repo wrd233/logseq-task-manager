@@ -14,6 +14,7 @@ export function assertImportBoundaries(path, content) {
   const workView = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/work-view")}/`);
   const contracts = absolute.startsWith(`${resolve(repo, "packages/contracts/src")}/`);
   const kernel = absolute.startsWith(`${resolve(repo, "packages/kernel/src")}/`);
+  const serviceCapability = /apps\/kernel-service\/src\/(?:projection-coordinator|closure-readiness|closure-gate|closure-assessment-coordinator|maintenance-coordinator|projection-delivery)\.ts$/u.test(absolute);
   const runtime = absolute === resolve(repo, "apps/logseq-plugin/src/plugin-runtime.ts");
   const taskUi = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`);
   const source = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, true, path.endsWith(".mjs") ? ts.ScriptKind.JS : ts.ScriptKind.TS);
@@ -29,6 +30,7 @@ export function assertImportBoundaries(path, content) {
     if (contracts && (isBuiltin(name) || /^(?:@logseq(?:\/|$)|@task-copilot\/(?:sqlite|kernel|client)(?:\/|$)|better-sqlite3$)/u.test(name))) {
       throw new Error(`Contracts must remain browser-safe: ${path} imports ${name}`);
     }
+    if ((kernel || serviceCapability) && name === "@task-copilot/sqlite") throw new Error(`Application capability must use its storage port: ${path} imports ${name}`);
     if (kernel && name.startsWith("@logseq/")) throw new Error(`Kernel must not depend on Logseq SDK: ${path} imports ${name}`);
   }
   function visit(node) {
@@ -64,7 +66,7 @@ export async function checkBoundaries() {
       for (const token of rule.forbidden) if (content.includes(token)) throw new Error(`${rule.label}: ${path} contains ${token}`);
     }
   }
-  for (const directory of ["apps/logseq-plugin/src", "packages/contracts/src", "packages/kernel/src"]) {
+  for (const directory of ["apps/logseq-plugin/src", "apps/kernel-service/src", "packages/contracts/src", "packages/kernel/src"]) {
     for (const path of await sources(directory)) assertImportBoundaries(path, await readFile(path, "utf8"));
   }
   const server = await readFile("apps/kernel-service/src/server.ts", "utf8");

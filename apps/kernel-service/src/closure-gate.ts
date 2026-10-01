@@ -1,5 +1,5 @@
 import type { ClosureAssessment, ClosureCheckAssessment, ClosureGateSnapshot, ClosureItemJudgment, ClosureReadiness, ClosureSemanticJudgment, ProjectIntent, WorkObject } from "@task-copilot/contracts";
-import type { SqliteStore } from "@task-copilot/sqlite";
+import type { ClosureGateStore } from "./store-ports.ts";
 
 export interface OpenDescendant { id: string; title: string }
 
@@ -7,13 +7,13 @@ export function semanticRevisionFor(object: Pick<WorkObject, "kind" | "version">
   return object.kind === "PROJECT" ? `${object.version}:${projectIntentRevision ?? 0}` : String(object.version);
 }
 
-export function currentSemanticRevision(store: SqliteStore, workObjectId: string): string | null {
+export function currentSemanticRevision(store: Pick<ClosureGateStore, "getWorkObject" | "getProjectIntent">, workObjectId: string): string | null {
   const object = store.getWorkObject(workObjectId);
   if (!object) return null;
   return semanticRevisionFor(object, object.kind === "PROJECT" ? (store.getProjectIntent(workObjectId)?.revision ?? 0) : null);
 }
 
-export function listOpenDescendants(store: SqliteStore, workObjectId: string): OpenDescendant[] {
+export function listOpenDescendants(store: ClosureGateStore, workObjectId: string): OpenDescendant[] {
   const ownerships = store.listOwnerships();
   const objects = new Map(store.listWorkObjects().map((object) => [object.id, object]));
   const result: OpenDescendant[] = [];
@@ -47,7 +47,7 @@ export interface ClosureGate {
  * assessment is complete and durable; when it passes, a background semantic
  * assessment is required before READY can ever be produced.
  */
-export function computeClosureGate(store: SqliteStore, object: WorkObject): ClosureGate {
+export function computeClosureGate(store: ClosureGateStore, object: WorkObject): ClosureGate {
   const conflict = store.listGovernanceIssues(object.id, "OPEN").find((issue) => issue.type === "CONFLICT") ?? null;
   const evidence = store.listEvidence(object.id);
   const evidenceIds = evidence.map((item) => item.id);
@@ -91,7 +91,7 @@ export function sameGate(left: ClosureGateSnapshot | null | undefined, right: Cl
   return JSON.stringify(left ?? null) === JSON.stringify(right);
 }
 
-export function deterministicClosureAssessment(store: SqliteStore, object: WorkObject, at: string): ClosureAssessment {
+export function deterministicClosureAssessment(store: ClosureGateStore, object: WorkObject, at: string): ClosureAssessment {
   const gate = computeClosureGate(store, object);
   return {
     workObjectId: object.id,

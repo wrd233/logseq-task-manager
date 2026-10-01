@@ -1,26 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GovernanceDimension, type GraphEffect, type GraphGatewayResponse, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
+import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GovernanceDimension, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
-import type { SqliteStore } from "@task-copilot/sqlite";
-import type { GraphRequestBroker } from "./graph-broker.ts";
-
-function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayResponse, kind: T): Extract<GraphGatewayResponse, { kind: T }> {
-  if (value.kind !== kind) throw new Error("GRAPH_RESPONSE_KIND_MISMATCH");
-  return value as Extract<GraphGatewayResponse, { kind: T }>;
-}
+import type { MaintenanceStore } from "./store-ports.ts";
+import type { ProjectionDelivery } from "./projection-delivery.ts";
+import { currentSemanticRevision } from "./closure-gate.ts";
+import { expectGraphResponse as response, type GraphRequestBroker } from "./graph-broker.ts";
 
 export const FAKE_COGNITION_PROFILE: ExecutionProfile = {
   id: "builtin-fake", executor: "FAKE", remoteEnabled: false, allowedDataScope: ["formal_state", "current_workobject_context"],
   maxContextItems: 12, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 2, credentialRef: null,
 };
-
-function semanticRevision(workObjectId: string, store: SqliteStore): string {
-  const object = store.getWorkObject(workObjectId);
-  if (!object) return "missing";
-  if (object.kind !== "PROJECT") return String(object.version);
-  const intent = store.getProjectIntent(workObjectId);
-  return `${object.version}:${intent?.revision ?? 0}`;
-}
 
 export interface MaintenanceScopeGate {
   isMaintenanceEnabled(): boolean;
@@ -36,11 +25,12 @@ export interface MaintenanceCoordinatorOptions {
   cognitionExecutor?: CognitionExecutor;
   executionProfile?: ExecutionProfile;
   scope?: MaintenanceScopeGate;
+  delivery: Pick<ProjectionDelivery, "drain">;
 }
 
 export class MaintenanceCoordinator {
   readonly #kernel: Kernel;
-  readonly #store: SqliteStore;
+  readonly #store: MaintenanceStore;
   readonly #broker: GraphRequestBroker;
   readonly #now: () => string;
   readonly #intervalMs: number;
@@ -52,8 +42,12 @@ export class MaintenanceCoordinator {
   readonly #scope: MaintenanceScopeGate | null;
   #timer: ReturnType<typeof setInterval> | null = null;
   #remoteCallsThisRun = 0;
+  #tickPromise: Promise<ReconcileJob | null> | null = null;
+  #stopped = false;
+  #generation = 0;
+  readonly #delivery: Pick<ProjectionDelivery, "drain">;
 
-  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, options: MaintenanceCoordinatorOptions = {}, cognition: CognitionExecutor, profile: ExecutionProfile) {
+  constructor(kernel: Kernel, store: MaintenanceStore, broker: GraphRequestBroker, options: MaintenanceCoordinatorOptions, cognition: CognitionExecutor, profile: ExecutionProfile) {
     this.#kernel = kernel;
     this.#store = store;
     this.#broker = broker;
@@ -65,14 +59,19 @@ export class MaintenanceCoordinator {
     this.#cognition = cognition;
     this.#profile = profile;
     this.#scope = options.scope ?? null;
+    this.#delivery = options.delivery;
   }
 
   start(): void {
     if (this.#timer) return;
+    this.#stopped = false;
     this.#timer = setInterval(() => { void this.tick().catch((error) => console.warn("[maintenance] tick failed", error)); }, this.#intervalMs);
   }
 
+  settled(): Promise<void> { return this.#tickPromise?.then(() => undefined) ?? Promise.resolve(); }
+
   stop(): void {
+    this.#stopped = true; this.#generation++;
     if (this.#timer) clearInterval(this.#timer);
     this.#timer = null;
   }
@@ -87,7 +86,7 @@ export class MaintenanceCoordinator {
       const existing = this.#store.findActiveContextAssociation(object.id, observation.graphId, observation.sourceBlockUuid);
       if (!existing) {
         try {
-          this.#kernel.associateContext({
+          this.#kernel.context.associateContext({
             workObjectId: object.id,
             sourceRef: { graphId: observation.graphId, blockUuid: observation.sourceBlockUuid },
             sourceVersionHash: observation.sourceContentHash,
@@ -110,7 +109,7 @@ export class MaintenanceCoordinator {
     });
     const job: ReconcileJob = {
       id: deterministicUuid(`reconcile:${object.id}:${snapshotId}`), workObjectId: object.id, triggerType: "WORK_BURST_ENDED",
-      sourceSnapshotId: snapshotId, sourceBlockUuid: observation.sourceBlockUuid, formalVersion: object.version, semanticRevision: semanticRevision(object.id, this.#store), priorityClass: "NORMAL", attempt: 0, notBefore: null,
+      sourceSnapshotId: snapshotId, sourceBlockUuid: observation.sourceBlockUuid, formalVersion: object.version, semanticRevision: currentSemanticRevision(this.#store, object.id) ?? "missing", priorityClass: "NORMAL", attempt: 0, notBefore: null,
       status: "QUEUED", lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -126,7 +125,7 @@ export class MaintenanceCoordinator {
     const at = this.#now();
     const job: ReconcileJob = {
       id: `reconcile:manual:${workObjectId}:${randomUUID()}`, workObjectId, triggerType: "MANUAL_RECONCILE",
-      sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, semanticRevision: semanticRevision(workObjectId, this.#store), priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
+      sourceSnapshotId: snapshotId, sourceBlockUuid: null, formalVersion: object.version, semanticRevision: currentSemanticRevision(this.#store, workObjectId) ?? "missing", priorityClass, attempt: 0, notBefore: null, status: "QUEUED",
       lastError: null, lastOutcome: null, createdAt: at, updatedAt: at,
     };
     this.#store.enqueueReconcileJob(job);
@@ -146,9 +145,20 @@ export class MaintenanceCoordinator {
   coverage(workObjectId: string): SourceCoverageState | null { return this.#store.getSourceCoverage(workObjectId); }
   jobs(status?: ReconcileJob["status"]): ReconcileJob[] { return this.#store.listReconcileJobs(status); }
 
-  async tick(): Promise<ReconcileJob | null> {
+  tick(): Promise<ReconcileJob | null> {
+    if (this.#stopped) return Promise.resolve(null);
+    if (this.#tickPromise) return this.#tickPromise;
+    const promise = this.#tick(this.#generation);
+    this.#tickPromise = promise;
+    const clear = () => { if (this.#tickPromise === promise) this.#tickPromise = null; };
+    void promise.then(clear, clear);
+    return promise;
+  }
+
+  async #tick(generation: number): Promise<ReconcileJob | null> {
     this.#remoteCallsThisRun = 0;
-    await this.drainProjectionObligations().catch((error) => console.warn("[maintenance] projection drain failed", error));
+    await this.#delivery.drain(() => !this.#stopped && generation === this.#generation).catch((error) => console.warn("[maintenance] projection drain failed", error));
+    if (this.#stopped || generation !== this.#generation) return null;
     const at = this.#now();
     const job = this.#store.claimNextReconcileJob(at);
     if (!job) return null;
@@ -169,10 +179,10 @@ export class MaintenanceCoordinator {
         this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), "NO_CHANGE");
         return this.#store.getReconcileJob(job.id);
       }
-      const currentSemanticRevision = semanticRevision(object.id, this.#store);
-      if (job.semanticRevision && job.semanticRevision !== currentSemanticRevision) {
+      const revision = currentSemanticRevision(this.#store, object.id) ?? "missing";
+      if (job.semanticRevision && job.semanticRevision !== revision) {
         const next = new Date(Date.parse(at) + this.#retryBackoffMs).toISOString();
-        return this.#store.refreshReconcileJobSemanticRevision(job.id, object.version, currentSemanticRevision, next, at);
+        return this.#store.refreshReconcileJobSemanticRevision(job.id, object.version, revision, next, at);
       }
       const status = this.#broker.status();
       if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
@@ -189,29 +199,8 @@ export class MaintenanceCoordinator {
     }
   }
 
-  /** Drain durable projection obligations: formal truth already committed; Graph converges here. */
-  async drainProjectionObligations(): Promise<number> {
-    const status = this.#broker.status();
-    if (!status.available) return 0;
-    const at = this.#now();
-    let drained = 0;
-    for (const obligation of this.#store.listProjectionObligations()) {
-      if (obligation.status !== "PENDING" && obligation.status !== "FAILED") continue;
-      if (obligation.retryExhausted) continue;
-      if (obligation.nextAttemptAt && obligation.nextAttemptAt > at) continue;
-      const commit = this.#store.getCommit(obligation.commitId);
-      if (!commit || commit.status !== "COMMITTED") continue;
-      const effect = commit.graphEffect as GraphEffect;
-      try {
-        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect }), "APPLY_EFFECT");
-        this.#kernel.verifyFormalProjection(commit.id, applied.result, applied.snapshot);
-        drained += 1;
-      } catch (error) {
-        this.#kernel.graphProjectionFailed(commit.id, error instanceof Error ? error.message.slice(0, 200) : "PROJECTION_APPLY_FAILED");
-      }
-    }
-    return drained;
-  }
+  /** Supported callers share the same serialized delivery capability. */
+  drainProjectionObligations(): Promise<number> { return this.#delivery.drain(() => !this.#stopped); }
 
   #requeue(job: ReconcileJob, reason: string): ReconcileJob {
     const next = new Date(Date.parse(this.#now()) + this.#retryBackoffMs * Math.min(2 ** Math.max(0, job.attempt - 1), 8)).toISOString();

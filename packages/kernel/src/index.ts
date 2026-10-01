@@ -2,20 +2,16 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 
 import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, buildManagedProjection as projectionFor, projectClosure as closureProjection, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, replacePrimaryOwnership, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
-import type { SqliteStore } from "@task-copilot/sqlite";
+import { deterministicUuid } from "./identity.ts";
 import { parseUserCorrectionUtterance } from "./user-correction.ts";
 
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
 export type RecoveryAction = "ABORT_PREPARED" | "RESUME_GRAPH_APPLY" | "VERIFY_GRAPH" | "MANUAL_RECONCILIATION";
 
-export class KernelError extends Error {
-  readonly code: string;
-  readonly commitId: string | null;
-  constructor(code: string, message: string, commitId: string | null = null) {
-    super(`${code}: ${message}`); this.name = "KernelError"; this.code = code; this.commitId = commitId;
-  }
-}
-
+export { KernelError } from "./error.ts";
+import { KernelError } from "./error.ts";
+import { ContextAssociations, UserReading } from "./application-state.ts";
+import type { FormalStore } from "./store-ports.ts";
 export interface KernelOptions {
   now?: () => string;
   afterStage?: (stage: DurableStage, commitId: string) => void;
@@ -33,11 +29,6 @@ export interface KernelOptions {
   projectionTemporaryBackoffMs?: number;
 }
 
-function deterministicUuid(seed: string): string {
-  const hex = createHash("sha256").update(seed).digest("hex").slice(0, 32).split("");
-  hex[12] = "4"; hex[16] = "8";
-  return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
-}
 
 function canonicalWorkObject(object: WorkObject): string {
   return JSON.stringify([object.id, object.kind, object.title, object.lifecycle, object.engagement, object.waitingCondition, object.currentFocus, object.desiredOutcome, object.completionChecks, object.version, object.createdAt, object.updatedAt]);
@@ -89,7 +80,9 @@ function approvedMiniProjectTaste(taste: TasteProfile): boolean {
 }
 
 export class Kernel {
-  readonly #store: SqliteStore;
+  readonly #store: FormalStore;
+  readonly context: ContextAssociations;
+  readonly reading: UserReading;
   readonly #now: () => string;
   readonly #afterStage: (stage: DurableStage, commitId: string) => void;
   readonly #authorizedUserId: string;
@@ -105,8 +98,10 @@ export class Kernel {
   readonly #projectionBackoffBaseMs: number;
   readonly #projectionTemporaryBackoffMs: number;
 
-  constructor(store: SqliteStore, options: KernelOptions = {}) {
+  constructor(store: FormalStore, options: KernelOptions = {}) {
     this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined); this.#authorizedUserId = options.authorizedUserId ?? "local-user";
+    this.context = new ContextAssociations(store, this.#now);
+    this.reading = new UserReading(store, this.#now);
     this.#agent = options.currentFocusAgent ?? null; this.#skill = options.currentFocusSkill ?? null;
     this.#engagementAgent = options.engagementAgent ?? null; this.#engagementSkill = options.engagementSkill ?? null;
     this.#miniProjectSkill = options.miniProjectSkill ?? null; this.#workIntentSkill = options.workIntentSkill ?? null; this.#miniProjectTaste = options.miniProjectTaste ?? null;
@@ -143,17 +138,7 @@ export class Kernel {
     return this.#store.getProjectIntent(workObjectId);
   }
 
-  markObjectViewed(workObjectId: string, at?: string): UserReadBaseline {
-    const object = this.#store.getWorkObject(workObjectId);
-    if (!object) throw new KernelError("WORK_OBJECT_NOT_FOUND", "Cannot mark an unknown WorkObject as viewed.");
-    const viewedAt = at ?? this.#now();
-    const latest = this.#store.listCommits()
-      .filter((commit) => commit.targetId === object.id && commit.status === "COMMITTED")
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
-    const baseline: UserReadBaseline = { workObjectId: object.id, lastViewedFormalVersion: object.version, lastViewedAt: viewedAt, lastSeenCommitId: latest?.id ?? null };
-    this.#store.putUserReadBaseline(baseline);
-    return baseline;
-  }
+  markObjectViewed(workObjectId: string, at?: string): UserReadBaseline { return this.reading.markViewed(workObjectId, at); }
 
   /**
    * Production Dogfood correction chain: a user says what reality actually is,
@@ -981,51 +966,13 @@ export class Kernel {
     return this.#store.listProjectionObligations(status);
   }
 
-  associateContext(input: { id?: string; workObjectId: string; sourceRef: ContextAssociation["sourceRef"]; sourceVersionHash: string; origin: ContextAssociation["origin"]; basisRunId?: string | null; at?: string }): ContextAssociation {
-    const object = this.#store.getWorkObject(input.workObjectId);
-    if (!object || object.lifecycle !== "OPEN") throw new KernelError("CONTEXT_TARGET_INVALID", "Context Association requires an OPEN Formal WorkObject.");
-    const correction = this.#store.findActiveCorrection(input.sourceRef.graphId, input.sourceRef.blockUuid, object.id);
-    if (correction) throw new KernelError("ASSOCIATION_CORRECTION_BLOCKS", "An active Association Correction prevents automatic association of this source with this WorkObject.");
-    const existing = this.#store.findActiveContextAssociation(object.id, input.sourceRef.graphId, input.sourceRef.blockUuid);
-    if (existing) return existing;
-    const at = input.at ?? this.#now();
-    const association: ContextAssociation = {
-      id: input.id ?? deterministicUuid(`context:${object.id}:${input.sourceRef.graphId}:${input.sourceRef.blockUuid}`),
-      workObjectId: object.id, sourceRef: input.sourceRef, sourceVersionHash: input.sourceVersionHash, origin: input.origin,
-      ...(input.basisRunId ? { basisRunId: input.basisRunId } : {}), status: "ACTIVE", createdAt: at, updatedAt: at,
-    };
-    this.#store.putContextAssociation(association);
-    return association;
-  }
+  associateContext(input: { id?: string; workObjectId: string; sourceRef: ContextAssociation["sourceRef"]; sourceVersionHash: string; origin: ContextAssociation["origin"]; basisRunId?: string | null; at?: string }): ContextAssociation { return this.context.associateContext(input); }
 
-  listContextAssociations(workObjectId?: string, status?: ContextAssociation["status"]): ContextAssociation[] {
-    return this.#store.listContextAssociations(workObjectId, status);
-  }
+  listContextAssociations(workObjectId?: string, status?: ContextAssociation["status"]): ContextAssociation[] { return this.context.listContextAssociations(workObjectId, status); }
 
-  invalidateContextAssociation(id: string): ContextAssociation {
-    const at = this.#now();
-    this.#store.invalidateContextAssociation(id, at);
-    return this.#store.getContextAssociation(id)!;
-  }
+  invalidateContextAssociation(id: string): ContextAssociation { return this.context.invalidateContextAssociation(id); }
 
-  recordAssociationCorrection(input: { id?: string; sourceRef: AssociationCorrection["sourceRef"]; scopeSnapshot: string; rejectedWorkObjectId: string; affirmedWorkObjectId?: string | null; userDecisionRef: string; at?: string }): AssociationCorrection {
-    const object = this.#store.getWorkObject(input.rejectedWorkObjectId);
-    if (!object) throw new KernelError("ASSOCIATION_TARGET_NOT_FOUND", "Rejected WorkObject does not exist.");
-    if (input.affirmedWorkObjectId && !this.#store.getWorkObject(input.affirmedWorkObjectId)) throw new KernelError("ASSOCIATION_TARGET_NOT_FOUND", "Affirmed WorkObject does not exist.");
-    const at = input.at ?? this.#now();
-    const correction: AssociationCorrection = {
-      id: input.id ?? deterministicUuid(`correction:${input.sourceRef.graphId}:${input.sourceRef.blockUuid}:${object.id}`),
-      sourceRef: input.sourceRef, scopeSnapshot: input.scopeSnapshot, rejectedWorkObjectId: object.id,
-      affirmedWorkObjectId: input.affirmedWorkObjectId ?? null, userDecisionRef: input.userDecisionRef, createdAt: at,
-    };
-    this.#store.transaction(() => {
-      for (const association of this.#store.listContextAssociations(object.id).filter((item) => item.sourceRef.graphId === input.sourceRef.graphId && item.sourceRef.blockUuid === input.sourceRef.blockUuid && item.status === "ACTIVE")) {
-        this.#store.invalidateContextAssociation(association.id, at);
-      }
-      this.#store.putAssociationCorrection(correction);
-    });
-    return correction;
-  }
+  recordAssociationCorrection(input: { id?: string; sourceRef: AssociationCorrection["sourceRef"]; scopeSnapshot: string; rejectedWorkObjectId: string; affirmedWorkObjectId?: string | null; userDecisionRef: string; at?: string }): AssociationCorrection { return this.context.recordAssociationCorrection(input); }
 
   upsertGovernanceIssue(input: { id?: string; workObjectId: string; dimension: GovernanceDimension; type: GovernanceIssue["type"]; summary: string; evidenceIds?: readonly string[]; sourceSnapshotId: string; formalVersion: number; correlationId?: string | null; at?: string }): GovernanceIssue {
     const object = this.#store.getWorkObject(input.workObjectId);

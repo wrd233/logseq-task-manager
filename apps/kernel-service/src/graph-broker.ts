@@ -113,3 +113,8 @@ export class GraphRequestBroker {
     this.#pending.clear();
   }
 }
+
+export function expectGraphResponse<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayResponse, kind: T): Extract<GraphGatewayResponse, { kind: T }> {
+  if (value.kind !== kind) throw new Error("GRAPH_RESPONSE_KIND_MISMATCH");
+  return value as Extract<GraphGatewayResponse, { kind: T }>;
+}

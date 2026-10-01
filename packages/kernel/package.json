@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@task-copilot/contracts": "0.2.0",
-    "@task-copilot/domain": "0.2.0",
+    "@task-copilot/domain": "0.2.0"
+  },
+  "devDependencies": {
     "@task-copilot/sqlite": "0.2.0"
   }
 }

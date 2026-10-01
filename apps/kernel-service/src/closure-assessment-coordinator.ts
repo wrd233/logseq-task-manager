@@ -1,6 +1,6 @@
 import { deterministicUuid } from "@task-copilot/contracts";
 import type { ClosureAssessmentJob, ClosureAssessor, ExecutionProfile, SkillPackage, WorkObject } from "@task-copilot/contracts";
-import type { SqliteStore } from "@task-copilot/sqlite";
+import type { ClosureAssessmentStore } from "./store-ports.ts";
 import { aggregateClosureSemanticJudgment, computeClosureGate, currentSemanticRevision, deterministicClosureAssessment, gateSnapshot, sameGate, semanticRevisionFor } from "./closure-gate.ts";
 
 export interface ClosureScopeGate {
@@ -18,7 +18,7 @@ export interface ClosureAssessmentCoordinatorOptions {
 }
 
 export class ClosureAssessmentCoordinator {
-  readonly #store: SqliteStore;
+  readonly #store: ClosureAssessmentStore;
   readonly #assessor: ClosureAssessor;
   readonly #profile: ExecutionProfile;
   readonly #now: () => string;
@@ -29,9 +29,11 @@ export class ClosureAssessmentCoordinator {
   readonly #scope: ClosureScopeGate | null;
   #timer: ReturnType<typeof setInterval> | null = null;
   #running = false;
+  #stopped = false;
+  #activeTick: Promise<void> | null = null;
   #remoteCallsThisRun = 0;
 
-  constructor(store: SqliteStore, assessor: ClosureAssessor, profile: ExecutionProfile, options: ClosureAssessmentCoordinatorOptions = {}) {
+  constructor(store: ClosureAssessmentStore, assessor: ClosureAssessor, profile: ExecutionProfile, options: ClosureAssessmentCoordinatorOptions = {}) {
     this.#store = store;
     this.#assessor = assessor;
     this.#profile = profile;
@@ -46,11 +48,13 @@ export class ClosureAssessmentCoordinator {
 
   start(): void {
     if (this.#timer) return;
+    this.#stopped = false;
     this.scan();
     this.#timer = setInterval(() => { void this.tickClosure().catch((error) => console.warn("[closure-assessment] tick failed", error)); }, this.#intervalMs);
   }
 
   stop(): void {
+    this.#stopped = true;
     if (this.#timer) clearInterval(this.#timer);
     this.#timer = null;
   }
@@ -99,8 +103,20 @@ export class ClosureAssessmentCoordinator {
     }
   }
 
-  async tickClosure(): Promise<void> {
-    if (this.#running) return;
+  settled(): Promise<void> { return this.#activeTick ?? Promise.resolve(); }
+
+  tickClosure(): Promise<void> {
+    if (this.#stopped) return Promise.resolve();
+    if (this.#activeTick) return this.#activeTick;
+    const promise = this.#tickClosure();
+    this.#activeTick = promise;
+    const clear = () => { if (this.#activeTick === promise) this.#activeTick = null; };
+    void promise.then(clear, clear);
+    return promise;
+  }
+
+  async #tickClosure(): Promise<void> {
+    if (this.#running || this.#stopped) return;
     this.#running = true;
     this.#remoteCallsThisRun = 0;
     try {

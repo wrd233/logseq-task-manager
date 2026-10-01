@@ -28,3 +28,10 @@ test("runtime cannot import feature UI and task UI cannot own worker lifecycle",
   assert.throws(() => assertImportBoundaries("apps/logseq-plugin/src/plugin-runtime.ts", 'import { startTaskCenter } from "./features/task-center/controller.ts";'), /Runtime must not depend/u);
   assert.throws(() => assertImportBoundaries("apps/logseq-plugin/src/features/task-center/controller.ts", 'import {startGraphGatewayWorker} from "../../graph-gateway-worker.ts";'), /must not own background/u);
 });
+
+test("formal and query capabilities depend on structural ports rather than SQLite implementation", () => {
+  for (const path of ["packages/kernel/src/index.ts", "apps/kernel-service/src/projection-coordinator.ts", "apps/kernel-service/src/maintenance-coordinator.ts", "apps/kernel-service/src/projection-delivery.ts"]) {
+    assert.throws(() => assertImportBoundaries(path, 'import type {SqliteStore} from "@task-copilot/sqlite";'), /storage port/u);
+  }
+  assert.doesNotThrow(() => assertImportBoundaries("apps/kernel-service/src/server.ts", 'import {SqliteStore} from "@task-copilot/sqlite";'));
+});

@@ -1,3 +1,5 @@
+import { ProjectionDelivery } from "./projection-delivery.ts";
+import { ClosureReadiness } from "./closure-readiness.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile, chmod, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -107,7 +109,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const maintenanceIntervalMs = options.maintenanceIntervalMs ?? (process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_INTERVAL_MS) : undefined);
   const maintenanceMaxAttempts = options.maintenanceMaxAttempts ?? (process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS ? Number(process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS) : undefined);
   const maintenanceRetryBackoffMs = options.maintenanceRetryBackoffMs ?? (process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS) : undefined);
-  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { now: options.now, onRecordSourceChange: (workObjectId) => { if (dogfoodScope.isClosureEnabled() && dogfoodScope.isInScope(workObjectId)) closure.requestAssessment(workObjectId); }, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}), scope: dogfoodScope }, cognitionExecutor, executionProfile);
+  const delivery = new ProjectionDelivery(store, kernel, broker, options.now ?? (() => new Date().toISOString()));
+  const maintenance = new MaintenanceCoordinator(kernel, store, broker, { delivery, now: options.now, onRecordSourceChange: (workObjectId) => { if (dogfoodScope.isClosureEnabled() && dogfoodScope.isInScope(workObjectId)) closure.requestAssessment(workObjectId); }, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}), scope: dogfoodScope }, cognitionExecutor, executionProfile);
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
   const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -115,7 +118,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     reasoningEffort: "high" as const, timeoutMs: 30_000, retryBudget: 2, credentialRef: "DEEPSEEK_API_KEY",
   } : { id: "builtin-fake-discovery", executor: "FAKE" as const, remoteEnabled: false, allowedDataScope: ["discovery_today"], maxContextItems: 40, maxInputChars: 24_000, timeoutMs: 5_000, retryBudget: 1, credentialRef: null });
   const discovery = new DiscoveryCoordinator(kernel, store, broker, maintenance, discoveryExecutor, discoveryProfile, { ...(options.now ? { now: options.now } : {}), ...(options.journalPageNames ? { journalPageNames: options.journalPageNames } : {}) });
-  const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, closure, { ...(options.now ? { now: options.now } : {}) });
+  const readiness = new ClosureReadiness(store, closure, options.now ?? (() => new Date().toISOString()));
+  const projections = new ProjectionCoordinator(store, kernel, discovery, maintenance, broker, readiness, { ...(options.now ? { now: options.now } : {}) });
   const consoleDistPath = options.consoleDistPath ?? join(process.cwd(), "apps/kernel-console/dist");
   const consoleProfile: ConsoleProfile = options.profile ?? (process.env.TASK_COPILOT_PROFILE === "sandbox" ? "sandbox" : process.env.TASK_COPILOT_PROFILE === "development" ? "development" : "production");
   const consoleWorld = (): ConsoleWorldSnapshot => {
@@ -184,7 +188,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     const owner = store.getOwnershipByChild(targetId);
     if (owner) closure.requestAssessment(owner.ownerId);
   };
-  const closureStaleSweepTimer = setInterval(() => { try { projections.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
+  const closureStaleSweepTimer = setInterval(() => { try { readiness.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     response.setHeader("access-control-allow-origin", "*");
@@ -240,7 +244,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/console/viewed") {
         const value = await body(request) as { workObjectId?: unknown };
         if (typeof value.workObjectId !== "string" || !value.workObjectId) throw new KernelError("WORK_OBJECT_ID_REQUIRED", "Console read baseline requires workObjectId.");
-        send(response, 200, { baseline: kernel.markObjectViewed(value.workObjectId) }); return;
+        send(response, 200, { baseline: kernel.reading.markViewed(value.workObjectId) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/dogfood/correction") {
         assertTrustedUserChannel(request);
@@ -321,19 +325,19 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { candidate: discovery.absorbCandidate(decodeURIComponent(candidateAbsorb[1]!), value.targetWorkObjectId) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/context") {
-        send(response, 200, { associations: kernel.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
+        send(response, 200, { associations: kernel.context.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/context/associate") {
         const value = await body(request) as Parameters<Kernel["associateContext"]>[0];
-        send(response, 201, { association: kernel.associateContext(value) }); return;
+        send(response, 201, { association: kernel.context.associateContext(value) }); return;
       }
       const contextInvalidate = /^\/v1\/context\/([^/]+)\/invalidate$/u.exec(url.pathname);
       if (request.method === "POST" && contextInvalidate) {
-        send(response, 200, { association: kernel.invalidateContextAssociation(decodeURIComponent(contextInvalidate[1]!)) }); return;
+        send(response, 200, { association: kernel.context.invalidateContextAssociation(decodeURIComponent(contextInvalidate[1]!)) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/context/corrections") {
         const value = await body(request) as Parameters<Kernel["recordAssociationCorrection"]>[0];
-        send(response, 201, { correction: kernel.recordAssociationCorrection(value) }); return;
+        send(response, 201, { correction: kernel.context.recordAssociationCorrection(value) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/issues") {
         const status = url.searchParams.get("status");
@@ -425,7 +429,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const viewedMatch = /^\/v1\/objects\/([^/]+)\/viewed$/u.exec(url.pathname);
       if (request.method === "POST" && viewedMatch) {
         assertTrustedUserChannel(request);
-        const baseline = kernel.markObjectViewed(decodeURIComponent(viewedMatch[1]!));
+        const baseline = kernel.reading.markViewed(decodeURIComponent(viewedMatch[1]!));
         send(response, 200, { baseline }); return;
       }
       const objectContextMatch = /^\/v1\/objects\/([^/]+)\/context$/u.exec(url.pathname);
@@ -438,7 +442,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && closureAssessmentMatch) {
         const workObjectId = decodeURIComponent(closureAssessmentMatch[1]!);
         if (!store.getWorkObject(workObjectId)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
-        send(response, 200, projections.closureAssessmentState(workObjectId)); return;
+        send(response, 200, readiness.ensureAssessment(workObjectId)); return;
       }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
@@ -601,6 +605,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       maintenance.stop();
       closure.stop();
       broker.close();
+      const settled = await Promise.allSettled([maintenance.settled(), closure.settled()]);
+      for (const result of settled) if (result.status === "rejected") console.warn("[kernel] background shutdown failed", result.reason);
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       try { store.releaseRuntimeLease(leaseScope, instanceId); } catch (error) { console.warn("[kernel] runtime lease release failed", error); }
       store.close();
