@@ -29,10 +29,10 @@ function journalPageNameFallbacks(pageName: string): string[] {
   return [pageName, `${monthShort} ${day}${ordinal}, ${date.getFullYear()}`, `${monthLong} ${day}${ordinal}, ${date.getFullYear()}`];
 }
 
-function graphGatewayReadHost(): GraphGatewayReadHost {
+function graphGatewayReadHost(read: <T>(action: () => Promise<T>) => Promise<T>): GraphGatewayReadHost {
   return {
     search: async (query, limit) => {
-      const rows = await logseq.DB.datascriptQuery(`[:find ?uuid ?content ?page-name :where [?b :block/uuid ?uuid] [?b :block/content ?content] [?b :block/page ?p] [?p :block/name ?page-name]]`) as unknown;
+      const rows = await read(() => logseq.DB.datascriptQuery(`[:find ?uuid ?content ?page-name :where [?b :block/uuid ?uuid] [?b :block/content ?content] [?b :block/page ?p] [?p :block/name ?page-name]]`)) as unknown;
       if (!Array.isArray(rows)) return [];
       const needle = query.toLocaleLowerCase(); const matches: Array<{ uuid: string; content: string; pageName: string | null }> = [];
       for (const row of rows) {
@@ -43,11 +43,11 @@ function graphGatewayReadHost(): GraphGatewayReadHost {
       }
       return matches;
     },
-    readBlock: async (uuid) => gatewayBlock(await logseq.Editor.getBlock(uuid, { includeChildren: true })),
+    readBlock: async (uuid) => gatewayBlock(await read(() => logseq.Editor.getBlock(uuid, { includeChildren: true }))),
     readPage: async (pageName) => {
       let roots: Awaited<ReturnType<typeof logseq.Editor.getPageBlocksTree>> = null;
       for (const name of journalPageNameFallbacks(pageName)) {
-        roots = await logseq.Editor.getPageBlocksTree(name); if (roots) break;
+        roots = await read(() => logseq.Editor.getPageBlocksTree(name)); if (roots) break;
       }
       if (!roots) return null;
       const values: Array<{ uuid: string; content: string; pageName: string | null }> = [];
@@ -106,16 +106,17 @@ export class PluginRuntime {
   async client(): Promise<KernelClient> { return new KernelClient(await this.descriptor()); }
 
   start(): Promise<void> {
-    if (this.starting) return this.starting;
+    if (this.starting) {
+      if (this.running) return this.starting;
+      return this.starting.catch(() => undefined).then(() => this.start());
+    }
     if (this.running) return Promise.resolve();
     this.running = true;
     const initial = this.identities.scope();
     const promise = (async () => {
       try {
-        const graphId = graphIdentity(await logseq.App.getCurrentGraph());
-        if (!this.valid(initial)) return;
-        this.identities.activate(graphId);
         this.disposers.push(logseq.App.onCurrentGraphChanged(() => {
+          if (!this.running) return;
           this.identities.invalidateScope(); this.lastRefreshAt = 0; this.notify();
           const pending = this.identities.scope();
           void logseq.App.getCurrentGraph().then(graph => {
@@ -123,6 +124,9 @@ export class PluginRuntime {
             this.identities.activate(graphIdentity(graph)); this.notify(); void this.refreshQuietly();
           }).catch(error => this.report(error));
         }));
+        const graphId = graphIdentity(await logseq.App.getCurrentGraph());
+        if (!this.running) return;
+        if (this.valid(initial)) this.identities.activate(graphId);
         this.disposers.push(startGraphGatewayWorker({
           connection: async () => {
             const scope = this.identities.scope();
@@ -209,7 +213,7 @@ export class PluginRuntime {
     return entry;
   }
 
-  private async scoped<T>(scope: GraphScope, action: () => Promise<T>): Promise<T> {
+  async inGraph<T>(scope: GraphScope, action: () => Promise<T>): Promise<T> {
     this.assertCurrent(scope);
     if (graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId) throw new Error("GRAPH_SCOPE_CHANGED");
     this.assertCurrent(scope);
@@ -222,27 +226,21 @@ export class PluginRuntime {
     if (graphId !== before.graphId) throw new Error("GRAPH_SCOPE_CHANGED");
     const scope = before;
     const adapter = new LogseqGraphAdapter({
-      getBlock: (uuid, options) => this.scoped(scope, () => logseq.Editor.getBlock(uuid, options)),
-      insertBlock: (target, content, options) => this.withSelfWrite(options.customUUID, () => this.scoped(scope, () => logseq.Editor.insertBlock(target, content, options)), false, scope),
-      updateBlock: (uuid, content) => this.withSelfWrite(uuid, () => this.scoped(scope, () => logseq.Editor.updateBlock(uuid, content)), false, scope),
-      removeBlock: uuid => this.withSelfWrite(uuid, () => this.scoped(scope, () => logseq.Editor.removeBlock(uuid)), false, scope),
+      getBlock: (uuid, options) => this.inGraph(scope, () => logseq.Editor.getBlock(uuid, options)),
+      insertBlock: (target, content, options) => this.withSelfWrite(options.customUUID, () => this.inGraph(scope, () => logseq.Editor.insertBlock(target, content, options)), false, scope),
+      updateBlock: (uuid, content) => this.withSelfWrite(uuid, () => this.inGraph(scope, () => logseq.Editor.updateBlock(uuid, content)), false, scope),
+      removeBlock: uuid => this.withSelfWrite(uuid, () => this.inGraph(scope, () => logseq.Editor.removeBlock(uuid)), false, scope),
     }, graphId);
     const apply = adapter.applyGraphEffect.bind(adapter);
     adapter.applyGraphEffect = effect => this.withSelfWrite(effect.sourceBlockUuid, () => apply(effect), effect.type === "CHANGE_CLOSURE_FIELDS" && effect.expectedSourceMarker !== "DONE" && effect.resultingSourceMarker === "DONE", scope);
     return { adapter, graphId, scope };
   }
   private scopedReadHost(scope: GraphScope): GraphGatewayReadHost {
-    const host = graphGatewayReadHost();
-    return {
-      search: (query, limit) => this.scoped(scope, () => host.search(query, limit)),
-      readBlock: uuid => this.scoped(scope, () => host.readBlock(uuid)),
-      readPage: name => this.scoped(scope, () => host.readPage(name)),
-    };
+    return graphGatewayReadHost(action => this.inGraph(scope, action));
   }
-  async updateSource(graphId: string, uuid: string, content: string): Promise<void> {
-    const scope = this.identities.scope();
+  async updateSource(graphId: string, uuid: string, content: string, scope = this.identities.scope()): Promise<void> {
     if (graphId !== scope.graphId) throw new Error("GRAPH_SCOPE_CHANGED");
-    await this.withSelfWrite(uuid, () => this.scoped(scope, () => logseq.Editor.updateBlock(uuid, content)), false, scope);
+    await this.withSelfWrite(uuid, () => this.inGraph(scope, () => logseq.Editor.updateBlock(uuid, content)), false, scope);
   }
   isSelfWritten(uuid: string, doneOnly = false): boolean {
     return (doneOnly ? this.doneWrites : this.writes).has(`${this.identities.scope().generation}:${uuid}`);

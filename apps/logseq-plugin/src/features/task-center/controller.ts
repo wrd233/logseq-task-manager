@@ -72,20 +72,23 @@ async function readTargetSnapshot(adapter: LogseqGraphAdapter, graphId: string, 
 }
 
 async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", blockUuid?: string): Promise<void> {
-  const current = logseqBlock(blockUuid ? await logseq.Editor.getBlock(blockUuid) : await logseq.Editor.getCurrentBlock());
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const current = logseqBlock(await pluginRuntime.inGraph(scope, () => blockUuid ? logseq.Editor.getBlock(blockUuid) : logseq.Editor.getCurrentBlock()));
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
   const stable = await ensurePersistentSourceIdentity({
-    getBlock: (uuid) => logseq.Editor.getBlock(uuid),
-    upsertBlockProperty: (uuid, key, value) => logseq.Editor.upsertBlockProperty(uuid, key, value),
-  }, { uuid: current.uuid, content: current.content, isDbGraph: await currentGraphIsDb(logseq.App) });
-  const api = await client(); const { adapter, graphId, scope } = await adapterForCurrentGraph();
+    getBlock: uuid => pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(uuid)),
+    upsertBlockProperty: (uuid, key, value) => pluginRuntime.withSelfWrite(uuid, () => pluginRuntime.inGraph(scope, () => logseq.Editor.upsertBlockProperty(uuid, key, value)), false, scope),
+  }, { uuid: current.uuid, content: current.content, isDbGraph: await pluginRuntime.inGraph(scope, () => currentGraphIsDb(logseq.App)) });
+  const api = await client();
   const rawTitle = extractTitleFromSourceLine(stable.content);
   const canonicalSource = formatFormalAnchor({ kind, title: rawTitle });
   const originalContent = stable.content;
   let formal: Awaited<ReturnType<typeof api.commitFormal>>;
   try {
     if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
-      await pluginRuntime.updateSource(graphId, stable.uuid, canonicalSource);
+      const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
+      if (!latest || canonicalizeGraphContent(latest.content) !== canonicalizeGraphContent(originalContent)) throw new Error("来源已变化，请重新选择当前记录后纳入。");
+      await pluginRuntime.updateSource(graphId, stable.uuid, canonicalSource, scope);
     }
     const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
     const title = extractTitleFromSourceLine(canonicalSource);
@@ -93,7 +96,10 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     formal = await api.commitFormal(operation, snapshot);
   } catch (error) {
     if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
-      try { await pluginRuntime.updateSource(graphId, stable.uuid, originalContent); } catch { /* best-effort restore before any formal object exists */ }
+      try {
+        const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
+        if (latest && canonicalizeGraphContent(latest.content) === canonicalSource) await pluginRuntime.updateSource(graphId, stable.uuid, originalContent, scope);
+      } catch { /* Original Graph may be unavailable; preserve newer source edits and the original failure. */ }
     }
     throw error;
   }
@@ -809,8 +815,8 @@ async function currentTaskContext() {
   const api = await client(); const target = await api.showObject(workObjectId);
   if (target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看「结束评估」，就绪后由你确认结束。");
   const anchor = target.anchor as AnchorView | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
-  const { adapter, graphId } = await adapterForCurrentGraph(); if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
-  return { api, target, anchor, adapter, graphId };
+  const { adapter, graphId, scope } = await adapterForCurrentGraph(); if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
+  return { api, target, anchor, adapter, graphId, scope };
 }
 
 async function executeClosureOperation(type: "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE", input: Record<string, unknown>): Promise<{ commitId: string; title: string }> {
@@ -927,7 +933,7 @@ async function rerenderCurrentFormalItem(): Promise<void> {
           lifecycle: value.target.object.lifecycle === "COMPLETED" ? "COMPLETED" : "OPEN",
         });
         if (canonicalizeGraphContent(source.content) !== canonical) {
-          await pluginRuntime.updateSource(value.graphId, source.uuid, canonical);
+          await pluginRuntime.updateSource(value.graphId, source.uuid, canonical, value.scope);
         }
       }
     }

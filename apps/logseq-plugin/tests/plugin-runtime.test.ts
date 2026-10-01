@@ -137,3 +137,58 @@ test("descriptor parsing refreshes on private storage change and explicit reconn
     assert.equal((await f.runtime.descriptor()).baseUrl, "http://127.0.0.1:3");
   } finally { f.dispose(); }
 });
+
+test("a delayed command read and a captured write stay invalid after switching away and back to the same Graph", async () => {
+  const f = fixture();
+  try {
+    await f.runtime.start(); const scope = f.state.scope();
+    const late = deferred<string>(), started = deferred<void>();
+    const read = f.runtime.inGraph(scope, async () => { started.resolve(); return late.promise; });
+    await started.promise; f.switchGraph("B"); await delay(1); f.switchGraph("A"); await delay(1);
+    late.resolve("old source"); await assert.rejects(read, /GRAPH_SCOPE_CHANGED/u);
+    await assert.rejects(f.runtime.updateSource("A:/A", "same", "old write", scope), /GRAPH_SCOPE_CHANGED/u);
+    assert.equal(f.counts().writes, 0);
+  } finally { f.dispose(); }
+});
+
+test("journal read fallback stops between SDK calls when its Graph scope expires", async () => {
+  const f = fixture();
+  try {
+    const gate = deferred<null>(), started = deferred<void>(), failed = deferred<void>(); let pageReads = 0, polled = false;
+    globalThis.logseq.Editor.getPageBlocksTree = async () => { pageReads++; started.resolve(); return gate.promise; };
+    globalThis.fetch = async input => {
+      if (String(input).endsWith("/poll")) {
+        if (polled) return new Response(JSON.stringify({ request: null })); polled = true;
+        return new Response(JSON.stringify({ request: { id: "journal", createdAt: "now", request: { kind: "READ_PAGE", graphId: "A:/A", pageName: "2026-10-01", limit: 50 } } }));
+      }
+      if (String(input).endsWith("/fail")) failed.resolve();
+      else assert.fail("Expired read cannot report completion");
+      return new Response("{}");
+    };
+    await f.runtime.start(); await started.promise; f.switchGraph("B"); gate.resolve(null); await failed.promise;
+    assert.equal(pageReads, 1);
+  } finally { f.dispose(); }
+});
+
+test("Graph events during startup invalidate the initial read before any shared identity is installed", async () => {
+  const f = fixture();
+  try {
+    const old = deferred<{ name: string; url: string; path: string }>(), begun = deferred<void>(); let reads = 0;
+    globalThis.logseq.App.getCurrentGraph = async () => { reads++; if (reads === 1) { begun.resolve(); return old.promise; } return { name: "B", url: "/B", path: "/B" }; };
+    const starting = f.runtime.start(); await begun.promise; f.switchGraph("B"); await delay(5);
+    old.resolve({ name: "A", url: "/A", path: "/A" }); await starting;
+    assert.equal(f.state.scope().graphId, "B:/B"); assert.equal(f.counts().observed, 1); assert.equal(f.counts().graphSubscriptions, 1);
+  } finally { f.dispose(); }
+});
+
+test("explicit restart while a stopped initialization is pending starts one new set of resources", async () => {
+  const f = fixture();
+  try {
+    const old = deferred<{ name: string; url: string; path: string }>(), begun = deferred<void>(); let reads = 0;
+    globalThis.logseq.App.getCurrentGraph = async () => { reads++; if (reads === 1) { begun.resolve(); return old.promise; } return { name: "A", url: "/A", path: "/A" }; };
+    const first = f.runtime.start(); await begun.promise; f.runtime.stop(); const restarted = f.runtime.start();
+    old.resolve({ name: "A", url: "/A", path: "/A" }); await Promise.all([first, restarted]);
+    assert.equal(f.counts().observed, 1); assert.equal(f.counts().graphSubscriptions, 2); assert.equal(f.counts().released, 1);
+    assert.equal(f.state.scope().graphId, "A:/A");
+  } finally { f.dispose(); }
+});
