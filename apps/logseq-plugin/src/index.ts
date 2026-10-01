@@ -1,3 +1,4 @@
+import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
 import { WorkView } from "./features/work-view/controller.ts";
 import { Materials } from "./features/materials/controller.ts";
@@ -19,6 +20,15 @@ async function main(): Promise<void> {
   installWorkbenchStyle();
   let materials: Materials | null = null, work: WorkView | null = null;
   let stopTasks: (() => Promise<void>) | null = null;
+  let disposed = false;
+  let removeNavigation: () => void = () => undefined;
+  const dispose = async () => {
+    if (disposed) return;
+    disposed = true;
+    work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
+    delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
+  };
+  logseq.beforeunload(dispose);
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
   if (logseq.settings?.materialsEnabled !== false) {
     try { materials = new Materials(); } catch (error) { report(error); }
@@ -29,7 +39,7 @@ async function main(): Promise<void> {
     }); } catch (error) { report(error); }
   }
   if (logseq.settings?.tasksEnabled !== false) {
-    try { stopTasks = await startTaskCenter(); } catch (error) { report(error); }
+    try { await pluginRuntime.start(); if (disposed) { pluginRuntime.stop(); return; } stopTasks = await startTaskCenter(); if (disposed) { await stopTasks(); return; } } catch (error) { pluginRuntime.stop(); report(error); }
   } else {
     logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}");
   }
@@ -37,8 +47,9 @@ async function main(): Promise<void> {
   if (work) actions["工作视图"] = () => void work?.open().catch(report);
   if (materials) actions["材料"] = () => void materials?.library().catch(report);
   if (logseq.settings?.tasksEnabled !== false) actions["任务"] = () => void openTaskCenter().catch(report);
-  const removeNavigation = installNavigation(actions);
-  logseq.provideModel({ workbenchOpen: () => { if (work) void work.open().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
+  if (disposed) return;
+  removeNavigation = installNavigation(actions);
+  logseq.provideModel({ workbenchOpen: () => { if (disposed) return; if (work) void work.open().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const api = {
     read: () => work?.snapshot() ?? null,
@@ -49,7 +60,6 @@ async function main(): Promise<void> {
     readMaterials: (content: string) => materials?.linkedContext(content) ?? Promise.resolve([]),
   };
   (window as Window & {taskCopilotWorkbench?: typeof api}).taskCopilotWorkbench = api;
-  logseq.beforeunload(async () => { work?.dispose(); materials?.dispose(); await stopTasks?.(); removeNavigation(); delete (window as Window & {taskCopilotWorkbench?: typeof api}).taskCopilotWorkbench; });
 }
 
 logseq.ready(main).catch(error => console.error("Workbench bootstrap failed", error));

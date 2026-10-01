@@ -63,9 +63,9 @@ export class WorkView {
 
   private fail = (error: unknown): void => { this.status.textContent = error instanceof Error ? error.message : String(error); this.status.classList.add("wb-error"); };
 
-  private async readTrace(uuid: string): Promise<Trace> {
+  private async readTrace(uuid: string, graph = this.graph): Promise<Trace> {
     return ancestry(uuid, async id => await logseq.Editor.getBlock(id) as AncestryBlock | null, { resolve: (id, content) => {
-      const identity = lookupBlockIdentity(id);
+      const identity = lookupBlockIdentity(id, graph);
       return identity.kind === "FORMAL" ? { type: identity.objectKind.toLowerCase(), title: identity.title ?? content.split("\n")[0] ?? "工作" } : workObject(content);
     } });
   }
@@ -82,7 +82,7 @@ export class WorkView {
   private async enter(uuid: string, held: string | null, navigation = panels.reserve()): Promise<void> {
     const epoch = ++this.epoch;
     const graph = graphIdentity(await logseq.App.getCurrentGraph());
-    const trace = await this.readTrace(uuid);
+    const trace = await this.readTrace(uuid, graph);
     if (epoch !== this.epoch || this.disposed || !panels.isLatest(navigation)) return;
     if (!trace.complete || trace.path[0] !== uuid) throw new Error("来源块或其父链暂不可读，保留当前范围。");
     const changed = graph !== this.graph || uuid !== this.rootUuid;

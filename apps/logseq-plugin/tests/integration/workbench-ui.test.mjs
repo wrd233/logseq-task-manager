@@ -22,11 +22,11 @@ test('work-view shares formal identity without starting task UI and retains natu
   };
   const work=new WorkView(()=>{});
   try {
-    blockIdentityCache.replace([{object:{id:'object',kind:'PROJECT',title:'正式项目'},anchor:{externalId:'formal'}}]);
+    blockIdentityCache.replace([{object:{id:'object',kind:'PROJECT',title:'正式项目'},anchor:{externalId:'formal',graphId:'one:/one'}}],blockIdentityCache.activate('one:/one'));
     await work.open('formal');
     assert.ok(work.panel.root.textContent.includes('正式项目'));
     assert.equal(browser.document.querySelector('[data-task-copilot-daily-panel]'),null);
-    blockIdentityCache.invalidate('formal');
+    blockIdentityCache.invalidate('formal',blockIdentityCache.scope());
     assert.deepEqual(lookupBlockIdentity('formal'),{kind:'ORDINARY'});
     graph='two';onGraphChanged();
     await work.open('natural');
@@ -34,10 +34,10 @@ test('work-view shares formal identity without starting task UI and retains natu
     assert.equal(work.snapshot().root,'natural');
     assert.ok(work.panel.root.textContent.includes('自然任务'));
     assert.ok(!work.panel.root.textContent.includes('正式项目'));
-    blockIdentityCache.replace([]);
+    blockIdentityCache.invalidateScope();
     assert.deepEqual(lookupBlockIdentity('formal'),{kind:'ORDINARY'});
   } finally {
-    blockIdentityCache.replace([]);work.dispose();await browser.happyDOM.abort();
+    blockIdentityCache.invalidateScope();work.dispose();await browser.happyDOM.abort();
     delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.localStorage;
   }
 });
@@ -162,5 +162,38 @@ test('task panel preserves sibling modules and cannot mount after a later naviga
   } finally {
     methods.forEach((key,i)=>{KernelClient.prototype[key]=originals[i];});panels.release('work');panels.release('tasks');
     await browser.happyDOM.abort();delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.MutationObserver;
+  }
+});
+
+test('composition root leaves runtime disabled while work and materials remain usable', async () => {
+  const browser=new Window({url:'http://localhost/plugin/'});
+  globalThis.window=browser;globalThis.document=browser.document;globalThis.localStorage=browser.localStorage;
+  const fetch=globalThis.fetch;
+  let unload, boot, calls=0, subscriptions=0;
+  browser.apis={doAction:async([op])=>{if(op==='listdir')return [];throw Error('unexpected file operation');}};
+  globalThis.fetch=async()=>{calls++;throw Error('unexpected network');};
+  globalThis.logseq={
+    settings:{tasksEnabled:false,materialsDirectory:'/materials'},
+    useSettingsSchema:()=>{},provideStyle:()=>{},provideModel:()=>{},beforeunload:fn=>{unload=fn;},
+    ready:fn=>{boot=Promise.resolve().then(fn);return boot;},
+    App:{registerUIItem:()=>{},registerCommandPalette:()=>{},getCurrentGraph:async()=>({name:'test',url:'/graph',path:'/graph'}),onCurrentGraphChanged:()=>()=>{}},
+    DB:{onChanged:()=>{subscriptions++;return()=>{};}},
+    Editor:{getCurrentBlock:async()=>({uuid:'root'}),getBlock:async()=>({uuid:'root',content:'natural',parent:{id:'page'},page:{id:'page'}}),registerBlockContextMenuItem:()=>()=>{},checkEditing:async()=>false},
+    setMainUIInlineStyle:()=>{},showMainUI:()=>{},hideMainUI:()=>{},UI:{showMsg:async()=>{}},
+  };
+  try {
+    await import('../../src/index.ts');await boot;
+    await browser.taskCopilotWorkbench.open('root');
+    assert.equal(browser.taskCopilotWorkbench.read().root,'root');
+    const nav=browser.document.querySelector('#workbench-navigation');
+    const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='材料');
+    materials.click();await delay(20);
+    assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
+    assert.equal(calls,0);assert.equal(subscriptions,1); // only the work-view DB listener
+    await unload();await unload();
+    assert.equal(browser.taskCopilotWorkbench,undefined);
+  } finally {
+    await unload?.();globalThis.fetch=fetch;await browser.happyDOM.abort();
+    delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.localStorage;
   }
 });

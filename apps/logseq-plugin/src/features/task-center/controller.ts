@@ -1,60 +1,38 @@
 import { panels } from "../../workspace/context.ts";
 import { markNavigation } from "../../host/panel-host.ts";
-import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
+import type { KernelClient } from "@task-copilot/client/browser";
 import { buildManagedProjection, projectClosure, canonicalizeGraphContent, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
 import { contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "../../block-context.ts";
 import { blockIdentityCache } from "../../block-identity.ts";
 import { extractTitleFromSourceLine, formatFormalAnchor } from "../../canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "../../formal-marker-host.ts";
-import { isStableProjectionAnomaly } from "../../formal-marker.ts";
-import { graphIdentity, LogseqGraphAdapter, logseqBlock } from "../../graph-adapter.ts";
-import { startGraphGatewayWorker, type GraphGatewayReadHost } from "../../graph-gateway-worker.ts";
+import { type LogseqGraphAdapter, logseqBlock } from "../../graph-adapter.ts";
+import { pluginRuntime } from "../../plugin-runtime.ts";
 import { registerOnlineDoneMarkerCommand } from "../../marker-command.ts";
-import { readOptionalPrivateItem } from "../../private-storage.ts";
 import { readRecoveryVerificationSnapshot } from "../../recovery-verification.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import { clampSidebarWidth, parseSidebarWidth, sidebarLayoutSpec, SIDEBAR_DEFAULT_WIDTH, type SidebarLayoutSpec } from "../../sidebar-layout.ts";
-import { startSourceChangeObserver } from "../../source-change-observer.ts";
 import { requestTextPrompt } from "../../text-prompt.ts";
 
-const descriptorKey = "task-copilot-vnext-kernel-descriptor";
 const recentCommitKey = "task-copilot-vnext-recent-commit";
 const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
 const recentEvidenceIdKey = "task-copilot-vnext-recent-evidence-id";
-const selfWrittenDoneMarkers = new Set<string>();
-const selfWrittenSourceUuids = new Set<string>();
 let panelOpen = false;
 let panelNavigate: ((objectId: string) => void) | null = null;
 let contextMenuRegistrations: Array<() => void> = [];
 let contextMenuCategory: string | null = null;
 let contextMenuHoverTimer: number | null = null;
 let contextMenuHoverUuid: string | null = null;
-let blockIdentityRefreshPromise: Promise<void> | null = null;
-let lastBlockIdentityRefreshAt = 0;
 let blockContextTrackerDispose: (() => void) | null = null;
 let formalMarkerHost: FormalMarkerHost | null = null;
-let consistencyRefreshTimer: number | null = null;
 
-async function applyGraphEffect(adapter: LogseqGraphAdapter, effect: GraphEffect) {
-  const writesDoneMarker = effect.type === "CHANGE_CLOSURE_FIELDS" && effect.expectedSourceMarker !== "DONE" && effect.resultingSourceMarker === "DONE";
-  if (writesDoneMarker) selfWrittenDoneMarkers.add(effect.sourceBlockUuid);
-  selfWrittenSourceUuids.add(effect.sourceBlockUuid);
-  try { return await adapter.applyGraphEffect(effect); }
-  finally {
-    if (writesDoneMarker) window.setTimeout(() => selfWrittenDoneMarkers.delete(effect.sourceBlockUuid), 1_000);
-    window.setTimeout(() => selfWrittenSourceUuids.delete(effect.sourceBlockUuid), 1_000);
-  }
-}
-
-async function descriptor() {
-  const stored = await readOptionalPrivateItem(logseq.FileStorage, descriptorKey);
-  const configured = logseq.settings?.kernelDescriptorJson;
-  const raw = typeof stored === "string" && stored.trim() ? stored : typeof configured === "string" ? configured : "";
-  if (typeof raw !== "string" || !raw.trim()) throw new Error("请先运行“Task Copilot vNext：连接 Kernel”并导入 descriptor。");
-  const descriptor = parsePluginKernelDescriptor(JSON.parse(raw));
-  if (raw !== stored) await logseq.FileStorage.setItem(descriptorKey, raw.trim());
-  return descriptor;
-}
+let taskUiActive = false;
+let taskUiGeneration = 0;
+let taskUiDispose: (() => Promise<void>) | null = null;
+const descriptor = () => pluginRuntime.descriptor();
+const refreshBlockIdentityCache = (api: KernelClient) => pluginRuntime.refreshIdentities(api);
+const revalidateBlockIdentity = (api: KernelClient, uuid: string) => pluginRuntime.revalidateIdentity(api, uuid);
+const adapterForCurrentGraph = () => pluginRuntime.adapterForCurrentGraph();
 
 async function markRecentAgentChangeStrongPositive(): Promise<void> {
   const commitId = await logseq.FileStorage.getItem(recentCommitKey);
@@ -64,7 +42,7 @@ async function markRecentAgentChangeStrongPositive(): Promise<void> {
 }
 
 
-async function client(): Promise<KernelClient> { return new KernelClient(await descriptor()); }
+async function client(): Promise<KernelClient> { return pluginRuntime.client(); }
 
 interface AnchorView {
   graphId: string;
@@ -93,69 +71,6 @@ async function readTargetSnapshot(adapter: LogseqGraphAdapter, graphId: string, 
   return adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId, expectedProjection: await expectedProjection(api, target) });
 }
 
-async function adapterForCurrentGraph(): Promise<{ adapter: LogseqGraphAdapter; graphId: string }> {
-  const graphId = graphIdentity(await logseq.App.getCurrentGraph());
-  return { graphId, adapter: new LogseqGraphAdapter({
-    getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
-    insertBlock: (target, content, options) => logseq.Editor.insertBlock(target, content, options),
-    updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
-    removeBlock: (uuid) => logseq.Editor.removeBlock(uuid),
-  }, graphId) };
-}
-
-function gatewayBlock(value: unknown, fallbackPage: string | null = null): { uuid: string; content: string; pageName: string | null } | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const item = value as Record<string, unknown>; const content = typeof item.title === "string" ? item.title : typeof item.content === "string" ? item.content : null;
-  if (typeof item.uuid !== "string" || content === null) return null;
-  const page = item.page && typeof item.page === "object" && !Array.isArray(item.page) ? item.page as Record<string, unknown> : null;
-  return { uuid: item.uuid, content, pageName: typeof page?.name === "string" ? page.name : fallbackPage };
-}
-
-function journalPageNameFallbacks(pageName: string): string[] {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(pageName);
-  if (!match) return [pageName];
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  if (Number.isNaN(date.getTime())) return [pageName];
-  const day = date.getDate();
-  const ordinal = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
-  const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()]!;
-  const monthLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][date.getMonth()]!;
-  return [pageName, `${monthShort} ${day}${ordinal}, ${date.getFullYear()}`, `${monthLong} ${day}${ordinal}, ${date.getFullYear()}`];
-}
-
-function graphGatewayReadHost(): GraphGatewayReadHost {
-  return {
-    search: async (query, limit) => {
-      const rows = await logseq.DB.datascriptQuery(`[:find ?uuid ?content ?page-name :where [?b :block/uuid ?uuid] [?b :block/content ?content] [?b :block/page ?p] [?p :block/name ?page-name]]`) as unknown;
-      if (!Array.isArray(rows)) return [];
-      const needle = query.toLocaleLowerCase(); const matches: Array<{ uuid: string; content: string; pageName: string | null }> = [];
-      for (const row of rows) {
-        if (!Array.isArray(row) || typeof row[0] !== "string" || typeof row[1] !== "string") continue;
-        if (!row[1].toLocaleLowerCase().includes(needle)) continue;
-        matches.push({ uuid: row[0], content: row[1], pageName: typeof row[2] === "string" ? row[2] : null });
-        if (matches.length >= limit) break;
-      }
-      return matches;
-    },
-    readBlock: async (uuid) => gatewayBlock(await logseq.Editor.getBlock(uuid, { includeChildren: true })),
-    readPage: async (pageName) => {
-      let roots: Awaited<ReturnType<typeof logseq.Editor.getPageBlocksTree>> = null;
-      for (const name of journalPageNameFallbacks(pageName)) {
-        roots = await logseq.Editor.getPageBlocksTree(name); if (roots) break;
-      }
-      if (!roots) return null;
-      const values: Array<{ uuid: string; content: string; pageName: string | null }> = [];
-      const visit = (candidate: unknown) => {
-        const item = gatewayBlock(candidate, pageName); if (item) values.push(item);
-        if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
-          const children = (candidate as Record<string, unknown>).children; if (Array.isArray(children)) for (const child of children) visit(child);
-        }
-      };
-      for (const root of roots) visit(root); return values;
-    },
-  };
-}
-
 async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", blockUuid?: string): Promise<void> {
   const current = logseqBlock(blockUuid ? await logseq.Editor.getBlock(blockUuid) : await logseq.Editor.getCurrentBlock());
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
@@ -163,19 +78,14 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     getBlock: (uuid) => logseq.Editor.getBlock(uuid),
     upsertBlockProperty: (uuid, key, value) => logseq.Editor.upsertBlockProperty(uuid, key, value),
   }, { uuid: current.uuid, content: current.content, isDbGraph: await currentGraphIsDb(logseq.App) });
-  const api = await client(); const { adapter, graphId } = await adapterForCurrentGraph();
+  const api = await client(); const { adapter, graphId, scope } = await adapterForCurrentGraph();
   const rawTitle = extractTitleFromSourceLine(stable.content);
   const canonicalSource = formatFormalAnchor({ kind, title: rawTitle });
   const originalContent = stable.content;
   let formal: Awaited<ReturnType<typeof api.commitFormal>>;
   try {
     if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
-      selfWrittenSourceUuids.add(stable.uuid);
-      try {
-        await logseq.Editor.updateBlock(stable.uuid, canonicalSource);
-      } finally {
-        window.setTimeout(() => selfWrittenSourceUuids.delete(stable.uuid), 1_000);
-      }
+      await pluginRuntime.updateSource(graphId, stable.uuid, canonicalSource);
     }
     const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
     const title = extractTitleFromSourceLine(canonicalSource);
@@ -183,7 +93,7 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     formal = await api.commitFormal(operation, snapshot);
   } catch (error) {
     if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
-      try { await logseq.Editor.updateBlock(stable.uuid, originalContent); } catch { /* best-effort restore before any formal object exists */ }
+      try { await pluginRuntime.updateSource(graphId, stable.uuid, originalContent); } catch { /* best-effort restore before any formal object exists */ }
     }
     throw error;
   }
@@ -197,7 +107,7 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
   await logseq.FileStorage.setItem(recentCommitKey, formal.commit.id);
   if (formal.commit.targetId) {
     await logseq.FileStorage.setItem(currentWorkObjectKey, formal.commit.targetId);
-    blockIdentityCache.setFormal(stable.uuid, { kind: "FORMAL", workObjectId: formal.commit.targetId, objectKind: kind });
+    blockIdentityCache.setFormal(stable.uuid, { kind: "FORMAL", workObjectId: formal.commit.targetId, objectKind: kind }, scope);
   }
   await logseq.UI.showMsg(`已纳入 Task Copilot；Commit ${formal.commit.id}`, "success");
   void refreshBlockIdentityCache(api);
@@ -501,49 +411,6 @@ function ensureFormalMarkerHost(): FormalMarkerHost {
   return formalMarkerHost;
 }
 
-async function refreshBlockIdentityCache(api: KernelClient): Promise<void> {
-  if (blockIdentityRefreshPromise) { await blockIdentityRefreshPromise; return; }
-  lastBlockIdentityRefreshAt = Date.now();
-  blockIdentityRefreshPromise = (async () => {
-    try {
-      const [result, obligationsResult, recoveryResult] = await Promise.all([
-        api.listObjectAnchorIndex(),
-        api.listProjectionObligations(),
-        api.listRecovery(),
-      ]);
-      const anomalyObjectIds = new Set<string>();
-      for (const obligation of obligationsResult.obligations) {
-        if (isStableProjectionAnomaly(obligation)) anomalyObjectIds.add(obligation.workObjectId);
-      }
-      for (const item of recoveryResult.recovery) {
-        if (item.action === "MANUAL_RECONCILIATION" && typeof item.commit.targetId === "string") anomalyObjectIds.add(item.commit.targetId);
-      }
-      const entries = result.objects.map((entry) => {
-        const objectId = typeof entry.object?.id === "string" ? entry.object.id : "";
-        return objectId && anomalyObjectIds.has(objectId) ? { ...entry, consistency: "WARNING" as const } : entry;
-      });
-      blockIdentityCache.replace(entries);
-      formalMarkerHost?.rescan();
-      if (contextMenuHoverUuid) void syncContextMenuForUuid(contextMenuHoverUuid);
-    } catch (error) { console.warn("block-identity-refresh", error); }
-    finally { blockIdentityRefreshPromise = null; }
-  })();
-  await blockIdentityRefreshPromise;
-}
-
-interface AnchorIndexEntry { object: { id: string; kind: string; title?: string }; anchor: { externalId?: string } | null }
-
-async function revalidateBlockIdentity(api: KernelClient, uuid: string): Promise<AnchorIndexEntry | null> {
-  const result = await api.listObjectAnchorIndex();
-  const entry = result.objects.find((item) => (item as AnchorIndexEntry).anchor?.externalId === uuid);
-  if (!entry) { blockIdentityCache.invalidate(uuid); return null; }
-  const typed = entry as AnchorIndexEntry;
-  if (typed.object.kind === "TASK" || typed.object.kind === "MINI_PROJECT" || typed.object.kind === "PROJECT") {
-    blockIdentityCache.setFormal(uuid, { kind: "FORMAL", workObjectId: typed.object.id, objectKind: typed.object.kind });
-  }
-  return typed;
-}
-
 function contextMenuCategoryFor(identity: BlockIdentity): string {
   return identity.kind === "ORDINARY" ? "ordinary" : `formal:${identity.objectKind}`;
 }
@@ -576,7 +443,7 @@ function registerContextMenuItems(identity: BlockIdentity): void {
   for (const actionId of contextActionsFor(identity)) {
     const label = CONTEXT_ACTION_LABELS[actionId];
     const key = blockContextMenuKeyFor(actionId);
-    logseq.App.registerCommand("block-context-menu-item", { key, label }, async (event: { uuid?: string }) => { if (event.uuid) handlers[actionId](event.uuid); });
+    logseq.App.registerCommand("block-context-menu-item", { key, label }, async (event: { uuid?: string }) => { if (taskUiActive && event.uuid) handlers[actionId](event.uuid); });
     const api = hostPluginApi();
     contextMenuRegistrations.push(() => { api?.unregister_plugin_simple_command?.("task-copilot-vnext", key); });
   }
@@ -584,9 +451,9 @@ function registerContextMenuItems(identity: BlockIdentity): void {
 }
 
 async function syncContextMenuForUuid(uuid: string): Promise<void> {
-  if (blockIdentityCache.isStale(uuid) && Date.now() - lastBlockIdentityRefreshAt > 5_000 && !blockIdentityRefreshPromise) {
-    try { await refreshBlockIdentityCache(await client()); } catch { /* keep presentation cache as-is */ }
-  }
+  const generation = taskUiGeneration;
+  try { await pluginRuntime.refreshIfStale(uuid); } catch { /* offline presentation retains its Graph-scoped cache */ }
+  if (!taskUiActive || generation !== taskUiGeneration) return;
   const identity = blockIdentityCache.lookup(uuid);
   const category = contextMenuCategoryFor(identity);
   if (category !== contextMenuCategory) registerContextMenuItems(identity);
@@ -663,11 +530,11 @@ async function reconcileObjectFromBlock(uuid: string): Promise<void> {
 }
 
 async function dailyPanel(initialObjectId: string | null = null): Promise<void> {
-  const navigation = panels.reserve();
+  const navigation = panels.reserve(), generation = taskUiGeneration;
   const api = await client();
   const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
   const storedWidth = await logseq.FileStorage.getItem(sidebarWidthKey).catch(() => null);
-  if (!await panels.activate("tasks", navigation)) return;
+  if (generation !== taskUiGeneration || !await panels.activate("tasks", navigation) || generation !== taskUiGeneration) return;
   markNavigation("任务");
   sidebarWidth = parseSidebarWidth(storedWidth);
   const root = document.createElement("div");
@@ -686,6 +553,7 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
   const view = document.createElement("div"); view.dataset.tcScrollView = "true"; view.style.cssText = "flex:1 1 auto;min-height:0;overflow-y:auto;padding:12px 14px 20px;";
 
   const render = (name: string, objectId: string | null = null) => {
+    if (generation !== taskUiGeneration) return;
     tabs.querySelectorAll("button").forEach((button) => { (button as HTMLButtonElement).disabled = false; button.style.fontWeight = "500"; button.style.boxShadow = "none"; });
     const active = tabs.querySelector(`[data-tab="${name}"]`) as HTMLButtonElement | null;
     if (active && !objectId) { active.disabled = true; active.style.fontWeight = "700"; active.style.boxShadow = "inset 0 -2px 0 var(--ls-link-text-color,#4f74b8)"; }
@@ -769,7 +637,9 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
     if (objectId) {
       void guarded("object-surface", async () => {
         const pack = (await api.objectContextPack(objectId)).pack;
+        if (generation !== taskUiGeneration || !root.isConnected) return;
         await api.markObjectViewed(objectId).catch(() => undefined);
+        if (generation !== taskUiGeneration || !root.isConnected) return;
         view.replaceChildren();
         const back = document.createElement("button"); back.textContent = "‹ 返回"; back.style.cssText = "border:none;background:transparent;color:var(--ls-link-text-color,#4f74b8);cursor:pointer;padding:0;margin-bottom:8px;font-size:13px;";
         back.onclick = () => render(objectId === null ? "now" : pack.kind === "PROJECT" ? "projects" : "now");
@@ -948,7 +818,7 @@ async function executeClosureOperation(type: "COMPLETE_WORK_OBJECT" | "CANCEL_WO
   if (!snapshot.projection) throw new Error("当前 Task 缺少 managed projection。");
   const operation = parseSemanticOperation({ operationId: `closure-${crypto.randomUUID()}`, type, actor: { type: "USER", id: "local-user" }, target: { workObjectId: value.target.object.id, expectedVersion: value.target.object.version, expectedProjectionHash: snapshot.projection.projectionHash }, input });
   const pending = await value.api.prepare(operation, snapshot);
-  let result; try { result = await applyGraphEffect(value.adapter, pending.graphEffect as GraphEffect); } catch (error) { await value.api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
+  let result; try { result = await value.adapter.applyGraphEffect(pending.graphEffect as GraphEffect); } catch (error) { await value.api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
   const committed = await value.api.complete(pending.commit.id, result, await value.adapter.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId }));
   await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id); return { commitId: committed.commit.id, title: value.target.object.title };
 }
@@ -961,8 +831,10 @@ async function completeCurrentTask(): Promise<void> {
 }
 
 async function completeFromObservedDone(blockUuid: string): Promise<void> {
-  if (selfWrittenDoneMarkers.has(blockUuid)) return;
+  const scope = blockIdentityCache.scope();
+  if (pluginRuntime.isSelfWritten(blockUuid, true)) return;
   const value = await currentTaskContext();
+  if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) return;
   if (value.anchor.externalId !== blockUuid || value.target.object.lifecycle !== "OPEN") return;
   const completed = await executeClosureOperation("COMPLETE_WORK_OBJECT", { outcomeSummary: value.target.object.title, evidenceIds: [] });
   await logseq.UI.showMsg(`已从 TODO → DONE 正式完成「${completed.title}」\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
@@ -1023,7 +895,7 @@ async function recoverIncomplete(): Promise<void> {
     const effect = item.commit.graphEffect as GraphEffect;
     if (item.action === "ABORT_PREPARED") await api.abortPrepared(item.commit.id);
     else if (item.action === "RESUME_GRAPH_APPLY") {
-      const result = await applyGraphEffect(adapter, effect);
+      const result = await adapter.applyGraphEffect(effect);
       const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
       if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
     } else if (item.action === "VERIFY_GRAPH") {
@@ -1055,12 +927,7 @@ async function rerenderCurrentFormalItem(): Promise<void> {
           lifecycle: value.target.object.lifecycle === "COMPLETED" ? "COMPLETED" : "OPEN",
         });
         if (canonicalizeGraphContent(source.content) !== canonical) {
-          selfWrittenSourceUuids.add(source.uuid);
-          try {
-            await logseq.Editor.updateBlock(source.uuid, canonical);
-          } finally {
-            window.setTimeout(() => selfWrittenSourceUuids.delete(source.uuid), 1_000);
-          }
+          await pluginRuntime.updateSource(value.graphId, source.uuid, canonical);
         }
       }
     }
@@ -1072,52 +939,52 @@ async function rerenderCurrentFormalItem(): Promise<void> {
 }
 
 async function guarded(label: string, action: () => Promise<void>): Promise<void> {
+  if (!taskUiActive) return;
   try { await action(); } catch (error) { console.error(label, error); await logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); }
 }
 
 export async function startTaskCenter(): Promise<() => Promise<void>> {
+  if (taskUiActive && taskUiDispose) return taskUiDispose;
+  taskUiActive = true; taskUiGeneration++;
+  const timers: number[] = [];
+  let unsubscribeIdentities: () => void = () => undefined;
+  let unregisterOnlineDoneMarker: () => void = () => undefined;
+  const dispose = async () => {
+    if (!taskUiActive) return;
+    taskUiActive = false; taskUiGeneration++;
+    for (const timer of timers) window.clearTimeout(timer);
+    unsubscribeIdentities(); unregisterOnlineDoneMarker();
+    hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null;
+    blockContextTrackerDispose?.(); blockContextTrackerDispose = null;
+    formalMarkerHost?.dispose(); formalMarkerHost = null; unregisterContextMenuItems();
+    closeDailyPanel();
+    delete (window as unknown as { taskCopilotOpenDailyPanel?: () => void }).taskCopilotOpenDailyPanel;
+    delete (window as unknown as { taskCopilotReconcileEngagementForBlock?: (uuid: string) => void }).taskCopilotReconcileEngagementForBlock;
+    topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing");
+    await logseq.hideMainUI();
+  };
+  taskUiDispose = dispose;
+  try {
   panels.register("tasks", () => closeDailyPanel(false));
   installPanelStyle();
   installHostLayoutStyle();
-  logseq.provideModel({ taskCopilotToolbarToggle: () => toggleDailyPanel() });
+  logseq.provideModel({ taskCopilotToolbarToggle: () => { if (taskUiActive) toggleDailyPanel(); } });
   logseq.App.registerUIItem("toolbar", { key: "task-copilot-toolbar", template: `<a class="button" data-on-click="taskCopilotToolbarToggle" data-tc-toolbar-button="true" title="打开 Task Copilot" aria-label="打开 Task Copilot"><span class="tc-toolbar-mark" aria-hidden="true">TC</span></a>` });
-  window.setTimeout(() => { ensureToolbarPinned(); syncToolbarState(); }, 300);
+  timers.push(window.setTimeout(() => { if (taskUiActive) { ensureToolbarPinned(); syncToolbarState(); } }, 300));
   registerContextMenuItems({ kind: "ORDINARY" });
   blockContextTrackerDispose = installBlockContextTracker();
   ensureFormalMarkerHost();
-  void refreshIdentitiesQuietly();
-  consistencyRefreshTimer = window.setInterval(() => {
-    void refreshIdentitiesQuietly();
-  }, 30_000);
-  window.setTimeout(() => syncToolbarState(), 500);
-  const unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); });
-  const stopGraphWorker = startGraphGatewayWorker({
-    connection: async () => { const connection = await descriptor(); const value = await adapterForCurrentGraph(); return { descriptor: connection, ...value, readHost: graphGatewayReadHost() }; },
-    onError: (error) => { if (error instanceof Error && !/请先运行|GRAPH_BRIDGE_TOKEN_MISSING/u.test(error.message)) console.warn("graph-gateway-worker", error); },
+  unsubscribeIdentities = pluginRuntime.onIdentitiesChanged(() => {
+    if (!taskUiActive) return;
+    formalMarkerHost?.rescan();
+    if (contextMenuHoverUuid) void syncContextMenuForUuid(contextMenuHoverUuid);
   });
-  const stopSourceObserver = startSourceChangeObserver({
-    onChanged: (callback) => logseq.DB.onChanged(callback),
-    getCurrentGraph: () => logseq.App.getCurrentGraph(),
-    getBlockContext: async (uuid) => {
-      const block = logseqBlock(await logseq.Editor.getBlock(uuid));
-      if (!block) return null;
-      const page = (await logseq.Editor.getBlock(uuid)) as { page?: { name?: unknown } } | null;
-      return { pageName: typeof page?.page?.name === "string" ? page.page.name : null, content: block.content };
-    },
-    getPageBlocksTree: async (pageName) => {
-      const tree = await logseq.Editor.getPageBlocksTree(pageName);
-      return tree as Array<{ uuid: string; content?: string; children?: unknown[] }> | null;
-    },
-  }, {
-    client: () => client(),
-    isSelfWritten: (uuid) => selfWrittenSourceUuids.has(uuid),
-    onError: (error) => { if (error instanceof Error && !/请先运行|DESCRIPTOR_INVALID/u.test(error.message)) console.warn("source-change-observer", error); },
-  });
-  const dispose = async () => { if (consistencyRefreshTimer !== null) { window.clearInterval(consistencyRefreshTimer); consistencyRefreshTimer = null; } stopSourceObserver(); stopGraphWorker(); unregisterOnlineDoneMarker(); hostLayoutDispose?.(); hostLayoutDispose = null; panelKeydownDispose?.(); panelKeydownDispose = null; blockContextTrackerDispose?.(); blockContextTrackerDispose = null; formalMarkerHost?.dispose(); formalMarkerHost = null; unregisterContextMenuItems(); topDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact", "tc-sidebar-resizing"); await logseq.hideMainUI(); };
+  timers.push(window.setTimeout(() => { if (taskUiActive) syncToolbarState(); }, 500));
+  unregisterOnlineDoneMarker = registerOnlineDoneMarkerCommand(logseq.DB, completeFromObservedDone, (error) => { console.error("online-done-marker", error); void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); }, 150, () => { const scope = blockIdentityCache.scope(); return () => taskUiActive && blockIdentityCache.isCurrent(scope); });
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-connect", label: "Task Copilot vNext：连接 Kernel" }, () => void guarded("connect", async () => {
     const value = logseq.settings?.kernelDescriptorJson;
     if (typeof value !== "string" || !value.trim()) throw new Error("请在插件设置中填写 Kernel descriptor JSON，然后再次运行连接命令。");
-    parsePluginKernelDescriptor(JSON.parse(value)); await logseq.FileStorage.setItem(descriptorKey, value.trim()); await logseq.UI.showMsg("Kernel 已连接；Plugin Graph descriptor 已复制到私有 FileStorage。", "success");
+    await pluginRuntime.connect(value); await logseq.UI.showMsg("Kernel 已连接；Plugin Graph descriptor 已复制到私有 FileStorage。", "success");
   }));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize", label: "Task Copilot vNext：正式化当前记录为 Task" }, () => void guarded("formalize", () => formalizeCurrentRecord("TASK")));
   logseq.App.registerCommandPalette({ key: "task-copilot-vnext-formalize-mini-project", label: "Task Copilot vNext：正式化当前记录为 MiniProject" }, () => void guarded("formalize-mini-project", () => formalizeCurrentRecord("MINI_PROJECT")));
@@ -1141,12 +1008,12 @@ export async function startTaskCenter(): Promise<() => Promise<void>> {
   (window as unknown as { taskCopilotOpenDailyPanel?: () => void }).taskCopilotOpenDailyPanel = () => void guarded("open-daily", dailyPanel);
   (window as unknown as { taskCopilotOpenDailyPanel?: () => void; taskCopilotReconcileEngagementForBlock?: (blockUuid: string) => void }).taskCopilotReconcileEngagementForBlock = (blockUuid) => void guarded("agent-engagement-block", () => letAgentReconcileEngagement(blockUuid));
   return dispose;
+  } catch (error) {
+    try { await dispose(); } catch (cleanupError) { console.error("task-ui-cleanup", cleanupError); }
+    throw error;
+  }
 }
 
 
 export async function openTaskCenter(): Promise<void> { await dailyPanel(); }
 
-async function refreshIdentitiesQuietly(): Promise<void> {
-  try { const api = await client(); await refreshBlockIdentityCache(api); formalMarkerHost?.rescan(); }
-  catch (error) { if (!(error instanceof Error) || !/请先运行|fetch|Failed to fetch|NetworkError/u.test(error.message)) console.warn("workbench-identity-refresh", error); }
-}

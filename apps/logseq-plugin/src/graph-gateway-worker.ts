@@ -55,22 +55,27 @@ async function post(descriptor: PluginKernelDescriptor, path: string, value: unk
   return fetch(`${descriptor.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-task-copilot-graph-bridge": descriptor.graphBridgeToken }, body: JSON.stringify(value) });
 }
 
-export function startGraphGatewayWorker(options: { connection: () => Promise<{ descriptor: PluginKernelDescriptor; graphId: string; adapter: LogseqGraphAdapter; readHost: GraphGatewayReadHost }>; intervalMs?: number; onError?: (error: unknown) => void }): () => void {
+export function startGraphGatewayWorker(options: { connection: () => Promise<{ descriptor: PluginKernelDescriptor; graphId: string; adapter: LogseqGraphAdapter; readHost: GraphGatewayReadHost; isCurrent?: () => boolean }>; intervalMs?: number; onError?: (error: unknown) => void }): () => void {
   let stopped = false; let timer: ReturnType<typeof setTimeout> | null = null; const interval = options.intervalMs ?? 250;
   const tick = async () => {
     try {
       const value = await options.connection();
+      if (stopped) return;
+      if (value.isCurrent?.() === false) throw new Error("GRAPH_SCOPE_CHANGED");
       const polled = await post(value.descriptor, "/v1/graph-adapter/poll", { graphId: value.graphId });
       if (!polled.ok) throw new Error(`GRAPH_BRIDGE_POLL_FAILED:${polled.status}`);
       const envelope = (await polled.json() as { request: GraphGatewayRequestEnvelope | null }).request;
       if (envelope) {
         try {
+          if (stopped || value.isCurrent?.() === false) throw new Error("GRAPH_SCOPE_CHANGED");
           const response = await handleGraphGatewayRequest({ envelope, graphId: value.graphId, adapter: value.adapter, readHost: value.readHost, graphSnapshotKey: value.descriptor.graphSnapshotKey });
+          if (stopped || value.isCurrent?.() === false) throw new Error("GRAPH_SCOPE_CHANGED");
           const accepted = await post(value.descriptor, `/v1/graph-adapter/requests/${encodeURIComponent(envelope.id)}/complete`, { graphId: value.graphId, response });
           if (!accepted.ok) throw new Error(`GRAPH_BRIDGE_COMPLETE_FAILED:${accepted.status}`);
         } catch (error) {
           const code = error instanceof Error && "code" in error ? String(error.code) : error instanceof Error ? error.message.split(":")[0]! : "GRAPH_ADAPTER_FAILED";
-          await post(value.descriptor, `/v1/graph-adapter/requests/${encodeURIComponent(envelope.id)}/fail`, { graphId: value.graphId, error: { code, message: error instanceof Error ? error.message.slice(0, 300) : "Graph Adapter failed." } });
+          const failed = await post(value.descriptor, `/v1/graph-adapter/requests/${encodeURIComponent(envelope.id)}/fail`, { graphId: value.graphId, error: { code, message: error instanceof Error ? error.message.slice(0, 300) : "Graph Adapter failed." } });
+          if (!failed.ok) throw new Error(`GRAPH_BRIDGE_FAIL_FAILED:${failed.status}`, { cause: error });
         }
       }
     } catch (error) { options.onError?.(error); }

@@ -23,3 +23,8 @@ test("shared contracts reject infrastructure imports while allowing domain types
   assert.doesNotThrow(() => assertImportBoundaries("packages/contracts/src/probe.ts", 'import type { WorkObject } from "@task-copilot/domain";'));
   assert.throws(() => assertImportBoundaries("packages/kernel/src/probe.mjs", 'import "@logseq/libs";'), /Kernel must not depend/u);
 });
+
+test("runtime cannot import feature UI and task UI cannot own worker lifecycle", () => {
+  assert.throws(() => assertImportBoundaries("apps/logseq-plugin/src/plugin-runtime.ts", 'import { startTaskCenter } from "./features/task-center/controller.ts";'), /Runtime must not depend/u);
+  assert.throws(() => assertImportBoundaries("apps/logseq-plugin/src/features/task-center/controller.ts", 'import {startGraphGatewayWorker} from "../../graph-gateway-worker.ts";'), /must not own background/u);
+});

@@ -14,11 +14,15 @@ export function assertImportBoundaries(path, content) {
   const workView = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/work-view")}/`);
   const contracts = absolute.startsWith(`${resolve(repo, "packages/contracts/src")}/`);
   const kernel = absolute.startsWith(`${resolve(repo, "packages/kernel/src")}/`);
+  const runtime = absolute === resolve(repo, "apps/logseq-plugin/src/plugin-runtime.ts");
+  const taskUi = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`);
   const source = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, true, path.endsWith(".mjs") ? ts.ScriptKind.JS : ts.ScriptKind.TS);
   function check(specifier) {
     if (!specifier || !ts.isStringLiteralLike(specifier)) return;
     const name = specifier.text;
     const target = name.startsWith(".") ? resolve(dirname(absolute), name) : name;
+    if (runtime && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features")}/`)) throw new Error(`Runtime must not depend on feature controllers: ${path} imports ${name}`);
+    if (taskUi && /\/(?:graph-gateway-worker|source-change-observer)\.ts$/u.test(target)) throw new Error(`Task UI must not own background resources: ${path} imports ${name}`);
     if (workView && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`)) {
       throw new Error(`Work view must not depend on task UI: ${path} imports ${name}`);
     }
@@ -60,7 +64,7 @@ export async function checkBoundaries() {
       for (const token of rule.forbidden) if (content.includes(token)) throw new Error(`${rule.label}: ${path} contains ${token}`);
     }
   }
-  for (const directory of ["apps/logseq-plugin/src/features/work-view", "packages/contracts/src", "packages/kernel/src"]) {
+  for (const directory of ["apps/logseq-plugin/src", "packages/contracts/src", "packages/kernel/src"]) {
     for (const path of await sources(directory)) assertImportBoundaries(path, await readFile(path, "utf8"));
   }
   const server = await readFile("apps/kernel-service/src/server.ts", "utf8");

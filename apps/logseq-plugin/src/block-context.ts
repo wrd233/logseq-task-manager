@@ -64,7 +64,7 @@ export class BlockIdentityCache {
   get revision(): number { return this.#revision; }
 
   lookup(uuid: string): BlockIdentity {
-    return this.#entries.get(uuid) ?? { kind: "ORDINARY" };
+    return { ...(this.#entries.get(uuid) ?? { kind: "ORDINARY" as const }) };
   }
 
   lookupFormal(uuid: string): Extract<BlockIdentity, { kind: "FORMAL" }> | null {
@@ -73,7 +73,7 @@ export class BlockIdentityCache {
   }
 
   setFormal(uuid: string, identity: Extract<BlockIdentity, { kind: "FORMAL" }>, at = Date.now()): void {
-    this.#entries.set(uuid, identity);
+    this.#entries.set(uuid, { ...identity });
     this.#observedAt.set(uuid, at);
     this.#revision += 1;
   }
@@ -85,8 +85,8 @@ export class BlockIdentityCache {
 
   replace(entries: readonly AnchorIdentityInput[], at = Date.now()): void {
     const next = buildBlockIdentityIndex(entries);
-    for (const uuid of this.#entries.keys()) if (!next.has(uuid)) this.#entries.delete(uuid);
-    for (const [uuid, identity] of next) { this.#entries.set(uuid, identity); this.#observedAt.set(uuid, at); }
+    for (const uuid of this.#entries.keys()) if (!next.has(uuid)) this.invalidate(uuid);
+    for (const [uuid, identity] of next) { this.#entries.set(uuid, { ...identity }); this.#observedAt.set(uuid, at); }
     this.#revision += 1;
   }
 
