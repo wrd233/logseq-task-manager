@@ -4,6 +4,8 @@ Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext �
 
 当前整合结构、启用方法与边界见 [整合说明](docs/integration/README.md)；[交互需求树](docs/integration/requirements.html)展示从核心需求到实现位置和默认启用情况。需求数据在 `docs/integration/requirements.json`，运行 `npm run docs:requirements` 更新 HTML。
 
+2026-10-01 的下一阶段设计讨论见 [工作区协作需求](docs/requirements/2026-10-01-project-workspace-collaboration.md)与[架构分析报告](docs/architecture/2026-10-01-workspace-architecture-review.md)（[PDF](docs/architecture/2026-10-01-workspace-architecture-review.pdf)）。这些是演进提案；代码瘦身按[渐进重构计划](docs/refactoring/README.md)分轮实施，第一轮提示词已整理。
+
 **Formal Kernel baseline (2026-08-16, schema v22).** Formal task semantics and governance are defined in [`docs/vnext/05`](docs/vnext/05-Task-Copilot-vNext-产品与治理宪章.md), [`06`](docs/vnext/06-Task-Copilot-vNext-领域模型与Agent架构规范.md), and [`07`](docs/vnext/07-Task-Copilot-vNext-实现路线图与阶段验收.md); the older `01–04` set is historical/superseded. The integrated plugin scope and module boundaries are defined in [the integration guide](docs/integration/README.md) and [requirements map](docs/integration/requirements.html).
 
 - **Formal Commit is independent of Graph availability.** A legal Kernel commit is applied atomically to SQLite Current State + Commit Ledger and then creates a durable `ProjectionObligation`; Graph application is asynchronous, retryable, restart-safe, and can never overwrite a user-edited projection (`POST /v1/commits/commit`, `GET /v1/projection-obligations`, `GET /v1/projection-health`).
