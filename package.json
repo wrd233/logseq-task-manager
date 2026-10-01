@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
     "build": "node scripts/build-all.mjs && node scripts/check-built-binaries.mjs",
-    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:boundaries": "node --test scripts/check-boundaries.test.mjs && node scripts/check-boundaries.mjs",
     "taste:eval": "node scripts/evaluate-taste-candidate.mjs --candidate 0.1.1",
     "sandbox:prepare": "node scripts/logseq-sandbox.mjs prepare",
     "sandbox:start": "node scripts/logseq-sandbox.mjs start",

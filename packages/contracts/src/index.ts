@@ -308,6 +308,21 @@ export interface ManagedProjection {
   projectionHash: string;
 }
 
+/** Pure wire projection. An absent closure stays omitted for v1 hash compatibility. */
+export function buildManagedProjection(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid" | "projectionOutcomeUuid" | "projectionCompletionUuid">, closure: ManagedProjection["closure"] = null): ManagedProjection {
+  const base = {
+    containerUuid: anchor.projectionContainerUuid, titleUuid: anchor.projectionTitleUuid, stateUuid: anchor.projectionStateUuid,
+    focusUuid: anchor.projectionFocusUuid, waitingUuid: anchor.projectionWaitingUuid, outcomeUuid: anchor.projectionOutcomeUuid, completionUuid: anchor.projectionCompletionUuid, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks,
+  };
+  const core = closure ? { ...base, closure } : base;
+  return { ...core, projectionHash: stableHash(core) };
+}
+
+export function projectClosure(closure: EffectiveClosure | null): ManagedProjection["closure"] {
+  if (!closure) return null;
+  return closure.type === "COMPLETED" ? { type: "COMPLETED", recordId: closure.record.id, outcomeSummary: closure.outcomeSummary } : { type: "CANCELLED", recordId: closure.record.id, reason: closure.reason };
+}
+
 export type ManagedProjectionIdentity = Pick<ManagedProjection, "containerUuid" | "titleUuid" | "stateUuid" | "focusUuid" | "waitingUuid" | "outcomeUuid" | "completionUuid">;
 
 export interface GraphSnapshotInput {

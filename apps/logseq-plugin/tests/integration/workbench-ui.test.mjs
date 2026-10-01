@@ -3,6 +3,45 @@ import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
 import {setTimeout as delay} from 'node:timers/promises';
 
+test('work-view shares formal identity without starting task UI and retains natural fallback after Graph switch', async () => {
+  const browser = new Window({url:'http://localhost/plugin/'});
+  globalThis.window=browser; globalThis.document=browser.document; globalThis.localStorage=browser.localStorage;
+  const {blockIdentityCache,lookupBlockIdentity}=await import('../../src/block-identity.ts');
+  const {WorkView}=await import('../../src/features/work-view/controller.ts');
+  let onGraphChanged;
+  let graph='one';
+  const blocks=new Map([
+    ['formal',{uuid:'formal',content:'普通标题',parent:{id:'page'},page:{id:'page'}}],
+    ['natural',{uuid:'natural',content:'TODO **[任务]** 自然任务',parent:{id:'page'},page:{id:'page'}}],
+  ]);
+  globalThis.logseq={
+    settings:{tasksEnabled:false},
+    App:{getCurrentGraph:async()=>({name:graph,url:`/${graph}`}),registerCommandPalette:()=>{},onCurrentGraphChanged:fn=>{onGraphChanged=fn;return()=>{};}},
+    Editor:{getBlock:async uuid=>blocks.get(uuid)??null,getCurrentBlock:async()=>blocks.get('natural'),checkEditing:async()=>false,registerBlockContextMenuItem:()=>()=>{}},
+    DB:{onChanged:()=>()=>{}},setMainUIInlineStyle:()=>{},showMainUI:()=>{},hideMainUI:()=>{},
+  };
+  const work=new WorkView(()=>{});
+  try {
+    blockIdentityCache.replace([{object:{id:'object',kind:'PROJECT',title:'正式项目'},anchor:{externalId:'formal'}}]);
+    await work.open('formal');
+    assert.ok(work.panel.root.textContent.includes('正式项目'));
+    assert.equal(browser.document.querySelector('[data-task-copilot-daily-panel]'),null);
+    blockIdentityCache.invalidate('formal');
+    assert.deepEqual(lookupBlockIdentity('formal'),{kind:'ORDINARY'});
+    graph='two';onGraphChanged();
+    await work.open('natural');
+    assert.equal(work.snapshot().graph,'two:/two');
+    assert.equal(work.snapshot().root,'natural');
+    assert.ok(work.panel.root.textContent.includes('自然任务'));
+    assert.ok(!work.panel.root.textContent.includes('正式项目'));
+    blockIdentityCache.replace([]);
+    assert.deepEqual(lookupBlockIdentity('formal'),{kind:'ORDINARY'});
+  } finally {
+    blockIdentityCache.replace([]);work.dispose();await browser.happyDOM.abort();
+    delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.localStorage;
+  }
+});
+
 test('combined panels preserve source text, load linked material and retain conflicting drafts across switches', async () => {
   const browser = new Window({url: 'http://localhost/plugin/'});
   globalThis.window = browser; globalThis.document = browser.document;

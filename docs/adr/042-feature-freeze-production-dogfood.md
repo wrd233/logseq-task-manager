@@ -2,6 +2,7 @@
 
 - 状态：accepted
 - 日期：2026-08-16
+- 适用范围补注（2026-10-01）：以下决定保留为当时 Formal Kernel RC / dogfood 的冻结范围。后来明确授权的插件整合见[整合说明](../integration/README.md)，行为保持的重构见[第一轮结果](../refactoring/round-01-results.md)。本轮没有新增 Domain capability；新[工作区需求](../requirements/2026-10-01-project-workspace-collaboration.md)仍是目标提案，不代表已实现，也不替代正式权限和恢复约束。
 
 ## 1. 决定
 

@@ -28,10 +28,11 @@ apps/logseq-plugin/src/
     work-view/                     # 导航、模型、展示与操作白名单
     materials/                     # 文件记录、编辑、收纳、冲突
     task-center/controller.ts      # 保留 vNext 任务控制器
+  block-identity.ts                # 共享只读身份查询与缓存；任务模块负责刷新
   graph-adapter.ts, source-identity.ts, ...  # 原有正式投影适配
 ```
 
-纯展示模型与测试沿用原型，类型声明提供 TypeScript 接口。Marked 15.0.12 的原型分发文件与许可证保留在 `work-view/vendor/`；DOMPurify、Vditor 和富文本转换器统一进入 workspace lockfile。无需第二个插件或原型 relay 服务。
+纯展示模型保留当前使用的排列与标记解析；未接入的 Agent patch 和自动排序原型已在[第一轮](../refactoring/round-01-results.md)移除。类型声明提供 TypeScript 接口。正式投影及 closure 转换统一由 `packages/contracts` 的纯函数构造，异步 closure 读取仍在调用侧。Marked 15.0.12 的原型分发文件与许可证保留在 `work-view/vendor/`；DOMPurify、Vditor 和富文本转换器统一进入 workspace lockfile。无需第二个插件或原型 relay 服务。
 
 ## 数据安排与边界
 

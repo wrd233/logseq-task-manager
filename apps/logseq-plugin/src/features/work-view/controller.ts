@@ -2,7 +2,7 @@ import DOMPurify from "dompurify";
 import { marked } from "./vendor/marked.js";
 import { button, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
-import { taskIdentity } from "../task-center/controller.ts";
+import { lookupBlockIdentity } from "../../block-identity.ts";
 import { ancestry, clickDecision, workObject, type AncestryBlock, type Trace } from "./focus.mjs";
 import { displayLevel, levels, savedLevels } from "./display.mjs";
 import { indent, move, reconcile, type LayoutItem, type SourceRow } from "./model.mjs";
@@ -65,7 +65,7 @@ export class WorkView {
 
   private async readTrace(uuid: string): Promise<Trace> {
     return ancestry(uuid, async id => await logseq.Editor.getBlock(id) as AncestryBlock | null, { resolve: (id, content) => {
-      const identity = taskIdentity(id);
+      const identity = lookupBlockIdentity(id);
       return identity.kind === "FORMAL" ? { type: identity.objectKind.toLowerCase(), title: identity.title ?? content.split("\n")[0] ?? "工作" } : workObject(content);
     } });
   }

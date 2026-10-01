@@ -31,16 +31,3 @@ export function clickDecision(state,trace) {
   if(!nearest)return {action:'keep',reason:'no-work-object',release:!!state.held};
   return {action:'focus',uuid:nearest.uuid,held:null,reason:'nearest-object'};
 }
-// Initial presentation trial: sort only direct child subtrees of the selected object.
-// Ordinary prose and nested objects are anchors; never move content across these boundaries.
-export function continuingLayout(source,parse) {
-  if(!source.length)return [];
-  const out=[{uuid:source[0].uuid,depth:0}],groups=[];
-  for(let i=1;i<source.length;){let end=i+1;while(end<source.length&&source[end].depth>source[i].depth)end++;
-    groups.push(source.slice(i,end));i=end;}
-  const rank=g=>{if(workObject(g[0].content))return null;const p=parse(g[0].content);
-    if(p.role==='现状')return 0;if(p.task&&!['DONE','CANCELED'].includes(p.task))return 1;
-    if(p.role==='问一下')return 2;if(p.role==='注')return 3;if(p.role==='想法')return 4;return null;};
-  let run=[];const flush=()=>{run.sort((a,b)=>rank(a)-rank(b));for(const g of run)out.push(...g.map(({uuid,depth})=>({uuid,depth})));run=[];};
-  for(const g of groups){if(rank(g)==null){flush();out.push(...g.map(({uuid,depth})=>({uuid,depth})))}else run.push(g)}flush();return out;
-}

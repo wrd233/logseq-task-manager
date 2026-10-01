@@ -1,15 +1,3 @@
-export interface SourceRef {
-  graphId: string;
-  kind: "LOGSEQ_BLOCK" | "MARKDOWN_FILE";
-  id: string;
-}
-
-export interface WorkScope {
-  graphId: string;
-  rootUuid: string;
-  held: "explicit" | "breadcrumb" | null;
-}
-
 export function scopeKey(graphId: string, rootUuid: string): string {
   return `workbench:scope:${JSON.stringify([graphId, rootUuid])}`;
 }

@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EffectiveClosure, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, buildManagedProjection as projectionFor, projectClosure as closureProjection, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, replacePrimaryOwnership, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import type { SqliteStore } from "@task-copilot/sqlite";
 import { parseUserCorrectionUtterance } from "./user-correction.ts";
@@ -46,20 +46,6 @@ function canonicalWorkObject(object: WorkObject): string {
 function resultingProjectionHash(effect: GraphEffect): string | null {
   return effect.type === "UPSERT_MANAGED_PROJECTION" ? effect.projection.projectionHash
     : effect.type === "UPDATE_MANAGED_FIELD" || effect.type === "SET_CURRENT_FOCUS_FIELD" || effect.type === "UPDATE_WORK_INTENT_FIELDS" || effect.type === "CHANGE_ENGAGEMENT_FIELDS" || effect.type === "CHANGE_CLOSURE_FIELDS" ? effect.resultingProjectionHash : null;
-}
-
-function projectionFor(object: WorkObject, anchor: Pick<PrimaryAnchor, "projectionContainerUuid" | "projectionTitleUuid" | "projectionStateUuid" | "projectionFocusUuid" | "projectionWaitingUuid" | "projectionOutcomeUuid" | "projectionCompletionUuid">, closure: ManagedProjection["closure"] = null): ManagedProjection {
-  const base = {
-    containerUuid: anchor.projectionContainerUuid, titleUuid: anchor.projectionTitleUuid, stateUuid: anchor.projectionStateUuid,
-    focusUuid: anchor.projectionFocusUuid, waitingUuid: anchor.projectionWaitingUuid, outcomeUuid: anchor.projectionOutcomeUuid, completionUuid: anchor.projectionCompletionUuid, title: object.title, lifecycle: object.lifecycle, engagement: object.engagement, waitingCondition: object.waitingCondition, currentFocus: object.currentFocus, desiredOutcome: object.desiredOutcome, completionChecks: object.completionChecks,
-  };
-  const core = closure ? { ...base, closure } : base;
-  return { ...core, projectionHash: stableHash(core) };
-}
-
-function closureProjection(closure: EffectiveClosure | null): ManagedProjection["closure"] {
-  if (!closure) return null;
-  return closure.type === "COMPLETED" ? { type: "COMPLETED", recordId: closure.record.id, outcomeSummary: closure.outcomeSummary } : { type: "CANCELLED", recordId: closure.record.id, reason: closure.reason };
 }
 
 function proposalValue(revision: ProposalRevision): unknown {

@@ -1,8 +1,9 @@
 import { panels } from "../../workspace/context.ts";
 import { markNavigation } from "../../host/panel-host.ts";
 import { KernelClient, parsePluginKernelDescriptor } from "@task-copilot/client/browser";
-import { canonicalizeGraphContent, parseSemanticOperation, stableHash, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
-import { BlockIdentityCache, contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "../../block-context.ts";
+import { buildManagedProjection, projectClosure, canonicalizeGraphContent, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
+import { contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "../../block-context.ts";
+import { blockIdentityCache } from "../../block-identity.ts";
 import { extractTitleFromSourceLine, formatFormalAnchor } from "../../canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "../../formal-marker-host.ts";
 import { isStableProjectionAnomaly } from "../../formal-marker.ts";
@@ -22,7 +23,6 @@ const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
 const recentEvidenceIdKey = "task-copilot-vnext-recent-evidence-id";
 const selfWrittenDoneMarkers = new Set<string>();
 const selfWrittenSourceUuids = new Set<string>();
-const blockIdentityCache = new BlockIdentityCache();
 let panelOpen = false;
 let panelNavigate: ((objectId: string) => void) | null = null;
 let contextMenuRegistrations: Array<() => void> = [];
@@ -84,27 +84,7 @@ async function expectedProjection(api: KernelClient, target: TargetView): Promis
   const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
   const current = (await api.showClosure(target.object.id)).closure.current;
-  const closure = !current ? null : current.type === "COMPLETED"
-    ? { type: "COMPLETED" as const, recordId: current.record.id, outcomeSummary: current.outcomeSummary }
-    : { type: "CANCELLED" as const, recordId: current.record.id, reason: current.reason };
-  const base = {
-    containerUuid: anchor.projectionContainerUuid,
-    titleUuid: anchor.projectionTitleUuid,
-    stateUuid: anchor.projectionStateUuid,
-    focusUuid: anchor.projectionFocusUuid,
-    waitingUuid: anchor.projectionWaitingUuid,
-    outcomeUuid: anchor.projectionOutcomeUuid,
-    completionUuid: anchor.projectionCompletionUuid,
-    title: target.object.title,
-    lifecycle: target.object.lifecycle,
-    engagement: target.object.engagement,
-    waitingCondition: target.object.waitingCondition,
-    currentFocus: target.object.currentFocus,
-    desiredOutcome: target.object.desiredOutcome,
-    completionChecks: target.object.completionChecks,
-  };
-  const core = closure ? { ...base, closure } : base;
-  return { ...core, projectionHash: stableHash(core) };
+  return buildManagedProjection(target.object, anchor, projectClosure(current));
 }
 
 async function readTargetSnapshot(adapter: LogseqGraphAdapter, graphId: string, api: KernelClient, target: TargetView): Promise<GraphSnapshot> {
@@ -1164,7 +1144,6 @@ export async function startTaskCenter(): Promise<() => Promise<void>> {
 }
 
 
-export function taskIdentity(uuid: string): BlockIdentity { return blockIdentityCache.lookup(uuid); }
 export async function openTaskCenter(): Promise<void> { await dailyPanel(); }
 
 async function refreshIdentitiesQuietly(): Promise<void> {

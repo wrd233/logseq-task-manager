@@ -5,10 +5,10 @@ The integrated workbench keeps a small number of deep packages. Formal task sema
 | Package | Owns | May depend on |
 | --- | --- | --- |
 | `packages/domain` | WorkObject, lifecycle/engagement, Anchor/Evidence/Ownership value contracts | Nothing infrastructural |
-| `packages/contracts` | Closed semantic operation registry, Graph/Agent contracts, stable portable hash | Domain types |
+| `packages/contracts` | Closed semantic operation registry, Graph/Agent contracts, stable portable hash and pure managed projection/closure construction | Domain types |
 | `packages/agent` | Versioned Skill loader and deterministic Fake Agent executor | Public contracts only |
 | `packages/sqlite` | Schema v22, normalized current state, Closure history, Ledger, evidence, governance, maintenance and projection obligations | Domain and contracts |
-| `packages/kernel` | Validate/prepare/apply/verify/commit, recovery, compensation Undo | Domain, contracts, SQLite |
+| `packages/kernel` | Formal commit + projection obligations; supported legacy prepare/complete, recovery and compensation Undo | Domain, contracts, SQLite |
 | `packages/client` | Authenticated HTTP transport; Node descriptor reader and browser-safe entry point | Public contracts only |
 | `packages/test-support` | Fake Graph Adapter and vertical integration evidence | Public clients/contracts and app entry points under test |
 | `apps/kernel-service` | `127.0.0.1` composition root, descriptor/token lifecycle, route mapping | Agent, Contracts, Kernel, and SQLite |
@@ -16,14 +16,15 @@ The integrated workbench keeps a small number of deep packages. Formal task sema
 | `apps/kernel-console` | Local diagnostic and governance UI | Browser client and contracts |
 | `apps/logseq-plugin` | One plugin: work views, external Markdown materials, task UI and real Logseq Graph Adapter | Browser client and contracts; local editor and Markdown libraries |
 
-Plugin internals are arranged as `features/work-view`, `features/materials`, and `features/task-center`, with shared `host` and `workspace` modules. The composition root only installs settings, modules and navigation. Materials use independent per-document records; presentation layouts are scoped by Graph and root block. Neither presentation module writes formal task state or synchronizes layout to source. See [integration guide](../integration/README.md).
+Plugin internals are arranged as `features/work-view`, `features/materials`, and `features/task-center`, with shared `host` and `workspace` modules. The composition root only installs settings, modules and navigation. `block-identity.ts` holds the shared presentation identity cache and its read-only query; task-center still owns refresh, revalidation, Graph Gateway and observer startup. Work-view imports the identity query, never task-center UI. Materials use independent per-document records; presentation layouts are scoped by Graph and root block. Neither presentation module writes formal task state or synchronizes layout to source. See [integration guide](../integration/README.md).
 
 Enforced negative boundaries:
 
 - Domain imports no HTTP, SQLite, Logseq, or Client code.
 - Primary Ownership is a pure Domain invariant: one owner, no Project nesting, no cycles, and at most `Project -> MiniProject -> Task` depth.
 - Plugin imports no SQLite implementation. CLI opens SQLite only through its local lifecycle module; business operations use the Client.
-- Kernel imports no Logseq SDK.
+- Kernel imports no Logseq SDK. Contracts import no Node, SDK, database or Client infrastructure.
+- Work-view cannot import task-center modules, including re-exports and literal dynamic imports in `.ts` / `.mjs`.
 - Kernel Service owns formal SQLite transactions; CLI lifecycle operations provide backup, restore and diagnostics.
 - Generic writes authorize only the configured `USER/local-user`; the two narrow Agent writes are composed at the Service boundary and must pass operation-specific Proposal policy. Self-asserted Agent or System actors are rejected independently of bearer-token authentication.
 

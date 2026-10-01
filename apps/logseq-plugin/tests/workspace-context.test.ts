@@ -23,3 +23,15 @@ test("late task loads cannot revive a pane after a newer user navigation", async
   assert.equal(await panels.activate("tasks", delayedTask), false);
   assert.equal(panels.active, "work");
 });
+
+test("a failed draft-preserving close remains visible to the caller and does not poison later navigation", async () => {
+  const panels = new PanelCoordinator();
+  let fail = true;
+  panels.register("materials", () => { if (fail) throw new Error("DRAFT_SAVE_FAILED"); });
+  await panels.activate("materials");
+  await assert.rejects(panels.activate("work"), /DRAFT_SAVE_FAILED/u);
+  assert.equal(panels.active, "materials");
+  fail = false;
+  assert.equal(await panels.activate("work"), true);
+  assert.equal(panels.active, "work");
+});

@@ -1,5 +1,21 @@
 # Commit State Machine
 
+## Current formal path
+
+Following [ADR 014](../adr/014-formal-commit-projection-obligation.md), `Kernel.commitFormal()` commits SQLite Current State and the Ledger atomically and persists a `ProjectionObligation` in that transaction. `COMMITTED` means Formal Truth is established even while Graph is offline.
+
+```text
+VALIDATE -> PREPARE -> KERNEL APPLY -> FORMAL COMMIT
+                                      -> durable ProjectionObligation
+                                      -> asynchronous GRAPH APPLY -> VERIFY -> VERIFIED
+```
+
+An obligation is `PENDING`, `FAILED` or `VERIFIED`; retry/backoff and restart recovery do not roll back the formal commit. A fresh projection/hash mismatch rejects application rather than overwriting user edits. Operations such as ownership that have no Graph effect do not need an obligation. The portable projection constructor is `buildManagedProjection()` in `packages/contracts`; Kernel and Plugin share it, including omission of absent closure. Closure reads remain at the caller.
+
+## Supported legacy path
+
+`prepare() -> complete()` remains in Plugin Agent proposal, closure and compensation Undo flows and in recovery of persisted intermediate stages. It shares Kernel `#prepare` with the formal path; these callers and durable states must be migrated before removal. [ADR 003](../adr/003-cross-medium-commit.md) describes this path, not every current formal commit.
+
 ```text
 VALIDATE
   -> PREPARED

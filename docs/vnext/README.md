@@ -1,7 +1,7 @@
 # Task Copilot vNext 设计与实施文档集
 
 > 版本：2026-08-16 Phase 20 RC gate complete（**RC_READY**）  
-> 状态：**当前权威文档为 05 / 06 / 07**；01–04 保留为 historical / superseded  
+> 状态：**正式任务语义与治理以 05 / 06 / 07 为基线**；01–04 保留为 historical / superseded。当前插件行为见[整合说明](../integration/README.md)，演进需求与本轮改动见[根入口](../../README.md)。
 > 适用仓库：`wrd233/logseq-task-manager`
 
 ---
@@ -28,13 +28,13 @@
 
 ## 1. 文档清单
 
-### 当前权威文档（2026-08-15 Grill 第 1～123 问之后）
+### 当前正式治理文档（2026-08-15 Grill 第 1～123 问之后）
 
 #### 05 — 产品与治理宪章
 
 文件：`05-Task-Copilot-vNext-产品与治理宪章.md`
 
-当前产品宪法：四个角色边界、Formal WorkObject 浅树、lifecycle/engagement 强语义、
+正式任务的产品与治理基线：四个角色边界、Formal WorkObject 浅树、lifecycle/engagement 强语义、
 current_focus v2、Context/Evidence 分层、User Decision Compiler、后台有界最终一致、
 Graph Projection 最终一致、四入口（现在/待我确认/项目/更多）、故障原则
 “Natural Work Fail Open, Formal Governance Fail Closed”，以及 Grill 1～123 决策索引。
@@ -63,7 +63,7 @@ Phase 8～20 路线与每阶段 Golden Path / DoD。当前仓库已闭合 Phase 
 
 文件：`01-Task-Copilot-vNext-Architecture-Product-Baseline.md`
 
-这是最重要的设计基线。它从“项目为何存在”开始，系统性描述：
+这是早期设计基线，现已被 05 / 06 / 07 替代。它从“项目为何存在”开始，历史内容包括：
 
 - 北极星与产品承诺；
 - 信息分层与权威边界；
@@ -83,7 +83,7 @@ Phase 8～20 路线与每阶段 Golden Path / DoD。当前仓库已闭合 Phase 
 - vNext MVP 的黄金链与故障链；
 - 明确的非目标。
 
-建议把它作为后续所有实现讨论的“宪法”。
+仅用于理解早期设计来源；不得作为当前实现的授权或验收依据。
 
 ### 02 — Repository Refactor & Implementation Blueprint
 
@@ -105,7 +105,7 @@ Phase 8～20 路线与每阶段 Golden Path / DoD。当前仓库已闭合 Phase 
 
 文件：`03-Task-Copilot-vNext-Codex-Implementation-Goal.md`
 
-这是一份可以直接交给 Codex 的实施 Goal。它不是要求 Codex 一次性实现完整 vNext，而是要求：
+这是一份早期实施 Goal 的历史记录，不能直接作为当前仓库的执行任务。当时要求：
 
 - 先调查当前仓库；
 - 高破坏性清理旧架构；
@@ -128,13 +128,13 @@ Phase 8～20 路线与每阶段 Golden Path / DoD。当前仓库已闭合 Phase 
 - 对实现的约束；
 - 被明确放弃的替代路线。
 
-如果未来某个实现选择与本轮讨论发生冲突，应先查这份决策登记册，而不是凭印象解释。
+仅用于追溯早期决策；当前正式治理判断应查 05 / 06 及相应 ADR。
 
 ---
 
 ## 2. 建议阅读顺序
 
-如果是新 Session / 新 Agent 接手：
+新 Session / 新 Agent 从[根 README](../../README.md)和[整合说明](../integration/README.md)了解当前功能与任务范围。涉及正式状态、权限、事务或恢复时，再按下列顺序阅读：
 
 ```text
 05 产品与治理宪章
@@ -152,15 +152,14 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 
 ## 3. 文档优先级
 
-若文档出现理解差异，优先级如下：
+文档权威按范围理解，不按日期排成一条覆盖链：
 
-1. **05 产品与治理宪章**：当前总体产品真相；
-2. **06 领域模型与 Agent 架构规范**：当前可实现的语义边界；
-3. **07 实现路线图与阶段验收**：当前实施顺序与验收标准；
-4. **docs/adr / docs/architecture / docs/golden-paths**：已经落地的实现事实；
-5. 01–04：historical / superseded，仅考古用途。
+- [工作区协作需求](../requirements/2026-10-01-project-workspace-collaboration.md)决定下一阶段方向；[架构报告](../architecture/2026-10-01-workspace-architecture-review.md)中的建议不代表已实现。
+- [整合说明](../integration/README.md)解释当前插件行为与启用条件；源码、测试与注明环境的验证记录用于核对实现事实。
+- **05 / 06** 约束现有正式权限、事实与故障原则；**07** 记录阶段验收。相关 ADR 在注明的范围内解释具体决定，后续替代关系应显式标明。
+- **01–04** 仅作历史来源；历史冻结和阶段验收不自动禁止已明确授权的新插件范围，也不证明当前版本已通过旧 Gate。
 
-代码当前状态不自动高于设计基线。vNext 明确允许高破坏性重构，因此“旧代码现在这么做”不能作为保留旧结构的充分理由。
+现有行为不能单独证明设计合理；重构也不能绕过正式权限、事务和恢复约束。本轮执行边界见[第一轮结果](../refactoring/round-01-results.md)。
 
 ---
 
@@ -218,9 +217,9 @@ docs/architecture、docs/adr、docs/golden-paths（实现事实）
 - 真实 Logseq Desktop 已验证 `整理今天 → Discovery → Candidate → DecisionPackage → “纳入” → CREATE → projection converge`（Phase 12）；
 - 完整门禁 `npm run check` 在真实 CJK 工作区通过。
 
-当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended runtime、health、single instance、supersession）与 Phase 14（derived ClosureReadiness、governed parent closure）与 Phase 15（evidence-grounded semantic closure assessment：deterministic gate → async cached DEEP assessor → host aggregation，见 ADR 040/041）与 Phase 20（backup/restore、service lifecycle、doctor、migration v16–v22、12-day 103-object soak、security defaults，见 ADR 043 与 `RC_RELEASE_GATE.md`）。下一阶段只允许小范围真实使用 + blocker-only fixes，然后 vNext 1.0；不要从旧 01–04 反推架构。
+当前基线已完成 Phase 12 + 12.5 + 16A + 16B + 17/16C（ProjectIntent 窄闭环、multi-turn object conversation、FAST/DEEP profiles、workspace-coexisting UI）与 Phase 13/13.5（bounded unattended runtime、health、single instance、supersession）与 Phase 14（derived ClosureReadiness、governed parent closure）与 Phase 15（evidence-grounded semantic closure assessment：deterministic gate → async cached DEEP assessor → host aggregation，见 ADR 040/041）与 Phase 20（backup/restore、service lifecycle、doctor、migration v16–v22、12-day 103-object soak、security defaults，见 ADR 043 与 `RC_RELEASE_GATE.md`）。当时的 blocker-only 范围见 [ADR 042](../adr/042-feature-freeze-production-dogfood.md)。当前插件整合与已授权重构按各自说明执行；正式治理约束继续有效，不从旧 01–04 反推当前架构。
 
-任何新想法先问：
+历史 RC 阶段的新想法按以下问题判断；当前工作另以明确的任务范围为准：
 
 > 它是否是某条已冻结 Golden Path / Failure Path 真正需要的？
 
