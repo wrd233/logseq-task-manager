@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { existsSync } from "node:fs";
 
 import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCorrection, type ClosureAssessment, type ClosureAssessmentJob, type ClosureCheckAssessment, type ClosureGateSnapshot, type ClosureHistory, type CommitStatus, type ContextAssociation, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type DiscoveryRun, type DiscoveryRunSourceOutcome, type FeedbackEvent, type FormalizationCandidate, type FormalizationEvidence, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphReadReceipt, type OperationType, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type ReconcileJob, type ReconcilePriorityClass, type ReconcileTriggerType, type SkillIdentity, type SourceCoverageState, type StoredCommit, type TrustedUserEvent, type UserDecision, type UserReadBaseline } from "@task-copilot/contracts";
 export type { StoredCommit } from "@task-copilot/contracts";
@@ -397,6 +398,16 @@ export class SqliteStore {
   readonly #database: Database.Database;
 
   constructor(path: string) {
+    if (path !== ":memory:" && existsSync(path)) {
+      const existingDb = new Database(path, { readonly: true });
+      try {
+        const versionTable = existingDb.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_versions'").get();
+        if (versionTable) {
+          const version = Number((existingDb.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as {version: number}).version);
+          if (version > SUPPORTED_SCHEMA_VERSION) throw new Error(`SCHEMA_VERSION_TOO_NEW:${version}:${SUPPORTED_SCHEMA_VERSION}`);
+        }
+      } finally { existingDb.close(); }
+    }
     this.#database = new Database(path);
     this.#database.pragma("journal_mode = WAL");
     this.#database.exec(schema);

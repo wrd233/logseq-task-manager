@@ -206,7 +206,17 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         await serveConsoleFile(url.pathname, response, consoleDistPath);
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/console/bootstrap") { send(response, 200, { token, profile: consoleProfile }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/console/bootstrap") {
+        const address = server.address();
+        const expectedHost = address && typeof address === "object" ? `127.0.0.1:${address.port}` : "";
+        const origin = request.headers.origin;
+        if (request.headers.host !== expectedHost || (origin && origin !== `http://${expectedHost}`) || request.headers["sec-fetch-site"] === "cross-site") {
+          send(response, 403, { error: { code: "CONSOLE_ORIGIN_REQUIRED", message: "Console bootstrap is restricted to its loopback origin." } }); return;
+        }
+        response.setHeader("access-control-allow-origin", `http://${expectedHost}`);
+        response.setHeader("vary", "Origin");
+        send(response, 200, { token, profile: consoleProfile }); return;
+      }
       if (url.pathname.startsWith("/v1/graph-adapter/")) {
         if (request.headers["x-task-copilot-graph-bridge"] !== graphBridgeToken) { send(response, 401, { error: { code: "GRAPH_BRIDGE_AUTH_REQUIRED", message: "A valid Graph bridge capability is required." } }); return; }
         if (request.method === "POST" && url.pathname === "/v1/graph-adapter/heartbeat") { const value = await body(request) as { graphId: string }; send(response, 200, { graph: broker.heartbeat(value.graphId) }); return; }

@@ -56,6 +56,11 @@ test("future schema fails closed before any runtime migration or writer starts",
   db.prepare("INSERT INTO schema_versions(version, applied_at) VALUES (99, ?)").run("now");
   db.close();
   assert.throws(() => new SqliteStore(path), /SCHEMA_VERSION_TOO_NEW/u);
+  const unchanged = new Database(path, { readonly: true });
+  assert.deepEqual(unchanged.prepare("SELECT version FROM schema_versions").all(), [{version: 99}]);
+  assert.deepEqual(unchanged.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all(), [{name: "schema_versions"}]);
+  assert.equal(unchanged.pragma("journal_mode", {simple: true}), "delete");
+  unchanged.close();
   await rm(directory, { recursive: true, force: true });
 });
 

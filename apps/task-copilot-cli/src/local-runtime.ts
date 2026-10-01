@@ -265,14 +265,20 @@ export async function backupRestore(backupPath: string, stateDir = stateDirector
   let previousBackup: string | null = null;
   if (await exists(paths.dbPath)) {
     previousBackup = `${paths.dbPath}.pre-restore-${Date.now()}`;
-    await rename(paths.dbPath, previousBackup);
+    const previous = new Database(paths.dbPath, { readonly: true });
+    try { await previous.backup(previousBackup); } finally { previous.close(); }
+    await chmod(previousBackup, 0o600);
   }
-  await rm(`${paths.dbPath}-wal`, { force: true }).catch(() => undefined);
-  await rm(`${paths.dbPath}-shm`, { force: true }).catch(() => undefined);
   try {
+    await rm(`${paths.dbPath}-wal`, { force: true });
+    await rm(`${paths.dbPath}-shm`, { force: true });
     await rename(temporary, paths.dbPath);
   } catch (error) {
-    if (previousBackup && !(await exists(paths.dbPath))) await rename(previousBackup, paths.dbPath).catch(() => undefined);
+    if (previousBackup) {
+      const rollback = `${temporary}.rollback`;
+      await copyFile(previousBackup, rollback);
+      await rename(rollback, paths.dbPath);
+    }
     throw error;
   }
   return { restoredTo: paths.dbPath, previousBackup };

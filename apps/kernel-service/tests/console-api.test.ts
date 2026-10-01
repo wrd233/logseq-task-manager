@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { request } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -67,6 +68,17 @@ test("console world/search/viewed are read-only Kernel Service clients", async (
     const bootstrapJson = await bootstrap.json() as { token: string; profile: string };
     assert.equal(bootstrapJson.token, "console-test-token");
     assert.equal(bootstrapJson.profile, "sandbox");
+    const hostile = await fetch(`${server.baseUrl}/v1/console/bootstrap`, {headers: {origin: "https://untrusted.example"}});
+    assert.equal(hostile.status, 403);
+    assert.equal(JSON.stringify(await hostile.json()).includes("console-test-token"), false);
+    const crossSite = await fetch(`${server.baseUrl}/v1/console/bootstrap`, {headers: {"sec-fetch-site": "cross-site"}});
+    assert.equal(crossSite.status, 403);
+    // Undici rewrites Host, so use the HTTP transport to exercise rebinding.
+    const rebindingStatus = await new Promise<number | undefined>((resolve, reject) => {
+      const req = request(`${server.baseUrl}/v1/console/bootstrap`, {headers: {host: "untrusted.example"}}, response => { response.resume(); resolve(response.statusCode); });
+      req.on("error", reject); req.end();
+    });
+    assert.equal(rebindingStatus, 403);
 
     // /console redirects to /console/ so relative app.js resolves under the console mount.
     const redirect = await fetch(`${server.baseUrl}/console`, { redirect: "manual" });

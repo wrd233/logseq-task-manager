@@ -5,6 +5,8 @@ import { join } from "node:path";
 import test from "node:test";
 
 import Database from "better-sqlite3";
+import { spawnSync } from "node:child_process";
+import process from "node:process";
 import { backupCreate, backupInspect, backupRestore, doctor, serviceStatus, statePaths } from "../src/local-runtime.ts";
 
 function seedDatabase(path: string, schemaVersion = 22, extra = ""): void {
@@ -65,6 +67,25 @@ test("restore validates and atomically replaces the current database while keepi
   assert.equal((restored.prepare("SELECT COUNT(*) AS count FROM runtime_leases").get() as { count: number }).count, 0);
   restored.close();
   await rm(stateDir, { recursive: true, force: true });
+});
+
+test("restore retains committed WAL data in the previous logical snapshot", async () => {
+  const stateDir = await mkdtemp(join(tmpdir(), "tc-restore-wal-"));
+  try {
+    const { dbPath } = statePaths(stateDir); seedDatabase(dbPath);
+    const info = await backupCreate(stateDir);
+    const script = `const Database=require('better-sqlite3');const db=new Database(process.argv[1]);db.pragma('wal_autocheckpoint=0');db.prepare("UPDATE work_objects SET title='committed-in-wal' WHERE id='w1'").run();process.exit(0);`;
+    const child = spawnSync(process.execPath, ["-e", script, dbPath], {encoding: "utf8"});
+    assert.equal(child.status, 0, child.stderr);
+    assert.ok((await readFile(`${dbPath}-wal`)).length > 0);
+    const result = await backupRestore(info.path, stateDir);
+    const previous = new Database(result.previousBackup!, {readonly: true});
+    assert.equal((previous.prepare("SELECT title FROM work_objects WHERE id='w1'").get() as {title: string}).title, "committed-in-wal");
+    previous.close();
+    const restored = new Database(dbPath, {readonly: true});
+    assert.equal((restored.prepare("SELECT title FROM work_objects WHERE id='w1'").get() as {title: string}).title, "备份测试对象");
+    restored.close();
+  } finally { await rm(stateDir, {recursive: true, force: true}); }
 });
 
 test("service status recognizes stale descriptor and never reports a dead pid as running", async () => {
