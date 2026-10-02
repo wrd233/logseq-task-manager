@@ -6,9 +6,11 @@ import { Materials } from "./features/materials/controller.ts";
 import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
+import { installAgentWorkspace } from "./features/agent-workspace/installer.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
+  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。选择工作块后使用“允许 agent 连接当前工作”；停止连接不影响本地阅读。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: true, title: "启用任务管理", description: "保留 vNext 的任务界面与正式操作，需要本地 Kernel。修改后重载插件。" },
@@ -23,12 +25,13 @@ async function main(): Promise<void> {
   let materials: Materials | null = null, work: WorkView | null = null;
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
+  let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
   let disposed = false;
   let removeNavigation: () => void = () => undefined;
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
+    agentWorkspace?.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
     delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
   };
   logseq.beforeunload(dispose);
@@ -58,6 +61,7 @@ async function main(): Promise<void> {
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback();
+  agentWorkspace = installAgentWorkspace({content,materials,work});
   const api = {
     read: () => work?.snapshot() ?? null,
     open: (uuid?: string) => work?.open(uuid),
@@ -65,6 +69,7 @@ async function main(): Promise<void> {
     close: () => panels.closeActive(),
     apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     content: content.api,
+    agentWorkspace: agentWorkspace.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
       read: (id: string) => requireMaterials().readMaterial(id),
