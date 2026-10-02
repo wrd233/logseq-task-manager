@@ -5,4 +5,5 @@ export interface FileIO {
   mkdir(path: string): Promise<void>;
   rename(from: string, to: string): Promise<void>;
   list(path: string): Promise<string[]>;
+  stat?(path: string): Promise<{ type: "file" | "directory"; size: number }>;
 }

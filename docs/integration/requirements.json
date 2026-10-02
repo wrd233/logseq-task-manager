@@ -1,7 +1,7 @@
 {
   "title": "工作台 · 需求与实现地图",
-  "updatedAt": "2026-10-01",
-  "baseline": "vnext 07e9f0e + work-view 88a3d10 + longdoc 171fa66",
+  "updatedAt": "2026-10-02",
+  "baseline": "materials module on 23d0c71 (main 85ef106)",
   "enablementNote": "启用情况描述整合版默认配置与前置条件，不读取或修改生产 Logseq 的配置。",
   "tree": {
     "id": "root",
@@ -116,7 +116,7 @@
         "why": "围绕工作使用已有文件，保持原文位置、可编辑性与恢复能力。",
         "status": "partial",
         "enabled": "conditional",
-        "setting": "materialsEnabled = true；需 materialsDirectory",
+        "setting": "materialsEnabled = true；工作目录绑定或 materialsDirectory",
         "children": [
           {
             "id": "file-reference",
@@ -125,9 +125,11 @@
             "enabled": "conditional",
             "implementation": [
               "apps/logseq-plugin/src/features/materials/store.ts",
-              "apps/logseq-plugin/src/features/materials/controller.ts"
+              "apps/logseq-plugin/src/features/materials/controller.ts",
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "文件留在原位置，工作块新增引用；目前限本地 Markdown。"
+            "acceptance": "原文件 Markdown 阅读、显式授权编辑；PDF、图片等普通文件登记与外部打开，均不搬迁。"
           },
           {
             "id": "capture",
@@ -136,9 +138,11 @@
             "enabled": "off",
             "setting": "materialsAutoCapture = false",
             "implementation": [
-              "apps/logseq-plugin/src/features/materials/controller.ts"
+              "apps/logseq-plugin/src/features/materials/controller.ts",
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "显式启用且配置目录后接管外部文本粘贴，保留捕获原文与来源身份。"
+            "acceptance": "显式文本和已提交块收纳、Agent 同一核心入口；自动粘贴仍默认关闭。按绑定目录保存，无绑定才用全局；原文、请求身份与部分失败可恢复。"
           },
           {
             "id": "editor",
@@ -146,9 +150,11 @@
             "status": "implemented",
             "enabled": "conditional",
             "implementation": [
-              "apps/logseq-plugin/src/features/materials/controller.ts"
+              "apps/logseq-plugin/src/features/materials/controller.ts",
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "按需加载本地 Vditor；自动保存、手动保存和外部打开。"
+            "acceptance": "阅读优先，用户点击编辑后复用 Vditor；程序与 Agent 写入同时检查权限和基础版本。"
           },
           {
             "id": "external-update",
@@ -178,9 +184,11 @@
             "enabled": "conditional",
             "implementation": [
               "apps/logseq-plugin/src/features/materials/store.ts",
-              "apps/logseq-plugin/src/features/materials/controller.ts"
+              "apps/logseq-plugin/src/features/materials/controller.ts",
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "标题和正文搜索；用独立记录重建材料库，多个实例创建不会覆盖共用索引。"
+            "acceptance": "工作关联列表与已登记目录的全局查找；独立记录为权威，单个目录与定位提示可校验重建。"
           },
           {
             "id": "material-identity",
@@ -189,17 +197,22 @@
             "enabled": "conditional",
             "implementation": [
               "apps/logseq-plugin/src/source-identity.ts",
-              "apps/logseq-plugin/src/features/materials/controller.ts"
+              "apps/logseq-plugin/src/features/materials/controller.ts",
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "关联文件前保存原生来源身份；自动收纳在同一原生插入中包含来源 id。"
+            "acceptance": "稳定材料 ID、路径与标题分开，多任务关联不复制正文；旧 longdoc/UUID 文件兼容，失联显式重新定位。"
           },
           {
             "id": "other-files",
             "title": "PDF、图片与项目目录接入",
-            "status": "planned",
-            "enabled": "unavailable",
-            "implementation": [],
-            "acceptance": "本轮未实现通用文件适配，不以 Markdown 关联代表所有材料格式已接入。"
+            "status": "implemented",
+            "enabled": "conditional",
+            "implementation": [
+              "apps/logseq-plugin/src/features/materials/service.ts",
+              "apps/logseq-plugin/src/workspace/material-context.ts"
+            ],
+            "acceptance": "PDF、图片及普通文件仅关联、能力声明与外部打开；工作目录显式刷新/选择，未实现全面监听、格式预览或编辑。"
           },
           {
             "id": "material-migration",
