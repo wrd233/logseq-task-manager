@@ -51,17 +51,23 @@ export function contentChanges(event: unknown): Map<string, string> | null {
   if (!event || typeof event !== "object") return null;
   const value = event as { txData?: unknown; blocks?: unknown };
   if (!Array.isArray(value.txData) || !value.txData.length || !Array.isArray(value.blocks) || !value.blocks.length) return null;
-  let content = false;
+  const contentEntities = new Set<number>();
+  // These attributes describe body-derived metadata, never parent/left/page/UUID topology.
+  const bodyAttributes = new Set(["block/content", "block/updated-at", "block/properties", "block/properties-order", "block/properties-text-values", "block/refs", "block/path-refs", "block/marker", "block/priority", "block/scheduled", "block/deadline"]);
   for (const datom of value.txData) {
-    if (!Array.isArray(datom) || datom.length < 5 || !["block/content", "block/updated-at"].includes(datom[1])) return null;
-    if (datom[1] === "block/content") content = true;
+    if (!Array.isArray(datom) || datom.length < 5 || typeof datom[0] !== "number" || !bodyAttributes.has(datom[1])) return null;
+    if (datom[1] === "block/content") contentEntities.add(datom[0]);
   }
-  if (!content) return null;
-  const changes = new Map<string, string>();
+  if (!contentEntities.size) return null;
+  const changes = new Map<string, string>(), covered = new Set<number>();
   for (const block of value.blocks) {
-    if (!block || typeof block !== "object" || typeof block.uuid !== "string" || typeof block.content !== "string") return null;
-    changes.set(block.uuid, block.content);
+    if (!block || typeof block !== "object" || typeof block.id !== "number" || typeof block.uuid !== "string") return null;
+    if (typeof block.content === "string") {
+      changes.set(block.uuid, block.content); covered.add(block.id);
+    } else if (typeof block.name !== "string" || contentEntities.has(block.id)) return null;
+    // Logseq 0.10.15 includes a page's updated-at entity in an ordinary body edit.
   }
+  if ([...contentEntities].some(id => !covered.has(id))) return null;
   return changes;
 }
 

@@ -152,3 +152,29 @@ test('source changes hidden by a draft still invalidate a prior public version',
     f.editing(false); await f.tick(); assert.equal(f.work.snapshot().blocks.find(block => block.uuid === 'b0').content, 'new saved source');
   } finally { await f.close(); }
 });
+
+test('captured Desktop body datoms accept property metadata and page timestamps but reject incomplete or structural events', async () => {
+  const { contentChanges } = await import('../../src/features/work-view/source.ts');
+  const body = { id: 42, uuid: 'body', content: 'updated\nid:: body', properties: {}, parent: { id: 37 } }, page = { id: 37, uuid: 'page', name: 'fixture', originalName: 'fixture' };
+  const event = { blocks: [body, page], txData: [[42, 'block/properties-text-values', {}, 1, true], [42, 'block/properties', {}, 1, true], [42, 'block/properties-order', [], 1, true], [37, 'block/updated-at', 1, 1, true], [42, 'block/content', 'old', 1, false], [42, 'block/content', body.content, 1, true]] };
+  assert.deepEqual([...contentChanges(event)], [['body', body.content]]);
+  for (const attribute of ['block/parent', 'block/left', 'block/page', 'block/uuid', 'block/unknown']) assert.equal(contentChanges({ ...event, txData: [...event.txData, [42, attribute, 1, 1, true]] }), null);
+  assert.equal(contentChanges({ ...event, blocks: [page] }), null);
+  assert.equal(contentChanges({ ...event, blocks: [body, { id: 99, uuid: 'unknown' }] }), null);
+  assert.equal(contentChanges({ blocks: [body] }), null);
+});
+
+test('reading anchor follows current DOM order after manual layout rather than original cache insertion order', async () => {
+  const f = await fixture();
+  try {
+    await f.work.open('root'); op(f.work, 'reorder', { uuid: 'b1', target: 'b0', mode: 'before' });
+    const root = row(f, 'root'), first = row(f, 'b1'), second = row(f, 'b0'), container = root.parentElement;
+    const height = () => first.querySelector('.wb-body').textContent.includes('larger') ? 150 : 50;
+    container.getBoundingClientRect = () => ({ top: 0, bottom: 100 });
+    root.getBoundingClientRect = () => ({ top: -50 - container.scrollTop, bottom: -container.scrollTop });
+    first.getBoundingClientRect = () => ({ top: -container.scrollTop, bottom: height() - container.scrollTop });
+    second.getBoundingClientRect = () => ({ top: height() - container.scrollTop, bottom: height() + 50 - container.scrollTop });
+    f.content('b1', 'larger visible first item'); await delay(70);
+    assert.equal(container.scrollTop, 0); assert.equal(first.getBoundingClientRect().top, 0);
+  } finally { await f.close(); }
+});

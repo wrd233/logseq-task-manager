@@ -11,8 +11,8 @@ export async function fixture(Controller, count = 3) {
   const browser = new Window({ url: 'http://localhost/plugin/' });
   globalThis.window = browser; globalThis.document = browser.document; globalThis.localStorage = browser.localStorage;
   const { WorkView } = Controller ? { WorkView: Controller } : await import('../../src/features/work-view/controller.ts');
-  const nodes = Array.from({ length: count - 1 }, (_, i) => ({ uuid: `b${i}`, content: `**条目 ${i}**`, parent: { id: 'root' }, page: { id: 'page' } }));
-  const root = { uuid: 'root', content: 'TODO **[任务]** 来源', parent: { id: 'page' }, page: { id: 'page' }, children: nodes };
+  const nodes = Array.from({ length: count - 1 }, (_, i) => ({ id: i + 2, uuid: `b${i}`, content: `**条目 ${i}**`, parent: { id: 'root' }, page: { id: 'page' } }));
+  const root = { id: 1, uuid: 'root', content: 'TODO **[任务]** 来源', parent: { id: 'page' }, page: { id: 'page' }, children: nodes };
   const blocks = new Map([['root', root], ...nodes.map(node => [node.uuid, node])]);
   const stats = { tree: 0, retained: 0, activeTree: 0, maxTree: 0, elements: 0, articles: 0 };
   const createElement = browser.document.createElement.bind(browser.document);
@@ -40,7 +40,7 @@ export async function fixture(Controller, count = 3) {
   return {
     browser, work, root, blocks, stats,
     change: event => changed?.(event),
-    content: (id, text) => { blocks.get(id).content = text; changed?.({ blocks: [blocks.get(id)], txData: [[1, 'block/content', text, 1, true]] }); },
+    content: (id, text) => { blocks.get(id).content = text; changed?.({ blocks: [blocks.get(id), { id: 1000, uuid: 'page', name: 'fixture' }], txData: [[blocks.get(id).id, 'block/properties', {}, 1, true], [blocks.get(id).id, 'block/properties-order', [], 1, true], [blocks.get(id).id, 'block/properties-text-values', {}, 1, true], [1000, 'block/updated-at', 1, 1, true], [blocks.get(id).id, 'block/content', text, 1, true]] }); },
     switchGraph: name => { graph = name; switched?.(); },
     editing: (uuid, text = '') => { editing = uuid; draft = text; },
     setTreeRead: read => { treeRead = read; }, setDraftRead: read => { draftRead = read; },

@@ -56,8 +56,11 @@ export class WorkViewRenderer {
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>): void {
     const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
-    const top = this.container.getBoundingClientRect().top;
-    const anchor = [...this.entries.values()].find(entry => !entry.node.hidden && entry.node.getBoundingClientRect().bottom > top)?.node;
+    const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
+    const anchor = Array.from(this.container.children).find(element => {
+      const node = element as HTMLElement, rect = node.getBoundingClientRect();
+      return !node.hidden && rect.bottom > top && rect.top < bottom;
+    }) as HTMLElement | undefined;
     const anchorOffset = anchor ? anchor.getBoundingClientRect().top - top : 0;
     const source = new Map(rows.map(row => [row.uuid, row]));
     const keep = new Set(state.items.map(item => item.uuid));
