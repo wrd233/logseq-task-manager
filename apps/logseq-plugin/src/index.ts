@@ -5,6 +5,7 @@ import type { CaptureRequest } from "./features/materials/service.ts";
 import { Materials } from "./features/materials/controller.ts";
 import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
+import { installWorkspaceContext } from "./features/workspace-context/install.ts";
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
 import { installAgentWorkspace } from "./features/agent-workspace/installer.ts";
 
@@ -23,6 +24,7 @@ logseq.useSettingsSchema([
 async function main(): Promise<void> {
   installWorkbenchStyle();
   let materials: Materials | null = null, work: WorkView | null = null;
+  const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); });
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
   let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
@@ -31,14 +33,14 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    agentWorkspace?.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
+    agentWorkspace?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
     delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
   };
   logseq.beforeunload(dispose);
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
   const currentWorkRoot = () => (work?.snapshot() as {root?: string} | undefined)?.root ?? null;
   if (logseq.settings?.materialsEnabled !== false) {
-    try { materials = new Materials(async uuid => { if (work) await work.open(uuid); }, currentWorkRoot); } catch (error) { report(error); }
+    try { materials = new Materials(async uuid => { if (work) await work.open(uuid); }, currentWorkRoot, workspace.materialBindings); } catch (error) { report(error); }
   }
   if (logseq.settings?.workViewEnabled !== false) {
     try { work = new WorkView((content, uuid) => {
@@ -68,6 +70,7 @@ async function main(): Promise<void> {
     openMaterial: (id: string) => materials?.openDoc(id, currentWorkRoot()),
     close: () => panels.closeActive(),
     apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
+    workspace: workspace.api,
     content: content.api,
     agentWorkspace: agentWorkspace.api,
     materials: {

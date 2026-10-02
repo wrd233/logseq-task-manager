@@ -6,6 +6,11 @@ export interface MaterialWorkContext {
   directory: string | null;
   organization: "flat" | "project";
 }
+/** Composition-root injection keeps the existing UI and the workspace on one binding path. */
+export interface MaterialBindingCommands {
+  directories: MaterialDirectories;
+  bind(context: MaterialWorkContext): Promise<void>;
+}
 export interface KeyStorage {
   readonly length: number;
   key(index: number): string | null;
@@ -28,6 +33,18 @@ export class MaterialDirectories {
     if (!context.sourceUuid) throw new Error("请先选择工作块。");
     if (context.directory) this.storage.setItem(this.bindingKey(context.graph, context.sourceUuid), JSON.stringify({directory: context.directory, organization: context.organization}));
     else this.storage.removeItem(this.bindingKey(context.graph, context.sourceUuid));
+  }
+  /** Enumerate explicit bindings only; used by the local workspace observer, never a Graph scan. */
+  bindings(graph: string): MaterialWorkContext[] {
+    const prefix = "workbench:material-binding:", result: MaterialWorkContext[] = [];
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i); if (!key?.startsWith(prefix)) continue;
+      const [owner, uuid] = JSON.parse(key.slice(prefix.length)) as [string, string];
+      if (owner !== graph || typeof uuid !== "string") continue;
+      const binding = this.binding(graph, uuid);
+      if (binding) result.push({graph, sourceUuid: uuid, ...binding});
+    }
+    return result;
   }
   register(graph: string, root: string): void { this.storage.setItem(`workbench:material-root:${JSON.stringify([graph, root])}`, root); }
   roots(graph: string): string[] {
