@@ -47,6 +47,8 @@ export class WorkspaceContextService {
     const epoch = this.epoch, revision = this.revisions.get(scopeKey(scope));
     return () => !this.stopped && epoch === this.epoch && revision === this.revisions.get(scopeKey(scope));
   }
+  /** Read-only lifetime witness for trusted connection consumers, never a write grant. */
+  observeScope(input: SourceScope): () => boolean { return this.valid(scopeOf(input)); }
   async resolve(input: SourceScope): Promise<WorkspaceBinding | null> {
     const scope = scopeOf(input), valid = this.valid(scope), hint = this.registry.hint(scope);
     let graph = hint?.materialGraph;
