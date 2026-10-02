@@ -1,6 +1,6 @@
 # 代码瘦身与渐进重构
 
-> 2026-10-01。第一轮已实施，见[结果与验证](round-01-results.md)；第二至四轮仍是实施计划。新工作区能力的产品实现不在这四轮的范围内。
+> 2026-10-02。第一轮已实施，见[结果与验证](round-01-results.md)；第二、三轮已合并实施，改动与验证边界见[第二、三轮结果](round-02-03-results.md)；第四轮仍是计划。新工作区能力的产品实现不在这四轮的范围内。
 
 先阅读[工作区协作需求](../requirements/2026-10-01-project-workspace-collaboration.md)和[架构分析报告](../architecture/2026-10-01-workspace-architecture-review.md)。架构报告给出目标方向；本目录将代码瘦身切成独立、可验证的轮次。
 

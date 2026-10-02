@@ -1,4 +1,4 @@
-# 工作台首版整合
+# 工作台整合说明
 
 一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
@@ -13,7 +13,7 @@
 - 长文本自动收纳默认关闭，配置目录后通过 `materialsAutoCapture` 开启。原始粘贴、捕获记录和保存历史分别保留；原生撤销移除引用和本次插入的来源 id，外部文件继续保留。
 - 任务：使用原有 TC 入口或共同面板的“任务”。填写 Kernel descriptor 后使用原有正式化、今天、事项详情、Closure、Undo 和恢复操作。
 
-三个模块的启用设置修改后重载插件。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
+三个模块的启用设置修改后重载插件。tasksEnabled=false 不启动共享 Worker、来源观察和身份刷新；面板切换不重启插件运行时。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
 
 粘贴收纳失败且编辑位置仍未改变时，回退到原文粘贴。未完成的捕获原文也缓存于插件本地存储，可从材料库的恢复入口另存；清理插件缓存前应先恢复这些记录。
 
@@ -23,12 +23,13 @@
 apps/logseq-plugin/src/
   index.ts                         # 设置、模块组合与统一入口
   host/                            # 面板与桌面文件桥接
-  workspace/context.ts             # 范围引用与面板切换协调
+  workspace/context.ts             # Graph/root 布局键与面板切换协调
+  plugin-runtime.ts                # tasksEnabled 控制的插件级 Graph 运行时
   features/
-    work-view/                     # 导航、模型、展示与操作白名单
+    work-view/                     # 导航、状态、来源调度及按 UUID 渲染
     materials/                     # 文件记录、编辑、收纳、冲突
-    task-center/controller.ts      # 保留 vNext 任务控制器
-  block-identity.ts                # 共享只读身份查询与缓存；任务模块负责刷新
+    task-center/controller.ts      # 正式标记、任务 UI 与用户命令
+  block-identity.ts                # Graph/generation 身份状态；Runtime 负责刷新
   graph-adapter.ts, source-identity.ts, ...  # 原有正式投影适配
 ```
 
@@ -47,7 +48,7 @@ apps/logseq-plugin/src/
 
 插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回已登记文档正文与 SHA-256。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
 
-展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。
+展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。read/apply 返回独立快照；有效来源、草稿、展示或范围变化使 seq 递增，重复检查与重绘不递增，成功的无变化操作不重新保存布局。
 
 ## 需求地图与验证
 
@@ -57,4 +58,4 @@ apps/logseq-plugin/src/
 
 实机验证使用 [隔离环境](../rc/LOGSEQ_SANDBOX.md)，应用、home、profile、Graph、Kernel 和材料目录均在 `tmp/logseq-sandbox/`。生产 Logseq 不参与装载或验收。
 
-本轮结果与未验收边界见 [验证记录](VALIDATION.md)。
+首版历史验收见 [验证记录](VALIDATION.md)。当前职责、刷新机制、工作量测量与验证边界见[第二、三轮结果](../refactoring/round-02-03-results.md)。
