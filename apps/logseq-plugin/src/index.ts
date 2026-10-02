@@ -35,7 +35,8 @@ async function main(): Promise<void> {
   }
   if (logseq.settings?.workViewEnabled !== false) {
     try { work = new WorkView((content, uuid) => {
-      if (materials) void materials.library(uuid, content).catch(report); else report(new Error("材料模块未启用。"));
+      if (materials) return materials.library(uuid, content);
+      throw new Error("材料模块未启用。");
     }); } catch (error) { report(error); }
   }
   if (logseq.settings?.tasksEnabled !== false) {
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     close: () => panels.closeActive(),
     apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     readMaterials: (content: string) => materials?.linkedContext(content) ?? Promise.resolve([]),
+    lenses: work?.lensesAPI ?? null,
   };
   (window as Window & {taskCopilotWorkbench?: typeof api}).taskCopilotWorkbench = api;
 }
