@@ -6,6 +6,7 @@ import { displayLevel, levels } from "./display.mjs";
 import { workObject } from "./focus.mjs";
 import type { SourceRow } from "./model.mjs";
 import type { ViewPresentation } from "./operations.ts";
+import { composeWorkView, type ComposedView } from "./view-composer.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
@@ -13,15 +14,24 @@ interface Actions {
   raw(uuid: string): void;
   locate(uuid: string): void;
   enter(uuid: string): void;
+  range(uuid: string): void;
+  repaint(): void;
 }
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
 }
+export interface ReadingBookmark {
+  uuid: string | null; offset: number; scrollTop: number; fallback: string[]; focused: HTMLElement | null;
+  selection?: { range: Range; contents: Array<[string, string | undefined]> };
+}
 
 /** The map belongs to one Graph/root, contains only current items, and owns stable UUID callbacks. */
 export class WorkViewRenderer {
   private readonly entries = new Map<string, Entry>();
+  private layout: Array<{ uuid: string; depth: number }> = [];
+  private composingUuid: string | null = null;
+  get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {}
 
   private create(uuid: string): Entry {
@@ -46,16 +56,24 @@ export class WorkViewRenderer {
     const labels = ["自动", "强调", "正常", "弱化", "压缩"];
     levels.forEach((level, i) => { const option = element("option", labels[i] ?? level); option.value = level; select.append(option); });
     select.onchange = () => this.actions.operation({ type: "display", uuid, level: select.value });
-    controls.append(select, button("全文 / 收起", () => this.actions.toggle("expanded", uuid)), button("原文", () => this.actions.locate(uuid)), button("原始文本", () => this.actions.raw(uuid)));
+    controls.append(select, button("全文 / 收起", () => this.actions.toggle("expanded", uuid)), button("原文", () => this.actions.locate(uuid)), button("原始文本", () => this.actions.raw(uuid)), button("只看此处", () => this.actions.range(uuid)));
     node.append(grip, fold, body, controls);
+    node.addEventListener("click", event => {
+      if (!(event.target as HTMLElement).closest("button,select,a") && !this.composing) this.actions.operation({ type: "focus", uuid });
+    });
+    node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
+    node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
     node.onkeydown = event => {
+      if (event.isComposing || this.composing) return;
       if ((event.target as HTMLElement).closest("button,select,a")) return;
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
     return { node, grip, fold, body, select, controls };
   }
 
-  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>): void {
+  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView): void {
+    const view = composition ?? composeWorkView(rows, state);
+    this.layout = state.items.map(item => ({ ...item }));
     const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
     const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
     const anchor = Array.from(this.container.children).find(element => {
@@ -66,17 +84,16 @@ export class WorkViewRenderer {
     const source = new Map(rows.map(row => [row.uuid, row]));
     const keep = new Set(state.items.map(item => item.uuid));
     for (const [id, entry] of this.entries) if (!keep.has(id)) { entry.node.remove(); this.entries.delete(id); }
-    let hiddenDepth: number | null = null, cursor = this.container.firstElementChild;
-    state.items.forEach((item, index) => {
+    let cursor = this.container.firstElementChild;
+    view.items.forEach((item, index) => {
       const row = source.get(item.uuid); if (!row) return;
       let entry = this.entries.get(item.uuid);
       if (!entry) { entry = this.create(item.uuid); this.entries.set(item.uuid, entry); }
-      if (hiddenDepth !== null && item.depth <= hiddenDepth) hiddenDepth = null;
-      const hidden = hiddenDepth !== null, folded = state.collapsed.includes(item.uuid);
-      if (!hidden && folded) hiddenDepth = item.depth;
-      const child = (state.items[index + 1]?.depth ?? -1) > item.depth;
+      const { hidden, folded, child } = item;
       if (entry.node.hidden !== hidden) entry.node.hidden = hidden;
       entry.node.classList.toggle("selected", state.selected === item.uuid);
+      entry.node.classList.toggle("wb-lens-emphasis", item.emphasis);
+      entry.node.classList.toggle("wb-lens-context", view.focused && !item.emphasis);
       if (entry.node.style.getPropertyValue("--depth") !== String(item.depth)) entry.node.style.setProperty("--depth", String(item.depth));
       const level = displayLevel(row.content, state.overrides[item.uuid], { root: index === 0, missing: !!row.missing }).level;
       if (entry.node.dataset.display !== level) entry.node.dataset.display = level;
@@ -84,8 +101,13 @@ export class WorkViewRenderer {
       const foldLabel = child ? folded ? "▸" : "▾" : "·";
       if (entry.fold.textContent !== foldLabel) entry.fold.textContent = foldLabel;
       entry.fold.setAttribute("aria-label", folded ? "展开子项" : "折叠子项");
-      entry.body.classList.toggle("expanded", state.expanded.includes(item.uuid));
-      if (!hidden && entry.content !== row.content) {
+      entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
+      if (!hidden && this.composingUuid !== item.uuid && entry.content !== row.content) {
+        const selection = document.getSelection();
+        if (selection?.rangeCount) {
+          const range = selection.getRangeAt(0);
+          if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) selection.removeAllRanges();
+        }
         entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
         entry.content = row.content;
       }
@@ -113,5 +135,47 @@ export class WorkViewRenderer {
     } else this.container.scrollTop = scroll;
   }
 
-  clear(): void { this.entries.clear(); this.container.replaceChildren(); }
+  bookmark(): ReadingBookmark {
+    const bounds = this.container.getBoundingClientRect();
+    const anchor = Array.from(this.container.children).find(value => {
+      const node = value as HTMLElement, rect = node.getBoundingClientRect();
+      return !node.hidden && rect.bottom > bounds.top && rect.top < bounds.bottom;
+    }) as HTMLElement | undefined;
+    const uuid = anchor?.dataset.uuid ?? null, fallback: string[] = [];
+    if (uuid) {
+      const at = this.layout.findIndex(item => item.uuid === uuid); let depth = this.layout[at]?.depth ?? 0;
+      for (let index = at - 1; index >= 0; index--) {
+        const item = this.layout[index]!;
+        if (item.depth < depth) { fallback.push(item.uuid); depth = item.depth; }
+      }
+    }
+    const focused = document.activeElement as HTMLElement | null;
+    const bookmark: ReadingBookmark = { uuid, offset: anchor ? anchor.getBoundingClientRect().top - bounds.top : 0, scrollTop: this.container.scrollTop, fallback, focused: focused && this.container.contains(focused) ? focused : null };
+    const selected = document.getSelection();
+    if (selected?.rangeCount) {
+      const range = selected.getRangeAt(0);
+      if (this.container.contains(range.startContainer) && this.container.contains(range.endContainer)) {
+        const contents: Array<[string, string | undefined]> = [];
+        for (const [id, entry] of this.entries) if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) contents.push([id, entry.content]);
+        bookmark.selection = { range: range.cloneRange(), contents };
+      }
+    }
+    return bookmark;
+  }
+  restore(bookmark: ReadingBookmark, preferred: readonly string[] = []): void {
+    const visible = (uuid: string) => { const node = this.entries.get(uuid)?.node; return node && node.isConnected && !node.hidden ? node : null; };
+    const original = bookmark.uuid ? visible(bookmark.uuid) : null;
+    const node = original ?? [...preferred, ...bookmark.fallback].map(visible).find(Boolean);
+    if (node) this.container.scrollTop += node.getBoundingClientRect().top - this.container.getBoundingClientRect().top - (original ? bookmark.offset : 0);
+    else this.container.scrollTop = bookmark.scrollTop;
+    if (bookmark.focused?.isConnected && !bookmark.focused.closest("[hidden]")) bookmark.focused.focus({ preventScroll: true });
+    else if (this.container.parentElement?.contains(document.activeElement) && document.activeElement?.closest("[hidden]")) {
+      (node ?? Array.from(this.container.children).find(value => !(value as HTMLElement).hidden) as HTMLElement | undefined)?.focus({ preventScroll: true });
+    }
+    const selection = bookmark.selection;
+    if (selection && selection.range.startContainer.isConnected && selection.range.endContainer.isConnected && selection.contents.every(([id, content]) => visible(id) && this.entries.get(id)?.content === content)) {
+      const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
+    }
+  }
+  clear(): void { this.entries.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
 }

@@ -85,7 +85,7 @@ test('combined panels preserve source text, load linked material and retain conf
   const io = {read:async path=>{if(!files.has(path))throw Error('ENOENT');return files.get(path);},write:async(path,text)=>{files.set(path,text);},mkdir:async()=>{},rename:async(from,to)=>{files.set(to,files.get(from));files.delete(from);},list:async path=>[...files.keys()].filter(file=>file.startsWith(path+'/'))};
   const store = new MaterialStore(io,'/materials');
   const record = await store.create('# 材料\nbase',{graph:'/graph',sourceUuid:'root'});
-  const materials = new Materials(), work = new WorkView(()=>{});
+  const work = new WorkView(()=>{}), materials = new Materials(uuid=>work.open(uuid), ()=>work.snapshot().root);
   try {
     const original = JSON.stringify([...blocks]);
     await work.open('root'); assert.equal(active,true);
@@ -94,12 +94,21 @@ test('combined panels preserve source text, load linked material and retain conf
     assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'reorder',uuid:'b',target:'a',mode:'before'}).ok,true);
     assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'sync-source'}).ok,false);
     assert.equal(JSON.stringify([...blocks]),original);
-    await materials.library(); assert.equal(work.panel.visible,false); assert.equal(materials.panel.visible,true);
+    assert.equal((await work.lensesAPI.select('a')).ok,true);
+    const selectedNode=browser.document.querySelector('.wb-row[data-uuid=a]');
+    selectedNode.parentElement.scrollTop=91;
+    assert.equal(work.lensesAPI.read().phase,'focused');
+    await materials.library('root'); assert.equal(work.panel.visible,false); assert.equal(materials.panel.visible,true);
     await materials.openDoc(record.id); await materials.beginEditing(); assert.equal(fakeEditor.value,'# 材料\nbase');
     fakeEditor.value='# 材料\nlocal';
     files.set(record.path,'# 材料\nexternal');
-    await work.open('root');
+    const returnWork=[...materials.panel.root.querySelectorAll('button')].find(button=>button.textContent==='返回工作');
+    assert.ok(returnWork); returnWork.click();
+    for(let i=0;i<40&&!work.panel.visible;i++)await delay(5);
     assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
+    assert.equal(work.lensesAPI.read().plan.question,'选定范围');
+    assert.equal(browser.document.querySelector('.wb-row[data-uuid=a]'),selectedNode);
+    assert.equal(selectedNode.parentElement.scrollTop,91);
     assert.equal(files.get(record.path),'# 材料\nexternal');
     const draft=JSON.parse(browser.localStorage.getItem(`workbench:draft:/graph:${record.id}`));
     assert.equal(draft.text,'# 材料\nlocal'); assert.equal(draft.base,'# 材料\nbase');
@@ -188,6 +197,12 @@ test('composition root leaves runtime disabled while work and materials remain u
     assert.deepEqual(await browser.taskCopilotWorkbench.materials.list(), {status:"success",materials:[],problems:[]});
     await browser.taskCopilotWorkbench.open('root');
     assert.equal(browser.taskCopilotWorkbench.read().root,'root');
+    const lens=browser.taskCopilotWorkbench.lenses;
+    assert.equal(lens.read().phase,'reading');
+    const source=await lens.source();
+    assert.equal(source.ok,true);assert.match(source.value.blocks[0].contentVersion,/^[0-9a-f]{64}$/);
+    assert.equal((await lens.select('root')).ok,true);assert.equal(lens.read().phase,'focused');
+    lens.exit();assert.equal(lens.read().phase,'reading');
     const nav=browser.document.querySelector('#workbench-navigation');
     const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='材料');
     materials.click();await delay(20);
@@ -212,6 +227,8 @@ test('material references survive work-view and reading sanitization while execu
     const links=[...article.querySelectorAll('a')];assert.equal(links[0].getAttribute('href'),`longdoc://${id}`);assert.equal(links[1].getAttribute('href'),null);assert.equal(links[2].getAttribute('href'),null);
     const container=browser.document.createElement('div'),renderer=new WorkViewRenderer(container,{operation:()=>{},toggle:()=>{},raw:()=>{},locate:()=>{},enter:()=>{}});
     renderer.render([{uuid:'source',content:text,depth:0}],{items:[{uuid:'source',depth:0}],collapsed:[],selected:null,expanded:[],overrides:{}},new Set());
-    assert.equal(container.querySelector('a').getAttribute('href'),`longdoc://${id}`);
+    const workLinks=[...container.querySelectorAll('a')];
+    assert.equal(workLinks[0].getAttribute('href'),`longdoc://${id}`);
+    assert.equal(workLinks[1].getAttribute('href'),null);assert.equal(workLinks[2].getAttribute('href'),null);
   } finally {await browser.happyDOM.abort();delete globalThis.window;delete globalThis.document;}
 });

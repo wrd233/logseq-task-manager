@@ -8,11 +8,15 @@ import { scopeKey, panels } from "../../workspace/context.ts";
 import { applyPresentation, copyPresentation, type ViewPresentation, type ViewResult } from "./operations.ts";
 import { contentChanges, readDraft, readSource, SourceRefresh, type EditingDraft } from "./source.ts";
 import { WorkViewRenderer } from "./renderer.ts";
+import { WorkViewLenses } from "./lens-controller.ts";
+import { composeWorkView } from "./view-composer.ts";
+import { LensBar, installLensStyle } from "./lens-ui.ts";
+import type { LensBlock, LensSourcePort } from "./lens-source.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
 
 export class WorkView {
-  readonly panel = new FeaturePanel("work", "工作视图");
+  readonly panel = new FeaturePanel("work", "工作视图", reason => this.lenses.hide(reason));
   private graph = "";
   private rootUuid: string | null = null;
   private held: string | null = null;
@@ -31,29 +35,64 @@ export class WorkView {
   private refreshQueue: SourceRefresh | null = null;
   private lastTreeRead = 0;
   private sourceAvailable = false;
+  private sourceAvailability: LensBlock["availability"] = "unavailable";
   private sourceRevision = 0;
   private publishedSourceRevision = 0;
   private readonly rawBodies = new Set<string>();
   private readonly disposers: Array<() => void> = [];
   private readonly heading = element("div", "", "wb-heading");
+  private headingSignature = "";
   private readonly content = element("div", "", "wb-scroll");
   private readonly status = element("div", "", "wb-status");
+  private readonly lenses: WorkViewLenses;
+  private readonly lensBar = new LensBar({
+    back: () => { void this.lenses.api.back(); },
+    cancel: () => { this.lenses.api.cancel(); },
+    exit: () => { this.lenses.api.exit(); },
+  });
   private readonly renderer = new WorkViewRenderer(this.content, {
     operation: op => { this.apply({ ...op, graph: this.graph, root: this.rootUuid, expectedSeq: this.seq }); },
     toggle: (name, uuid) => this.toggle(name, uuid),
     raw: uuid => { if (this.rawBodies.has(uuid)) this.rawBodies.delete(uuid); else this.rawBodies.add(uuid); this.seq++; this.render(); },
     locate: uuid => { void this.locate(uuid).catch(this.fail); },
     enter: uuid => { void this.enter(uuid, null).catch(this.fail); },
+    range: uuid => { void this.lenses.api.select(uuid); },
+    repaint: () => { if (!this.disposed) this.render(); },
   });
 
-  constructor(private readonly onMaterials: (content: string, rootUuid: string) => void) {
-    this.panel.root.append(this.heading, this.content, this.status);
+  constructor(private readonly onMaterials: (content: string, rootUuid: string) => void | Promise<void>, options: { source?: LensSourcePort } = {}) {
+    this.lenses = new WorkViewLenses({
+      scope: () => !this.disposed && this.rootUuid && this.graph ? { graphId: this.graph, rootUuid: this.rootUuid } : null,
+      visible: () => !this.disposed && this.panel.visible,
+      committed: () => ({ rows: this.sourceRows, revision: this.sourceRevision, availability: this.sourceAvailability }),
+      refresh: () => this.refresh(),
+      editing: async () => !!this.draft || !!await logseq.Editor.checkEditing(),
+      selected: () => this.state.selected,
+      nativeBlock: async () => (await logseq.Editor.getCurrentBlock())?.uuid,
+      renderer: this.renderer,
+      changed: () => { if (!this.disposed) { this.seq++; this.render(); } },
+    }, options.source);
+    this.disposers.push(installLensStyle());
+    this.panel.root.append(this.heading, this.lensBar.root, this.content, this.status);
     this.content.setAttribute("aria-label", "工作内容");
     logseq.App.registerCommandPalette({ key: "workbench-open-work", label: "工作台：从当前块打开工作视图", keybinding: { binding: "mod+alt+p" } }, () => {
       if (!this.disposed) void logseq.Editor.getCurrentBlock().then(block => this.open(block?.uuid)).catch(this.fail);
     });
     const unregister = logseq.Editor.registerBlockContextMenuItem("工作台：从此块打开工作视图", ({ uuid }) => this.open(uuid));
     if (typeof unregister === "function") this.disposers.push(unregister);
+    logseq.App.registerCommandPalette({ key: "workbench-focus-range", label: "工作台：只看当前块范围" }, () => {
+      if (!this.disposed) void logseq.Editor.getCurrentBlock().then(block => this.lenses.api.select(block?.uuid)).catch(this.fail);
+    });
+    logseq.App.registerCommandPalette({ key: "workbench-exit-lens", label: "工作台：返回完整内容" }, () => {
+      if (!this.disposed) this.lenses.api.exit();
+    });
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.isComposing || this.renderer.composing || (event.target as HTMLElement).closest("input,textarea,[contenteditable=true]") || this.lensBar.root.hidden) return;
+      event.preventDefault(); event.stopPropagation();
+      if (this.lenses.read().pending) this.lenses.api.cancel(); else this.lenses.api.exit();
+    };
+    this.panel.root.addEventListener("keydown", escape);
+    this.disposers.push(() => this.panel.root.removeEventListener("keydown", escape));
     const doc = hostDocument();
     const clicked = (event: MouseEvent) => {
       if (!this.panel.visible || this.disposed) return;
@@ -93,7 +132,9 @@ export class WorkView {
   private invalidate(): void {
     this.epoch++; this.seq++; this.draftEpoch++; this.refreshQueue?.stop(); this.refreshQueue = null;
     this.sourceRows = []; this.rows = []; this.draft = null; this.draftReading = null;
-    this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceRevision++;
+    this.lenses.reset(); this.lensBar.render(this.lenses.read());
+    this.headingSignature = "";
+    this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
   }
   private async readTrace(uuid: string, graph = this.graph, valid = () => !this.disposed): Promise<Trace> {
     return ancestry(uuid, async id => valid() ? await logseq.Editor.getBlock(id) as AncestryBlock | null : null, { resolve: (id, content) => {
@@ -139,22 +180,35 @@ export class WorkView {
       this.refreshQueue = new SourceRefresh(async request => {
         const current = () => this.valid(epoch);
         if (!current()) return;
-        if (request.full) {
-          const source = await readSource(uuid, this.state.items.map(item => ({ ...item })), current);
-          if (!source || !current()) return;
-          this.updateSource(source.rows, source.available); this.lastTreeRead = Date.now();
-        } else this.updateSource(this.sourceRows.map(row => request.patches.has(row.uuid) ? { ...row, content: request.patches.get(row.uuid)! } : row));
+        try {
+          if (request.full) {
+            const source = await readSource(uuid, this.state.items.map(item => ({ ...item })), current);
+            if (!source || !current()) return;
+            this.updateSource(source.rows, source.available); this.lastTreeRead = Date.now();
+          } else this.updateSource(this.sourceRows.map(row => request.patches.has(row.uuid) ? { ...row, content: request.patches.get(row.uuid)! } : row));
+        } catch (error) {
+          if (current() && this.sourceAvailability !== "unavailable") {
+            this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
+            void this.lenses.sourceChanged(); this.seq++; this.render();
+          }
+          throw error;
+        }
         await this.checkDraft(epoch);
       });
     }
     localStorage.setItem(`workbench:last:${graph}`, uuid); this.renderHeading();
-    if (await this.panel.open(navigation)) await this.refresh();
+    if (await this.panel.open(navigation)) {
+      await this.refresh();
+      if (valid()) await this.lenses.resume();
+    }
   }
 
   private async follow(uuid: string): Promise<void> {
     const ticket = ++this.navigationEpoch, epoch = this.epoch, graph = this.graph;
     const trace = await this.readTrace(uuid, graph, () => this.valid(epoch) && ticket === this.navigationEpoch);
     if (!this.valid(epoch) || ticket !== this.navigationEpoch || !this.panel.visible) return;
+    const lens = this.lenses.read();
+    if ((lens.plan || lens.pending) && this.rootUuid && trace.path.includes(this.rootUuid)) return;
     const decision = clickDecision({ root: this.rootUuid, held: this.held }, trace);
     if (decision.action === "focus" && decision.uuid && decision.uuid !== this.rootUuid) await this.enter(decision.uuid, null);
     else if (decision.release) { this.held = null; this.renderHeading(); }
@@ -163,8 +217,11 @@ export class WorkView {
   refresh(): Promise<void> { return this.refreshQueue?.request(true, new Map(), true) ?? Promise.resolve(); }
 
   private updateSource(rows: SourceRow[], available = this.sourceAvailable): void {
-    if (available !== this.sourceAvailable || JSON.stringify(rows) !== JSON.stringify(this.sourceRows)) this.sourceRevision++;
-    this.sourceRows = rows; this.sourceAvailable = available;
+    const availability = available ? "available" : "missing";
+    const changed = availability !== this.sourceAvailability || JSON.stringify(rows) !== JSON.stringify(this.sourceRows);
+    if (changed) this.sourceRevision++;
+    this.sourceRows = rows; this.sourceAvailable = available; this.sourceAvailability = availability;
+    if (changed) void this.lenses.sourceChanged();
   }
   private pollDraft(): Promise<void> {
     if (this.draftReading) return this.draftReading;
@@ -186,12 +243,17 @@ export class WorkView {
   snapshot(): object {
     return { graph: this.graph, root: this.rootUuid, seq: this.seq, draft: this.draft?.uuid ?? null, blocks: this.rows.map(row => ({ ...row })), presentation: this.state.items.map(item => ({ ...item })), view: copyPresentation(this.state), policy: "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable." };
   }
+  get lensesAPI() { return this.lenses.api; }
 
   apply(operation: unknown): ViewResult {
     if (this.disposed) return { ok: false, reason: "scope-mismatch" };
     const result = applyPresentation(this.state, operation, { graph: this.graph, root: this.rootUuid, seq: this.seq });
     if (!result.ok) return result;
+    const op = operation as Record<string, unknown>;
+    const overlayChanged = op.type === "collapse" && typeof op.uuid === "string" && this.lenses.noteFold(op.uuid);
+    const unchanged = JSON.stringify(this.state) === JSON.stringify(result.state);
     this.commitPresentation(result.state);
+    if (overlayChanged && unchanged) { this.seq++; this.render(); }
     return { ok: true, state: copyPresentation(this.state) };
   }
   private commitPresentation(state: ViewPresentation): void {
@@ -204,18 +266,32 @@ export class WorkView {
     catch { this.fail(new Error("布局保存失败，请保持窗口打开。")); }
   }
   private renderHeading(): void {
+    const signature = JSON.stringify([this.graph, this.rootUuid, this.trace.objects, this.held]);
+    if (this.headingSignature === signature) return;
+    this.headingSignature = signature;
     this.heading.replaceChildren(element("strong", "工作视图"));
     for (const crumb of this.trace.objects) this.heading.append(button(crumb.title, () => void this.enter(crumb.uuid, "breadcrumb").catch(this.fail)));
     if (this.held) this.heading.append(button("恢复自动聚焦", () => { this.held = null; this.renderHeading(); }));
-    this.heading.append(button("材料", () => this.rootUuid && this.onMaterials(this.rows.map(row => row.content).join("\n"), this.rootUuid)), button("关闭", () => void this.panel.close()));
+    this.heading.append(button("只看选定范围", () => { void this.lenses.api.select(); }), button("材料", () => { void this.openMaterials(); }), button("关闭", () => void this.panel.close()));
+  }
+  private async openMaterials(): Promise<void> {
+    const root = this.rootUuid, epoch = this.epoch;
+    if (!root || this.disposed) return;
+    try { await this.onMaterials(this.rows.map(row => row.content).join("\n"), root); }
+    catch (error) { if (this.valid(epoch)) this.fail(error); }
   }
   private render(): void {
-    this.renderer.render(this.rows, this.state, this.rawBodies);
+    const view = composeWorkView(this.rows, this.state, this.lenses.selection);
+    this.renderer.render(this.rows, this.state, this.rawBodies, view);
+    this.lensBar.render(this.lenses.read());
     this.status.classList.remove("wb-error");
     this.status.textContent = `${this.draft ? "含编辑草稿" : this.sourceAvailable ? "来源已读取" : "来源暂不可用 · 保留视图位置"} · ${this.state.items.length} 条 · 排列仅保存在视图中`;
   }
   private toggle(name: "collapsed" | "expanded", uuid: string): void {
-    if (name === "collapsed") { this.apply({ type: "collapse", uuid, collapsed: !this.state.collapsed.includes(uuid), graph: this.graph, root: this.rootUuid, expectedSeq: this.seq }); return; }
+    if (name === "collapsed") {
+      const folded = composeWorkView(this.rows, this.state, this.lenses.selection).items.find(item => item.uuid === uuid)?.folded ?? false;
+      this.apply({ type: "collapse", uuid, collapsed: !folded, graph: this.graph, root: this.rootUuid, expectedSeq: this.seq }); return;
+    }
     const state = copyPresentation(this.state), values = state.expanded;
     state.expanded = values.includes(uuid) ? values.filter(value => value !== uuid) : [...values, uuid];
     this.commitPresentation(state);
