@@ -32,12 +32,12 @@ function downgrade(path: string, target: number): void {
 }
 
 for (const from of [16, 17, 18, 19, 20, 21]) {
-  test(`schema v${from} migrates to v22 without data loss`, async () => {
+  test(`schema v${from} migrates to v23 without data loss`, async () => {
     const directory = await mkdtemp(join(tmpdir(), `tc-migration-${from}-`));
     const path = join(directory, "kernel.sqlite");
     seedCurrent(path); downgrade(path, from);
     const store = new SqliteStore(path);
-    assert.equal(store.schemaVersion(), 22);
+    assert.equal(store.schemaVersion(), 23);
     assert.equal(store.getWorkObject("w1")?.title, "迁移对象");
     store.close();
     const db = new Database(path, { readonly: true });

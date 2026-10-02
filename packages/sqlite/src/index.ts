@@ -5,7 +5,16 @@ import { deterministicUuid, type Actor, type AgentRunReceipt, type AssociationCo
 export type { StoredCommit } from "@task-copilot/contracts";
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
-const SUPPORTED_SCHEMA_VERSION = 22;
+const SUPPORTED_SCHEMA_VERSION = 23;
+
+// These rows locate historical facts; their identities outlive current WorkObjects.
+// Commit, Proposal, AgentRun and package references remain enforced audit relations.
+const historicalObjectTables = new Set([
+  "projection_obligations", "evidence_references", "agent_run_receipts", "proposals",
+  "curation_receipts", "completion_records", "cancellation_records", "closure_amendments",
+  "reopen_records", "context_associations", "association_corrections", "governance_issues",
+  "decision_packages", "reconcile_jobs", "closure_assessment_jobs",
+]);
 
 const schema = `
   PRAGMA foreign_keys = ON;
@@ -445,6 +454,34 @@ export class SqliteStore {
     this.#migrateV20();
     this.#migrateV21();
     this.#migrateV22();
+    try { this.#migrateV23(); } catch (error) { this.#database.close(); throw error; }
+  }
+
+  #migrateV23(): void {
+    if (this.schemaVersion() >= 23) return;
+    this.transaction(() => {
+      // Defer audit-reference checks while replacing tables, never disable them.
+      this.#database.pragma("defer_foreign_keys = ON");
+      // DROP of decision_packages invokes the existing candidate CASCADE even
+      // with deferred checks. Preserve those children within this transaction.
+      this.#database.exec("CREATE TEMP TABLE decision_candidates_v23_saved AS SELECT * FROM decision_candidates");
+      for (const table of historicalObjectTables) {
+        const { sql } = this.#database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as { sql: string };
+        const indexes = this.#database.prepare("SELECT sql FROM sqlite_master WHERE type IN ('index','trigger') AND tbl_name=? AND sql IS NOT NULL").all(table) as Array<{ sql: string }>;
+        const replacement = `${table}_v23`;
+        const ddl = sql.replace(/CREATE TABLE (?:IF NOT EXISTS )?["`]?\w+["`]?/iu, `CREATE TABLE ${replacement}`)
+          .replace(/ REFERENCES work_objects\(id\)(?: ON DELETE CASCADE)?/giu, "");
+        this.#database.exec(ddl);
+        this.#database.exec(`INSERT INTO ${replacement} SELECT * FROM ${table}`);
+        this.#database.exec(`DROP TABLE ${table}`);
+        this.#database.exec(`ALTER TABLE ${replacement} RENAME TO ${table}`);
+        for (const index of indexes) this.#database.exec(index.sql);
+      }
+      this.#database.exec("INSERT OR IGNORE INTO decision_candidates SELECT * FROM decision_candidates_v23_saved");
+      this.#database.exec("DROP TABLE decision_candidates_v23_saved");
+      if (this.#database.prepare("PRAGMA foreign_key_check").all().length) throw new Error("MIGRATION_FOREIGN_KEY_VIOLATION");
+      this.#database.prepare("INSERT INTO schema_versions(version, applied_at) VALUES (23, ?)").run(new Date().toISOString());
+    });
   }
 
   #hasColumn(table: string, column: string): boolean {
@@ -1142,7 +1179,13 @@ export class SqliteStore {
     return row ? { childId: row.child_id, ownerId: row.owner_id, createdAt: row.created_at } : null;
   }
 
-  deleteWorkObject(id: string): void { this.#database.prepare("DELETE FROM work_objects WHERE id = ?").run(id); }
+  deleteWorkObject(id: string): void {
+    this.#database.prepare("UPDATE context_associations SET status='INVALIDATED' WHERE work_object_id=? AND status='ACTIVE'").run(id);
+    this.#database.prepare("UPDATE decision_packages SET status='STALE' WHERE work_object_id=? AND status='OPEN'").run(id);
+    this.#database.prepare("UPDATE reconcile_jobs SET status='STALE', last_outcome='TARGET_REMOVED' WHERE work_object_id=? AND status='QUEUED'").run(id);
+    this.#database.prepare("UPDATE closure_assessment_jobs SET status='STALE', last_outcome='TARGET_REMOVED' WHERE work_object_id=? AND status='QUEUED'").run(id);
+    this.#database.prepare("DELETE FROM work_objects WHERE id = ?").run(id);
+  }
 
   putAnchor(anchor: PrimaryAnchor): void {
     this.#database.prepare(`INSERT INTO anchors(id, work_object_id, graph_id, external_id, source_content_hash,
@@ -1447,9 +1490,10 @@ export class SqliteStore {
     };
   }
 
-  markSourceCovered(workObjectId: string, snapshotId: string, formalVersion: number, at: string): void {
-    const changed = this.#database.prepare("UPDATE source_coverage SET last_reconciled_source_snapshot_id=?, formal_version_at_last_reconcile=?, has_uncovered_changes=0, updated_at=? WHERE work_object_id=?").run(snapshotId, formalVersion, at, workObjectId);
-    if (!changed.changes) throw new Error("SOURCE_COVERAGE_NOT_FOUND");
+  markSourceCovered(workObjectId: string, snapshotId: string, formalVersion: number, at: string, expectedObservedSnapshotId: string | null = snapshotId): void {
+    const previous = this.getSourceCoverage(workObjectId);
+    if ((previous?.lastObservedSourceSnapshotId ?? null) !== expectedObservedSnapshotId) throw new Error("RECONCILE_SOURCE_SUPERSEDED");
+    this.upsertSourceCoverage({ workObjectId, lastObservedSourceSnapshotId: snapshotId, lastReconciledSourceSnapshotId: snapshotId, formalVersionAtLastReconcile: formalVersion, hasUncoveredChanges: false, updatedAt: at });
   }
 
   insertReconcileJob(job: ReconcileJob): void {
@@ -1495,11 +1539,11 @@ export class SqliteStore {
     });
   }
 
-  completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string): void {
+  completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string, expectedObservedSnapshotId?: string | null): void {
     this.transaction(() => {
-      const changed = this.#database.prepare("UPDATE reconcile_jobs SET status='DONE', last_error=NULL, last_outcome=?, updated_at=? WHERE id=? AND status='RUNNING'").run(outcome, at, id);
+      const changed = this.#database.prepare("UPDATE reconcile_jobs SET status='DONE', source_snapshot_id=?, formal_version=?, last_error=NULL, last_outcome=?, updated_at=? WHERE id=? AND status='RUNNING'").run(snapshotId, formalVersion, outcome, at, id);
       if (!changed.changes) throw new Error("RECONCILE_JOB_NOT_RUNNING");
-      this.markSourceCovered(workObjectId, snapshotId, formalVersion, at);
+      this.markSourceCovered(workObjectId, snapshotId, formalVersion, at, expectedObservedSnapshotId);
     });
   }
 
