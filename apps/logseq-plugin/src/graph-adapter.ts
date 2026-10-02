@@ -329,12 +329,21 @@ export class LogseqGraphAdapter implements GraphAdapter {
   }
 
   async #applyUpsert(effect: Extract<GraphEffect, { type: "UPSERT_MANAGED_PROJECTION" }>): Promise<GraphApplyResult> {
-    const source = await this.#required(effect.sourceBlockUuid, true);
-    const registered = [effect.projection.containerUuid, effect.projection.titleUuid, effect.projection.stateUuid, effect.projection.focusUuid, effect.projection.waitingUuid, effect.projection.outcomeUuid, effect.projection.completionUuid, reviewFieldUuid(effect.projection.waitingUuid)];
-    if ((await Promise.all(registered.map((uuid) => this.#optional(uuid)))).some(Boolean) || source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) throw new Error("GRAPH_EXPECTED_ABSENT");
+    const inspection = await this.#inspect(effect.sourceBlockUuid, effect.projection);
+    if (inspection.source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) throw new Error("GRAPH_EXPECTED_ABSENT");
+    const empty = emptyPresentation(effect.projection);
+    // Retry a lost Graph reply only when registered blocks still match this
+    // effect. Unrelated or edited blocks are never adopted as our projection.
+    if (!this.#transitionSafe(inspection, empty, effect.projection)) throw new Error("GRAPH_EXPECTED_ABSENT");
+    const desiredSource = canonicalizeFormalSource(inspection.source.content, { title: effect.projection.title, lifecycle: effect.projection.lifecycle, marker: sourceMarker(inspection.source.content) });
+    const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(inspection.source.content) !== desiredSource;
+    if (inspection.snapshot.projection?.projectionHash === effect.projection.projectionHash && !sourceNeedsUpdate) {
+      this.#known.set(effect.sourceBlockUuid, effect.projection);
+      return this.#result(effect, effect.projection.projectionHash);
+    }
+    if (effect.expectedSourceContentHash && inspection.snapshot.sourceContentHash !== effect.expectedSourceContentHash) throw new Error("GRAPH_SOURCE_CHANGED");
     this.#known.set(effect.sourceBlockUuid, effect.projection);
     this.#activeSourceUuid = effect.sourceBlockUuid;
-    const empty = emptyPresentation(effect.projection);
     await this.#converge(empty, effect.projection);
     await this.#settled(effect.sourceBlockUuid, effect.projection);
     return this.#result(effect, effect.projection.projectionHash);

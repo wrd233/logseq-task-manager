@@ -22,11 +22,13 @@ export class ProjectionDelivery {
     if (!status.available) return 0;
     const at = this.now();
     let drained = 0;
-    for (const obligation of this.store.listProjectionObligations()) {
+    const blocked = new Set<string>();
+    const obligations = this.store.listProjectionObligations().sort((a, b) => a.formalVersion - b.formalVersion || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    for (const obligation of obligations) {
       if (!canClaim()) break;
       if (obligation.status !== "PENDING" && obligation.status !== "FAILED") continue;
-      if (obligation.retryExhausted) continue;
-      if (obligation.nextAttemptAt && obligation.nextAttemptAt > at) continue;
+      if (blocked.has(obligation.workObjectId)) continue;
+      if (obligation.retryExhausted || (obligation.nextAttemptAt && obligation.nextAttemptAt > at)) { blocked.add(obligation.workObjectId); continue; }
       const commit = this.store.getCommit(obligation.commitId);
       if (!commit || commit.status !== "COMMITTED") continue;
       const effect = commit.graphEffect as GraphEffect;
@@ -35,6 +37,7 @@ export class ProjectionDelivery {
         this.verifier.verifyFormalProjection(commit.id, applied.result, applied.snapshot);
         drained += 1;
       } catch (error) {
+        blocked.add(obligation.workObjectId);
         if (error instanceof ProjectionVerificationError) continue;
         this.verifier.graphProjectionFailed(commit.id, error instanceof Error ? error.message.slice(0, 200) : "PROJECTION_APPLY_FAILED");
       }

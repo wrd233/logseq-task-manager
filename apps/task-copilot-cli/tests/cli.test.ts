@@ -16,7 +16,7 @@ const client = {
   listRecovery: async () => ({ recovery: [] }),
   graphStatus: async () => ({ available: false, reason: "GRAPH_ADAPTER_OFFLINE" as const, graphId: null, capabilities: [], lastSeenAt: null }),
   graphSearch: async () => ({ matches: [], receipt: null }), graphBlock: async () => ({ block: {} as never, receipt: null }), graphPage: async () => ({ page: {} as never, receipt: null }),
-  freezeExternalEvidence: async () => ({ evidence: {} as never }), startExternalAgentRun: async () => ({ run: {} as never }), finishExternalAgentRun: async () => ({ run: {} as never, proposal: null, revision: null }), listAgentRunReads: async () => ({ receipts: [] }), applyExternalProposal: async () => ({ commit: {} as never, recovered: false }),
+  freezeExternalEvidence: async () => ({ evidence: {} as never }), startExternalAgentRun: async () => ({ run: {} as never }), finishExternalAgentRun: async () => ({ run: {} as never, proposal: null, revision: null }), listAgentRunReads: async () => ({ receipts: [] }), applyExternalProposalFormal: async () => ({ commit: {} as never, recovered: false, projectionObligation: null }),
   showEvidence: async (id: string) => ({ evidence: { id } as never }),
   showAgentRun: async (id: string) => ({ run: { id } as never }),
   showProposal: async (id: string) => ({ proposal: { id } as never, revision: { proposalId: id } as never }),

@@ -666,7 +666,7 @@ export class Kernel {
       anchor = { ...anchor, projectionFocusUuid: deterministicIdentityUuid(`focus:${anchor.projectionContainerUuid}`), projectionWaitingUuid: deterministicIdentityUuid(`waiting:${anchor.projectionContainerUuid}`), projectionOutcomeUuid: deterministicIdentityUuid(`outcome:${anchor.projectionContainerUuid}`), projectionCompletionUuid: deterministicIdentityUuid(`completion:${anchor.projectionContainerUuid}`) };
       graphEffect = {
         type: "UPSERT_MANAGED_PROJECTION", commitId, effectId: deterministicUuid(`effect:${commitId}:0`),
-        graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, projection: projectionFor(object, anchor),
+        graphId: anchor.graphId, sourceBlockUuid: anchor.externalId, projection: projectionFor(object, anchor), expectedSourceContentHash: anchor.sourceContentHash,
       };
     } else if (operation.type === "RENAME_WORK_OBJECT") {
       before = this.#store.getWorkObject(operation.target.workObjectId);
@@ -1267,7 +1267,26 @@ export class Kernel {
 
   executeUserDecision(id: string): { decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null } {
     const decision = this.#store.getUserDecision(id);
+    if (decision?.status === "EXECUTED") {
+      const commit = this.#store.getCommit(decision.executionRefs[0]!);
+      if (!commit || commit.status !== "COMMITTED") throw new KernelError("USER_DECISION_RECEIPT_MISSING", "Executed decision has no committed receipt.");
+      return { decision, commit, projectionObligation: this.#store.getProjectionObligationForCommit(commit.id) };
+    }
     if (!decision || decision.status !== "AUTHORIZED") throw new KernelError("USER_DECISION_NOT_AUTHORIZED", "User Decision is missing or not authorized for execution.");
+    try { return this.#store.transaction(() => this.#executeAuthorizedDecision(decision)); }
+    catch (error) {
+      if (error instanceof KernelError && error.code === "USER_DECISION_STALE") {
+        this.#store.transaction(() => {
+          this.#store.updateUserDecisionExecution(id, "STALE", this.#now(), []);
+          if (decision.packageId) this.#store.transitionDecisionPackage(decision.packageId, "STALE", this.#now());
+        });
+      }
+      throw error;
+    }
+  }
+
+  #executeAuthorizedDecision(decision: UserDecision): { decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null } {
+    const id = decision.id;
     if (decision.operationType === "ASSIGN_PARENT") {
       return this.#executeOwnershipDecision(decision);
     }

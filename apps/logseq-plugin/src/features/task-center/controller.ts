@@ -1,9 +1,9 @@
 import { panels } from "../../workspace/context.ts";
 import { markNavigation } from "../../host/panel-host.ts";
-import type { KernelClient } from "@task-copilot/client/browser";
-import { buildManagedProjection, projectClosure, canonicalizeGraphContent, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject } from "@task-copilot/contracts";
+import { ClientError, FormalOutcomeUnknownError, type KernelClient } from "@task-copilot/client/browser";
+import { buildManagedProjection, projectClosure, canonicalizeGraphContent, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject, type FormalCommitResult, type ProjectionObligation, type SemanticOperation, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 import { contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "../../block-context.ts";
-import { blockIdentityCache } from "../../block-identity.ts";
+import { blockIdentityCache, type GraphScope } from "../../block-identity.ts";
 import { extractTitleFromSourceLine, formatFormalAnchor } from "../../canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "../../formal-marker-host.ts";
 import { type LogseqGraphAdapter, logseqBlock } from "../../graph-adapter.ts";
@@ -34,8 +34,102 @@ const refreshBlockIdentityCache = (api: KernelClient) => pluginRuntime.refreshId
 const revalidateBlockIdentity = (api: KernelClient, uuid: string) => pluginRuntime.revalidateIdentity(api, uuid);
 const adapterForCurrentGraph = () => pluginRuntime.adapterForCurrentGraph();
 
+// Command state is scoped and writes to one key are serialized, including late SDK writes.
+const stateWrites = new Map<string, Promise<void>>();
+const commandSession = crypto.randomUUID();
+function assertCommandScope(scope: GraphScope): void {
+  if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) throw new Error("GRAPH_SCOPE_CHANGED");
+}
+function scopedKey(key: string, scope: GraphScope): string { return `${key}:${encodeURIComponent(scope.graphId ?? "")}`; }
+async function readCommandState(key: string, scope = blockIdentityCache.scope()): Promise<string | null> {
+  assertCommandScope(scope);
+  const raw = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(scopedKey(key, scope)));
+  if (typeof raw === "string" && raw) {
+    const state = JSON.parse(raw) as { value: string; session: string; generation: number };
+    return state.session === commandSession && state.generation !== scope.generation ? null : state.value;
+  }
+  return pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key)); // pre-round04 compatibility, validated against the target Graph
+}
+async function writeCommandState(key: string, value: string, scope = blockIdentityCache.scope()): Promise<void> {
+  const path = scopedKey(key, scope), previous = stateWrites.get(path) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(async () => {
+    assertCommandScope(scope);
+    await logseq.FileStorage.setItem(path, JSON.stringify({ value, session: commandSession, generation: scope.generation }));
+    assertCommandScope(scope);
+  });
+  stateWrites.set(path, next);
+  try { await next; } finally { if (stateWrites.get(path) === next) stateWrites.delete(path); }
+}
+type FormalSubmission =
+  | { kind: "COMMIT"; operation: SemanticOperation; snapshot: GraphSnapshot }
+  | { kind: "PROPOSAL"; proposalId: string; operationId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }
+  | { kind: "UNDO"; commitId: string; operationId: string; snapshot: GraphSnapshot };
+const formalSubmissions = new Map<string, { scope: GraphScope; promise: Promise<FormalCommitResult> }>();
+function submitFormal(api: KernelClient, scope: GraphScope, intent: string, submission: FormalSubmission): Promise<FormalCommitResult> {
+  const key = scopedKey(intent, scope), existing = formalSubmissions.get(key);
+  if (existing) {
+    if (existing.scope.generation !== scope.generation) return Promise.reject(new Error("原作用域的正式请求仍在处理中；其回执会按原请求保留。"));
+    return existing.promise;
+  }
+  const promise = submitCapturedFormal(api, scope, intent, submission);
+  formalSubmissions.set(key, { scope, promise });
+  const clear = () => { if (formalSubmissions.get(key)?.promise === promise) formalSubmissions.delete(key); };
+  void promise.then(clear, clear);
+  return promise;
+}
+async function submitCapturedFormal(api: KernelClient, scope: GraphScope, intent: string, submission: FormalSubmission): Promise<FormalCommitResult> {
+  const key = scopedKey(`task-copilot-vnext-pending:${intent}`, scope);
+  const prior = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key));
+  const request = typeof prior === "string" && prior ? JSON.parse(prior) as FormalSubmission : submission;
+  const operationId = request.kind === "COMMIT" ? request.operation.operationId : request.operationId;
+  if (prior) {
+    const found = await api.formalReceipt(operationId);
+    if (found.receipt) {
+      if (blockIdentityCache.isCurrent(scope)) {
+        try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-formal-receipt-storage", found.receipt.commit.id, error); }
+      }
+      return found.receipt;
+    }
+    assertCommandScope(scope);
+  } else await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, JSON.stringify(request)));
+  assertCommandScope(scope);
+  try {
+    const result = request.kind === "COMMIT" ? await api.commitFormal(request.operation, request.snapshot)
+      : request.kind === "PROPOSAL" ? await api.applyProposalFormal(request.proposalId, request)
+      : await api.undoFormal(request.commitId, { operationId, actor: { type: "USER", id: "local-user" }, snapshot: request.snapshot });
+    if (blockIdentityCache.isCurrent(scope)) {
+      try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-formal-receipt-storage", result.commit.id, error); }
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof ClientError && error.status > 0 && error.status < 500 && blockIdentityCache.isCurrent(scope)) await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, ""));
+    throw error;
+  }
+}
+async function resumePendingFormal(api: KernelClient, scope: GraphScope, intent: string): Promise<FormalCommitResult | null> {
+  const raw = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(scopedKey(`task-copilot-vnext-pending:${intent}`, scope)));
+  return typeof raw === "string" && raw ? submitFormal(api, scope, intent, JSON.parse(raw) as FormalSubmission) : null;
+}
+function projectionMessage(obligation: ProjectionObligation): string {
+  return obligation.status === "VERIFIED" ? "笔记投影已核对。" : obligation.status === "FAILED" ? "正式提交已成功；笔记投影交付失败，恢复后可重试。" : "正式提交已成功；笔记投影待交付，连接恢复后会继续。";
+}
+async function finishFormal(api: KernelClient, scope: GraphScope, formal: FormalCommitResult): Promise<string> {
+  if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) throw new Error(`正式提交已成功（${formal.commit.id}）；Graph 作用域已切换，投影义务已保留。`);
+  await rememberFormalState(recentCommitKey, formal.commit.id, scope, formal);
+  let obligation = formal.projectionObligation;
+  try { obligation = (await api.deliverFormalProjection(formal.commit.id)).obligation; }
+  catch (error) { console.error("formal-projection-delivery", error); }
+  if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) throw new Error(`正式提交已成功（${formal.commit.id}）；Graph 作用域已切换，投影义务已保留。`);
+  void refreshBlockIdentityCache(api);
+  return projectionMessage(obligation);
+}
+async function rememberFormalState(key: string, value: string, scope: GraphScope, formal: FormalCommitResult): Promise<void> {
+  try { await writeCommandState(key, value, scope); }
+  catch (error) { throw new Error(`正式提交已成功（${formal.commit.id}）；最近记录未更新，投影义务已保留。`, { cause: error }); }
+}
+
 async function markRecentAgentChangeStrongPositive(): Promise<void> {
-  const commitId = await logseq.FileStorage.getItem(recentCommitKey);
+  const commitId = await readCommandState(recentCommitKey);
   if (typeof commitId !== "string" || !commitId) throw new Error("没有可反馈的最近 Commit。");
   await (await client()).recordStrongPositive(commitId, { type: "USER", id: "local-user" });
   await logseq.UI.showMsg("已记录明确正向反馈；不会自动修改或激活 Taste。", "success");
@@ -75,15 +169,22 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
   const { adapter, graphId, scope } = await adapterForCurrentGraph();
   const current = logseqBlock(await pluginRuntime.inGraph(scope, () => blockUuid ? logseq.Editor.getBlock(blockUuid) : logseq.Editor.getCurrentBlock()));
   if (!current) throw new Error("请先把光标放在一条自然记录上。");
+  const api = await client();
+  const resumed = await resumePendingFormal(api, scope, `create:${current.uuid}`);
+  if (resumed) {
+    const delivery = await finishFormal(api, scope, resumed);
+    if (resumed.commit.targetId) await rememberFormalState(currentWorkObjectKey, resumed.commit.targetId, scope, resumed);
+    await logseq.UI.showMsg(`上次纳入已正式提交；${delivery}`, "success"); return;
+  }
   const stable = await ensurePersistentSourceIdentity({
     getBlock: uuid => pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(uuid)),
     upsertBlockProperty: (uuid, key, value) => pluginRuntime.withSelfWrite(uuid, () => pluginRuntime.inGraph(scope, () => logseq.Editor.upsertBlockProperty(uuid, key, value)), false, scope),
   }, { uuid: current.uuid, content: current.content, isDbGraph: await pluginRuntime.inGraph(scope, () => currentGraphIsDb(logseq.App)) });
-  const api = await client();
   const rawTitle = extractTitleFromSourceLine(stable.content);
   const canonicalSource = formatFormalAnchor({ kind, title: rawTitle });
   const originalContent = stable.content;
   let formal: Awaited<ReturnType<typeof api.commitFormal>>;
+  let submitted = false;
   try {
     if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
       const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
@@ -93,9 +194,10 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
     const title = extractTitleFromSourceLine(canonicalSource);
     const operation = parseSemanticOperation({ operationId: `formalize-${crypto.randomUUID()}`, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind, title, anchor: { graphId, blockUuid: stable.uuid, sourceContentHash: snapshot.sourceContentHash } } });
-    formal = await api.commitFormal(operation, snapshot);
+    submitted = true;
+    formal = await submitFormal(api, scope, `create:${stable.uuid}`, { kind: "COMMIT", operation, snapshot });
   } catch (error) {
-    if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
+    if ((!submitted || (error instanceof ClientError && error.status > 0 && error.status < 500)) && !(error instanceof FormalOutcomeUnknownError) && canonicalizeGraphContent(originalContent) !== canonicalSource) {
       try {
         const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
         if (latest && canonicalizeGraphContent(latest.content) === canonicalSource) await pluginRuntime.updateSource(graphId, stable.uuid, originalContent, scope);
@@ -103,90 +205,83 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     }
     throw error;
   }
-  let result;
-  try { result = await adapter.applyGraphEffect(formal.graphEffect); }
-  catch (error) {
-    await api.graphProjectionFailed(formal.commit.id, error instanceof Error ? error.message : String(error));
-    throw error;
-  }
-  await api.verifyFormalProjection(formal.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid }));
-  await logseq.FileStorage.setItem(recentCommitKey, formal.commit.id);
+  const delivery = await finishFormal(api, scope, formal);
   if (formal.commit.targetId) {
-    await logseq.FileStorage.setItem(currentWorkObjectKey, formal.commit.targetId);
+    await rememberFormalState(currentWorkObjectKey, formal.commit.targetId, scope, formal);
     blockIdentityCache.setFormal(stable.uuid, { kind: "FORMAL", workObjectId: formal.commit.targetId, objectKind: kind }, scope);
   }
-  await logseq.UI.showMsg(`已纳入 Task Copilot；Commit ${formal.commit.id}`, "success");
-  void refreshBlockIdentityCache(api);
+  await logseq.UI.showMsg(`已纳入 Task Copilot；${delivery}`, "success");
 }
 
 async function letAgentUpdateCurrentFocus(): Promise<void> {
-  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const workObjectId = await readCommandState(currentWorkObjectKey, scope);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
-  const selected = logseqBlock(await logseq.Editor.getCurrentBlock());
-  if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const api = await client();
+  const resumed = await resumePendingFormal(api, scope, `agent:${workObjectId}`);
+  if (resumed) { await logseq.UI.showMsg(`上次 Agent 变更已正式提交；${await finishFormal(api, scope, resumed)}`, "success"); return; }
+  const selected = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getCurrentBlock()));
+  if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const target = await api.showObject(workObjectId);
   const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
-  const { adapter, graphId } = await adapterForCurrentGraph();
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
   const evidenceId = `evidence-${crypto.randomUUID()}`;
   const connection = await descriptor();
   const evidenceMaterial = await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey);
+  assertCommandScope(scope);
   const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: evidenceMaterial });
   const targetSnapshot = await readTargetSnapshot(adapter, graphId, api, target);
+  assertCommandScope(scope);
   const run = await api.runCurrentFocusAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: targetSnapshot });
+  assertCommandScope(scope);
   if (!run.proposal) {
     await logseq.UI.showMsg(`Fake Agent 未提出变更；${run.run.reasonCode}；AgentRun ${run.run.id}`, "success");
     return;
   }
   const fresh = await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey);
-  const pending = await api.applyProposal(run.proposal.id, {
+  assertCommandScope(scope);
+  const formal = await submitFormal(api, scope, `agent:${workObjectId}`, { kind: "PROPOSAL", proposalId: run.proposal.id,
     operationId: `apply-focus-${crypto.randomUUID()}`,
     snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }),
     evidence: [{ evidenceId, ...fresh }],
   });
-  let result;
-  try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
-  catch (error) {
-    await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error));
-    throw error;
-  }
-  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }));
-  await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
-  await logseq.FileStorage.setItem(recentEvidenceIdKey, evidenceId);
-  await logseq.UI.showMsg(`Fake Agent 已更新当前推进；Commit ${committed.commit.id}；Evidence ${evidenceId}；可用“撤销最近一次提交”恢复。`, "success");
+  const delivery = await finishFormal(api, scope, formal);
+  await rememberFormalState(recentEvidenceIdKey, evidenceId, scope, formal);
+  await logseq.UI.showMsg(`Fake Agent 已更新当前推进；${delivery}；Commit ${formal.commit.id}；Evidence ${evidenceId}；可用“撤销最近一次提交”恢复。`, "success");
 }
 
 async function letAgentReconcileEngagement(blockUuid?: string): Promise<void> {
-  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const workObjectId = await readCommandState(currentWorkObjectKey, scope);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
-  const selected = logseqBlock(blockUuid ? await logseq.Editor.getBlock(blockUuid) : await logseq.Editor.getCurrentBlock());
-  if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const api = await client();
+  const resumed = await resumePendingFormal(api, scope, `agent:${workObjectId}`);
+  if (resumed) { await logseq.UI.showMsg(`上次 Agent 变更已正式提交；${await finishFormal(api, scope, resumed)}`, "success"); return; }
+  const selected = logseqBlock(await pluginRuntime.inGraph(scope, () => blockUuid ? logseq.Editor.getBlock(blockUuid) : logseq.Editor.getCurrentBlock()));
+  if (!selected) throw new Error("请把光标放在要冻结为 Evidence 的 Logseq block 上。");
   const target = await api.showObject(workObjectId);
   const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
-  const { adapter, graphId } = await adapterForCurrentGraph();
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
   const connection = await descriptor();
   const evidenceId = `evidence-${crypto.randomUUID()}`;
+  assertCommandScope(scope);
   const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) });
+  assertCommandScope(scope);
   const run = await api.runEngagementAgent({ runId: `agent-run-${crypto.randomUUID()}`, workObjectId, evidenceIds: [frozen.evidence.id], snapshot: await readTargetSnapshot(adapter, graphId, api, target) });
+  assertCommandScope(scope);
   if (!run.proposal || !run.revision) {
     await logseq.UI.showMsg(`Engagement 未变化；${run.run.reasonCode}；AgentRun ${run.run.id}`, "warning");
     return;
   }
-  const pending = await api.applyProposal(run.proposal.id, { operationId: `apply-engagement-${crypto.randomUUID()}`, snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }), evidence: [{ evidenceId, ...await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) }] });
-  let result;
-  try { result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect); }
-  catch (error) { await api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
-  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }));
-  await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id);
-  await logseq.FileStorage.setItem(recentEvidenceIdKey, evidenceId);
+  assertCommandScope(scope);
+  const formal = await submitFormal(api, scope, `agent:${workObjectId}`, { kind: "PROPOSAL", proposalId: run.proposal.id, operationId: `apply-engagement-${crypto.randomUUID()}`, snapshot: await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: anchor.externalId }), evidence: [{ evidenceId, ...await adapter.readEvidenceMaterial({ graphId, blockUuid: selected.uuid }, connection.graphSnapshotKey) }] });
+  const delivery = await finishFormal(api, scope, formal);
+  await rememberFormalState(recentEvidenceIdKey, evidenceId, scope, formal);
   const transition = run.revision.transition;
   const waiting = transition.waiting?.description ? `\n等待：${transition.waiting.description}` : "\n原等待条件已满足并清除。";
-  await logseq.UI.showMsg(`Task Copilot：事项状态已变化\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n查看依据：运行“Task Copilot vNext：查看最近一次 Agent 依据”\n撤销：Cmd+Shift+U`, "warning", { timeout: 12000 });
+  await logseq.UI.showMsg(`Task Copilot：事项状态已变化；${delivery}\n${target.object.title}\n${transition.from} → ${transition.to}${waiting}\n依据：当前记录（Evidence ${evidenceId}）\n查看依据：运行“Task Copilot vNext：查看最近一次 Agent 依据”\n撤销：Cmd+Shift+U`, "warning", { timeout: 12000 });
 }
 
 async function organizeTodayCommand(): Promise<void> {
@@ -197,19 +292,53 @@ async function organizeTodayCommand(): Promise<void> {
   await logseq.UI.showMsg(`Task Copilot：整理今天\n${result.summaryText}${suffix}`, pending > 0 ? "warning" : "success", { timeout: 12000 });
 }
 
+async function executeCapturedDecision(api: KernelClient, scope: GraphScope, decisionId?: string): Promise<Awaited<ReturnType<KernelClient["executeUserDecision"]>> | null> {
+  const key = scopedKey("task-copilot-vnext-pending-decision", scope);
+  const prior = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key));
+  const id = typeof prior === "string" && prior ? prior : decisionId;
+  if (!id) return null;
+  if (!prior) await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, id));
+  assertCommandScope(scope);
+  const result = await api.executeUserDecision(id);
+  if (blockIdentityCache.isCurrent(scope)) {
+    try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-decision-receipt-storage", result.commit.id, error); }
+  }
+  return result;
+}
+async function finishDecision(api: KernelClient, scope: GraphScope, result: NonNullable<Awaited<ReturnType<typeof executeCapturedDecision>>>): Promise<void> {
+  if (!blockIdentityCache.isCurrent(scope)) throw new Error(`正式提交已成功（${result.commit.id}）；Graph 作用域已切换，回执已保留。`);
+  const delivery = result.projectionObligation ? await finishFormal(api, scope, { commit: result.commit, graphEffect: result.commit.graphEffect as GraphEffect, projectionObligation: result.projectionObligation }) : "正式决定已提交。";
+  if (!result.projectionObligation) await writeCommandState(recentCommitKey, result.commit.id, scope);
+  await logseq.UI.showMsg(`已按你的授权执行；${delivery}`, "success");
+}
+async function assertDecisionGraph(api: KernelClient, scope: GraphScope, pkg: { id: string; workObjectId: string | null; targetVersions: Record<string, number> }): Promise<void> {
+  const ids = [...new Set([...(pkg.workObjectId ? [pkg.workObjectId] : []), ...Object.keys(pkg.targetVersions)])];
+  if (ids.length) {
+    for (const id of ids) {
+      const target = await api.showObject(id); assertCommandScope(scope);
+      if ((target.anchor as AnchorView | null)?.graphId !== scope.graphId) throw new Error("当前 Graph 不是决策目标的 Graph。");
+    }
+  } else {
+    const { candidates } = await api.listDecisionCandidates(pkg.id); assertCommandScope(scope);
+    if (!candidates.length || candidates.some(item => (item.parameters as { anchor?: { graphId?: string } }).anchor?.graphId !== scope.graphId)) throw new Error("当前 Graph 不是候选来源的 Graph。");
+  }
+}
+
 async function acceptDecisionPackage(packageId: string): Promise<boolean> {
-  const api = await client();
+  const { scope } = await adapterForCurrentGraph(), api = await client();
+  const resumed = await executeCapturedDecision(api, scope);
+  if (resumed) { await finishDecision(api, scope, resumed); return true; }
   const pkg = (await api.listDecisionPackages("OPEN")).packages.find((item) => item.id === packageId);
   if (!pkg) { await logseq.UI.showMsg("这条建议已经不在待确认列表里了。", "warning"); return false; }
+  await assertDecisionGraph(api, scope, pkg);
   const event = await api.createTrustedUserEvent({ exactUserUtterance: "确认", packageId: pkg.id, presentationRevision: pkg.presentationRevision });
   const compiled = await api.compileUserDecision({ trustedUserEventId: event.event.id });
   if (compiled.kind !== "AUTHORIZED_DECISION") {
     await logseq.UI.showMsg(compiled.kind === "STALE" ? "这个建议刚刚发生了变化，请重新看一下。" : "这条确认没有形成授权，没有执行任何正式变化。", "warning");
     return false;
   }
-  const executed = await api.executeUserDecision(compiled.decision.id);
-  await logseq.FileStorage.setItem(recentCommitKey, executed.commit.id);
-  await logseq.UI.showMsg("已按你的授权执行。", "success");
+  assertCommandScope(scope);
+  await finishDecision(api, scope, (await executeCapturedDecision(api, scope, compiled.decision.id))!);
   return true;
 }
 
@@ -220,23 +349,26 @@ async function deferDecisionPackage(packageId: string): Promise<void> {
 }
 
 async function respondToDecisionPackage(packageId?: string): Promise<void> {
-  const api = await client();
+  const { scope } = await adapterForCurrentGraph(), api = await client();
+  const resumed = await executeCapturedDecision(api, scope);
+  if (resumed) { await finishDecision(api, scope, resumed); return; }
   const open = (await api.listDecisionPackages("OPEN")).packages;
   if (!open.length) throw new Error("当前没有待回应的决策。");
   if (packageId) { await acceptDecisionPackage(packageId); return; }
   const pkg = open[0] ?? null;
   if (!pkg) throw new Error("没有选中有效的 Decision Package。");
+  await assertDecisionGraph(api, scope, pkg);
   const utterance = await requestTextPrompt({ title: `回应当前决策：${pkg.summary}`, label: "你的回应（同意 / 好的 / 确认 …）", initialValue: "同意", confirmLabel: "提交回应" });
   if (!utterance) return;
+  assertCommandScope(scope);
   const event = await api.createTrustedUserEvent({ exactUserUtterance: utterance, packageId: pkg.id, presentationRevision: pkg.presentationRevision });
   const compiled = await api.compileUserDecision({ trustedUserEventId: event.event.id });
   if (compiled.kind !== "AUTHORIZED_DECISION") {
     await logseq.UI.showMsg(`未执行：${compiled.kind === "NEEDS_CLARIFICATION" ? "回应不明确" : compiled.kind === "STALE" ? "决策已过期" : "未获得授权"}`, "warning");
     return;
   }
-  const executed = await api.executeUserDecision(compiled.decision.id);
-  await logseq.FileStorage.setItem(recentCommitKey, executed.commit.id);
-  await logseq.UI.showMsg(`已按你的授权执行；Commit ${executed.commit.id}`, "success");
+  assertCommandScope(scope);
+  await finishDecision(api, scope, (await executeCapturedDecision(api, scope, compiled.decision.id))!);
 }
 
 const sidebarWidthKey = "task-copilot-vnext-sidebar-width";
@@ -402,7 +534,7 @@ function toggleDailyPanel(): void {
 }
 
 async function openPanelAtObject(objectId: string): Promise<void> {
-  await logseq.FileStorage.setItem(currentWorkObjectKey, objectId);
+  await writeCommandState(currentWorkObjectKey, objectId);
   if (panelOpen && panelNavigate) { panelNavigate(objectId); return; }
   await dailyPanel(objectId);
 }
@@ -527,7 +659,7 @@ async function reconcileObjectFromBlock(uuid: string): Promise<void> {
     const api = await client();
     const entry = await revalidateBlockIdentity(api, uuid);
     if (!entry) { await logseq.UI.showMsg("这条记录还没有纳入 Task Copilot。", "warning"); return; }
-    await logseq.FileStorage.setItem(currentWorkObjectKey, entry.object.id);
+    await writeCommandState(currentWorkObjectKey, entry.object.id);
     await letAgentReconcileEngagement(uuid);
   } catch (error) {
     console.error("block-reconcile-object", error);
@@ -789,9 +921,10 @@ ${pack.pack.reentrySummary}
 }
 
 async function correctCurrentReality(): Promise<void> {
-  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const workObjectId = await readCommandState(currentWorkObjectKey, scope);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先打开一个正式事项。");
-  const current = logseqBlock(await logseq.Editor.getCurrentBlock());
+  const current = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getCurrentBlock()));
   if (!current) throw new Error("请把光标放在写有纠正说明的 Logseq block 上。");
   const utterance = current.content.split("\n")[0]!.replace(/^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "").trim();
   if (!utterance) throw new Error("当前 block 没有可识别的纠正内容。");
@@ -799,63 +932,73 @@ async function correctCurrentReality(): Promise<void> {
   const target = await api.showObject(workObjectId);
   const anchor = target.anchor as AnchorView | null;
   if (!anchor) throw new Error("当前 WorkObject 没有 Primary Anchor。");
-  const { adapter, graphId } = await adapterForCurrentGraph();
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 WorkObject 的 Primary Anchor Graph。");
   const evidenceId = `correction-${crypto.randomUUID()}`;
   const connection = await descriptor();
   const material = await adapter.readEvidenceMaterial({ graphId, blockUuid: current.uuid }, connection.graphSnapshotKey);
+  assertCommandScope(scope);
   const frozen = await api.freezeEvidence({ evidenceId, workObjectId, snapshot: material });
+  assertCommandScope(scope);
   const result = await api.applyUserRealityCorrection({ workObjectId, utterance, evidenceId: frozen.evidence.id, evidenceContentHash: frozen.evidence.contentHash });
-  await logseq.UI.showMsg(`已按你的纠正更新正式状态；Commit ${result.commit.id}`, "success");
+  await finishDecision(api, scope, result);
 }
 
-async function currentTaskContext() {
-  const workObjectId = await logseq.FileStorage.getItem(currentWorkObjectKey);
+async function currentTaskContext(blockUuid?: string) {
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const api = await client();
+  const identity = blockUuid ? await revalidateBlockIdentity(api, blockUuid) : null;
+  const workObjectId = blockUuid ? identity?.object.id : await readCommandState(currentWorkObjectKey, scope);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
-  const api = await client(); const target = await api.showObject(workObjectId);
-  if (target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看「结束评估」，就绪后由你确认结束。");
+  const pending = await resumePendingFormal(api, scope, `closure:${workObjectId}`);
+  const target = await api.showObject(workObjectId); assertCommandScope(scope);
+  if (target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看结束评估。");
   const anchor = target.anchor as AnchorView | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
-  const { adapter, graphId, scope } = await adapterForCurrentGraph(); if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
-  return { api, target, anchor, adapter, graphId, scope };
+  if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
+  return { api, target, anchor, adapter, graphId, scope, pending };
 }
-
-async function executeClosureOperation(type: "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE", input: Record<string, unknown>): Promise<{ commitId: string; title: string }> {
-  const value = await currentTaskContext(); const snapshot = await readTargetSnapshot(value.adapter, value.graphId, value.api, value.target);
+async function executeClosureOperation(value: Awaited<ReturnType<typeof currentTaskContext>>, type: "COMPLETE_WORK_OBJECT" | "CANCEL_WORK_OBJECT" | "REOPEN_WORK_OBJECT" | "AMEND_CLOSURE", input: Record<string, unknown>): Promise<{ commitId: string; title: string; delivery: string }> {
+  assertCommandScope(value.scope);
+  if (value.pending) {
+    if (value.pending.commit.operationType !== type) throw new Error(`上次 ${value.pending.commit.operationType} 已正式提交（${value.pending.commit.id}）；请重新查看当前事项。`);
+    return { commitId: value.pending.commit.id, title: value.target.object.title, delivery: await finishFormal(value.api, value.scope, value.pending) };
+  }
+  const snapshot = await readTargetSnapshot(value.adapter, value.graphId, value.api, value.target);
   if (!snapshot.projection) throw new Error("当前 Task 缺少 managed projection。");
   const operation = parseSemanticOperation({ operationId: `closure-${crypto.randomUUID()}`, type, actor: { type: "USER", id: "local-user" }, target: { workObjectId: value.target.object.id, expectedVersion: value.target.object.version, expectedProjectionHash: snapshot.projection.projectionHash }, input });
-  const pending = await value.api.prepare(operation, snapshot);
-  let result; try { result = await value.adapter.applyGraphEffect(pending.graphEffect as GraphEffect); } catch (error) { await value.api.failGraphApply(pending.commit.id, error instanceof Error ? error.message : String(error)); throw error; }
-  const committed = await value.api.complete(pending.commit.id, result, await value.adapter.readGraphSnapshot({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId }));
-  await logseq.FileStorage.setItem(recentCommitKey, committed.commit.id); return { commitId: committed.commit.id, title: value.target.object.title };
+  const formal = await submitFormal(value.api, value.scope, `closure:${value.target.object.id}`, { kind: "COMMIT", operation, snapshot });
+  const delivery = await finishFormal(value.api, value.scope, formal);
+  return { commitId: formal.commit.id, title: value.target.object.title, delivery };
 }
 
 async function completeCurrentTask(): Promise<void> {
   const value = await currentTaskContext();
-  if (value.target.object.lifecycle !== "OPEN") throw new Error("只有 OPEN Task 可以完成。");
-  const completed = await executeClosureOperation("COMPLETE_WORK_OBJECT", { outcomeSummary: value.target.object.title, evidenceIds: [] });
-  await logseq.UI.showMsg(`已完成「${completed.title}」\n结果：${completed.title}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
+  if (!value.pending && value.target.object.lifecycle !== "OPEN") throw new Error("只有 OPEN Task 可以完成。");
+  const completed = await executeClosureOperation(value, "COMPLETE_WORK_OBJECT", { outcomeSummary: value.target.object.title, evidenceIds: [] });
+  await logseq.UI.showMsg(`已完成「${completed.title}」；${completed.delivery}\n结果：${completed.title}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
 }
 
 async function completeFromObservedDone(blockUuid: string): Promise<void> {
   const scope = blockIdentityCache.scope();
   if (pluginRuntime.isSelfWritten(blockUuid, true)) return;
-  const value = await currentTaskContext();
+  const value = await currentTaskContext(blockUuid);
   if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) return;
   if (value.anchor.externalId !== blockUuid || value.target.object.lifecycle !== "OPEN") return;
-  const completed = await executeClosureOperation("COMPLETE_WORK_OBJECT", { outcomeSummary: value.target.object.title, evidenceIds: [] });
-  await logseq.UI.showMsg(`已从 TODO → DONE 正式完成「${completed.title}」\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
+  const completed = await executeClosureOperation(value, "COMPLETE_WORK_OBJECT", { outcomeSummary: value.target.object.title, evidenceIds: [] });
+  await logseq.UI.showMsg(`已从 TODO → DONE 正式完成「${completed.title}」；${completed.delivery}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
 }
 
 async function cancelCurrentTask(): Promise<void> {
+  const value = await currentTaskContext();
   const reason = await requestTextPrompt({ title: "取消当前 Task", label: "取消原因", initialValue: "已不再需要", confirmLabel: "确认取消" }); if (!reason) return;
-  const cancelled = await executeClosureOperation("CANCEL_WORK_OBJECT", { reason, replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [] });
-  await logseq.UI.showMsg(`已取消「${cancelled.title}」\n原因：${reason}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
+  const cancelled = await executeClosureOperation(value, "CANCEL_WORK_OBJECT", { reason, replacementWorkObjectId: null, remainingWorkNote: null, evidenceIds: [] });
+  await logseq.UI.showMsg(`已取消「${cancelled.title}」；${cancelled.delivery}\n原因：${reason}\n撤销：Cmd+Shift+U`, "success", { timeout: 8000 });
 }
 
 async function reopenCurrentTask(): Promise<void> {
+  const value = await currentTaskContext();
   const reason = await requestTextPrompt({ title: "重新打开当前 Task", label: "重新打开原因", confirmLabel: "确认重新打开" }); if (!reason) return;
-  const reopened = await executeClosureOperation("REOPEN_WORK_OBJECT", { reason });
-  await logseq.UI.showMsg(`已重新打开「${reopened.title}」\n原因：${reason}`, "success", { timeout: 8000 });
+  const reopened = await executeClosureOperation(value, "REOPEN_WORK_OBJECT", { reason });
+  await logseq.UI.showMsg(`已重新打开「${reopened.title}」；${reopened.delivery}\n原因：${reason}`, "success", { timeout: 8000 });
 }
 
 async function showCurrentClosure(): Promise<void> {
@@ -868,49 +1011,61 @@ async function amendCurrentClosure(): Promise<void> {
   if (!history.current) throw new Error("当前 Task 没有可修订的有效 Closure。");
   const reason = await requestTextPrompt({ title: "修订当前 Task Closure", label: "修订原因" }); if (!reason) return;
   const replacement = await requestTextPrompt({ title: "修订当前 Task Closure", label: history.current.type === "COMPLETED" ? "新的完成结果" : "新的取消原因", initialValue: history.current.type === "COMPLETED" ? history.current.outcomeSummary : history.current.reason }); if (!replacement) return;
-  const amended = await executeClosureOperation("AMEND_CLOSURE", { targetClosureRecordId: history.current.record.id, reason, replacementOutcomeSummary: history.current.type === "COMPLETED" ? replacement : null, replacementCancellationReason: history.current.type === "CANCELLED" ? replacement : null, addEvidenceIds: [] });
-  await logseq.UI.showMsg(`已修订「${amended.title}」的结算说明；原记录保持不变。`, "success");
+  const amended = await executeClosureOperation(value, "AMEND_CLOSURE", { targetClosureRecordId: history.current.record.id, reason, replacementOutcomeSummary: history.current.type === "COMPLETED" ? replacement : null, replacementCancellationReason: history.current.type === "CANCELLED" ? replacement : null, addEvidenceIds: [] });
+  await logseq.UI.showMsg(`已修订「${amended.title}」的结算说明；${amended.delivery}原记录保持不变。`, "success");
 }
 
 async function showRecentEvidence(): Promise<void> {
-  const evidenceId = await logseq.FileStorage.getItem(recentEvidenceIdKey);
+  const evidenceId = await readCommandState(recentEvidenceIdKey);
   if (typeof evidenceId !== "string" || !evidenceId) throw new Error("没有最近一次 Agent Evidence。请先运行 Agent 对账命令。");
   const { evidence } = await (await client()).showEvidence(evidenceId);
   await logseq.UI.showMsg(`Task Copilot Frozen Evidence\nID：${evidence.id}\n冻结内容：${evidence.frozenContent}\nSHA-256：${evidence.contentHash}\n冻结时间：${evidence.frozenAt}`, "warning", { timeout: 30000 });
 }
 
 async function undoRecent(): Promise<void> {
-  const commitId = await logseq.FileStorage.getItem(recentCommitKey);
-  if (typeof commitId !== "string" || !commitId) throw new Error("没有可撤销的最近 Commit。");
-  const api = await client(); const original = (await api.showCommit(commitId)).commit;
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
+  const commitId = await readCommandState(recentCommitKey, scope);
+  if (!commitId) throw new Error("没有可撤销的最近 Commit。");
+  const api = await client();
+  const resumed = await resumePendingFormal(api, scope, `undo:${commitId}`);
+  if (resumed) { await logseq.UI.showMsg(`上次撤销已正式提交；${await finishFormal(api, scope, resumed)}`, "success"); return; }
+  const original = (await api.showCommit(commitId)).commit;
   if (!original.targetId) throw new Error("Commit 没有 WorkObject target。");
-  const target = await api.showObject(original.targetId); const anchor = target.anchor as AnchorView;
-  const { adapter } = await adapterForCurrentGraph();
-  const snapshot = await readTargetSnapshot(adapter, anchor.graphId, api, target);
-  const pending = await api.prepareUndo(commitId, { operationId: `undo-${crypto.randomUUID()}`, actor: { type: "USER", id: "local-user" }, snapshot });
-  const result = await adapter.applyGraphEffect(pending.graphEffect as GraphEffect);
-  const committed = await api.complete(pending.commit.id, result, await adapter.readGraphSnapshot({ graphId: anchor.graphId, sourceBlockUuid: anchor.externalId }));
-  await logseq.UI.showMsg(`已安全撤销；补偿 Commit ${committed.commit.id}`, "success");
+  const target = await api.showObject(original.targetId), anchor = target.anchor as AnchorView;
+  if (anchor.graphId !== graphId) throw new Error("当前 Graph 不是被撤销对象的 Graph。");
+  const snapshot = await readTargetSnapshot(adapter, graphId, api, target);
+  const formal = await submitFormal(api, scope, `undo:${commitId}`, { kind: "UNDO", commitId, operationId: `undo-${crypto.randomUUID()}`, snapshot });
+  const delivery = await finishFormal(api, scope, formal);
+  await logseq.UI.showMsg(`已撤销；${delivery}`, "success");
 }
 
 async function recoverIncomplete(): Promise<void> {
+  const { adapter, graphId, scope } = await adapterForCurrentGraph();
   const api = await client(); const recovery = (await api.listRecovery()).recovery;
+  assertCommandScope(scope);
   if (!recovery.length) { await logseq.UI.showMsg("没有需要恢复的 Commit。", "success"); return; }
-  const { adapter } = await adapterForCurrentGraph();
   for (const item of recovery) {
+    assertCommandScope(scope);
     const effect = item.commit.graphEffect as GraphEffect;
+    if (effect.graphId !== graphId) continue;
     if (item.action === "ABORT_PREPARED") await api.abortPrepared(item.commit.id);
     else if (item.action === "RESUME_GRAPH_APPLY") {
       const result = await adapter.applyGraphEffect(effect);
-      const completed = await api.complete(item.commit.id, result, await adapter.readGraphSnapshot({ graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid }));
-      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      const actual = await readRecoveryVerificationSnapshot(effect, item.commit.targetId, {
+        readAbsentProjection: (remove) => adapter.readRemovedProjectionSnapshot({ graphId: remove.graphId, sourceBlockUuid: remove.sourceBlockUuid, expectedProjection: remove.expectedProjection }),
+        readTargetProjection: async (targetId) => readTargetSnapshot(adapter, graphId, api, await api.showObject(targetId)),
+      });
+      assertCommandScope(scope);
+      const completed = await api.complete(item.commit.id, result, actual);
+      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await writeCommandState(recentCommitKey, completed.commit.id, scope);
     } else if (item.action === "VERIFY_GRAPH") {
       const actual = await readRecoveryVerificationSnapshot(effect, item.commit.targetId, {
         readAbsentProjection: (remove) => adapter.readRemovedProjectionSnapshot({ graphId: remove.graphId, sourceBlockUuid: remove.sourceBlockUuid, expectedProjection: remove.expectedProjection }),
         readTargetProjection: async (targetId) => readTargetSnapshot(adapter, effect.graphId, api, await api.showObject(targetId)),
       });
+      assertCommandScope(scope);
       const completed = await api.verifyRecoveredGraph(item.commit.id, actual);
-      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await logseq.FileStorage.setItem(recentCommitKey, completed.commit.id);
+      if (["CREATE_WORK_OBJECT", "SET_CURRENT_FOCUS", "UPDATE_WORK_INTENT", "CHANGE_ENGAGEMENT", "COMPLETE_WORK_OBJECT", "CANCEL_WORK_OBJECT", "REOPEN_WORK_OBJECT", "AMEND_CLOSURE"].includes(completed.commit.operationType)) await writeCommandState(recentCommitKey, completed.commit.id, scope);
     } else throw new Error(`Commit ${item.commit.id} 需要人工协调，未自动覆盖 Graph。`);
   }
   await logseq.UI.showMsg(`已处理 ${recovery.length} 个恢复项。`, "success");

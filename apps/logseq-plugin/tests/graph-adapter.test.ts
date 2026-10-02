@@ -377,3 +377,21 @@ test("natural Task source is never normalized by the Graph Adapter", async () =>
   await adapter.applyGraphEffect(closureEffect(initial, completed, "TODO", "DONE", "complete-natural"));
   assert.equal(host.nodes.get("source-01")!.content, "DONE 自然记录");
 });
+
+test("CREATE delivery resumes exact or partial owned presentation after a lost reply and removal proves actual UUID absence", async () => {
+  const expected = projection({ currentFocus: "继续处理" }), effect = { ...upsert, projection: expected };
+  const host = new Host(); host.addNaturalChild();
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  host.throwAfterNextMutation = true;
+  await assert.rejects(adapter.applyGraphEffect(effect), /RESPONSE_LOST_AFTER_MUTATION/u);
+  const restarted = new LogseqGraphAdapter(host, "graph-01");
+  assert.equal((await restarted.applyGraphEffect(effect)).projectionHash, expected.projectionHash);
+  assert.equal((await restarted.applyGraphEffect(effect)).projectionHash, expected.projectionHash);
+  const remove = { type: "REMOVE_MANAGED_PROJECTION" as const, commitId: "undo", effectId: "remove", graphId: "graph-01", sourceBlockUuid: "source-01", containerUuid: expected.containerUuid, expectedProjectionHash: expected.projectionHash, expectedProjection: expected };
+  await restarted.applyGraphEffect(remove); await restarted.applyGraphEffect(remove);
+  const absent = await restarted.readRemovedProjectionSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: expected });
+  assert.equal(absent.projection, null); assert.ok(absent.removedProjection?.absentUuids.includes(expected.focusUuid));
+  assert.ok(host.nodes.has("natural-child")); assert.equal(host.nodes.get("source-01")?.content, "TODO 自然记录");
+  host.nodes.set(expected.focusUuid, { uuid: expected.focusUuid, content: "用户在其他位置的内容", parent: null, children: [] });
+  await assert.rejects(restarted.readRemovedProjectionSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: expected }), /GRAPH_RESULT_MISMATCH/u);
+});

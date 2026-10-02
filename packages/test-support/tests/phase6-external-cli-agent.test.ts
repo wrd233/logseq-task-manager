@@ -257,3 +257,26 @@ test("a pending External proposal resumes after Kernel restart and Plugin worker
     assert.equal((await client.showObject(value.workObjectId)).object.currentFocus, "核对恢复路径");
   } finally { stop(); await service.close(); }
 });
+
+test("formal external focus application commits audit before failed projection and resumes after service restart", async () => {
+  const value = await setup(); let restarted: Awaited<ReturnType<typeof startKernelServer>> | null = null, stop: (() => void) | null = null;
+  try {
+    value.records.set("formal-evidence", { content: "下一步完成正式交付", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "formal-evidence", "下一步完成正式交付");
+    await value.client.freezeExternalEvidence({ evidenceId: "formal-evidence", workObjectId: value.workObjectId, blockUuid: "formal-evidence" });
+    await value.client.startExternalAgentRun({ runId: "formal-run", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: value.workObjectId, evidenceIds: ["formal-evidence"], executorId: "codex" });
+    const finished = await value.client.finishExternalAgentRun("formal-run", { outcome: "PROPOSAL", currentFocus: "完成正式交付", reasonCode: "NEXT", rationaleSummary: "next" });
+    value.graph.failNextApply();
+    const applied = await value.client.applyExternalProposalFormal(finished.proposal!.id); assert.ok("commit" in applied);
+    assert.equal(applied.commit.status, "COMMITTED"); assert.equal(applied.projectionObligation?.status, "FAILED"); assert.equal(applied.projectionObligation?.attempt, 1);
+    assert.equal((await value.client.showProposal(finished.proposal!.id)).proposal.appliedCommitId, applied.commit.id);
+    assert.equal((await value.client.showProposal(finished.proposal!.id)).proposal.status, "APPLIED"); assert.equal((await value.client.listFeedback()).feedback.length, 1);
+    value.stop(); await value.service.close();
+    restarted = await startKernelServer({ databasePath: value.databasePath, descriptorPath: value.descriptorPath, token: "token", graphSnapshotKey: "a".repeat(64), graphBridgeToken: "b".repeat(64), now: () => "2026-08-13T10:01:00.000Z", graphRequestTimeoutMs: 500 });
+    stop = startBridge({ baseUrl: restarted.baseUrl, bridgeToken: restarted.graphBridgeToken, snapshotKey: restarted.graphSnapshotKey, graphId: value.graphId, graph: value.graph, records: value.records });
+    const client = new KernelClient({ schemaVersion: 1, baseUrl: restarted.baseUrl, token: restarted.token, pid: process.pid, startedAt: at });
+    for (let i = 0; i < 30 && !(await client.graphStatus()).available; i++) await new Promise(resolve => setTimeout(resolve, 5));
+    const repeated = await client.applyExternalProposalFormal(finished.proposal!.id); assert.ok("commit" in repeated);
+    assert.equal(repeated.commit.id, applied.commit.id); assert.equal(repeated.projectionObligation?.status, "VERIFIED"); assert.equal((await client.listFeedback()).feedback.length, 1);
+    assert.equal(value.graph.snapshot(value.graphId, "source").projection?.currentFocus, "完成正式交付");
+  } finally { value.stop(); stop?.(); await value.service.close(); await restarted?.close(); }
+});

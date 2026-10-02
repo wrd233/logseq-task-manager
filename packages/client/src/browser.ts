@@ -10,6 +10,10 @@ export class ClientError extends Error {
   constructor(code: string, message: string, status: number) { super(`${code}: ${message}`); this.name = "ClientError"; this.code = code; this.status = status; }
 }
 
+export class FormalOutcomeUnknownError extends Error {
+  constructor(readonly operationId: string, cause: unknown) { super(`正式请求结果尚未确定（${operationId}）；再次执行会查询或重试同一请求。`, { cause }); }
+}
+
 function isLocalKernelOrigin(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try { const url = new URL(value); return url.protocol === "http:" && url.hostname === "127.0.0.1" && Boolean(url.port) && !url.username && !url.password && url.origin === value; } catch { return false; }
@@ -42,6 +46,14 @@ export class KernelClient {
     if (!response.ok) throw new ClientError(value.error?.code ?? "HTTP_ERROR", value.error?.message ?? response.statusText, response.status);
     return value;
   }
+  async #formalRequest(operationId: string, path: string, value: unknown): Promise<FormalCommitResult> {
+    try { return await this.#request("POST", path, value); }
+    catch (error) {
+      if (error instanceof ClientError && error.status > 0 && error.status < 500) throw error;
+      try { const found = await this.formalReceipt(operationId); if (found.receipt) return found.receipt; } catch { /* Preserve the uncertain write outcome and stable ID. */ }
+      throw new FormalOutcomeUnknownError(operationId, error);
+    }
+  }
   status(): Promise<{ status: "ok"; schemaVersion: number; pid: number }> { return this.#request("GET", "/v1/status"); }
   agentBootstrap(): Promise<{ kernel: { ready: boolean }; graph: { ready: boolean; graphId: string | null; capabilities: readonly string[]; reason?: string }; agent: { executorType: "EXTERNAL_CLI"; supportedPurposes: readonly AgentRunReceipt["purpose"][] }; skills: Array<{ id: string; version: string; contentHash: string }>; forbidden: readonly string[] }> { return this.#request("GET", "/v1/agent/bootstrap"); }
   listSkills(): Promise<{ skills: Array<{ id: string; version: string; contentHash: string }> }> { return this.#request("GET", "/v1/skills"); }
@@ -57,6 +69,7 @@ export class KernelClient {
   finishExternalAgentRun(id: string, result: unknown): Promise<{ run: AgentRunReceipt; proposal: Proposal | null; revision: ProposalRevision | null }> { return this.#request("POST", `/v1/external/agent-runs/${encodeURIComponent(id)}/finish`, { result }); }
   listAgentRunReads(id: string): Promise<{ receipts: GraphReadReceipt[] }> { return this.#request("GET", `/v1/agent-runs/${encodeURIComponent(id)}/reads`); }
   applyExternalProposal(id: string): Promise<{ commit: StoredCommit; recovered: boolean } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/apply`, {}); }
+  applyExternalProposalFormal(id: string): Promise<{ commit: StoredCommit; recovered: boolean; projectionObligation: ProjectionObligation | null } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> { return this.#request("POST", `/v1/external/proposals/${encodeURIComponent(id)}/commit`, {}); }
   addReferenceCuration(input: { receiptId: string; runId: string; workObjectId: string; referenceBlockUuid: string; section: "资源" | "支撑交付物"; existingSectionUuid?: string | null }): Promise<{ receipt: CurationReceipt }> { return this.#request("POST", "/v1/external/curation/add-reference", input); }
   listCurationReceipts(workObjectId?: string): Promise<{ receipts: CurationReceipt[] }> { return this.#request("GET", `/v1/curation-receipts${workObjectId ? `?object=${encodeURIComponent(workObjectId)}` : ""}`); }
   listObjects(): Promise<{ objects: WorkObject[] }> { return this.#request("GET", "/v1/objects"); }
@@ -108,7 +121,21 @@ export class KernelClient {
     return value;
   }
   compileUserDecision(input: { trustedUserEventId: string }): Promise<UserDecisionCompileResult> { return this.#request("POST", "/v1/user-decisions/compile", input); }
-  executeUserDecision(id: string): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null }> { return this.#request("POST", `/v1/user-decisions/${encodeURIComponent(id)}/execute`, {}); }
+  async executeUserDecision(id: string): Promise<{ decision: UserDecision; commit: StoredCommit; projectionObligation: ProjectionObligation | null }> {
+    try { return await this.#request("POST", `/v1/user-decisions/${encodeURIComponent(id)}/execute`, {}); }
+    catch (error) {
+      if (error instanceof ClientError && error.status > 0 && error.status < 500) throw error;
+      try {
+        const decision = (await this.listUserDecisions()).decisions.find(value => value.id === id && value.status === "EXECUTED");
+        if (decision?.executionRefs[0]) {
+          const commit = (await this.showCommit(decision.executionRefs[0])).commit;
+          const projectionObligation = (await this.listProjectionObligations()).obligations.find(value => value.commitId === commit.id) ?? null;
+          return { decision, commit, projectionObligation };
+        }
+      } catch { /* Keep the decision ID so a retry cannot create another authorization. */ }
+      throw new FormalOutcomeUnknownError(`decision:${id}`, error);
+    }
+  }
   createOwnershipDecisionPackage(input: { id?: string; childId: string; ownerId: string; summary: string; rationale: string; issueRefs?: readonly string[] }): Promise<{ pkg: DecisionPackage; candidates: DecisionCandidate[] }> {
     const parameters: AssignParentDecisionParameters = { childId: input.childId, ownerId: input.ownerId, childVersion: 0, previousOwnerId: null };
     return this.#request("POST", "/v1/decision-packages", {
@@ -142,7 +169,11 @@ export class KernelClient {
   dismissProposal(id: string, actor: Actor): Promise<{ proposal: Proposal }> { return this.#request("POST", `/v1/proposals/${encodeURIComponent(id)}/dismiss`, { actor }); }
   listFeedback(): Promise<{ feedback: FeedbackEvent[] }> { return this.#request("GET", "/v1/feedback"); }
   recordStrongPositive(commitId: string, actor: Actor, userComment?: string | null): Promise<{ recorded: true }> { return this.#request("POST", "/v1/feedback/strong-positive", { commitId, actor, ...(userComment === undefined ? {} : { userComment }) }); }
-  commitFormal(operation: SemanticOperation, snapshot?: GraphSnapshot | null): Promise<FormalCommitResult> { return this.#request("POST", "/v1/commits/commit", { operation, ...(snapshot ? { snapshot } : {}) }); }
+  commitFormal(operation: SemanticOperation, snapshot?: GraphSnapshot | null): Promise<FormalCommitResult> { return this.#formalRequest(operation.operationId, "/v1/commits/commit", { operation, ...(snapshot ? { snapshot } : {}) }); }
+  formalReceipt(operationId: string): Promise<{ receipt: FormalCommitResult | null }> { return this.#request("GET", `/v1/operations/${encodeURIComponent(operationId)}/receipt`); }
+  applyProposalFormal(id: string, input: { operationId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): Promise<FormalCommitResult> { return this.#formalRequest(input.operationId, `/v1/proposals/${encodeURIComponent(id)}/commit`, input); }
+  undoFormal(commitId: string, input: { operationId: string; actor: Actor; snapshot: GraphSnapshot }): Promise<FormalCommitResult> { return this.#formalRequest(input.operationId, `/v1/commits/${encodeURIComponent(commitId)}/undo/commit`, input); }
+  deliverFormalProjection(commitId: string): Promise<{ obligation: ProjectionObligation }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/projection/deliver`, {}); }
   verifyFormalProjection(commitId: string, result: GraphApplyResult, snapshot: GraphSnapshot): Promise<{ obligation: ProjectionObligation }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/projection/verify`, { result, snapshot }); }
   graphProjectionFailed(commitId: string, reason: string): Promise<{ obligation: ProjectionObligation }> { return this.#request("POST", `/v1/commits/${encodeURIComponent(commitId)}/projection/failed`, { reason }); }
   listProjectionObligations(status?: ProjectionObligation["status"]): Promise<{ obligations: ProjectionObligation[] }> { return this.#request("GET", `/v1/projection-obligations${status ? `?status=${encodeURIComponent(status)}` : ""}`); }

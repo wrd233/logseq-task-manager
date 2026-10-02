@@ -1,9 +1,10 @@
-import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit } from "@task-copilot/contracts";
+import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit, type ProjectionObligation } from "@task-copilot/contracts";
 import { KernelError } from "@task-copilot/kernel";
 import type { Kernel } from "@task-copilot/kernel";
 import type { SqliteStore } from "@task-copilot/sqlite";
 
 import type { GraphRequestBroker } from "./graph-broker.ts";
+import type { ProjectionDelivery } from "./projection-delivery.ts";
 
 function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayResponse, kind: T): Extract<GraphGatewayResponse, { kind: T }> {
   if (value.kind !== kind) throw new KernelError("GRAPH_RESPONSE_KIND_MISMATCH", "Graph Adapter returned another response kind.");
@@ -12,7 +13,7 @@ function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayRes
 
 export class ExternalAgentCoordinator {
   readonly #kernel: Kernel; readonly #store: SqliteStore; readonly #broker: GraphRequestBroker; readonly #now: () => string;
-  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, now: () => string = () => new Date().toISOString()) { this.#kernel = kernel; this.#store = store; this.#broker = broker; this.#now = now; }
+  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, private readonly delivery: Pick<ProjectionDelivery, "drain">, now: () => string = () => new Date().toISOString()) { this.#kernel = kernel; this.#store = store; this.#broker = broker; this.#now = now; }
 
   bootstrap() {
     const graph = this.#broker.status();
@@ -90,10 +91,14 @@ export class ExternalAgentCoordinator {
     this.#store.putCurationReceipt(receipt); return receipt;
   }
 
-  async applyProposal(proposalId: string): Promise<{ commit: StoredCommit; recovered: boolean } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> {
+  async applyProposal(proposalId: string, mode: "formal" | "legacy" = "formal"): Promise<{ commit: StoredCommit; recovered: boolean; projectionObligation?: ProjectionObligation | null } | { package: DecisionPackage; candidates: DecisionCandidate[]; recovered: boolean }> {
     const stored = this.#store.getProposal(proposalId);
     if (!stored) throw new KernelError("PROPOSAL_NOT_FOUND", "Proposal does not exist.");
-    if (stored.proposal.status === "APPLIED" && stored.proposal.appliedCommitId) return { commit: this.#store.getCommit(stored.proposal.appliedCommitId)!, recovered: true };
+    if (stored.proposal.status === "APPLIED" && stored.proposal.appliedCommitId) {
+      const id = stored.proposal.appliedCommitId;
+      if (mode === "formal") await this.delivery.drain();
+      return { commit: this.#store.getCommit(id)!, recovered: true, ...(mode === "formal" ? { projectionObligation: this.#store.getProjectionObligationForCommit(id) } : {}) };
+    }
     const prior = this.#store.listCommits().find((commit) => commit.governance?.proposalId === proposalId && commit.status !== "ABORTED");
     if (prior) return { commit: await this.#resume(prior), recovered: true };
     const target = this.#kernel.targetSnapshotInput(stored.proposal.workObjectId);
@@ -108,8 +113,13 @@ export class ExternalAgentCoordinator {
       const packaged = this.#kernel.packageWorkIntentProposal({ operationId, proposalId, snapshot, evidence });
       return { package: packaged.pkg, candidates: packaged.candidates, recovered: false };
     }
-    const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
-    return { commit: await this.#applyPending(pending.commit, pending.graphEffect), recovered: false };
+    if (mode === "legacy") {
+      const pending = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposal({ operationId, proposalId, snapshot, evidence });
+      return { commit: await this.#applyPending(pending.commit, pending.graphEffect), recovered: false };
+    }
+    const formal = stored.revision.operationType === "CHANGE_ENGAGEMENT" ? this.#kernel.applyEngagementProposalFormal({ operationId, proposalId, snapshot, evidence }) : this.#kernel.applyProposalFormal({ operationId, proposalId, snapshot, evidence });
+    await this.delivery.drain();
+    return { commit: formal.commit, projectionObligation: this.#store.getProjectionObligationForCommit(formal.commit.id), recovered: false };
   }
 
   async #applyPending(commit: StoredCommit, effect: unknown) {

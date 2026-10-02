@@ -85,18 +85,19 @@ export class FakeGraphAdapter implements GraphAdapter {
     const record = this.#record(effect.graphId, effect.sourceBlockUuid);
     if (effect.type === "UPSERT_MANAGED_PROJECTION") {
       if (record.projection && record.projection.projectionHash !== effect.projection.projectionHash) throw new Error("GRAPH_EXPECTED_ABSENT");
+      if (!record.projection && effect.expectedSourceContentHash && stableHash(record.content) !== effect.expectedSourceContentHash) throw new Error("GRAPH_SOURCE_CHANGED");
       record.projection = { ...effect.projection };
     } else if (effect.type === "UPDATE_MANAGED_FIELD") {
       if (!record.projection || record.projection.titleUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
-      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
+      if (![effect.expectedProjectionHash, effect.resultingProjectionHash].includes(record.projection.projectionHash)) throw new Error("GRAPH_UPDATE_PRECONDITION_FAILED");
       record.projection = { ...record.projection, title: effect.content.replace(/^标题：/u, ""), projectionHash: effect.resultingProjectionHash };
     } else if (effect.type === "SET_CURRENT_FOCUS_FIELD") {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.focusUuid !== effect.fieldUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
-      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_FOCUS_PRECONDITION_FAILED");
+      if (![effect.expectedProjectionHash, effect.resultingProjectionHash].includes(record.projection.projectionHash)) throw new Error("GRAPH_FOCUS_PRECONDITION_FAILED");
       record.projection = { ...record.projection, currentFocus: effect.content, projectionHash: effect.resultingProjectionHash };
     } else if (effect.type === "UPDATE_WORK_INTENT_FIELDS") {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.outcomeUuid !== effect.outcomeUuid || record.projection.completionUuid !== effect.completionUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");
-      if (record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_WORK_INTENT_PRECONDITION_FAILED");
+      if (![effect.expectedProjectionHash, effect.resultingProjectionHash].includes(record.projection.projectionHash)) throw new Error("GRAPH_WORK_INTENT_PRECONDITION_FAILED");
       record.projection = { ...record.projection, desiredOutcome: effect.desiredOutcome, completionChecks: [...effect.completionChecks], projectionHash: effect.resultingProjectionHash };
     } else if (effect.type === "CHANGE_ENGAGEMENT_FIELDS") {
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.stateUuid !== effect.stateUuid || record.projection.waitingUuid !== effect.waitingUuid) throw new Error("GRAPH_FIELD_NOT_FOUND");

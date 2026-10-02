@@ -7,7 +7,7 @@ export interface CliIO { out: (line: string) => void; err: (line: string) => voi
 type CliClient = Pick<KernelClient,
   "status" | "agentBootstrap" | "listSkills" | "showSkill" | "listObjects" | "showObject" | "objectContextPack" | "showClosure" | "showCommit" | "listRecovery" |
   "graphStatus" | "graphSearch" | "graphBlock" | "graphPage" | "freezeExternalEvidence" | "showEvidence" | "listEvidence" | "startExternalAgentRun" |
-  "finishExternalAgentRun" | "showAgentRun" | "listAgentRunReads" | "showProposal" | "applyExternalProposal" | "listFeedback" |
+  "finishExternalAgentRun" | "showAgentRun" | "listAgentRunReads" | "showProposal" | "applyExternalProposalFormal" | "listFeedback" |
   "listTasteProfiles" | "showTasteProfile" | "addReferenceCuration" | "listCurationReceipts" |
   "listContextAssociations" | "associateContext" | "invalidateContextAssociation" | "recordAssociationCorrection" |
   "listGovernanceIssues" | "showGovernanceIssue" | "resolveGovernanceIssue" | "supersedeGovernanceIssue" |
@@ -121,7 +121,7 @@ export async function runCli(argv: string[], client: CliClient, io: CliIO): Prom
     } else if (words.length === 3 && words[0] === "agent-run" && words[1] === "show") value = await client.showAgentRun(words[2]!);
     else if (words.length === 3 && words[0] === "agent-run" && words[1] === "reads") value = await client.listAgentRunReads(words[2]!);
     else if (words.length === 3 && words[0] === "proposal" && words[1] === "show") value = await client.showProposal(words[2]!);
-    else if (words.length === 3 && words[0] === "proposal" && words[1] === "apply") { if (!args.includes("--wait")) usage("proposal apply requires --wait so pending Graph work is never reported as success."); value = await client.applyExternalProposal(words[2]!); }
+    else if (words.length === 3 && words[0] === "proposal" && words[1] === "apply") { if (!args.includes("--wait")) usage("proposal apply requires --wait to attempt delivery and report its projection status."); value = await client.applyExternalProposalFormal(words[2]!); }
     else if (words.join(" ") === "curation add-reference") { const section = required(args, "--section"); if (section !== "resources" && section !== "deliverables") usage("--section must be resources or deliverables."); const existingSectionUuid = option(args, "--existing-section"); value = await client.addReferenceCuration({ receiptId: option(args, "--id") ?? `curation-${randomUUID()}`, runId: required(args, "--run"), workObjectId: required(args, "--object"), referenceBlockUuid: required(args, "--reference"), section: section === "resources" ? "资源" : "支撑交付物", ...(existingSectionUuid ? { existingSectionUuid } : {}) }); }
     else if (words.join(" ") === "curation receipt list") value = await client.listCurationReceipts(option(args, "--object"));
     else if (words.length === 3 && words[0] === "evidence" && words[1] === "show") value = await client.showEvidence(words[2]!);

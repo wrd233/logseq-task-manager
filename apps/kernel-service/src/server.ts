@@ -120,7 +120,6 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   owned.broker = broker;
-  const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
   const cognitionExecutor = options.cognitionExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekV4FlashExecutor() : new FakeContextAwareExecutor());
   const executionProfile = options.executionProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-unattended-fast", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -131,6 +130,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const maintenanceMaxAttempts = options.maintenanceMaxAttempts ?? (process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS ? Number(process.env.TASK_COPILOT_MAINTENANCE_MAX_ATTEMPTS) : undefined);
   const maintenanceRetryBackoffMs = options.maintenanceRetryBackoffMs ?? (process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS) : undefined);
   const delivery = new ProjectionDelivery(store, kernel, broker, options.now ?? (() => new Date().toISOString()));
+  const external = new ExternalAgentCoordinator(kernel, store, broker, delivery, options.now);
   const maintenance = new MaintenanceCoordinator(kernel, store, broker, { delivery, now: options.now, onRecordSourceChange: (workObjectId) => { if (dogfoodScope.isClosureEnabled() && dogfoodScope.isInScope(workObjectId)) closure.requestAssessment(workObjectId); }, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}), scope: dogfoodScope }, cognitionExecutor, executionProfile);
   owned.maintenance = maintenance;
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
@@ -413,7 +413,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         assertTrustedUserChannel(request);
         const decisionId = decodeURIComponent(decisionExecute[1]!);
         const decision = kernel.listUserDecisions().find((item) => item.id === decisionId);
-        if (decision?.operationType === "CREATE_WORK_OBJECT" && decision.packageId && !(await discovery.validateMaterializationPackage(decision.packageId))) {
+        if (decision?.status === "AUTHORIZED" && decision.operationType === "CREATE_WORK_OBJECT" && decision.packageId && !(await discovery.validateMaterializationPackage(decision.packageId))) {
           store.transitionDecisionPackage(decision.packageId, "STALE", options.now?.() ?? new Date().toISOString());
           store.updateUserDecisionExecution(decisionId, "STALE", options.now?.() ?? new Date().toISOString(), []);
           send(response, 409, { error: { code: "USER_DECISION_STALE", message: "Candidate source material changed after the package was presented; no CREATE was executed." } }); return;
@@ -437,8 +437,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && externalFinish) { const value = await body(request) as { result: unknown }; send(response, 200, external.finishRun({ runId: decodeURIComponent(externalFinish[1]!), result: value.result })); return; }
       const receiptMatch = /^\/v1\/agent-runs\/([^/]+)\/reads$/u.exec(url.pathname);
       if (request.method === "GET" && receiptMatch) { send(response, 200, { receipts: external.readReceipts(decodeURIComponent(receiptMatch[1]!)) }); return; }
+      const externalFormalApply = /^\/v1\/external\/proposals\/([^/]+)\/commit$/u.exec(url.pathname);
+      if (request.method === "POST" && externalFormalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalFormalApply[1]!))); return; }
       const externalApply = /^\/v1\/external\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
-      if (request.method === "POST" && externalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalApply[1]!))); return; }
+      if (request.method === "POST" && externalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalApply[1]!), "legacy")); return; }
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/ownerships") { send(response, 200, { ownerships: kernel.listOwnerships() }); return; }
@@ -479,6 +481,22 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { closure: store.getClosureHistory(id) }); return;
       }
       const commitMatch = /^\/v1\/commits\/([^/]+)$/u.exec(url.pathname);
+      const formalReceiptMatch = /^\/v1\/operations\/([^/]+)\/receipt$/u.exec(url.pathname);
+      if (request.method === "GET" && formalReceiptMatch) { send(response, 200, { receipt: kernel.formalReceipt(decodeURIComponent(formalReceiptMatch[1]!)) }); return; }
+      const formalUndoMatch = /^\/v1\/commits\/([^/]+)\/undo\/commit$/u.exec(url.pathname);
+      if (request.method === "POST" && formalUndoMatch) {
+        assertTrustedUserChannel(request);
+        const value = await body(request) as Omit<Parameters<Kernel["undoFormal"]>[0], "commitId"> & { snapshot: Parameters<Kernel["undoFormal"]>[1] };
+        const result = kernel.undoFormal({ ...value, commitId: decodeURIComponent(formalUndoMatch[1]!) }, value.snapshot);
+        afterFormalChange(result.commit.targetId); send(response, 200, result); return;
+      }
+      const deliverMatch = /^\/v1\/commits\/([^/]+)\/projection\/deliver$/u.exec(url.pathname);
+      if (request.method === "POST" && deliverMatch) {
+        assertTrustedUserChannel(request);
+        const id = decodeURIComponent(deliverMatch[1]!);
+        if (!store.getProjectionObligationForCommit(id)) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Commit has no formal projection obligation.", id);
+        await delivery.drain(); send(response, 200, { obligation: store.getProjectionObligationForCommit(id) }); return;
+      }
       if (request.method === "GET" && commitMatch) {
         const commit = store.getCommit(decodeURIComponent(commitMatch[1]!));
         if (!commit) { send(response, 404, { error: { code: "COMMIT_NOT_FOUND", message: "Commit not found." } }); return; }
@@ -523,6 +541,13 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, proposal); return;
       }
       const proposalApplyMatch = /^\/v1\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
+      const proposalCommitMatch = /^\/v1\/proposals\/([^/]+)\/commit$/u.exec(url.pathname);
+      if (request.method === "POST" && proposalCommitMatch) {
+        const value = await body(request) as Omit<Parameters<Kernel["applyProposalFormal"]>[0], "proposalId">;
+        const id = decodeURIComponent(proposalCommitMatch[1]!), proposal = store.getProposal(id);
+        const result = proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposalFormal({ ...value, proposalId: id }) : proposal?.revision.operationType === "UPDATE_WORK_INTENT" ? kernel.applyWorkIntentProposalFormal({ ...value, proposalId: id }) : kernel.applyProposalFormal({ ...value, proposalId: id });
+        afterFormalChange(result.commit.targetId); send(response, 200, result); return;
+      }
       if (request.method === "POST" && proposalApplyMatch) {
         const value = await body(request) as Omit<Parameters<Kernel["applyProposal"]>[0], "proposalId">;
         const id = decodeURIComponent(proposalApplyMatch[1]!);

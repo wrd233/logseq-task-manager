@@ -354,7 +354,7 @@ interface GraphEffectIdentity {
 }
 
 export type GraphEffect =
-  | (GraphEffectIdentity & { type: "UPSERT_MANAGED_PROJECTION"; projection: ManagedProjection })
+  | (GraphEffectIdentity & { type: "UPSERT_MANAGED_PROJECTION"; projection: ManagedProjection; expectedSourceContentHash?: string })
   | (GraphEffectIdentity & { type: "UPDATE_MANAGED_FIELD"; fieldUuid: string; content: string; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "SET_CURRENT_FOCUS_FIELD"; containerUuid: string; fieldUuid: string; content: string | null; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })
   | (GraphEffectIdentity & { type: "UPDATE_WORK_INTENT_FIELDS"; containerUuid: string; outcomeUuid: string; completionUuid: string; desiredOutcome: string | null; completionChecks: readonly string[]; expectedProjectionHash: string; resultingProjectionHash: string; expectedProjection?: ManagedProjection; resultingProjection?: ManagedProjection })

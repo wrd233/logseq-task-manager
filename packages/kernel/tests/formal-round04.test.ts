@@ -95,3 +95,21 @@ test("formal receipt survives a lost response without a second commit or obligat
     assert.throws(() => f.kernel.commitFormal({ ...f.operation, input: { ...f.operation.input, title: "different" } } as typeof f.operation, f.source), /OPERATION_ID_REUSED/u);
   } finally { f.store.close(); }
 });
+
+test("USER decision execution is atomic with its formal receipt, package and candidates and can be retried by decision ID", async () => {
+  const f = await fixture();
+  try {
+    const pkg = f.kernel.createDecisionPackage({ workObjectId: f.id, summary: "rename", rationale: "user", candidates: [{ operationType: "RENAME_WORK_OBJECT", parameters: { target: { workObjectId: f.id, expectedVersion: 1, expectedProjectionHash: f.graph.snapshot("graph", "source").projection!.projectionHash }, input: { title: "renamed" } } }] });
+    const event = f.kernel.recordTrustedUserEvent({ sourceChannel: "PLUGIN_USER_CHANNEL", sourceCapability: null, exactUserUtterance: "确认", packageId: pkg.pkg.id, presentationRevision: pkg.pkg.presentationRevision });
+    const compiled = f.kernel.compileUserDecision({ trustedUserEventId: event.id }); assert.equal(compiled.kind, "AUTHORIZED_DECISION"); if (compiled.kind !== "AUTHORIZED_DECISION") assert.fail();
+    const original = f.store.updateUserDecisionExecution.bind(f.store);
+    f.store.updateUserDecisionExecution = () => { throw Error("injected-decision-audit-failure"); };
+    assert.throws(() => f.kernel.executeUserDecision(compiled.decision.id), /injected-decision-audit-failure/u);
+    assert.equal(f.store.getWorkObject(f.id)?.title, "test"); assert.equal(f.store.listCommits().length, 1); assert.equal(f.store.listProjectionObligations().length, 1);
+    assert.equal(f.store.getUserDecision(compiled.decision.id)?.status, "AUTHORIZED"); assert.equal(f.store.getDecisionPackage(pkg.pkg.id)?.status, "OPEN");
+    f.store.updateUserDecisionExecution = original;
+    const executed = f.kernel.executeUserDecision(compiled.decision.id);
+    assert.equal(executed.decision.status, "EXECUTED"); assert.equal(f.store.getDecisionPackage(pkg.pkg.id)?.status, "ACCEPTED"); assert.equal(f.store.listDecisionCandidates(pkg.pkg.id)[0]?.status, "ACCEPTED");
+    assert.equal(new Kernel(f.store).executeUserDecision(compiled.decision.id).commit.id, executed.commit.id); assert.equal(f.store.listCommits().length, 2);
+  } finally { f.store.close(); }
+});
