@@ -176,8 +176,7 @@ export class MaintenanceCoordinator {
       const anchor = object ? this.#store.getAnchorForWorkObject(object.id) : null;
       if (!object || !anchor) throw new Error("MAINTENANCE_TARGET_NOT_FOUND");
       if (object.lifecycle !== "OPEN") {
-        this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), "NO_CHANGE");
-        return this.#store.getReconcileJob(job.id);
+        return this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
       }
       const revision = currentSemanticRevision(this.#store, object.id) ?? "missing";
       if (job.semanticRevision && job.semanticRevision !== revision) {
@@ -186,13 +185,16 @@ export class MaintenanceCoordinator {
       }
       const status = this.#broker.status();
       if (!status.available || !status.graphId) throw new Error("GRAPH_ADAPTER_OFFLINE");
-      const outcome = await this.#reconcileOpenObject(object.id, job.sourceBlockUuid ?? anchor.externalId, job);
+      const expectedObserved = this.#store.getSourceCoverage(object.id)?.lastObservedSourceSnapshotId ?? null;
+      const observed = { snapshotId: "" };
+      const outcome = await this.#reconcileOpenObject(object.id, job.sourceBlockUuid ?? anchor.externalId, job, observed);
       if (outcome === "SUPERSEDED") return this.#store.getReconcileJob(job.id);
-      this.#store.completeReconcileJob(job.id, object.id, job.sourceSnapshotId, object.version, this.#now(), outcome);
+      this.#store.completeReconcileJob(job.id, object.id, observed.snapshotId, this.#store.getWorkObject(object.id)!.version, this.#now(), outcome, expectedObserved);
       this.#store.recordMaintenanceSuccess("global", this.#now());
       return this.#store.getReconcileJob(job.id);
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 200) : "MAINTENANCE_FAILED";
+      if (message === "RECONCILE_SOURCE_SUPERSEDED") return this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
       if (message === "DEFERRED_BY_BUDGET") return this.#defer(job, "DEFERRED_BY_BUDGET", new Date(Date.parse(at) + 3_600_000).toISOString());
       this.#store.recordMaintenanceFailure("global", this.#now());
       return this.#requeue(job, message);
@@ -216,7 +218,7 @@ export class MaintenanceCoordinator {
     return !this.#scope || (this.#scope.isMaintenanceEnabled() && this.#scope.isInScope(workObjectId));
   }
 
-  async #reconcileOpenObject(workObjectId: string, sourceBlockUuid: string, job: ReconcileJob): Promise<MaintenanceReconcileOutcome> {
+  async #reconcileOpenObject(workObjectId: string, sourceBlockUuid: string, job: ReconcileJob, observed: { snapshotId: string }): Promise<MaintenanceReconcileOutcome> {
     const object = this.#store.getWorkObject(workObjectId)!;
     const target = this.#kernel.targetSnapshotInput(workObjectId);
     const snapshot = response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: target }), "READ_TARGET_SNAPSHOT").snapshot;
@@ -225,9 +227,12 @@ export class MaintenanceCoordinator {
       return "SUPERSEDED";
     }
     const pack = await this.#buildContextPack(object, target.graphId, sourceBlockUuid);
+    const delta = pack.find((item) => item.role === "SOURCE_DELTA");
+    if (sourceBlockUuid !== target.sourceBlockUuid && !delta) throw new Error("RECONCILE_SOURCE_NOT_OBSERVED");
+    observed.snapshotId = stableHash([workObjectId, target.graphId, sourceBlockUuid, delta?.sourceHash ?? snapshot.sourceContentHash, snapshot.sourceMarker ?? null, pack.filter((item) => item.sourceRef).map((item) => [item.sourceRef, item.sourceHash])]);
     this.#reserveRemoteCall();
     const judgment = await this.#cognition.judge({ object, contextPack: pack, openIssues: this.#store.listGovernanceIssues(workObjectId, "OPEN"), profile: this.#profile });
-    if (this.#superseded(job)) {
+    if (this.#superseded(job) || this.#store.getWorkObject(workObjectId)?.version !== object.version) {
       this.#store.completeReconcileJobAsSuperseded(job.id, this.#now());
       return "SUPERSEDED";
     }
@@ -252,16 +257,14 @@ export class MaintenanceCoordinator {
         const runId = `cognition-focus:${job.id}`;
         this.#kernel.startExternalAgentRun({ runId, purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId, evidenceIds, executorId: this.#cognition.id, snapshot });
         const finished = this.#kernel.finishExternalAgentRun({ runId, result: { outcome: "PROPOSAL", currentFocus: judgment.proposedOperation.currentFocus, reasonCode: "CONTEXT_AWARE_FOCUS", rationaleSummary: judgment.rationaleSummary } });
-        const formal = this.#kernel.applyProposalFormal({ operationId: `cognition-focus-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
-        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
-        this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
+        this.#kernel.applyProposalFormal({ operationId: `cognition-focus-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
+        await this.#delivery.drain(() => !this.#stopped);
       } else {
         const runId = `cognition-engagement:${job.id}`;
         this.#kernel.startExternalAgentRun({ runId, purpose: "ENGAGEMENT_RECONCILIATION", workObjectId, evidenceIds, executorId: this.#cognition.id, snapshot });
         const finished = this.#kernel.finishExternalAgentRun({ runId, result: { outcome: "PROPOSAL", transition: judgment.proposedOperation.transition, reasonCode: "CONTEXT_AWARE_ENGAGEMENT", rationaleSummary: judgment.rationaleSummary } });
-        const formal = this.#kernel.applyEngagementProposalFormal({ operationId: `cognition-engagement-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
-        const applied = response(await this.#broker.request({ kind: "APPLY_EFFECT", effect: formal.graphEffect }), "APPLY_EFFECT");
-        this.#kernel.verifyFormalProjection(formal.commit.id, applied.result, applied.snapshot);
+        this.#kernel.applyEngagementProposalFormal({ operationId: `cognition-engagement-apply:${job.id}`, proposalId: finished.proposal!.id, snapshot: response(await this.#broker.request({ kind: "READ_TARGET_SNAPSHOT", input: this.#kernel.targetSnapshotInput(workObjectId) }), "READ_TARGET_SNAPSHOT").snapshot, evidence });
+        await this.#delivery.drain(() => !this.#stopped);
       }
       for (const id of judgment.resolvesIssueIds ?? []) this.#resolveIssueIfMatching(workObjectId, id, judgment.dimension);
       return "CONFIRMED_CHANGE";
@@ -321,10 +324,8 @@ export class MaintenanceCoordinator {
       return handle;
     };
     if (scope.has("SOURCE_DELTA") || scope.has("current_workobject_context")) {
-      try {
-        const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId, blockUuid: sourceBlockUuid }), "READ_BLOCK").block;
-        add("SOURCE_DELTA", { graphId, blockUuid: sourceBlockUuid }, block.content, block.contentHash);
-      } catch { /* source delta can be absent */ }
+      const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId, blockUuid: sourceBlockUuid }), "READ_BLOCK").block;
+      add("SOURCE_DELTA", { graphId, blockUuid: sourceBlockUuid }, block.content, block.contentHash);
     }
     if (scope.has("CURRENT_WORKOBJECT_CONTEXT") || scope.has("current_workobject_context")) {
       for (const context of this.#store.listContextAssociations(object.id, "ACTIVE").slice(0, this.#profile.maxContextItems)) {

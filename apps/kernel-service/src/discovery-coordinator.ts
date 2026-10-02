@@ -395,7 +395,7 @@ export class DiscoveryCoordinator {
   }
 
   #prefilter(all: ResolvedBlock[]): { kept: ResolvedBlock[]; skipped: ResolvedBlock[] } {
-    const activeAssociations = new Set(this.#store.listContextAssociations("ACTIVE").map((association) => keyOf(association.sourceRef)));
+    const activeAssociations = new Set(this.#store.listContextAssociations(undefined, "ACTIVE").map((association) => keyOf(association.sourceRef)));
     const kept: ResolvedBlock[] = [];
     const skipped: ResolvedBlock[] = [];
     for (const item of all) {

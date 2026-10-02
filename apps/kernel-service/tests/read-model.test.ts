@@ -58,3 +58,20 @@ test("objectContext captures formal fields and closure state before asynchronous
     assert.equal(store.getWorkObject(id)?.version,2);
   } finally {release();store.close();}
 });
+
+test("parent and child pending reasons use their own OPEN packages only", async () => {
+  const { store, kernel, query, id } = fixture();
+  try {
+    const create = (name: string) => kernel.commitFormal(parseSemanticOperation({ operationId: name, type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: name, anchor: { graphId: "graph", blockUuid: name, sourceContentHash: "a1b2c3d4" } } }), { graphId: "graph", sourceBlockUuid: name, sourceContentHash: "a1b2c3d4", projection: null }).commit.targetId!;
+    const child = create("child"), other = create("other");
+    kernel.assignPrimaryOwnership({ childId: child, ownerId: id });
+    const pkg = (target: string) => kernel.createDecisionPackage({ workObjectId: target, summary: target, rationale: "pending", candidates: [{ operationType: "SET_CURRENT_FOCUS", parameters: {} }] }).pkg;
+    const parentPackage = pkg(id), childPackage = pkg(child); pkg(other);
+    const closed = pkg(child); kernel.deferDecisionPackage(closed.id);
+    const context = await query.objectContext(id);
+    assert.deepEqual(context?.pendingDecisionPackages, [parentPackage.id]);
+    assert.ok(context?.activeChildren.find(x => x.workObjectId === child)?.reason.startsWith("有决定等你确认"));
+    kernel.deferDecisionPackage(childPackage.id);
+    assert.ok(!(await query.objectContext(id))?.activeChildren.find(x => x.workObjectId === child)?.reason.includes("决定"));
+  } finally { store.close(); }
+});

@@ -8,8 +8,8 @@ import { parseUserCorrectionUtterance } from "./user-correction.ts";
 type DurableStage = "PREPARED" | "KERNEL_APPLIED" | "GRAPH_APPLIED" | "COMMITTED";
 export type RecoveryAction = "ABORT_PREPARED" | "RESUME_GRAPH_APPLY" | "VERIFY_GRAPH" | "MANUAL_RECONCILIATION";
 
-export { KernelError } from "./error.ts";
-import { KernelError } from "./error.ts";
+export { KernelError, ProjectionVerificationError } from "./error.ts";
+import { KernelError, ProjectionVerificationError } from "./error.ts";
 import { ContextAssociations, UserReading } from "./application-state.ts";
 import type { FormalStore } from "./store-ports.ts";
 export interface KernelOptions {
@@ -488,6 +488,13 @@ export class Kernel {
   }
 
   applyProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }, mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
+    if (mode === "formal") {
+      const prior = this.formalReceipt(input.operationId);
+      if (prior) {
+        if (prior.commit.governance?.proposalId !== input.proposalId) throw new KernelError("OPERATION_ID_REUSED", "Operation ID belongs to another Proposal.");
+        return prior;
+      }
+    }
     const stored = this.#store.getProposal(input.proposalId);
     if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
     const { proposal, revision } = stored;
@@ -570,6 +577,13 @@ export class Kernel {
   }
 
   applyEngagementProposal(input: { operationId: string; proposalId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }, mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
+    if (mode === "formal") {
+      const prior = this.formalReceipt(input.operationId);
+      if (prior) {
+        if (prior.commit.governance?.proposalId !== input.proposalId) throw new KernelError("OPERATION_ID_REUSED", "Operation ID belongs to another Proposal.");
+        return prior;
+      }
+    }
     const stored = this.#store.getProposal(input.proposalId);
     if (!stored || stored.proposal.status !== "OPEN") throw new KernelError("PROPOSAL_NOT_OPEN", "Proposal is not open for application.");
     const { proposal, revision } = stored;
@@ -614,7 +628,19 @@ export class Kernel {
    */
   commitFormal(operation: SemanticOperation, snapshot: GraphSnapshot | null): FormalCommitResult {
     this.#authorize(operation.actor);
+    const prior = this.formalReceipt(operation.operationId);
+    if (prior) {
+      if (stableHash(prior.commit.operation) !== stableHash(operation)) throw new KernelError("OPERATION_ID_REUSED", "Operation ID belongs to another semantic request.");
+      return prior;
+    }
     return this.#prepare(operation, snapshot, null, "formal") as FormalCommitResult;
+  }
+
+  formalReceipt(operationId: string): FormalCommitResult | null {
+    const commit = this.#store.getCommit(deterministicUuid(`commit:${operationId}`));
+    if (!commit || commit.status !== "COMMITTED") return null;
+    const projectionObligation = this.#store.getProjectionObligationForCommit(commit.id);
+    return projectionObligation ? { commit, graphEffect: commit.graphEffect as GraphEffect, projectionObligation } : null;
   }
 
   #prepare(operation: SemanticOperation, snapshot: GraphSnapshot | null, governance: StoredCommit["governance"], mode: "legacy" | "formal" = "legacy"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
@@ -791,7 +817,7 @@ export class Kernel {
         if (operation.type === "CANCEL_WORK_OBJECT") this.#store.putCancellationRecord(closureRecord as Extract<ClosureRecord, { cancelledAt: string }>, commitId);
         if (operation.type === "REOPEN_WORK_OBJECT") this.#store.putReopenRecord(closureRecord as ReopenRecord, commitId);
         if (operation.type === "AMEND_CLOSURE") this.#store.putClosureAmendment(closureRecord as ClosureAmendment, commitId);
-        this.#store.transitionCommit(commitId, "COMMITTED", { updatedAt: now });
+        this.#finalizeGovernance(commit, commitId);
         const obligation: ProjectionObligation = {
           id: deterministicUuid(`projection:${commitId}`), commitId, workObjectId: object.id, formalVersion: object.version,
           targetAnchorId: anchor.id, desiredProjectionHash: resultingProjectionHash(graphEffect), status: "PENDING", attempt: 0,
@@ -826,6 +852,20 @@ export class Kernel {
   }
 
   prepareUndo(input: { operationId: string; actor: Actor; commitId: string }, snapshot: GraphSnapshot): { commit: StoredCommit; graphEffect: GraphEffect } {
+    return this.#prepareUndo(input, snapshot, "legacy");
+  }
+
+  undoFormal(input: { operationId: string; actor: Actor; commitId: string }, snapshot: GraphSnapshot): FormalCommitResult {
+    this.#authorize(input.actor);
+    const prior = this.formalReceipt(input.operationId);
+    if (prior) {
+      if (prior.commit.compensationFor !== input.commitId || stableHash(prior.commit.actor) !== stableHash(input.actor)) throw new KernelError("OPERATION_ID_REUSED", "Operation ID belongs to another compensation request.");
+      return prior;
+    }
+    return this.#prepareUndo(input, snapshot, "formal") as FormalCommitResult;
+  }
+
+  #prepareUndo(input: { operationId: string; actor: Actor; commitId: string }, snapshot: GraphSnapshot, mode: "legacy" | "formal"): { commit: StoredCommit; graphEffect: GraphEffect } | FormalCommitResult {
     this.#authorize(input.actor);
     const original = this.#store.getCommit(input.commitId);
     if (!original || original.status !== "COMMITTED" || original.compensatedBy) throw new KernelError("UNDO_TARGET_INVALID", "Commit is not currently undoable.");
@@ -838,6 +878,11 @@ export class Kernel {
       throw new KernelError("UNDO_TARGET_CHANGED", "The commit is no longer the latest semantic change for this WorkObject.");
     }
     const expectedProjection = projectionFor(object, anchor, closureProjection(this.#store.getClosureHistory(object.id).current));
+    if (this.#store.hasPendingRecoveryForTarget(object.id)) throw new KernelError("TARGET_RECOVERY_PENDING", "Undo target has an incomplete Commit requiring recovery.");
+    if (original.operationType === "CREATE_WORK_OBJECT") {
+      if (snapshot.sourceContentHash !== anchor.sourceContentHash) throw new KernelError("UNDO_SOURCE_CHANGED", "Natural source changed after CREATE; current state was preserved.");
+      if (this.#store.listOwnerships().some((item) => item.ownerId === object.id || item.childId === object.id) || this.#store.getProjectIntent(object.id)) throw new KernelError("UNDO_TARGET_CHANGED", "New business relations or intent depend on this CREATE.");
+    }
     const now = this.#now();
     const commitId = deterministicUuid(`commit:${input.operationId}`);
     const effectId = deterministicUuid(`effect:${commitId}:0`);
@@ -902,9 +947,13 @@ export class Kernel {
     }
     this.#store.transaction(() => {
       if (restored) this.#store.putWorkObject(restored); else this.#store.deleteWorkObject(object.id);
-      this.#store.transitionCommit(commitId, "KERNEL_APPLIED", { updatedAt: now });
+      if (mode === "formal") {
+        this.#finalizeGovernance(compensation, commitId);
+        this.#store.putProjectionObligation({ id: deterministicUuid(`projection:${commitId}`), commitId, workObjectId: object.id, formalVersion: restored?.version ?? object.version + 1, targetAnchorId: anchor.id, desiredProjectionHash: resultingProjectionHash(effect), status: "PENDING", attempt: 0, lastAttemptAt: null, nextAttemptAt: null, retryExhausted: false, lastError: null, createdAt: now, updatedAt: now });
+      } else this.#store.transitionCommit(commitId, "KERNEL_APPLIED", { updatedAt: now });
     });
-    this.#afterStage("KERNEL_APPLIED", commitId);
+    this.#afterStage(mode === "formal" ? "COMMITTED" : "KERNEL_APPLIED", commitId);
+    if (mode === "formal") return this.formalReceipt(input.operationId)!;
     return { commit: this.#store.getCommit(commitId)!, graphEffect: effect };
   }
 
@@ -941,10 +990,11 @@ export class Kernel {
       result.graphId === effect.graphId && result.sourceBlockUuid === effect.sourceBlockUuid &&
       actual.graphId === effect.graphId && actual.sourceBlockUuid === effect.sourceBlockUuid &&
       (actual.projection?.projectionHash ?? null) === expectedHash && result.projectionHash === expectedHash &&
+      (effect.type !== "REMOVE_MANAGED_PROJECTION" || this.#verifiedRemoval(effect, actual)) &&
       (effect.type !== "CHANGE_CLOSURE_FIELDS" || (actual.sourceMarker ?? null) === (effect.resultingSourceMarker ?? null));
     if (!valid) {
       this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt: obligation.attempt + 1, lastAttemptAt: at, nextAttemptAt: this.#projectionNextAttemptAt(at, obligation.attempt + 1), lastError: "PROJECTION_VERIFY_MISMATCH", retryExhausted: obligation.attempt + 1 >= this.#projectionMaxAttempts });
-      throw new KernelError("PROJECTION_VERIFY_MISMATCH", "Graph result does not match the deterministic projection obligation.", commitId);
+      throw new ProjectionVerificationError("PROJECTION_VERIFY_MISMATCH", "Graph result does not match the deterministic projection obligation.", commitId);
     }
     this.#store.transitionProjectionObligation(commitId, "VERIFIED", { updatedAt: at, attempt: obligation.attempt + 1, lastAttemptAt: at, nextAttemptAt: null, retryExhausted: false, lastError: null });
     return this.#store.getProjectionObligationForCommit(commitId)!;
@@ -953,6 +1003,7 @@ export class Kernel {
   graphProjectionFailed(commitId: string, reason: string): ProjectionObligation {
     const obligation = this.#store.getProjectionObligationForCommit(commitId);
     if (!obligation) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Formal projection obligation does not exist for this commit.", commitId);
+    if (obligation.status === "VERIFIED") return obligation;
     const at = this.#now();
     const temporary = /GRAPH_ADAPTER_OFFLINE|GRAPH_GATEWAY_TIMEOUT|GRAPH_BROKER_CLOSED|fetch failed|ECONNREFUSED/u.test(reason);
     const nextAttempt = temporary ? this.#afterMs(at, this.#projectionTemporaryBackoffMs) : this.#projectionNextAttemptAt(at, obligation.attempt + 1);
@@ -960,6 +1011,12 @@ export class Kernel {
     const retryExhausted = attempt >= this.#projectionMaxAttempts;
     this.#store.transitionProjectionObligation(commitId, "FAILED", { updatedAt: at, attempt, lastAttemptAt: at, nextAttemptAt: retryExhausted ? null : nextAttempt, retryExhausted, lastError: reason.slice(0, 200) });
     return this.#store.getProjectionObligationForCommit(commitId)!;
+  }
+
+  #verifiedRemoval(effect: Extract<GraphEffect, { type: "REMOVE_MANAGED_PROJECTION" }>, actual: GraphSnapshot): boolean {
+    const proof = actual.removedProjection, before = effect.expectedProjection;
+    if (!proof || !before || proof.containerUuid !== effect.containerUuid || proof.expectedProjectionHash !== effect.expectedProjectionHash) return false;
+    return [before.containerUuid, before.titleUuid, before.stateUuid, before.focusUuid, before.waitingUuid, before.outcomeUuid, before.completionUuid, deterministicIdentityUuid(`review:${before.waitingUuid}`)].every((uuid) => proof.absentUuids.includes(uuid));
   }
 
   listProjectionObligations(status?: ProjectionObligation["status"]): ProjectionObligation[] {

@@ -1,5 +1,6 @@
 import type { GraphEffect } from "@task-copilot/contracts";
 import type { Kernel } from "@task-copilot/kernel";
+import { ProjectionVerificationError } from "@task-copilot/kernel";
 import { expectGraphResponse as response, type GraphRequestBroker } from "./graph-broker.ts";
 import type { ProjectionDeliveryStore } from "./store-ports.ts";
 
@@ -34,6 +35,7 @@ export class ProjectionDelivery {
         this.verifier.verifyFormalProjection(commit.id, applied.result, applied.snapshot);
         drained += 1;
       } catch (error) {
+        if (error instanceof ProjectionVerificationError) continue;
         this.verifier.graphProjectionFailed(commit.id, error instanceof Error ? error.message.slice(0, 200) : "PROJECTION_APPLY_FAILED");
       }
     }

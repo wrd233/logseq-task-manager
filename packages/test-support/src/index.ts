@@ -1,11 +1,11 @@
 import { createHmac } from "node:crypto";
 
-import { graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
+import { deterministicUuid, graphEvidenceProofPayload, stableHash, type GraphAdapter, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type ManagedProjection, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 
 export { CLOSURE_GOLD_SET, type ClosureGoldCase } from "./closure-gold-set.ts";
 
 type SourceMarker = Exclude<GraphSnapshot["sourceMarker"], undefined>;
-interface RecordState { content: string; projection: ManagedProjection | null; marker: SourceMarker }
+interface RecordState { content: string; projection: ManagedProjection | null; marker: SourceMarker; removedProjection?: GraphSnapshot["removedProjection"] }
 
 export class FakeGraphAdapter implements GraphAdapter {
   readonly #records = new Map<string, RecordState>();
@@ -69,7 +69,7 @@ export class FakeGraphAdapter implements GraphAdapter {
 
   snapshot(graphId: string, sourceBlockUuid: string): GraphSnapshot {
     const record = this.#record(graphId, sourceBlockUuid);
-    return { graphId, sourceBlockUuid, sourceContentHash: stableHash(record.content), sourceMarker: record.marker, projection: record.projection ? { ...record.projection } : null };
+    return { graphId, sourceBlockUuid, sourceContentHash: stableHash(record.content), sourceMarker: record.marker, projection: record.projection ? { ...record.projection } : null, ...(record.removedProjection ? { removedProjection: record.removedProjection } : {}) };
   }
 
   async readGraphSnapshot(input: { graphId: string; sourceBlockUuid: string }): Promise<GraphSnapshot> { return this.snapshot(input.graphId, input.sourceBlockUuid); }
@@ -111,7 +111,10 @@ export class FakeGraphAdapter implements GraphAdapter {
       if (effect.resultingSourceMarker !== null && effect.resultingSourceMarker !== undefined) this.editMarker(effect.graphId, effect.sourceBlockUuid, effect.resultingSourceMarker);
       record.projection = { ...record.projection, lifecycle: effect.lifecycle, engagement: effect.engagement, waitingCondition: effect.waitingCondition, currentFocus: effect.currentFocus, closure: effect.closure, projectionHash: effect.resultingProjectionHash };
     } else {
+      if (!record.projection && record.removedProjection?.containerUuid === effect.containerUuid) return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: null, appliedAt: this.#now() };
       if (!record.projection || record.projection.containerUuid !== effect.containerUuid || record.projection.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
+      const before = record.projection;
+      record.removedProjection = { containerUuid: before.containerUuid, expectedProjectionHash: before.projectionHash, absentUuids: [before.containerUuid, before.titleUuid, before.stateUuid, before.focusUuid, before.waitingUuid, before.outcomeUuid, before.completionUuid, deterministicUuid(`review:${before.waitingUuid}`)] };
       record.projection = null;
     }
     return { commitId: effect.commitId, effectId: effect.effectId, effectType: effect.type, graphId: effect.graphId, sourceBlockUuid: effect.sourceBlockUuid, projectionHash: record.projection?.projectionHash ?? null, appliedAt: this.#now() };

@@ -53,8 +53,8 @@ async function writePrivateJson(path: string, value: unknown): Promise<void> {
   await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }); await chmod(temporary, 0o600); await rename(temporary, path);
 }
 
-async function removeOwnedDescriptor(path: string, token: string): Promise<void> {
-  try { const current = JSON.parse(await readFile(path, "utf8")) as { token?: string }; if (current.token === token) await rm(path); }
+async function removeOwnedDescriptor(path: string, token: string, instanceId: string): Promise<void> {
+  try { const current = JSON.parse(await readFile(path, "utf8")) as { token?: string; instanceId?: string }; if (current.token === token && current.instanceId === instanceId) await rm(path); }
   catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
 }
 
@@ -70,17 +70,36 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const graphDescriptorPath = options.graphDescriptorPath ?? join(dirname(options.descriptorPath), "graph-adapter.json");
   await mkdir(dirname(options.databasePath), { recursive: true, mode: 0o700 });
   const store = new SqliteStore(options.databasePath);
+  const instanceId = `kernel:${randomUUID()}`;
+  const leaseScope = `runtime:${options.databasePath}`;
+  const owned: { lease?: boolean; leaseTimer?: ReturnType<typeof setInterval>; sweepTimer?: ReturnType<typeof setInterval>; broker?: GraphRequestBroker; maintenance?: MaintenanceCoordinator; closure?: ClosureAssessmentCoordinator; server?: ReturnType<typeof createServer>; descriptor?: boolean; graphDescriptor?: boolean } = {};
+  let closing: Promise<void> | null = null;
+  const close = (): Promise<void> => closing ??= (async () => {
+    const errors: unknown[] = [];
+    const clean = async (action: () => void | Promise<void>) => { try { await action(); } catch (error) { errors.push(error); } };
+    if (owned.leaseTimer) clearInterval(owned.leaseTimer);
+    if (owned.sweepTimer) clearInterval(owned.sweepTimer);
+    owned.maintenance?.stop(); owned.closure?.stop(); owned.broker?.close();
+    if (owned.server?.listening) await clean(() => new Promise<void>((resolve, reject) => owned.server!.close(error => error ? reject(error) : resolve())));
+    await clean(() => owned.maintenance?.settled() ?? Promise.resolve());
+    await clean(() => owned.closure?.settled() ?? Promise.resolve());
+    if (owned.lease) await clean(() => store.releaseRuntimeLease(leaseScope, instanceId));
+    await clean(() => store.close());
+    if (owned.descriptor) await clean(() => removeOwnedDescriptor(options.descriptorPath, token, instanceId));
+    if (owned.graphDescriptor) await clean(() => removeOwnedDescriptor(graphDescriptorPath, token, instanceId));
+    if (errors.length) throw new AggregateError(errors, "KERNEL_CLEANUP_FAILED");
+  })();
+  try {
   await chmod(options.databasePath, 0o600).catch(() => undefined);
   const dogfoodScope = options.dogfoodScope ?? createDogfoodScope(store, await loadDogfoodConfig(options.dogfoodConfigPath));
-  const instanceId = `kernel:${randomUUID()}`;
   const leaseToken = randomBytes(16).toString("hex");
-  const leaseScope = `runtime:${options.databasePath}`;
   const leaseTtlMs = 30_000;
   const heartbeatLease = () => store.acquireRuntimeLease(leaseScope, instanceId, process.pid, leaseToken, new Date().toISOString(), leaseTtlMs);
-  heartbeatLease();
-  const leaseTimer = setInterval(() => {
+  heartbeatLease(); owned.lease = true;
+  owned.leaseTimer = setInterval(() => {
     try { heartbeatLease(); } catch (error) { console.warn("[kernel] runtime lease heartbeat failed", error); }
   }, 10_000);
+  owned.leaseTimer.unref();
   const currentFocusSkill = options.currentFocusSkill ?? await loadCurrentFocusSkill(options.workspaceRoot);
   const engagementSkill = options.engagementSkill ?? await loadEngagementReconciliationSkill(options.workspaceRoot);
   const miniProjectSkill = options.miniProjectSkill ?? await loadMiniProjectGovernanceSkill(options.workspaceRoot);
@@ -97,8 +116,10 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     ...(options.closureAssessmentRetryBackoffMs !== undefined ? { retryBackoffMs: options.closureAssessmentRetryBackoffMs } : {}),
     scope: dogfoodScope,
   });
+  owned.closure = closure;
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
+  owned.broker = broker;
   const external = new ExternalAgentCoordinator(kernel, store, broker, options.now);
   const cognitionExecutor = options.cognitionExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekV4FlashExecutor() : new FakeContextAwareExecutor());
   const executionProfile = options.executionProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
@@ -111,6 +132,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const maintenanceRetryBackoffMs = options.maintenanceRetryBackoffMs ?? (process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS ? Number(process.env.TASK_COPILOT_MAINTENANCE_RETRY_BACKOFF_MS) : undefined);
   const delivery = new ProjectionDelivery(store, kernel, broker, options.now ?? (() => new Date().toISOString()));
   const maintenance = new MaintenanceCoordinator(kernel, store, broker, { delivery, now: options.now, onRecordSourceChange: (workObjectId) => { if (dogfoodScope.isClosureEnabled() && dogfoodScope.isInScope(workObjectId)) closure.requestAssessment(workObjectId); }, ...(maintenanceIntervalMs !== undefined ? { intervalMs: maintenanceIntervalMs } : {}), ...(maintenanceMaxAttempts !== undefined ? { maxAttempts: maintenanceMaxAttempts } : {}), ...(maintenanceRetryBackoffMs !== undefined ? { retryBackoffMs: maintenanceRetryBackoffMs } : {}), scope: dogfoodScope }, cognitionExecutor, executionProfile);
+  owned.maintenance = maintenance;
   const discoveryExecutor = options.discoveryExecutor ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? new DeepSeekDiscoveryExecutor() : new FakeDiscoveryExecutor());
   const discoveryProfile = options.discoveryProfile ?? (process.env.DEEPSEEK_EXECUTOR_ENABLED === "true" ? {
     id: "deepseek-discovery-default", executor: "DEEPSEEK" as const, modelAlias: "deepseek-v4-flash", remoteEnabled: true,
@@ -188,7 +210,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     const owner = store.getOwnershipByChild(targetId);
     if (owner) closure.requestAssessment(owner.ownerId);
   };
-  const closureStaleSweepTimer = setInterval(() => { try { readiness.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
+  owned.sweepTimer = setInterval(() => { try { readiness.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
   const server = createServer(async (request, response) => {
     response.setHeader("x-content-type-options", "nosniff");
     response.setHeader("access-control-allow-origin", "*");
@@ -588,6 +610,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       send(response, code === "INTERNAL_ERROR" ? 500 : 409, { error: { code, message } });
     }
   });
+  owned.server = server;
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(options.port ?? 0, "127.0.0.1", resolve); });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("KERNEL_ADDRESS_INVALID");
@@ -595,22 +618,16 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   maintenance.start();
   closure.start();
   const startedAt = (options.now ?? (() => new Date().toISOString()))();
-  await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt });
-  await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt });
+  await writePrivateJson(options.descriptorPath, { schemaVersion: 1, baseUrl, token, pid: process.pid, startedAt, instanceId });
+  owned.descriptor = true;
+  await writePrivateJson(graphDescriptorPath, { schemaVersion: 1, baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, pid: process.pid, startedAt, instanceId });
+  owned.graphDescriptor = true;
   return {
     baseUrl, token, graphSnapshotKey, graphBridgeToken, userChannelToken, graphDescriptorPath, store, maintenance, broker, instanceId, closure,
-    close: async () => {
-      clearInterval(leaseTimer);
-      clearInterval(closureStaleSweepTimer);
-      maintenance.stop();
-      closure.stop();
-      broker.close();
-      const settled = await Promise.allSettled([maintenance.settled(), closure.settled()]);
-      for (const result of settled) if (result.status === "rejected") console.warn("[kernel] background shutdown failed", result.reason);
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-      try { store.releaseRuntimeLease(leaseScope, instanceId); } catch (error) { console.warn("[kernel] runtime lease release failed", error); }
-      store.close();
-      await removeOwnedDescriptor(options.descriptorPath, token); await removeOwnedDescriptor(graphDescriptorPath, token);
-    },
+    close,
   };
+  } catch (error) {
+    try { await close(); } catch (cleanupError) { console.warn("[kernel] cleanup after startup failure", cleanupError); }
+    throw error;
+  }
 }

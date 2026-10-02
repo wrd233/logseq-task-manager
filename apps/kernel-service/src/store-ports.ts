@@ -67,7 +67,7 @@ export interface ClosureAssessmentStore extends ClosureGateStore {
 
 export interface MaintenanceStore {
   claimNextReconcileJob(at: string): ReconcileJob | null;
-  completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string): void;
+  completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string, expectedObservedSnapshotId?: string | null): void;
   completeReconcileJobAsSuperseded(id: string, at: string): ReconcileJob;
   /**
    * Completes a reconcile job as skipped by rollout scope without marking the

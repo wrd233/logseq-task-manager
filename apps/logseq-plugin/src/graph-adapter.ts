@@ -311,7 +311,7 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const inspection = await this.#inspect(sourceBlockUuid, before);
       const directManaged = inspection.source.children.some((child) => managedUuids.has(child.uuid));
       if (inspection.blocks.size === 0 && !directManaged) {
-        return { ...inspection.snapshot, projection: null };
+        return { ...inspection.snapshot, projection: null, removedProjection: { containerUuid: before.containerUuid, expectedProjectionHash: before.projectionHash, absentUuids: [...managedUuids] } };
       }
       if (!this.#transitionSafe(inspection, before, empty, true)) throw new Error("GRAPH_RESULT_MISMATCH");
       if (Date.now() >= deadline) throw new Error("GRAPH_RESULT_MISMATCH");
@@ -353,6 +353,11 @@ export class LogseqGraphAdapter implements GraphAdapter {
       this.#known.set(effect.sourceBlockUuid, before);
       const beforeInspection = await this.#inspect(effect.sourceBlockUuid, before);
       if (effect.type === "REMOVE_MANAGED_PROJECTION") {
+        if (beforeInspection.blocks.size === 0 && !beforeInspection.source.children.some((child) => child.content.includes("task-copilot-managed:: true"))) {
+          await this.#settledRemoved(effect.sourceBlockUuid, before);
+          this.#known.delete(effect.sourceBlockUuid);
+          return this.#result(effect, null);
+        }
         if (beforeInspection.snapshot.projection?.projectionHash !== effect.expectedProjectionHash) throw new Error("GRAPH_REMOVE_PRECONDITION_FAILED");
         await this.#converge(before, emptyPresentation(before));
         const settled = await this.#settledRemoved(effect.sourceBlockUuid, before);

@@ -159,11 +159,12 @@ export class ProjectionCoordinator {
     });
     const associations = this.#store.listContextAssociations(object.id, "ACTIVE").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id)).slice(0, 6);
     const children = this.#store.listChildWorkObjects(object.id);
-    const pendingPackages = this.#store.listDecisionPackages("OPEN").filter((pkg) => pkg.workObjectId === object.id);
+    const openPackages = this.#store.listDecisionPackages("OPEN");
+    const pendingPackages = openPackages.filter((pkg) => pkg.workObjectId === object.id);
     const activeChildren = children.map((child) => {
       const childCommits = commitsByTarget.get(child.id) ?? [];
       const recent = childCommits.length > 0;
-      const hasPending = pendingPackages.some((pkg) => pkg.workObjectId === child.id);
+      const hasPending = openPackages.some((pkg) => pkg.workObjectId === child.id);
       const reasons: string[] = [];
       if (hasPending) reasons.push("有决定等你确认");
       if (child.engagement === "WAITING") reasons.push("在等待");

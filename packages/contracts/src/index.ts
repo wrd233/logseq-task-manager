@@ -342,6 +342,8 @@ export interface GraphSnapshot {
   sourceContentHash: string;
   sourceMarker?: "TODO" | "DONE" | "DOING" | "NOW" | "LATER" | "CANCELED" | "CANCELLED" | null;
   projection: ManagedProjection | null;
+  /** Fresh readback of the exact owned identity, required by formal CREATE Undo. */
+  removedProjection?: { containerUuid: string; expectedProjectionHash: string; absentUuids: readonly string[] };
 }
 
 interface GraphEffectIdentity {
