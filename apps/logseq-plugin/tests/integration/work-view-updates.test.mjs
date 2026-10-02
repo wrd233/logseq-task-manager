@@ -172,7 +172,7 @@ test('reading anchor follows current DOM order after manual layout rather than o
     const height = () => first.querySelector('.wb-body').textContent.includes('larger') ? 150 : 50;
     container.getBoundingClientRect = () => ({ top: 0, bottom: 100 });
     root.getBoundingClientRect = () => ({ top: -50 - container.scrollTop, bottom: -container.scrollTop });
-    first.getBoundingClientRect = () => ({ top: -container.scrollTop, bottom: height() - container.scrollTop });
+    first.getBoundingClientRect = () => ({ top: 0 - container.scrollTop, bottom: height() - container.scrollTop });
     second.getBoundingClientRect = () => ({ top: height() - container.scrollTop, bottom: height() + 50 - container.scrollTop });
     f.content('b1', 'larger visible first item'); await delay(70);
     assert.equal(container.scrollTop, 0); assert.equal(first.getBoundingClientRect().top, 0);
