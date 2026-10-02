@@ -1,5 +1,5 @@
 import { sidebarLayoutSpec } from "../sidebar-layout.ts";
-import { panels } from "../workspace/context.ts";
+import { panels, type PanelCloseReason } from "../workspace/context.ts";
 
 export function hostDocument(): Document | null {
   try { return window.top?.document ?? null; } catch { return null; }
@@ -44,9 +44,9 @@ export function markNavigation(label: string): void {
 export class FeaturePanel {
   readonly root = element("section", "", "wb-panel");
   private resize: (() => void) | null = null;
-  constructor(readonly name: string, readonly label: string, private readonly beforeClose: () => void | Promise<void> = () => undefined) {
+  constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
-    document.body.append(this.root); panels.register(name, () => this.close(false));
+    document.body.append(this.root); panels.register(name, reason => this.close(false, reason));
   }
   get visible(): boolean { return !this.root.hidden; }
   async open(revision?: number): Promise<boolean> {
@@ -57,10 +57,10 @@ export class FeaturePanel {
     logseq.showMainUI({ autoFocus: false });
     return true;
   }
-  async close(cancelPending = true): Promise<void> {
+  async close(cancelPending = true, reason: PanelCloseReason = "close"): Promise<void> {
     if (!this.visible) { panels.release(this.name); return; }
     if (cancelPending) panels.reserve();
-    await this.beforeClose(); this.root.hidden = true;
+    await this.beforeClose(reason); this.root.hidden = true;
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
     const doc = hostDocument(); doc?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
     panels.release(this.name); logseq.hideMainUI({ restoreEditingCursor: true });
