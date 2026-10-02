@@ -24,7 +24,9 @@ function processRecord(kind) {
   if (!existsSync(path)) return null;
   const record = JSON.parse(readFileSync(path, "utf8"));
   if (!Number.isSafeInteger(record.pid) || record.pid < 1) throw new Error("Invalid sandbox PID record.");
-  const command = spawnSync("/bin/ps", ["-p", String(record.pid), "-o", "command="], { encoding: "utf8" }).stdout.trim();
+  // macOS ps escapes non-ASCII paths under the C locale; compare the complete
+  // UTF-8 command so the recorded Chinese workspace can be identity-checked.
+  const command = spawnSync("/bin/ps", ["-ww", "-p", String(record.pid), "-o", "command="], { encoding: "utf8", env: { ...process.env, LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8" } }).stdout.trim();
   return { ...record, running: Boolean(command), owned: Boolean(command) && isOwnedSandboxProcess(command) };
 }
 

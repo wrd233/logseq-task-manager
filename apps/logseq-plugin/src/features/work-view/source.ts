@@ -1,12 +1,18 @@
 import type { LayoutItem, SourceRow } from "./model.mjs";
 
 /** SDK data is normalized at this boundary, not in the presentation renderer. */
-function flatten(value: unknown, depth = 0, parent: string | null = null, out: SourceRow[] = []): SourceRow[] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return out;
+function sourceRow(value: unknown, depth = 0, parent: string | null = null): SourceRow | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const block = value as Record<string, unknown>;
-  if (typeof block.uuid !== "string") return out;
-  out.push({ uuid: block.uuid, depth, sourceParent: parent, content: typeof block.content === "string" ? block.content : typeof block.title === "string" ? block.title : "" });
-  if (Array.isArray(block.children)) for (const child of block.children) flatten(child, depth + 1, block.uuid, out);
+  if (typeof block.uuid !== "string") return null;
+  return { uuid: block.uuid, depth, sourceParent: parent, content: typeof block.content === "string" ? block.content : typeof block.title === "string" ? block.title : "" };
+}
+function flatten(value: unknown, depth = 0, parent: string | null = null, out: SourceRow[] = []): SourceRow[] {
+  const row = sourceRow(value, depth, parent);
+  if (!row) return out;
+  out.push(row);
+  const children = (value as Record<string, unknown>).children;
+  if (Array.isArray(children)) for (const child of children) flatten(child, depth + 1, row.uuid, out);
   return out;
 }
 
@@ -25,13 +31,13 @@ export async function readSource(root: string, items: LayoutItem[], valid: () =>
       try { value = await logseq.Editor.getBlock(item.uuid); }
       catch (error) { failed = true; throw error; }
       if (!valid()) return;
-      const normalized = flatten(value)[0];
+      const normalized = sourceRow(value);
       extra[index] = { uuid: item.uuid, content: normalized?.content ?? "来源暂不可用 · 保留此位置", depth: 0, outside: !!normalized, missing: !normalized };
     }
   }));
   const failure = reads.find((read): read is PromiseRejectedResult => read.status === "rejected");
   if (failure) throw failure.reason;
-  return valid() ? { rows: rows.concat(extra), available: !!flatten(block).length } : null;
+  return valid() ? { rows: rows.concat(extra), available: rows.length > 0 } : null;
 }
 
 export interface EditingDraft { uuid: string; content: string }

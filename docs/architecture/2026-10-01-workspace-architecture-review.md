@@ -2,7 +2,7 @@
 
 > 日期：2026-10-01。源码基线：`a6d2f63`。本文完整整理本轮架构讨论；“当前”表示本轮源码中已存在的实现，“建议”表示尚待实施的设计。本文是设计提案，不将目标能力声明为已实现，也不替代现有正式任务的权限、事务和恢复约束。
 >
-> 后续状态：本文源码事实冻结于 `a6d2f63`，包括当时工作视图对任务控制器的依赖。第一轮已收敛投影并解耦身份查询，当前结构见[包架构](target-package-map.md)与[第一轮结果](../refactoring/round-01-results.md)；下文建议和配套 PDF 保留为设计快照。
+> 后续状态：本文源码事实冻结于 `a6d2f63`，包括当时工作视图对任务控制器的依赖。四轮已完成现有系统的渐进重构，当前结构见[包架构](target-package-map.md)、[API 契约](kernel-api-contract.md)与[第四轮结果](../refactoring/round-04-results.md)；下文建议和配套 PDF 保留为设计快照。
 >
 > 需求依据：[工作区协作需求](../requirements/2026-10-01-project-workspace-collaboration.md)。配套 PDF：`2026-10-01-workspace-architecture-review.pdf`。第一轮实施提示词：[round-01](../refactoring/round-01-codex-prompt.md)。
 

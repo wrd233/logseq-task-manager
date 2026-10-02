@@ -29,9 +29,9 @@ async function fixture() {
   let sdkRead = async () => ({ uuid: 'source-A', content: graph.naturalContent('A:/A', 'source-A'), properties: {}, children: [] });
   const descriptor = { schemaVersion: 1, baseUrl: 'http://127.0.0.1:1', token: 'fixture', pid: 1, startedAt: at, graphSnapshotKey: key, graphBridgeToken: 'b'.repeat(64) };
   const originalFetch = globalThis.fetch, originalAdapter = pluginRuntime.adapterForCurrentGraph;
-  globalThis.fetch = async () => new Response(JSON.stringify({ request: null }));
+  globalThis.fetch = async () => new globalThis.Response(JSON.stringify({ request: null }));
   globalThis.logseq = {
-    settings: { kernelDescriptorJson: JSON.stringify(descriptor) }, FileStorage: { getItem: async key => memory.get(key) ?? null, setItem: async (key, value) => memory.set(key, value) },
+    settings: { kernelDescriptorJson: JSON.stringify(descriptor) }, FileStorage: { getItem: async key => { if (!memory.has(key)) throw 'file not existed'; return memory.get(key); }, setItem: async (key, value) => memory.set(key, value) },
     App: { getCurrentGraph: async () => ({ name: graphName, url: `/${graphName}` }), onCurrentGraphChanged: fn => { changed = fn; return () => {}; }, registerCommandPalette: (command, handler) => commands.set(command.key, handler), registerCommand: () => {}, registerUIItem: () => {} },
     Editor: { getCurrentBlock: async () => sdkRead(), getBlock: async uuid => ({ uuid, content: graph.naturalContent('A:/A', uuid), properties: {}, children: [] }) },
     DB: { onChanged: fn => { listeners.add(fn); return () => listeners.delete(fn); } }, UI: { showMsg: async (message, type) => messages.push({ message, type }) },
@@ -44,7 +44,7 @@ async function fixture() {
     showCommit: async id => ({ commit: store.getCommit(id) }), showClosure: async id => ({ closure: store.getClosureHistory(id) }), formalReceipt: async id => ({ receipt: kernel.formalReceipt(id) }),
     commitFormal: async (operation, snapshot) => kernel.commitFormal(operation, snapshot), undoFormal: async (commitId, input) => kernel.undoFormal({ ...input, commitId }, input.snapshot),
     applyProposalFormal: async (id, input) => store.getProposal(id).revision.operationType === 'CHANGE_ENGAGEMENT' ? kernel.applyEngagementProposalFormal({ ...input, proposalId: id }) : kernel.applyProposalFormal({ ...input, proposalId: id }),
-    deliverFormalProjection: async id => { const obligation = store.getProjectionObligationForCommit(id); return { obligation: kernel.verifyFormalProjection(id, await graph.applyGraphEffect(store.getCommit(id).graphEffect), graph.snapshot(store.getCommit(id).graphEffect.graphId, store.getCommit(id).graphEffect.sourceBlockUuid)) }; },
+    deliverFormalProjection: async id => { return { obligation: kernel.verifyFormalProjection(id, await graph.applyGraphEffect(store.getCommit(id).graphEffect), graph.snapshot(store.getCommit(id).graphEffect.graphId, store.getCommit(id).graphEffect.sourceBlockUuid)) }; },
     freezeEvidence: async input => ({ evidence: kernel.freezeEvidence(input) }),
     runCurrentFocusAgent: async input => { kernel.startExternalAgentRun({ ...input, purpose: 'CURRENT_FOCUS_MAINTENANCE', executorId: 'fixture' }); return kernel.finishExternalAgentRun({ runId: input.runId, result: { outcome: 'PROPOSAL', currentFocus: '继续处理', reasonCode: 'NEXT', rationaleSummary: 'next' } }); },
     runEngagementAgent: async input => { kernel.startExternalAgentRun({ ...input, purpose: 'ENGAGEMENT_RECONCILIATION', executorId: 'fixture' }); return kernel.finishExternalAgentRun({ runId: input.runId, result: { outcome: 'PROPOSAL', transition: { from: 'ACTIONABLE', to: 'WAITING', waiting: { description: '等待答复', reviewAt: null } }, reasonCode: 'WAIT', rationaleSummary: 'wait' } }); },
@@ -55,7 +55,7 @@ async function fixture() {
   pluginRuntime.adapterForCurrentGraph = async () => { const scope = pluginRuntime.identities.scope(); return { graphId: scope.graphId, scope, adapter: { readGraphSnapshot: async input => graph.readGraphSnapshot(input), readEvidenceMaterial: async (input, proofKey) => graph.readEvidenceMaterial(input, proofKey) } }; };
   const dispose = await startTaskCenter();
   const command = async suffix => { const before = messages.length; commands.get(`task-copilot-vnext-${suffix}`)(); await until(() => messages.length > before); return messages.at(-1); };
-  const prompt = async value => { await until(() => document.querySelector('[data-task-copilot-text-prompt] form')); document.querySelector('input').value = value; document.querySelector('form').dispatchEvent(new browser.Event('submit', { bubbles: true, cancelable: true })); await delay(0); };
+  const prompt = async value => { await until(() => globalThis.document.querySelector('[data-task-copilot-text-prompt] form')); globalThis.document.querySelector('input').value = value; globalThis.document.querySelector('form').dispatchEvent(new browser.Event('submit', { bubbles: true, cancelable: true })); await delay(0); };
   const select = id => memory.set(`${currentKey}:A%3A%2FA`, JSON.stringify({ value: id, session: 'fixture', generation: pluginRuntime.identities.scope().generation }));
   return { kernel, store, graph, objects, memory, messages, commands, listeners, command, prompt, select, setRead: fn => { sdkRead = fn; }, switchGraph: async name => { graphName = name; changed(); await until(() => pluginRuntime.identities.scope().graphId === `${name}:/${name}`); },
     cleanup: async () => { await dispose(); pluginRuntime.stop(); pluginRuntime.adapterForCurrentGraph = originalAdapter; for (const [key, value] of originals) KernelClient.prototype[key] = value; globalThis.fetch = originalFetch; store.close(); await browser.happyDOM.abort(); for (const key of ['logseq', 'window', 'document', 'MutationObserver']) delete globalThis[key]; } };
@@ -87,10 +87,10 @@ test('registered TASK closures, compensation, Focus, Engagement and Online DONE 
 test('registered commands pin targets across prompts and reject A to B to A generations before Agent SDK or writes', async () => {
   const f = await fixture();
   try {
-    let work = f.command('cancel-task'); await until(() => document.querySelector('form')); f.select(f.objects[1]); await f.prompt('取消原对象'); await work;
+    let work = f.command('cancel-task'); await until(() => globalThis.document.querySelector('form')); f.select(f.objects[1]); await f.prompt('取消原对象'); await work;
     assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle, 'CANCELLED'); assert.equal(f.store.getWorkObject(f.objects[1]).lifecycle, 'OPEN');
     const before = f.store.listCommits().length;
-    work = f.command('cancel-task'); await until(() => document.querySelector('form')); await f.switchGraph('B'); await f.switchGraph('A'); await f.prompt('旧作用域');
+    work = f.command('cancel-task'); await until(() => globalThis.document.querySelector('form')); await f.switchGraph('B'); await f.switchGraph('A'); await f.prompt('旧作用域');
     assert.match((await work).message, /GRAPH_SCOPE_CHANGED/u); assert.equal(f.store.listCommits().length, before);
     f.select(f.objects[1]); const gate = deferred(), started = deferred(); f.setRead(async () => { started.resolve(); return gate.promise; });
     work = f.command('agent-focus'); await started.promise; await f.switchGraph('B'); await f.switchGraph('A'); gate.resolve({ uuid: 'source-other', content: 'evidence', children: [], properties: {} });
@@ -112,4 +112,44 @@ test('registered completion retries an uncertain result under the same operation
     assert.match((await work).message, new RegExp(`正式提交已成功.*${commitId}`, 'u')); assert.equal(f.memory.get(`${recentKey}:A%3A%2FA`), oldRecent);
     assert.equal(f.store.getCommit(commitId).status, 'COMMITTED'); assert.equal(f.store.getProjectionObligationForCommit(commitId).status, 'PENDING');
   } finally { await f.cleanup(); }
+});
+
+test('registered presentation rerender delivers an unfinished formal obligation before any presentation write', async () => {
+  const f = await fixture();
+  try {
+    const object = f.store.getWorkObject(f.objects[0]), snapshot = f.graph.snapshot('A:/A', 'source-A');
+    const formal = f.kernel.commitFormal(parseSemanticOperation({ operationId: 'pending-closure', type: 'COMPLETE_WORK_OBJECT', actor: { type: 'USER', id: 'local-user' }, target: { workObjectId: object.id, expectedVersion: object.version, expectedProjectionHash: snapshot.projection.projectionHash }, input: { outcomeSummary: object.title, evidenceIds: [] } }), snapshot);
+    const count = f.store.listCommits().length;
+    const message = await f.command('rerender');
+    assert.match(message.message, /投影义务正在统一交付/u);
+    assert.equal(f.store.getProjectionObligationForCommit(formal.commit.id).status, 'VERIFIED');
+    assert.equal(f.store.listCommits().length, count);
+    assert.equal(f.graph.snapshot('A:/A', 'source-A').projection.closure.type, 'COMPLETED');
+  } finally { await f.cleanup(); }
+});
+
+test('registered formal command reports unexpected private-storage IO and does not accept business state', async () => {
+  const f = await fixture();
+  try {
+    const count = f.store.listCommits().length;
+    globalThis.logseq.FileStorage.getItem = async () => { throw Error('EACCES private storage'); };
+    assert.match((await f.command('complete-task')).message, /EACCES private storage/u);
+    assert.equal(f.store.listCommits().length, count);
+    assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle, 'OPEN');
+  } finally { await f.cleanup(); }
+});
+
+test('registered evidence display rejects late A to B to A results and foreign legacy evidence', async () => {
+  const f = await fixture(), original = KernelClient.prototype.showEvidence;
+  try {
+    f.memory.set('task-copilot-vnext-recent-evidence-id', 'legacy-evidence');
+    const gate = deferred(), started = deferred();
+    KernelClient.prototype.showEvidence = async () => { started.resolve(); return gate.promise; };
+    const work = f.command('show-evidence'); await started.promise;
+    await f.switchGraph('B'); await f.switchGraph('A'); gate.resolve({ evidence: { id: 'legacy-evidence', graphId: 'A:/A' } });
+    assert.match((await work).message, /GRAPH_SCOPE_CHANGED/u);
+    KernelClient.prototype.showEvidence = async () => ({ evidence: { id: 'legacy-evidence', graphId: 'B:/B' } });
+    assert.match((await f.command('show-evidence')).message, /当前 Graph 不是最近依据/u);
+    assert.ok(f.messages.every(message => !message.message.includes('Frozen Evidence')));
+  } finally { KernelClient.prototype.showEvidence = original; await f.cleanup(); }
 });

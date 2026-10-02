@@ -13,6 +13,7 @@ import { readRecoveryVerificationSnapshot } from "../../recovery-verification.ts
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import { clampSidebarWidth, parseSidebarWidth, sidebarLayoutSpec, SIDEBAR_DEFAULT_WIDTH, type SidebarLayoutSpec } from "../../sidebar-layout.ts";
 import { requestTextPrompt } from "../../text-prompt.ts";
+import { readOptionalPrivateItem } from "../../private-storage.ts";
 
 const recentCommitKey = "task-copilot-vnext-recent-commit";
 const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
@@ -43,12 +44,16 @@ function assertCommandScope(scope: GraphScope): void {
 function scopedKey(key: string, scope: GraphScope): string { return `${key}:${encodeURIComponent(scope.graphId ?? "")}`; }
 async function readCommandState(key: string, scope = blockIdentityCache.scope()): Promise<string | null> {
   assertCommandScope(scope);
-  const raw = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(scopedKey(key, scope)));
+  const raw = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, scopedKey(key, scope)));
   if (typeof raw === "string" && raw) {
     const state = JSON.parse(raw) as { value: string; session: string; generation: number };
+    if (typeof state.value !== "string" || typeof state.session !== "string" || !Number.isSafeInteger(state.generation)) throw new Error("COMMAND_STATE_SHAPE_UNSUPPORTED");
     return state.session === commandSession && state.generation !== scope.generation ? null : state.value;
   }
-  return pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key)); // pre-round04 compatibility, validated against the target Graph
+  if (raw !== null && raw !== undefined && raw !== "") throw new Error("COMMAND_STATE_SHAPE_UNSUPPORTED");
+  const legacy = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, key)); // pre-round04 compatibility, validated against the target Graph
+  if (legacy !== null && legacy !== undefined && typeof legacy !== "string") throw new Error("COMMAND_STATE_SHAPE_UNSUPPORTED");
+  return typeof legacy === "string" ? legacy : null;
 }
 async function writeCommandState(key: string, value: string, scope = blockIdentityCache.scope()): Promise<void> {
   const path = scopedKey(key, scope), previous = stateWrites.get(path) ?? Promise.resolve();
@@ -79,7 +84,7 @@ function submitFormal(api: KernelClient, scope: GraphScope, intent: string, subm
 }
 async function submitCapturedFormal(api: KernelClient, scope: GraphScope, intent: string, submission: FormalSubmission): Promise<FormalCommitResult> {
   const key = scopedKey(`task-copilot-vnext-pending:${intent}`, scope);
-  const prior = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key));
+  const prior = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, key));
   const request = typeof prior === "string" && prior ? JSON.parse(prior) as FormalSubmission : submission;
   const operationId = request.kind === "COMMIT" ? request.operation.operationId : request.operationId;
   if (prior) {
@@ -107,7 +112,7 @@ async function submitCapturedFormal(api: KernelClient, scope: GraphScope, intent
   }
 }
 async function resumePendingFormal(api: KernelClient, scope: GraphScope, intent: string): Promise<FormalCommitResult | null> {
-  const raw = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(scopedKey(`task-copilot-vnext-pending:${intent}`, scope)));
+  const raw = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, scopedKey(`task-copilot-vnext-pending:${intent}`, scope)));
   return typeof raw === "string" && raw ? submitFormal(api, scope, intent, JSON.parse(raw) as FormalSubmission) : null;
 }
 function projectionMessage(obligation: ProjectionObligation): string {
@@ -129,9 +134,14 @@ async function rememberFormalState(key: string, value: string, scope: GraphScope
 }
 
 async function markRecentAgentChangeStrongPositive(): Promise<void> {
-  const commitId = await readCommandState(recentCommitKey);
+  const { graphId, scope } = await adapterForCurrentGraph();
+  const commitId = await readCommandState(recentCommitKey, scope);
   if (typeof commitId !== "string" || !commitId) throw new Error("没有可反馈的最近 Commit。");
-  await (await client()).recordStrongPositive(commitId, { type: "USER", id: "local-user" });
+  const api = await client(), commit = (await api.showCommit(commitId)).commit;
+  assertCommandScope(scope);
+  if ((commit.graphEffect as GraphEffect | null)?.graphId !== graphId) throw new Error("当前 Graph 不是最近提交的 Graph。");
+  await api.recordStrongPositive(commitId, { type: "USER", id: "local-user" });
+  if (!blockIdentityCache.isCurrent(scope)) throw new Error("已记录认可反馈；Graph 作用域已切换。");
   await logseq.UI.showMsg("已记录明确正向反馈；不会自动修改或激活 Taste。", "success");
 }
 
@@ -294,7 +304,7 @@ async function organizeTodayCommand(): Promise<void> {
 
 async function executeCapturedDecision(api: KernelClient, scope: GraphScope, decisionId?: string): Promise<Awaited<ReturnType<KernelClient["executeUserDecision"]>> | null> {
   const key = scopedKey("task-copilot-vnext-pending-decision", scope);
-  const prior = await pluginRuntime.inGraph(scope, () => logseq.FileStorage.getItem(key));
+  const prior = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, key));
   const id = typeof prior === "string" && prior ? prior : decisionId;
   if (!id) return null;
   if (!prior) await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, id));
@@ -625,7 +635,7 @@ async function formalizeBlockFromContextMenu(uuid: string, kind: "TASK" | "MINI_
     if (contextMenuHoverUuid === uuid) registerContextMenuItems(blockIdentityCache.lookup(uuid));
   } catch (error) {
     console.error("block-formalize", error);
-    await logseq.UI.showMsg("当前记录无法纳入 Task Copilot。请确认 Kernel 正常连接后重试。", "error");
+    await logseq.UI.showMsg(error instanceof Error ? error.message : "当前记录无法纳入 Task Copilot。请确认 Kernel 正常连接后重试。", "error");
   }
 }
 
@@ -656,14 +666,16 @@ async function discussObjectFromBlock(uuid: string): Promise<void> {
 
 async function reconcileObjectFromBlock(uuid: string): Promise<void> {
   try {
+    const { scope } = await adapterForCurrentGraph();
     const api = await client();
     const entry = await revalidateBlockIdentity(api, uuid);
+    assertCommandScope(scope);
     if (!entry) { await logseq.UI.showMsg("这条记录还没有纳入 Task Copilot。", "warning"); return; }
-    await writeCommandState(currentWorkObjectKey, entry.object.id);
+    await writeCommandState(currentWorkObjectKey, entry.object.id, scope);
     await letAgentReconcileEngagement(uuid);
   } catch (error) {
     console.error("block-reconcile-object", error);
-    await logseq.UI.showMsg("无法重新理解这条记录。请确认 Kernel 正常连接后重试。", "error");
+    await logseq.UI.showMsg(error instanceof Error ? error.message : "无法重新理解这条记录。请确认 Kernel 正常连接后重试。", "error");
   }
 }
 
@@ -1016,9 +1028,12 @@ async function amendCurrentClosure(): Promise<void> {
 }
 
 async function showRecentEvidence(): Promise<void> {
-  const evidenceId = await readCommandState(recentEvidenceIdKey);
+  const { graphId, scope } = await adapterForCurrentGraph();
+  const evidenceId = await readCommandState(recentEvidenceIdKey, scope);
   if (typeof evidenceId !== "string" || !evidenceId) throw new Error("没有最近一次 Agent Evidence。请先运行 Agent 对账命令。");
   const { evidence } = await (await client()).showEvidence(evidenceId);
+  assertCommandScope(scope);
+  if (evidence.graphId !== graphId) throw new Error("当前 Graph 不是最近依据的 Graph。");
   await logseq.UI.showMsg(`Task Copilot Frozen Evidence\nID：${evidence.id}\n冻结内容：${evidence.frozenContent}\nSHA-256：${evidence.contentHash}\n冻结时间：${evidence.frozenAt}`, "warning", { timeout: 30000 });
 }
 
@@ -1075,10 +1090,16 @@ async function rerenderCurrentFormalItem(): Promise<void> {
   const value = await currentTaskContext();
   const recovery = (await value.api.listRecovery()).recovery;
   if (recovery.length) throw new Error("存在未完成 Commit；请先运行“恢复未完成提交”。");
+  const obligations = (await value.api.listProjectionObligations()).obligations.filter(item => item.workObjectId === value.target.object.id && item.status !== "VERIFIED");
+  if (obligations.length) {
+    await value.api.deliverFormalProjection(obligations[0]!.commitId);
+    throw new Error("该事项的投影义务正在统一交付；核对完成后可重新渲染。");
+  }
+  assertCommandScope(value.scope);
   const version = value.target.object.version;
   const projection = await expectedProjection(value.api, value.target);
   if (value.target.object.kind === "TASK" || value.target.object.kind === "MINI_PROJECT") {
-    const source = logseqBlock(await logseq.Editor.getBlock(value.anchor.externalId));
+    const source = logseqBlock(await pluginRuntime.inGraph(value.scope, () => logseq.Editor.getBlock(value.anchor.externalId)));
     if (source) {
       const sourceTitle = extractTitleFromSourceLine(source.content);
       if (sourceTitle === value.target.object.title) {
@@ -1095,6 +1116,7 @@ async function rerenderCurrentFormalItem(): Promise<void> {
   }
   await value.adapter.rerenderManagedProjection({ graphId: value.graphId, sourceBlockUuid: value.anchor.externalId, expectedProjection: projection });
   const after = await value.api.showObject(value.target.object.id);
+  assertCommandScope(value.scope);
   if (after.object.version !== version) throw new Error("RERENDER_DOMAIN_VERSION_CHANGED");
   await logseq.UI.showMsg("已按 Writing Language v1 重新渲染当前正式事项；Formal State 与版本未改变。", "success");
 }

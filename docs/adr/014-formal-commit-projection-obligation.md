@@ -5,6 +5,8 @@
 - 关联权威文档：`docs/vnext/05` 第 12 章、`docs/vnext/06` 第 24/25 章、`docs/vnext/07` Phase 14
 - 替代：早期跨介质事务模型 `VALIDATE → PREPARE → KERNEL_APPLY → GRAPH_APPLY → VERIFY → COMMIT`
 
+> 实现状态补记（2026-10-02）：保留下文 2026-08-15 的原始决定和 schema v7 阶段事实。本轮已把正常用户/Proposal/Undo/外部允许自动应用统一为 formal 回执，治理与补偿审计和义务在同一事务落账，由 Service 的一个持久交付实例处理 Graph。当前 schema 为 v23；当前 HTTP、幂等和失败语义以 [API contract](../architecture/kernel-api-contract.md) 与[状态机](../architecture/commit-state-machine.md)为准，实际验证见[第四轮结果](../refactoring/round-04-results.md)。
+
 ## 1. 决定
 
 一个合法的 Formal Kernel Commit 不再等待 Graph Adapter 在线或 Graph 写入成功。

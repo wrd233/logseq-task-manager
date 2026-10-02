@@ -135,3 +135,23 @@ test("reconcile queue and coverage survive Kernel restart and continue from the 
     await waitForFocus(client, value.workObjectId, "重启后继续第二个方向");
   } finally { stop(); await service.close(); }
 });
+
+test("first manual check without coverage can accept a formal change and covers the observed source at the resulting version", async () => {
+  const value = await setup("first-manual-formal");
+  try {
+    const source = value.graph.seedNaturalRecord(value.graphId, "new-source", "TODO 新建正式事项");
+    const formal = await value.client.commitFormal(parseSemanticOperation({ operationId: "first-manual-formal-create", type: "CREATE_WORK_OBJECT", actor: { type: "USER", id: "local-user" }, input: { kind: "TASK", title: "新建正式事项", anchor: { graphId: value.graphId, blockUuid: "new-source", sourceContentHash: source.sourceContentHash } } }), source);
+    await value.client.verifyFormalProjection(formal.commit.id, await value.graph.applyGraphEffect(formal.graphEffect), value.graph.snapshot(value.graphId, "new-source"));
+    const id = formal.commit.targetId!;
+    assert.equal(value.service.store.getSourceCoverage(id), null);
+    value.graph.editNaturalContent(value.graphId, "new-source", "TODO 新建正式事项\n下一步：完成手动核对后的正式交付");
+    const { job } = await value.client.reconcileMaintenance(id, "INTERACTIVE");
+    await waitForJob(value.client, job.id); await waitForFocus(value.client, id, "完成手动核对后的正式交付");
+    const coverage = value.service.store.getSourceCoverage(id)!;
+    assert.equal(coverage.formalVersionAtLastReconcile, 2); assert.equal(coverage.hasUncoveredChanges, false);
+    assert.notEqual(coverage.lastObservedSourceSnapshotId, job.sourceSnapshotId); assert.equal(coverage.lastReconciledSourceSnapshotId, coverage.lastObservedSourceSnapshotId);
+    assert.equal((await value.client.showObject(id)).object.version, 2);
+    const accepted = (await value.client.listFeedback()).feedback.find(item => item.type === "ACCEPTED"); assert.ok(accepted);
+    assert.equal((await value.client.showProposal(accepted.proposalId)).proposal.status, "APPLIED");
+  } finally { value.stop(); await value.service.close(); }
+});
