@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="590" viewBox="0 0 1000 590" role="img" aria-labelledby="title desc">
+<title id="title">按问题选择原文，保留熟悉结构</title>
+<desc id="desc">左侧原页面按结构1、2、3排列；右侧只保留结构1的完成条件和结构3的结果及限制，结构2暂时隐藏，内容可恢复。</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="#60758f"/></marker></defs>
+<rect width="1000" height="590" fill="white"/>
+<style>text{font-family:"PingFang SC","Noto Sans CJK SC",sans-serif;fill:#17375e}.heading{font-size:22px;font-weight:600}.label{font-size:18px;font-weight:600}.body{font-size:17px}.hint{font-size:15px;fill:#60758f}</style>
+<rect x="24" y="24" width="402" height="495" rx="12" fill="#f8fafc" stroke="#becbd9"/>
+<rect x="574" y="24" width="402" height="495" rx="12" fill="#f8fafc" stroke="#becbd9"/>
+<text x="46" y="61" class="heading">原有任务页面</text>
+<text x="596" y="61" class="heading">问题：这次验证足够了吗？</text>
+<text x="46" y="89" class="hint">按原结构阅读</text>
+<text x="596" y="89" class="hint">只呈现判断所需的原文</text>
+<rect x="60" y="111" width="330" height="108" rx="8" fill="#e8f0fc" stroke="#537db6"/>
+<text x="78" y="141" class="label">结构 1 · 目标</text>
+<text x="78" y="170" class="body">范围、完成条件</text>
+<text x="78" y="195" class="body">长期方向</text>
+<rect x="60" y="251" width="330" height="108" rx="8" fill="#e8f0fc" stroke="#537db6"/>
+<text x="78" y="281" class="label">结构 2 · 方案</text>
+<text x="78" y="310" class="body">当前方案、备选</text>
+<text x="78" y="335" class="body">相关讨论</text>
+<rect x="60" y="391" width="330" height="108" rx="8" fill="#e8f0fc" stroke="#537db6"/>
+<text x="78" y="421" class="label">结构 3 · 工作记录</text>
+<text x="78" y="450" class="body">结果、限制</text>
+<text x="78" y="475" class="body">历史尝试</text>
+<rect x="610" y="111" width="330" height="108" rx="8" fill="#e6f4eb" stroke="#438963"/>
+<text x="628" y="141" class="label">结构 1 · 目标</text>
+<text x="628" y="170" class="body">本次完成条件</text>
+<text x="628" y="195" class="body">保留必要限定</text>
+<rect x="610" y="301" width="330" height="108" rx="8" fill="#e6f4eb" stroke="#438963"/>
+<text x="628" y="331" class="label">结构 3 · 工作记录</text>
+<text x="628" y="360" class="body">已得到的结果</text>
+<text x="628" y="385" class="body">尚未覆盖的限制</text>
+<path d="M390,165 C470,165 520,165 610,165" fill="none" stroke="#60758f" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M390,445 C485,445 510,355 610,355" fill="none" stroke="#60758f" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="452" y="145" class="hint">保留原文</text>
+<text x="452" y="424" class="hint">保留反证</text>
+<text x="625" y="259" class="hint">结构 2 暂时收起</text>
+<rect x="610" y="439" width="330" height="48" rx="8" fill="#ffffff" stroke="#becbd9"/>
+<text x="629" y="469" class="body">展开隐藏内容 / 返回完整页面</text>
+<text x="24" y="557" class="body">结构与顺序保留；聚焦退出后恢复此前布局，期间的正文编辑仍然保留。</text>
+</svg>
