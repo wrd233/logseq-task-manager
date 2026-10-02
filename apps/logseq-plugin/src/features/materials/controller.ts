@@ -1,6 +1,6 @@
 import { button, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
-import { MaterialDirectories, type MaterialWorkContext } from "../../workspace/material-context.ts";
+import { MaterialDirectories, type MaterialWorkContext, type MaterialBindingCommands } from "../../workspace/material-context.ts";
 import { MaterialService, type CaptureRequest, type MaterialResult, type MaterialView } from "./service.ts";
 import { captureMarkdown } from "./conversion.ts";
 import { materialPrompt, renderReading, roleLabel } from "./ui.ts";
@@ -15,7 +15,7 @@ export class Materials {
   readonly panel: FeaturePanel;
   private store: MaterialStore | null = null;
   private service: MaterialService | null = null;
-  private readonly directories = new MaterialDirectories(localStorage);
+  private readonly directories: MaterialDirectories;
   private mode: "reading" | "editing" = "reading";
   private graph = "";
   private current: MaterialRecord | null = null;
@@ -43,7 +43,8 @@ export class Materials {
   private readonly timer: number;
   private readonly sources = new MaterialSourceActions({epoch: () => this.epoch, graph: () => this.graph, assertScope: epoch => this.assertScope(epoch), service: () => this.ensureService(), workContext: uuid => this.workContext(uuid), fail: error => this.fail(error)});
 
-  constructor(private readonly returnWork?: (uuid: string) => Promise<void>, private readonly currentWorkRoot?: () => string | null) {
+  constructor(private readonly returnWork?: (uuid: string) => Promise<void>, private readonly currentWorkRoot?: () => string | null, private readonly bindings?: MaterialBindingCommands) {
+    this.directories = bindings?.directories ?? new MaterialDirectories(localStorage);
     this.panel = new FeaturePanel("materials", "材料", () => this.leave());
     this.editorRoot.id = "workbench-markdown-editor"; this.editorRoot.hidden = true; this.conflict.hidden = true;
     this.conflict.append(element("p", "检测到外部版本变化，当前草稿已保留。"), button("另存草稿并继续", () => void this.keepDraft(false).catch(this.fail)), button("另存草稿后加载外部版本", () => void this.keepDraft(true).catch(this.fail)));
@@ -122,6 +123,9 @@ export class Materials {
   async bindDirectory(sourceUuid: string, directory: string | null, organization: "flat" | "project" = "flat"): Promise<void> {
     const service = await this.ensureService(), epoch = this.epoch;
     const root = directory ? normalizeRoot(directory.trim(), this.graph) : null;
+    if (this.bindings) {
+      await this.bindings.bind({graph: this.graph, sourceUuid, directory: root, organization}); this.assertScope(epoch); return;
+    }
     if (root) {
       const io = service.io;
       if (io.stat && (await io.stat(root)).type !== "directory") throw new Error("请选择已有工作目录。");
