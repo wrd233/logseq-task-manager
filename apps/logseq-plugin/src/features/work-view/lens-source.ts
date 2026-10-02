@@ -76,13 +76,18 @@ export async function validateLensSource(value: unknown, expected: LensScope): P
     const target = lensRecord(item.target, ["kind", "graphId", "blockUuid"], "invalid-source");
     const uuid = lensText(target.blockUuid, 256);
     requireLens(target.kind === "logseq-block" && target.graphId === scope.graphId && item.sourceId === logseqSourceId(scope.graphId, uuid) && !seen.has(uuid), "invalid-source-identity");
-    requireLens(Number.isSafeInteger(item.depth) && (item.depth as number) >= 0 && (item.depth as number) <= 512 && Number.isSafeInteger(item.order), "invalid-source-structure");
+    requireLens(Number.isSafeInteger(item.depth) && (item.depth as number) >= 0 && (item.depth as number) <= 512 && Number.isSafeInteger(item.order) && (item.order as number) >= 0, "invalid-source-structure");
     const depth = item.depth as number, order = item.order as number;
     requireLens(item.parentUuid === null || typeof item.parentUuid === "string", "invalid-source-structure");
-    const parentUuid = item.parentUuid as string | null;
-    requireLens(index === 0 ? uuid === scope.rootUuid && parentUuid === null && depth === 0 : depth > 0 && parentUuid === stack[depth - 1], "invalid-source-structure");
-    requireLens(order === (counts.get(parentUuid) ?? 0), "invalid-source-structure");
-    counts.set(parentUuid, order + 1); stack.length = depth; stack[depth] = uuid; seen.add(uuid);
+    const parentUuid = item.parentUuid === null ? null : lensText(item.parentUuid, 256, "invalid-source-structure");
+    // The scope root retains its actual parent and sibling order. Its parent
+    // lies outside this snapshot; only descendants start their local counts.
+    requireLens(index === 0 ? uuid === scope.rootUuid && parentUuid !== uuid && depth === 0 : depth > 0 && parentUuid === stack[depth - 1], "invalid-source-structure");
+    if (index > 0) {
+      requireLens(order === (counts.get(parentUuid) ?? 0), "invalid-source-structure");
+      counts.set(parentUuid, order + 1);
+    }
+    stack.length = depth; stack[depth] = uuid; seen.add(uuid);
     requireLens(["available", "missing", "unavailable"].includes(String(item.availability)), "invalid-source-availability");
     const availability = item.availability as LensBlock["availability"];
     const content = availability === "available" ? lensText(item.content, 2_000_000, "invalid-source-content", true) : null;
@@ -91,6 +96,7 @@ export async function validateLensSource(value: unknown, expected: LensScope): P
     size += content?.length ?? 0; requireLens(size <= 8_000_000, "input-too-large");
     blocks.push({ sourceId: item.sourceId as string, target: { kind: "logseq-block", graphId: scope.graphId, blockUuid: uuid }, content, contentVersion, parentUuid, order, depth, availability });
   }
+  requireLens(blocks[0]!.parentUuid === null || !seen.has(blocks[0]!.parentUuid), "invalid-source-structure");
   const capturedAt = lensText(raw.capturedAt, 64);
   requireLens(Number.isFinite(Date.parse(capturedAt)), "invalid-captured-at");
   await Promise.all(blocks.map(async block => {
