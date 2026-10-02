@@ -12,7 +12,9 @@
 | `26de6d2` | formal governance / compensation 原子落账，D1–D8，启动资源清理 |
 | `7d6d54e` | 正常 Plugin / HTTP / Client / CLI / external 入口迁移，回执不确定性与作用域 |
 | `5844967` | Context/Reading 消费者迁移、剩余 Service 存储能力、实际 import 边界与可诊断错误 |
-| 第四阶段与最终验收提交 | WorkView 正规化测量、实机发现的 SDK 缺文件语义、历史/当前文档校正；完整 SHA 见本分支提交记录 |
+| `85ef106` | WorkView 正规化测量、实机发现的 SDK 缺文件语义、命令作用域补漏、历史/当前文档校正 |
+
+收尾时重新 fetch 核对：本分支与 `origin/main` 均为 `85ef106ca3520bed9112087b81024c645ec07800`，以上交付已被用户合并。本次最终验收记录另作本分支文档提交，不改写已合并历史，不推送。
 
 当前契约的主要权威是 [Kernel API](../architecture/kernel-api-contract.md) 与[状态机](../architecture/commit-state-machine.md)。[包架构](../architecture/target-package-map.md)负责依赖，[deferred 清单](../architecture/known-deferred-items.md)逐项标注现状。[2026-10-01 架构报告/PDF](../architecture/2026-10-01-workspace-architecture-review.md)保留阶段快照，未重做 PDF、改写旧验收或更新第三方依赖。
 
@@ -97,7 +99,7 @@ flowchart LR
 
 ## 工作量重放
 
-两个原测量脚本保留 `9293ad6`，新增 `ffce330` 对照，产物写入 `tmp/round04/`，未覆盖前三轮 JSON。环境从实际 runtime 读取：本次 Node v20.20.2、arm64、darwin 24.1.0；最终运行 commit 记录于 JSON。锁定依赖和 SDK 未升级。
+两个原测量脚本保留 `9293ad6`，新增 `ffce330` 对照，产物写入 `tmp/round04/`，未覆盖前三轮 JSON。最终复跑的代码 commit 为 `85ef106ca3520bed9112087b81024c645ec07800`，两个脚本均 exit 0；环境从实际 runtime 读取：Node v20.20.2、arm64、darwin 24.1.0。完整环境及结果记录于 `backend-workload.json` / `work-view-workload.json`，日志为 `backend-measure-final.log` / `work-view-measure-final.log`。锁定依赖和 SDK 未升级。
 
 | 场景（300 对象/来源） | 9293ad6 | ffce330 | 第四轮 |
 | --- | ---: | ---: | ---: |
@@ -116,11 +118,13 @@ source 对照返回同样 321 行且 `available=true`，通过 deepEqual；没�
 
 ## 验证环境与证据
 
-- 原工作区：Node20 完整业务 `npm test` 379 项通过、0 fail、0 skip；Sandbox 5 项通过。完整 `npm run check` 在 lint 停止，仅用户已有忽略研究文件 `docs/research/longdoc-2026-09-14/file-watch-probe.cjs` 的22条错误；该文件原样保留，未扩大忽略。后续门禁不是原工作区全通过。
-- 交付副本：仅受版本控制文件，相同 package-lock 与锁定第三方依赖；workspace 包链接全部指向副本；先 build 再完整 check。完整 `npm run check` 通过，business / Sandbox / boundary 均 0 fail / 0 skip，requirements 生成、typecheck、lint、build/binary probe、实际 boundary scan 和 Taste eval 全通过。最终计数见本页验收记录。验证副本 `tmp/round04/verification-p2i_vkg8`；manifest 验证每个 workspace symlink 与 package-lock，详见 `verification-copy.json` / `verification-check.log`。
+- 原工作区：Node20 完整业务 `npm test` 380 项通过、0 fail、0 skip；Sandbox 5 项通过。完整 `npm run check` 在 lint 停止，仅用户已有忽略研究文件 `docs/research/longdoc-2026-09-14/file-watch-probe.cjs` 的22条错误；该文件原样保留，未扩大忽略。最终在 `85ef106` 再跑该检查仍是同一22条错误，exit 1，日志 `original-check-final.log`。后续门禁不是原工作区全通过。
+- 交付副本：仅受版本控制文件，相同 package-lock 与锁定第三方依赖；workspace 包链接全部指向副本；先 build 再完整 check。完整 `npm run check` 通过，380 项业务、5 项 Sandbox、12 项 boundary 均 0 fail / 0 skip，requirements 生成、typecheck、lint、build/binary probe、实际 boundary scan 和 Taste eval 全通过。验证副本 `tmp/round04/verification-p2i_vkg8`；manifest 验证每个 workspace symlink 与 package-lock，详见 `verification-copy.json` / `verification-check.log`。收尾时核对全部381份受控文件与 `85ef106` 逐字节相同；本次随后仅修改结果文档，不改变已验收代码。
 - 自动化：真实 SQLite/HTTP/Broker 与丢响应、失败注入、迁移、重启；Happy DOM/FakeGraph 注册命令覆盖 target prompt、A/B/返回 A、late accepted、focus/engagement/closures/Undo/Online DONE。此层不代表 Desktop/IME。
 - 真实 Desktop：本机 Logseq 0.10.15、SDK 0.3.4，受工具管理的独立 app/home/profile/Graph/SQLite；CDP 仅连接 Sandbox 目标。正式化、Task Complete/Undo、CurrentFocus 实际注册命令的业务/audit/VERIFIED 已读回。首次 native SDK 冷启动未 ready，重载此测试插件后恢复；未宣称所有冷启动均通过。同一实际注册命令另验证 CREATE Undo：删除 current row、保留自然父/子块、历史 Commit/补偿关系和两份 VERIFIED 义务。WorkView 的真实 SDK/datoms 刷新推进 seq，保持 UUID DOM 节点、focus 和 scrollTop=137，外部 snapshot 不可变且旧 seq 拒绝。材料浏览器编辑命令（非 IME）遇 native FileIO 外部写入：保留冲突草稿、复用 editor、磁盘外部版本不被覆盖，Desktop 重启后草稿/冲突仍在。tasksEnabled=false 按设置说明重载后不注册任务导航，自然 WorkView 和材料仍可使用。离线时用真实 SDK fresh snapshot 与 Plugin USER capability 接受 Focus 补偿，PENDING/attempt=0；关闭并重启 identity-checked Sandbox Service/Desktop 后仍 pending，重新开启 bridge 后同一 Commit/义务 VERIFIED，UNDONE_AFTER_APPLY 恰好一次。Sandbox 数据库 integrity_check=ok、foreign_key_check 为空。
 
 本地详细证据在忽略目录 `tmp/round04/`（完整 check/test/measure 日志、JSON、Desktop readbacks）、`tmp/logseq-sandbox/evidence/`（隔离运行时与进程日志）。公开结果不包含 descriptor/token。可重放的业务/边界/迁移断言已提交为测试；Desktop 合成内容均留在 Sandbox，原 Graph 与原配置只读哈希核对。测试动作前/后比较生产 Graph 的10745份 .md/.edn/.json 和全局 .logseq 的29份同类文件，数量及 SHA-256 均相同；起点是在 Sandbox 启动后、验收动作前，不扩展成所有生产文件或全程监控的证明。
+
+验收资源收尾：本任务 Sandbox 的 Desktop/Kernel 进程已停止；独立数据库的 global maintenance pause 从测试用的 true 恢复为测试前的 false，读回一致（`sandbox-cleanup.json`）。保留 Sandbox Graph、材料、冲突草稿、历史记录和证据，不清理用户其他环境。
 
 未验证范围：真实中文 IME 候选/提交、系统粘贴/原生拖动、真实双 Graph、长期 soak 与真实远程 DeepSeek gate。本轮 Fake cognition 不消耗生产凭据。浏览器 insertText、合成事件与 Happy DOM 不作为这些条件的证明。未来 Workspace/动态剪枝/跨任务调度仍是需求。耗尽义务与 RECOVERY_REQUIRED 保持显式人工处理，不宣称自动解决所有来源冲突。
