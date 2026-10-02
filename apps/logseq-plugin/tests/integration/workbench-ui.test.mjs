@@ -193,6 +193,7 @@ test('composition root leaves runtime disabled while work and materials remain u
   };
   try {
     await import('../../src/index.ts');await boot;
+    for (const method of ["bind", "resolve", "refresh", "read", "unbind"]) assert.equal(typeof browser.taskCopilotWorkbench.workspace[method], "function");
     assert.equal(typeof browser.taskCopilotWorkbench.content.read,"function");
     assert.equal(browser.taskCopilotWorkbench.content.scope(),null);
     for (const method of ["list", "read", "capture", "associate", "save"]) assert.equal(typeof browser.taskCopilotWorkbench.materials[method], "function");
@@ -209,7 +210,7 @@ test('composition root leaves runtime disabled while work and materials remain u
     const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='材料');
     materials.click();await delay(20);
     assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
-    assert.equal(calls,0);assert.equal(subscriptions,1); // only the work-view DB listener
+    assert.equal(calls,0);assert.equal(subscriptions,2); // work-view and independent known-workspace observation; no task runtime
     await unload();await unload();
     assert.equal(browser.taskCopilotWorkbench,undefined);
   } finally {

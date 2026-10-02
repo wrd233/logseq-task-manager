@@ -1,0 +1,55 @@
+/** Shared, content-based reading contract. Offsets elsewhere use UTF-16 [start,end). */
+export type SourceScope = { graphId: string; rootUuid: string };
+export type BlockTarget = { kind: "logseq-block"; graphId: string; blockUuid: string };
+export type BlockSnapshot = {
+  sourceId: string; target: BlockTarget; content: string | null; contentVersion: string | null;
+  parentUuid: string | null; order: number; depth: number;
+  availability: "available" | "missing" | "unavailable";
+};
+export type SourceSnapshot = {
+  schemaVersion: 1; scope: SourceScope; blocks: readonly BlockSnapshot[];
+  structureVersion: string; sourceSetVersion: string; capturedAt: string;
+};
+export const MAX_BLOCKS = 10_000, MAX_TEXT = 8_000_000;
+export function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("WORKSPACE_INVALID_OBJECT");
+  return value as Record<string, unknown>;
+}
+export function identifier(value: unknown): string {
+  if (typeof value !== "string" || !value || value.length > 2048 || [...value].some(c => c.charCodeAt(0) < 32)) throw new Error("WORKSPACE_INVALID_ID");
+  return value;
+}
+export function scopeOf(value: unknown): SourceScope {
+  const scope = object(value); return {graphId: identifier(scope.graphId), rootUuid: identifier(scope.rootUuid)};
+}
+export const sourceId = (graphId: string, uuid: string): string => JSON.stringify(["logseq", graphId, uuid]);
+export async function sha256(text: string): Promise<string> {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+export async function snapshot(scope: SourceScope, blocks: readonly BlockSnapshot[], capturedAt = new Date().toISOString()): Promise<SourceSnapshot> {
+  return {schemaVersion: 1, scope, blocks,
+    structureVersion: await sha256(JSON.stringify(blocks.map(b => [b.sourceId, b.parentUuid, b.order, b.depth]))),
+    sourceSetVersion: await sha256(JSON.stringify(blocks.map(b => [b.sourceId, b.availability, b.contentVersion]))), capturedAt};
+}
+/** Disk/provider data is verified before it becomes a trusted reading result. */
+export async function validateSnapshot(value: unknown): Promise<SourceSnapshot> {
+  const data = object(value), scope = scopeOf(data.scope);
+  if (data.schemaVersion !== 1 || !Array.isArray(data.blocks) || !data.blocks.length || data.blocks.length > MAX_BLOCKS || typeof data.capturedAt !== "string" || !Number.isFinite(Date.parse(data.capturedAt))) throw new Error("WORKSPACE_INVALID_SNAPSHOT");
+  const blocks: BlockSnapshot[] = [], seen = new Set<string>(), ancestors: string[] = [], orders = new Map<string | null, number>(); let size = 0;
+  for (const raw of data.blocks) {
+    const b = object(raw), t = object(b.target), uuid = identifier(t.blockUuid);
+    if (t.kind !== "logseq-block" || t.graphId !== scope.graphId || b.sourceId !== sourceId(scope.graphId, uuid) || seen.has(uuid) || !Number.isSafeInteger(b.depth) || Number(b.depth) < 0 || Number(b.depth) > 128 || !Number.isSafeInteger(b.order) || Number(b.order) < 0 || (b.parentUuid !== null && typeof b.parentUuid !== "string")) throw new Error("WORKSPACE_INVALID_BLOCK");
+    seen.add(uuid);
+    const depth = Number(b.depth), expectedOrder = orders.get(b.parentUuid as string | null) ?? 0;
+    if ((!blocks.length && (uuid !== scope.rootUuid || depth !== 0 || b.parentUuid !== null || b.order !== 0)) || (blocks.length && (depth === 0 || depth > ancestors.length || b.parentUuid !== ancestors[depth - 1] || b.order !== expectedOrder))) throw new Error("WORKSPACE_INVALID_TOPOLOGY");
+    orders.set(b.parentUuid as string | null, expectedOrder + 1); ancestors.length = depth; ancestors.push(uuid);
+    if (b.availability === "available") {
+      if (typeof b.content !== "string" || (size += b.content.length) > MAX_TEXT || b.contentVersion !== await sha256(b.content)) throw new Error("WORKSPACE_CONTENT_VERSION_MISMATCH");
+    } else if ((b.availability !== "missing" && b.availability !== "unavailable") || b.content !== null || b.contentVersion !== null) throw new Error("WORKSPACE_INVALID_AVAILABILITY");
+    blocks.push({sourceId: b.sourceId as string, target: {kind: "logseq-block", graphId: scope.graphId, blockUuid: uuid}, content: b.content as string | null, contentVersion: b.contentVersion as string | null, parentUuid: b.parentUuid as string | null, order: Number(b.order), depth, availability: b.availability as BlockSnapshot["availability"]});
+  }
+  const result = await snapshot(scope, blocks, data.capturedAt);
+  if (result.structureVersion !== data.structureVersion || result.sourceSetVersion !== data.sourceSetVersion) throw new Error("WORKSPACE_SOURCE_VERSION_MISMATCH");
+  return result;
+}
