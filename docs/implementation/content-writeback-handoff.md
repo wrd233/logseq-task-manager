@@ -67,12 +67,12 @@ flowchart TD
 
 ## 自动化验证
 
-最终代码的定向测试 53 项通过；插件全套 223 项通过。完整 check 的 13 个测试组共 468 项通过。未跳过或降低原有断言。执行顺序为定向验证、插件检查与构建、边界检查、最后完整 npm run check。首次完整检查发现既有 composition fixture 缺少新增真实菜单注册所需的 SDK 方法，补齐 fixture；一次 UI 测试在正文已写而 Journal 尚未完成时清理目录，修正为等待实际恢复完成状态。这些问题修复后完整检查通过。
+最终代码的定向测试 54 项通过；插件全套 224 项通过。完整 check 的 13 个测试组共 469 项通过。未跳过或降低原有断言。执行顺序为定向验证、插件检查与构建、边界检查、最后完整 npm run check。首次完整检查发现既有 composition fixture 缺少新增真实菜单注册所需的 SDK 方法，补齐 fixture；一次 UI 测试在正文已写而 Journal 尚未完成时清理目录，修正为等待实际恢复完成状态。这些问题修复后完整检查通过。
 
 | 验证 | 结果与范围 |
 | --- | --- |
-| 定向 tsx --test | 53 PASS：纯逻辑、真实默认 SDK adapter、私有文件 Journal、模拟 DOM 和实际注册入口 |
-| 插件 typecheck / test / build | PASS；插件 223 tests，保留正式授权、presentation-only 和材料回归 |
+| 定向 tsx --test | 54 PASS：纯逻辑、真实默认 SDK adapter、私有文件 Journal、模拟 DOM 和实际注册入口 |
+| 插件 typecheck / test / build | PASS；插件 224 tests，保留正式授权、presentation-only 和材料回归 |
 | npm run check:boundaries | PASS；12 个检查器测试及实际依赖扫描 |
 | npm run check | PASS：requirements、所有 workspace typecheck/lint/test、sandbox tests、完整 build、boundaries、taste eval |
 | Taste candidate | PASS，KEEP_0.1.0_ACTIVE；未改变激活版本 |
@@ -118,7 +118,7 @@ Logseq 0.10.15 / SDK 0.3.4。使用本工作树的 sandbox:prepare 创建独立 
 
 SDK 没有 CAS，全局并发覆盖不能靠本程序队列彻底排除。Desktop 原生键入驱动失败不能由模拟测试替代；也不以 SDK 修改证明真实键盘提交已验收。
 
-本地证据保存在 tmp/content-writeback/（ignored，含合成正文，不进入 Git）：targeted-tests.log、full-check.log、desktop-facts.json、desktop-reload-facts.json、desktop-restart-verify.log、desktop-final-build.log、desktop-final-verify.log、desktop-draft-guard-facts.json、desktop-native-edit.log、desktop-conflict.png。最终构建已重新加载并复核入口、历史查询、幂等、材料权限和原生草稿保护；菜单驱动需等待宿主异步绘制，已修正等待，未降低断言。cdp.mjs / desktop-acceptance.mjs / desktop-reload.mjs / desktop-draft-guard.mjs 为本次独立验收脚本；不是外部 agent 网关。隔离进程最后通过本工作树 sandbox:stop 释放，数据与工作树保留。
+本地证据保存在 tmp/content-writeback/（ignored，含合成正文，不进入 Git）：targeted-tests.log、full-check.log、desktop-facts.json、desktop-reload-facts.json、desktop-restart-verify.log、desktop-final-build.log、desktop-final-verify.log、desktop-draft-guard-facts.json、desktop-native-edit.log、desktop-conflict.png。收尾构建已重新加载并复核入口、历史查询、幂等、材料权限和原生草稿保护；菜单驱动需等待宿主异步绘制，已修正等待，未降低断言。此后收窄内部 block 返回项，并对 Journal 写入增加与读取一致的大小上限，已重新执行定向和完整工程检查，未再次加载 Desktop。cdp.mjs / desktop-acceptance.mjs / desktop-reload.mjs / desktop-draft-guard.mjs 为本次独立验收脚本；不是外部 agent 网关。隔离进程最后通过本工作树 sandbox:stop 释放，数据与工作树保留。
 
 ## 后续接线清单
 
@@ -136,4 +136,5 @@ SDK 没有 CAS，全局并发覆盖不能靠本程序队列彻底排除。Deskto
 
 - b5250af41933210e53d2f77f595ce2b4d890859c：核心、默认 SDK / Journal / 受控 UI 及核心故障测试。
 - 009c2334dc7d7e16d5a9df48757c19885b1233bd：最小共享组合入口、注册/释放集成测试及既有 fixture 补齐。
-- 最后三份设计、架构和交接文档独立提交；文档提交自身的 SHA 以本分支 HEAD / git log 为准。
+- dac78d64f9716bbf5b540c20fb83bb87ab3eda5f：三份最终设计、架构和交接文档。
+- 收尾提交收紧内部单块查询端口，仅返回实际需要的正文、版本和父级；不将占用检查包装成带假 order/depth 的 Snapshot。同一提交补齐 Journal 大小检查及超大意图在写 Graph 前停止的测试；其 SHA 以本分支最终 HEAD / git log 为准。

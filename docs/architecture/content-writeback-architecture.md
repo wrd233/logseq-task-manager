@@ -18,6 +18,8 @@
 
 SourceReader、ScopeAuthority、EditingGuard、SourceWriter、OperationJournal 均为消费者定义的窄端口。Executor 不接触 DOM、Kernel 事务或材料目录。Adapter 可读既有正式 identity/index；正式 runtime 已运行且 Graph 匹配时复用 withSelfWrite，tasksEnabled=false 时独立走受保护 SDK。未修改 runtime、graph-adapter、observer 或身份缓存生命周期。
 
+SourceReader.read 返回完整、实际顺序的 Snapshot；内部 block 查询只返回正文、版本与真实父级，用于 UUID 占用检查和身份读回。它不发布虚构的局部 order/depth，也不通过诊断向调用方透露范围外正文。
+
 ```mermaid
 flowchart TB
   I["installer：受控本地入口"] --> A["ScopeAuthority"]
@@ -162,6 +164,8 @@ SDK 没有 CAS 或全局锁，检查与宿主处理间仍可能有外部写入�
 默认 logseq.FileStorage。当前 Desktop 实际目录为 Logseq home 的 .logseq/storages/task-copilot-vnext/，不是公开 Graph 正文、SQLite、descriptor 或材料 catalog。workspace 可后续提供 OperationJournal 存储约定。
 
 每请求键：content-writeback-v1-<SHA256(JSON.stringify([graphId,rootUuid,requestId]))>-<六位sequence>。修订保存完整记录并读回，不使用共享可覆盖 catalog。已存在不同内容的同修订不可覆盖；最新修订损坏时失败关闭，不退回旧意图重写。新目录 allKeys 返回 null 视为空目录，真实 IO 错误保持失败。SDK 没有提供 fsync/硬断电保证；中断窗口按未知处理。
+
+单条 Journal JSON 的读取与写入均限 16,777,216 个 UTF-16 单元。组合基础原文使意图超出上限时，执行在 dispatch 前停止，已有的小记录仍可查询和恢复；不保存一条自己随后无法读取的修订。
 
 Record 保存 schema、规范化 Patch/摘要、intentKind、可信调用来源、retryOf、时间、事实和用户处理选择。intentKind 区分 content-patch 与 scope-identity；身份关联不是公开属性写补丁。事实含基础/提议/实际/当前原文和完整版本、目标/父级/新 UUID、发出/确认/核验时间、身份前后版本、contentVerified/expectationObserved 和失败理由。没有 StageRecorder。
 

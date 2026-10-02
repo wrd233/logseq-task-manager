@@ -48,13 +48,13 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     const raw = await this.call(scope,valid,() => logseq.Editor.getBlock(parent.id as number));
     const parsed = rawBlock(raw); if (!parsed) fail("PARENT_UNAVAILABLE"); return parsed.uuid;
   }
-  async block(scope: SourceScope, uuid: string, valid: () => boolean): Promise<BlockSnapshot | null> {
+  async block(scope: SourceScope, uuid: string, valid: () => boolean): Promise<Pick<BlockSnapshot,"content"|"contentVersion"|"parentUuid"> | null> {
     const raw = await this.call(scope,valid,() => logseq.Editor.getBlock(uuid));
     if (!raw) return null;
     const block = rawBlock(raw); if (!block || block.uuid !== uuid) fail("SOURCE_SHAPE_UNSUPPORTED");
     const parentUuid = await this.parentUuid(scope,block,valid), version = await sha256(block.content);
     if (!valid()) fail("SCOPE_REVOKED");
-    return { sourceId: JSON.stringify(["logseq",scope.graphId,uuid]), target: {kind:"logseq-block",graphId:scope.graphId,blockUuid:uuid}, content:block.content,contentVersion:version,parentUuid,order:0,depth:0,availability:"available" };
+    return {content:block.content,contentVersion:version,parentUuid};
   }
   private async formalOwnership(scope: SourceScope, valid: () => boolean): Promise<FormalOwnership | null> {
     if (this.ownership) { const value = await this.ownership(scope); if (!valid()) fail("SCOPE_REVOKED"); return value; }

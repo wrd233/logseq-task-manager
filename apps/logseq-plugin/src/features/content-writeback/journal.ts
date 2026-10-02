@@ -6,6 +6,7 @@ export interface JournalStorage {
   getItem(key: string): Promise<unknown>; setItem(key: string, text: string): Promise<void>; allKeys(): Promise<unknown>;
 }
 const prefix = "content-writeback-v1-";
+const maxRecordLength = 16_777_216;
 export async function requestKey(scope: SourceScope, requestId: string): Promise<string> {
   return prefix + await sha256(JSON.stringify([scope.graphId, scope.rootUuid, requestId]));
 }
@@ -32,7 +33,7 @@ export class PrivateOperationJournal implements OperationJournal {
   }
   private async parse(key: string): Promise<RequestRecord> {
     const raw = await readOptionalPrivateItem(this.storage, key);
-    if (typeof raw !== "string" || raw.length > 16_777_216) fail("JOURNAL_UNREADABLE");
+    if (typeof raw !== "string" || raw.length > maxRecordLength) fail("JOURNAL_UNREADABLE");
     const record = JSON.parse(raw) as RequestRecord;
     if (record.schemaVersion !== 1 || !["content-patch","scope-identity"].includes(record.intentKind) || !Number.isSafeInteger(record.sequence) || record.sequence < 0 || !Array.isArray(record.items)) fail("JOURNAL_CORRUPT");
     const patch = parsePatch(record.patch);
@@ -51,7 +52,9 @@ export class PrivateOperationJournal implements OperationJournal {
   async save(record: RequestRecord): Promise<void> {
     if (record.sequence > 999_999) fail("JOURNAL_SEQUENCE_LIMIT");
     const key = `${await requestKey(record.patch.scope, record.patch.requestId)}-${String(record.sequence).padStart(6,"0")}`;
-    const raw = JSON.stringify(record), previous = await readOptionalPrivateItem(this.storage, key);
+    const raw = JSON.stringify(record);
+    if(raw.length>maxRecordLength)fail("JOURNAL_RECORD_TOO_LARGE");
+    const previous = await readOptionalPrivateItem(this.storage, key);
     if (previous !== null && previous !== undefined && previous !== raw) fail("JOURNAL_REVISION_COLLISION");
     if (previous !== raw) await this.storage.setItem(key, raw);
     if (await this.storage.getItem(key) !== raw) fail("JOURNAL_READBACK_MISMATCH");

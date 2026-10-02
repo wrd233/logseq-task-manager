@@ -53,7 +53,7 @@ export interface SourceRead {
 }
 export interface SourceReader {
   read(scope: SourceScope, valid: () => boolean): Promise<SourceRead>;
-  block(scope: SourceScope, uuid: string, valid: () => boolean): Promise<BlockSnapshot | null>;
+  block(scope: SourceScope, uuid: string, valid: () => boolean): Promise<Pick<BlockSnapshot,"content"|"contentVersion"|"parentUuid"> | null>;
 }
 export interface ScopeLease { scope: SourceScope; epoch: number; signal: AbortSignal; rootPath: readonly string[] | null }
 export interface ScopeAuthority {

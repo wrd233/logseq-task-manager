@@ -211,6 +211,17 @@ test("partial batch records real success/conflict and explicit retry uses the ne
     const successful=await f.text(f.a,"applied","bad retry");successful.operationId=payload.operations[0]!.operationId;await assert.rejects(f.executor.retry(f.scope,payload.requestId,f.patch([successful])),/RETRY_NOT_PROVEN_UNAPPLIED/);
   }finally{await f.cleanup();}
 });
+test("an oversized combined journal intent stops before Graph dispatch and its earlier intent stays readable",async()=>{
+  const f=await contentFixture();try{
+    f.blocks.get(f.a)!.content="A".repeat(262_144);
+    const base=await f.text(f.a,"A","B",0);
+    const payload=f.patch(Array.from({length:64},(_,i)=>({...base,operationId:`large-${i}`,range:{start:i,end:i+1}})));
+    const write=await f.executor.apply(payload);assert.equal(write.durable,false);assert.equal(write.journalProblem,"JOURNAL_RECORD_TOO_LARGE");
+    assert.equal(f.counts().writes,0);assert.ok(write.record.items.every(item=>item.status==="NOT_APPLIED"));
+    const recovered=await f.createExecutor().recover(f.scope,payload.requestId);assert.equal(recovered.durable,true);assert.ok(recovered.record.items.every(item=>item.status==="NOT_APPLIED"));
+    assert.equal(f.blocks.get(f.a)!.content,"A".repeat(262_144));
+  }finally{await f.cleanup();}
+});
 test("intent journal failure stops before any source call; pending pre-dispatch record recovers as unapplied",async()=>{
   const f=await contentFixture();try{
     f.onStorage(async()=>{throw Error("disk unavailable");});const write=await f.executor.apply(f.patch([await f.text(f.a,"Beta","no")]));assert.equal(write.durable,false);assert.equal(write.status,"not-applied");assert.equal(f.counts().writes,0);
