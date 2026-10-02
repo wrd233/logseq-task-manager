@@ -90,6 +90,8 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     resumeIdentity:async(input:unknown)=>{const value=fields(input,["requestId","operationId"]);return executor.resumeIdentity(scope(),identifier(value.requestId),identifier(value.operationId));},
     revoke:()=>{setup++;authority.revoke();ui.close();},
   };
-  return {api,dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  // Trusted installers may establish a locally selected scope and retain its actual
+  // lease. These ports are deliberately absent from the public content namespace.
+  return {api,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

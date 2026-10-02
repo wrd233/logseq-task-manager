@@ -10,8 +10,16 @@ import { MaterialStore, ConflictError, normalizeRoot, idFrom, restoreCapture, ti
 
 interface MarkdownEditor { getValue(): string; setValue(text: string, clearStack?: boolean): void; destroy(): void }
 interface EditorConstructor { new (root: HTMLElement, options: Record<string, unknown>): MarkdownEditor }
+export interface DirectoryObservationPort {
+  available(context: MaterialWorkContext): boolean;
+  list(context: MaterialWorkContext): Promise<{files: Array<{path:string;kind:string;availability:string;materialId:string|null}>;truncated:boolean}>;
+  read(path:string,context:MaterialWorkContext):Promise<{content?:string|null;reason?:string;read?:string}>;
+  associate(path:string,context:MaterialWorkContext):Promise<MaterialResult>;
+}
 
 export class Materials {
+  private directoryObserver:DirectoryObservationPort|null=null;
+  setDirectoryObserver(port:DirectoryObservationPort|null):void {this.directoryObserver=port;}
   readonly panel: FeaturePanel;
   private store: MaterialStore | null = null;
   private service: MaterialService | null = null;
@@ -119,6 +127,8 @@ export class Materials {
     }
     return {graph, sourceUuid: uuid, directory: null, organization: "flat"};
   }
+  /** Trusted consumer port; preserves the existing nearest explicit binding. */
+  workspaceContext(uuid: string): Promise<MaterialWorkContext> { return this.workContext(uuid); }
   async bindDirectory(sourceUuid: string, directory: string | null, organization: "flat" | "project" = "flat"): Promise<void> {
     const service = await this.ensureService(), epoch = this.epoch;
     const root = directory ? normalizeRoot(directory.trim(), this.graph) : null;
@@ -390,6 +400,26 @@ export class Materials {
   private async directoryFiles(): Promise<void> {
     const epoch = this.epoch, service = await this.ensureService(), context = await this.workContext(this.contextUuid);
     if (!context.directory) throw new Error("请先绑定工作目录。");
+    const observer=this.directoryObserver;
+    if(observer?.available(context)){
+      const observed=await observer.list(context);this.assertScope(epoch);
+      const list=element("div");this.body.replaceChildren(list);
+      list.append(button("‹ 已关联材料",()=>void this.library(this.contextUuid).catch(this.fail)));
+      for(const file of observed.files){
+        if(file.kind!=="file")continue;
+        const row=element("div","","wb-material"),label=element("span",file.path);row.append(label);
+        const read=async()=>{
+          if(file.materialId){await this.openDoc(file.materialId);return;}
+          const view=await observer.read(file.path,context);this.assertScope(epoch);
+          const body=element("pre",view.content??"此文件仅支持元信息；可关联后用原生应用打开。","wb-reading");body.style.whiteSpace="pre-wrap";
+          this.body.replaceChildren(button("‹ 目录文件",()=>void this.directoryFiles().catch(this.fail)),body);
+        };
+        if(file.availability==="available")row.append(button("阅读",()=>void read().catch(this.fail)));
+        if(!file.materialId&&file.availability==="available")row.append(button("关联",()=>void observer.associate(file.path,context).then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail)));
+        list.append(row);
+      }
+      this.message(observed.truncated?"目录过大，部分范围未列出。可通过 agent 查询具体路径。":"已连接此工作；文件直接可见，关联后沿用材料权限。大小与时间相同不表示正文未变。");return;
+    }
     const entries = await service.io.list(context.directory); this.assertScope(epoch);
     const list = element("div"); this.body.replaceChildren(list);
     list.append(button("‹ 已关联材料", () => void this.library(this.contextUuid).catch(this.fail)));
