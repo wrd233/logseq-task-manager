@@ -81,4 +81,3 @@ test("all available natural-work capabilities install without a Kernel and draft
     await assert.rejects(async () => api.materials.list(), /关闭/);
   } finally { await f.unload(); globalThis.fetch = fetch; await f.cleanup(); }
 });
-
