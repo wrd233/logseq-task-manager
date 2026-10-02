@@ -1327,6 +1327,8 @@ flowchart TB
 
 当前材料收纳主要使用全局配置目录，参考文件目前限定绝对路径 Markdown；PDF、图像、目录集合和本设计的就近工作区管理仍需适配。不能在用户设计中将未来读取能力写成已经可用。
 
+> 材料模块本轮实现状态：就近目录绑定、已知多目录定位、显式/Agent 收纳、普通文件关联、阅读优先和权限检查已接入。范围、实际接口与验证分别见[材料产品设计](materials-module-design.md)、[材料架构](../architecture/materials-module-architecture.md)和[整合验证](../integration/VALIDATION.md)。本补充不改变已确认需求，完整 Workspace、镜像、阶段与聚焦仍未实施，行动建议保持取消。
+
 ### 20.2 演进顺序建议
 
 ![图 18：先确保同一内容可靠，再优化如何少读、如何看变化。行动建议不出现在演进链中。](assets/2026-10-02-workspace-diagrams/figure-18.svg)

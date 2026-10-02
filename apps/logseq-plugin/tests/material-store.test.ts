@@ -27,7 +27,7 @@ test("capture keeps exact original and restoring rejects duplicate or changed re
   const f = await fixture();
   try {
     const original = "# 示例\r\n\r\n```js\r\n中\r\n```\r\n", doc = await f.store.create(original, {sourceUuid: "source"});
-    await f.store.save(doc.id, original, "later edit");
+    await f.store.grantEditing(doc.id); await f.store.save(doc.id, original, "later edit");
     assert.equal(restoreCapture(`前 ${makeLink(doc)} 后`, await f.store.record(doc.id)), `前 ${original} 后`);
     assert.throws(() => restoreCapture(makeLink(doc) + makeLink(doc), doc));
     assert.throws(() => restoreCapture("changed", doc));
@@ -40,7 +40,7 @@ test("associated Markdown remains at its original path and saves preserve histor
     const doc = await f.store.reference(path, {graph: "/g"});
     assert.equal(doc.kind, "reference"); assert.equal(await f.store.path(doc.id), path);
     assert.equal(await f.store.read(doc.id), "# Existing\nbase");
-    await f.store.save(doc.id, "# Existing\nbase", "# Existing\nnext");
+    await f.store.grantEditing(doc.id); await f.store.save(doc.id, "# Existing\nbase", "# Existing\nnext");
     assert.equal(await readFile(path, "utf8"), "# Existing\nnext");
     const history = await readdir(join(f.root, ".longdoc/history"));
     assert.equal(await readFile(join(f.root, ".longdoc/history", history[0]!), "utf8"), "# Existing\nbase");
@@ -50,7 +50,7 @@ test("associated Markdown remains at its original path and saves preserve histor
 test("external edits and backup failures never overwrite a stale source", async () => {
   const f = await fixture();
   try {
-    const doc = await f.store.create("base"); await writeFile(f.store.file(doc.id), "external");
+    const doc = await f.store.create("base", {role: "draft"}); await writeFile(await f.store.path(doc.id), "external");
     await assert.rejects(f.store.save(doc.id, "base", "local"), ConflictError);
     const write = f.io.write;
     f.io.write = (path, text) => path.includes("/history/") ? Promise.reject(new Error("disk full")) : write(path, text);
@@ -61,22 +61,21 @@ test("external edits and backup failures never overwrite a stale source", async 
 test("external write during backup is detected, and silent IO failure is not a save", async () => {
   const f = await fixture();
   try {
-    const doc = await f.store.create("base"), write = f.io.write;
-    f.io.write = async (path, text) => { await write(path, text); if (path.includes("/history/")) await write(f.store.file(doc.id), "external"); };
+    const doc = await f.store.create("base", {role: "draft"}), write = f.io.write;
+    f.io.write = async (path, text) => { await write(path, text); if (path.includes("/history/")) await write(await f.store.path(doc.id), "external"); };
     await assert.rejects(f.store.save(doc.id, "base", "local"), ConflictError);
     f.io.write = async () => undefined;
     await assert.rejects(f.store.save(doc.id, "external", "local"));
     assert.equal(await f.store.read(doc.id), "external");
   } finally { await f.cleanup(); }
 });
-test("record commit failures retain the body and invalid roots are refused", async () => {
+test("record reservation failures create no orphan body and invalid roots are refused", async () => {
   const f = await fixture();
   try {
     const write = f.io.write;
-    f.io.write = (path, text) => path.endsWith(".json") ? Promise.reject(new Error("record failed")) : write(path, text);
+    f.io.write = (path, text) => path.includes(".json.") ? Promise.reject(new Error("record failed")) : write(path, text);
     await assert.rejects(f.store.create("original"), /record failed/);
-    const bodies = (await readdir(f.root)).filter(path => path.endsWith(".md"));
-    assert.equal(await readFile(join(f.root, bodies[0]!), "utf8"), "original");
+    assert.equal((await readdir(f.root)).filter(path => path.endsWith(".md")).length, 0); // record reservation fails before the body is created
     for (const root of ["relative", "/", "/graph", "/graph/docs", "/x/../graph"]) assert.throws(() => normalizeRoot(root, "/graph"));
   } finally { await f.cleanup(); }
 });

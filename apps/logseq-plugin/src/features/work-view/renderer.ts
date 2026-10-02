@@ -1,3 +1,4 @@
+import { safeMarkdownURI } from "../materials/links.ts";
 import DOMPurify from "dompurify";
 import { marked } from "./vendor/marked.js";
 import { button, element } from "../../host/panel-host.ts";
@@ -85,7 +86,7 @@ export class WorkViewRenderer {
       entry.fold.setAttribute("aria-label", folded ? "展开子项" : "折叠子项");
       entry.body.classList.toggle("expanded", state.expanded.includes(item.uuid));
       if (!hidden && entry.content !== row.content) {
-        entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
+        entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
         entry.content = row.content;
       }
       const override = state.overrides[item.uuid] ?? "auto";

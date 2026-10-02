@@ -66,6 +66,7 @@ test('combined panels preserve source text, load linked material and retain conf
     if(op==='readFile'){if(!files.has(args[0]))throw Error('ENOENT');return files.get(args[0]);}
     if(op==='writeFile'){files.set(args[1],args[2]);return;}
     if(op==='mkdir-recur')return;
+    if(op==='stat'){if(files.has(args[0]))return {mode:0o100644,size:1};throw Error('ENOENT');}
     if(op==='rename'){files.set(args[1],files.get(args[0]));files.delete(args[0]);return;}
     if(op==='listdir')return [...files.keys()].filter(path=>path.startsWith(args[0]+'/'));
     throw Error('unknown bridge op');
@@ -81,7 +82,7 @@ test('combined panels preserve source text, load linked material and retain conf
   const {WorkView} = await import('../../src/features/work-view/controller.ts');
   const {Materials} = await import('../../src/features/materials/controller.ts');
   const {MaterialStore} = await import('../../src/features/materials/store.ts');
-  const io = {read:async path=>files.get(path),write:async(path,text)=>{files.set(path,text);},mkdir:async()=>{},rename:async(from,to)=>{files.set(to,files.get(from));files.delete(from);},list:async path=>[...files.keys()].filter(file=>file.startsWith(path+'/'))};
+  const io = {read:async path=>{if(!files.has(path))throw Error('ENOENT');return files.get(path);},write:async(path,text)=>{files.set(path,text);},mkdir:async()=>{},rename:async(from,to)=>{files.set(to,files.get(from));files.delete(from);},list:async path=>[...files.keys()].filter(file=>file.startsWith(path+'/'))};
   const store = new MaterialStore(io,'/materials');
   const record = await store.create('# 材料\nbase',{graph:'/graph',sourceUuid:'root'});
   const materials = new Materials(), work = new WorkView(()=>{});
@@ -94,18 +95,18 @@ test('combined panels preserve source text, load linked material and retain conf
     assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'sync-source'}).ok,false);
     assert.equal(JSON.stringify([...blocks]),original);
     await materials.library(); assert.equal(work.panel.visible,false); assert.equal(materials.panel.visible,true);
-    await materials.openDoc(record.id); assert.equal(fakeEditor.value,'# 材料\nbase');
+    await materials.openDoc(record.id); await materials.beginEditing(); assert.equal(fakeEditor.value,'# 材料\nbase');
     fakeEditor.value='# 材料\nlocal';
-    files.set(store.file(record.id),'# 材料\nexternal');
+    files.set(record.path,'# 材料\nexternal');
     await work.open('root');
     assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
-    assert.equal(files.get(store.file(record.id)),'# 材料\nexternal');
+    assert.equal(files.get(record.path),'# 材料\nexternal');
     const draft=JSON.parse(browser.localStorage.getItem(`workbench:draft:/graph:${record.id}`));
     assert.equal(draft.text,'# 材料\nlocal'); assert.equal(draft.base,'# 材料\nbase');
-    await materials.openDoc(record.id);
+    await materials.openDoc(record.id); await materials.beginEditing();
     assert.equal(fakeEditor.value,'# 材料\nlocal');
     assert.equal(materials.panel.root.querySelector('.wb-conflict').hidden,false);
-    assert.equal(files.get(store.file(record.id)),'# 材料\nexternal');
+    assert.equal(files.get(record.path),'# 材料\nexternal');
 
     // A failed capture must return the original paste when the editor is still unchanged.
     globalThis.logseq.settings.materialsAutoCapture=true; globalThis.logseq.settings.materialsDirectory='/graph/invalid';
@@ -119,7 +120,7 @@ test('combined panels preserve source text, load linked material and retain conf
     target.dispatchEvent(event);
     for(let i=0;i<40&&!fallback;i++)await delay(5);
     assert.equal(event.defaultPrevented,true); assert.equal(fallback,1); assert.equal(target.value,plain);
-    assert.equal([...Array(browser.localStorage.length)].map((_,i)=>browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')),false);
+    assert.equal([...Array(browser.localStorage.length)].map((_,i)=>browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')),true); // recovery remains when disk work failed
   } finally {
     work.dispose(); materials.dispose(); await browser.happyDOM.abort();
     delete globalThis.logseq; delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location;
@@ -183,6 +184,8 @@ test('composition root leaves runtime disabled while work and materials remain u
   };
   try {
     await import('../../src/index.ts');await boot;
+    for (const method of ["list", "read", "capture", "associate", "save"]) assert.equal(typeof browser.taskCopilotWorkbench.materials[method], "function");
+    assert.deepEqual(await browser.taskCopilotWorkbench.materials.list(), {status:"success",materials:[],problems:[]});
     await browser.taskCopilotWorkbench.open('root');
     assert.equal(browser.taskCopilotWorkbench.read().root,'root');
     const nav=browser.document.querySelector('#workbench-navigation');
@@ -196,4 +199,19 @@ test('composition root leaves runtime disabled while work and materials remain u
     await unload?.();globalThis.fetch=fetch;await browser.happyDOM.abort();
     delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.localStorage;
   }
+});
+
+test('material references survive work-view and reading sanitization while executable and malformed URIs remain stripped', async () => {
+  const browser=new Window({url:'http://localhost/plugin/'});
+  globalThis.window=browser;globalThis.document=browser.document;
+  try {
+    const {renderReading}=await import('../../src/features/materials/ui.ts');
+    const {WorkViewRenderer}=await import('../../src/features/work-view/renderer.ts');
+    const id=crypto.randomUUID(), text=`[材料](longdoc://${id}) [unsafe](javascript:alert(1)) [bad](longdoc://wrong)`;
+    const article=renderReading(text);
+    const links=[...article.querySelectorAll('a')];assert.equal(links[0].getAttribute('href'),`longdoc://${id}`);assert.equal(links[1].getAttribute('href'),null);assert.equal(links[2].getAttribute('href'),null);
+    const container=browser.document.createElement('div'),renderer=new WorkViewRenderer(container,{operation:()=>{},toggle:()=>{},raw:()=>{},locate:()=>{},enter:()=>{}});
+    renderer.render([{uuid:'source',content:text,depth:0}],{items:[{uuid:'source',depth:0}],collapsed:[],selected:null,expanded:[],overrides:{}},new Set());
+    assert.equal(container.querySelector('a').getAttribute('href'),`longdoc://${id}`);
+  } finally {await browser.happyDOM.abort();delete globalThis.window;delete globalThis.document;}
 });
