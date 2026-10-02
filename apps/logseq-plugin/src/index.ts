@@ -24,12 +24,15 @@ async function main(): Promise<void> {
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
   let disposed = false;
+  const host = window as Window & {taskCopilotWorkbench?: unknown};
+  let publishedApi: unknown = null;
   let removeNavigation: () => void = () => undefined;
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
-    delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
+    content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation();
+    if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
+    await stopTasks?.();
   };
   logseq.beforeunload(dispose);
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
@@ -56,14 +59,15 @@ async function main(): Promise<void> {
   removeNavigation = installNavigation(actions);
   logseq.provideModel({ workbenchOpen: () => { if (disposed) return; if (work) void work.open().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
-  const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
+  const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
+  const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback();
   const api = {
-    read: () => work?.snapshot() ?? null,
-    open: (uuid?: string) => work?.open(uuid),
-    openMaterial: (id: string) => materials?.openDoc(id, currentWorkRoot()),
-    close: () => panels.closeActive(),
-    apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
+    read: () => disposed ? null : work?.snapshot() ?? null,
+    open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },
+    openMaterial: async (id: string) => { requireActive(); await materials?.openDoc(id, currentWorkRoot()); },
+    close: async () => { if (!disposed) await panels.closeActive(); },
+    apply: (operation: unknown) => disposed ? {ok: false, reason: "workbench-disposed"} : work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     content: content.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
@@ -72,10 +76,11 @@ async function main(): Promise<void> {
       associate: (input: {id?: string; path?: string; sourceUuid: string}) => requireMaterials().associateMaterial(input),
       save: (input: {id: string; expectedVersion: string; expectedContent: string; next: string}) => requireMaterials().saveMaterial(input.id, input.expectedVersion, input.expectedContent, input.next),
     },
-    readMaterials: (content: string) => materials?.linkedContext(content) ?? Promise.resolve([]),
+    readMaterials: async (content: string) => { requireActive(); return materials?.linkedContext(content) ?? []; },
     lenses: work?.lensesAPI ?? null,
   };
-  (window as Window & {taskCopilotWorkbench?: typeof api}).taskCopilotWorkbench = api;
+  publishedApi = api;
+  host.taskCopilotWorkbench = api;
 }
 
 logseq.ready(main).catch(error => console.error("Workbench bootstrap failed", error));
