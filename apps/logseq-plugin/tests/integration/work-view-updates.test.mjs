@@ -178,3 +178,23 @@ test('reading anchor follows current DOM order after manual layout rather than o
     assert.equal(container.scrollTop, 0); assert.equal(first.getBoundingClientRect().top, 0);
   } finally { await f.close(); }
 });
+
+test('reading anchor preserves browser scroll adjustment already applied during layout', async () => {
+  const f = await fixture();
+  try {
+    await f.work.open('root');
+    const root = row(f, 'root'), first = row(f, 'b0'), container = root.parentElement;
+    let adjusted = false;
+    const height = () => {
+      const larger = root.querySelector('.wb-body').textContent.includes('larger');
+      // A real browser may anchor the scroll while a geometry read forces layout.
+      if (larger && !adjusted) { container.scrollTop += 100; adjusted = true; }
+      return larger ? 200 : 100;
+    };
+    container.getBoundingClientRect = () => ({ top: 0, bottom: 100 });
+    root.getBoundingClientRect = () => ({ top: 0 - container.scrollTop, bottom: height() - container.scrollTop });
+    first.getBoundingClientRect = () => ({ top: height() - container.scrollTop, bottom: height() + 50 - container.scrollTop });
+    container.scrollTop = 100; f.content('root', 'larger body'); await delay(70);
+    assert.equal(adjusted, true); assert.equal(container.scrollTop, 200); assert.equal(first.getBoundingClientRect().top, 0);
+  } finally { await f.close(); }
+});

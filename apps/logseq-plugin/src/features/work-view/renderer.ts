@@ -105,7 +105,11 @@ export class WorkViewRenderer {
       cursor = entry.node.nextElementSibling;
     });
     if (focused?.isConnected && this.container.contains(focused) && document.activeElement !== focused && !focused.closest("[hidden]")) focused.focus({ preventScroll: true });
-    this.container.scrollTop = anchor?.isConnected && !anchor.hidden ? scroll + anchor.getBoundingClientRect().top - top - anchorOffset : scroll;
+    if (anchor?.isConnected && !anchor.hidden) {
+      // Layout may already have applied the browser's scroll anchoring. Preserve that adjustment.
+      const offset = anchor.getBoundingClientRect().top - top;
+      this.container.scrollTop += offset - anchorOffset;
+    } else this.container.scrollTop = scroll;
   }
 
   clear(): void { this.entries.clear(); this.container.replaceChildren(); }
