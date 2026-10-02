@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { Kernel } from "@task-copilot/kernel";
+import { ContextAssociations, Kernel } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { parseSemanticOperation, stableHash, type CognitionExecutor, type GraphGatewayResponse } from "@task-copilot/contracts";
 import { GraphRequestBroker } from "../src/graph-broker.ts";
@@ -87,10 +87,10 @@ test("Discovery skips ACTIVE associations by graph and block and does not call c
   const maintenance = new MaintenanceCoordinator(f.kernel, f.store, broker, { delivery: { drain: async () => 0 } }, { id: "fixture", judge: async () => ({ kind: "NO_CHANGE", dimension: "engagement", rationaleSummary: "stable" }) }, FAKE_COGNITION_PROFILE);
   const discovery = new DiscoveryCoordinator(f.kernel, f.store, broker, maintenance, { id: "fixture", judge: async ({ contextPack }) => { calls++; return [{ kind: "NO_CANDIDATE", sourceHandles: contextPack.map(x => x.handle), reason: "ONE_OFF", rationaleSummary: "natural" }]; } }, { ...FAKE_COGNITION_PROFILE, allowedDataScope: ["discovery_today"] }, { now: () => at });
   try {
-    const association = f.kernel.context.associateContext({ workObjectId: f.id, sourceRef: { graphId: "graph", blockUuid: "source" }, sourceVersionHash: "old", origin: "USER_EXPLICIT" });
+    const association = new ContextAssociations(f.store, () => at).associateContext({ workObjectId: f.id, sourceRef: { graphId: "graph", blockUuid: "source" }, sourceVersionHash: "old", origin: "USER_EXPLICIT" });
     const scope = { kind: "EXPLICIT_SOURCE_SET", sources: [{ graphId: "graph", blockUuid: "source" }] } as const;
     assert.equal((await discovery.runDiscovery(scope)).selectedCount, 0); assert.equal(calls, 0);
-    f.kernel.context.invalidateContextAssociation(association.id);
+    new ContextAssociations(f.store, () => at).invalidateContextAssociation(association.id);
     // An invalidated association itself no longer filters; unchanged prior source
     // outcomes may still do so under the existing content-change policy.
     broker.request = async request => { if (request.kind !== "READ_BLOCK") throw Error("fixture"); return { kind: "READ_BLOCK", block: { graphId: "graph", blockUuid: "source", pageName: null, content: "new natural", contentHash: stableHash("new natural") } }; };

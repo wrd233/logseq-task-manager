@@ -1,19 +1,15 @@
-import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type GraphBlockRead, type GraphEffect, type GraphGatewayResponse, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit, type ProjectionObligation } from "@task-copilot/contracts";
+import { deterministicUuid, EXTERNAL_CURRENT_FOCUS_RESULT_CONTRACT, EXTERNAL_ENGAGEMENT_RESULT_CONTRACT, stableHash, type AddReferenceCuration, type AgentRunReceipt, type CurationReceipt, type DecisionCandidate, type DecisionPackage, type GraphBlockRead, type GraphEffect, type GraphPageRead, type GraphReadReceipt, type GraphSearchMatch, type StoredCommit, type ProjectionObligation } from "@task-copilot/contracts";
 import { KernelError } from "@task-copilot/kernel";
 import type { Kernel } from "@task-copilot/kernel";
-import type { SqliteStore } from "@task-copilot/sqlite";
+import type { ExternalAgentStore } from "./store-ports.ts";
 
-import type { GraphRequestBroker } from "./graph-broker.ts";
+import { expectGraphResponse as response, type GraphRequestBroker } from "./graph-broker.ts";
 import type { ProjectionDelivery } from "./projection-delivery.ts";
 
-function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayResponse, kind: T): Extract<GraphGatewayResponse, { kind: T }> {
-  if (value.kind !== kind) throw new KernelError("GRAPH_RESPONSE_KIND_MISMATCH", "Graph Adapter returned another response kind.");
-  return value as Extract<GraphGatewayResponse, { kind: T }>;
-}
 
 export class ExternalAgentCoordinator {
-  readonly #kernel: Kernel; readonly #store: SqliteStore; readonly #broker: GraphRequestBroker; readonly #now: () => string;
-  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, private readonly delivery: Pick<ProjectionDelivery, "drain">, now: () => string = () => new Date().toISOString()) { this.#kernel = kernel; this.#store = store; this.#broker = broker; this.#now = now; }
+  readonly #kernel: Kernel; readonly #store: ExternalAgentStore; readonly #broker: GraphRequestBroker; readonly #now: () => string;
+  constructor(kernel: Kernel, store: ExternalAgentStore, broker: GraphRequestBroker, private readonly delivery: Pick<ProjectionDelivery, "drain">, now: () => string = () => new Date().toISOString()) { this.#kernel = kernel; this.#store = store; this.#broker = broker; this.#now = now; }
 
   bootstrap() {
     const graph = this.#broker.status();
@@ -58,7 +54,9 @@ export class ExternalAgentCoordinator {
 
   #receipt(runId: string, kind: GraphReadReceipt["kind"], locator: string, contentHash: string): GraphReadReceipt {
     const receipt = { id: deterministicUuid(`graph-read:${runId}:${kind}:${locator}:${contentHash}`), agentRunId: runId, kind, locator, contentHash, readAt: this.#now() } satisfies GraphReadReceipt;
-    try { this.#store.putGraphReadReceipt(receipt); } catch { throw new KernelError("GRAPH_READ_RUN_NOT_ACTIVE", "--run must identify an active External AgentRun."); }
+    const run = this.#store.getAgentRun(runId);
+    if (!run || run.executor.type !== "EXTERNAL_CLI" || run.state !== "STARTED") throw new KernelError("GRAPH_READ_RUN_NOT_ACTIVE", "--run must identify an active External AgentRun.");
+    this.#store.putGraphReadReceipt(receipt);
     return receipt;
   }
 

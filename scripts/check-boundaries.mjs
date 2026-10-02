@@ -7,14 +7,42 @@ import process from "node:process";
 import ts from "typescript";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const optionsByConfig = new Map();
+function compilerOptionsFor(path) {
+  const config = ts.findConfigFile(dirname(path), ts.sys.fileExists);
+  if (!config) return {};
+  if (!optionsByConfig.has(config)) {
+    const read = ts.readConfigFile(config, ts.sys.readFile);
+    if (read.error) throw new Error(`Cannot read boundary config: ${config}`);
+    optionsByConfig.set(config, ts.parseJsonConfigFileContent(read.config, ts.sys, dirname(config)).options);
+  }
+  return optionsByConfig.get(config);
+}
+function importTargets(name, source, options) {
+  const targets = [name.startsWith(".") ? resolve(dirname(source), name) : name];
+  for (const [alias, replacements] of Object.entries(options.paths ?? {})) {
+    const star = alias.indexOf("*"), prefix = star < 0 ? alias : alias.slice(0, star), suffix = star < 0 ? "" : alias.slice(star + 1);
+    if (star < 0 ? name !== alias : !name.startsWith(prefix) || !name.endsWith(suffix)) continue;
+    const matched = star < 0 ? "" : name.slice(prefix.length, name.length - suffix.length);
+    for (const replacement of replacements) targets.push(resolve(options.baseUrl ?? repo, replacement.replace("*", matched)));
+  }
+  const resolved = ts.resolveModuleName(name, source, options, ts.sys).resolvedModule;
+  if (resolved) targets.push(resolved.resolvedFileName);
+  return targets;
+}
 
 /** Check real import edges, including re-exports and literal dynamic imports. */
-export function assertImportBoundaries(path, content) {
+export function assertImportBoundaries(path, content, compilerOptions) {
   const absolute = resolve(repo, path);
   const workView = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/work-view")}/`);
   const contracts = absolute.startsWith(`${resolve(repo, "packages/contracts/src")}/`);
   const kernel = absolute.startsWith(`${resolve(repo, "packages/kernel/src")}/`);
-  const serviceCapability = /apps\/kernel-service\/src\/(?:projection-coordinator|closure-readiness|closure-gate|closure-assessment-coordinator|maintenance-coordinator|projection-delivery)\.ts$/u.test(absolute);
+  const serviceCapability = absolute.startsWith(`${resolve(repo, "apps/kernel-service/src")}/`) && absolute !== resolve(repo, "apps/kernel-service/src/server.ts");
+  const plugin = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src")}/`);
+  const cli = absolute.startsWith(`${resolve(repo, "apps/task-copilot-cli/src")}/`) && absolute !== resolve(repo, "apps/task-copilot-cli/src/local-runtime.ts");
+  const domain = absolute.startsWith(`${resolve(repo, "packages/domain/src")}/`);
+  const agent = absolute.startsWith(`${resolve(repo, "packages/agent/src")}/`);
+  const options = compilerOptions ?? compilerOptionsFor(absolute);
   const runtime = absolute === resolve(repo, "apps/logseq-plugin/src/plugin-runtime.ts");
   const pluginHost = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/host")}/`);
   const taskUi = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`);
@@ -22,22 +50,26 @@ export function assertImportBoundaries(path, content) {
   function check(specifier) {
     if (!specifier || !ts.isStringLiteralLike(specifier)) return;
     const name = specifier.text;
-    const target = name.startsWith(".") ? resolve(dirname(absolute), name) : name;
-    if (pluginHost && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features")}/`)) throw new Error(`Plugin host must not depend on feature implementations: ${path} imports ${name}`);
-    if (runtime && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features")}/`)) throw new Error(`Runtime must not depend on feature controllers: ${path} imports ${name}`);
-    if (taskUi && /\/(?:graph-gateway-worker|source-change-observer)\.ts$/u.test(target)) throw new Error(`Task UI must not own background resources: ${path} imports ${name}`);
-    if (workView && target.startsWith(`${resolve(repo, "apps/logseq-plugin/src/features/task-center")}/`)) {
+    const targets = importTargets(name, absolute, options);
+    const inside = directory => targets.some(target => target.startsWith(`${resolve(repo, directory)}/`));
+    const sqlite = /^(?:@task-copilot\/sqlite(?:\/|$)|better-sqlite3(?:\/|$)|(?:node:)?sqlite$)/u.test(name) || inside("packages/sqlite");
+    if ((kernel || serviceCapability || plugin || cli) && sqlite) throw new Error(`Application capability must use its storage port: ${path} imports ${name}`);
+    if ((domain || agent) && (sqlite || /^(?:@logseq(?:\/|$)|(?:node:)?http(?:$|\/)|@task-copilot\/client(?:\/|$))/u.test(name) || inside("packages/client"))) throw new Error(`Domain and Agent remain infrastructure-free: ${path} imports ${name}`);
+    if (pluginHost && inside("apps/logseq-plugin/src/features")) throw new Error(`Plugin host must not depend on feature implementations: ${path} imports ${name}`);
+    if (runtime && inside("apps/logseq-plugin/src/features")) throw new Error(`Runtime must not depend on feature controllers: ${path} imports ${name}`);
+    if (taskUi && targets.some(target => /\/(?:graph-gateway-worker|source-change-observer)(?:\.(?:ts|mjs))?$/u.test(target))) throw new Error(`Task UI must not own background resources: ${path} imports ${name}`);
+    if (workView && inside("apps/logseq-plugin/src/features/task-center")) {
       throw new Error(`Work view must not depend on task UI: ${path} imports ${name}`);
     }
-    if (contracts && (isBuiltin(name) || /^(?:@logseq(?:\/|$)|@task-copilot\/(?:sqlite|kernel|client)(?:\/|$)|better-sqlite3$)/u.test(name))) {
+    if (contracts && (sqlite || inside("packages/kernel") || inside("packages/client") || isBuiltin(name) || /^(?:@logseq(?:\/|$)|@task-copilot\/(?:sqlite|kernel|client)(?:\/|$)|better-sqlite3$)/u.test(name))) {
       throw new Error(`Contracts must remain browser-safe: ${path} imports ${name}`);
     }
-    if ((kernel || serviceCapability) && name === "@task-copilot/sqlite") throw new Error(`Application capability must use its storage port: ${path} imports ${name}`);
     if (kernel && name.startsWith("@logseq/")) throw new Error(`Kernel must not depend on Logseq SDK: ${path} imports ${name}`);
   }
   function visit(node) {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) check(node.moduleSpecifier);
     if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) check(node.arguments[0]);
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) check(node.argument.literal);
     if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) check(node.moduleReference.expression);
     ts.forEachChild(node, visit);
   }
@@ -54,21 +86,8 @@ async function sources(directory) {
   return found;
 }
 
-const rules = [
-  { directory: "packages/domain/src", forbidden: ["@logseq", "better-sqlite3", "node:http", "@task-copilot/client"], label: "Domain is infrastructure-free" },
-  { directory: "apps/logseq-plugin/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "node:sqlite"], label: "Plugin never writes SQLite" },
-  { directory: "apps/task-copilot-cli/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "node:sqlite"], label: "CLI never opens SQLite outside local-runtime", allowed: ["apps/task-copilot-cli/src/local-runtime.ts"] },
-  { directory: "packages/agent/src", forbidden: ["better-sqlite3", "@task-copilot/sqlite", "@logseq", "node:http"], label: "Agent executor owns no formal writer or transport" },
-];
 export async function checkBoundaries() {
-  for (const rule of rules) {
-    for (const path of await sources(rule.directory)) {
-      if (rule.allowed?.includes(path)) continue;
-      const content = await readFile(path, "utf8");
-      for (const token of rule.forbidden) if (content.includes(token)) throw new Error(`${rule.label}: ${path} contains ${token}`);
-    }
-  }
-  for (const directory of ["apps/logseq-plugin/src", "apps/kernel-service/src", "packages/contracts/src", "packages/kernel/src"]) {
+  for (const directory of ["packages/domain/src", "packages/agent/src", "apps/task-copilot-cli/src", "apps/logseq-plugin/src", "apps/kernel-service/src", "packages/contracts/src", "packages/kernel/src"]) {
     for (const path of await sources(directory)) assertImportBoundaries(path, await readFile(path, "utf8"));
   }
   const server = await readFile("apps/kernel-service/src/server.ts", "utf8");

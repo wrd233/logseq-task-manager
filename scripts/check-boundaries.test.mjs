@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath, URL } from "node:url";
 import { assertImportBoundaries } from "./check-boundaries.mjs";
 
 for (const extension of ["ts", "mjs"]) {
@@ -47,3 +48,27 @@ for (const extension of ["ts", "mjs"]) {
     assert.doesNotThrow(() => assertImportBoundaries(path, 'import type {FileIO} from "./file-io.ts";'));
   });
 }
+
+for (const module of ['discovery-coordinator', 'external-agent-coordinator', 'dogfood-scope', 'future-query']) {
+  test(`${module} rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports`, () => {
+    const path = `apps/kernel-service/src/${module}.ts`;
+    for (const code of [
+      'import type {SqliteStore} from "@task-copilot/sqlite/src/index.ts";',
+      'export type {SqliteStore} from "../../../packages/sqlite/src/index";',
+      'type Storage = import("@task-copilot/sqlite").SqliteStore;',
+      'const store = import(`../../../packages/sqlite/src/index.ts`);',
+      'const driver = require("better-sqlite3/lib/database.js");',
+      'import "node:sqlite";',
+    ]) assert.throws(() => assertImportBoundaries(path, code), /storage port/u);
+    assert.doesNotThrow(() => assertImportBoundaries(path, 'import type {DiscoveryStore} from "./store-ports.ts";'));
+  });
+}
+
+test('paths aliases and extensionless target UI paths cannot bypass actual boundaries', () => {
+  const baseUrl = fileURLToPath(new URL('..', import.meta.url));
+  const options = { baseUrl, paths: { '@storage/*': ['packages/sqlite/src/*'], '@ui/*': ['apps/logseq-plugin/src/features/task-center/*'] } };
+  assert.throws(() => assertImportBoundaries('apps/kernel-service/src/dogfood-scope.ts', 'export * from "@storage/index";', options), /storage port/u);
+  assert.throws(() => assertImportBoundaries('apps/logseq-plugin/src/features/work-view/probe.ts', 'import("@ui/controller");', options), /Work view must not depend/u);
+  assert.throws(() => assertImportBoundaries('apps/logseq-plugin/src/features/task-center/controller.ts', 'import "../../graph-gateway-worker";'), /must not own background/u);
+  assert.doesNotThrow(() => assertImportBoundaries('apps/task-copilot-cli/src/local-runtime.ts', 'import Database from "better-sqlite3";'));
+});

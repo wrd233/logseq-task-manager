@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { deterministicUuid, stableHash, type CognitionExecutor, type ContextPackItem, type ExecutionProfile, type GovernanceDimension, type MaintenanceReconcileOutcome, type ReconcileJob, type ReconcilePriorityClass, type SemanticJudgment, type SourceChangeObservation, type SourceCoverageState, type SourceRef } from "@task-copilot/contracts";
-import type { Kernel } from "@task-copilot/kernel";
+import { ContextAssociations, KernelError, type Kernel } from "@task-copilot/kernel";
 import type { MaintenanceStore } from "./store-ports.ts";
 import type { ProjectionDelivery } from "./projection-delivery.ts";
 import { currentSemanticRevision } from "./closure-gate.ts";
@@ -30,6 +30,7 @@ export interface MaintenanceCoordinatorOptions {
 
 export class MaintenanceCoordinator {
   readonly #kernel: Kernel;
+  readonly #context: ContextAssociations;
   readonly #store: MaintenanceStore;
   readonly #broker: GraphRequestBroker;
   readonly #now: () => string;
@@ -52,6 +53,7 @@ export class MaintenanceCoordinator {
     this.#store = store;
     this.#broker = broker;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#context = new ContextAssociations(store, this.#now);
     this.#intervalMs = options.intervalMs ?? 1_000;
     this.#maxAttempts = options.maxAttempts ?? 5;
     this.#retryBackoffMs = options.retryBackoffMs ?? 30_000;
@@ -86,14 +88,17 @@ export class MaintenanceCoordinator {
       const existing = this.#store.findActiveContextAssociation(object.id, observation.graphId, observation.sourceBlockUuid);
       if (!existing) {
         try {
-          this.#kernel.context.associateContext({
+          this.#context.associateContext({
             workObjectId: object.id,
             sourceRef: { graphId: observation.graphId, blockUuid: observation.sourceBlockUuid },
             sourceVersionHash: observation.sourceContentHash,
             origin: "SYSTEM_STRUCTURAL",
             at: observation.observedAt,
           });
-        } catch { /* correction may block automatic association; the job below still lets reconciliation read the delta */ }
+        } catch (error) {
+          if (!(error instanceof KernelError && error.code === "ASSOCIATION_CORRECTION_BLOCKS")) throw error;
+          // Reconciliation still reads the delta when a user correction blocks association.
+        }
       }
     }
     const snapshotId = stableHash([observation.workObjectId, observation.graphId, observation.sourceBlockUuid, observation.sourceContentHash, observation.sourceMarker ?? null, observation.observedAt]);

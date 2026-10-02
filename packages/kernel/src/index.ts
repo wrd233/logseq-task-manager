@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, buildManagedProjection as projectionFor, projectClosure as closureProjection, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type AssociationCorrection, type ContextAssociation, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type UserReadBaseline, type WorkIntentProposalRevision } from "@task-copilot/contracts";
+import { APPROVED_CURRENT_FOCUS_SKILL, APPROVED_ENGAGEMENT_SKILL, APPROVED_MINI_PROJECT_SKILL, APPROVED_MINI_PROJECT_TASTE, APPROVED_WORK_INTENT_SKILL, buildManagedProjection as projectionFor, projectClosure as closureProjection, canonicalizeGraphContent, deterministicUuid as deterministicIdentityUuid, graphEvidenceProofPayload, OPERATION_CONTRACT_VERSION, parseAgentCurrentFocusResult, parseAgentEngagementResult, parseMiniProjectAgentResult, parseSemanticOperation, stableHash, type Actor, type AgentCurrentFocusResult, type AgentEngagementResult, type AgentRunReceipt, type AssignParentDecisionParameters, type CurrentFocusAgent, type CurrentFocusProposalRevision, type DecisionCandidate, type DecisionPackage, type EngagementAgent, type EngagementProposalRevision, type FormalCommitResult, type FrozenEvidence, type GovernanceDimension, type GovernanceIssue, type GraphApplyResult, type GraphEffect, type GraphSnapshot, type GraphSnapshotInput, type ManagedProjection, type MiniProjectAgentResult, type ProjectIntent, type ProjectionObligation, type Proposal, type ProposalRevision, type SemanticOperation, type SkillPackage, type StoredCommit, type TasteProfile, type TrustedGraphEvidenceMaterial, type TrustedUserEvent, type UserDecision, type UserDecisionCompileResult, type WorkIntentProposalRevision } from "@task-copilot/contracts";
 import { advanceClosureAmendment, amendClosure, cancelWorkObject, changeEngagement, completeWorkObject, createPrimaryOwnership, createWorkObject, reopenWorkObject, renameWorkObject, replacePrimaryOwnership, restoreEngagement, restoreWorkObject, setCurrentFocus, updateProjectIntent, updateWorkIntent, type ClosureAmendment, type ClosureRecord, type PrimaryAnchor, type PrimaryOwnership, type ReopenRecord, type WorkObject } from "@task-copilot/domain";
 import { deterministicUuid } from "./identity.ts";
 import { parseUserCorrectionUtterance } from "./user-correction.ts";
@@ -10,7 +10,8 @@ export type RecoveryAction = "ABORT_PREPARED" | "RESUME_GRAPH_APPLY" | "VERIFY_G
 
 export { KernelError, ProjectionVerificationError } from "./error.ts";
 import { KernelError, ProjectionVerificationError } from "./error.ts";
-import { ContextAssociations, UserReading } from "./application-state.ts";
+export { ContextAssociations, UserReading } from "./application-state.ts";
+export type { FormalStore, ContextStore, ReadingStore } from "./store-ports.ts";
 import type { FormalStore } from "./store-ports.ts";
 export interface KernelOptions {
   now?: () => string;
@@ -81,8 +82,6 @@ function approvedMiniProjectTaste(taste: TasteProfile): boolean {
 
 export class Kernel {
   readonly #store: FormalStore;
-  readonly context: ContextAssociations;
-  readonly reading: UserReading;
   readonly #now: () => string;
   readonly #afterStage: (stage: DurableStage, commitId: string) => void;
   readonly #authorizedUserId: string;
@@ -100,8 +99,6 @@ export class Kernel {
 
   constructor(store: FormalStore, options: KernelOptions = {}) {
     this.#store = store; this.#now = options.now ?? (() => new Date().toISOString()); this.#afterStage = options.afterStage ?? (() => undefined); this.#authorizedUserId = options.authorizedUserId ?? "local-user";
-    this.context = new ContextAssociations(store, this.#now);
-    this.reading = new UserReading(store, this.#now);
     this.#agent = options.currentFocusAgent ?? null; this.#skill = options.currentFocusSkill ?? null;
     this.#engagementAgent = options.engagementAgent ?? null; this.#engagementSkill = options.engagementSkill ?? null;
     this.#miniProjectSkill = options.miniProjectSkill ?? null; this.#workIntentSkill = options.workIntentSkill ?? null; this.#miniProjectTaste = options.miniProjectTaste ?? null;
@@ -138,7 +135,6 @@ export class Kernel {
     return this.#store.getProjectIntent(workObjectId);
   }
 
-  markObjectViewed(workObjectId: string, at?: string): UserReadBaseline { return this.reading.markViewed(workObjectId, at); }
 
   /**
    * Production Dogfood correction chain: a user says what reality actually is,
@@ -1023,13 +1019,9 @@ export class Kernel {
     return this.#store.listProjectionObligations(status);
   }
 
-  associateContext(input: { id?: string; workObjectId: string; sourceRef: ContextAssociation["sourceRef"]; sourceVersionHash: string; origin: ContextAssociation["origin"]; basisRunId?: string | null; at?: string }): ContextAssociation { return this.context.associateContext(input); }
 
-  listContextAssociations(workObjectId?: string, status?: ContextAssociation["status"]): ContextAssociation[] { return this.context.listContextAssociations(workObjectId, status); }
 
-  invalidateContextAssociation(id: string): ContextAssociation { return this.context.invalidateContextAssociation(id); }
 
-  recordAssociationCorrection(input: { id?: string; sourceRef: AssociationCorrection["sourceRef"]; scopeSnapshot: string; rejectedWorkObjectId: string; affirmedWorkObjectId?: string | null; userDecisionRef: string; at?: string }): AssociationCorrection { return this.context.recordAssociationCorrection(input); }
 
   upsertGovernanceIssue(input: { id?: string; workObjectId: string; dimension: GovernanceDimension; type: GovernanceIssue["type"]; summary: string; evidenceIds?: readonly string[]; sourceSnapshotId: string; formalVersion: number; correlationId?: string | null; at?: string }): GovernanceIssue {
     const object = this.#store.getWorkObject(input.workObjectId);

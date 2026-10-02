@@ -1,5 +1,7 @@
-import type { ClosureAssessment, ClosureAssessmentJob, CommitStatus, ContextAssociation, DecisionCandidate, DecisionPackage, FormalizationCandidate, FrozenEvidence, GovernanceIssue, ProjectIntent, ProjectionObligation, ReconcileJob, SourceCoverageState, StoredCommit, UserReadBaseline } from "@task-copilot/contracts";
+import type { AgentRunReceipt, ClosureHistory, CurationReceipt, DiscoveryRun, DiscoveryRunSourceOutcome, FormalizationEvidence, GraphReadReceipt, Proposal, ProposalRevision, UserDecision, FeedbackEvent, ClosureAssessment, ClosureAssessmentJob, CommitStatus, ContextAssociation, DecisionCandidate, DecisionPackage, FormalizationCandidate, FrozenEvidence, GovernanceIssue, ProjectIntent, ProjectionObligation, ReconcileJob, SourceCoverageState, StoredCommit, UserReadBaseline } from "@task-copilot/contracts";
 import type { CancellationRecord, CompletionRecord, PrimaryAnchor, PrimaryOwnership, WorkObject } from "@task-copilot/domain";
+
+import type { ContextStore } from "@task-copilot/kernel";
 
 // Consumer-owned capabilities; implementations share one connection, and do not open it here.
 export interface ProjectionStore {
@@ -65,7 +67,7 @@ export interface ClosureAssessmentStore extends ClosureGateStore {
   recordMaintenanceSuccess(scopeKey: string, at: string): void;
 }
 
-export interface MaintenanceStore {
+export interface MaintenanceStore extends ContextStore {
   claimNextReconcileJob(at: string): ReconcileJob | null;
   completeReconcileJob(id: string, workObjectId: string, snapshotId: string, formalVersion: number, at: string, outcome: string, expectedObservedSnapshotId?: string | null): void;
   completeReconcileJobAsSuperseded(id: string, at: string): ReconcileJob;
@@ -102,4 +104,73 @@ export interface MaintenanceStore {
 export interface ProjectionDeliveryStore {
   getCommit(id: string): StoredCommit | null;
   listProjectionObligations(status?: ProjectionObligation["status"]): ProjectionObligation[];
+}
+
+
+export type FormalizationCandidatePatch = Partial<Pick<FormalizationCandidate,
+  "status" | "revision" | "recommendedKind" | "recommendedOwnerId" | "proposedTitle" | "proposedWorkIntent" | "rationaleSummary" | "maturity" | "maturityEvaluatedAt" | "supportingSourceRefs" | "updatedAt" | "lastObservedAt" | "expiresAt" | "materializedWorkObjectId" | "decisionPackageId">>;
+
+export interface DiscoveryStore extends ContextStore {
+  addCandidateDiscoveryRun(candidateId: string, runId: string): void;
+  addCandidateEvidenceRef(candidateId: string, evidenceId: string): void;
+  addCandidateSources(candidateId: string, sourceRefs: readonly ContextAssociation["sourceRef"][], sourceHashes: readonly string[], sourceContents: readonly string[], observedAt: string): void;
+  findOpenCandidateContainingSources(sourceRefs: readonly ContextAssociation["sourceRef"][]): FormalizationCandidate | null;
+  getDecisionPackage(id: string): DecisionPackage | null;
+  getDiscoveryRun(id: string): DiscoveryRun | null;
+  getFormalizationCandidate(id: string): FormalizationCandidate | null;
+  getFormalizationCandidateByPackage(packageId: string): FormalizationCandidate | null;
+  isMaterializedCandidateSource(graphId: string, blockUuid: string): boolean;
+  latestDiscoverySourceOutcome(graphId: string, blockUuid: string): DiscoveryRunSourceOutcome | null;
+  listCandidateEvidence(candidateId: string): FormalizationEvidence[];
+  listDiscoveryRuns(): DiscoveryRun[];
+  listFormalizationCandidates(status?: FormalizationCandidate["status"]): FormalizationCandidate[];
+  listWorkObjects(): WorkObject[];
+  putCandidateEvidence(evidence: FormalizationEvidence): void;
+  putCandidateSupportingSources(candidateId: string, sourceRefs: readonly ContextAssociation["sourceRef"][]): void;
+  putDiscoveryRun(run: DiscoveryRun): void;
+  putDiscoveryRunSource(source: DiscoveryRunSourceOutcome): void;
+  putFormalizationCandidate(candidate: FormalizationCandidate): void;
+  transitionDecisionPackage(id: string, status: DecisionPackage["status"], at: string): void;
+  transitionFormalizationCandidate(id: string, status: FormalizationCandidate["status"], at: string): void;
+  updateFormalizationCandidate(id: string, patch: FormalizationCandidatePatch): void;
+}
+
+export interface ExternalAgentStore {
+  getAgentRun(id: string): AgentRunReceipt | null;
+  getAnchorForWorkObject(workObjectId: string): PrimaryAnchor | null;
+  getCommit(id: string): StoredCommit | null;
+  getCurationReceipt(id: string): CurationReceipt | null;
+  getEvidence(id: string): FrozenEvidence | null;
+  getProjectionObligationForCommit(commitId: string): ProjectionObligation | null;
+  getProposal(id: string): { proposal: Proposal; revision: ProposalRevision } | null;
+  getWorkObject(id: string): WorkObject | null;
+  listCommits(query?: { targetId?: string; status?: CommitStatus }): StoredCommit[];
+  listGraphReadReceipts(agentRunId: string): GraphReadReceipt[];
+  putCurationReceipt(receipt: CurationReceipt): void;
+  putGraphReadReceipt(receipt: GraphReadReceipt): void;
+}
+
+export interface DogfoodScopeStore {
+  getWorkObject(id: string): WorkObject | null;
+  listOwnerships(): PrimaryOwnership[];
+  listWorkObjects(): WorkObject[];
+}
+
+/** Queries and bounded state transitions used by the HTTP application. */
+export interface ServiceApplicationStore extends ProjectionStore {
+  getAgentRun(id: string): AgentRunReceipt | null;
+  getAnchorForWorkObject(workObjectId: string): PrimaryAnchor | null;
+  getClosureHistory(workObjectId: string): ClosureHistory;
+  getCommit(id: string): StoredCommit | null;
+  getEvidence(id: string): FrozenEvidence | null;
+  getProjectionObligationForCommit(commitId: string): ProjectionObligation | null;
+  getProposal(id: string): { proposal: Proposal; revision: ProposalRevision } | null;
+  getUserReadBaseline(workObjectId: string): UserReadBaseline | null;
+  listActionableWorkObjects(): WorkObject[];
+  listCurationReceipts(workObjectId?: string): CurationReceipt[];
+  listDiscoveryRunSources(runId: string): DiscoveryRunSourceOutcome[];
+  listEvidence(workObjectId?: string): FrozenEvidence[];
+  listFeedback(): FeedbackEvent[];
+  transitionDecisionPackage(id: string, status: DecisionPackage["status"], at: string): void;
+  updateUserDecisionExecution(id: string, status: UserDecision["status"], executedAt: string, executionRefs: readonly string[]): void;
 }

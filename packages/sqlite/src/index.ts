@@ -426,12 +426,12 @@ export class SqliteStore {
       } finally { existingDb.close(); }
     }
     this.#database = new Database(path);
+    try {
     this.#database.pragma("journal_mode = WAL");
     this.#database.exec(schema);
     this.#database.prepare("INSERT OR IGNORE INTO schema_versions(version, applied_at) VALUES (1, ?)").run(new Date().toISOString());
     const existing = Number((this.#database.prepare("SELECT MAX(version) AS version FROM schema_versions").get() as { version: number }).version);
     if (existing > SUPPORTED_SCHEMA_VERSION) {
-      this.#database.close();
       throw new Error(`SCHEMA_VERSION_TOO_NEW:${existing}:${SUPPORTED_SCHEMA_VERSION}`);
     }
     this.#migrateV2();
@@ -454,7 +454,8 @@ export class SqliteStore {
     this.#migrateV20();
     this.#migrateV21();
     this.#migrateV22();
-    try { this.#migrateV23(); } catch (error) { this.#database.close(); throw error; }
+    this.#migrateV23();
+    } catch (error) { this.#database.close(); throw error; }
   }
 
   #migrateV23(): void {

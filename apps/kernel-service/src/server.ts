@@ -7,8 +7,9 @@ import { dirname, join } from "node:path";
 
 import { DeepSeekClosureAssessor, DeepSeekDiscoveryExecutor, DeepSeekV4FlashExecutor, DeterministicCurrentFocusAgent, DeterministicEngagementAgent, FakeClosureAssessor, FakeContextAwareExecutor, FakeDiscoveryExecutor, loadCurrentFocusSkill, loadEngagementReconciliationSkill, loadMiniProjectClosureAssessmentSkill, loadMiniProjectGovernanceSkill, loadMiniProjectTaste, loadProjectClosureAssessmentSkill, loadWorkIntentMaintenanceSkill } from "@task-copilot/agent";
 import { CLOSURE_ASSESSMENT_PROFILE, FAKE_CLOSURE_ASSESSMENT_PROFILE, parseSemanticOperation, type ClosureAssessor, type CognitionExecutor, type ConsoleProfile, type ConsoleSearchResponse, type ConsoleWorldSnapshot, type CurrentFocusAgent, type DiscoveryExecutor, type DiscoveryScope, type EngagementAgent, type ExecutionProfile, type FormalizationCandidate, type FrozenEvidence, type GovernanceIssue, type GraphGatewayResponse, type ReconcileJob, type SkillPackage, type SourceChangeObservation, type TasteProfile } from "@task-copilot/contracts";
-import { Kernel, KernelError } from "@task-copilot/kernel";
+import { Kernel, KernelError, ContextAssociations, UserReading } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
+import type { ServiceApplicationStore } from "./store-ports.ts";
 import { DiscoveryCoordinator } from "./discovery-coordinator.ts";
 import { ProjectionCoordinator } from "./projection-coordinator.ts";
 import { ExternalAgentCoordinator } from "./external-agent-coordinator.ts";
@@ -117,6 +118,9 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     scope: dogfoodScope,
   });
   owned.closure = closure;
+  const application: ServiceApplicationStore = store;
+  const context = new ContextAssociations(store, options.now ?? (() => new Date().toISOString()));
+  const reading = new UserReading(store, options.now ?? (() => new Date().toISOString()));
   const kernel = new Kernel(store, { ...(options.now ? { now: options.now } : {}), currentFocusAgent: options.currentFocusAgent ?? new DeterministicCurrentFocusAgent(), currentFocusSkill, engagementAgent: options.engagementAgent ?? new DeterministicEngagementAgent(), engagementSkill, miniProjectSkill, workIntentSkill, miniProjectTaste, graphSnapshotKey, ...(options.projectionMaxAttempts ? { projectionMaxAttempts: options.projectionMaxAttempts } : {}), ...(options.projectionBackoffBaseMs ? { projectionBackoffBaseMs: options.projectionBackoffBaseMs } : {}), ...(options.projectionTemporaryBackoffMs ? { projectionTemporaryBackoffMs: options.projectionTemporaryBackoffMs } : {}) });
   const broker = new GraphRequestBroker({ ...(options.now ? { now: options.now } : {}), ...(options.graphOfflineAfterMs ? { offlineAfterMs: options.graphOfflineAfterMs } : {}), ...(options.graphRequestTimeoutMs ? { requestTimeoutMs: options.graphRequestTimeoutMs } : {}) });
   owned.broker = broker;
@@ -145,8 +149,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const consoleDistPath = options.consoleDistPath ?? join(process.cwd(), "apps/kernel-console/dist");
   const consoleProfile: ConsoleProfile = options.profile ?? (process.env.TASK_COPILOT_PROFILE === "sandbox" ? "sandbox" : process.env.TASK_COPILOT_PROFILE === "development" ? "development" : "production");
   const consoleWorld = (): ConsoleWorldSnapshot => {
-    const objects = store.listWorkObjects();
-    const entries = objects.map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id), baseline: store.getUserReadBaseline(object.id) }));
+    const objects = application.listWorkObjects();
+    const entries = objects.map((object) => ({ object, anchor: application.getAnchorForWorkObject(object.id), baseline: application.getUserReadBaseline(object.id) }));
     const graphIds = entries.map((entry) => entry.anchor?.graphId).filter((value): value is string => Boolean(value));
     const counts = new Map<string, number>();
     for (const graphId of graphIds) counts.set(graphId, (counts.get(graphId) ?? 0) + 1);
@@ -157,12 +161,12 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       generatedAt: new Date().toISOString(),
       environment: { profile: consoleProfile, expectedGraphId, graphStatus: broker.status() },
       objects: entries,
-      projectIntents: objects.filter((object) => object.kind === "PROJECT").map((object) => ({ workObjectId: object.id, intent: store.getProjectIntent(object.id) })),
-      ownerships: store.listOwnerships(),
+      projectIntents: objects.filter((object) => object.kind === "PROJECT").map((object) => ({ workObjectId: object.id, intent: application.getProjectIntent(object.id) })),
+      ownerships: application.listOwnerships(),
       obligations: kernel.listProjectionObligations(),
       recovery: kernel.recoveryList().map((item) => ({ commit: item.commit, action: item.action })),
-      contextAssociations: store.listContextAssociations(),
-      evidence: store.listEvidence(),
+      contextAssociations: application.listContextAssociations(),
+      evidence: application.listEvidence(),
       system: projections.system(),
       projectionHealth: kernel.projectionHealth(),
     };
@@ -171,14 +175,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
     const q = query.trim().toLowerCase();
     const results: Array<ConsoleSearchResponse["results"][number]> = [];
     if (!q) return { query, results, generatedAt: new Date().toISOString() };
-    const objects = store.listWorkObjects();
+    const objects = application.listWorkObjects();
     const evidenceByObject = new Map<string, FrozenEvidence[]>();
-    for (const evidence of store.listEvidence()) {
+    for (const evidence of application.listEvidence()) {
       const list = evidenceByObject.get(evidence.workObjectId) ?? [];
       list.push(evidence);
       evidenceByObject.set(evidence.workObjectId, list);
     }
-    const intents = new Map(objects.filter((object) => object.kind === "PROJECT").map((object) => [object.id, store.getProjectIntent(object.id)] as const));
+    const intents = new Map(objects.filter((object) => object.kind === "PROJECT").map((object) => [object.id, application.getProjectIntent(object.id)] as const));
     const push = (matched: string[], field: string, value: string | null | undefined): void => {
       if (typeof value === "string" && value.toLowerCase().includes(q) && !matched.includes(field)) matched.push(field);
     };
@@ -207,7 +211,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
   const afterFormalChange = (targetId: string | null | undefined): void => {
     if (!targetId) return;
     closure.requestAssessment(targetId);
-    const owner = store.getOwnershipByChild(targetId);
+    const owner = application.getOwnershipByChild(targetId);
     if (owner) closure.requestAssessment(owner.ownerId);
   };
   owned.sweepTimer = setInterval(() => { try { readiness.sweepStaleClosurePackages(); } catch (error) { console.warn("[kernel] closure package sweep failed", error); } }, 5_000);
@@ -266,7 +270,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && url.pathname === "/v1/console/viewed") {
         const value = await body(request) as { workObjectId?: unknown };
         if (typeof value.workObjectId !== "string" || !value.workObjectId) throw new KernelError("WORK_OBJECT_ID_REQUIRED", "Console read baseline requires workObjectId.");
-        send(response, 200, { baseline: kernel.reading.markViewed(value.workObjectId) }); return;
+        send(response, 200, { baseline: reading.markViewed(value.workObjectId) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/dogfood/correction") {
         assertTrustedUserChannel(request);
@@ -322,7 +326,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "GET" && discoveryRunMatch) {
         const run = discovery.getRun(decodeURIComponent(discoveryRunMatch[1]!));
         if (!run) { send(response, 404, { error: { code: "DISCOVERY_RUN_NOT_FOUND", message: "Discovery run not found." } }); return; }
-        send(response, 200, { run, sources: store.listDiscoveryRunSources(run.id) }); return;
+        send(response, 200, { run, sources: application.listDiscoveryRunSources(run.id) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/candidates") {
         const status = url.searchParams.get("status");
@@ -347,19 +351,19 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         send(response, 200, { candidate: discovery.absorbCandidate(decodeURIComponent(candidateAbsorb[1]!), value.targetWorkObjectId) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/context") {
-        send(response, 200, { associations: kernel.context.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
+        send(response, 200, { associations: context.listContextAssociations(url.searchParams.get("object") ?? undefined) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/context/associate") {
-        const value = await body(request) as Parameters<Kernel["associateContext"]>[0];
-        send(response, 201, { association: kernel.context.associateContext(value) }); return;
+        const value = await body(request) as Parameters<ContextAssociations["associateContext"]>[0];
+        send(response, 201, { association: context.associateContext(value) }); return;
       }
       const contextInvalidate = /^\/v1\/context\/([^/]+)\/invalidate$/u.exec(url.pathname);
       if (request.method === "POST" && contextInvalidate) {
-        send(response, 200, { association: kernel.context.invalidateContextAssociation(decodeURIComponent(contextInvalidate[1]!)) }); return;
+        send(response, 200, { association: context.invalidateContextAssociation(decodeURIComponent(contextInvalidate[1]!)) }); return;
       }
       if (request.method === "POST" && url.pathname === "/v1/context/corrections") {
-        const value = await body(request) as Parameters<Kernel["recordAssociationCorrection"]>[0];
-        send(response, 201, { correction: kernel.context.recordAssociationCorrection(value) }); return;
+        const value = await body(request) as Parameters<ContextAssociations["recordAssociationCorrection"]>[0];
+        send(response, 201, { correction: context.recordAssociationCorrection(value) }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/issues") {
         const status = url.searchParams.get("status");
@@ -414,8 +418,8 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         const decisionId = decodeURIComponent(decisionExecute[1]!);
         const decision = kernel.listUserDecisions().find((item) => item.id === decisionId);
         if (decision?.status === "AUTHORIZED" && decision.operationType === "CREATE_WORK_OBJECT" && decision.packageId && !(await discovery.validateMaterializationPackage(decision.packageId))) {
-          store.transitionDecisionPackage(decision.packageId, "STALE", options.now?.() ?? new Date().toISOString());
-          store.updateUserDecisionExecution(decisionId, "STALE", options.now?.() ?? new Date().toISOString(), []);
+          application.transitionDecisionPackage(decision.packageId, "STALE", options.now?.() ?? new Date().toISOString());
+          application.updateUserDecisionExecution(decisionId, "STALE", options.now?.() ?? new Date().toISOString(), []);
           send(response, 409, { error: { code: "USER_DECISION_STALE", message: "Candidate source material changed after the package was presented; no CREATE was executed." } }); return;
         }
         const result = kernel.executeUserDecision(decisionId);
@@ -442,18 +446,18 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const externalApply = /^\/v1\/external\/proposals\/([^/]+)\/apply$/u.exec(url.pathname);
       if (request.method === "POST" && externalApply) { send(response, 200, await external.applyProposal(decodeURIComponent(externalApply[1]!), "legacy")); return; }
       if (request.method === "POST" && url.pathname === "/v1/external/curation/add-reference") { send(response, 200, { receipt: await external.addReference(await body(request) as Parameters<ExternalAgentCoordinator["addReference"]>[0]) }); return; }
-      if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: store.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/curation-receipts") { send(response, 200, { receipts: application.listCurationReceipts(url.searchParams.get("object") ?? undefined) }); return; }
       if (request.method === "GET" && url.pathname === "/v1/ownerships") { send(response, 200, { ownerships: kernel.listOwnerships() }); return; }
       if (request.method === "POST" && url.pathname === "/v1/ownerships") { send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Ownership changes require a trusted USER decision; no direct ownership mutation route exists." } }); return; }
-      if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: store.listWorkObjects() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/objects") { send(response, 200, { objects: application.listWorkObjects() }); return; }
       if (request.method === "GET" && url.pathname === "/v1/objects/anchors") {
-        send(response, 200, { objects: store.listWorkObjects().map((object) => ({ object, anchor: store.getAnchorForWorkObject(object.id) })) }); return;
+        send(response, 200, { objects: application.listWorkObjects().map((object) => ({ object, anchor: application.getAnchorForWorkObject(object.id) })) }); return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: store.listActionableWorkObjects() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/objects/actionable") { send(response, 200, { objects: application.listActionableWorkObjects() }); return; }
       const viewedMatch = /^\/v1\/objects\/([^/]+)\/viewed$/u.exec(url.pathname);
       if (request.method === "POST" && viewedMatch) {
         assertTrustedUserChannel(request);
-        const baseline = kernel.reading.markViewed(decodeURIComponent(viewedMatch[1]!));
+        const baseline = reading.markViewed(decodeURIComponent(viewedMatch[1]!));
         send(response, 200, { baseline }); return;
       }
       const objectContextMatch = /^\/v1\/objects\/([^/]+)\/context$/u.exec(url.pathname);
@@ -465,20 +469,20 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const closureAssessmentMatch = /^\/v1\/objects\/([^/]+)\/closure-assessment$/u.exec(url.pathname);
       if (request.method === "GET" && closureAssessmentMatch) {
         const workObjectId = decodeURIComponent(closureAssessmentMatch[1]!);
-        if (!store.getWorkObject(workObjectId)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        if (!application.getWorkObject(workObjectId)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
         send(response, 200, readiness.ensureAssessment(workObjectId)); return;
       }
       const objectMatch = /^\/v1\/objects\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && objectMatch) {
-        const object = store.getWorkObject(decodeURIComponent(objectMatch[1]!));
+        const object = application.getWorkObject(decodeURIComponent(objectMatch[1]!));
         if (!object) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
-        send(response, 200, { object, anchor: store.getAnchorForWorkObject(object.id) }); return;
+        send(response, 200, { object, anchor: application.getAnchorForWorkObject(object.id) }); return;
       }
       const closureMatch = /^\/v1\/objects\/([^/]+)\/closure$/u.exec(url.pathname);
       if (request.method === "GET" && closureMatch) {
         const id = decodeURIComponent(closureMatch[1]!);
-        if (!store.getWorkObject(id)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
-        send(response, 200, { closure: store.getClosureHistory(id) }); return;
+        if (!application.getWorkObject(id)) { send(response, 404, { error: { code: "WORK_OBJECT_NOT_FOUND", message: "WorkObject not found." } }); return; }
+        send(response, 200, { closure: application.getClosureHistory(id) }); return;
       }
       const commitMatch = /^\/v1\/commits\/([^/]+)$/u.exec(url.pathname);
       const formalReceiptMatch = /^\/v1\/operations\/([^/]+)\/receipt$/u.exec(url.pathname);
@@ -494,23 +498,23 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       if (request.method === "POST" && deliverMatch) {
         assertTrustedUserChannel(request);
         const id = decodeURIComponent(deliverMatch[1]!);
-        if (!store.getProjectionObligationForCommit(id)) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Commit has no formal projection obligation.", id);
-        await delivery.drain(); send(response, 200, { obligation: store.getProjectionObligationForCommit(id) }); return;
+        if (!application.getProjectionObligationForCommit(id)) throw new KernelError("PROJECTION_OBLIGATION_MISSING", "Commit has no formal projection obligation.", id);
+        await delivery.drain(); send(response, 200, { obligation: application.getProjectionObligationForCommit(id) }); return;
       }
       if (request.method === "GET" && commitMatch) {
-        const commit = store.getCommit(decodeURIComponent(commitMatch[1]!));
+        const commit = application.getCommit(decodeURIComponent(commitMatch[1]!));
         if (!commit) { send(response, 404, { error: { code: "COMMIT_NOT_FOUND", message: "Commit not found." } }); return; }
         send(response, 200, { commit }); return;
       }
       if (request.method === "GET" && url.pathname === "/v1/recovery") { send(response, 200, { recovery: kernel.recoveryList() }); return; }
-      if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: store.listFeedback() }); return; }
+      if (request.method === "GET" && url.pathname === "/v1/feedback") { send(response, 200, { feedback: application.listFeedback() }); return; }
       if (request.method === "POST" && url.pathname === "/v1/feedback/strong-positive") { assertTrustedUserChannel(request); const value = await body(request) as { commitId: string; actor: { type: "USER"; id: string }; userComment?: string | null }; kernel.recordStrongPositive(value); send(response, 200, { recorded: true }); return; }
       const evidenceMatch = /^\/v1\/evidence\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && url.pathname === "/v1/evidence") {
         send(response, 200, { evidence: kernel.listEvidence(url.searchParams.get("object") ?? undefined) }); return;
       }
       if (request.method === "GET" && evidenceMatch) {
-        const evidence = store.getEvidence(decodeURIComponent(evidenceMatch[1]!));
+        const evidence = application.getEvidence(decodeURIComponent(evidenceMatch[1]!));
         if (!evidence) { send(response, 404, { error: { code: "EVIDENCE_NOT_FOUND", message: "Evidence not found." } }); return; }
         send(response, 200, { evidence }); return;
       }
@@ -522,7 +526,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const runMatch = /^\/v1\/agent-runs\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && runMatch) {
-        const run = store.getAgentRun(decodeURIComponent(runMatch[1]!));
+        const run = application.getAgentRun(decodeURIComponent(runMatch[1]!));
         if (!run) { send(response, 404, { error: { code: "AGENT_RUN_NOT_FOUND", message: "Agent run not found." } }); return; }
         send(response, 200, { run }); return;
       }
@@ -536,7 +540,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       }
       const proposalMatch = /^\/v1\/proposals\/([^/]+)$/u.exec(url.pathname);
       if (request.method === "GET" && proposalMatch) {
-        const proposal = store.getProposal(decodeURIComponent(proposalMatch[1]!));
+        const proposal = application.getProposal(decodeURIComponent(proposalMatch[1]!));
         if (!proposal) { send(response, 404, { error: { code: "PROPOSAL_NOT_FOUND", message: "Proposal not found." } }); return; }
         send(response, 200, proposal); return;
       }
@@ -544,14 +548,14 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       const proposalCommitMatch = /^\/v1\/proposals\/([^/]+)\/commit$/u.exec(url.pathname);
       if (request.method === "POST" && proposalCommitMatch) {
         const value = await body(request) as Omit<Parameters<Kernel["applyProposalFormal"]>[0], "proposalId">;
-        const id = decodeURIComponent(proposalCommitMatch[1]!), proposal = store.getProposal(id);
+        const id = decodeURIComponent(proposalCommitMatch[1]!), proposal = application.getProposal(id);
         const result = proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposalFormal({ ...value, proposalId: id }) : proposal?.revision.operationType === "UPDATE_WORK_INTENT" ? kernel.applyWorkIntentProposalFormal({ ...value, proposalId: id }) : kernel.applyProposalFormal({ ...value, proposalId: id });
         afterFormalChange(result.commit.targetId); send(response, 200, result); return;
       }
       if (request.method === "POST" && proposalApplyMatch) {
         const value = await body(request) as Omit<Parameters<Kernel["applyProposal"]>[0], "proposalId">;
         const id = decodeURIComponent(proposalApplyMatch[1]!);
-        const proposal = store.getProposal(id);
+        const proposal = application.getProposal(id);
         send(response, 202, proposal?.revision.operationType === "CHANGE_ENGAGEMENT" ? kernel.applyEngagementProposal({ ...value, proposalId: id }) : proposal?.revision.operationType === "UPDATE_WORK_INTENT" ? kernel.applyWorkIntentProposal({ ...value, proposalId: id }) : kernel.applyProposal({ ...value, proposalId: id })); return;
       }
       const proposalRevisionMatch = /^\/v1\/proposals\/([^/]+)\/revisions$/u.exec(url.pathname);
@@ -631,6 +635,7 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
       send(response, 404, { error: { code: "ROUTE_NOT_FOUND", message: "Route not found." } });
     } catch (error) {
       const code = error instanceof KernelError ? error.code : error instanceof Error && "code" in error ? String(error.code) : "INTERNAL_ERROR";
+      if (!(error instanceof KernelError)) console.error("[kernel-service] request failed", request.method, url.pathname, error);
       const message = code === "INTERNAL_ERROR" ? "Internal error." : error instanceof Error ? error.message : "Internal error.";
       send(response, code === "INTERNAL_ERROR" ? 500 : 409, { error: { code, message } });
     }

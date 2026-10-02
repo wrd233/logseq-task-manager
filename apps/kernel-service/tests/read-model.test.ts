@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Kernel } from "@task-copilot/kernel";
+import { ContextAssociations, UserReading, Kernel } from "@task-copilot/kernel";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { parseSemanticOperation } from "@task-copilot/contracts";
 import type { GraphRequestBroker } from "../src/graph-broker.ts";
@@ -19,9 +19,9 @@ function fixture() {
 }
 
 test("Now indexes shared collections once and keeps ProjectIntent changes at the same formal version",async()=>{
-  const {store,kernel,query,id,created}=fixture();
+  const {store,query,id,created}=fixture();
   try {
-    kernel.reading.markViewed(id,at);
+    new UserReading(store, () => at).markViewed(id,at);
     assert.equal(query.now().items.length,0);
     const afterSeen="2026-10-01T00:01:00.000Z";
     store.insertCommit({...created.commit,id:"intent-a",operationType:"UPDATE_PROJECT_INTENT",before:{currentPhase:"A"},after:{currentPhase:"B"},createdAt:afterSeen,updatedAt:afterSeen});
@@ -35,17 +35,17 @@ test("Now indexes shared collections once and keeps ProjectIntent changes at the
     // One Now ownership collection; additional closure-gate reads remain scoped to parent readiness.
     assert.ok(ownerships<=2);
     const latest=listCommits({targetId:id,status:"COMMITTED"}).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0]!;
-    assert.equal(kernel.reading.markViewed(id,afterSeen).lastSeenCommitId,latest.id);
+    assert.equal(new UserReading(store, () => at).markViewed(id,afterSeen).lastSeenCommitId,latest.id);
     assert.equal(query.now().items.length,0);
   } finally {store.close();}
 });
 
 test("objectContext captures formal fields and closure state before asynchronous Graph snippets",async()=>{
-  const {store,kernel,query,id,broker}=fixture();
+  const {store,query,id,broker}=fixture();
   let release!: ()=>void;
   const blocked=new Promise<void>(done=>{release=done;});
   try {
-    kernel.context.associateContext({workObjectId:id,sourceRef:{graphId:"graph",blockUuid:"note"},sourceVersionHash:"old",origin:"SYSTEM_STRUCTURAL"});
+    new ContextAssociations(store, () => at).associateContext({workObjectId:id,sourceRef:{graphId:"graph",blockUuid:"note"},sourceVersionHash:"old",origin:"SYSTEM_STRUCTURAL"});
     broker.status=()=>({available:true,graphId:"graph",reason:"READY",capabilities:[],lastSeenAt:at});
     broker.request=async()=>{await blocked;return {kind:"READ_BLOCK",block:{graphId:"graph",blockUuid:"note",content:"new snippet",contentHash:"new",pageName:null}};};
     const initial=store.getWorkObject(id)!;

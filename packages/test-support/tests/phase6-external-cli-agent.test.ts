@@ -280,3 +280,23 @@ test("formal external focus application commits audit before failed projection a
     assert.equal(value.graph.snapshot(value.graphId, "source").projection?.currentFocus, "完成正式交付");
   } finally { value.stop(); stop?.(); await value.service.close(); await restarted?.close(); }
 });
+
+test("unexpected receipt IO is diagnostic; only genuinely inactive External runs report GRAPH_READ_RUN_NOT_ACTIVE", async () => {
+  const value = await setup();
+  try {
+    value.records.set("receipt-source", { content: "read", pageName: "Synthetic Phase 6" }); value.graph.seedNaturalRecord(value.graphId, "receipt-source", "read");
+    await value.client.freezeExternalEvidence({ evidenceId: "receipt-evidence", workObjectId: value.workObjectId, blockUuid: "receipt-source" });
+    await value.client.startExternalAgentRun({ runId: "receipt-run", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: value.workObjectId, evidenceIds: ["receipt-evidence"], executorId: "codex" });
+    const write = value.service.store.putGraphReadReceipt;
+    value.service.store.putGraphReadReceipt = () => { throw Error("injected receipt disk failure"); };
+    const diagnostics: unknown[][] = [], errorLog = console.error;
+    console.error = (...args) => { diagnostics.push(args); };
+    try { await assert.rejects(value.client.graphBlock("receipt-source", "receipt-run"), /INTERNAL_ERROR/u); }
+    finally { console.error = errorLog; }
+    assert.ok(diagnostics.some(args => args.some(value => value instanceof Error && value.message === "injected receipt disk failure")));
+    value.service.store.putGraphReadReceipt = write;
+    assert.ok((await value.client.graphBlock("receipt-source", "receipt-run")).receipt);
+    await value.client.finishExternalAgentRun("receipt-run", { outcome: "NO_PROPOSAL", reasonCode: "NO_FORMAL_CHANGE", rationaleSummary: "stable" });
+    await assert.rejects(value.client.graphBlock("receipt-source", "receipt-run"), /GRAPH_READ_RUN_NOT_ACTIVE/u);
+  } finally { value.stop(); await value.service.close(); }
+});

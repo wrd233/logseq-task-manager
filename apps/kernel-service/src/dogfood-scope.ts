@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { SqliteStore } from "@task-copilot/sqlite";
+import type { DogfoodScopeStore } from "./store-ports.ts";
 
 export interface DogfoodConfig {
   maintenance: boolean;
@@ -37,17 +37,20 @@ export interface DogfoodScope {
   effectiveObjectCount(): number;
 }
 
-function resolveScope(store: SqliteStore, roots: readonly string[]): Set<string> {
+function resolveScope(store: DogfoodScopeStore, roots: readonly string[]): Set<string> {
   const resolved = new Set<string>();
+  if (!roots.length) return resolved;
+  const children = new Map<string, string[]>();
+  for (const ownership of store.listOwnerships()) {
+    const ids = children.get(ownership.ownerId) ?? [];
+    ids.push(ownership.childId); children.set(ownership.ownerId, ids);
+  }
   const queue = [...roots];
-  while (queue.length) {
-    const id = queue.shift()!;
-    if (resolved.has(id)) continue;
-    if (!store.getWorkObject(id)) continue;
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const id = queue[cursor]!;
+    if (resolved.has(id) || !store.getWorkObject(id)) continue;
     resolved.add(id);
-    for (const ownership of store.listOwnerships()) {
-      if (ownership.ownerId === id && !resolved.has(ownership.childId)) queue.push(ownership.childId);
-    }
+    for (const childId of children.get(id) ?? []) if (!resolved.has(childId)) queue.push(childId);
   }
   return resolved;
 }
@@ -60,7 +63,7 @@ function resolveScope(store: SqliteStore, roots: readonly string[]): Set<string>
  *   *current* ownership descendants, resolved dynamically on every check.
  * - Config supplied with `roots: []`: autonomous scope is intentionally empty (rollout safety).
  */
-export function createDogfoodScope(store: SqliteStore, config: DogfoodConfig | null): DogfoodScope {
+export function createDogfoodScope(store: DogfoodScopeStore, config: DogfoodConfig | null): DogfoodScope {
   const legacyUnrestricted = config === null;
   return {
     isMaintenanceEnabled: () => config === null || config.maintenance,

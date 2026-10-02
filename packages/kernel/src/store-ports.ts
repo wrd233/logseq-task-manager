@@ -2,7 +2,10 @@ import type { AgentRunReceipt, AssociationCorrection, ClosureHistory, CommitStat
 import type { CancellationRecord, ClosureAmendment, CompletionRecord, PrimaryAnchor, PrimaryOwnership, ReopenRecord, WorkObject } from "@task-copilot/domain";
 
 // Consumer-owned capabilities; implementations share one connection, and do not open it here.
-export interface FormalStore extends ContextStore, ReadingStore {
+export interface FormalStore {
+  getWorkObject(id: string): WorkObject | null;
+  listCommits(query?: { targetId?: string; status?: CommitStatus }): StoredCommit[];
+  transaction<T>(work: () => T): T;
   appendProposalRevisionWithFeedback(revision: ProposalRevision, feedback: FeedbackEvent, at: string): void;
   consumeTrustedUserEvent(id: string, decisionId: string): void;
   deleteWorkObject(id: string): void;

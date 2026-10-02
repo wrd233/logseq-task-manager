@@ -1,15 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { deterministicUuid, stableHash, type ContextAssociation, type DecisionPackage, type DiscoveryExecutor, type DiscoveryExistingObject, type DiscoveryJudgment, type DiscoveryOpenCandidateSummary, type DiscoveryPackItem, type DiscoveryRun, type DiscoveryRunSourceOutcome, type DiscoveryScope, type ExecutionProfile, type FormalizationCandidate, type FormalizationEvidence, type GraphGatewayResponse, type OrganizeTodayResult, type ReconcileJob } from "@task-copilot/contracts";
-import type { Kernel } from "@task-copilot/kernel";
-import type { SqliteStore } from "@task-copilot/sqlite";
-import type { GraphRequestBroker } from "./graph-broker.ts";
+import { deterministicUuid, stableHash, type ContextAssociation, type DecisionPackage, type DiscoveryExecutor, type DiscoveryExistingObject, type DiscoveryJudgment, type DiscoveryOpenCandidateSummary, type DiscoveryPackItem, type DiscoveryRun, type DiscoveryRunSourceOutcome, type DiscoveryScope, type ExecutionProfile, type FormalizationCandidate, type FormalizationEvidence, type OrganizeTodayResult, type ReconcileJob } from "@task-copilot/contracts";
+import { ContextAssociations, KernelError, type Kernel } from "@task-copilot/kernel";
+import type { DiscoveryStore, FormalizationCandidatePatch } from "./store-ports.ts";
+import { expectGraphResponse as response, type GraphRequestBroker } from "./graph-broker.ts";
 import type { MaintenanceCoordinator } from "./maintenance-coordinator.ts";
 
-function response<T extends GraphGatewayResponse["kind"]>(value: GraphGatewayResponse, kind: T): Extract<GraphGatewayResponse, { kind: T }> {
-  if (value.kind !== kind) throw new Error("GRAPH_RESPONSE_KIND_MISMATCH");
-  return value as Extract<GraphGatewayResponse, { kind: T }>;
-}
 
 export interface DiscoveryCoordinatorOptions {
   now?: () => string;
@@ -56,7 +52,8 @@ const keyOf = (ref: { graphId: string; blockUuid: string }) => `${ref.graphId}:$
 
 export class DiscoveryCoordinator {
   readonly #kernel: Kernel;
-  readonly #store: SqliteStore;
+  readonly #context: ContextAssociations;
+  readonly #store: DiscoveryStore;
   readonly #broker: GraphRequestBroker;
   readonly #maintenance: MaintenanceCoordinator;
   readonly #executor: DiscoveryExecutor;
@@ -65,7 +62,7 @@ export class DiscoveryCoordinator {
   readonly #journalPageNames: (date: string) => string[];
   readonly #organizeBatchLimit: number;
 
-  constructor(kernel: Kernel, store: SqliteStore, broker: GraphRequestBroker, maintenance: MaintenanceCoordinator, executor: DiscoveryExecutor, profile: ExecutionProfile, options: DiscoveryCoordinatorOptions = {}) {
+  constructor(kernel: Kernel, store: DiscoveryStore, broker: GraphRequestBroker, maintenance: MaintenanceCoordinator, executor: DiscoveryExecutor, profile: ExecutionProfile, options: DiscoveryCoordinatorOptions = {}) {
     this.#kernel = kernel;
     this.#store = store;
     this.#broker = broker;
@@ -73,6 +70,7 @@ export class DiscoveryCoordinator {
     this.#executor = executor;
     this.#profile = profile;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#context = new ContextAssociations(store, this.#now);
     this.#journalPageNames = options.journalPageNames ?? ((date) => [date, date.replaceAll("-", "_"), `journal/${date}`, `journal/${date.replaceAll("-", "_")}`]);
     this.#organizeBatchLimit = options.organizeBatchLimit ?? 3;
   }
@@ -141,10 +139,11 @@ export class DiscoveryCoordinator {
               const item = packItem(handle);
               if (!item) { invalid += 1; continue; }
               try {
-                this.#kernel.associateContext({ workObjectId: object.id, sourceRef: item.sourceRef, sourceVersionHash: item.sourceHash, origin: "AGENT_INFERRED", basisRunId: runId, at: this.#now() });
+                this.#context.associateContext({ workObjectId: object.id, sourceRef: item.sourceRef, sourceVersionHash: item.sourceHash, origin: "AGENT_INFERRED", basisRunId: runId, at: this.#now() });
                 mark([handle], "ASSOCIATED", null, { targetWorkObjectId: object.id });
                 run.associationCount += 1;
               } catch (error) {
+                if (!(error instanceof KernelError && ["ASSOCIATION_CORRECTION_BLOCKS", "CONTEXT_TARGET_INVALID"].includes(error.code))) throw error;
                 mark([handle], "UNRESOLVED", error instanceof Error ? error.message.slice(0, 200) : "ASSOCIATION_REJECTED");
                 invalid += 1;
               }
@@ -271,10 +270,8 @@ export class DiscoveryCoordinator {
     if (!candidate || !candidate.sourceRefs.length) return true;
     for (let index = 0; index < candidate.sourceRefs.length; index += 1) {
       const ref = candidate.sourceRefs[index]!;
-      try {
-        const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: ref.graphId, blockUuid: ref.blockUuid }), "READ_BLOCK").block;
-        if (block.contentHash !== candidate.sourceHashes[index]) return false;
-      } catch { return false; }
+      const block = response(await this.#broker.request({ kind: "READ_BLOCK", graphId: ref.graphId, blockUuid: ref.blockUuid }), "READ_BLOCK").block;
+      if (block.contentHash !== candidate.sourceHashes[index]) return false;
     }
     return true;
   }
@@ -295,8 +292,8 @@ export class DiscoveryCoordinator {
     const at = this.#now();
     for (let index = 0; index < candidate.sourceRefs.length; index += 1) {
       const ref = candidate.sourceRefs[index]!;
-      try { this.#kernel.associateContext({ workObjectId: target.id, sourceRef: ref, sourceVersionHash: candidate.sourceHashes[index] ?? "", origin: "AGENT_INFERRED", basisRunId: `candidate-absorb:${candidate.id}`, at }); }
-      catch { /* correction may block one source */ }
+      try { this.#context.associateContext({ workObjectId: target.id, sourceRef: ref, sourceVersionHash: candidate.sourceHashes[index] ?? "", origin: "AGENT_INFERRED", basisRunId: `candidate-absorb:${candidate.id}`, at }); }
+      catch (error) { if (!(error instanceof KernelError && error.code === "ASSOCIATION_CORRECTION_BLOCKS")) throw error; }
     }
     this.#store.updateFormalizationCandidate(candidate.id, { status: "MATERIALIZED", materializedWorkObjectId: target.id, updatedAt: at, lastObservedAt: at });
     return this.#store.getFormalizationCandidate(candidate.id)!;
@@ -386,7 +383,10 @@ export class DiscoveryCoordinator {
             const page = response(await this.#broker.request({ kind: "READ_PAGE", graphId: status.graphId, pageName, limit: 200 }), "READ_PAGE").page;
             blocks.push(...page.blocks.map((block) => ({ graphId: block.graphId, blockUuid: block.blockUuid, pageName: block.pageName, content: block.content, contentHash: block.contentHash })));
             break;
-          } catch { /* next page-name convention */ }
+          } catch (error) {
+            if (!(error instanceof KernelError && error.code === "GRAPH_PAGE_NOT_FOUND")) throw error;
+            // Try the next supported journal page-name convention only for absence.
+          }
         }
       }
     }
@@ -469,7 +469,7 @@ export class DiscoveryCoordinator {
       this.#store.addCandidateSources(existing.id, sourceRefs, sources.map((item) => item.sourceHash), sources.map((item) => item.content), at);
       this.#store.addCandidateDiscoveryRun(existing.id, runId);
       this.#store.putCandidateSupportingSources(existing.id, resolvedSupporting);
-      const patch: Parameters<SqliteStore["updateFormalizationCandidate"]>[1] = {
+      const patch: FormalizationCandidatePatch = {
         updatedAt: at, lastObservedAt: at,
         maturity: judgment.maturity && judgment.maturity !== "UNEVALUATED" ? judgment.maturity : existing.maturity,
         maturityEvaluatedAt: judgment.maturity && judgment.maturity !== "UNEVALUATED" ? at : existing.maturityEvaluatedAt,

@@ -64,3 +64,18 @@ test("loadDogfoodConfig parses a minimal config and tolerates missing file", asy
   const config = await loadDogfoodConfig(undefined);
   assert.equal(config, null);
 });
+
+test("each dogfood traversal reads ownerships once and empty scope performs no hierarchy reads", () => {
+  const store = new SqliteStore(":memory:");
+  try {
+    putObject(store, "root", "PROJECT");
+    for (let i = 0; i < 40; i++) { putObject(store, `task-${i}`); link(store, `task-${i}`, "root"); }
+    let reads = 0;
+    const list = store.listOwnerships.bind(store); store.listOwnerships = () => { reads++; return list(); };
+    const scope = createDogfoodScope(store, { maintenance: true, formalization: false, closure: false, roots: ["root", "missing", "root"] });
+    assert.equal(scope.effectiveObjectCount(), 41); assert.equal(reads, 1);
+    assert.equal(scope.isInScope("task-39"), true); assert.equal(reads, 2);
+    const empty = createDogfoodScope(store, { maintenance: true, formalization: false, closure: false, roots: [] });
+    assert.equal(empty.effectiveObjectCount(), 0); assert.equal(empty.isInScope("root"), false); assert.equal(reads, 2);
+  } finally { store.close(); }
+});

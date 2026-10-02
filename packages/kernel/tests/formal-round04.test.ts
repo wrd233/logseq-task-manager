@@ -4,7 +4,7 @@ import { loadCurrentFocusSkill, loadEngagementReconciliationSkill } from "@task-
 import { parseSemanticOperation, type GraphEffect } from "@task-copilot/contracts";
 import { SqliteStore } from "@task-copilot/sqlite";
 import { FakeGraphAdapter } from "../../test-support/src/index.ts";
-import { Kernel } from "../src/index.ts";
+import { ContextAssociations, Kernel } from "../src/index.ts";
 
 const at = "2026-10-02T00:00:00.000Z", actor = { type: "USER", id: "local-user" } as const;
 async function fixture() {
@@ -24,7 +24,7 @@ test("formal CREATE Undo removes current state and preserves evidence, governanc
     const material = await f.graph.readEvidenceMaterial({ graphId: "graph", blockUuid: "source" }, f.key);
     f.kernel.freezeEvidence({ evidenceId: "evidence", workObjectId: f.id, snapshot: material });
     f.kernel.startExternalAgentRun({ runId: "read", purpose: "CURRENT_FOCUS_MAINTENANCE", workObjectId: f.id, evidenceIds: ["evidence"], executorId: "agent", snapshot: f.graph.snapshot("graph", "source") });
-    f.kernel.context.associateContext({ workObjectId: f.id, sourceRef: { graphId: "graph", blockUuid: "source" }, sourceVersionHash: material.sourceContentHash, origin: "USER_EXPLICIT" });
+    new ContextAssociations(f.store, () => at).associateContext({ workObjectId: f.id, sourceRef: { graphId: "graph", blockUuid: "source" }, sourceVersionHash: material.sourceContentHash, origin: "USER_EXPLICIT" });
     const pkg = f.kernel.createDecisionPackage({ workObjectId: f.id, summary: "pending", rationale: "pending", candidates: [{ operationType: "SET_CURRENT_FOCUS", parameters: {} }] });
     const input = { operationId: "undo", actor, commitId: f.created.commit.id };
     const undone = f.kernel.undoFormal(input, f.graph.snapshot("graph", "source"));
