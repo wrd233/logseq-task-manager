@@ -12,6 +12,7 @@ interface MarkdownEditor { getValue(): string; setValue(text: string, clearStack
 interface EditorConstructor { new (root: HTMLElement, options: Record<string, unknown>): MarkdownEditor }
 export interface DirectoryObservationPort {
   available(context: MaterialWorkContext): boolean;
+  stop():void;
   list(context: MaterialWorkContext): Promise<{files: Array<{path:string;kind:string;availability:string;materialId:string|null}>;truncated:boolean}>;
   read(path:string,context:MaterialWorkContext):Promise<{content?:string|null;reason?:string;read?:string}>;
   associate(path:string,context:MaterialWorkContext):Promise<MaterialResult>;
@@ -129,7 +130,6 @@ export class Materials {
     return {graph, sourceUuid: uuid, directory: null, organization: "flat"};
   }
   /** Trusted consumer port; preserves the existing nearest explicit binding. */
-  workspaceContext(uuid: string): Promise<MaterialWorkContext> { return this.workContext(uuid); }
   async bindDirectory(sourceUuid: string, directory: string | null, organization: "flat" | "project" = "flat"): Promise<void> {
     const service = await this.ensureService(), epoch = this.epoch;
     const root = directory ? normalizeRoot(directory.trim(), this.graph) : null;
@@ -172,6 +172,11 @@ export class Materials {
     management.append(button("登记材料目录", () => void this.registerDirectory().catch(this.fail)));
     const query = element("input"); query.type = "search"; query.placeholder = "搜索标题与正文"; query.setAttribute("aria-label", "搜索材料");
     await this.ensureService();
+    if(rootUuid&&this.directoryObserver){
+      const context=await this.workContext(rootUuid),connected=this.directoryObserver.available(context);
+      this.heading.append(element("small",connected?"agent 已连接 · 允许维护此工作正文":"agent 未连接 · 本地阅读与材料仍可用"));
+      if(connected)management.append(button("停止 agent 连接",()=>{this.directoryObserver?.stop();void this.library(rootUuid).catch(this.fail);}));
+    }
     const results = element("div"), recovery = element("div"); this.body.replaceChildren(recovery, query, results);
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i); if (!key?.startsWith("workbench:pending:")) continue;

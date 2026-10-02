@@ -7,7 +7,7 @@ import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
 import { installWorkspaceContext } from "./features/workspace-context/install.ts";
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
-import { installAgentWorkspace } from "./features/agent-workspace/installer.ts";
+import { installAgentWorkspace, workspaceBindingPort } from "./features/agent-workspace/installer.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback();
-  agentWorkspace = installAgentWorkspace({content,materials,work});
+  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api});
   const api = {
     read: () => work?.snapshot() ?? null,
     open: (uuid?: string) => work?.open(uuid),

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -13,8 +14,8 @@ const argv = process.argv.slice(2); const offlineHelp = !argv.length || argv.inc
 const firstWord = argv.find((arg) => !arg.startsWith("-"));
 if (firstWord === "workspace") {
   process.exitCode = await runWorkspaceCli(argv, {out:console.log,err:console.error,readInput:async path=>{
-    if(path!=="-")return readFile(path,"utf8");
-    const chunks:Buffer[]=[];for await(const chunk of process.stdin)chunks.push(Buffer.from(chunk));return Buffer.concat(chunks).toString("utf8");
+    const chunks:Buffer[]=[],source=path==="-"?process.stdin:createReadStream(path);let length=0;
+    for await(const chunk of source){const bytes=Buffer.from(chunk);length+=bytes.length;if(length>1_048_576)throw new ClientError("INPUT_TOO_LARGE","Workspace input exceeds 1 MiB.",413);chunks.push(bytes);}return Buffer.concat(chunks).toString("utf8");
   }});
 } else if (!offlineHelp && firstWord && ["backup", "service", "doctor"].includes(firstWord)) {
   process.exitCode = await runLocalCli(argv, { out: console.log, err: console.error });
