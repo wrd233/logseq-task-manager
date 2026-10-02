@@ -177,13 +177,15 @@ test('composition root leaves runtime disabled while work and materials remain u
     settings:{tasksEnabled:false,materialsDirectory:'/materials'},
     useSettingsSchema:()=>{},provideStyle:()=>{},provideModel:()=>{},beforeunload:fn=>{unload=fn;},
     ready:fn=>{boot=Promise.resolve().then(fn);return boot;},
-    App:{registerUIItem:()=>{},registerCommandPalette:()=>{},getCurrentGraph:async()=>({name:'test',url:'/graph',path:'/graph'}),onCurrentGraphChanged:()=>()=>{}},
+    App:{registerUIItem:()=>{},registerCommandPalette:()=>{},registerCommand:()=>()=>{},getCurrentGraph:async()=>({name:'test',url:'/graph',path:'/graph'}),onCurrentGraphChanged:()=>()=>{}},
     DB:{onChanged:()=>{subscriptions++;return()=>{};}},
     Editor:{getCurrentBlock:async()=>({uuid:'root'}),getBlock:async()=>({uuid:'root',content:'natural',parent:{id:'page'},page:{id:'page'}}),registerBlockContextMenuItem:()=>()=>{},checkEditing:async()=>false},
     setMainUIInlineStyle:()=>{},showMainUI:()=>{},hideMainUI:()=>{},UI:{showMsg:async()=>{}},
   };
   try {
     await import('../../src/index.ts');await boot;
+    assert.equal(typeof browser.taskCopilotWorkbench.content.read,"function");
+    assert.equal(browser.taskCopilotWorkbench.content.scope(),null);
     for (const method of ["list", "read", "capture", "associate", "save"]) assert.equal(typeof browser.taskCopilotWorkbench.materials[method], "function");
     assert.deepEqual(await browser.taskCopilotWorkbench.materials.list(), {status:"success",materials:[],problems:[]});
     await browser.taskCopilotWorkbench.open('root');

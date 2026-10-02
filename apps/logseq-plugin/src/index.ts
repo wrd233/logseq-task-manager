@@ -5,6 +5,7 @@ import type { CaptureRequest } from "./features/materials/service.ts";
 import { Materials } from "./features/materials/controller.ts";
 import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
+import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
@@ -21,12 +22,13 @@ async function main(): Promise<void> {
   installWorkbenchStyle();
   let materials: Materials | null = null, work: WorkView | null = null;
   let stopTasks: (() => Promise<void>) | null = null;
+  let content: ContentInstallation | null = null;
   let disposed = false;
   let removeNavigation: () => void = () => undefined;
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
+    content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
     delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
   };
   logseq.beforeunload(dispose);
@@ -54,12 +56,14 @@ async function main(): Promise<void> {
   logseq.provideModel({ workbenchOpen: () => { if (disposed) return; if (work) void work.open().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
+  content = installContentWriteback();
   const api = {
     read: () => work?.snapshot() ?? null,
     open: (uuid?: string) => work?.open(uuid),
     openMaterial: (id: string) => materials?.openDoc(id, currentWorkRoot()),
     close: () => panels.closeActive(),
     apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
+    content: content.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
       read: (id: string) => requireMaterials().readMaterial(id),
