@@ -7,6 +7,7 @@ import { workObject } from "./focus.mjs";
 import type { SourceRow } from "./model.mjs";
 import type { ViewPresentation } from "./operations.ts";
 import { composeWorkView, type ComposedView } from "./view-composer.ts";
+import type { ReviewChange } from "./review-port.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
@@ -16,10 +17,12 @@ interface Actions {
   enter(uuid: string): void;
   range(uuid: string): void;
   repaint(): void;
+  reviewEdit?(uuid: string, container: HTMLElement, suggest: boolean): void;
 }
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
+  review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
 export interface ReadingBookmark {
   uuid: string | null; offset: number; scrollTop: number; fallback: string[]; focused: HTMLElement | null;
@@ -31,6 +34,7 @@ export class WorkViewRenderer {
   private readonly entries = new Map<string, Entry>();
   private layout: Array<{ uuid: string; depth: number }> = [];
   private composingUuid: string | null = null;
+  private historical = false;
   get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {}
 
@@ -59,19 +63,20 @@ export class WorkViewRenderer {
     controls.append(select, button("全文 / 收起", () => this.actions.toggle("expanded", uuid)), button("原文", () => this.actions.locate(uuid)), button("原始文本", () => this.actions.raw(uuid)), button("只看此处", () => this.actions.range(uuid)));
     node.append(grip, fold, body, controls);
     node.addEventListener("click", event => {
-      if (!(event.target as HTMLElement).closest("button,select,a") && !this.composing) this.actions.operation({ type: "focus", uuid });
+      if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
     node.onkeydown = event => {
-      if (event.isComposing || this.composing) return;
-      if ((event.target as HTMLElement).closest("button,select,a")) return;
+      if (event.isComposing || this.composing || this.historical) return;
+      if ((event.target as HTMLElement).closest("button,select,a,input,textarea,[contenteditable=true]")) return;
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
     return { node, grip, fold, body, select, controls };
   }
 
-  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView): void {
+  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}): void {
+    this.historical=!!review?.historical;
     const view = composition ?? composeWorkView(rows, state);
     this.layout = state.items.map(item => ({ ...item }));
     const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
@@ -90,6 +95,7 @@ export class WorkViewRenderer {
       let entry = this.entries.get(item.uuid);
       if (!entry) { entry = this.create(item.uuid); this.entries.set(item.uuid, entry); }
       const { hidden, folded, child } = item;
+      const change=review?.changes.get(item.uuid);
       if (entry.node.hidden !== hidden) entry.node.hidden = hidden;
       entry.node.classList.toggle("selected", state.selected === item.uuid);
       entry.node.classList.toggle("wb-lens-emphasis", item.emphasis);
@@ -97,19 +103,45 @@ export class WorkViewRenderer {
       if (entry.node.style.getPropertyValue("--depth") !== String(item.depth)) entry.node.style.setProperty("--depth", String(item.depth));
       const level = displayLevel(row.content, state.overrides[item.uuid], { root: index === 0, missing: !!row.missing }).level;
       if (entry.node.dataset.display !== level) entry.node.dataset.display = level;
-      entry.grip.disabled = index === 0; entry.fold.disabled = !child;
+      entry.grip.disabled = index === 0 || this.historical; entry.fold.disabled = !child || this.historical;
       const foldLabel = child ? folded ? "▸" : "▾" : "·";
       if (entry.fold.textContent !== foldLabel) entry.fold.textContent = foldLabel;
       entry.fold.setAttribute("aria-label", folded ? "展开子项" : "折叠子项");
       entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
-      if (!hidden && this.composingUuid !== item.uuid && entry.content !== row.content) {
+      const inline=change?.inline&&change.after===row.content?change.inline:null;
+      const bodySignature=JSON.stringify([row.content,inline]);
+      if (!hidden && this.composingUuid !== item.uuid && entry.bodySignature !== bodySignature) {
         const selection = document.getSelection();
         if (selection?.rangeCount) {
           const range = selection.getRangeAt(0);
           if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) selection.removeAllRanges();
         }
-        entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
+        if(inline){
+          const mark=element("mark",inline.inserted);mark.className="wb-review-insert";
+          const text=element("div");text.style.whiteSpace="pre-wrap";text.append(document.createTextNode(inline.prefix),mark,document.createTextNode(inline.suffix));entry.body.replaceChildren(text);
+        }else entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
         entry.content = row.content;
+        entry.bodySignature=bodySignature;
+      }
+      entry.node.classList.toggle("wb-review-change",!!change);
+      entry.node.classList.toggle("wb-review-history",!!review?.historical);
+      const reviewSignature=JSON.stringify([change,!!review?.historical]);
+      if(entry.reviewSignature!==reviewSignature&&this.composingUuid!==item.uuid){
+        if(change){
+          if(!entry.editor){entry.editor=element("div","","wb-review-editor");entry.node.append(entry.editor);}
+          if(!entry.review){entry.review=element("div","","wb-review-info");entry.node.append(entry.review);}
+          const label=element("span",change.label);
+          const correct=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,false);
+          const suggest=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,true);
+          const details=element("details"),summary=element("summary","旧文 / 变化细节");
+          details.append(summary,element("pre",change.before??"当时没有此块"));
+          entry.review.replaceChildren(label,button(review?.historical?"在当前内容中纠正":"修改",correct),button("建议",suggest),details);
+          if(change.problem)entry.review.append(element("small",change.problem,"wb-error"));
+          if(change.after!==row.content&&!review?.historical)entry.review.append(element("small","当前原文已不同于当时结果；修改将重新读取当前版本。"));
+          entry.review.hidden=false;
+          entry.body.onclick=event=>{if(!(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
+        }else{if(entry.review)entry.review.hidden=true;entry.body.onclick=null;}
+        entry.reviewSignature=reviewSignature;
       }
       const override = state.overrides[item.uuid] ?? "auto";
       if (entry.select.value !== override) entry.select.value = override;

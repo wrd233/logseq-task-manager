@@ -93,7 +93,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   };
   // Only the composition root passes these trusted local callbacks to user UI.
   // They are deliberately absent from the public capability namespace.
-  const local={authorize:establish,apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
+  const local={authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
   return {api,local,dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;
