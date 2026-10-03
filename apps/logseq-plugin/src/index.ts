@@ -62,8 +62,9 @@ async function main(): Promise<void> {
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback();
-  stages = installStageWorkbench({content,work,materials:{
+  stages = installStageWorkbench({content,work,source:workspace.source,materials:{
     read:id=>requireMaterials().readMaterial(id),
+    open:id=>requireMaterials().openDoc(id,currentWorkRoot()),
     list:async scope=>(await requireMaterials().listMaterials(scope.rootUuid,"")).materials,
   }});
   const api = {
