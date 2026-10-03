@@ -1,3 +1,4 @@
+import { sha256 } from "../../workspace/source-protocol.ts";
 import type { Operation, Patch, SourceScope, TextOperation } from "./protocol.ts";
 
 export const limits = { operations: 64, text: 262_144, request: 1_048_576, blocks: 2_000, depth: 64 } as const;
@@ -83,10 +84,7 @@ export function parsePatch(input: unknown): Patch {
   if (new TextEncoder().encode(JSON.stringify(patch)).length > limits.request) fail("REQUEST_TOO_LARGE");
   return patch;
 }
-export async function sha256(content: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
-  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
+export { sha256 } from "../../workspace/source-protocol.ts";
 export function sameScope(a: SourceScope, b: SourceScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid; }
 export function utf16Boundary(text: string, index: number): boolean {
   if (index < 0 || index > text.length) return false;

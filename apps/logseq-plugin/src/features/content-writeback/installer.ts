@@ -1,3 +1,4 @@
+import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { LocalScopeAuthority } from "./authority.ts";
 import { ContentExecutor } from "./executor.ts";
@@ -14,7 +15,7 @@ function fields(input:unknown,allowed:readonly string[]):Record<string,unknown>{
   const value=object(input);if(Object.keys(value).some(key=>!allowed.includes(key)))fail("UNSUPPORTED_FIELD");return value;
 }
 export function installContentWriteback(options:{journal?:OperationJournal;adapter?:LogseqContentAdapter;hostTimeoutMs?:number}={}) {
-  const authority=new LocalScopeAuthority(),adapter=options.adapter??new LogseqContentAdapter();
+  const authority=new LocalScopeAuthority(),adapter=options.adapter??new LogseqContentAdapter(null,logseqSourceReader());
   const executor=new ContentExecutor({reader:adapter,authority,editing:adapter,writer:adapter,journal:options.journal??new PrivateOperationJournal(logseq.FileStorage),...(options.hostTimeoutMs!==undefined?{hostTimeoutMs:options.hostTimeoutMs}:{})});
   let disposed=false,setup=0;
   const disposers:Array<()=>void>=[];

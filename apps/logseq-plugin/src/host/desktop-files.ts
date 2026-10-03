@@ -6,7 +6,10 @@ export function desktopBridge(): DesktopBridge {
   if (!host?.apis?.doAction) throw new Error("当前环境没有桌面文件桥接。"); return host.apis;
 }
 export function desktopFiles(graphPath: () => string): FileIO {
-  const call = (...args: unknown[]) => desktopBridge().doAction(args);
+  const call = async (...args: unknown[]) => {
+    try { return await desktopBridge().doAction(args); }
+    catch (error) { if (error instanceof Error) throw error; throw new Error(error && typeof error === "object" && "message" in error ? String(error.message) : String(error), {cause: error}); }
+  };
   return {
     read: async path => { const text = await call("readFile", path); if (typeof text !== "string") throw new Error("文件读取失败。"); return text; },
     write: async (path, text) => { await call("writeFile", graphPath(), path, text); },
@@ -33,6 +36,16 @@ export function desktopFiles(graphPath: () => string): FileIO {
         throw new Error("文件状态不可用。");
       }
       if (!value || typeof value.mode !== "number" || typeof value.size !== "number") {
+        if (await call("listdir", path, true) === null) {
+          // Confirm an accessible ancestor, including when immediate parents
+          // have moved away. An entirely unavailable bridge stays unavailable.
+          let ancestor = path;
+          for (let depth = 0; depth < 32 && ancestor !== "/"; depth++) {
+            ancestor = ancestor.slice(0, ancestor.lastIndexOf("/")) || "/";
+            const parentStat = await call("stat", ancestor) as {size?: number} | null;
+            if (typeof parentStat?.size === "number" && Number.isFinite(parentStat.size)) throw new Error("ENOENT: 文件不存在。");
+          }
+        }
         // Desktop 0.10.9 returns null or {} for a missing stat. Confirm absence using
         // its parent's listing; an unreadable existing entry must not be created over.
         const parent = path.slice(0, path.lastIndexOf("/"));

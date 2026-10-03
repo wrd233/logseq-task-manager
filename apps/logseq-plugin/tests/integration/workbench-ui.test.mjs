@@ -188,7 +188,7 @@ test('composition root leaves runtime disabled while work and materials remain u
     ready:fn=>{boot=Promise.resolve().then(fn);return boot;},
     App:{registerUIItem:()=>{},registerCommandPalette:()=>{},registerCommand:()=>()=>{},getCurrentGraph:async()=>({name:'test',url:'/graph',path:'/graph'}),onCurrentGraphChanged:()=>()=>{}},
     DB:{onChanged:()=>{subscriptions++;return()=>{};}},
-    Editor:{getCurrentBlock:async()=>({uuid:'root'}),getBlock:async()=>({uuid:'root',content:'natural',parent:{id:'page'},page:{id:'page'}}),registerBlockContextMenuItem:()=>()=>{},checkEditing:async()=>false},
+    Editor:{getCurrentBlock:async()=>({uuid:'root'}),getBlock:async()=>({uuid:'root',content:'natural',id:2,parent:{id:1},page:{id:1},left:{id:1}}),registerBlockContextMenuItem:()=>()=>{},checkEditing:async()=>false},
     setMainUIInlineStyle:()=>{},showMainUI:()=>{},hideMainUI:()=>{},UI:{showMsg:async()=>{}},
   };
   try {

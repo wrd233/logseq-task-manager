@@ -65,11 +65,12 @@ export function validateFocusPlan(plan: FocusPlan, source: LensSourceSnapshot, r
     requireLens(block.availability === "available", "source-unavailable");
     requireLens(block.contentVersion === range.contentVersion && versions.get(range.sourceId) === range.contentVersion, "stale-content");
     selected.add(block.target.blockUuid);
-    let parent = block.parentUuid;
-    while (parent !== null) {
-      const ancestor = byUuid.get(parent); requireLens(ancestor?.availability === "available", "source-unavailable");
+    let node = block;
+    while (node.target.blockUuid !== source.scope.rootUuid) {
+      const parent = node.parentUuid;
+      const ancestor = parent === null ? undefined : byUuid.get(parent); requireLens(ancestor?.availability === "available", "source-unavailable");
       requireLens(versions.get(ancestor.sourceId) === ancestor.contentVersion, "ancestor-version-required");
-      ancestors.add(parent); parent = ancestor.parentUuid;
+      ancestors.add(ancestor.target.blockUuid); node = ancestor;
     }
   }
   for (const range of plan.emphasisRanges ?? []) {
