@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { startWorkspaceServer } from "../../task-copilot-cli/src/workspace-server.ts";
 import { contentFixture, deferred } from "./fixtures/content-writeback.ts";
+import type { StageInstallation } from "../src/features/stage-workbench/installer.ts";
 const exec = promisify(execFile), repo = resolve(import.meta.dirname, "../../..");
 test("independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled", async () => {
     const f = await contentFixture(), root = await realpath(await mkdtemp(join(tmpdir(), "agent-entry-"))), directory = join(root, "work"), state = join(root, "private");
@@ -74,6 +75,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
                 content: {
                     scope: () => unknown;
                 };
+                stages: StageInstallation["api"];
                 open: (id: string) => Promise<void>;
                 openMaterial: (id: string) => Promise<void>;
                 materials: {
@@ -114,6 +116,8 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal(status.formalKernelRequired, false);
         assert.equal(status.formalWorkspace, "connected");
         assert.equal(status.capabilities.content, true);
+        assert.equal(status.capabilities.stage, true);
+        assert.deepEqual(await cli(["stage", "read"], {}), { status: "unavailable", reason: "STAGE_CURRENT_UNAVAILABLE" });
         const refreshed = await cli(["refresh"]);
         assert.equal(refreshed.freshness, "checked");
         const block = refreshed.snapshot.blocks.find((item: {
@@ -236,7 +240,31 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const changedRequest = await cli(["focus", "request", "--question", "来源变化"]), changedSource = (await cli(["focus", "source"])).value;
         f.blocks.get(f.a)!.content += "\n用户改变了条件";
         assert.equal((await cli(["focus", "apply"], { ...plan, ...changedRequest.value, structureVersion: changedSource.structureVersion })).ok, false);
-        assert.equal((await cli(["stage", "read"], {})).status, "unavailable");
+        // A local user starts the stage; external clients consume only its formal
+        // read/submit port, preserving immutable facts and private acceptance.
+        const stage = await api.stages.begin({ goal: "核验三分支整合", requestKey: crypto.randomUUID(), expectedStageId: null });
+        assert.equal((await cli(["stage", "read"], { stageId: stage.start.id })).start.id, stage.start.id);
+        assert.equal((await cli(["stage", "read"], {})).start.id, stage.start.id);
+        const stageSnapshot = await cli(["content", "read"]), stageBlock = stageSnapshot.blocks.find((item: {target: {blockUuid: string}}) => item.target.blockUuid === f.a);
+        const stagePatch = { schemaVersion: 1, requestId: "stage-patch", scope: stageSnapshot.scope, metadata: { stageId: stage.start.id, runId: "explicit-run" }, operations: [{ operationId: "replace", type: "replace-text", target: stageBlock.target, expectedContentVersion: stageBlock.contentVersion, expectedParentUuid: stageBlock.parentUuid, range: { start: 0, end: 5 }, expectedText: "Omega", text: "Sigma" }] };
+        const stageInput = { stageId: stage.start.id, expectedRevision: stage.start.id, patch: stagePatch };
+        const stageWrites = f.counts().writes, stageResult = await cli(["stage", "submit"], stageInput);
+        assert.equal(stageResult.status, "complete");
+        assert.equal(stageResult.durable, true);
+        assert.equal(stageResult.stageProblem, null);
+        assert.ok(stageResult.stageRevision);
+        assert.ok(f.blocks.get(f.a)!.content.startsWith("Sigma"));
+        assert.equal((await cli(["content", "result", "stage-patch"])).record.digest, stageResult.record.digest);
+        assert.equal((await cli(["stage", "submit"], stageInput)).stageRevision, stageResult.stageRevision);
+        assert.equal(f.counts().writes, stageWrites + 1);
+        const stageRead = await cli(["stage", "read"], { stageId: stage.start.id });
+        assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.digest, stageResult.record.digest);
+        assert.equal(stageRead.acceptances.length, 0);
+        assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.origin.kind, "local-capability");
+        assert.equal(await cli(["content", "result", "stage-patch"], undefined, "two"), null);
+        await assert.rejects(cli(["stage", "submit"], { ...stageInput, actor: "user", accepted: true }), /UNSUPPORTED_FIELD/);
+        await assert.rejects(cli(["stage", "submit"], { ...stageInput, patch: { ...stagePatch, scope: { ...stageSnapshot.scope, rootUuid: f.b } } }), /SCOPE_MISMATCH/);
+        await assert.rejects(cli(["stage", "accept"], { stageId: stage.start.id }), /CLI_USAGE/);
         await cli(["sessions", "add", "--platform", "codex", "--session-id", "chosen"]);
         assert.equal((await cli(["sessions", "list"])).references[0].url, null);
         // A full bridge restart rotates descriptors and requires a fresh local grant.
@@ -246,6 +274,8 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         await assert.rejects(cli(["status"]), /DESCRIPTOR_STALE/);
         await f.commands.get("agent-workspace-allow")!();
         assert.equal((await cli(["content", "result", "patch-1"])).record.digest, applied.record.digest);
+        assert.equal((await cli(["content", "result", "stage-patch"])).record.digest, stageResult.record.digest);
+        assert.equal((await cli(["stage", "read"], {})).revisions.at(-1).id, stageResult.stageRevision);
         await api.workspace.bind({ scope: f.scope, directory });
         await assert.rejects(cli(["refresh"]), /WORKSPACE_OFFLINE|CONNECTION_REVOKED/);
         await f.commands.get("agent-workspace-allow")!();

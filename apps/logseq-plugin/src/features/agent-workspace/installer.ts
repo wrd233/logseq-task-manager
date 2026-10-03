@@ -93,7 +93,7 @@ export function installAgentWorkspace(options: {
             await post(value.descriptor, "/plugin/complete", { connectionId: value.id, clientId: parsed.clientId, requestId: parsed.requestId, value: result });
         }
         catch (error) {
-            const uncertain = returned && ["content.apply", "content.retry", "content.recover", "materials.capture", "materials.associate", "materials.save"].includes(delivery.command);
+            const uncertain = returned && ["content.apply", "content.retry", "content.recover", "stage.submit", "materials.capture", "materials.associate", "materials.save"].includes(delivery.command);
             const code = uncertain ? "TRANSPORT_OUTCOME_UNKNOWN" : error instanceof WorkspaceError ? error.code : error instanceof Error ? error.message.split(":")[0]! : "CAPABILITY_FAILED";
             await post(value.descriptor, "/plugin/complete", { connectionId: value.id, clientId: delivery.clientId, requestId: delivery.requestId, error: { code: code.slice(0, 128), message: uncertain ? "Local operation returned, but delivery/lifetime confirmation failed; query the original Journal request or material version before retrying." : error instanceof Error ? error.message.slice(0, 500) : code } }).catch(() => undefined);
         }

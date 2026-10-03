@@ -1,3 +1,4 @@
+import { WorkspaceError, sameWorkScope, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
@@ -75,7 +76,23 @@ async function main(): Promise<void> {
     open:id=>requireMaterials().openDoc(id,currentWorkRoot()),
     list:async scope=>(await requireMaterials().listMaterials(scope.rootUuid,"")).materials,
   }});
-  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api});
+  const stageApi = stages.api;
+  const requireStageScope = (scope: AgentWorkScope) => {
+    requireActive();
+    const selected = stageApi.scope();
+    if (!selected || !sameWorkScope(selected, scope)) throw new WorkspaceError("SCOPE_MISMATCH");
+  };
+  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api,stage:{
+    read:async (input,binding)=>{
+      requireStageScope(binding.scope);
+      const value = workRecord(input,["stageId"]);
+      if (value.stageId !== undefined) return stageApi.read(value);
+      const history = await stageApi.history();
+      requireStageScope(binding.scope);
+      return history.current ? stageApi.read({stageId:history.current}) : {status:"unavailable",reason:"STAGE_CURRENT_UNAVAILABLE"};
+    },
+    submit:async (input,binding)=>{requireStageScope(binding.scope);return stageApi.submit(input);},
+  }});
   const api = {
     read: () => disposed ? null : work?.snapshot() ?? null,
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },

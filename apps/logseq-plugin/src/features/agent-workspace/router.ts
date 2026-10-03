@@ -200,8 +200,28 @@ export class AgentWorkspaceRouter {
             await check();
             return content.retry(input);
         }
-        if (command === "stage.read" || command === "stage.submit")
-            return this.ports.stage ? this.ports.stage[command === "stage.read" ? "read" : "submit"](payload.input, binding) : { status: "unavailable", reason: "STAGE_PROVIDER_UNAVAILABLE" };
+        if (command === "stage.read" || command === "stage.submit") {
+            if (!this.ports.stage)
+                return { status: "unavailable", reason: "STAGE_PROVIDER_UNAVAILABLE" };
+            let input = payload.input;
+            if (command === "stage.submit") {
+                const value = workRecord(input, ["stageId", "expectedRevision", "patch", "correctionOf"]);
+                input = { ...value, patch: await this.patch(call, value.patch) };
+            }
+            await check();
+            try {
+                const result = await this.ports.stage[command === "stage.read" ? "read" : "submit"](input, binding);
+                await check();
+                return result;
+            }
+            catch (error) {
+                // A stage lifetime failure after dispatch does not prove the source
+                // remained unchanged. The same client can query its content Journal.
+                if (command === "stage.submit" && error instanceof Error && /(?:SCOPE|CONNECTION)_REVOKED/u.test(error.message))
+                    throw new WorkspaceError("TRANSPORT_OUTCOME_UNKNOWN", "Stage submission lost its scope confirmation; query the original content request before retrying.");
+                throw error;
+            }
+        }
         throw new WorkspaceError("UNKNOWN_COMMAND");
     }
 }
