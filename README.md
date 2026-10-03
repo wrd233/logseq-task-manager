@@ -2,6 +2,8 @@
 
 Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext 任务管理整合为一个 Logseq 插件。工作视图与材料可独立使用，本地 Kernel 继续管理正式任务状态与语义提交。
 
+普通工作从[中文图文手册](docs/user-guide/README.md)开始，包含目录材料、阶段审阅、聚焦、断连恢复与[自然工作 agent 接入](docs/user-guide/workbench-usage.md#agent-接入附录)。2026-10-04 独立体验优化分支的实现与实机边界见[交接](docs/implementation/workbench-ux-polish-handoff.md)；普通工作不需要下面正式任务 Kernel 的启动步骤。
+
 材料模块本轮使用与保存规则见[独立产品设计](docs/design/materials-module-design.md)，接口与权威边界见[独立架构](docs/architecture/materials-module-architecture.md)。
 
 当前整合结构、启用方法与边界见 [整合说明](docs/integration/README.md)；[交互需求树](docs/integration/requirements.html)展示从核心需求到实现位置和默认启用情况。需求数据在 `docs/integration/requirements.json`，运行 `npm run docs:requirements` 更新 HTML。
@@ -40,7 +42,7 @@ Phase 5.5 gives those formal semantics a sparse Logseq-native Writing Language. 
 
 In Logseq, select the relevant fact block and run `Task Copilot vNext：让 Agent 对账可行动状态`. Entering WAITING adds a readable managed Waiting field and removes the object from the actionable query; leaving WAITING removes that field and returns it. Use `Task Copilot vNext：完成当前 Task` for one-action completion, or the separate Cancel/Reopen/Amend/Show Closure commands. `Cmd+Shift+U` invokes the unambiguous recent-Commit Undo path.
 
-## 普通使用（macOS / Node 20.20.x）
+## 正式任务 Kernel 使用（macOS / Node 20.20.x）
 
 ```sh
 npm install
@@ -64,5 +66,5 @@ TASK_COPILOT_DESCRIPTOR=/path/to/private/state/kernel.json npm run start --works
 
 Architecture, ADRs, and acceptance evidence live in [`docs/architecture`](docs/architecture), [`docs/adr`](docs/adr), and [`docs/golden-paths`](docs/golden-paths). The current authority index is [`docs/vnext/README.md`](docs/vnext/README.md). Object Lens and CDP lessons remain non-authoritative reference material in [`docs/experience`](docs/experience).
 
-An external Agent should start with [`docs/agent/external-cli-agent-guide.md`](docs/agent/external-cli-agent-guide.md) and `npm run task-copilot -- agent bootstrap --json`.
+For formal Kernel task work, an external Agent should start with [`docs/agent/external-cli-agent-guide.md`](docs/agent/external-cli-agent-guide.md) and `npm run task-copilot -- agent bootstrap --json`. Natural workspace collaboration uses the separate [workspace CLI appendix](docs/user-guide/workbench-usage.md#agent-接入附录).
 For a MiniProject Grill, it should then read [`docs/agent/miniproject-governance-guide.md`](docs/agent/miniproject-governance-guide.md), `npm run task-copilot -- skill show miniproject-governance`, and `npm run task-copilot -- taste show miniproject-governance-taste`.

@@ -2,6 +2,8 @@
 
 一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
+2026-10-04：独立 `codex/workbench-ux-polish` 分支完成紧凑阅读操作、来源标题、阶段变化展示、显式目录预览与离线收纳识别，并用同一合成工作走通 Desktop UI 和真正外部 CLI。用户从[图文手册](../user-guide/README.md)进入；共享路径、550 项检查与未验范围见[本轮交接](../implementation/workbench-ux-polish-handoff.md)。此记录是本地分支交付，不表示已合入 main。
+
 2026-10-03：阶段记录与原位审阅已接入既有工作视图，支持显式开始阶段、同阶段纠正与原文建议、具体修订认可、材料成果及不可变历史。来源来自已发布的 workspace-context，正文与文件继续通过 content 和材料模块保存。API、权限和未验范围见[阶段交接](../implementation/stage-workbench-handoff.md)；本次 main 整合的基线及验证见[整合记录](stage-workbench-main-2026-10-03.md)。
 
 2026-10-03：工作区整合与恢复接入相同来源协议、SDK provider 和材料目录绑定，保留阶段工作台。支持目录搬迁后的明确重关联、材料按身份恢复和旧能力失效；合入最新 main 的基线、冲突处理及本轮门禁见[工作区整合记录](workspace-integration-main-2026-10-03.md)。

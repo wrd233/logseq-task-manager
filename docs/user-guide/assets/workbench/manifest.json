@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "manualVersion": "2026-10-04",
+  "verificationTimezone": "Asia/Shanghai",
+  "os": "macOS 15.2 x86_64",
+  "logseqVersion": "0.10.9",
+  "pluginVersion": "0.2.0",
+  "productCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+  "finalBundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+  "rawCapture": "Isolated actual Logseq Desktop Page.captureScreenshot, unchanged PNG",
+  "unchangedUiSincePreviousCommit": [
+    "apps/logseq-plugin/src/features/work-view/controller.ts",
+    "apps/logseq-plugin/src/features/work-view/renderer.ts",
+    "apps/logseq-plugin/src/features/stage-workbench/review.ts",
+    "apps/logseq-plugin/src/features/stage-workbench/diff.ts",
+    "apps/logseq-plugin/src/host/panel-host.ts",
+    "apps/logseq-plugin/src/index.ts"
+  ],
+  "screenshots": [
+    {
+      "file": "accepted.png",
+      "raw": "ui-1791039494091-002.png",
+      "capturedAtUtc": "2026-10-03T14:58:37.518Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "6226b0a28532e62bcd3459d21747b609dbfba090e549c0bae24593162ec4d793",
+      "note": "本地认可；已认可按钮禁用；独立 CLI 核对 revisionId 与不可变 SHA256"
+    },
+    {
+      "file": "after-accept.png",
+      "raw": "ui-1791040641770-003.png",
+      "capturedAtUtc": "2026-10-03T15:18:05.736Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "53dec39334b618a8f1c5318312ca5259163a3cd7eae1cbc6da13b0cc7e0c3872",
+      "note": "认可后经原生 Logseq 编辑保存；当前原文与提交版本不同，已认可状态不要求再次认可。"
+    },
+    {
+      "file": "captured-text.png",
+      "raw": "ui-1791043538505-005.png",
+      "capturedAtUtc": "2026-10-03T16:06:06.163Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "f717af74392791f91029c71058456803900b4baf220fb0cccb0d0805be387149",
+      "note": "最终产品构建且无 agent 连接，收纳长文仍通过原材料身份完整阅读。"
+    },
+    {
+      "file": "changes.png",
+      "raw": "ui-1791038562477-003.png",
+      "capturedAtUtc": "2026-10-03T14:42:55.507Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "94b6aa7f0069c73cada1515e2d036d6f1594e67c2b9859d1f2f60eba4b541b78",
+      "note": "当前阶段；新增与修改；下划线标实际改动；旧文按需展开"
+    },
+    {
+      "file": "connection.png",
+      "raw": "ui-1791041959042-016.png",
+      "capturedAtUtc": "2026-10-03T15:40:03.763Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "d076c1aada8176dabd9b607f839d6e27a6d94603221ea8b7b1076b03b5ce60e7",
+      "note": "连接就绪是程序通道状态；目录与查找中的停止 agent 连接只撤销自己的当前连接。"
+    },
+    {
+      "file": "dark.png",
+      "raw": "ui-1791054638257-001.png",
+      "capturedAtUtc": "2026-10-03T19:10:51.218Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "87ca56d6d14f7f00c308045879ec051d8250af5380900e7915eeb1e236ea5b14",
+      "note": "最终构建，宿主切换暗色主题，工作台基础阅读可用；iframe 使用既有回退色，见交接限制"
+    },
+    {
+      "file": "direct-edit.png",
+      "raw": "ui-1791038982054-001.png",
+      "capturedAtUtc": "2026-10-03T14:49:58.627Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "5e4a0c819422764847a7ca8dd5b771a66d25ac928bca0233286a39f5baea669e",
+      "note": "点击变化正文打开当前权威原文；本地草稿；显式提交修改"
+    },
+    {
+      "file": "directory.png",
+      "raw": "ui-1791043437815-003.png",
+      "capturedAtUtc": "2026-10-03T16:04:18.334Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "244bd816068a64ab0ac45cac5aaee795d3ed3649c34cc4746ef2fdb109974655",
+      "note": "最终构建的本地断连目录：已收纳输入和输出仍标明已关联，交接提醒仍未关联，查看与关联分开。"
+    },
+    {
+      "file": "entry.png",
+      "raw": "ui-1791043026222-001.png",
+      "capturedAtUtc": "2026-10-03T15:57:22.109Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "9c00cf7ee328a01919c46dd62ab03487c9dceb61c87e15a478f59c0b99a2fc11",
+      "note": "最终代码在原块右键菜单中具有目录关联、工作视图和允许连接入口；菜单滚动后完整可见。"
+    },
+    {
+      "file": "focus-before.png",
+      "raw": "ui-1791040842567-005.png",
+      "capturedAtUtc": "2026-10-03T15:21:02.005Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "f586b303976112b531d1b91d37527c0d8a10362c4649082ab2a3b231fd2f4342",
+      "note": "结束原生编辑后，同一工作完整范围，保留条件与反例附近的阅读位置；聚焦前后使用相同视口。"
+    },
+    {
+      "file": "focus.png",
+      "raw": "ui-1791040946056-007.png",
+      "capturedAtUtc": "2026-10-03T15:22:46.206Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "b8f7fc3d1d1a047a61fe188e97692faee4c662d30bd6a9ee993f5fe9b3e887d6",
+      "note": "按实际来源版本选取六个完整依据块，加上根与两个标题共显示 9 / 26 条；标题、条件和反例保留，范围外变化提示可见。"
+    },
+    {
+      "file": "history.png",
+      "raw": "ui-1791044002059-008.png",
+      "capturedAtUtc": "2026-10-03T16:13:42.587Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "a930da0ac0b332fec78bb0e7fd37449d80cf7ba052d9c5cd4a5667c37eb72218",
+      "note": "最终构建且连接停止时仍可回看已认可历史；快照只读，在当前内容中纠正与建议重新读取现存原文，返回原位置回到当前工作。"
+    },
+    {
+      "file": "offline.png",
+      "raw": "ui-1791043384449-002.png",
+      "capturedAtUtc": "2026-10-03T16:03:23.824Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "c83e8591c08adc08350b054e7e89431e6d27f07470a42f074aa24084ccee2591",
+      "note": "最终构建重载后仍显示未连接，本地材料可以阅读；当前连接维持停止状态。"
+    },
+    {
+      "file": "old-text.png",
+      "raw": "ui-1791038612877-004.png",
+      "capturedAtUtc": "2026-10-03T14:43:49.078Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "b42a22313d37459ad39ba02ce4eff2798aa537837a1fdd2a614912eb49505009",
+      "note": "旧文展开；删除线与作者事实；后续当前段落仍可读"
+    },
+    {
+      "file": "preview.png",
+      "raw": "ui-1791043470492-004.png",
+      "capturedAtUtc": "2026-10-03T16:04:45.222Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "bfffcb7fc4ca485cea116a4ea94da4dfb96e130afb002d3bd1c94deb8c639a10",
+      "note": "最终代码断连只读预览交接提醒.md，不产生材料记录、来源引用、编辑授权或阶段成果。"
+    },
+    {
+      "file": "reading.png",
+      "raw": "ui-1791043334880-001.png",
+      "capturedAtUtc": "2026-10-03T16:02:36.150Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "cd7c1d2dbb9c5d5f4b2ca54396ae813c1cb6f36608b5b4ea3c99034cf5b46ee0",
+      "note": "最终产品源码 10f0a66 重新构建并由宿主重载，仍为同一工作、当前阶段与 26 条来源。"
+    },
+    {
+      "file": "reentry.png",
+      "raw": "ui-1791054727929-002.png",
+      "capturedAtUtc": "2026-10-03T19:12:17.597Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "bb22fa9bf9d44c1f3f8172c291f72ecc68998297371857b71ac54d94de440aa0",
+      "note": "最终构建；停止、插件重载、Desktop 重启后通过真实本地命令重新允许；CLI 状态与刷新成功，原工作 26 条、第二阶段保留"
+    },
+    {
+      "file": "reference.png",
+      "raw": "ui-1791043748056-007.png",
+      "capturedAtUtc": "2026-10-03T16:09:30.437Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "7afb496fd91c5d57ff5a7906602a5ab4bbf852c1946db10ac9c44f4ba449f95b",
+      "note": "最终代码中文件恢复后仍经原身份阅读，默认只读，未增加引用或编辑授权。"
+    },
+    {
+      "file": "row-actions.png",
+      "raw": "ui-1791041743053-015.png",
+      "capturedAtUtc": "2026-10-03T15:36:02.901Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "f8dc15dc674ad229fb94e1b946476f36ddfc1f343a6c1bece4ef94be00aea849",
+      "note": "局部菜单固定在阅读视口下方的预留区；下一段的 y 坐标没有变化，原文、Markdown、范围和视图缩进均有等价入口。"
+    },
+    {
+      "file": "setup.png",
+      "raw": "ui-1791038130130-002.png",
+      "capturedAtUtc": "2026-10-03T14:35:49.616Z",
+      "sourceCommit": "15ed5ab4b721ce4be48fc1b925d223fdb0d5b547",
+      "bundleSha256": "6928be52b513aa43169e940263247e3036c9015ed52e563d2eb25beaad147333",
+      "pngSha256": "96247f6053ef6d8ab8d8df32d521197bfdad4061bd45e81acb15bf8d78c8928d",
+      "note": "最终构建；工作连接配置保留；普通工作无需 Kernel"
+    },
+    {
+      "file": "unavailable.png",
+      "raw": "ui-1791043649264-006.png",
+      "capturedAtUtc": "2026-10-03T16:07:46.291Z",
+      "sourceCommit": "10f0a664ec136902e839e2503127e249da8ce81a",
+      "bundleSha256": "562e984af5b2ff24ceb1d1da83954ec55d1d0941235aecb3b6de4e7fa5451ffb",
+      "pngSha256": "00ce6456db9c956f836405b919e595faeb4551460e6b34ade6952477c8eafaa8",
+      "note": "合成参考文件临时改名后，材料显示文件暂不可用，原材料身份、关联与历史保留，未提供写入入口。"
+    }
+  ]
+}
