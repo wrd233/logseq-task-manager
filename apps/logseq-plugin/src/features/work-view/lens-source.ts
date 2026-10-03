@@ -1,41 +1,17 @@
 import type { SourceRow } from "./model.mjs";
 import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-input.ts";
 
-// A feature-local consumption port. Workspace owns the future shared provider/module.
-export interface LensScope { graphId: string; rootUuid: string }
-export interface LensBlock {
-  sourceId: string;
-  target: { kind: "logseq-block"; graphId: string; blockUuid: string };
-  content: string | null;
-  contentVersion: string | null;
-  parentUuid: string | null;
-  order: number;
-  depth: number;
-  availability: "available" | "missing" | "unavailable";
-}
-export interface LensSourceSnapshot {
-  schemaVersion: 1;
-  scope: LensScope;
-  blocks: readonly LensBlock[];
-  structureVersion: string;
-  sourceSetVersion: string;
-  capturedAt: string;
-}
+import { snapshot, sha256, sourceId, type SourceScope as LensScope, type BlockSnapshot as LensBlock, type SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
+export type { SourceScope as LensScope, BlockSnapshot as LensBlock, SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
 export interface LensSourcePort { read(scope: LensScope): Promise<unknown> }
 
-export const logseqSourceId = (graphId: string, uuid: string): string => JSON.stringify(["logseq", graphId, uuid]);
+export const logseqSourceId = sourceId;
 export const sameLensScope = (a: LensScope, b: LensScope): boolean => a.graphId === b.graphId && a.rootUuid === b.rootUuid;
-export async function sourceHash(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
+export const sourceHash = sha256;
 export function readLensScope(value: unknown): LensScope {
   const scope = lensRecord(value, ["graphId", "rootUuid"]);
   return { graphId: lensText(scope.graphId, 2048), rootUuid: lensText(scope.rootUuid, 256) };
 }
-const structure = (blocks: readonly LensBlock[]): string => JSON.stringify(blocks.map(block => [block.sourceId, block.parentUuid, block.order, block.depth]));
-const sourceSet = (blocks: readonly LensBlock[]): string => JSON.stringify(blocks.map(block => [block.sourceId, block.availability, block.contentVersion]));
-
 /** Only committed SDK rows enter here. Drafts, display order and seq are deliberately absent. */
 export async function captureLensSource(scope: LensScope, committed: readonly SourceRow[], availability: LensBlock["availability"] = "available"): Promise<LensSourceSnapshot> {
   const rows = committed.filter(row => !row.outside && !row.missing);
@@ -56,11 +32,7 @@ export async function captureLensSource(scope: LensScope, committed: readonly So
     content: null, contentVersion: null, parentUuid: null, order: 0, depth: 0,
     availability: availability === "available" ? "missing" : availability,
   }];
-  return {
-    schemaVersion: 1, scope: { ...scope }, blocks,
-    structureVersion: await sourceHash(structure(blocks)),
-    sourceSetVersion: await sourceHash(sourceSet(blocks)), capturedAt: new Date().toISOString(),
-  };
+  return snapshot(scope, blocks);
 }
 
 /** Validate installed providers too; a caller-supplied version/capability is never proof. */
@@ -103,6 +75,7 @@ export async function validateLensSource(value: unknown, expected: LensScope): P
     if (block.content !== null) requireLens(await sourceHash(block.content) === block.contentVersion, "source-version-mismatch");
   }));
   const structureVersion = lensHash(raw.structureVersion), sourceSetVersion = lensHash(raw.sourceSetVersion);
-  requireLens(await sourceHash(structure(blocks)) === structureVersion && await sourceHash(sourceSet(blocks)) === sourceSetVersion, "source-version-mismatch");
+  const versions = await snapshot(scope, blocks, capturedAt);
+  requireLens(versions.structureVersion === structureVersion && versions.sourceSetVersion === sourceSetVersion, "source-version-mismatch");
   return { schemaVersion: 1, scope, blocks, structureVersion, sourceSetVersion, capturedAt };
 }

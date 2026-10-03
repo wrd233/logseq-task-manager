@@ -1,3 +1,5 @@
+import { snapshot } from "../../workspace/source-protocol.ts";
+import type { SourceReader as CommittedSourceReader } from "../../workspace/source-reader.ts";
 import { lookupBlockIdentity } from "../../block-identity.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { hostDocument } from "../../host/panel-host.ts";
@@ -26,7 +28,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
   private readonly documents: Document[];
   private readonly onStart = (event: Event) => { this.composing.add(event.target); };
   private readonly onEnd = (event: Event) => { this.composing.delete(event.target); };
-  constructor(private readonly ownership: ((scope: SourceScope) => Promise<FormalOwnership | null>) | null = null) {
+  constructor(private readonly ownership: ((scope: SourceScope) => Promise<FormalOwnership | null>) | null = null, private readonly committed?: CommittedSourceReader) {
     this.documents = [...new Set([document, hostDocument()].filter((value): value is Document => !!value))];
     for (const doc of this.documents) { doc.addEventListener("compositionstart", this.onStart, true); doc.addEventListener("compositionend", this.onEnd, true); }
   }
@@ -128,10 +130,12 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
       await visit(root,await this.parentUuid(scope,root,valid),rootOrder,0,ancestors);
     }
     else rows.push({sourceId:JSON.stringify(["logseq",scope.graphId,scope.rootUuid]),target:{kind:"logseq-block",graphId:scope.graphId,blockUuid:scope.rootUuid},content:null,contentVersion:null,parentUuid:null,order:0,depth:0,availability:"missing"});
-    const structureVersion = await sha256(JSON.stringify(rows.map(row=>[row.sourceId,row.parentUuid,row.order,row.depth])));
-    const sourceSetVersion = await sha256(JSON.stringify(rows.map(row=>[row.sourceId,row.availability,row.contentVersion])));
+    const facts = await snapshot(scope, rows);
+    const committed = this.committed ? await this.committed.read(scope, valid) : facts;
+    // Protection/ancestry facts must describe the same committed version.
+    if (committed.structureVersion !== facts.structureVersion || committed.sourceSetVersion !== facts.sourceSetVersion) fail("SOURCE_CHANGED_DURING_READ");
     await this.assertGraph(scope,valid);
-    return {snapshot:{schemaVersion:1,scope:{...scope},blocks:rows,structureVersion,sourceSetVersion,capturedAt:new Date().toISOString()},protections,children,paths};
+    return {snapshot: committed, protections, children, paths};
   }
   async assertSafe(scope: SourceScope, affected: readonly string[], valid: () => boolean): Promise<void> {
     const composing = () => [...this.composing].some(target => {

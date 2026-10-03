@@ -1,15 +1,5 @@
-// Consumer-owned port shapes. workspace-context will supply the shared provider.
-export type SourceScope = { graphId: string; rootUuid: string };
-export type BlockTarget = { kind: "logseq-block"; graphId: string; blockUuid: string };
-export type BlockSnapshot = {
-  sourceId: string; target: BlockTarget; content: string | null; contentVersion: string | null;
-  parentUuid: string | null; order: number; depth: number;
-  availability: "available" | "missing" | "unavailable";
-};
-export type SourceSnapshot = {
-  schemaVersion: 1; scope: SourceScope; blocks: readonly BlockSnapshot[];
-  structureVersion: string; sourceSetVersion: string; capturedAt: string;
-};
+import type { SourceScope, BlockTarget, BlockSnapshot, SourceSnapshot } from "../../workspace/source-protocol.ts";
+export type { SourceScope, BlockTarget, BlockSnapshot, SourceSnapshot } from "../../workspace/source-protocol.ts";
 export type TextRange = { start: number; end: number };
 interface OperationBase {
   operationId: string; target: BlockTarget; expectedContentVersion: string; expectedParentUuid: string | null;

@@ -1,3 +1,5 @@
+import { logseqSourceReader } from "../src/workspace/logseq-source.ts";
+import { validateSnapshot } from "../src/workspace/source-protocol.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { contentFixture } from "./fixtures/content-writeback.ts";
@@ -12,7 +14,10 @@ test("lenses can consume actual SDK snapshots rooted below a parent or at a late
     for (const rootUuid of [f.a, f.b, sibling.uuid]) {
       const scope = {...f.scope, rootUuid};
       const actual = (await f.adapter.read(scope, () => true)).snapshot;
-      const source = await validateLensSource(actual, scope);
+      const shared = await logseqSourceReader().read(scope, () => true);
+      assert.deepEqual(shared.blocks, actual.blocks);
+      await validateSnapshot(shared);
+      const source = await validateLensSource(shared, scope);
       assert.deepEqual(source.blocks, actual.blocks);
       assert.equal(source.structureVersion, actual.structureVersion);
       const root = source.blocks[0]!;

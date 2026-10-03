@@ -5,6 +5,7 @@ export interface SourceReadHost {
   getPage?(name: string): Promise<unknown>;
   getPageBlocksTree?(name: string): Promise<unknown>;
   graphId(): Promise<string>;
+  rootPosition?(tree: unknown, check: () => Promise<void>): Promise<{parentUuid: string | null; order: number}>;
 }
 export class ScopeExpired extends Error { constructor() { super("WORKSPACE_SCOPE_EXPIRED"); } }
 /** Real host tree order only: no work-view layouts, retained blocks or editor drafts. */
@@ -45,7 +46,8 @@ export class SourceReader {
       const children = (block.children ?? []) as unknown[];
       for (let i = 0; i < children.length; i++) await visit(children[i], uuid, i, depth + 1);
     };
-    await visit(tree, null, 0, 0); await check(); return snapshot(scope, blocks);
+    const position = pageName === undefined && this.host.rootPosition ? await this.host.rootPosition(tree, check) : {parentUuid: null, order: 0};
+    await visit(tree, position.parentUuid, position.order, 0); await check(); return snapshot(scope, blocks);
   }
   absent(scope: SourceScope, availability: "missing" | "unavailable"): Promise<SourceSnapshot> {
     return snapshot(scope, [{sourceId: sourceId(scope.graphId, scope.rootUuid), target: {kind: "logseq-block", graphId: scope.graphId, blockUuid: scope.rootUuid}, content: null, contentVersion: null, parentUuid: null, order: 0, depth: 0, availability}]);

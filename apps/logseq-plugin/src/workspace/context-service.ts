@@ -44,6 +44,7 @@ export class WorkspaceContextService {
   dispose(): void { this.stopped = true; this.invalidate(); }
   private bump(scope: SourceScope): void { const key = scopeKey(scope); this.revisions.set(key, (this.revisions.get(key) ?? 0) + 1); this.known.delete(key); }
   private valid(scope: SourceScope): () => boolean {
+    if (this.stopped) throw new ScopeExpired();
     const epoch = this.epoch, revision = this.revisions.get(scopeKey(scope));
     return () => !this.stopped && epoch === this.epoch && revision === this.revisions.get(scopeKey(scope));
   }
