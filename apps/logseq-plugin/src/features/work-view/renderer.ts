@@ -125,7 +125,7 @@ export class WorkViewRenderer {
       }
       entry.node.classList.toggle("wb-review-change",!!change);
       entry.node.classList.toggle("wb-review-history",!!review?.historical);
-      const reviewSignature=JSON.stringify([change,!!review?.historical]);
+      const reviewSignature=JSON.stringify([change,!!review?.historical,change?change.after===row.content:null]);
       if(entry.reviewSignature!==reviewSignature&&this.composingUuid!==item.uuid){
         if(change){
           if(!entry.editor){entry.editor=element("div","","wb-review-editor");entry.node.append(entry.editor);}
@@ -137,7 +137,10 @@ export class WorkViewRenderer {
           details.append(summary,element("pre",change.before??"当时没有此块"));
           entry.review.replaceChildren(label,button(review?.historical?"在当前内容中纠正":"修改",correct),button("建议",suggest),details);
           if(change.problem)entry.review.append(element("small",change.problem,"wb-error"));
-          if(change.after!==row.content&&!review?.historical)entry.review.append(element("small","当前原文已不同于当时结果；修改将重新读取当前版本。"));
+          if(change.after!==row.content&&!review?.historical){
+            const submitted=element("details");submitted.append(element("summary","当时提交的结果"),element("pre",change.after??"当时没有可读结果"));
+            entry.review.append(element("small","当前原文已不同于当时结果；修改将重新读取当前版本。"),submitted);
+          }
           entry.review.hidden=false;
           entry.body.onclick=event=>{if(!(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
         }else{if(entry.review)entry.review.hidden=true;entry.body.onclick=null;}
