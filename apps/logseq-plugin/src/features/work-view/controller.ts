@@ -276,12 +276,15 @@ export class WorkView {
     catch { this.fail(new Error("布局保存失败，请保持窗口打开。")); }
   }
   private renderHeading(): void {
-    const signature = JSON.stringify([this.graph, this.rootUuid, this.trace.objects, this.held]);
+    const root = this.rows.find(row => row.uuid === this.rootUuid);
+    const identity = this.rootUuid ? lookupBlockIdentity(this.rootUuid, this.graph) : null;
+    const title = identity?.kind === "FORMAL" && identity.title ? identity.title : (root?.content.split("\n").find(line => line.trim() && !/^\s*[\w-]+::/.test(line)) ?? "工作视图").replace(/^[#\s]+|\*\*|__/g, "").trim();
+    const signature = JSON.stringify([this.graph, this.rootUuid, this.trace.objects, this.held, title]);
     if (this.headingSignature === signature) return;
     this.headingSignature = signature;
-    this.heading.replaceChildren(element("strong", "工作视图"));
-    for (const crumb of this.trace.objects) this.heading.append(button(crumb.title, () => void this.enter(crumb.uuid, "breadcrumb").catch(this.fail)));
-    if (this.held) this.heading.append(button("恢复自动聚焦", () => { this.held = null; this.renderHeading(); }));
+    this.heading.replaceChildren(element("strong", title));
+    for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) this.heading.append(button(crumb.title, () => void this.enter(crumb.uuid, "breadcrumb").catch(this.fail)));
+    if (this.held) this.heading.append(button("跟随 Logseq 点击", () => { this.held = null; this.renderHeading(); }));
     this.heading.append(button("只看选定范围", () => { void this.lenses.api.select(); }), button("材料", () => { void this.openMaterials(); }), button("关闭", () => void this.panel.close()));
   }
   private async openMaterials(): Promise<void> {
@@ -291,12 +294,14 @@ export class WorkView {
     catch (error) { if (this.valid(epoch)) this.fail(error); }
   }
   private render(): void {
+    this.renderHeading();
     const view = composeWorkView(this.rows, this.state, this.lenses.selection);
     const review=this.review&&this.rootUuid?this.review.compose({scope:{graphId:this.graph,rootUuid:this.rootUuid},rows:this.rows,state:this.state,view,editing:!!this.draft||this.renderer.composing}):null;
     this.renderer.render(review?.rows??this.rows,review?.state??this.state,this.rawBodies,review?.view??view,review??undefined);
     this.lensBar.render(this.lenses.read());
     this.status.classList.remove("wb-error");
-    this.status.textContent = `${this.draft ? "含编辑草稿" : this.sourceAvailable ? "来源已读取" : "来源暂不可用 · 保留视图位置"} · ${this.state.items.length} 条 · 排列仅保存在视图中`;
+    const displayed = review?.view ?? view;
+    this.status.textContent = `${this.draft ? "含编辑草稿" : this.sourceAvailable ? "来源已读取" : "来源暂不可用 · 保留最后已知内容"} · 显示 ${displayed.items.filter(item => !item.hidden).length} / ${displayed.items.length} 条 · 排列仅影响视图`;
   }
   private toggle(name: "collapsed" | "expanded", uuid: string): void {
     if (name === "collapsed") {

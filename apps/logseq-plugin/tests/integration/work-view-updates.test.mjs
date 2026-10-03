@@ -43,7 +43,7 @@ test('300-node content, presentation, raw and keyboard changes parse only change
     op(f.work, 'display', { uuid: 'b0', level: 'compact' }); op(f.work, 'focus', { uuid: 'b1' });
     op(f.work, 'reorder', { uuid: 'b1', target: 'b0', mode: 'after' });
     const full = [...b0.querySelectorAll('button')].find(button => button.textContent === '全文 / 收起'); full.click();
-    const raw = [...b0.querySelectorAll('button')].find(button => button.textContent === '原始文本'); raw.click();
+    const raw = [...b0.querySelectorAll('button')].find(button => button.textContent === '查看 Markdown 原文'); raw.click();
     assert.equal(b0.querySelector('pre').textContent, '**条目 0**'); assert.equal(b0.querySelector('.wb-body').classList.contains('expanded'), true);
     b1.focus(); b1.dispatchEvent(new f.browser.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
     assert.equal(f.work.snapshot().view.items.find(item => item.uuid === 'b1').depth, 2); assert.equal(f.browser.document.activeElement, b1);
@@ -56,6 +56,40 @@ test('300-node content, presentation, raw and keyboard changes parse only change
     op(f.work, 'collapse', { uuid: 'root' }); assert.equal(b1.hidden, true); op(f.work, 'collapse', { uuid: 'root', collapsed: false });
     assert.equal(row(f, 'b1'), b1); assert.equal(b1.hidden, false); assert.equal(parsed, 1);
   } finally { marked.parse = parse; purifier.sanitize = sanitize; await f.close(); }
+});
+
+test('compact row actions remain discoverable, source updates retain their focus, Escape closes locally and indent has a button path', async () => {
+  const f = await fixture();
+  try {
+    await f.work.open('root');
+    const first = row(f, 'b1'), menu = first.querySelector('.wb-row-menu'), summary = menu.querySelector('summary');
+    assert.equal(summary.getAttribute('aria-label'), '条目操作'); assert.equal(menu.open, false); assert.equal(first.tabIndex, -1);
+    assert.equal(first.querySelector('[aria-label="折叠子项"]').disabled, true);
+    assert.equal(first.querySelector('[aria-label="折叠子项"]').style.visibility, 'hidden');
+    menu.open = true; const select = menu.querySelector('select'); select.focus();
+    f.content('b1', '来源更新后仍可调整显示'); await delay(70);
+    assert.equal(first.querySelector('.wb-row-menu'), menu); assert.equal(menu.open, true); assert.equal(f.browser.document.activeElement, select);
+    const indent = [...menu.querySelectorAll('button')].find(b => b.textContent === '增加视图缩进'); indent.click();
+    assert.equal(f.work.snapshot().view.items.find(item => item.uuid === 'b1').depth, 2);
+    select.dispatchEvent(new f.browser.KeyboardEvent('keydown', {key:'Escape',bubbles:true,cancelable:true}));
+    assert.equal(menu.open, false); assert.equal(f.browser.document.activeElement, summary);
+    const tab = new f.browser.KeyboardEvent('keydown', {key:'Tab',bubbles:true,cancelable:true}); summary.dispatchEvent(tab);
+    assert.equal(tab.defaultPrevented, false);
+    menu.open = true; row(f, 'b0').querySelector('.wb-body').click(); assert.equal(menu.open, false);
+    assert.equal(f.blocks.get('b1').content, '来源更新后仍可调整显示');
+  } finally {await f.close();}
+});
+
+test('ordinary source title updates and focused counts reflect what is actually shown', async () => {
+  const f = await fixture();
+  try {
+    f.root.content = '**普通工作的名字**'; await f.work.open('root');
+    assert.equal(f.work.panel.root.querySelector('.wb-heading strong').textContent, '普通工作的名字');
+    f.content('root', '**新的工作名**'); await delay(70);
+    assert.equal(f.work.panel.root.querySelector('.wb-heading strong').textContent, '新的工作名');
+    await f.work.lensesAPI.select('b0');
+    assert.match(f.work.panel.root.querySelector('.wb-status').textContent, /显示 2 \/ 3 条/);
+  } finally {await f.close();}
 });
 
 test('bursts coalesce, changes during a slow read get a later batch and failures do not strand the queue', async () => {

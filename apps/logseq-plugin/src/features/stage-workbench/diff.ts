@@ -29,7 +29,7 @@ export function composeDiff(before:SourceSnapshot,after:SourceSnapshot,revision:
     const textChanged=prior&&body(prior.content)!==body(block.content);
     if(!prior||textChanged||structural){
       const kind=!prior?"added":textChanged?"modified":"structure";
-      changes.set(block.target.blockUuid,{kind,before:prior?.content??null,after:block.content,version:block.contentVersion,label:`${{added:"新增",modified:"修改",structure:"结构变化"}[kind]} · ${attribution(block,revision)}`,problem:block.availability!=="available"?"来源当时不可用":null,inline:prior?.content!==null&&prior?.content!==undefined&&block.content!==null?inlineDiff(prior.content,block.content):null});
+      changes.set(block.target.blockUuid,{kind,before:prior?.content??null,after:block.content,version:block.contentVersion,label:`${{added:"新增",modified:"修改",structure:"结构变化"}[kind]} · ${attribution(block,revision)}`,problem:block.availability!=="available"?"来源当时不可用":null,inline:prior?.content!==null&&prior?.content!==undefined&&block.content!==null?inlineDiff(body(prior.content)!,body(block.content)!):null});
     }
   }
   for(const block of old.values())changes.set(block.target.blockUuid,{kind:"removed",before:block.content,after:null,version:null,label:"块已缺失 · 来源未知",problem:null,inline:null});

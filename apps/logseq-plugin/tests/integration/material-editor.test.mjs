@@ -57,6 +57,43 @@ async function fixture() {
   };
 }
 
+test('offline directory preview leaves identity, source and editing permission untouched until explicit association', async () => {
+  const f = await fixture();
+  try {
+    const path='/projects/A/协作参考.md', text='# 协作参考\n\n只读文件先阅读，再选择关联。';
+    f.files.set(path,text); await f.materials.bindDirectory('projectA','/projects/A'); await f.materials.library('projectA');
+    const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
+    assert.ok(find('目录文件')); assert.ok(find('返回工作'));
+    find('目录文件').click(); await delay(30); const writes=f.writes.length;
+    assert.match(f.materials.panel.root.textContent,/尚未关联/);
+    find('阅读').click(); await delay(30);
+    assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作参考');
+    assert.equal(f.writes.length,writes); assert.equal(f.blocks.get('projectA').children.length,0);
+    assert.equal(find('编辑原文件'),undefined); assert.equal(f.files.get(path),text);
+    find('关联当前工作').click(); await delay(60);
+    const rows=await f.materials.listMaterials('projectA'); assert.equal(rows.materials.length,1);
+    assert.deepEqual(rows.materials[0].capabilities.edit,{user:false,agent:false});
+    assert.equal(rows.materials[0].path,path); assert.equal(f.files.get(path),text); assert.equal(f.blocks.get('projectA').children.length,1);
+    await f.materials.library('projectA'); find('目录文件').click(); await delay(30);
+    assert.match(f.materials.panel.root.textContent,/已关联材料/); assert.equal(find('关联'),undefined);
+  } finally {await f.close();}
+});
+
+test('a delayed connected preview cannot revive a previous Graph or offer a write there', async () => {
+  const f=await fixture();
+  try {
+    await f.materials.bindDirectory('projectA','/projects/A');
+    const gate=deferred(),started=deferred();let associated=0;
+    f.materials.setDirectoryObserver({available:()=>true,stop:()=>{},list:async()=>({files:[{path:'/projects/A/参考.md',kind:'file',availability:'available',materialId:null}],truncated:false}),read:async()=>{started.resolve();return gate.promise;},associate:async()=>{associated++;throw Error('unexpected association');}});
+    await f.materials.library('projectA');
+    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='目录文件').click();await delay(30);
+    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='阅读').click();await started.promise;
+    f.switchGraph('B');gate.resolve({content:'# 旧 Graph 的内容'});await delay(30);
+    assert.equal(f.materials.panel.visible,false);assert.equal(associated,0);
+    assert.doesNotMatch(f.materials.panel.root.textContent,/旧 Graph 的内容/);
+  } finally {await f.close();}
+});
+
 test('material editor is reused, unrelated polls preserve focus and IME waits until composition ends before autosave', async () => {
   const f = await fixture();
   try {

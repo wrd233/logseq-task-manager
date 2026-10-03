@@ -166,15 +166,17 @@ export class Materials {
     this.heading.replaceChildren(element("strong", rootUuid ? "当前工作的材料" : "材料库"), button("收纳文本", () => void this.captureTextPrompt().catch(this.fail)), button("关联文件", () => void this.associate(rootUuid).catch(this.fail)), button("关闭", () => void this.panel.close()));
     const management = element("details"), summary = element("summary", "目录与查找"); management.append(summary); this.heading.append(management);
     if (rootUuid) {
+      this.heading.append(button("目录文件", () => void this.directoryFiles().catch(this.fail)));
+      if (this.returnWork) this.heading.append(button("返回工作", () => void this.returnWork!(rootUuid).catch(this.fail)));
       this.heading.append(button("查找全部材料", () => void this.library().catch(this.fail)));
-      management.append(button("工作目录", () => void this.bindCurrentDirectory().catch(this.fail)), button("查看目录文件", () => void this.directoryFiles().catch(this.fail)), button("解除目录绑定", () => void this.bindDirectory(rootUuid, null).then(() => this.library(rootUuid)).catch(this.fail)));
+      management.append(button("绑定工作目录", () => void this.bindCurrentDirectory().catch(this.fail)), button("解除目录绑定", () => void this.bindDirectory(rootUuid, null).then(() => this.library(rootUuid)).catch(this.fail)));
     }
     management.append(button("登记材料目录", () => void this.registerDirectory().catch(this.fail)));
     const query = element("input"); query.type = "search"; query.placeholder = "搜索标题与正文"; query.setAttribute("aria-label", "搜索材料");
     await this.ensureService();
     if(rootUuid&&this.directoryObserver){
       const context=await this.workContext(rootUuid),connected=this.directoryObserver.available(context);
-      this.heading.append(element("small",connected?"agent 已连接 · 允许维护此工作正文":"agent 未连接 · 本地阅读与材料仍可用"));
+      this.heading.append(element("small",connected?"连接就绪 · 允许维护此工作正文":"未连接 · 本地阅读与材料仍可用"));
       if(connected)management.append(button("停止 agent 连接",()=>{this.directoryObserver?.stop();void this.library(rootUuid).catch(this.fail);}));
     }
     const results = element("div"), recovery = element("div"); this.body.replaceChildren(recovery, query, results);
@@ -228,6 +230,7 @@ export class Materials {
       if (epoch !== this.epoch) return;
       this.current = null; this.mode = "reading"; this.editorRoot.hidden = true; this.body.hidden = false;
       this.heading.replaceChildren(element("strong", "材料暂不可用"), button("‹ 材料库", () => void this.library(this.contextUuid).catch(this.fail)));
+      if (this.contextUuid && this.returnWork) this.heading.append(button("返回工作", () => void this.returnWork!(this.contextUuid!).catch(this.fail)));
       this.body.replaceChildren(element("p", error instanceof Error ? error.message : String(error)), button("登记原材料目录", () => void this.registerDirectory(id).catch(this.fail)));
       await this.panel.open(navigation); return;
     }
@@ -245,7 +248,7 @@ export class Materials {
     if (view.content !== null && view.availability === "available") {
       this.body.append(renderReading(view.content));
       if (view.writeState === "ready") this.heading.append(button(record.kind === "reference" ? "编辑原文件" : "编辑", () => void this.beginEditing().catch(this.fail)));
-      this.message(view.writeState === "pending" ? "收纳保存未完成，原文仍保留。可在更多中继续保存。" : "阅读中");
+      this.message(view.writeState === "pending" ? "收纳保存未完成，原文仍保留。可在更多中继续保存。" : "只读阅读 · 编辑需主动开启");
     } else this.body.append(element("p", view.availability === "unavailable" ? "文件暂不可用，关联与历史仍保留。请选择重新定位。" : "此格式支持关联与外部打开。"));
     if (!await this.panel.open(navigation)) return;
     const draft = localStorage.getItem(this.key());
@@ -408,38 +411,78 @@ export class Materials {
   }
   private async directoryFiles(): Promise<void> {
     const epoch = this.epoch, service = await this.ensureService(), context = await this.workContext(this.contextUuid);
+    this.assertScope(epoch);
     if (!context.directory) throw new Error("请先绑定工作目录。");
+    const sourceUuid = context.sourceUuid;
+    if (!sourceUuid) throw new Error("请从当前工作的材料入口查看目录。");
     const observer=this.directoryObserver;
+    const list=element("div");
+    const header=()=>{
+      this.heading.replaceChildren(element("strong","工作目录文件"),button("‹ 已关联材料",()=>void this.library(sourceUuid).catch(this.fail)));
+      if(this.returnWork)this.heading.append(button("返回工作",()=>void this.returnWork!(sourceUuid).catch(this.fail)));
+    };
+    const preview=async(path:string,read:()=>Promise<{content?:string|null}>,associate:()=>Promise<MaterialResult>)=>{
+      this.assertScope(epoch);
+      const view=await read();this.assertScope(epoch);
+      // Preview owns no material identity, editing permission or source reference.
+      this.heading.replaceChildren(element("strong",path.split("/").at(-1)??"目录文件"),button("‹ 目录文件",()=>void this.directoryFiles().catch(this.fail)),button("关联当前工作",()=>{
+        if(epoch!==this.epoch)return;
+        void associate().then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail);
+      }));
+      if(this.returnWork)this.heading.append(button("返回工作",()=>void this.returnWork!(sourceUuid).catch(this.fail)));
+      const reading=view.content===null||view.content===undefined?element("p","此格式或大小不支持正文预览。关联后可外部打开。"): /\.(md|markdown)$/i.test(path)?renderReading(view.content):element("pre",view.content,"wb-reading");
+      reading.style.whiteSpace=reading.tagName==="PRE"?"pre-wrap":"";
+      this.body.replaceChildren(element("small","目录文件 · 尚未关联 · 只读预览"),reading);
+      this.message("查看不会关联或授权编辑。需要使用时再关联当前工作。");
+    };
     if(observer?.available(context)){
       const observed=await observer.list(context);this.assertScope(epoch);
-      const list=element("div");this.body.replaceChildren(list);
-      list.append(button("‹ 已关联材料",()=>void this.library(this.contextUuid).catch(this.fail)));
+      header();this.body.replaceChildren(list);
       for(const file of observed.files){
         if(file.kind!=="file")continue;
-        const row=element("div","","wb-material"),label=element("span",file.path);row.append(label);
+        const row=element("div","","wb-material"),label=element("span",file.path.startsWith(context.directory+"/")?file.path.slice(context.directory.length+1):file.path);row.append(label,element("small",file.materialId?"已关联材料":"目录文件 · 尚未关联"));
         const read=async()=>{
+          this.assertScope(epoch);
           if(file.materialId){await this.openDoc(file.materialId);return;}
-          const view=await observer.read(file.path,context);this.assertScope(epoch);
-          const body=element("pre",view.content??"此文件仅支持元信息；可关联后用原生应用打开。","wb-reading");body.style.whiteSpace="pre-wrap";
-          this.body.replaceChildren(button("‹ 目录文件",()=>void this.directoryFiles().catch(this.fail)),body);
+          await preview(file.path,()=>observer.read(file.path,context),()=>observer.associate(file.path,context));
         };
         if(file.availability==="available")row.append(button("阅读",()=>void read().catch(this.fail)));
-        if(!file.materialId&&file.availability==="available")row.append(button("关联",()=>void observer.associate(file.path,context).then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail)));
+        if(!file.materialId&&file.availability==="available")row.append(button("关联",()=>{
+          if(epoch!==this.epoch)return;
+          void observer.associate(file.path,context).then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail);
+        }));
         list.append(row);
       }
-      this.message(observed.truncated?"目录过大，部分范围未列出。可通过 agent 查询具体路径。":"已连接此工作；文件直接可见，关联后沿用材料权限。大小与时间相同不表示正文未变。");return;
+      this.message(observed.truncated?"目录较大，仅显示部分文件。可通过关联文件入口指定路径。":"阅读不自动关联；关联后仍按原材料权限使用。");return;
     }
     const entries = await service.io.list(context.directory); this.assertScope(epoch);
-    const list = element("div"); this.body.replaceChildren(list);
-    list.append(button("‹ 已关联材料", () => void this.library(this.contextUuid).catch(this.fail)));
+    const materials=await service.list("",sourceUuid);this.assertScope(epoch);
+    header();this.body.replaceChildren(list);
     for (const entry of entries.slice(0, 200)) {
       const path = entry.startsWith("/") ? entry : `${context.directory}/${entry}`;
-      if (path.includes("/.longdoc/") || path.endsWith("/.longdoc")) continue;
+      if (!path.startsWith(context.directory+"/") || /\/(\.longdoc|\.task-workspace|\.git)(\/|$)/.test(path)) continue;
       if (service.io.stat && (await service.io.stat(path)).type !== "file") continue;
       this.assertScope(epoch);
-      list.append(button(path.slice(context.directory.length + 1), () => void this.associateMaterial({path, sourceUuid: context.sourceUuid!}).then(result => { this.assertScope(epoch); return this.openDoc(result.material.id); }).catch(this.fail)));
+      const material=materials.find(record=>record.kind==="reference"&&record.path===path);
+      const row=element("div","","wb-material");row.append(element("span",path.slice(context.directory.length+1)),element("small",material?"已关联材料":"目录文件 · 尚未关联"));
+      const read=async()=>{
+        this.assertScope(epoch);
+        if(material){await this.openDoc(material.id);return;}
+        await preview(path,async()=>{
+          const info=await service.io.stat?.(path);this.assertScope(epoch);
+          if(!info||info.type!=="file"||info.size>262144||! /\.(md|markdown|txt)$/i.test(path))return {content:null};
+          const content=await service.io.read(path);this.assertScope(epoch);return {content};
+        },()=>this.associateMaterial({path,sourceUuid}));
+      };
+      row.append(button("阅读",()=>void read().catch(this.fail)));
+      if(!material)row.append(button("关联",()=>{
+        if(epoch!==this.epoch)return;
+        void this.associateMaterial({path,sourceUuid}).then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail);
+      }));
+      list.append(row);
     }
-    this.message(entries.length > 200 ? "显示前 200 项，可用关联文件入口指定其他路径。" : "选择文件即可关联，原文件保留在原处。");
+    if(!list.childElementCount)list.append(element("p","目录中暂无可查看的文件。"));
+    this.message(entries.length > 200 ? "显示前 200 项，可用关联文件入口指定其他路径。" : "阅读不自动关联；关联后原文件仍留在原处。");
   }
   private async locate(): Promise<void> {
     const record = this.current, graph = this.graph, epoch = this.epoch;

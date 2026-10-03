@@ -176,6 +176,17 @@ test("block identity, repeat text, removed blocks and long/complex Markdown use 
     assert.equal(changes.get(s.f.a)?.kind,"removed");assert.equal(changes.get(newId)?.kind,"added");
   }finally{await s.cleanup();}
 });
+test("persisted id metadata does not prevent a precise plain-text change marker or alter its version facts",async()=>{
+  const s=await setup();try{
+    const block=s.f.blocks.get(s.f.a)!;block.content=`沿用已有目录。每天都要重建目录。\nid:: ${s.f.a}`;
+    const stage=await s.begin();block.content=`沿用已有目录。\nid:: ${s.f.a}`;
+    const r=await s.checkpoint(stage.start.id,stage.start.id),change=composeDiff(stage.start.source,r.source,r).get(s.f.a)!;
+    assert.ok(change.inline);assert.equal(change.inline.inserted,"");
+    assert.equal(change.inline.prefix+change.inline.suffix,"沿用已有目录。\n");
+    assert.equal(change.before,stage.start.source.blocks.find(b=>b.target.blockUuid===s.f.a)!.content);
+    assert.equal(change.after,block.content);assert.equal(change.version,r.source.blocks.find(b=>b.target.blockUuid===s.f.a)!.contentVersion);
+  }finally{await s.cleanup();}
+});
 test("real installed local API writes through content and recovers idempotently, with no accept or actor capability",async()=>{
   const f=await contentFixture();const content=installContentWriteback({journal:f.journal,adapter:f.adapter});
   const installation=installStageWorkbench({content,storage:f.storage});

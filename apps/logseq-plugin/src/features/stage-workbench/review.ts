@@ -33,6 +33,7 @@ export class StageReview implements ReviewPort {
   private selected:string|null=null;
   private seen:StageRevision|null=null;
   private historyMode=false;
+  private submittedMode=false;
   private currentMatches=true;
   private comparison:"start"|"previous"="start";
   private all=false;
@@ -43,21 +44,23 @@ export class StageReview implements ReviewPort {
   private draft=false;
   private disposed=false;
   private frozen:ReviewFrame|null=null;
+  private goalOpen=false;
   private draftKey(uuid:string):string{return `workbench:stage-draft:${JSON.stringify(this.scope)}:${uuid}`;}
   private savedDraft(uuid:string):{stageId:string;text:string;suggest:boolean;type:string}|null{
     try{const raw=localStorage.getItem(this.draftKey(uuid));if(!raw)return null;const d=JSON.parse(raw);
       return typeof d.stageId==="string"&&typeof d.text==="string"&&d.text.length<=262144&&typeof d.suggest==="boolean"&&["[注]","[想法]"].includes(d.type)?d:null;
     }catch{return null;}
   }
-  focusGoal():void{if(this.busy())return;this.goal.hidden=false;this.goal.value="";this.goal.focus();}
+  focusGoal():void{if(this.busy())return;this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
   private readonly label=element("span");
   private readonly issue=element("small","","wb-error");
   private readonly goal=element("input");
   private readonly beginButton=button("开始阶段",()=>this.run(()=>this.begin()));
   private readonly checkpointButton=button("提交结果",()=>this.run(()=>this.checkpoint()));
-  private readonly acceptButton=button("认可",()=>this.run(()=>this.acceptSeen()));
+  private readonly cancelGoalButton=button("取消",()=>{this.goalOpen=false;this.chrome();this.beginButton.focus();});
+  private readonly acceptButton=button("认可所见版本",()=>this.run(()=>this.acceptSeen()));
   private readonly submittedButton=button("查看待认可版本",()=>{
-    if(this.busy()||!this.seen)return;this.remember();this.historyMode=true;this.all=true;
+    if(this.busy()||!this.seen)return;this.remember();this.historyMode=true;this.submittedMode=true;this.all=true;
     this.chrome();this.bridge?.repaint();this.run(()=>this.reload());
   });
   private readonly allButton=button("看本阶段全部变化",()=>this.showAll());
@@ -69,21 +72,26 @@ export class StageReview implements ReviewPort {
   private readonly fileIds=new Set<string>();
   constructor(readonly recorder:StageRecorder,private readonly actions:ReviewActions){
     this.goal.placeholder="本阶段的一句话目标";this.goal.maxLength=240;this.goal.setAttribute("aria-label","阶段目标");
+    this.goal.onkeydown=event=>{
+      if(event.isComposing)return;
+      if(event.key==="Enter"){event.preventDefault();this.run(()=>this.begin());}
+      if(event.key==="Escape"){event.preventDefault();event.stopPropagation();this.cancelGoalButton.click();}
+    };
     this.historyBox.append(element("summary","阶段历史"),this.historyList);
     this.filesBox.append(element("summary","成果文件"),this.filesList);
     this.filesBox.addEventListener("toggle",()=>{if(this.filesBox.open)this.run(()=>this.files());});
-    this.bar.append(this.label,this.goal,this.beginButton,this.checkpointButton,this.acceptButton,this.submittedButton,this.allButton,this.backButton,this.historyBox,this.filesBox,this.issue);
+    this.bar.append(this.label,this.goal,this.beginButton,this.cancelGoalButton,this.checkpointButton,this.acceptButton,this.submittedButton,this.allButton,this.backButton,this.historyBox,this.filesBox,this.issue);
     const style=element("style");style.textContent=`
       .wb-stage-bar{padding:6px 14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--ls-border-color,#ddd)}
       .wb-stage-bar>span{flex:1;min-width:180px}.wb-stage-bar input{max-width:260px}.wb-stage-bar details[open]{width:100%}
       .wb-stage-bar details pre,.wb-review-info pre{white-space:pre-wrap;max-height:280px;overflow:auto}
       .wb-stage-bar .wb-stage-entry{display:block;text-align:left;width:100%;border:0;margin:3px 0}
-      .wb-review-change{border-left:2px solid #79978b}.wb-review-change .wb-body{background:rgba(121,151,139,.07)}
-      .wb-review-info,.wb-review-editor{grid-column:3;font-size:12px}.wb-review-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+      .wb-review-change{border-left:2px solid var(--ls-link-text-color,#79978b)}
+      .wb-review-info,.wb-review-editor{grid-column:3 / 5;font-size:12px}.wb-review-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
       .wb-review-info>span{border-bottom:1px dotted currentColor;opacity:.75}.wb-review-info details[open],.wb-review-info small{width:100%}
-      .wb-review-insert{color:inherit;background:rgba(121,151,139,.16);border-bottom:1px solid currentColor}
+      .wb-review-insert{color:inherit;background:rgba(121,151,139,.2);border-bottom:2px solid currentColor}.wb-review-info del{text-decoration-thickness:2px}
       .wb-review-editor textarea{width:100%;min-height:130px;resize:vertical;white-space:pre-wrap}
-      .wb-review-history .wb-grip{visibility:hidden}.wb-review-history .wb-controls{display:none}
+      .wb-review-history .wb-grip{visibility:hidden}
       .wb-review-history .wb-body{grid-column:3;min-width:0}
       @media(prefers-reduced-motion:reduce){.wb-review-change,.wb-review-insert{transition:none!important;animation:none!important}}
     `;this.bar.append(style);this.chrome();
@@ -95,7 +103,7 @@ export class StageReview implements ReviewPort {
   scopeChanged(scope:ReviewContext["scope"]|null):void{
     this.activeEditor?.replaceChildren();this.activeEditor=null;
     this.ticket++;this.recorder.invalidate();this.scope=scope;this.history={stages:[],current:null,currentEventId:null,problems:[]};
-    this.selected=null;this.seen=null;this.historyMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.fileIds.clear();this.issue.textContent="";
+    this.selected=null;this.seen=null;this.historyMode=false;this.submittedMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.goalOpen=false;this.fileIds.clear();this.issue.textContent="";
     this.chrome();if(scope)this.run(()=>this.reload());
   }
   private stage():Stage|null{return this.history.stages.find(s=>s.start.id===this.selected)??null;}
@@ -133,20 +141,22 @@ export class StageReview implements ReviewPort {
   }
   private chrome():void{
     const stage=this.stage();
-    this.label.textContent=stage?`${this.historyMode?"历史 · ":""}${stage.start.goal}${this.seen&&stage.acceptances.some(a=>a.revisionId===this.seen!.id)?" · 已认可":""}`:"阶段记录";
     const accepted=!!this.seen&&!!stage?.acceptances.some(a=>a.revisionId===this.seen!.id);
+    const mode=this.historyMode?this.submittedMode?"提交版本":"历史回看":"当前阶段";
+    this.label.textContent=stage?`${mode} · ${stage.start.goal}${accepted?" · 已认可":""}`:"阶段记录";
     const pendingDifferent=!!this.seen&&!this.historyMode&&!this.currentMatches&&!accepted;
     this.acceptButton.hidden=!this.seen;this.acceptButton.disabled=accepted||pendingDifferent;this.submittedButton.hidden=!pendingDifferent;
+    this.acceptButton.textContent=accepted?"已认可":"认可所见版本";
     this.checkpointButton.hidden=!this.writable()||this.historyMode;this.backButton.hidden=!this.historyMode&&!this.all;
-    this.allButton.hidden=!stage;this.goal.hidden=!!stage;
-    this.beginButton.textContent=stage?"新目标":"开始阶段";
+    this.allButton.hidden=!stage?.revisions.length;this.goal.hidden=!this.goalOpen;this.cancelGoalButton.hidden=!this.goalOpen;
+    this.beginButton.textContent=this.goalOpen?"开始":stage?"新目标":"开始阶段";
   }
   private busy():boolean{
     if(this.editing||this.draft){this.issue.textContent="编辑草稿保留，请先结束当前输入再切换阅读。";return true;}return false;
   }
   private remember():void{if(!this.bookmark)this.bookmark=this.bridge?.bookmark()??null;}
   private showHistory(id:string):void{
-    if(this.busy())return;this.remember();this.selected=id;this.seen=latest(this.stage()!);this.historyMode=true;this.all=true;
+    if(this.busy())return;this.remember();this.selected=id;this.seen=latest(this.stage()!);this.historyMode=true;this.submittedMode=false;this.all=true;
     this.chrome();this.bridge?.repaint();this.run(()=>this.reload());
   }
   private compare(value:"start"|"previous"):void{if(this.busy())return;this.comparison=value;if(this.filesBox.open)this.run(()=>this.files());this.bridge?.repaint();}
@@ -157,13 +167,13 @@ export class StageReview implements ReviewPort {
   }
   async begin():Promise<void>{
     if(this.busy()||!this.scope)return;
-    if(this.stage()&&this.goal.hidden){this.goal.hidden=false;this.goal.value="";this.goal.focus();return;}
+    if(!this.goalOpen){this.focusGoal();return;}
     if(!this.goal.value.trim()){this.focusGoal();return;}
     const scope=this.scope,ticket=this.ticket;
     await this.actions.authorize(scope);if(ticket!==this.ticket)return;
     const history=await this.recorder.store.history(scope);
     const stage=await this.recorder.begin({goal:this.goal.value,requestKey:crypto.randomUUID(),expectedStageId:history.current,fileIds:[...this.fileIds]});
-    if(ticket!==this.ticket)return;this.selected=stage.start.id;this.historyMode=false;await this.reload();
+    if(ticket!==this.ticket)return;this.selected=stage.start.id;this.historyMode=false;this.goalOpen=false;await this.reload();
   }
   async checkpoint():Promise<void>{
     if(this.busy()||!this.scope)return;const stage=this.writable();if(!stage)return;

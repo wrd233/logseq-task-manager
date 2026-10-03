@@ -4,7 +4,7 @@ import { marked } from "./vendor/marked.js";
 import { button, element } from "../../host/panel-host.ts";
 import { displayLevel, levels } from "./display.mjs";
 import { workObject } from "./focus.mjs";
-import type { SourceRow } from "./model.mjs";
+import { indent, type SourceRow } from "./model.mjs";
 import type { ViewPresentation } from "./operations.ts";
 import { composeWorkView, type ComposedView } from "./view-composer.ts";
 import type { ReviewChange } from "./review-port.ts";
@@ -22,6 +22,7 @@ interface Actions {
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
+  menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
 export interface ReadingBookmark {
@@ -36,10 +37,20 @@ export class WorkViewRenderer {
   private composingUuid: string | null = null;
   private historical = false;
   get composing(): boolean { return this.composingUuid !== null; }
-  constructor(private readonly container: HTMLElement, private readonly actions: Actions) {}
+  constructor(private readonly container: HTMLElement, private readonly actions: Actions) {
+    container.addEventListener("click", event => {
+      for (const entry of this.entries.values()) if (entry.menu.open && !entry.menu.contains(event.target as Node)) this.closeMenu(entry);
+    });
+  }
+
+  private closeMenu(entry: Entry): void {
+    const restore = entry.menu.contains(document.activeElement);
+    entry.menu.open = false;
+    if (restore) entry.summary.focus({ preventScroll: true });
+  }
 
   private create(uuid: string): Entry {
-    const node = element("article", "", "wb-row"); node.dataset.uuid = uuid; node.tabIndex = 0;
+    const node = element("article", "", "wb-row"); node.dataset.uuid = uuid; node.tabIndex = -1;
     const grip = button("⠿", () => undefined); grip.className = "wb-grip"; grip.setAttribute("aria-label", "拖动视图条目");
     let startX = 0;
     grip.onpointerdown = event => {
@@ -56,23 +67,36 @@ export class WorkViewRenderer {
     };
     const fold = button("·", () => this.actions.toggle("collapsed", uuid));
     const body = element("div", "", "wb-body"), controls = element("div", "", "wb-controls");
+    const menu = element("details", "", "wb-row-menu"), summary = element("summary", "⋯");
+    summary.setAttribute("aria-label", "条目操作"); summary.title = "条目操作";
+    menu.append(summary, controls);
+    menu.addEventListener("toggle", () => {
+      if (menu.open) for (const entry of this.entries.values()) if (entry.menu !== menu && entry.menu.open) this.closeMenu(entry);
+    });
     const select = element("select"); select.setAttribute("aria-label", "展示级别");
     const labels = ["自动", "强调", "正常", "弱化", "压缩"];
     levels.forEach((level, i) => { const option = element("option", labels[i] ?? level); option.value = level; select.append(option); });
     select.onchange = () => this.actions.operation({ type: "display", uuid, level: select.value });
-    controls.append(select, button("全文 / 收起", () => this.actions.toggle("expanded", uuid)), button("原文", () => this.actions.locate(uuid)), button("原始文本", () => this.actions.raw(uuid)), button("只看此处", () => this.actions.range(uuid)));
-    node.append(grip, fold, body, controls);
+    const expand = button("全文 / 收起", () => this.actions.toggle("expanded", uuid));
+    const indent = button("增加视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: 1 }));
+    const outdent = button("减少视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: -1 }));
+    const range = button("只看此处", () => this.actions.range(uuid));
+    controls.append(select, expand, button("在 Logseq 中打开", () => this.actions.locate(uuid)), button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
+    node.append(grip, fold, body, menu);
     node.addEventListener("click", event => {
       if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
     node.onkeydown = event => {
+      if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing) {
+        event.preventDefault(); event.stopPropagation(); menu.open = false; summary.focus({ preventScroll: true }); return;
+      }
       if (event.isComposing || this.composing || this.historical) return;
-      if ((event.target as HTMLElement).closest("button,select,a,input,textarea,[contenteditable=true]")) return;
+      if ((event.target as HTMLElement).closest("button,summary,select,a,input,textarea,[contenteditable=true]")) return;
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range };
   }
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}): void {
@@ -104,10 +128,17 @@ export class WorkViewRenderer {
       const level = displayLevel(row.content, state.overrides[item.uuid], { root: index === 0, missing: !!row.missing }).level;
       if (entry.node.dataset.display !== level) entry.node.dataset.display = level;
       entry.grip.disabled = index === 0 || this.historical; entry.fold.disabled = !child || this.historical;
-      const foldLabel = child ? folded ? "▸" : "▾" : "·";
+      entry.grip.style.visibility = index === 0 || this.historical ? "hidden" : "";
+      entry.fold.style.visibility = child ? "" : "hidden";
+      const foldLabel = child ? folded ? "▸" : "▾" : "";
       if (entry.fold.textContent !== foldLabel) entry.fold.textContent = foldLabel;
       entry.fold.setAttribute("aria-label", folded ? "展开子项" : "折叠子项");
       entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
+      entry.select.disabled = this.historical;
+      entry.expand.hidden = level !== "compact"; entry.expand.disabled = this.historical || item.full;
+      entry.indent.disabled = index === 0 || this.historical || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
+      entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical;
+      entry.range.disabled = this.historical;
       const inline=change?.inline&&change.after===row.content?change.inline:null;
       const bodySignature=JSON.stringify([row.content,inline]);
       if (!hidden && this.composingUuid !== item.uuid && entry.bodySignature !== bodySignature) {
@@ -130,11 +161,16 @@ export class WorkViewRenderer {
         if(change){
           if(!entry.editor){entry.editor=element("div","","wb-review-editor");entry.node.append(entry.editor);}
           if(!entry.review){entry.review=element("div","","wb-review-info");entry.node.append(entry.review);}
-          const label=element("span",change.label);
+          const label=element("span",change.label.split(" · ")[0]);
           const correct=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,false);
           const suggest=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,true);
-          const details=element("details"),summary=element("summary","旧文 / 变化细节");
-          details.append(summary,element("pre",change.before??"当时没有此块"));
+          const details=element("details"),summary=element("summary","旧文与来源");
+          const old=change.before?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??"当时没有此块";
+          details.append(summary,element("small",change.label));
+          if(change.inline&&change.before!==null){
+            const inline=change.inline,removed=old.slice(inline.prefix.length,old.length-inline.suffix.length);
+            const previous=element("pre");previous.append(document.createTextNode(inline.prefix),element("del",removed),document.createTextNode(inline.suffix));details.append(previous);
+          }else details.append(element("pre",old));
           entry.review.replaceChildren(label,button(review?.historical?"在当前内容中纠正":"修改",correct),button("建议",suggest),details);
           if(change.problem)entry.review.append(element("small",change.problem,"wb-error"));
           if(change.after!==row.content&&!review?.historical){
@@ -148,7 +184,7 @@ export class WorkViewRenderer {
       }
       const override = state.overrides[item.uuid] ?? "auto";
       if (entry.select.value !== override) entry.select.value = override;
-      const canEnter = index !== 0 && !!workObject(row.content);
+      const canEnter = index !== 0 && !this.historical && !!workObject(row.content);
       if (canEnter && !entry.enter) { entry.enter = button("进入", () => this.actions.enter(item.uuid)); entry.controls.append(entry.enter); }
       if (entry.enter) entry.enter.hidden = !canEnter;
       if (rawBodies.has(item.uuid) && !entry.raw) {

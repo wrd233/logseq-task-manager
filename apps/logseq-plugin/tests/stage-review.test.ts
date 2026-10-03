@@ -23,6 +23,21 @@ async function fixture(){
   return {f,content,work,stages,stage,row:(id:string)=>document.querySelector<HTMLElement>(`article[data-uuid="${id}"]`)!,
     cleanup:async()=>{stages.dispose();work.dispose();content.dispose();await f.cleanup();}};
 }
+test("stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history",async()=>{
+  const t=await fixture();try{
+    const goal=document.querySelector<HTMLInputElement>("[aria-label='阶段目标']")!;
+    const begin=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="新目标")!;
+    assert.equal(goal.hidden,true);begin.click();await delay(20);assert.equal(goal.hidden,false);assert.equal(document.activeElement,goal);
+    goal.value="下一阶段目标";goal.dispatchEvent(new t.f.browser.KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}) as unknown as Event);await delay(20);
+    assert.equal((await t.stages.api.history()).stages.length,1);
+    goal.dispatchEvent(new t.f.browser.KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}) as unknown as Event);
+    assert.equal(goal.hidden,true);assert.equal(document.activeElement,begin);
+    begin.click();await delay(20);goal.value="验证材料可用与退出连接后的阅读";
+    goal.dispatchEvent(new t.f.browser.KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true}) as unknown as Event);
+    await wait(()=>goal.hidden,"goal did not close after starting");
+    const history=await t.stages.api.history();assert.equal(history.stages.length,2);assert.equal(history.stages.at(-1)!.start.goal,"验证材料可用与退出连接后的阅读");
+  }finally{await t.cleanup();}
+});
 test("clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts",async()=>{
   const t=await fixture();try{
     const other=t.row(t.f.b),body=other.querySelector(".wb-body"),row=t.row(t.f.a);
@@ -122,7 +137,7 @@ test("selecting an accepted historical revision updates its local acceptance aff
     t.f.blocks.get(t.f.a)!.content="更新的当前文";await t.stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.revisions.at(-1)!.id,requestKey:crypto.randomUUID(),requestIds:[]});
     document.querySelector<HTMLElement>(".wb-stage-entry")!.click();await wait(()=>document.querySelector("[aria-label='历史修订版本']")!==null,"history selection");
     const select=document.querySelector<HTMLSelectElement>("[aria-label='历史修订版本']")!;select.value=accepted;select.dispatchEvent(new t.f.browser.Event("change") as unknown as Event);
-    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可")!;
+    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="已认可")!;
     assert.equal(accept.disabled,true);assert.match(document.querySelector(".wb-stage-bar>span")!.textContent!,/已认可/);assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);assert.equal(t.f.blocks.get(t.f.a)!.content,"更新的当前文");
   }finally{await t.cleanup();}
 });
@@ -133,12 +148,12 @@ test("later current edits cannot be mistaken for an unseen pending result; expli
     t.f.blocks.get(t.f.a)!.content="原文后来又有人工修改";await t.work.refresh();
     assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当前原文已不同/);
     assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当时提交的结果/);
-    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可")!;
+    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可所见版本")!;
     assert.equal(accept.disabled,true);await t.f.commands.get("stage-accept")!();
     assert.equal((await t.stages.api.history()).stages[0]!.acceptances.length,0);
     const submitted=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="查看待认可版本")!;
     assert.equal(submitted.hidden,false);submitted.click();
-    await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("历史")??false,"submitted snapshot unavailable");
+    await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("提交版本")??false,"submitted snapshot unavailable");
     assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);
     assert.doesNotMatch(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/后来又/);
     assert.equal(accept.disabled,false);accept.click();
