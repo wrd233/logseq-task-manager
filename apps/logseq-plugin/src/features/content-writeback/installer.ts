@@ -92,9 +92,9 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     resumeIdentity:async(input:unknown)=>{const value=fields(input,["requestId","operationId"]);return executor.resumeIdentity(scope(),identifier(value.requestId),identifier(value.operationId));},
     revoke:()=>{setup++;authority.revoke();ui.close();},
   };
-  // Only the composition root passes these trusted local callbacks to user UI.
-  // They are deliberately absent from the public capability namespace.
+  // Trusted installers retain the actual scope lease; local user UI keeps its
+  // command origin. Neither port is part of the public content namespace.
   const local={authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
-  return {api,local,dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  return {api,local,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

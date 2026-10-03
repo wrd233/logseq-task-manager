@@ -48,6 +48,8 @@ export class WorkspaceContextService {
     const epoch = this.epoch, revision = this.revisions.get(scopeKey(scope));
     return () => !this.stopped && epoch === this.epoch && revision === this.revisions.get(scopeKey(scope));
   }
+  /** Read-only lifetime witness for trusted connection consumers, never a write grant. */
+  observeScope(input: SourceScope): () => boolean { return this.valid(scopeOf(input)); }
   /** Narrow live-source port shared by reading consumers, including unbound work. */
   sourceVersion(input: SourceScope): string { return JSON.stringify([this.epoch, this.revisions.get(scopeKey(scopeOf(input))) ?? 0, this.stopped]); }
   async readSource(input: SourceScope, consumerValid: () => boolean): Promise<SourceSnapshot> {

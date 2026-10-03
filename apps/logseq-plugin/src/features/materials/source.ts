@@ -33,7 +33,10 @@ export class MaterialSourceActions {
       await this.persistSource(uuid, epoch, graph);
       if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("当前块正在编辑");
       const block = await this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(uuid, {includeChildren: true}));
-      if (!(block?.children ?? []).some(child => typeof child !== "object" || Array.isArray(child) ? false : idFrom(child.content ?? "") === result.material.id)) await this.sourceAction(epoch, graph, () => logseq.Editor.insertBlock(uuid, result.material.reference, {sibling: false}));
+      // Desktop supports focus although SDK 0.3.4 omits it from its option type.
+      // Programmatic references must not start a new native editing session.
+      const insertion = {sibling: false, focus: false};
+      if (!(block?.children ?? []).some(child => typeof child !== "object" || Array.isArray(child) ? false : idFrom(child.content ?? "") === result.material.id)) await this.sourceAction(epoch, graph, () => logseq.Editor.insertBlock(uuid, result.material.reference, insertion));
       return result;
     } catch (error) { return {status: "partial", material: result.material, problem: `材料已保存，引用未插入：${error instanceof Error ? error.message : String(error)}。可从材料库补关联。`}; }
   }

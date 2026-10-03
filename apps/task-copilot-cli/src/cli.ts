@@ -18,6 +18,7 @@ type CliClient = Pick<KernelClient,
 const rootHelp = `Task Copilot External Agent CLI
 
 Commands:
+  workspace --help   # natural work, files, focus and protected content; independent of Kernel
   status
   agent bootstrap
   skill list | skill show <id>
@@ -48,9 +49,9 @@ Commands:
 
 All commands support --json. Writes accept non-interactive JSON input; there is no raw Graph, USER impersonation, SQL, or generic mutation command.`;
 
-function option(args: string[], name: string): string | undefined { const index = args.lastIndexOf(name); return index >= 0 ? args[index + 1] : undefined; }
+export function option(args: string[], name: string): string | undefined { const index = args.lastIndexOf(name); return index >= 0 ? args[index + 1] : undefined; }
 function options(args: string[], name: string): string[] { const values: string[] = []; for (let index = 0; index < args.length; index += 1) if (args[index] === name && args[index + 1]) values.push(args[index + 1]!); return values; }
-function required(args: string[], name: string): string { const value = option(args, name); if (!value || value.startsWith("--")) throw new ClientError("CLI_USAGE", `${name} is required.`, 2); return value; }
+export function required(args: string[], name: string): string { const value = option(args, name); if (!value || value.startsWith("--")) throw new ClientError("CLI_USAGE", `${name} is required.`, 2); return value; }
 function integer(args: string[], name: string, fallback: number): number { const raw = option(args, name); if (raw === undefined) return fallback; const value = Number(raw); if (!Number.isSafeInteger(value) || value < 1) throw new ClientError("CLI_USAGE", `${name} must be a positive integer.`, 2); return value; }
 function positional(args: string[]): string[] {
   const flagsWithValues = new Set(["--query", "--limit", "--run", "--object", "--block", "--id", "--purpose", "--evidence", "--executor-id", "--result-file", "--input-file", "--lifecycle", "--engagement", "--correlation", "--reference", "--section", "--existing-section", "--graph", "--origin", "--version-hash", "--scope", "--decision", "--affirmed", "--status", "--paused", "--utterance", "--date", "--page"]); const values: string[] = [];

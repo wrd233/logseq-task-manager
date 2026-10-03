@@ -1,3 +1,4 @@
+import { WorkspaceError, sameWorkScope, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
@@ -8,10 +9,12 @@ import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
 import { installWorkspaceContext } from "./features/workspace-context/install.ts";
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
+import { installAgentWorkspace, workspaceBindingPort } from "./features/agent-workspace/installer.ts";
 import { installStageWorkbench, type StageInstallation } from "./features/stage-workbench/installer.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
+  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。选择工作块后使用“允许 agent 连接当前工作”；停止连接不影响本地阅读。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: true, title: "启用任务管理", description: "保留 vNext 的任务界面与正式操作，需要本地 Kernel。修改后重载插件。" },
@@ -27,6 +30,7 @@ async function main(): Promise<void> {
   const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); });
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
+  let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
   let stages: StageInstallation | null = null;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
@@ -35,7 +39,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation();
+    agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -72,6 +76,23 @@ async function main(): Promise<void> {
     open:id=>requireMaterials().openDoc(id,currentWorkRoot()),
     list:async scope=>(await requireMaterials().listMaterials(scope.rootUuid,"")).materials,
   }});
+  const stageApi = stages.api;
+  const requireStageScope = (scope: AgentWorkScope) => {
+    requireActive();
+    const selected = stageApi.scope();
+    if (!selected || !sameWorkScope(selected, scope)) throw new WorkspaceError("SCOPE_MISMATCH");
+  };
+  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api,stage:{
+    read:async (input,binding)=>{
+      requireStageScope(binding.scope);
+      const value = workRecord(input,["stageId"]);
+      if (value.stageId !== undefined) return stageApi.read(value);
+      const history = await stageApi.history();
+      requireStageScope(binding.scope);
+      return history.current ? stageApi.read({stageId:history.current}) : {status:"unavailable",reason:"STAGE_CURRENT_UNAVAILABLE"};
+    },
+    submit:async (input,binding)=>{requireStageScope(binding.scope);return stageApi.submit(input);},
+  }});
   const api = {
     read: () => disposed ? null : work?.snapshot() ?? null,
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },
@@ -80,6 +101,7 @@ async function main(): Promise<void> {
     apply: (operation: unknown) => disposed ? {ok: false, reason: "workbench-disposed"} : work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     workspace: workspace.api,
     content: content.api,
+    agentWorkspace: agentWorkspace.api,
     stages: stages.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
