@@ -12,6 +12,7 @@ import { WorkViewLenses } from "./lens-controller.ts";
 import { composeWorkView } from "./view-composer.ts";
 import { LensBar, installLensStyle } from "./lens-ui.ts";
 import type { LensBlock, LensSourcePort } from "./lens-source.ts";
+import type { ReviewPort } from "./review-port.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
 
@@ -45,6 +46,7 @@ export class WorkView {
   private readonly content = element("div", "", "wb-scroll");
   private readonly status = element("div", "", "wb-status");
   private readonly lenses: WorkViewLenses;
+  private review: ReviewPort | null = null;
   private readonly lensBar = new LensBar({
     back: () => { void this.lenses.api.back(); },
     cancel: () => { this.lenses.api.cancel(); },
@@ -58,6 +60,7 @@ export class WorkView {
     enter: uuid => { void this.enter(uuid, null).catch(this.fail); },
     range: uuid => { void this.lenses.api.select(uuid); },
     repaint: () => { if (!this.disposed) this.render(); },
+    reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
   });
 
   constructor(private readonly onMaterials: (content: string, rootUuid: string) => void | Promise<void>, options: { source?: LensSourcePort } = {}) {
@@ -130,6 +133,7 @@ export class WorkView {
   };
   private valid(epoch: number): boolean { return epoch === this.epoch && !this.disposed; }
   private invalidate(): void {
+    this.review?.scopeChanged(null);
     this.epoch++; this.seq++; this.draftEpoch++; this.refreshQueue?.stop(); this.refreshQueue = null;
     this.sourceRows = []; this.rows = []; this.draft = null; this.draftReading = null;
     this.lenses.reset(); this.lensBar.render(this.lenses.read());
@@ -167,6 +171,7 @@ export class WorkView {
     const changed = graph !== this.graph || uuid !== this.rootUuid;
     if (changed) this.invalidate();
     this.graph = graph; this.rootUuid = uuid; this.held = held; this.trace = trace;
+    if(changed)this.review?.scopeChanged({graphId:graph,rootUuid:uuid});
     if (changed) {
       this.state = emptyPresentation();
       try {
@@ -244,6 +249,11 @@ export class WorkView {
     return { graph: this.graph, root: this.rootUuid, seq: this.seq, draft: this.draft?.uuid ?? null, blocks: this.rows.map(row => ({ ...row })), presentation: this.state.items.map(item => ({ ...item })), view: copyPresentation(this.state), policy: "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable." };
   }
   get lensesAPI() { return this.lenses.api; }
+  attachReview(port: ReviewPort) {
+    this.review=port;this.panel.root.insertBefore(port.bar,this.content);
+    if(this.rootUuid)port.scopeChanged({graphId:this.graph,rootUuid:this.rootUuid});
+    return {repaint:()=>{if(!this.disposed)this.render();},bookmark:()=>this.renderer.bookmark(),restore:(bookmark:ReturnType<WorkViewRenderer["bookmark"]>)=>this.renderer.restore(bookmark),refresh:()=>this.refresh()};
+  }
 
   apply(operation: unknown): ViewResult {
     if (this.disposed) return { ok: false, reason: "scope-mismatch" };
@@ -282,7 +292,8 @@ export class WorkView {
   }
   private render(): void {
     const view = composeWorkView(this.rows, this.state, this.lenses.selection);
-    this.renderer.render(this.rows, this.state, this.rawBodies, view);
+    const review=this.review&&this.rootUuid?this.review.compose({scope:{graphId:this.graph,rootUuid:this.rootUuid},rows:this.rows,state:this.state,view,editing:!!this.draft||this.renderer.composing}):null;
+    this.renderer.render(review?.rows??this.rows,review?.state??this.state,this.rawBodies,review?.view??view,review??undefined);
     this.lensBar.render(this.lenses.read());
     this.status.classList.remove("wb-error");
     this.status.textContent = `${this.draft ? "含编辑草稿" : this.sourceAvailable ? "来源已读取" : "来源暂不可用 · 保留视图位置"} · ${this.state.items.length} 条 · 排列仅保存在视图中`;

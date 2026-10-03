@@ -20,6 +20,18 @@ export function desktopFiles(graphPath: () => string): FileIO {
     },
     stat: async path => {
       const value = await call("stat", path) as {mode?: number; size?: number} | null;
+      // Desktop 0.10.15 omits mode. A successful size plus readdir/ENOTDIR
+      // distinguishes the host's directory and file results without guessing on errors.
+      if (value && value.mode === undefined && Number.isSafeInteger(value.size) && value.size! >= 0) {
+        try {
+          const entries = await call("listdir", path, false);
+          if (Array.isArray(entries)) return {type: "directory", size: value.size!};
+        } catch (error) {
+          if (/\bENOTDIR\b/u.test(String((error as {message?: unknown})?.message ?? error))) return {type: "file", size: value.size!};
+          throw error;
+        }
+        throw new Error("文件状态不可用。");
+      }
       if (!value || typeof value.mode !== "number" || typeof value.size !== "number") {
         // Desktop 0.10.9 returns null or {} for a missing stat. Confirm absence using
         // its parent's listing; an unreadable existing entry must not be created over.

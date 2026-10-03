@@ -7,6 +7,7 @@ import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
 import { installWorkspaceContext } from "./features/workspace-context/install.ts";
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
+import { installStageWorkbench, type StageInstallation } from "./features/stage-workbench/installer.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
@@ -25,12 +26,13 @@ async function main(): Promise<void> {
   const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); });
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
+  let stages: StageInstallation | null = null;
   let disposed = false;
   let removeNavigation: () => void = () => undefined;
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
+    stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); await stopTasks?.(); removeNavigation();
     delete (window as Window & {taskCopilotWorkbench?: unknown}).taskCopilotWorkbench;
   };
   logseq.beforeunload(dispose);
@@ -60,6 +62,11 @@ async function main(): Promise<void> {
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireMaterials = () => { if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback();
+  stages = installStageWorkbench({content,work,source:workspace.source,materials:{
+    read:id=>requireMaterials().readMaterial(id),
+    open:id=>requireMaterials().openDoc(id,currentWorkRoot()),
+    list:async scope=>(await requireMaterials().listMaterials(scope.rootUuid,"")).materials,
+  }});
   const api = {
     read: () => work?.snapshot() ?? null,
     open: (uuid?: string) => work?.open(uuid),
@@ -68,6 +75,7 @@ async function main(): Promise<void> {
     apply: (operation: unknown) => work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     workspace: workspace.api,
     content: content.api,
+    stages: stages.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
       read: (id: string) => requireMaterials().readMaterial(id),

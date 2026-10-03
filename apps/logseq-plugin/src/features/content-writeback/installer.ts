@@ -73,6 +73,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     },
     apply:(input:unknown)=>executor.apply(input),
     result:async(requestId:unknown)=>executor.query(scope(),identifier(requestId)),
+    history:async()=>executor.history(scope()),
     pending:async()=>executor.pending(scope()),
     recover:async(requestId:unknown)=>executor.recover(scope(),identifier(requestId)),
     conflict:async(requestId:unknown,operationId:unknown)=>{
@@ -90,6 +91,9 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     resumeIdentity:async(input:unknown)=>{const value=fields(input,["requestId","operationId"]);return executor.resumeIdentity(scope(),identifier(value.requestId),identifier(value.operationId));},
     revoke:()=>{setup++;authority.revoke();ui.close();},
   };
-  return {api,dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  // Only the composition root passes these trusted local callbacks to user UI.
+  // They are deliberately absent from the public capability namespace.
+  const local={authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
+  return {api,local,dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;
