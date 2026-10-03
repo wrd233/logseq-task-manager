@@ -23,6 +23,7 @@ interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
   menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
+  menuContext: HTMLElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
 export interface ReadingBookmark {
@@ -68,6 +69,7 @@ export class WorkViewRenderer {
     const fold = button("·", () => this.actions.toggle("collapsed", uuid));
     const body = element("div", "", "wb-body"), controls = element("div", "", "wb-controls");
     const menu = element("details", "", "wb-row-menu"), summary = element("summary", "⋯");
+    const menuContext = element("small", "", "wb-menu-context");
     summary.setAttribute("aria-label", "条目操作"); summary.title = "条目操作";
     menu.append(summary, controls);
     menu.addEventListener("toggle", () => {
@@ -81,7 +83,7 @@ export class WorkViewRenderer {
     const indent = button("增加视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: 1 }));
     const outdent = button("减少视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: -1 }));
     const range = button("只看此处", () => this.actions.range(uuid));
-    controls.append(select, expand, button("在 Logseq 中打开", () => this.actions.locate(uuid)), button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
+    controls.append(menuContext, select, expand, button("在 Logseq 中打开", () => this.actions.locate(uuid)), button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
     node.append(grip, fold, body, menu);
     node.addEventListener("click", event => {
       if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
@@ -96,7 +98,7 @@ export class WorkViewRenderer {
       if ((event.target as HTMLElement).closest("button,summary,select,a,input,textarea,[contenteditable=true]")) return;
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext };
   }
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}): void {
@@ -139,6 +141,8 @@ export class WorkViewRenderer {
       entry.indent.disabled = index === 0 || this.historical || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
       entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical;
       entry.range.disabled = this.historical;
+      const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
+      if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
       const inline=change?.inline&&change.after===row.content?change.inline:null;
       const bodySignature=JSON.stringify([row.content,inline]);
       if (!hidden && this.composingUuid !== item.uuid && entry.bodySignature !== bodySignature) {
