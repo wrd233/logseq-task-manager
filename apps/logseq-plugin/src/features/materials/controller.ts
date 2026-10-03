@@ -463,7 +463,7 @@ export class Materials {
       if (!path.startsWith(context.directory+"/") || /\/(\.longdoc|\.task-workspace|\.git)(\/|$)/.test(path)) continue;
       if (service.io.stat && (await service.io.stat(path)).type !== "file") continue;
       this.assertScope(epoch);
-      const material=materials.find(record=>record.kind==="reference"&&record.path===path);
+      const material=materials.find(record=>record.path===path);
       const row=element("div","","wb-material");row.append(element("span",path.slice(context.directory.length+1)),element("small",material?"已关联材料":"目录文件 · 尚未关联"));
       const read=async()=>{
         this.assertScope(epoch);

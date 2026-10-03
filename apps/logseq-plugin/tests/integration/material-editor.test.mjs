@@ -79,6 +79,27 @@ test('offline directory preview leaves identity, source and editing permission u
   } finally {await f.close();}
 });
 
+test('offline directory reads an existing captured output through its original identity and permissions', async () => {
+  const f=await fixture();
+  try {
+    const store=new f.a.constructor(f.a.io,'/projects/A');
+    const output=await store.create('# 协作说明\n\n保留原材料身份。',{graph:'/A',sourceUuid:'projectA',role:'output'});
+    await f.materials.bindDirectory('projectA','/projects/A');await f.materials.library('projectA');
+    const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
+    const before=await f.materials.listMaterials('projectA');
+    find('目录文件').click();await delay(30);
+    assert.match(f.materials.panel.root.textContent,/已关联材料/);
+    assert.equal(find('关联'),undefined);
+    find('阅读').click();await delay(30);
+    assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作说明');
+    const after=await f.materials.listMaterials('projectA');
+    assert.equal(after.materials.length,1);assert.equal(after.materials[0].id,output.id);
+    assert.deepEqual(after.materials[0].capabilities.edit,before.materials[0].capabilities.edit);
+    assert.deepEqual(after.materials[0].capabilities.edit,{user:true,agent:true});
+    assert.equal(f.blocks.get('projectA').children.length,0);
+  } finally {await f.close();}
+});
+
 test('a delayed connected preview cannot revive a previous Graph or offer a write there', async () => {
   const f=await fixture();
   try {
