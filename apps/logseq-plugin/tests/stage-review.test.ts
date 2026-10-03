@@ -33,7 +33,7 @@ test("clicking a changed body edits the full current authoritative source; compo
     input.value=original.replace("Revised","用户纠正");
     input.dispatchEvent(new t.f.browser.Event("input",{bubbles:true}) as unknown as Event);
     input.dispatchEvent(new t.f.browser.CompositionEvent("compositionstart",{bubbles:true}) as unknown as Event);
-    const submit=[...row.querySelectorAll("button")].find(b=>b.textContent==="提交修改")!;
+    const submit=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="提交修改")!;
     assert.equal(submit.disabled,true);
     await t.work.refresh();
     assert.equal(row.querySelector("textarea"),input);assert.equal(t.row(t.f.b),other);assert.equal(other.querySelector(".wb-body"),body);
@@ -48,10 +48,10 @@ test("clicking a changed body edits the full current authoritative source; compo
 });
 test("suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent",async()=>{
   const t=await fixture();try{
-    const row=t.row(t.f.b),suggest=[...row.querySelectorAll("button")].find(b=>b.textContent==="建议")!;suggest.click();
+    const row=t.row(t.f.b),suggest=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="建议")!;suggest.click();
     await wait(()=>!!row.querySelector("textarea"),"suggestion editor unavailable");
     row.querySelector("textarea")!.value="保留这个限制条件";
-    [...row.querySelectorAll("button")].find(b=>b.textContent==="写入原文建议")!.click();
+    Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="写入原文建议")!.click();
     await wait(()=>!row.querySelector("textarea"),"suggestion not submitted");
     const child=[...t.f.blocks.values()].find(b=>b.content.includes("保留这个限制条件"));
     assert.ok(child);assert.match(child.content,/\*\*\[注\]\*\*/);
@@ -75,10 +75,10 @@ test("historical view uses immutable saved text; correcting it reads present sou
     await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("历史")??false,"historical mode unavailable");
     assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);
     assert.doesNotMatch(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/当前人工/);
-    const row=t.row(t.f.a),correct=[...row.querySelectorAll("button")].find(b=>b.textContent==="在当前内容中纠正")!;correct.click();
+    const row=t.row(t.f.a),correct=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="在当前内容中纠正")!;correct.click();
     await wait(()=>!!row.querySelector("textarea"),"historical correction editor unavailable");
     const input=row.querySelector("textarea")!;assert.equal(input.value,"当前人工改变过的内容");input.value="修正当前人工内容";
-    [...row.querySelectorAll("button")].find(b=>b.textContent==="提交修改")!.click();
+    Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="提交修改")!.click();
     await wait(()=>!row.querySelector("textarea"),"historical correction failed");
     const current=await t.stages.api.read({stageId:t.stage.start.id}),revision=current.revisions.at(-1)!;
     assert.equal(revision.correctionOf?.revisionId,old.id);assert.equal(t.f.blocks.get(t.f.a)!.content,"修正当前人工内容");
@@ -89,11 +89,61 @@ test("focused review discovers outside changes, show-all retains lens and anchor
   const t=await fixture();try{
     const row=t.row(t.f.a),other=t.row(t.f.b);await t.work.lensesAPI.select(t.f.a);
     assert.equal(other.hidden,true);
-    const show=[...document.querySelectorAll("button")].find(b=>b.textContent?.includes("范围外变化"))!;
+    const show=Array.from(document.querySelectorAll("button")).find(b=>b.textContent?.includes("范围外变化"))!;
     assert.ok(show);show.click();assert.equal(other.hidden,false);
-    const lens=t.work.lensesAPI.read();assert.equal(lens.active,true);
-    [...document.querySelectorAll("button")].find(b=>b.textContent==="返回原位置")!.click();
+    const lens=t.work.lensesAPI.read();assert.equal(lens.phase,"focused");
+    Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="返回原位置")!.click();
     assert.equal(other.hidden,true);assert.equal(t.row(t.f.a),row);
     t.work.lensesAPI.exit();assert.equal(other.hidden,false);
+  }finally{await t.cleanup();}
+});
+
+test("review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage",async()=>{
+  const t=await fixture();let second:ReturnType<typeof installStageWorkbench>|null=null;try{
+    const row=t.row(t.f.a);row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"editor");
+    const input=row.querySelector("textarea")!;input.value="尚未提交的用户输入";input.dispatchEvent(new t.f.browser.Event("input",{bubbles:true}) as unknown as Event);
+    t.stages.dispose();t.f.blocks.get(t.f.a)!.content="重启后原文已有人工修改";
+    second=installStageWorkbench({content:t.content,work:t.work,storage:t.f.storage});await t.work.open(t.f.root);await t.work.refresh();
+    await wait(()=>document.querySelector(".wb-stage-entry")!==null,"restored history");
+    row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"restore draft");
+    assert.equal(row.querySelector("textarea")!.value,"尚未提交的用户输入");
+    assert.match(row.querySelector(".wb-review-editor")!.textContent!,/重启后原文已有人工修改/);
+    assert.equal(t.f.counts().writes,2);
+    Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="保留草稿 / 关闭")!.click();
+    const history=await second.api.history();await second.api.begin({goal:"另一目标",requestKey:crypto.randomUUID(),expectedStageId:history.current});
+    row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>document.querySelector(".wb-stage-bar .wb-error")?.textContent?.includes("另一阶段")??false,"scope draft warning");
+    assert.equal(row.querySelector("textarea"),null);
+  }finally{second?.dispose();await t.cleanup();}
+});
+
+test("selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent",async()=>{
+  const t=await fixture();try{
+    await t.f.commands.get("stage-accept")!();const history=await t.stages.api.history(),stage=history.stages[0]!,accepted=stage.acceptances[0]!.revisionId;
+    t.f.blocks.get(t.f.a)!.content="更新的当前文";await t.stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.revisions.at(-1)!.id,requestKey:crypto.randomUUID(),requestIds:[]});
+    document.querySelector<HTMLElement>(".wb-stage-entry")!.click();await wait(()=>document.querySelector("[aria-label='历史修订版本']")!==null,"history selection");
+    const select=document.querySelector<HTMLSelectElement>("[aria-label='历史修订版本']")!;select.value=accepted;select.dispatchEvent(new t.f.browser.Event("change") as unknown as Event);
+    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可")!;
+    assert.equal(accept.disabled,true);assert.match(document.querySelector(".wb-stage-bar>span")!.textContent!,/已认可/);assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);assert.equal(t.f.blocks.get(t.f.a)!.content,"更新的当前文");
+  }finally{await t.cleanup();}
+});
+
+test("later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance",async()=>{
+  const t=await fixture();try{
+    const before=await t.stages.api.history(),revision=before.stages[0]!.revisions.at(-1)!;
+    t.f.blocks.get(t.f.a)!.content="原文后来又有人工修改";await t.work.refresh();
+    assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当前原文已不同/);
+    assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当时提交的结果/);
+    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可")!;
+    assert.equal(accept.disabled,true);await t.f.commands.get("stage-accept")!();
+    assert.equal((await t.stages.api.history()).stages[0]!.acceptances.length,0);
+    const submitted=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="查看待认可版本")!;
+    assert.equal(submitted.hidden,false);submitted.click();
+    await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("历史")??false,"submitted snapshot unavailable");
+    assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);
+    assert.doesNotMatch(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/后来又/);
+    assert.equal(accept.disabled,false);accept.click();
+    await wait(()=>accept.disabled,"exact acceptance incomplete");
+    const after=await t.stages.api.history();assert.equal(after.stages[0]!.acceptances[0]!.revisionId,revision.id);
+    assert.equal(t.f.blocks.get(t.f.a)!.content,"原文后来又有人工修改");assert.equal(after.stages[0]!.revisions.length,before.stages[0]!.revisions.length);
   }finally{await t.cleanup();}
 });

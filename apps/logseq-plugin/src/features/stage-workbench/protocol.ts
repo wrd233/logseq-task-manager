@@ -1,4 +1,5 @@
-import type { ApplyResult, SourceScope, SourceSnapshot } from "../content-writeback/protocol.ts";
+import type { ApplyResult } from "../content-writeback/protocol.ts";
+import type { SourceScope, SourceSnapshot } from "../../workspace/source-protocol.ts";
 
 export type StageFile = {
   id: string; title: string; path: string; role: string; availability: "available" | "unavailable";
@@ -25,6 +26,7 @@ export type StageEvent = {
 } & (
   | {kind: "begin"; start: StageStart; expectedStageId: string | null; focusParent: string | null}
   | {kind: "select"; focusParent: string | null}
+  | {kind: "resolution"; parent: string; chosen: string}
   | {kind: "revision"; revision: StageRevision}
   | {kind: "acceptance"; acceptance: StageAcceptance}
   | {kind: "candidate"; revision: StageRevision; reason: string}
@@ -33,7 +35,7 @@ export type Stage = {
   start: StageStart; revisions: StageRevision[]; acceptances: StageAcceptance[];
   candidates: StageRevision[]; problems: string[];
 };
-export type StageHistory = {stages: Stage[]; current: string | null; currentEventId: string | null; problems: string[]};
+export type StageHistory = {stages: Stage[]; current: string | null; currentEventId: string | null; problems: string[]; storageNotes?:string[]};
 export interface StageStorage {
   getItem(key: string): Promise<unknown>; setItem(key: string, text: string): Promise<void>; allKeys(): Promise<unknown>;
 }

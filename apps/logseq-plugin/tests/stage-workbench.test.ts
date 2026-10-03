@@ -1,3 +1,8 @@
+import {mkdir,readFile,writeFile,readdir,rename,stat} from "node:fs/promises";
+import {MaterialService} from "../src/features/materials/service.ts";
+import {MaterialDirectories} from "../src/workspace/material-context.ts";
+import type {FileIO} from "../src/host/file-io.ts";
+import {SourceReader} from "../src/workspace/source-reader.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { contentFixture, deferred } from "./fixtures/content-writeback.ts";
@@ -119,6 +124,9 @@ test("cross-process competing immutable children fail closed and keep both candi
     const history=await s.store.history(s.f.scope);
     assert.equal(history.stages[0]!.revisions.length,0);assert.equal(history.stages[0]!.candidates.length,2);
     await assert.rejects(s.recorder.acceptLocal(s.f.scope,stage.start.id,r.id,await sha256(JSON.stringify(r))),/SEEN_REVISION_MISMATCH/);
+    const resolved=await s.recorder.resolveCandidate({stageId:stage.start.id,expectedRevision:stage.start.id,candidateRevision:r.id,requestKey:crypto.randomUUID()});
+    assert.equal(resolved.problems.length,0);assert.equal(resolved.revisions[0]!.id,r.id);assert.equal(resolved.candidates.length,1);
+    assert.equal((await s.recorder.acceptLocal(s.f.scope,stage.start.id,r.id,await sha256(JSON.stringify(r)))).revisionId,r.id);
   }finally{await s.cleanup();}
 });
 test("scope revoke A/B/A and dispose reject late stage capture; no new-scope record appears",async()=>{
@@ -184,4 +192,66 @@ test("real installed local API writes through content and recovers idempotently,
     assert.equal(duplicate.stageRevision,result.stageRevision);assert.equal(f.counts().writes,count);
     await assert.rejects(api.submit({stageId:stage.start.id,expectedRevision:revisionId(stage),patch,actor:"USER"}),/UNKNOWN_FIELD/);
   }finally{installation.dispose();content.dispose();await f.cleanup();}
+});
+
+test("installed stage adapter retains real MaterialService versions and permissions using the formal unbound source provider",async()=>{
+  const f=await contentFixture(),content=installContentWriteback({journal:f.journal,adapter:f.adapter}),directory=f.directory+"/materials";await mkdir(directory);
+  const io:FileIO={read:p=>readFile(p,"utf8"),write:(p,t)=>writeFile(p,t),list:readdir,rename,mkdir:async p=>{await mkdir(p,{recursive:true});},stat:async p=>{const s=await stat(p);return {type:s.isDirectory()?"directory":"file",size:s.size};}};
+  const materials=new MaterialService(io,new MaterialDirectories(localStorage),"/A",directory,t=>t),context={graph:"/A",sourceUuid:f.root,directory,organization:"flat" as const};
+  const reader=new SourceReader({graphId:async()=>f.scope.graphId,getBlock:(id,options)=>logseq.Editor.getBlock(id,options)});
+  let workspaceVersion="0";
+  const stages=installStageWorkbench({content,storage:f.storage,source:{read:(s,v)=>reader.read(s,v),version:()=>workspaceVersion},materials:{read:id=>materials.read(id),list:async()=>[]}});
+  try{
+    await content.local.authorize(f.root);
+    const output=await materials.capture({requestKey:"real-output",text:"第一版成果",role:"output"},context),reference=await materials.capture({requestKey:"real-ref",text:"只读输入",role:"reference"},context);
+    const stage=await stages.api.begin({goal:"真实文件版本",requestKey:crypto.randomUUID(),expectedStageId:null,fileIds:[output.material.id,reference.material.id]});
+    assert.equal(stage.start.source.blocks[0]!.parentUuid,null);assert.equal(stage.start.files[1]!.editing.user,false);
+    await materials.save(output.material.id,output.material.version!,output.material.content!,"保存后的成果","user");
+    await assert.rejects(materials.save(reference.material.id,reference.material.version!,reference.material.content!,"越权","agent"));
+    const r=await stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.start.id,requestKey:"saved-material",requestIds:[]});
+    assert.equal(r.files[0]!.content,"保存后的成果");assert.equal(stage.start.files[0]!.content,"第一版成果");
+    await writeFile(output.material.path,"后来外部修改");assert.equal((await stages.api.read({stageId:stage.start.id})).revisions[0]!.files[0]!.content,"保存后的成果");
+    const gate=deferred<void>(),read=reader.read.bind(reader);reader.read=async(s,v)=>{await gate.promise;return read(s,v);};
+    const pending=stages.api.checkpoint({stageId:stage.start.id,expectedRevision:r.id,requestKey:"late",requestIds:[]});await new Promise(r=>setTimeout(r,15));workspaceVersion="1";gate.resolve();await assert.rejects(pending,/EXPIRED|REVOKED/);
+  }finally{stages.dispose();content.dispose();await f.cleanup();}
+});
+
+test("torn metadata publication recovers verified prepared bytes; interrupted preparation is retained without changing stage or replaying content",async()=>{
+  const s=await setup();try{
+    const stage=await s.begin();let failed=false;
+    s.f.onStorage(async key=>{if(!failed&&key.startsWith("stage-workbench-v1-")){failed=true;await writeFile(s.f.directory+"/"+key,"torn");throw Error("publication lost");}});
+    await assert.rejects(s.checkpoint(stage.start.id,stage.start.id),/publication lost/);s.f.onStorage(null);
+    const recovered=await s.store.history(s.f.scope);assert.equal(recovered.stages[0]!.revisions.length,1);assert.equal(recovered.problems.length,0);assert.match(recovered.storageNotes![0]!,/完整准备/);
+    s.f.blocks.get(s.f.a)!.content="Journal 对账前可读现文";failed=false;
+    s.f.onStorage(async key=>{if(!failed&&key.startsWith("stage-prepared-v1-")){failed=true;await writeFile(s.f.directory+"/"+key,"torn");throw Error("preparation lost");}});
+    await assert.rejects(s.checkpoint(stage.start.id,revisionId(recovered.stages[0]!)),/preparation lost/);s.f.onStorage(null);
+    const after=await s.store.history(s.f.scope);assert.equal(after.stages[0]!.revisions.length,1);assert.match(after.storageNotes!.join(" "),/未确认的准备/);
+    const next=await s.checkpoint(stage.start.id,revisionId(after.stages[0]!));assert.match(next.source.blocks.find(b=>b.target.blockUuid===s.f.a)!.content!,/对账/);assert.equal(s.f.counts().writes,0);
+  }finally{await s.cleanup();}
+});
+
+test("an observed new block from an unknown insertion can be corrected in the same stage without upgrading the unknown request",async()=>{
+  const s=await setup();try{
+    const stage=await s.begin(),patch=s.f.patch([await s.f.child(s.f.root,"未知回包的实际建议")]);patch.metadata={stageId:stage.start.id,runId:null};
+    s.f.onInsert(async()=>{throw Error("lost insertion acknowledgment");});const unknown=await s.f.executor.apply(patch);s.f.onInsert(null);
+    const first=await s.checkpoint(stage.start.id,stage.start.id,[patch.requestId]),child=unknown.record.items[0]!.childUuid!;
+    assert.equal(unknown.record.items[0]!.status,"OUTCOME_UNKNOWN");assert.ok(first.source.blocks.some(b=>b.target.blockUuid===child));
+    const correction=s.f.patch([await s.f.text(child,"实际建议","用户修正")]);correction.metadata={stageId:stage.start.id,runId:null};await s.f.executor.apply(correction,{kind:"local-user-command",command:"stage-review-edit"});
+    const next=await s.checkpoint(stage.start.id,first.id,[correction.requestId]);
+    assert.equal(next.facts.find(f=>f.record.patch.requestId===patch.requestId)!.record.items[0]!.status,"OUTCOME_UNKNOWN");assert.match(next.source.blocks.find(b=>b.target.blockUuid===child)!.content!,/用户修正/);
+  }finally{await s.cleanup();}
+});
+
+test("same submit after an explicit identity recovery records the new fact version exactly once and never inserts the body again",async()=>{
+  const f=await contentFixture(),content=installContentWriteback({journal:f.journal,adapter:f.adapter}),stages=installStageWorkbench({content,storage:f.storage});
+  try{
+    await content.local.authorize(f.root);const stage=await stages.api.begin({goal:"恢复同一写回事实",requestKey:crypto.randomUUID(),expectedStageId:null});
+    const patch=f.patch([await f.child(f.root,"身份尚未确认的建议")]);patch.metadata={stageId:stage.start.id,runId:null};
+    f.onIdentity(async()=>{throw Error("identity lost");});const first=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch});f.onIdentity(null);
+    assert.equal(first.status,"partial");assert.ok(first.stageRevision);
+    const updated=await content.api.resumeIdentity({requestId:patch.requestId,operationId:patch.operations[0]!.operationId});assert.equal(updated.status,"complete");
+    const second=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch});assert.equal(second.status,"complete");assert.notEqual(second.stageRevision,first.stageRevision);assert.equal(second.stageProblem,null);
+    const third=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch});assert.equal(third.stageRevision,second.stageRevision);assert.equal(f.counts().inserts,1);
+    const history=await stages.api.history();assert.equal(history.stages[0]!.revisions.find(r=>r.id===first.stageRevision)!.facts[0]!.status,"partial");assert.equal(history.stages[0]!.revisions.at(-1)!.facts[0]!.status,"complete");
+  }finally{stages.dispose();content.dispose();await f.cleanup();}
 });

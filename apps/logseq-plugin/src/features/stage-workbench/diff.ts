@@ -1,4 +1,4 @@
-import type { BlockSnapshot, SourceSnapshot } from "../content-writeback/protocol.ts";
+import type { BlockSnapshot, SourceSnapshot } from "../../workspace/source-protocol.ts";
 import type { ReviewChange } from "../work-view/review-port.ts";
 import type { StageRevision } from "./protocol.ts";
 

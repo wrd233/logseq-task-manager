@@ -1,6 +1,7 @@
 import { clone } from "../content-writeback/journal.ts";
 import { fail, object, sameScope, sha256, uuid } from "../content-writeback/validation.ts";
-import type { ApplyResult, SourceScope } from "../content-writeback/protocol.ts";
+import type { ApplyResult } from "../content-writeback/protocol.ts";
+import type { SourceScope } from "../../workspace/source-protocol.ts";
 import type { Stage, StageAcceptance, StageFile, StageRevision, StageSources, StageStart } from "./protocol.ts";
 import { scopeIdentity, verifySource } from "./store.ts";
 import type { StageStore } from "./store.ts";
@@ -91,6 +92,7 @@ export class StageRecorder {
       const actual=await this.sources.result(id);if(!actual)fail("STAGE_REQUEST_NOT_FOUND");
       byId.set(id,actual);
     }
+    if(byId.size>64)fail("STAGE_FACT_LIMIT");
     const facts=[...byId.values()].sort((a,b)=>a.record.createdAt.localeCompare(b.record.createdAt));
     for(const result of facts){
       const record=result.record;
@@ -99,8 +101,13 @@ export class StageRecorder {
       if(await sha256(JSON.stringify(record.patch))!==record.digest)fail("STAGE_FACT_DIGEST");
       for(const fact of record.items){
         const operation=record.patch.operations.find(op=>op.operationId===fact.operationId);
-        if(!operation||operation.target.blockUuid!==fact.target.blockUuid||fact.target.graphId!==stage.start.scope.graphId||
-           !versions.has(fact.target.blockUuid))fail("STAGE_FACT_TARGET");
+        if(!operation||operation.target.blockUuid!==fact.target.blockUuid||fact.target.graphId!==stage.start.scope.graphId)fail("STAGE_FACT_TARGET");
+        if(!versions.has(fact.target.blockUuid)){
+          // An actually observed native/unknown-origin new block may be corrected later.
+          // This verifies its pre-request version; it does not upgrade the older write's status.
+          const observed=stage.revisions.filter(r=>r.at<=record.createdAt).flatMap(r=>r.source.blocks).find(b=>b.target.blockUuid===fact.target.blockUuid&&b.availability==="available"&&b.contentVersion===fact.baseVersion);
+          if(!observed)fail("STAGE_FACT_TARGET");versions.set(fact.target.blockUuid,observed.contentVersion);
+        }
         if(fact.baseContent!==null&&await sha256(fact.baseContent)!==fact.baseVersion)fail("STAGE_FACT_HASH");
         if(fact.actualContent!==null&&await sha256(fact.actualContent)!==fact.actualVersion)fail("STAGE_FACT_HASH");
         if(result.durable&&fact.status==="APPLIED_VERIFIED"&&fact.contentVerified){
@@ -150,6 +157,19 @@ export class StageRecorder {
       const confirmed=await this.read(scope,id);valid();
       if(confirmed.problems.length)fail("STAGE_REVISION_COMPETITION");
       return revision;
+    });
+  }
+  /** Select retained evidence only; no semantic merge or authoritative-source writes. */
+  async resolveCandidate(input:unknown):Promise<Stage>{
+    const value=fields(input,["stageId","expectedRevision","candidateRevision","requestKey"]),scope=this.sources.scope();
+    if(!scope)fail("AUTHORIZATION_REQUIRED");
+    const id=uuid(value.stageId),expected=uuid(value.expectedRevision),chosen=uuid(value.candidateRevision),key=uuid(value.requestKey),valid=this.lease(scope);
+    return serial(scopeIdentity(scope),async()=>{
+      const stage=await this.read(scope,id);valid();
+      const candidate=stage.candidates.find(r=>r.id===chosen);
+      if(revisionId(stage)!==expected||!candidate||candidate.parent!==expected)fail("STAGE_CANDIDATE_CONFLICT");
+      const history=await this.store.history(scope);valid();if(history.current!==id||history.problems.length)fail("STAGE_NOT_CURRENT");
+      await this.store.append({schemaVersion:1,id:key,scope,stageId:id,kind:"resolution",parent:expected,chosen});valid();return this.read(scope,id);
     });
   }
   /** Installed UI only. Never expose this method through an external namespace. */
