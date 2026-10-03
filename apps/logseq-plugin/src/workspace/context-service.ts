@@ -1,4 +1,4 @@
-import { object, scopeOf, type SourceScope } from "./source-protocol.ts";
+import { object, scopeOf, type SourceScope, type SourceSnapshot } from "./source-protocol.ts";
 import { ScopeExpired, type SourceReader } from "./source-reader.ts";
 import type { WorkspaceRegistry, BindRequest, WorkspaceBinding } from "./registry.ts";
 import { associationOf, directoryOf, guard, managedRoot, optionalRead, replaceVerified } from "./workspace-record.ts";
@@ -44,11 +44,18 @@ export class WorkspaceContextService {
   dispose(): void { this.stopped = true; this.invalidate(); }
   private bump(scope: SourceScope): void { const key = scopeKey(scope); this.revisions.set(key, (this.revisions.get(key) ?? 0) + 1); this.known.delete(key); }
   private valid(scope: SourceScope): () => boolean {
+    if (this.stopped) throw new ScopeExpired();
     const epoch = this.epoch, revision = this.revisions.get(scopeKey(scope));
     return () => !this.stopped && epoch === this.epoch && revision === this.revisions.get(scopeKey(scope));
   }
   /** Read-only lifetime witness for trusted connection consumers, never a write grant. */
   observeScope(input: SourceScope): () => boolean { return this.valid(scopeOf(input)); }
+  /** Narrow live-source port shared by reading consumers, including unbound work. */
+  sourceVersion(input: SourceScope): string { return JSON.stringify([this.epoch, this.revisions.get(scopeKey(scopeOf(input))) ?? 0, this.stopped]); }
+  async readSource(input: SourceScope, consumerValid: () => boolean): Promise<SourceSnapshot> {
+    const scope = scopeOf(input), ownValid = this.valid(scope);
+    return this.reader.read(scope, () => ownValid() && consumerValid());
+  }
   async resolve(input: SourceScope): Promise<WorkspaceBinding | null> {
     const scope = scopeOf(input), valid = this.valid(scope), hint = this.registry.hint(scope);
     let graph = hint?.materialGraph;

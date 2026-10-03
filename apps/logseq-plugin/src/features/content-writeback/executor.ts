@@ -252,6 +252,11 @@ export class ContentExecutor {
   async query(scope:SourceScope,requestId:string):Promise<ApplyResult|null>{
     const lease=this.lease(scope),record=await this.ports.journal.load(scope,requestId);this.assert(lease);return record?result(record):null;
   }
+  /** Durable facts only; reading history never retries or replays a patch. */
+  async history(scope:SourceScope):Promise<ApplyResult[]>{
+    const lease=this.lease(scope),records=await this.ports.journal.list(scope);this.assert(lease);
+    return records.map(record=>result(record));
+  }
   async pending(scope:SourceScope):Promise<RequestRecord[]>{
     const lease=this.lease(scope),records=await this.ports.journal.list(scope);this.assert(lease);
     // Discovery derives resolution from the independently durable retry result;

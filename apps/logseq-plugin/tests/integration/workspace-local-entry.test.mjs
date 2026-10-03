@@ -13,7 +13,7 @@ test('real workspace installation and Materials UI share binding, survive restar
   globalThis.window=browser;globalThis.document=browser.document;globalThis.localStorage=browser.localStorage;globalThis.location=browser.location;
   await mkdir('tmp',{recursive:true});const root=await mkdtemp(join(process.cwd(),'tmp/workspace-entry-')),directory=join(root,'work'),moved=join(root,'moved');await mkdir(directory);
   const blocks=new Map([
-    ['root',{uuid:'root',content:'TODO 工作入口',properties:{},parent:{id:'page'},page:{id:'page'},children:[{uuid:'child',content:'自然段\n[注] 保留'}]}],
+    ['root',{uuid:'root',content:'TODO 工作入口',properties:{},id:2,parent:{id:1},page:{id:1},left:{id:1},children:[{uuid:'child',content:'自然段\n[注] 保留'}]}],
     ['child',{uuid:'child',content:'自然段\n[注] 保留',parent:{id:'root'},page:{id:'page'}}],
   ]);
   const rootUuid=crypto.randomUUID(),childUuid=crypto.randomUUID();blocks.get('root').uuid=rootUuid;blocks.get('root').children[0].uuid=childUuid;blocks.get('child').uuid=childUuid;
@@ -21,7 +21,7 @@ test('real workspace installation and Materials UI share binding, survive restar
   let graph={name:'fixture',url:'/synthetic-graph',path:'/synthetic-graph'},isDb=false,idWrites=0;
   const commands=new Map(),menus=new Map(),db=new Set(),graphs=new Set();let removed=0,opened=null;
   globalThis.logseq={settings:{tasksEnabled:false},
-    App:{getCurrentGraph:async()=>graph,checkCurrentIsDbGraph:async()=>isDb,onCurrentGraphChanged:fn=>{graphs.add(fn);return()=>{graphs.delete(fn);};},registerCommandPalette:(spec,fn)=>{commands.set(spec.key,fn);return()=>{commands.delete(spec.key);removed++;};}},
+    App:{registerCommand:(_type,spec,fn)=>{menus.set(spec.label,fn);return()=>{menus.delete(spec.label);removed++;};},getCurrentGraph:async()=>graph,checkCurrentIsDbGraph:async()=>isDb,onCurrentGraphChanged:fn=>{graphs.add(fn);return()=>{graphs.delete(fn);};},registerCommandPalette:(spec,fn)=>{commands.set(spec.key,fn);return()=>{commands.delete(spec.key);removed++;};}},
     Editor:{getBlock:async uuid=>structuredClone(blockAt(uuid)),getCurrentBlock:async()=>structuredClone(blocks.get('root')),checkEditing:async()=>false,getPage:async()=>null,getPageBlocksTree:async()=>[],
       registerBlockContextMenuItem:(label,fn)=>{menus.set(label,fn);return()=>{menus.delete(label);removed++;};},upsertBlockProperty:async(uuid,key,value)=>{assert.equal(isDb,false);idWrites++;const b=blockAt(uuid);b.properties[key]=value;b.content=b.content.replace(/\nid::[^\n]*/u,'')+`\nid:: ${value}`;},
       insertBlock:async(uuid,content)=>{const b=blockAt(uuid);b.children.push({uuid:crypto.randomUUID(),content});return{};}},
@@ -61,7 +61,7 @@ test('real workspace installation and Materials UI share binding, survive restar
     await rename(directory,moved);const rebind=await installation.api.bind({scope,directory:moved,rebind:true});assert.equal(rebind.workspaceId,identity);
     await installation.api.unbind(scope);assert.equal(await installation.api.resolve(scope),null);assert.ok(await readFile(join(moved,'.task-workspace/manifest.json'),'utf8'));
     // DB Graph persistence uses native UUID and performs no textual id write.
-    isDb=true;blocks.set('db-root',{uuid:'db-root',content:'DB 工作',properties:{},children:[]});const dbPath=join(root,'db');await mkdir(dbPath);const count=idWrites;
+    isDb=true;blocks.set('db-root',{uuid:'db-root',content:'DB 工作',properties:{},id:3,parent:{id:1},page:{id:1},left:{id:1},children:[]});const dbPath=join(root,'db');await mkdir(dbPath);const count=idWrites;
     await installation.api.bind({scope:{...scope,rootUuid:'db-root'},directory:dbPath});assert.equal(idWrites,count);assert.equal(blocks.get('db-root').content,'DB 工作');
   } finally {
     materials?.dispose();installation.dispose();await browser.happyDOM.abort();await rm(root,{recursive:true,force:true});

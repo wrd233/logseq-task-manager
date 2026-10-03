@@ -41,6 +41,13 @@ export class WorkspaceRegistry {
     await this.io.list(directory); guard(valid);
     let manifest = await this.manifest(directory); guard(valid);
     if (manifest && (!sameScope(manifest.primarySource, scope) || (hint && hint.workspaceId !== manifest.workspaceId))) throw new Error("目录已有另一份工作记录，不能替换其身份或入口。");
+    const pendingKey = `workbench:workspace-pending:${JSON.stringify([scope.graphId, scope.rootUuid])}`;
+    if (manifest && old?.directory && old.directory !== directory) {
+      const previous = await this.manifest(old.directory); guard(valid);
+      if (previous?.workspaceId === manifest.workspaceId && this.storage.getItem(pendingKey) !== JSON.stringify([directory, manifest.workspaceId])) {
+        throw new Error("原目录仍有相同工作身份，请核对目录副本；不能自动认领备份。");
+      }
+    }
     if (!manifest) {
       // A managed-looking directory without its manifest may be a interrupted/user-owned area.
       const entries = await this.io.list(directory); guard(valid);
@@ -59,11 +66,13 @@ export class WorkspaceRegistry {
     const entryPath = `${directory}/${manifest.entryFile}`, existing = await optionalRead(this.io, entryPath); guard(valid);
     if (existing !== null && !existing.startsWith(`<!-- task-copilot-workspace:${manifest.workspaceId} -->\n`)) throw new Error("工作读取入口已被用户修改，请保留文件并核对。");
     // Identity is saved first. A failed later step is explicitly retryable from this manifest.
+    this.storage.setItem(pendingKey, JSON.stringify([directory, manifest.workspaceId]));
     await replaceVerified(this.io, `${root}/manifest.json`, JSON.stringify(manifest), valid);
     await replaceVerified(this.io, entryPath, entryText(manifest), valid); guard(valid);
     this.directories.register(materialGraph, directory);
     this.directories.bind({graph: materialGraph, sourceUuid: scope.rootUuid, directory, organization: manifest.organization});
     this.storage.setItem(this.key(scope), JSON.stringify({workspaceId: manifest.workspaceId, materialGraph}));
+    this.storage.removeItem(pendingKey);
     return {manifest, directory, materialGraph, entryPath};
   }
   unbind(scope: SourceScope, materialGraph: string): void {

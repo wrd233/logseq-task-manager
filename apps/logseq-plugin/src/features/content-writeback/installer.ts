@@ -1,3 +1,4 @@
+import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { LocalScopeAuthority } from "./authority.ts";
 import { ContentExecutor } from "./executor.ts";
@@ -14,7 +15,7 @@ function fields(input:unknown,allowed:readonly string[]):Record<string,unknown>{
   const value=object(input);if(Object.keys(value).some(key=>!allowed.includes(key)))fail("UNSUPPORTED_FIELD");return value;
 }
 export function installContentWriteback(options:{journal?:OperationJournal;adapter?:LogseqContentAdapter;hostTimeoutMs?:number}={}) {
-  const authority=new LocalScopeAuthority(),adapter=options.adapter??new LogseqContentAdapter();
+  const authority=new LocalScopeAuthority(),adapter=options.adapter??new LogseqContentAdapter(null,logseqSourceReader());
   const executor=new ContentExecutor({reader:adapter,authority,editing:adapter,writer:adapter,journal:options.journal??new PrivateOperationJournal(logseq.FileStorage),...(options.hostTimeoutMs!==undefined?{hostTimeoutMs:options.hostTimeoutMs}:{})});
   let disposed=false,setup=0;
   const disposers:Array<()=>void>=[];
@@ -73,6 +74,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     },
     apply:(input:unknown)=>executor.apply(input),
     result:async(requestId:unknown)=>executor.query(scope(),identifier(requestId)),
+    history:async()=>executor.history(scope()),
     pending:async()=>executor.pending(scope()),
     recover:async(requestId:unknown)=>executor.recover(scope(),identifier(requestId)),
     conflict:async(requestId:unknown,operationId:unknown)=>{
@@ -90,8 +92,9 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     resumeIdentity:async(input:unknown)=>{const value=fields(input,["requestId","operationId"]);return executor.resumeIdentity(scope(),identifier(value.requestId),identifier(value.operationId));},
     revoke:()=>{setup++;authority.revoke();ui.close();},
   };
-  // Trusted installers may establish a locally selected scope and retain its actual
-  // lease. These ports are deliberately absent from the public content namespace.
-  return {api,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  // Trusted installers retain the actual scope lease; local user UI keeps its
+  // command origin. Neither port is part of the public content namespace.
+  const local={authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
+  return {api,local,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

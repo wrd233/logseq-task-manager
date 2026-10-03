@@ -42,13 +42,14 @@ export async function validateSnapshot(value: unknown): Promise<SourceSnapshot> 
     if (t.kind !== "logseq-block" || t.graphId !== scope.graphId || b.sourceId !== sourceId(scope.graphId, uuid) || seen.has(uuid) || !Number.isSafeInteger(b.depth) || Number(b.depth) < 0 || Number(b.depth) > 128 || !Number.isSafeInteger(b.order) || Number(b.order) < 0 || (b.parentUuid !== null && typeof b.parentUuid !== "string")) throw new Error("WORKSPACE_INVALID_BLOCK");
     seen.add(uuid);
     const depth = Number(b.depth), expectedOrder = orders.get(b.parentUuid as string | null) ?? 0;
-    if ((!blocks.length && (uuid !== scope.rootUuid || depth !== 0 || b.parentUuid !== null || b.order !== 0)) || (blocks.length && (depth === 0 || depth > ancestors.length || b.parentUuid !== ancestors[depth - 1] || b.order !== expectedOrder))) throw new Error("WORKSPACE_INVALID_TOPOLOGY");
+    if ((!blocks.length && (uuid !== scope.rootUuid || depth !== 0 || b.parentUuid === uuid)) || (blocks.length && (depth === 0 || depth > ancestors.length || b.parentUuid !== ancestors[depth - 1] || b.order !== expectedOrder))) throw new Error("WORKSPACE_INVALID_TOPOLOGY");
     orders.set(b.parentUuid as string | null, expectedOrder + 1); ancestors.length = depth; ancestors.push(uuid);
     if (b.availability === "available") {
       if (typeof b.content !== "string" || (size += b.content.length) > MAX_TEXT || b.contentVersion !== await sha256(b.content)) throw new Error("WORKSPACE_CONTENT_VERSION_MISMATCH");
     } else if ((b.availability !== "missing" && b.availability !== "unavailable") || b.content !== null || b.contentVersion !== null) throw new Error("WORKSPACE_INVALID_AVAILABILITY");
     blocks.push({sourceId: b.sourceId as string, target: {kind: "logseq-block", graphId: scope.graphId, blockUuid: uuid}, content: b.content as string | null, contentVersion: b.contentVersion as string | null, parentUuid: b.parentUuid as string | null, order: Number(b.order), depth, availability: b.availability as BlockSnapshot["availability"]});
   }
+  if (blocks[0]!.parentUuid !== null && seen.has(blocks[0]!.parentUuid)) throw new Error("WORKSPACE_INVALID_TOPOLOGY");
   const result = await snapshot(scope, blocks, data.capturedAt);
   if (result.structureVersion !== data.structureVersion || result.sourceSetVersion !== data.sourceSetVersion) throw new Error("WORKSPACE_SOURCE_VERSION_MISMATCH");
   return result;

@@ -1,3 +1,4 @@
+import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
@@ -6,7 +7,7 @@ import { panels } from "../../workspace/context.ts";
 import { MaterialDirectories, type MaterialBindingCommands } from "../../workspace/material-context.ts";
 import { WorkspaceRegistry, type BindRequest } from "../../workspace/registry.ts";
 import { WorkspaceContextService, type ContextReading } from "../../workspace/context-service.ts";
-import { SourceReader, ScopeExpired } from "../../workspace/source-reader.ts";
+import { ScopeExpired } from "../../workspace/source-reader.ts";
 import { identifier, object, scopeOf, type SourceScope } from "../../workspace/source-protocol.ts";
 
 /** Always installed, including tasksEnabled=false. Owns only local commands and known-source observation. */
@@ -19,11 +20,8 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     graphPath = graph.path ?? "";
     return {graphId: graphIdentity(graph), materialGraph: graph.path ?? graphIdentity(graph)};
   };
-  const service = new WorkspaceContextService(new WorkspaceRegistry(desktopFiles(() => graphPath), directories, localStorage), new SourceReader({
-    graphId: async () => (await current()).graphId,
-    getBlock: (uuid, options) => logseq.Editor.getBlock(uuid, options),
-    getPage: name => logseq.Editor.getPage(name), getPageBlocksTree: name => logseq.Editor.getPageBlocksTree(name),
-  }), {
+  const sourceReader = logseqSourceReader();
+  const service = new WorkspaceContextService(new WorkspaceRegistry(desktopFiles(() => graphPath), directories, localStorage), sourceReader, {
     current, readMaterial,
     persistRoot: async (scope, valid) => {
       const check = async () => { if (!valid() || (await current()).graphId !== scope.graphId || !valid()) throw new ScopeExpired(); };
@@ -85,14 +83,18 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
   };
   const promptBinding = async (uuid?: string, rebind = false, create = false) => {
     const scope = await activeScope(uuid), ticket = ++uiEpoch, navigation = panels.reserve();
-    const binding = await service.resolve(scope); if (disposed || ticket !== uiEpoch) return;
+    let binding = null, recoveryProblem = "";
+    try { binding = await service.resolve(scope); }
+    catch (error) { if (!rebind) throw error; recoveryProblem = "原目录暂不可用，请选择移动后的工作目录。"; }
+    if (disposed || ticket !== uiEpoch) return;
     const block = await logseq.Editor.getBlock(scope.rootUuid); if (disposed || ticket !== uiEpoch) return;
-    const path = element("input"); path.value = binding?.directory ?? ""; path.placeholder = "Graph 外的绝对目录"; path.setAttribute("aria-label", "工作目录路径");
+    const graph = await current(); if (disposed || ticket !== uiEpoch) return;
+    const path = element("input"); path.value = binding?.directory ?? directories.binding(graph.materialGraph, scope.rootUuid)?.directory ?? ""; path.placeholder = "Graph 外的绝对目录"; path.setAttribute("aria-label", "工作目录路径");
     const project = /\*\*\[(MiniProject|Project|项目|小项目)\]\*\*/iu.test(block?.content ?? "");
     const organization = element("select"); organization.setAttribute("aria-label", "目录组织");
     for (const [value, label] of [["flat", "平铺"], ["project", "按需使用材料、工作记录、成果目录"]]) { const option = element("option", label); option.value = value!; organization.append(option); }
     organization.value = binding?.manifest.organization ?? (project ? "project" : "flat");
-    const status = element("p");
+    const status = element("p", recoveryProblem);
     const save = button(create ? "新建并关联" : rebind ? "重新关联" : "关联", () => {
       if (disposed || ticket !== uiEpoch) return;
       if (!path.value.trim()) { status.textContent = "请输入工作目录的绝对路径。"; path.focus(); return; }
@@ -121,7 +123,7 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
   ];
   for (const [key, label, action] of commands) {
     const palette = logseq.App.registerCommandPalette({key: `workbench-workspace-${key}`, label: `工作台：${label}`}, async () => { if (!disposed) await action().catch(report); });
-    const menu = logseq.Editor.registerBlockContextMenuItem(`工作台：${label}`, async event => { if (!disposed) await action(event.uuid).catch(report); });
+    const menu = logseq.App.registerCommand("block-context-menu-item", {key: `workbench-workspace-${key}-block`, label: `工作台：${label}`}, async (event: {uuid: string}) => { if (!disposed) await action(event.uuid).catch(report); });
     if (typeof palette === "function") off.push(palette); if (typeof menu === "function") off.push(menu);
   }
   const materialBindings: MaterialBindingCommands = {directories, bind: async context => {
@@ -143,7 +145,14 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     read: (scope: SourceScope) => service.read(scope), unbind: (scope: SourceScope) => service.unbind(scope),
     associate: (input: {scope: SourceScope; source: unknown}) => service.associate(input),
   };
-  return {api, materialBindings, service, dispose: () => {
+  const source = {
+    read: (scope: SourceScope, valid: () => boolean = () => true) => {
+      const epoch = uiEpoch;
+      return service.readSource(scope, () => !disposed && epoch === uiEpoch && valid());
+    },
+    version: (scope: SourceScope) => service.sourceVersion(scope),
+  };
+  return {api, source, sourceReader, materialBindings, service, dispose: () => {
     if (disposed) return; disposed = true; uiEpoch++; service.dispose(); pending.clear();
     if (timer) clearTimeout(timer); clearInterval(poll); for (const remove of off) remove(); void panel.close(); panel.root.remove();
   }};

@@ -25,6 +25,7 @@ export async function contentFixture(timeout=1000){
   let graph="A",editing:string|boolean=false,current=root,db=false,writes=0,inserts=0,identities=0;
   let writeHook:((uuid:string,text:string)=>Promise<void>)|null=null,insertHook:((uuid:string)=>Promise<void>)|null=null,identityHook:(()=>Promise<void>)|null=null;
   let readHook:((uuid:string,includeChildren:boolean)=>Promise<void>)|null=null,storageHook:((key:string,value:string)=>Promise<void>)|null=null;
+  const dbListeners=new Set<(event:unknown)=>void>();
   const commands=new Map<string,()=>unknown>(),menus=new Map<string,(input:{uuid:string})=>unknown>(),graphListeners=new Set<()=>void>(),messages:string[]=[];
   let unload:(()=>Promise<void>)|null=null,ready:Promise<void>=Promise.resolve(),showCount=0;
   const snapshot=(node:Node,children:boolean):unknown=>({...node,children:children?node.children.map(uuid=>snapshot(blocks.get(uuid)!,true)):[]});
@@ -40,11 +41,11 @@ export async function contentFixture(timeout=1000){
       getBlock:async(id:string|number,options?:{includeChildren?:boolean})=>{const node=typeof id==="number"?[...blocks.values()].find(node=>node.id===id):blocks.get(id);if(readHook&&node)await readHook(node.uuid,!!options?.includeChildren);return node?snapshot(node,!!options?.includeChildren):null;},
       checkEditing:async()=>editing,getEditingBlockContent:async()=>"uncommitted draft",
       updateBlock:async(uuid:string,text:string)=>{writes++;if(writeHook)await writeHook(uuid,text);else blocks.get(uuid)!.content=text;},
-      insertBlock:async(target:string,text:string,options:{sibling:boolean;customUUID:string})=>{inserts++;if(blocks.has(options.customUUID))throw Error("UUID collision");const targetNode=blocks.get(target)!,parent=options.sibling?[...blocks.values()].find(node=>node.id===targetNode.parent.id)!:targetNode;const node=add(options.customUUID,text,parent.uuid);if(insertHook)await insertHook(node.uuid);return snapshot(node,false);},
+      insertBlock:async(target:string,text:string,options:{sibling:boolean;customUUID:string})=>{inserts++;if(blocks.has(options.customUUID))throw Error("UUID collision");const targetNode=blocks.get(target)!,parent=options.sibling?[...blocks.values()].find(node=>node.id===targetNode.parent.id)!:targetNode;const node=add(options.customUUID ?? crypto.randomUUID(),text,parent.uuid);if(insertHook)await insertHook(node.uuid);return snapshot(node,false);},
       upsertBlockProperty:async(uuid:string,key:string,value:string)=>{identities++;if(identityHook)await identityHook();const node=blocks.get(uuid)!;node.properties[key]=value;if(key==="id"&&!node.content.includes(`id:: ${value}`))node.content+=`\nid:: ${value}`;},
       registerBlockContextMenuItem:(label:string,fn:(input:{uuid:string})=>unknown)=>{menus.set(label,fn);return()=>{menus.delete(label);};},
     },
-    DB:{onChanged:()=>()=>{}},UI:{showMsg:async(message:string)=>{messages.push(message);}},
+    DB:{onChanged:(fn:(event:unknown)=>void)=>{dbListeners.add(fn);return()=>{dbListeners.delete(fn);};}},UI:{showMsg:async(message:string)=>{messages.push(message);}},
     ready:(fn:()=>Promise<void>)=>{ready=fn();return ready;},beforeunload:(fn:()=>Promise<void>)=>{unload=fn;},
     useSettingsSchema:()=>{},provideStyle:()=>{},provideModel:()=>{},showMainUI:()=>{showCount++;},hideMainUI:()=>{},setMainUIAttrs:()=>{},setMainUIInlineStyle:()=>{},
   } as unknown as typeof logseq;
@@ -66,6 +67,7 @@ export async function contentFixture(timeout=1000){
     editing:(value:string|boolean)=>{editing=value;},current:(uuid:string)=>{current=uuid;},db:(value:boolean)=>{db=value;},
     onWrite:(hook:typeof writeHook)=>{writeHook=hook;},onInsert:(hook:typeof insertHook)=>{insertHook=hook;},onIdentity:(hook:typeof identityHook)=>{identityHook=hook;},onRead:(hook:typeof readHook)=>{readHook=hook;},onStorage:(hook:typeof storageHook)=>{storageHook=hook;},
     counts:()=>({writes,inserts,identities,showCount,graphSubscriptions:graphListeners.size}),
+    changed:()=>{for(const fn of dbListeners)fn({});},
     boot:()=>ready,unload:async()=>{await unload?.();},
     cleanup:async()=>{authority.revoke();adapter.dispose();await browser.happyDOM.abort();globalThis.window=previous.window;globalThis.document=previous.document;globalThis.localStorage=previous.localStorage;globalThis.logseq=previous.logseq;await rm(directory,{recursive:true,force:true});},
   };
