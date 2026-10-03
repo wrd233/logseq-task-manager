@@ -160,7 +160,9 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     await this.write(scope,uuid,valid,() => logseq.Editor.updateBlock(uuid,content));
   }
   async insert(scope: SourceScope, parent: string, lastChild: string | null, uuid: string, content: string, valid: () => boolean): Promise<void> {
-    await this.write(scope,uuid,valid,() => logseq.Editor.insertBlock(lastChild ?? parent,content,{sibling:!!lastChild,before:false,customUUID:uuid}));
+    // Keep background writes out of the native editor, including identity verification.
+    const options = {sibling:!!lastChild,before:false,customUUID:uuid,focus:false};
+    await this.write(scope,uuid,valid,() => logseq.Editor.insertBlock(lastChild ?? parent,content,options));
   }
   async persistIdentity(scope: SourceScope, uuid: string, content: string, valid: () => boolean): Promise<void> {
     const isDbGraph = await this.call(scope,valid,() => currentGraphIsDb(logseq.App));

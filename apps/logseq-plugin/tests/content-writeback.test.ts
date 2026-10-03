@@ -18,6 +18,20 @@ test("native identity delta permits only one exact property line and preserves o
   assert.equal(insertedContentMatches(`first\nid:: ${uuid}\nchanged`,"first\nsecond",uuid),false);
   assert.equal(insertedContentMatches(`first\nid:: ${uuid}\nid:: ${uuid}`,"first",uuid),false);
 });
+test("background child insertion does not open the native editor and can finish identity verification",async()=>{
+  const f=await contentFixture();try{
+    const insert=logseq.Editor.insertBlock.bind(logseq.Editor);
+    logseq.Editor.insertBlock=async(...args:Parameters<typeof insert>)=>{
+      const result=await insert(...args);
+      if((args[2] as {focus?:boolean}|undefined)?.focus!==false&&result)f.editing(result.uuid);
+      return result;
+    };
+    const write=await f.executor.apply(f.patch([await f.child(f.root,"补充当前工作的条件与反例")]));
+    assert.equal(write.status,"complete");assert.equal(write.record.items[0]!.status,"APPLIED_VERIFIED");
+    assert.equal(write.record.items[0]!.identity?.status,"VERIFIED");
+    assert.equal(await logseq.Editor.checkEditing(),false);assert.equal(f.counts().inserts,1);
+  }finally{await f.cleanup();}
+});
 test("fresh Desktop FileStorage null keys mean absence; malformed key results fail closed",async()=>{
   const f=await contentFixture();try{
     const journal=new PrivateOperationJournal({...f.storage,allKeys:async()=>null});assert.equal(await journal.load(f.scope,"fresh"),null);assert.deepEqual(await journal.list(f.scope),[]);
