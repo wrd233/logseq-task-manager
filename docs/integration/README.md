@@ -4,6 +4,8 @@
 
 2026-10-03：阶段记录与原位审阅已接入既有工作视图，支持显式开始阶段、同阶段纠正与原文建议、具体修订认可、材料成果及不可变历史。来源来自已发布的 workspace-context，正文与文件继续通过 content 和材料模块保存。API、权限和未验范围见[阶段交接](../implementation/stage-workbench-handoff.md)；本次 main 整合的基线及验证见[整合记录](stage-workbench-main-2026-10-03.md)。
 
+2026-10-03：工作区整合与恢复接入相同来源协议、SDK provider 和材料目录绑定，保留阶段工作台。支持目录搬迁后的明确重关联、材料按身份恢复和旧能力失效；合入最新 main 的基线、冲突处理及本轮门禁见[工作区整合记录](workspace-integration-main-2026-10-03.md)。
+
 整合起点为本地 `vnext` 的 `07e9f0e`，迁入来源为工作视图 `88a3d10` 与长文档 `171fa66`。两个原型没有共同祖先，采用按能力移植；保留原型分支和来源记录。用户确认没有真实原型数据需要迁移，原文排列同步不进入首版。
 
 ## 使用
@@ -15,7 +17,7 @@
 - 长文本自动收纳默认关闭，配置目录后通过 `materialsAutoCapture` 开启。原始粘贴、捕获记录和保存历史分别保留；原生撤销移除引用和本次插入的来源 id，外部文件继续保留。
 - 任务：使用原有 TC 入口或共同面板的“任务”。填写 Kernel descriptor 后使用原有正式化、今天、事项详情、Closure、Undo 和恢复操作。
 
-三个模块的启用设置修改后重载插件。tasksEnabled=false 不启动共享 Worker、来源观察和身份刷新；面板切换不重启插件运行时。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
+三个模块的启用设置修改后重载插件。tasksEnabled=false 不启动正式任务运行时的共享 Worker、来源观察和身份刷新；自然正文的工作区观察继续可用。面板切换不重启插件运行时。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
 
 粘贴收纳失败且编辑位置仍未改变时，回退到原文粘贴并保留恢复记录。已保存材料的引用插入失败时，可从材料库打开并补关联；同请求重试使用原身份。未完成收纳的原文与待写正文保留在独立记录/本地缓存中，清缓存前应恢复。
 
@@ -43,12 +45,12 @@ apps/logseq-plugin/src/
 - 收纳文件、关联与捕获记录、历史按工作目录选择或全局默认保存。`.longdoc/<id>.json` 是每篇材料的独立记录；文档库从这些记录扫描，不使用原型的共享可覆盖 catalog。整个目录连同隐藏目录应一起备份。
 - 正式任务状态仍在 Kernel SQLite；视图布局与未保存草稿按 Graph 和范围保存于插件本地存储。
 - 文件写入使用前后版本比较、历史备份、临时文件与读回核对。Web Locks 协调同源插件窗口；外部程序的极端并发写入没有跨进程原子比较交换保证。
-- 目前材料目标是 macOS 文件 Graph。Markdown 可读并按授权编辑，其他普通文件仅登记和外部打开；支持已知多目录定位与显式失联重定位。完整工作区、二进制正文提取/预览、自动移动识别和 Kernel 外部文件 Evidence 仍为后续需求。
+- 目前材料目标是 macOS 文件 Graph。Markdown 可读并按授权编辑，其他普通文件仅登记和外部打开；支持已知多目录定位与显式失联重定位。多根工作区、二进制正文提取/预览、自动移动识别和 Kernel 外部文件 Evidence 仍为后续需求。
 - 普通块仅打开视图时不会写入 `id::`；因此索引重建后其恢复能力仍有限。显式关联文件或收纳时才保存来源身份。
 
 ## 本地协作接口
 
-插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回实际路径、能力、正文与 SHA-256 或不可用结果。另有 `materials.list/read/capture/associate/save` 共用材料核心；Agent 保存检查编辑边界、预期旧文与版本，引用失败返回部分成功。真实调用例子与本地上下文限制见[材料架构](../architecture/materials-module-architecture.md)。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
+插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回实际路径、能力、正文与 SHA-256 或不可用结果。另有 workspace、lenses、content、stages 入口，详见各模块交接；`materials.list/read/capture/associate/save` 共用材料核心；Agent 保存检查编辑边界、预期旧文与版本，引用失败返回部分成功。真实调用例子与本地上下文限制见[材料架构](../architecture/materials-module-architecture.md)。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
 
 展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。read/apply 返回独立快照；有效来源、草稿、展示或范围变化使 seq 递增，重复检查与重绘不递增，成功的无变化操作不重新保存布局。
 
