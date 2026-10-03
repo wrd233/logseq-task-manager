@@ -1,3 +1,4 @@
+import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
 import { WorkView } from "./features/work-view/controller.ts";
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
     try { work = new WorkView((content, uuid) => {
       if (materials) return materials.library(uuid, content);
       throw new Error("材料模块未启用。");
-    }); } catch (error) { report(error); }
+    }, {source: workspace.source}); } catch (error) { report(error); }
   }
   if (logseq.settings?.tasksEnabled !== false) {
     try { await pluginRuntime.start(); if (disposed) { pluginRuntime.stop(); return; } stopTasks = await startTaskCenter(); if (disposed) { await stopTasks(); return; } } catch (error) { pluginRuntime.stop(); report(error); }
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
   const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
-  content = installContentWriteback();
+  content = installContentWriteback({adapter: new LogseqContentAdapter(null, workspace.sourceReader)});
   const api = {
     read: () => disposed ? null : work?.snapshot() ?? null,
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },

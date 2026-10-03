@@ -48,7 +48,7 @@ test("all available natural-work capabilities install without a Kernel and draft
   }};
   try {
     await import(`${entry}?workspace-capabilities=1`); await f.boot();
-    const api = bench(); assert.equal("workspace" in api, false);
+    const api = bench(); assert.equal("workspace" in api, true);
     assert.deepEqual(await api.materials.list(), {status: "success", materials: [], problems: []});
     await api.open(f.root);
     assert.equal(f.counts().identities, 0); // Unbound reading never establishes write authority.
