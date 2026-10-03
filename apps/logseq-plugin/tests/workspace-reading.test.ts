@@ -205,3 +205,14 @@ test("concurrent different sources cannot replace one directory identity; interr
     const snapshot=await f.reader.read(f.scope,()=>true);await assert.rejects(validateSnapshot({...snapshot,blocks:[{...snapshot.blocks[0],depth:2}]}),/TOPOLOGY/);
   } finally {await f.cleanup();}
 });
+
+test("shared live-source port works without a directory and expires on unbind without returning mirror bytes",async()=>{
+  const f=await fixture();try{
+    const source=await f.service.readSource(f.scope,()=>true);assert.equal(source.sourceSetVersion,(await f.reader.read(f.scope,()=>true)).sourceSetVersion);assert.equal(f.persisted(),0);
+    await f.service.bind({scope:f.scope,directory:f.a});const version=f.service.sourceVersion(f.scope);
+    let release!:()=>void;f.setGate(new Promise<void>(r=>{release=r;}));const late=f.service.readSource(f.scope,()=>true);
+    await new Promise(r=>setTimeout(r,15));await f.service.unbind(f.scope);f.setGate(null);release();
+    await assert.rejects(late,ScopeExpired);assert.notEqual(f.service.sourceVersion(f.scope),version);
+    f.offline(true);const missing=await f.service.readSource(f.scope,()=>true);assert.equal(missing.blocks[0]!.availability,"unavailable");assert.equal(missing.blocks[0]!.content,null);
+  }finally{await f.cleanup();}
+});
