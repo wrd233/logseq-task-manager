@@ -1,6 +1,6 @@
 # Agent 工作区：产品设计
 
-交付日期：2026-10-03。适用实现：`codex/agent-workspace`；正式来源依赖为已发布 `acb1f4a3adb5d7122632245f0c2456853d4f6897`。本设计描述实际实现，验收证据见 [handoff](../implementation/agent-workspace-handoff.md)。
+交付日期：2026-10-03。适用实现：`codex/agent-workspace`；首次正式来源依赖为已发布 `acb1f4a3adb5d7122632245f0c2456853d4f6897`；用户授权发布时整合远端 main `07008fca018eb7391408e52d6bdb8b868a56fcf1` 的唯一来源接线与阶段工作台。本设计描述实际实现，验收证据见 [handoff](../implementation/agent-workspace-handoff.md)。
 
 ## 用户如何使用
 
@@ -96,7 +96,7 @@ CLI 退出码 0 只表示收到了能力结果。agent 必须检查 `status`、�
 
 `sessions add` 仅关联用户明确选择的平台、外部会话 ID、真实 HTTP(S) 链接或短说明。没有可靠链接就存 null。一个工作可以关联多个会话，一个会话可在不同工作各自关联；不抓取聊天全文，不搜索、联系或发送消息到其他会话。独立闭合 v1 关联记录按正式 workspaceId 保存，manifest 继续唯一拥有工作身份。
 
-Stage 是可选的正式程序端口，只有 `read` 和 `submit`；没有用户认可命令。当前没有已发布 stage-workbench provider，本分支返回诚实的 `unavailable`，不制造 Stage schema、阶段记录或审阅 renderer。基础闭环已经独立完成。
+Stage 是可选的正式程序端口，只有 `read` 和 `submit`；没有用户认可命令。整合已发布 main 后，组合根注入现有阶段工作台。`stage read` 的空输入读取当前阶段，无当前阶段返回 `STAGE_CURRENT_UNAVAILABLE`；也可明确读取本工作中的历史阶段。`stage submit` 复用正式阶段提交和 content Journal，按客户端隔离正文请求 ID，不能代用户开始阶段或认可。缺少 provider 仍返回 `STAGE_PROVIDER_UNAVAILABLE`。没有另造 Stage schema、存储或审阅 renderer。
 
 ## 本轮边界
 

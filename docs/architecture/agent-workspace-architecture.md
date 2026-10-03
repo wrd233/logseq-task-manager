@@ -128,4 +128,4 @@ sequenceDiagram
   Note over L,V: 新问题、取消、晚到结果、来源变化沿用既有 lifetime
 ```
 
-路由最多保存 64 个问题归属，卸载/撤销清空。它不复制 lenses 状态机；不把 renderer/composer 改为 Stage 审阅。可选 `OptionalStagePort.read/submit(input,binding)` 只传给正式 Stage provider；本分支没有 provider 时 unavailable。Stage schema 与持久校验属于阶段分支，用户认可不在外部命令表中。
+路由最多保存 64 个问题归属，卸载/撤销清空。它不复制 lenses 状态机；不把 renderer/composer 改为 Stage 审阅。可选 `OptionalStagePort.read/submit(input,binding)` 只传给正式 Stage provider；没有 provider 时 unavailable。main 整合的组合根核验阶段 scope 等于可信 binding，再调用现有 stages API。read 可从正式 history 获取当前阶段；submit 经闭合字段检查与客户端正文 ID 映射后交给正式 provider，返回原 ApplyResult 与 stageRevision/stageProblem。作用域确认失效时按结果未知处理，先查询同一 content Journal ID。Stage schema 与持久校验仍属于阶段模块，用户认可不在外部命令表中。

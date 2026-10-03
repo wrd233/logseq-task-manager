@@ -1,12 +1,12 @@
 # Agent 工作区：实施交接
 
-交付日期：2026-10-03。分支：`codex/agent-workspace`。全部三个增量在同一工作树完成，没有委派其他 agent/session，没有 push、PR、合入 main、部署或修改生产 Graph。
+交付日期：2026-10-03。分支：`codex/agent-workspace`。全部三个增量在同一工作树完成，没有委派其他 agent/session。首次独立交付未 push、PR 或合入 main；随后用户明确授权合并最新 main 并推送。此次整合见 [main 记录](../integration/agent-workspace-main-2026-10-03.md)，没有部署或修改生产 Graph。
 
 ## 基线与归属
 
 本机 macOS Darwin 24.2 / x86_64。起始仓库 origin 核验为 `https://github.com/wrd233/logseq-task-manager.git`。原 checkout 本地 main 是 `bb8143150b938e8f0d7f71f025fabb21a661f2e1`，有他人的未跟踪 prompts，未在该 checkout 安装、切换、stash、reset、clean 或提交。
 
-本 session 的独立工作树：`/Users/mac/Downloads/work/logseq-agent-workspace-20261002`。启动 fetch 锁定远端 main `1298ac2937ac18daf82d38f852e0f93a44f32dc9`，最初确实缺少 workspace-context。随后用户明确提供 `acb1f4a`，已从 origin main 获取并核验完整提交 `acb1f4a3adb5d7122632245f0c2456853d4f6897`；检查 diff、保存自身提交后合入，唯一共享冲突是 index.ts dispose，保留双方安装与释放。之后没有追逐 main。
+本 session 的独立工作树：`/Users/mac/Downloads/work/logseq-agent-workspace-20261002`。启动 fetch 锁定远端 main `1298ac2937ac18daf82d38f852e0f93a44f32dc9`，最初确实缺少 workspace-context。随后用户明确提供 `acb1f4a`，已从 origin main 获取并核验完整提交 `acb1f4a3adb5d7122632245f0c2456853d4f6897`；检查 diff、保存自身提交后合入，唯一共享冲突是 index.ts dispose，保留双方安装与释放。初次交付之后没有追逐 main；用户授权发布时重新 fetch 并锁定 `07008fca018eb7391408e52d6bdb8b868a56fcf1`，通过 `256ed1a1b07afdd2312e4d6f42198d4a81c7c9cd` 保留双方历史合并。
 
 工具链由该提交 package.json 决定：Node 20.20.2（满足 >=20.19 <21）、npm 10.8.2，放在工作树 `tmp/agent-workspace/toolchain/`，未更改系统默认运行时。独立 node_modules、dist、临时文件、Graph、app/home/profile、私有 descriptor 与进程。package.json/lockfile 未改，没有新增依赖。
 
@@ -120,7 +120,7 @@ Stage 只有可选 `read/submit(input,binding)` 正式 provider 端口：
 printf '{}' | task-copilot workspace stage read --input-file - --json
 ```
 
-当前返回 `{"status":"unavailable","reason":"STAGE_PROVIDER_UNAVAILABLE"}`。没有 begin/checkpoint 存储、认可命令、Stage schema 或 renderer。接入已发布阶段能力时，组合根注入拥有闭合类型与范围/持久事实校验的 adapter；submit 只提交结果/修订，不能接受任何形式的用户认可。未实测已有阶段 provider，因为本次明确发布依赖只包含 workspace-context。
+首次独立交付因没有已发布 provider 返回 `STAGE_PROVIDER_UNAVAILABLE`；用户授权发布时最新 main 已包含正式 stages，现在组合根注入其窄端口。空输入读取当前阶段；没有当前阶段返回 `{"status":"unavailable","reason":"STAGE_CURRENT_UNAVAILABLE"}`，显式 `{stageId}` 读取同一工作历史。submit 输入沿用正式 `{stageId,expectedRevision,patch,correctionOf?}`，stageId/expectedRevision 从实际 read 取得，patch 仍来自最新 content read。其 requestId 与 content apply/result 使用相同客户端命名空间，断连先查询 `content result <原 patch ID>`。返回原 ApplyResult 加 stageRevision/stageProblem，正文成功与阶段存储失败分别保留。外部没有 begin/checkpoint/认可命令，没有复制 Stage schema、存储或 renderer；缺少 provider 的部署仍诚实 unavailable。
 
 ## 错误、上限与隐私
 
@@ -160,7 +160,7 @@ Desktop 首次 PID 55368、companion 55367；完整重启后 PID 59170、compani
 
 Desktop 发现并修复材料引用默认 SDK focus=true 抢走阅读状态：材料模块程序插入引用显式 focus=false，保持已有编辑保护。后续真实流程完整复验通过；没有放松 TODO、formal 或 EditingGuard。
 
-最终 `npm run check` 全部通过，合计 510 项测试，0 失败、0 skipped；覆盖 requirements 生成、全工作区 typecheck/lint/test、sandbox 测试、build 与二进制 smoke、边界检查和 taste eval。定向跨进程/文件/连接 7 项也全部通过。收尾代码检查日志为 full-check-final.log 与 targeted-all-final.log；其他独立日志包括 typecheck.log、lint.log、plugin-tests-final.log、cli-tests.log、service-tests.log、boundaries.log、final-build.log。
+首次独立交付的 `npm run check` 全部通过，合计 510 项测试，0 失败、0 skipped；覆盖 requirements 生成、全工作区 typecheck/lint/test、sandbox 测试、build 与二进制 smoke、边界检查和 taste eval。定向跨进程/文件/连接 7 项也全部通过。收尾代码检查日志为 full-check-final.log 与 targeted-all-final.log；其他独立日志包括 typecheck.log、lint.log、plugin-tests-final.log、cli-tests.log、service-tests.log、boundaries.log、final-build.log。本次 main 整合的当前验证见 main 记录。
 
 ## 共享路径、集成与剩余事项
 
@@ -174,10 +174,10 @@ Desktop 发现并修复材料引用默认 SDK focus=true 抢走阅读状态：�
 - `features/materials/source.ts` 引用插入 focus=false（独立提交）。
 - `workspace/context-service.ts` 只读 lifetime witness，`workspace/workspace-record.ts` 入口指引（独立提交）。
 
-正式共享来源接线已消费 acb1f4a 的唯一 Registry/ContextService，没有复制造一套 workspace-context，manifest schema 未扩展为任意 metadata。若 workspace-integration 后续发布明确交付提交，先保存本分支、检查 diff，再在自身分支整合；重点核对 index、绑定 witness 和材料目录端口。stage-workbench 只通过可选正式端口接入，不让 CLI 导入阶段 controller，不抢 renderer/composer 所有权。
+正式共享来源接线已消费唯一 Registry/ContextService，没有复制造一套 workspace-context，manifest schema 未扩展为任意 metadata。最新 main 整合保留正式 sourceReader 与 content 专用 protections/path/EditingGuard、两类私有 lease 端口和旧实例 namespace 防护。stage-workbench 只通过可选正式端口接入，不让 CLI 导入阶段 controller，不抢 renderer/composer 所有权。当前整合验证与发布策略见 main 记录。
 
-未实机验收：中文 IME、系统粘贴/Undo、原生文本键入提交、真实双 Graph 的 A→B→A 晚到竞态（自动化覆盖）、DB Graph（既有自动化保护）、Windows/Linux Desktop、断电与长期多进程压力。普通文件系统路径检查有 TOCTOU 限制，没有分布式锁或 SDK CAS。Windows 首版私有通道诚实 unavailable；Linux 的 Node POSIX 实现未在本轮运行。Stage provider 当前 unavailable；不影响已完成基础闭环。
+未实机验收：中文 IME、系统粘贴/Undo、原生文本键入提交、真实双 Graph 的 A→B→A 晚到竞态（自动化覆盖）、DB Graph（既有自动化保护）、Windows/Linux Desktop、断电与长期多进程压力。普通文件系统路径检查有 TOCTOU 限制，没有分布式锁或 SDK CAS。Windows 首版私有通道诚实 unavailable；Linux 的 Node POSIX 实现未在本轮运行。缺少 provider 或没有当前阶段时诚实 unavailable；不影响基础闭环。
 
-本分支提交仅在本机，尚未远端发布；跨电脑整合需要用户后续授权发布，再使用可从 origin 获取的确切提交。正式 workspace-context 依赖 acb1f4a 已经远端可获取。
+初次独立交付仅在本机。用户随后已授权合并最新 main 并发布；跨电脑使用推送后 `origin/main` 的确切提交，发布完成与最终 SHA 以远端核验和 main 整合记录为准。
 
-本地数据、证据和工作树保留，没有自动 push 或 PR。收尾只释放已验证归属的本 session 进程。
+本地数据、证据和工作树保留，不创建 PR 或部署。用户授权的发布只推送已验证、包含最新远端历史的提交；收尾只释放已验证归属的本 session 进程。

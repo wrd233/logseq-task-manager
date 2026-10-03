@@ -50,6 +50,8 @@ apps/logseq-plugin/src/
 
 ## 本地协作接口
 
+2026-10-03 的自然工作区外部接入已提供真实 shell CLI：工作目录识别、权威 refresh 与明确 last-known 缓存、有界文件发现、材料、会话引用、聚焦、受控正文写回，以及正式阶段 read/submit。它使用独立私有本机 companion，不依赖 Kernel/tasksEnabled，不提供阶段认可。实际操作与边界见 [agent 工作区交接](../implementation/agent-workspace-handoff.md)，三方合并与本轮验证见 [main 整合记录](agent-workspace-main-2026-10-03.md)。
+
 插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回实际路径、能力、正文与 SHA-256 或不可用结果。另有 workspace、lenses、content、stages 入口，详见各模块交接；`materials.list/read/capture/associate/save` 共用材料核心；Agent 保存检查编辑边界、预期旧文与版本，引用失败返回部分成功。真实调用例子与本地上下文限制见[材料架构](../architecture/materials-module-architecture.md)。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
 
 展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。read/apply 返回独立快照；有效来源、草稿、展示或范围变化使 seq 递增，重复检查与重绘不递增，成功的无变化操作不重新保存布局。
