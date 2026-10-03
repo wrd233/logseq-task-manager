@@ -1,84 +1,80 @@
-# 工作区整合架构：现有接入修复与缺失依赖
+# 工作区整合架构
 
-2026-10-02。本页只描述分支当前实现。正式 `workspace/source-protocol.ts`、source-reader、registry、mirror、context-service 及 workspace-context 安装器均不在锁定远端基线中，本分支没有复制或重造它们。[交接](../implementation/workspace-integration-handoff.md)记录远端获取失败与未完成验收。
+2026-10-03。正式工作区代码来自远端 `acb1f4a3adb5d7122632245f0c2456853d4f6897`，在本功能分支合并，未重造 workspace-context。参见[设计](../design/workspace-integration-design.md)和[交接](../implementation/workspace-integration-handoff.md)。
 
-## 当前组合和职责
+## 组合与职责
 
 ```mermaid
 flowchart TB
-  Entry[index.ts 薄组合根] --> View[WorkView]
-  Entry --> Materials[Materials]
-  Entry --> Install[installContentWriteback]
-  Entry -->|仅 tasksEnabled| Runtime[正式任务 Runtime]
-  View --> Refresh[SourceRefresh 与已提交 sourceRows]
-  View --> Lens[WorkViewLenses]
-  Lens --> Validate[来源与计划验证]
-  Refresh --> SDK[Logseq SDK]
-  Install --> Adapter[LogseqContentAdapter]
-  Adapter --> SDK
-  Install --> Executor[权限与草稿保护 / 执行 / 读回]
-  Executor --> Adapter
+  Entry[index.ts] --> Install[installWorkspaceContext]
+  Entry --> Work[WorkView / options.source]
+  Entry --> Content[installContentWriteback]
+  Entry --> Materials[Materials / materialBindings]
+  Install --> Reader[workspace/logseq-source.ts + SourceReader]
+  Reader --> SDK[已提交 Logseq SDK]
+  Reader --> Protocol[workspace/source-protocol.ts]
+  Work --> Reader
+  Content --> Adapter[LogseqContentAdapter]
+  Adapter --> Reader
+  Adapter --> Facts[protections / children / paths / EditingGuard]
+  Content --> Executor[既有 executor / authority]
   Executor --> Journal[原 FileStorage Journal]
-  Materials --> Binding[MaterialDirectories]
+  Install --> Context[WorkspaceContextService]
+  Context --> Reader
+  Context --> Registry[WorkspaceRegistry / manifest]
+  Context --> Mirror[MirrorPublisher / 完整版本与指针]
+  Registry --> Binding[唯一 MaterialDirectories]
+  Materials --> Binding
   Materials --> Service[MaterialService / MaterialStore]
-  Service --> IO[host FileIO]
-  IO --> Files[(原文件与独立材料记录)]
-  Missing[缺失正式工作区交付] -. 唯一来源协议与 provider 尚待接入 .-> Lens
-  Missing -. 目录绑定协调与镜像尚待接入 .-> Binding
+  Mirror --> IO[Desktop FileIO]
+  Service --> IO
 ```
 
-没有新包、依赖、lockfile 修改、事件总线、SQLite 引用或外部服务。host、runtime 和工作视图依赖边界保持；正式任务操作不进入自然正文入口。`index.ts` 的共享修改仅涉及发布/释放所有权和旧入口生命周期检查。
+不增加包、事件总线、SQLite 或外部传输。host 不导入 feature；work-view 未导入 task-center。WorkView controller/renderer/composer 没有重写，组合根只注入正式 provider。材料绑定继续使用正式交付的唯一协调路径。
 
-| 当前窄端口 | 所有者与事实 |
+| 窄端口 | 用法与边界 |
 | --- | --- |
-| `LensSourcePort.read(scope): Promise<unknown>` | work-view 消费者；可信构造 options.source 注入，调用方 JSON 不能指定 provider |
-| `LogseqContentAdapter.read(scope, valid): Promise<SourceRead>` | content 默认实际 SDK 读取；保留 snapshot、protections、children、paths |
-| `SourceReader / EditingGuard / SourceWriter / ScopeAuthority` | content 专用保护与执行端口，本轮未改写 |
-| `MaterialWorkContext / MaterialDirectories` | 材料已有目录绑定协调路径；graph 为文件 Graph 路径 |
-| `window.taskCopilotWorkbench` | 组合根现有本地能力；workspace namespace 仍不存在 |
+| `workspace/source-protocol.ts` | 唯一 SourceScope/BlockTarget/BlockSnapshot/SourceSnapshot 定义，sourceId、sha256、snapshot 和磁盘验证 |
+| `logseqSourceReader(): SourceReader` | 真正 SDK provider；不要求绑定工作目录，不读取草稿或布局 |
+| `SourceReader.read(scope, valid, pageName?)` | 返回已提交快照；Graph 与生命周期检查；显式 page 读取保留原有路径 |
+| `installWorkspaceContext().source` | 供 lenses 的 read(scope) 窄适配；安装/Graph epoch 使旧结果失效 |
+| `installWorkspaceContext().sourceReader` | 可信组合根将同一 reader 注入 content adapter；不是外部 JSON 输入 |
+| `LogseqContentAdapter.read` | 保留专用写入事实，再读取共享快照；结构/集合版本不一致则拒绝本次读写 |
+| `materialBindings` | graph.path 与 graphIdentity 映射及原 MaterialDirectories；不另建目录索引权威 |
 
-未来统一必须消费正式交付的 source-protocol 和 provider。上述消费端口不是另一份正式共享协议。只读快照不能替代 content 的权限、保护、成员、路径和写入读回事实；Journal 不因目录整齐而搬迁。
+content 的独立祖先遍历与保护计算仍是必要消费者适配。它与共享快照的两次 SDK 读取不是数据库事务；若读中变化导致版本不同，返回 `SOURCE_CHANGED_DURING_READ`，不把旧保护套用新正文。严格的 content 范围/大小/UTF-16 校验继续保留。模块独立测试仍可构造专用 adapter，生产默认安装和组合根均接共享 reader。
 
-## 真实根拓扑的消费修复
+共享 reader 的真实 SDK rootPosition 保留外部 parentUuid 与实际 order。页级根沿原生 left 链计数，嵌套根用真实父块 children 定位；这些范围外读取只确定位置，快照与授权不扩大。正式 validateSnapshot 与 lenses 消费者均拒绝环、负序号、错误先序/父链及不匹配的 hash。lenses 保留更窄输入校验，类型和版本算法复用正式协议。
 
-provider 快照仍经过封闭 schema、scope、唯一 sourceId、UTF-8 正文 hash、结构与集合 hash 核验。根块 depth 为 0，可以带范围外 parentUuid 和非零实际 order；parentUuid 不得指向自身或任何范围内块。后代必须按真实先序出现，parent 对应深度栈，兄弟 order 从零连续增长。非法结构即使重算了正确 hash 也拒绝。
-
-FocusPlan 的必要祖先遍历在 scope.rootUuid 停止。范围外父块的定位事实不会成为范围成员，也不会要求读取范围外正文。未改变完整块选择、必要范围内祖先版本、内容/结构过期拒绝或短暂推断失效行为。
-
-本轮测试将现有默认 content adapter 的真实读取结果通过已有 provider 注入点交给 WorkView，验证嵌套根、后代选择及 Graph 切换。**该接线仅用于测试已运行消费端口；生产组合根仍未注入正式 provider。** 默认 lenses 的局部根拓扑尚未统一；正文算法相同不等于四模块已经共享来源。
-
-## 生命周期和异常
+## 刷新、绑定与失效
 
 ```mermaid
 sequenceDiagram
-  participant Old as 旧组合根与 API
-  participant Host as window namespace
-  participant Panel as 现有面板协调
-  participant New as 新组合根
-  Old->>Host: 发布本安装拥有的 API
-  Old->>Old: dispose 标记失效并释放模块
-  Old->>Host: 仅相同 API 时撤销发布
-  New->>Host: 发布新的 API
-  New->>Panel: 打开新工作视图
-  Old->>Old: 旧 close 检查 disposed
-  Note over Old,Panel: 无面板请求，不关闭新工作视图
+  participant User as 本地用户命令
+  participant Content as 正文执行器
+  participant Graph as Logseq
+  participant Observer as 既有 DB 观察/刷新
+  participant Workspace as WorkspaceContextService
+  participant Lens as WorkViewLenses
+  User->>Content: 原生入口授权明确 scope
+  Content->>Graph: 核对版本、保护和草稿后写入
+  Content->>Graph: 逐项真实读回
+  Graph-->>Observer: 已提交变化
+  Observer->>Workspace: 刷新已登记范围
+  Workspace->>Graph: 正式 provider 读取
+  Workspace->>Workspace: 发布镜像或保留最后已知
+  Observer->>Lens: 已提交来源变化
+  Lens->>Lens: 保持原选择，标记依据变化
 ```
 
-撤销 namespace 与导航在等待正式任务 stop 之前完成，避免晚到 cleanup 无条件删除新发布入口。旧 read 返回 null；旧 apply 返回 `workbench-disposed`；旧 open/openMaterial/readMaterials 及材料子入口拒绝已关闭安装。content/lenses 继续使用自身现有撤销和晚到结果检查。
+registry/manifest、material binding、mirror 发布机制沿用正式交付。旧目录失联不能使缓存成为写入目标。重新关联 UI 即使 resolve 失败也可显示旧绑定路径；新选择仍须经过正常 registry 核验。原目录仍有同身份记录时拒绝认领另一副本；只有本机登记的 pending 目标可重试中断的关联。pending 记录不改变实际目录绑定，成功后移除，缺失入口文件本身不构成认领依据。未提供磁盘身份全局唯一性服务，不扫描未知备份。
 
-```mermaid
-flowchart LR
-  Read[读取已提交来源] --> Version[完整正文版本]
-  Draft[原生草稿] --> Display[视图草稿镜像]
-  Version --> Plan[范围与版本核验]
-  Plan -->|有效| Focus[保持选择 / 原文呈现]
-  Plan -->|过期或失联| Preserve[保留当前阅读与明确原因]
-  Draft --> Guard[既有 EditingGuard]
-  Guard -->|活跃草稿| Blocked[保留补丁，不写正文]
-  Directory[显式材料目录] --> Available{可用？}
-  Available -->|否| Stop[既有拒绝回退 / 明确重新定位]
-  Available -->|是| Files[原材料与 exact ID 记录]
-  Manifest[正式 manifest 搬迁恢复：未接入] -. 待已发布依赖 .-> Directory
-```
+Graph 切换、unbind/rebind、dispose 使用正式服务 epoch/revision；service 的已释放能力在开始 IO 前拒绝。组合根先撤销自己拥有的 namespace 和导航，再等待任务 stop。旧 read 返回 null、旧 apply 返回关闭原因、旧 close 无操作，不能关闭新安装的面板。
 
-镜像刷新、manifest 身份核验、保持 workspaceId 的搬迁、绑定持久恢复及材料 locator 联动没有完成。已有 SDK 无正文 CAS；文件版本检查、rename 与读回不是跨进程原子比较交换。本轮未验证实际 Desktop、原生输入/IME、断电或目录搬迁，不能用 DOM/合成 SDK 代替。
+## Desktop 兼容与限制
+
+工作区块菜单使用 ASCII 命令键，修复 Logseq 0.10.15 中文生成 hook 可见但未路由的问题。显示标签不变。
+
+`host/desktop-files.ts` 接受既有带 mode 的 stat，也支持 0.10.15 的 size/times 形状：对明确路径调用宿主目录操作，目录返回列表，文件返回 ENOTDIR；其他失败继续拒绝。缺失 stat 且该路径 listdir 返回 null 时，继续确认存在可读取状态的祖先，再按宿主已核验语义判缺失；整条桥接不可用仍报错。跨 iframe 错误归一到本 realm Error，供 optionalRead 正确区分失联与不可读。没有替换 IPC 或引入 Node 文件访问到插件。
+
+该版宿主 listdir 会递归列出所选目录的文件；兼容分支继承此限制，不声称是常数成本 stat，也不提供符号链接 realpath 或跨进程 CAS。SDK 单次写入、文件检查到 rename 之间仍有竞态。原文件保护、最后读回及历史保留不等于断电事务保证。

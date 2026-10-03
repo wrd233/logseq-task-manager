@@ -1,82 +1,84 @@
-# 工作区整合交接：依赖未发布，Goal 未完成
+# 工作区整合与恢复交接
 
-2026-10-02。分支 `codex/workspace-integration`。本轮完成三个现有模块核验、来源消费者兼容修复、组合根生命周期修复和工程回归；**没有取得正式 workspace-context，未完成三个增量及四模块闭环。** [产品设计](../design/workspace-integration-design.md)和[模块架构](../architecture/workspace-integration-architecture.md)均按这一实际状态编写。
+2026-10-03。三个增量已在 `codex/workspace-integration` 完成：正式工作区交付接入、共享来源与唯一材料绑定、有限搬迁与重启恢复。[产品设计](../design/workspace-integration-design.md)与[架构](../architecture/workspace-integration-architecture.md)描述最终行为；下列门禁来自本工作树本次运行。
 
-## 启动与远端证据
+## 起点、依赖和提交
 
-| 项目 | 实际核验 |
+| 项目 | 当前证据 |
 | --- | --- |
-| 仓库 origin | https://github.com/wrd233/logseq-task-manager.git |
-| 启动 fetch / 锁定 REMOTE_BASE_SHA | `1298ac2937ac18daf82d38f852e0f93a44f32dc9` |
+| origin | https://github.com/wrd233/logseq-task-manager.git |
+| 初始锁定远端 | `1298ac2937ac18daf82d38f852e0f93a44f32dc9` |
+| 用户明确通知后有意整合的远端 main | `acb1f4a3adb5d7122632245f0c2456853d4f6897` |
+| 正式 workspace 交付 | `42b07b0`、`00ff900`、`9b4ce91`，已包含于上述已 fetch 的远端 main；保留原材料、lenses、content |
+| 本分支合并提交 | `e16328d`，仅 index.ts 文本冲突，保留两方安装及本分支卸载保护 |
+| Desktop 适配 | `02d2fb8`，compact stat、跨 realm 错误、旧 missing-stat 断言保留 |
+| 共享来源与有限恢复 | `ed81032`，正式 provider、专用保护核验、manifest 副本拒绝、恢复表单与实际菜单 |
+| 共享组合根接线 | `8391a7e`，同一实例注入 lenses/content，完整入口回归 |
+| 先前独立修复 | `5b94701` 根拓扑消费；`0dbe375` 旧能力释放保护 |
 | OS / 工具链 | Darwin 24.1.0 arm64；Node 20.20.2 / npm 10.8.2 |
-| 原 checkout | `/Users/wangrundong/work/任务管理中心-logseq插件`，开始时 main 与上述 SHA 相同且干净 |
 | 独立工作树 | `/Users/wangrundong/.codex/worktrees/workspace-integration/任务管理中心-logseq插件` |
-| 工作树起点 | 工具返回后重新核对 HEAD 为锁定 SHA，status 干净，再建立指定分支 |
-| AGENTS.md | 已检查仓库和适用祖先目录，未发现 |
 
-安装、构建、测试、node_modules/dist/临时文件只作用于本工作树。命令使用 `PATH=/opt/homebrew/opt/node@20/bin:$PATH`，未更改系统默认 Node。未修改 main、生产 Graph 或其他 checkout；未推送、建 PR、部署、删除工作树或委派其他 agent。
+初始依赖未发布时保存了独立修复和阻塞记录；用户提供远端更新后，fetch 并检查明确差异才合入自己的分支。未读取其他活动工作树来补依赖，未追逐后续 main。原 checkout、生产 Graph、其他 session 的进程和目录未用于写入。没有 push、PR、合入 main、部署、委派或删除工作树；不改依赖/lockfile。AGENTS.md 与运行环境检查沿初始独立工作树记录。
 
-远端 heads 核验仅列出 main、vnext、feature/longdoc、feature/task-copilot-mvp、codex/feature-work-view-presentation，没有 workspace-context。锁定树只有原 `workspace/context.ts` 与 `material-context.ts`，缺少正式 source-protocol/source-reader/registry/mirror/context-service 和安装器；也没有该模块设计、架构或 handoff，已搜索已提交路径历史。没有把本机其他工作树的实现作为可发布依赖。
+## 最终入口与共享路径
 
-目标文件给出的交付线索尝试通过 `git fetch --no-tags origin <完整SHA>` 从正确远端直接获取；远端返回 `upload-pack: not our ref`。详见本工作树 ignored 的 `tmp/workspace-integration/dependency-fetch*.log`。仍需用户提供已发布、可 fetch 的正式交付 ref/SHA；接入前需核验真实源码、文档、保护和持久数据兼容。
+根 namespace 保留 read/open/openMaterial/close/readMaterials/materials/lenses/content/workspace 和 presentation-only apply。任务关闭不影响自然工作安装；旧 API 不能复活或关闭新面板。
 
-三个实际获取失败的 SHA：`9b4ce914a66f496ca1b4cd8dedac68cbf67a3910`、`00ff90013c2a6ece98d42e1e66475ff6afa56088`、`42b07b0947633bfc54760fcbd87838f1fd99567f`。本地 merge 提交 `bb814315…` 仅是目标文件的历史观察，没有从本机其他 checkout 获取或合入。
+- `workspace/source-protocol.ts` 是唯一共享类型与原文、结构、集合版本算法；content/lenses 重导出或消费它。
+- `workspace/logseq-source.ts` 的 `logseqSourceReader()` 提供真实已提交 SDK 来源，无工作目录也可读。`SourceReader.read(scope, valid, pageName?)` 不包含草稿、布局或时间版本。
+- `installWorkspaceContext().source` 是 lenses 的窄 read(scope) 端口；`.sourceReader` 供可信组合根注入 content。外部输入不能自行指定 provider 或授权。
+- content 的 `SourceRead` 保留 protections、children、paths；专用读取与共享快照的结构/集合版本不一致就拒绝，不删字段/TODO、EditingGuard、scope authority 或逐项事实。Journal 留在既有 FileStorage。
+- workspace API 继续提供 bind/resolve/read/refresh/unbind/associate。read 标记 last-known；refresh 只有真正读取才标记 checked。材料 graph.path 与 scope graphIdentity 通过正式绑定协调映射。
+- 工作区仅管理身份与目录绑定。搬迁材料继续用已有“登记原材料目录 → 重新定位”，读取 exact ID 后选择实际文件；没有默改目录外引用。
 
-## 已提交内容与共享路径
+相对整合远端 main 的共享路径包括 index.ts；workspace/{source-protocol,source-reader,logseq-source,registry,context-service}.ts；workspace-context/install.ts；content-writeback/{protocol,validation,logseq-adapter,installer}.ts；work-view/{lens-source,lens-plan}.ts；host/desktop-files.ts。对应测试和三份文档一并交付。正式交付对 materials/controller.ts 和 material-context.ts 的协调注入由 merge 原样保留，本次没有重写材料业务。未改 work-view controller/renderer/composer、content executor/authority/protection、Kernel 或 SQLite。
 
-| 路径 | 最终行为 |
+## 实际验证
+
+| 门禁 | 最终结果 |
 | --- | --- |
-| `apps/logseq-plugin/src/index.ts` | 发布/撤销 API 所有权；已释放根 API 不关闭新面板，不返回旧工作快照或继续调用材料入口 |
-| `apps/logseq-plugin/src/features/work-view/lens-source.ts` | 接受真实 scope 根父级/兄弟 order，继续验证后代拓扑、环、scope 和全部 hash |
-| `apps/logseq-plugin/src/features/work-view/lens-plan.ts` | 必要祖先在所选根停止，不越范围要求外部父块正文 |
-| `apps/logseq-plugin/tests/workspace-integration.test.ts` | 三项默认 adapter / 来源拓扑 / 实际 provider 消费回归 |
-| `apps/logseq-plugin/tests/workspace-integration-entry.test.ts` | 两项真实组合根卸载/重装、离线与草稿/布局版本回归 |
-| 三份 workspace-integration 文档 | 当前设计、模块边界、依赖与验证交接 |
+| 定向来源/目录/桥接/连续入口 | PASS，最终定向 14 项 0 fail/skip；其余新回归同时包含在插件全测 |
+| 插件 typecheck/test | PASS，265 项测试 0 fail/skip |
+| 全仓 lint / typecheck / requirements | PASS |
+| build 与二进制探测 | PASS，包含 CLI/service、插件和 Console |
+| check:boundaries | PASS，12 项检查器测试及实际依赖扫描 |
+| 完整 `npm run check` | PASS，13 组累计 510 项测试，0 fail/skip；含 sandbox 与 Taste |
+| Taste | PASS / KEEP_0.1.0_ACTIVE，没有激活候选 |
+| diff whitespace | PASS |
+| 真实 Desktop | Logseq 0.10.15：本地授权写回、版本一致、镜像观察、目录搬迁、材料显式恢复、进程重启读回 |
 
-共享组合入口单独提交；源码消费者修复及其回归另作提交，文档单独提交。完整 SHA 从本分支 `git log` 读取，避免在文档自身提交中循环记录自身 SHA。没有改 controller、renderer、composer、content executor/authority/protection、材料目录协调、Journal 位置、Kernel 或 lockfile。
+合成组合根连续测试真实安装 index.ts、注册菜单和表单，使用实际临时文件及 Journal：未绑定阅读 → 绑定 → 授权 → content 写入/读回 → DB 事件更新镜像 → 三处版本一致且聚焦 changed → 材料收纳 → 拒绝完整/去入口的副本 → 原目录搬迁 → 表单重关联 → 材料按 ID 登记与显式定位 → 重装恢复；tasksEnabled=false 且 fetch 计数为零。旧 namespace、Graph 切换、晚读晚写、解绑/重绑定、原生草稿、字段/TODO、旧无 manifest 材料绑定等现有断言继续通过。
 
-保留根 read/open/openMaterial/close/readMaterials、materials、lenses、content 和 presentation-only apply。workspace namespace 未创建。禁用 task runtime 不关闭自然工作能力；本轮合成组合根测试确认未发起任何 fetch。
+本次 Desktop 在自己的应用副本、home、profile、Graph 和材料目录中运行。19333 属于其他工作树，因此使用经身份核对的 19335，Kernel 未启动，descriptor 为空。通过原生右键“允许维护此处正文”建立范围，调用现有 content API 写入真实 SDK；结果为 complete / APPLIED_VERIFIED。未把 SDK 写入称作真实输入法验收。
 
-最终当前窄端口为 `LensSourcePort.read(scope)`、content `SourceRead`（snapshot/protections/children/paths）、材料 `MaterialWorkContext / MaterialDirectories`。**唯一正式共享来源端口尚未公布或接线**；中/大分支继续使用其当前可运行适配器，不应将本分支视为已完成的正式 workspace provider。材料 graph.path 和 SourceScope 的 graphIdentity 仍需正式绑定协调显式映射。
+写回后先读取工作区镜像确认自动观察已更新，再读取 workspace/lenses/content：完整 blocks、structureVersion、sourceSetVersion 三者一致；聚焦 phase 为 changed，原选择保留。实际材料 capture 成功并关联到 workspace。搬迁目录后旧路径读为 last-known，refresh 拒绝；真实重新关联表单仍能显示旧位置，最终通过相同正式 bind 入口恢复同一 workspaceId。材料通过真实 UI 登记 `.longdoc` 目录及“更多 → 重新定位”读回原内容。
 
-## 本轮实际验证
+最终构建启动的独立进程重启后，恢复 `fcf1e72f-4d3a-4384-ac3f-fda989883d28` 及 `desktop-moved` 路径；workspace.refresh=checked、workspace.read=last-known，lenses 与 workspace 来源集合版本一致，更新正文仍在，材料 availability=available 且路径为搬迁后的原文件。测试完成后仅停止经身份核验的本工作树 sandbox，保留测试 Graph、材料、镜像和证据。
 
-| 门禁 | 结果 |
-| --- | --- |
-| 新回归在修改前复现 | 3 项中 2 失败：旧 close 关闭新面板；真实嵌套根快照被拒绝；日志 reproduction.log |
-| 定向测试 | PASS：26 项，0 fail / skip，含五项新回归及原 lenses/content 入口回归 |
-| 插件 typecheck | PASS |
-| 插件全部测试 | PASS：251 项，0 fail / skip |
-| 仓库 build / built binary probes | PASS，包含插件、CLI/service/Console 构建与二进制启动检查 |
-| check:boundaries | PASS：12 项检查器测试及真实扫描 |
-| 完整 npm run check | PASS：13 组累计 496 项，0 fail / skip；requirements、全 workspace 类型、lint、tests、sandbox、build、boundaries、taste 均完成 |
-| git diff --check | PASS |
-| 本轮真实 Desktop / 原生输入与 IME | 未执行；没有连接或重载生产或其他 session 实例 |
-| 工作区绑定/镜像/搬迁/重启闭环 | 未执行且未完成：正式工作区依赖缺失 |
+Desktop 暴露并修复：中文生成菜单 hook 不路由；0.10.15 stat 省略 mode；跨 iframe Error 不能直接 instanceof；缺失多级目录需要区别于桥接不可用。测试 profile 的旧 `theme: "light"` 与本机 Logseq 形状不兼容，仅移除本工作树忽略目录的该配置项，未改系统或生产配置。
 
-详细日志在本工作树 `tmp/workspace-integration/`：reproduction.log、targeted.log、typecheck.log、plugin-tests.log、boundaries.log、build.log、full-check.log 及 dependency-fetch*.log。完整检查的 Taste 结果为 PASS / KEEP_0.1.0_ACTIVE，没有自动激活候选。一次新测试的静态 renderer 导入早于 DOM 初始化，已改成初始化后动态导入；类型检查中的不可达分支也已修正，没有改旧断言或消毒器。
+证据位于本工作树 ignored 的 `tmp/workspace-integration/`：
+`integrated-targeted.log`、`integrated-full-check.log`、`desktop-content.json`、`desktop-versions.json`、`desktop-material.json`、`desktop-relocation.json`、`desktop-material-relocated.json/png`、`desktop-restart.json`、`evidence.json`。日志、源码和最终读回共同支撑结论，不把旧交付测试数字当本轮结果。
 
-完整检查之后，仅把五项新回归按来源消费者和共享组合根分成上述两文件，以配合独立提交；生产代码不变。定向测试、插件 typecheck/test 与受影响文件 lint 再验。未启动 Desktop sandbox；已核对本机有 Logseq.app、默认 19333 没有 listener，但没有以端口空闲冒充 Desktop 验收。
-
-验证只证明现有 SDK adapter 的合成运行、真实安装入口、FileStorage 临时记录与 DOM 交互。普通根的 content/lenses 正文及集合版本一致，草稿不进入已提交快照；display 变化不改正文/结构版本；旧补丁保留原生编辑保护。真实 provider 注入点接受嵌套根/后代和非首个页级根；伪造拓扑即使 hash 正确也拒绝。原 content 字段/TODO、Journal 恢复、材料往返和 Graph/lifecycle 回归在完整插件测试中继续通过。
-
-默认 lenses 的 scope 根父级和 order 仍为局部表示，content 返回实际定位。**所有根的 structureVersion 一致尚未达成。** 原文算法相同、测试端口运行或既有历史验收均不能代替共享 provider、镜像和工作区恢复的本轮验收。
-
-## 继续整合的条件
+## 异常与后续接入边界
 
 ```mermaid
 flowchart TD
-  Current[已保存本分支成果] --> Published{用户提供已发布 workspace-context ref/SHA}
-  Published -->|缺失| Waiting[等待依赖 / 不宣称 Goal 完成]
-  Published -->|可 fetch| Inspect[核验正式交付源码和文档]
-  Inspect --> Merge[在本功能分支合入明确不可变提交]
-  Merge --> Wire[唯一协议/provider 与材料绑定协调]
-  Wire --> Recovery[显式 manifest 重关联 / 材料 locator / 重启]
-  Recovery --> Acceptance[六类连续验收与工程门禁]
+  Read[明确来源读取] --> Available{当前来源与目录可用}
+  Available -->|是| Checked[发布真实原文与共同版本]
+  Available -->|否| LastKnown[保留最后已知，不向缓存目标写入]
+  LastKnown --> Choose[明确选择搬迁目录]
+  Choose --> Identity{manifest 身份与主来源吻合}
+  Identity -->|否或原目录仍有同身份副本| Reject[保留并拒绝认领]
+  Identity -->|是且原目录失联| Bind[更新唯一实际绑定]
+  Bind --> Material[已有材料按 ID 登记并显式重定位]
+  Bind --> Restart[重启从持久绑定恢复]
+  Read --> Epoch[Graph / unbind / rebind / dispose 失效检查]
+  Epoch --> Stale[晚到结果不能发布到新工作]
 ```
 
-接线时复用正式 source-protocol 的原文/结构/集合算法；不删正文写入专用事实，不恢复旧孤立原型，不把工作视图展示 apply 扩为正文写入。材料绑定使用原唯一路径；Journal 保持现有位置，若有必要迁移须另证兼容。
+中/大分支可消费正式 source-protocol、logseqSourceReader 和原 workspace API；不需要导入本安装器/controller 才能读取来源。它们保留各自专用保护和业务，外部 transport/文件发现/Stage 未在本分支实现。
 
-尚需完成 manifest 身份及主来源核验、保持 workspaceId 的显式搬迁、唯一实际绑定更新、原目录失联不回退、材料 ID 与实际文件定位、重启恢复、Graph/root/解绑重绑定旧作业失效，以及镜像/lenses/content 的连续版本一致验收。目录复制身份冲突须保留并拒绝自动认领，不凭同名/hash 猜认。
+不支持全文件重命名追踪、自动批量迁移、自动复制分叉、多根、父子工作区、跨 Graph 模式迁移。已知绑定冲突被拒绝，但不扫描未知备份或提供全盘身份唯一性服务。本机 pending 记录仅允许重试程序自身未完成的绑定，不是副本授权。
 
-不支持的全面迁移、全文件重命名追踪、复制工作区自动分叉、多根、父子工作区、Graph 跨模式迁移仍保持范围外。SDK 无正文 CAS、文件写入有最后比较与 rename 间竞争；不承诺跨进程原子写入或真实原生输入已验收。
+本次未验真实中文 IME、系统 Undo、真实双 Graph 及跨进程竞争、断电、Windows/Linux；Graph/晚到竞态有自动化覆盖。SDK 读取非事务，读中版本差异失败关闭；SDK 写入无 CAS，文件检查与 rename 之间仍可能有外部竞争。0.10.15 listdir 会递归列所选目录，兼容 stat 因宿主能力限制可能有额外 IO；不承诺符号链接 realpath 或跨进程原子性。
