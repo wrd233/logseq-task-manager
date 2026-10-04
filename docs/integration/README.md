@@ -2,6 +2,8 @@
 
 一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
+2026-10-04：事务／任务书写兼容整合到 main。`[事务]` 与 `[任务]` 同类识别，明确正式化、标题／状态和规范化保留标签与完整正文；MiniProject、页面组织、UUID 导航和离线保护沿用已有权威。基线、共享接线、材料测试等待修复及本轮验证见[整合记录](writing-compatibility-main-2026-10-04.md)。原功能交接的“未推送”描述属于其交付时点。
+
 2026-10-04：独立 `codex/workbench-ux-polish` 分支完成紧凑阅读操作、来源标题、阶段变化展示、显式目录预览与离线收纳识别，并用同一合成工作走通 Desktop UI 和真正外部 CLI。用户从[图文手册](../user-guide/README.md)进入；共享路径、550 项检查与未验范围见[本轮交接](../implementation/workbench-ux-polish-handoff.md)。此记录是本地分支交付，不表示已合入 main。
 
 2026-10-03：阶段记录与原位审阅已接入既有工作视图，支持显式开始阶段、同阶段纠正与原文建议、具体修订认可、材料成果及不可变历史。来源来自已发布的 workspace-context，正文与文件继续通过 content 和材料模块保存。API、权限和未验范围见[阶段交接](../implementation/stage-workbench-handoff.md)；本次 main 整合的基线及验证见[整合记录](stage-workbench-main-2026-10-03.md)。
