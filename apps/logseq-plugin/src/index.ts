@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   }
   const actions: Record<string, () => void> = {};
   if (work) actions["工作视图"] = () => void work?.open().catch(report);
-  if (materials) actions["材料"] = () => void materials?.library().catch(report);
+  if (materials) actions["材料"] = () => void materials?.ui.show(currentWorkRoot()).catch(report);
   if (logseq.settings?.tasksEnabled !== false) actions["任务"] = () => void openTaskCenter().catch(report);
   if (disposed) return;
   removeNavigation = installNavigation(actions);
