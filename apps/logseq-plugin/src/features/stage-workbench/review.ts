@@ -5,7 +5,7 @@ import type { ReviewContext, ReviewFrame, ReviewPort } from "../work-view/review
 import { copyPresentation } from "../work-view/operations.ts";
 import { sameScope, sha256 } from "../content-writeback/validation.ts";
 import type { Operation, SourceSnapshot } from "../content-writeback/protocol.ts";
-import { composeDiff, inlineDiff } from "./diff.ts";
+import { composeDiff, inlineDiff, observePositions } from "./diff.ts";
 import { latest, revisionId } from "./recorder.ts";
 import type { StageRecorder } from "./recorder.ts";
 import type { Stage, StageHistory, StageRevision } from "./protocol.ts";
@@ -212,6 +212,7 @@ export class StageReview implements ReviewPort {
       base=previous?.revisions.find(r=>r.id===stage.start.previousRevisionId)?.source??previous?.start.source??base;
     }
     const changes=composeDiff(base,source,this.seen);
+    if(!this.historyMode)observePositions(changes,source,context.rows);
     if(!this.historyMode)for(const row of context.rows)if(this.savedDraft(row.uuid)&&!changes.has(row.uuid))changes.set(row.uuid,{kind:"problem",before:null,after:row.content,version:null,label:"保留的审阅草稿 · 点击继续",problem:null,inline:null});
     const outside=[...changes.keys()].filter(id=>!context.view.items.some(i=>i.uuid===id&&!i.hidden)).length;
     this.allButton.textContent=outside?`还有 ${outside} 处范围外变化 · 看全部`:"看本阶段全部变化";
