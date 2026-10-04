@@ -1,0 +1,1194 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-04T10:20:28.729Z",
+  "repository": "https://github.com/wrd233/logseq-task-manager.git",
+  "branch": "codex/view-lenses-native-report",
+  "base": "e666e7be1367e97dabf5f787c7dcb944ac70e815",
+  "os": "macOS 15.1 arm64",
+  "logseqVersion": "0.10.15",
+  "sdkVersion": "0.3.4",
+  "tasksEnabled": false,
+  "kernelStopped": true,
+  "buildEquivalence": {
+    "workspaceBuild": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+    "fullBuild": "e6399df03c11cbada4b4682ebc5c343e785ba3e26b016b38202968920d664c7e",
+    "sameCodeWithoutCommentLines": true,
+    "codeHash": "cb9516a47d8399032d4245f6994c2202ba57a83b114aa66a0e4c4f6dd3d0784b",
+    "cause": "esbuild comment paths are relative to its working directory"
+  },
+  "exactFinalBuild": "e6399df03c11cbada4b4682ebc5c343e785ba3e26b016b38202968920d664c7e",
+  "sourceCount": 20,
+  "sourceSnapshots": {
+    "beforeDisplay": {
+      "schemaVersion": 1,
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+        "rootUuid": "22222222-2222-4222-8222-000000000001"
+      },
+      "blocks": [
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000001\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000001"
+          },
+          "content": "**[MiniProject]** 整理一份调研材料 #MiniProject\nid:: 22222222-2222-4222-8222-000000000001",
+          "contentVersion": "c2289ebb96529bfabcd3c0519a24897b96899682c7a998333a45c551a2c5d7db",
+          "parentUuid": null,
+          "order": 1,
+          "depth": 0,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"6ac1f008-c42d-4079-ae07-23b6ad0623cb\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "6ac1f008-c42d-4079-ae07-23b6ad0623cb"
+          },
+          "content": "[注] 这是一条在 Logseq 原生页面实际新建的记录，仍保留本地资料限制。",
+          "contentVersion": "639a52bc76c6092232eb2158ba81049c8068f948e2e83fef92a97486dbafc70b",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 0,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000002\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000002"
+          },
+          "content": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.\nid:: 22222222-2222-4222-8222-000000000002",
+          "contentVersion": "dbd2f0b125eaa061b811fd7208d58269f1e5ca27614a629c363d5ce9d87fa3dc",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 1,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000003\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000003"
+          },
+          "content": "这条条件没有标记：同名文件可能来自不同目录，不能直接合并。\nid:: 22222222-2222-4222-8222-000000000003",
+          "contentVersion": "2b660e9570c6d0b18de1e5568b160806260a0bc037aaf5106767898775000139",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 2,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000004\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000004"
+          },
+          "content": "[目标] 形成一份能继续维护的资料说明。\nid:: 22222222-2222-4222-8222-000000000004",
+          "contentVersion": "0eda3e64c39be7af19c3886f318d129e90a82de4f3b914270d083313ae49ec0b",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 3,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000005\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000005"
+          },
+          "content": "[想法] 原生页面负责写，报告负责把分散记录排清楚。\nid:: 22222222-2222-4222-8222-000000000005",
+          "contentVersion": "5ae0fc51bda898e4460211fdf129393685ae62d1bd73efd852ce88d04b888e74",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 4,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000006\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000006"
+          },
+          "content": "TODO 核对第二份材料中的版本日期\nid:: 22222222-2222-4222-8222-000000000006",
+          "contentVersion": "0c44a3e9eb9487fd778a79ee040d0508968e28f25fe3e65a32837f8628e4e1ba",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 5,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000007\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000007"
+          },
+          "content": "[注] 不支持的文件格式仍可以从原文件查看。\nid:: 22222222-2222-4222-8222-000000000007",
+          "contentVersion": "6c231359331d2489d46de49c334c84d05743b354a85f52b965c5a0168fd6f754",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 6,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000008\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000008"
+          },
+          "content": "没有标记的补充正文和一条反例。\nid:: 22222222-2222-4222-8222-000000000008",
+          "contentVersion": "92f0bfdb0b82d2c0f986dcccc4e89c6bc35542d0f87188678436349043570b88",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 7,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000009\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000009"
+          },
+          "content": "[风险] 未识别标记继续保留，不扩大为新语义。\nid:: 22222222-2222-4222-8222-000000000009",
+          "contentVersion": "c5ad460e6e4da9f8a9ff6ca09b5d0b85015c8895b454088ec300fd37c9233f3c",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 8,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000010\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000010"
+          },
+          "content": "TODO **[事务]** 核对引用资料\nid:: 22222222-2222-4222-8222-000000000010",
+          "contentVersion": "54f1387efcd7fc3fe126f6e54c354344896ca9ed60058a954c8dc1f574f29581",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 9,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000011\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000011"
+          },
+          "content": "[注] 这里是事务自己的记录，不能与上层混为一处。\nid:: 22222222-2222-4222-8222-000000000011",
+          "contentVersion": "7e548f26964471655ac2697b89df92eb7e3580bdbd63e1c8b47806b5cbcbae2f",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 0,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000012\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000012"
+          },
+          "content": "```js\nconst versions = [1, 2];\n// 同内容文件不说明是同一文件\n```\nid:: 22222222-2222-4222-8222-000000000012",
+          "contentVersion": "a5d4051c2b9e2fb86ac84349fd095352ad24dd6da4c5d449fd583c1d47020aa1",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 1,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000013\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000013"
+          },
+          "content": "[资料网站](https://example.org/reference)\nid:: 22222222-2222-4222-8222-000000000013",
+          "contentVersion": "d1160612729be6a224c9dbd699bb4d09b4fffab65feb49c674f73b99aa6bc098",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 2,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000014\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000014"
+          },
+          "content": "**[MiniProject]** 保留一个嵌套工作 #MiniProject\nid:: 22222222-2222-4222-8222-000000000014",
+          "contentVersion": "dbf412d2f36818a0f68f95d4aaab30a146b3ad3362b6e6a5d7a4a19eb5b0b7c2",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 10,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000015\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000015"
+          },
+          "content": "[目标] 嵌套工作独立保留来源边界。\nid:: 22222222-2222-4222-8222-000000000015",
+          "contentVersion": "7bd0affcc7b844d2def17867d7ac0774c8e66694b8e2dcd89129b1a2a91ba2e9",
+          "parentUuid": "22222222-2222-4222-8222-000000000014",
+          "order": 0,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000016\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000016"
+          },
+          "content": "无标记的嵌套限制条件。\nid:: 22222222-2222-4222-8222-000000000016",
+          "contentVersion": "38f0444cdc5527cb85cd2bcec6d8a6a76e3c215d47ea591fb4a2c003b04f5072",
+          "parentUuid": "22222222-2222-4222-8222-000000000014",
+          "order": 1,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000017\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000017"
+          },
+          "content": "[注] 这段长记录用于检验阅读位置。\n第 1 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 2 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 3 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 4 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 5 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 6 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 7 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 8 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 9 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 10 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 11 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 12 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\nid:: 22222222-2222-4222-8222-000000000017",
+          "contentVersion": "97d046126d1dd14fd78f722fe3687350a7cb1821e1d010ccf901508e0c644a28",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 11,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000018\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000018"
+          },
+          "content": "[想法] 最后的阅读锚点，返回后仍能继续。\nid:: 22222222-2222-4222-8222-000000000018",
+          "contentVersion": "54d4369cfdadea99e57fff5fd2bd1cadd62dbeaeec0bc847eeea195f23897040",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 12,
+          "depth": 1,
+          "availability": "available"
+        }
+      ],
+      "structureVersion": "cc333238e27e27f4228a7d1e5c738c8fcbd9f260fc4e4aad29e9c55e350b33c2",
+      "sourceSetVersion": "27a4c8728e34010c9d980b0097919ac3a95c0e9994d48370f49a0e7566eb2eb1",
+      "capturedAt": "2026-10-04T09:35:17.854Z"
+    },
+    "final": {
+      "schemaVersion": 1,
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+        "rootUuid": "22222222-2222-4222-8222-000000000001"
+      },
+      "blocks": [
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000001\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000001"
+          },
+          "content": "**[MiniProject]** 整理一份调研材料 #MiniProject\nid:: 22222222-2222-4222-8222-000000000001",
+          "contentVersion": "c2289ebb96529bfabcd3c0519a24897b96899682c7a998333a45c551a2c5d7db",
+          "parentUuid": null,
+          "order": 1,
+          "depth": 0,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"6ac1f008-c42d-4079-ae07-23b6ad0623cb\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "6ac1f008-c42d-4079-ae07-23b6ad0623cb"
+          },
+          "content": "[注] 这是一条在 Logseq 原生页面实际新建的记录，仍保留本地资料限制。",
+          "contentVersion": "639a52bc76c6092232eb2158ba81049c8068f948e2e83fef92a97486dbafc70b",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 0,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000002\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000002"
+          },
+          "content": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.\nid:: 22222222-2222-4222-8222-000000000002",
+          "contentVersion": "dbd2f0b125eaa061b811fd7208d58269f1e5ca27614a629c363d5ce9d87fa3dc",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 1,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000003\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000003"
+          },
+          "content": "这条条件没有标记：同名文件可能来自不同目录，不能直接合并。\nid:: 22222222-2222-4222-8222-000000000003",
+          "contentVersion": "2b660e9570c6d0b18de1e5568b160806260a0bc037aaf5106767898775000139",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 2,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000004\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000004"
+          },
+          "content": "[目标] 形成一份能继续维护的资料说明。\nid:: 22222222-2222-4222-8222-000000000004",
+          "contentVersion": "0eda3e64c39be7af19c3886f318d129e90a82de4f3b914270d083313ae49ec0b",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 3,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"6ac21e52-5650-4639-bebb-cebdfbcc5de8\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "6ac21e52-5650-4639-bebb-cebdfbcc5de8"
+          },
+          "content": "[📄 原始参考](longdoc://2a80dcb5-73c3-4aee-ab97-2d19093ab469)",
+          "contentVersion": "b998dd8580ed4dc9669ec5862311afec2c325140f7d428d22195870c987448f9",
+          "parentUuid": "22222222-2222-4222-8222-000000000004",
+          "order": 0,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000005\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000005"
+          },
+          "content": "[想法] 原生页面负责写，报告负责把分散记录排清楚。\nid:: 22222222-2222-4222-8222-000000000005",
+          "contentVersion": "5ae0fc51bda898e4460211fdf129393685ae62d1bd73efd852ce88d04b888e74",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 4,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000006\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000006"
+          },
+          "content": "TODO 核对第二份材料中的版本日期\nid:: 22222222-2222-4222-8222-000000000006",
+          "contentVersion": "0c44a3e9eb9487fd778a79ee040d0508968e28f25fe3e65a32837f8628e4e1ba",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 5,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000007\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000007"
+          },
+          "content": "[注] 不支持的文件格式仍可以从原文件查看。\nid:: 22222222-2222-4222-8222-000000000007",
+          "contentVersion": "6c231359331d2489d46de49c334c84d05743b354a85f52b965c5a0168fd6f754",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 6,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000008\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000008"
+          },
+          "content": "没有标记的补充正文和一条反例。\nid:: 22222222-2222-4222-8222-000000000008",
+          "contentVersion": "92f0bfdb0b82d2c0f986dcccc4e89c6bc35542d0f87188678436349043570b88",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 7,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000009\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000009"
+          },
+          "content": "[风险] 未识别标记继续保留，不扩大为新语义。\nid:: 22222222-2222-4222-8222-000000000009",
+          "contentVersion": "c5ad460e6e4da9f8a9ff6ca09b5d0b85015c8895b454088ec300fd37c9233f3c",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 8,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000010\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000010"
+          },
+          "content": "TODO **[事务]** 核对引用资料\nid:: 22222222-2222-4222-8222-000000000010",
+          "contentVersion": "54f1387efcd7fc3fe126f6e54c354344896ca9ed60058a954c8dc1f574f29581",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 9,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000011\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000011"
+          },
+          "content": "[注] 这里是事务自己的记录，不能与上层混为一处。\nid:: 22222222-2222-4222-8222-000000000011",
+          "contentVersion": "7e548f26964471655ac2697b89df92eb7e3580bdbd63e1c8b47806b5cbcbae2f",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 0,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000012\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000012"
+          },
+          "content": "```js\nconst versions = [1, 2];\n// 同内容文件不说明是同一文件\n```\nid:: 22222222-2222-4222-8222-000000000012",
+          "contentVersion": "a5d4051c2b9e2fb86ac84349fd095352ad24dd6da4c5d449fd583c1d47020aa1",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 1,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000013\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000013"
+          },
+          "content": "[资料网站](https://example.org/reference)\nid:: 22222222-2222-4222-8222-000000000013",
+          "contentVersion": "d1160612729be6a224c9dbd699bb4d09b4fffab65feb49c674f73b99aa6bc098",
+          "parentUuid": "22222222-2222-4222-8222-000000000010",
+          "order": 2,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000014\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000014"
+          },
+          "content": "**[MiniProject]** 保留一个嵌套工作 #MiniProject\nid:: 22222222-2222-4222-8222-000000000014",
+          "contentVersion": "dbf412d2f36818a0f68f95d4aaab30a146b3ad3362b6e6a5d7a4a19eb5b0b7c2",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 10,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000015\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000015"
+          },
+          "content": "[目标] 嵌套工作独立保留来源边界。\nid:: 22222222-2222-4222-8222-000000000015",
+          "contentVersion": "7bd0affcc7b844d2def17867d7ac0774c8e66694b8e2dcd89129b1a2a91ba2e9",
+          "parentUuid": "22222222-2222-4222-8222-000000000014",
+          "order": 0,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000016\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000016"
+          },
+          "content": "无标记的嵌套限制条件。\nid:: 22222222-2222-4222-8222-000000000016",
+          "contentVersion": "38f0444cdc5527cb85cd2bcec6d8a6a76e3c215d47ea591fb4a2c003b04f5072",
+          "parentUuid": "22222222-2222-4222-8222-000000000014",
+          "order": 1,
+          "depth": 2,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000017\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000017"
+          },
+          "content": "[注] 这段长记录用于检验阅读位置。\n第 1 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 2 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 3 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 4 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 5 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 6 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 7 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 8 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 9 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 10 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 11 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\n第 12 行：明确保留原始材料、文件身份、限制条件和相邻上下文。\nid:: 22222222-2222-4222-8222-000000000017",
+          "contentVersion": "97d046126d1dd14fd78f722fe3687350a7cb1821e1d010ccf901508e0c644a28",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 11,
+          "depth": 1,
+          "availability": "available"
+        },
+        {
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000018\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000018"
+          },
+          "content": "[想法] 最后的阅读锚点，返回后仍能继续。 认可后的这句继续保留为当前原文。\nid:: 22222222-2222-4222-8222-000000000018",
+          "contentVersion": "e7bac2754a5b06bfc628316f498bb1069f64e19ff58cdf6ba2be2d56a7ba929f",
+          "parentUuid": "22222222-2222-4222-8222-000000000001",
+          "order": 12,
+          "depth": 1,
+          "availability": "available"
+        }
+      ],
+      "structureVersion": "7f21a56177937c21d9c94032732d384cd314dff32561a3bdada1412efd1f98b1",
+      "sourceSetVersion": "7ca305ca1e4d667a39fbaecb471dc23cc11a5ba58885ea12169caaf5f07bd93e",
+      "capturedAt": "2026-10-04T10:20:28.713Z"
+    }
+  },
+  "screenshots": [
+    {
+      "file": "accepted-stage-history.jpeg",
+      "bytes": 722872,
+      "sha256": "e9c9e120c2e969c7b6036b058ab2b0d15ade640d0da8867f25e1d95a764c4121",
+      "width": 2880,
+      "height": 1626,
+      "buildSha256": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d"
+    },
+    {
+      "file": "dark-host-report.jpeg",
+      "bytes": 652674,
+      "sha256": "c86a81f4840f18de9d04f467db24b3cf7083cf922c05bf7315c52c759e2467ab",
+      "width": 2880,
+      "height": 1626,
+      "buildSha256": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d"
+    },
+    {
+      "file": "material-reading.jpeg",
+      "bytes": 509302,
+      "sha256": "ca16466ddbaf9f233c978df23797c83940a179d5e35134219a5ca9f1530cf1a6",
+      "width": 2880,
+      "height": 1626,
+      "buildSha256": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d"
+    },
+    {
+      "file": "narrow-native-input.jpeg",
+      "bytes": 416713,
+      "sha256": "e9e465b4d973dc559b4a5b673e55d03f055fb3230f0ba2affcd0e01a9864771d",
+      "width": 1960,
+      "height": 1400,
+      "buildSha256": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d"
+    },
+    {
+      "file": "narrow-report-return.jpeg",
+      "bytes": 386605,
+      "sha256": "e8c6d6c114a0e3a076e8bd5703633eeaff69e5b6d2567c847ad45f3ee9872923",
+      "width": 1960,
+      "height": 1400,
+      "buildSha256": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d"
+    },
+    {
+      "file": "wide-native-report.jpeg",
+      "bytes": 695192,
+      "sha256": "a114fd9b7095d6fec07c41f61da47a04fe7d5429a72f59e4121c0d27b3918b18",
+      "width": 2880,
+      "height": 1626,
+      "buildSha256": "e6399df03c11cbada4b4682ebc5c343e785ba3e26b016b38202968920d664c7e"
+    }
+  ],
+  "consoleSummary": {
+    "total": 308,
+    "duplicateCommandRegistrations": 192,
+    "hostEmptyDirectoryWarnings": 114,
+    "connectionRefused": 2,
+    "bootstrapErrors": 0
+  },
+  "events": [
+    {
+      "step": "actual-native-keyboard-create",
+      "result": {
+        "editing": false,
+        "block": {
+          "properties": {},
+          "parent": {
+            "id": 48
+          },
+          "children": [],
+          "id": 55,
+          "pathRefs": [
+            {
+              "id": 26
+            },
+            {
+              "id": 30
+            }
+          ],
+          "uuid": "6ac1f008-c42d-4079-ae07-23b6ad0623cb",
+          "content": "[注] 这是一条在 Logseq 原生页面实际新建的记录，仍保留本地资料限制。",
+          "page": {
+            "id": 26
+          },
+          "left": {
+            "id": 48
+          },
+          "format": "markdown"
+        }
+      }
+    },
+    {
+      "step": "real-report-source-mapping",
+      "result": {
+        "source": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000002\"]",
+        "hash": "d26d928512824bb87800e22d52d34f55748216b23772bacc799834d6b061aa17",
+        "scroll": 7
+      }
+    },
+    {
+      "step": "pre-fix-scroll-acknowledgement-did-not-retain-input",
+      "result": {
+        "editing": false,
+        "inputs": 0,
+        "nativeMode": "switch"
+      },
+      "fixedBy": "await App.pushState plus render/input and source checks"
+    },
+    {
+      "step": "narrow-report-double-click-native-input",
+      "buildHash": "fd1b1ac397643271903925045e3edce63becef98d82e61a8851cf51e9cbe25f2",
+      "editing": "22222222-2222-4222-8222-000000000002",
+      "content": "[注] 目前先保留本地文件，后续还要核对引用。\nid:: 22222222-2222-4222-8222-000000000002"
+    },
+    {
+      "step": "real-native-paste-input-before-user-Escape",
+      "buildHash": "fd1b1ac397643271903925045e3edce63becef98d82e61a8851cf51e9cbe25f2",
+      "inputs": [
+        {
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。",
+          "block": "22222222-2222-4222-8222-000000000002",
+          "focused": true
+        }
+      ],
+      "committedContent": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。\nid:: 22222222-2222-4222-8222-000000000002",
+      "editing": "22222222-2222-4222-8222-000000000002",
+      "screenshot": "narrow-native-input.jpeg"
+    },
+    {
+      "step": "real-native-edit-and-report-return",
+      "buildHash": "fd1b1ac397643271903925045e3edce63becef98d82e61a8851cf51e9cbe25f2",
+      "changed": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000002",
+          "version": "6a50a2b68e984e136bec8bb85aa7d8e4500df8666d1ef20164a9ec2f7bdebc5f",
+          "content": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。\nid:: 22222222-2222-4222-8222-000000000002"
+        }
+      ],
+      "structureUnchanged": true,
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+        "rootUuid": "22222222-2222-4222-8222-000000000001"
+      },
+      "scroll": 0,
+      "reportRow": "⠿[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。\n⋯条目操作 · [注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。自动强调正常弱化压缩全文 / 收起编辑原文查看 Markdown 原文只看此处增加视图缩进减少视图缩进"
+    },
+    {
+      "step": "wide-menu-native-input-beside",
+      "buildHash": "fd1b1ac397643271903925045e3edce63becef98d82e61a8851cf51e9cbe25f2",
+      "viewport": 1440,
+      "input": [
+        {
+          "block": "22222222-2222-4222-8222-000000000002",
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。",
+          "selection": [
+            46,
+            46
+          ],
+          "rect": {
+            "x": 101.5,
+            "y": 248,
+            "width": 748,
+            "height": 24,
+            "top": 248,
+            "right": 849.5,
+            "bottom": 272,
+            "left": 101.5
+          },
+          "focused": true
+        }
+      ],
+      "main": {
+        "x": 0,
+        "y": 48,
+        "width": 920,
+        "height": 765,
+        "top": 48,
+        "right": 920,
+        "bottom": 813,
+        "left": 0
+      },
+      "screenshot": "wide-native-report.jpeg"
+    },
+    {
+      "step": "wide-continue-same-input-selection",
+      "buildHash": "fd1b1ac397643271903925045e3edce63becef98d82e61a8851cf51e9cbe25f2",
+      "before": {
+        "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。",
+        "selection": [
+          9,
+          13
+        ],
+        "focused": true
+      },
+      "after": {
+        "same": true,
+        "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。",
+        "selection": [
+          9,
+          13
+        ],
+        "focused": true
+      }
+    },
+    {
+      "step": "cross-page-report-to-real-native-input",
+      "buildHash": "4c77eb5e5f5ae60459e69e41074203145f6f64db35258f9fb4fa196fa09caaa4",
+      "route": "#/page/%E8%B5%84%E6%96%99%E5%B7%A5%E4%BD%9C%E5%8F%B0?anchor=block-content-22222222-2222-4222-8222-000000000002",
+      "inputs": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000002",
+          "focused": true,
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified."
+        }
+      ]
+    },
+    {
+      "step": "real-wide-to-narrow-resize-during-native-input",
+      "buildHash": "4c77eb5e5f5ae60459e69e41074203145f6f64db35258f9fb4fa196fa09caaa4",
+      "width": 980,
+      "route": "#/page/%E8%B5%84%E6%96%99%E5%B7%A5%E4%BD%9C%E5%8F%B0?anchor=block-content-22222222-2222-4222-8222-000000000002",
+      "inputs": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000002",
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.",
+          "focused": false
+        }
+      ]
+    },
+    {
+      "step": "real-report-fold-and-structure-toggles",
+      "buildHash": "4c77eb5e5f5ae60459e69e41074203145f6f64db35258f9fb4fa196fa09caaa4",
+      "bodyUnchanged": true,
+      "structureUnchanged": true,
+      "nodeIdentity": true,
+      "layoutUnchanged": true
+    },
+    {
+      "step": "real-report-local-range-focus",
+      "buildHash": "4c77eb5e5f5ae60459e69e41074203145f6f64db35258f9fb4fa196fa09caaa4",
+      "visible": [
+        "22222222-2222-4222-8222-000000000001",
+        "22222222-2222-4222-8222-000000000004"
+      ],
+      "sourceUnchanged": true,
+      "structureUnchanged": true,
+      "phase": "focused"
+    },
+    {
+      "step": "real-material-list-file-read-return-focused-report",
+      "buildHash": "4c77eb5e5f5ae60459e69e41074203145f6f64db35258f9fb4fa196fa09caaa4",
+      "materialId": "2a80dcb5-73c3-4aee-ab97-2d19093ab469",
+      "sameRequest": true,
+      "samePhase": true,
+      "sameScope": true,
+      "reportMode": "report",
+      "scrollBefore": 0,
+      "scrollAfter": 0
+    },
+    {
+      "step": "real-read-only-accepted-stage-history",
+      "buildHash": "120346c174f603b2c3d40310d41fa30534022b6fad2600dd043b0c53f5fcc275",
+      "modeDisabled": true,
+      "reportRows": 0,
+      "reportHeadings": 0,
+      "resolve": {
+        "ok": false,
+        "reason": "historical-view"
+      },
+      "native": {
+        "ok": false,
+        "reason": "historical-view"
+      },
+      "historyUnchanged": true
+    },
+    {
+      "step": "final-build-real-keyboard-report-row-native-entry",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "width": 980,
+      "input": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000018",
+          "value": "[想法] 最后的阅读锚点，返回后仍能继续。",
+          "focused": true,
+          "rect": {
+            "x": 131.5,
+            "y": 672.90625,
+            "width": 748,
+            "height": 24,
+            "top": 672.90625,
+            "right": 879.5,
+            "bottom": 696.90625,
+            "left": 131.5
+          }
+        }
+      ],
+      "bookmark": {
+        "scroll": 493,
+        "uuid": "22222222-2222-4222-8222-000000000017",
+        "offset": -16.5
+      },
+      "screenshot": "narrow-native-input.jpeg"
+    },
+    {
+      "step": "final-build-keyboard-native-return-anchor",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "before": {
+        "scroll": 493,
+        "uuid": "22222222-2222-4222-8222-000000000017",
+        "offset": -16.5
+      },
+      "after": {
+        "scroll": 493,
+        "uuid": "22222222-2222-4222-8222-000000000017",
+        "offset": -16.5,
+        "sameNode": true,
+        "mode": "report",
+        "native": null
+      },
+      "bodyUnchanged": true,
+      "structureUnchanged": true
+    },
+    {
+      "step": "real-source-target-resolver-closed-and-versioned",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "target": {
+        "ok": true,
+        "value": {
+          "schemaVersion": 1,
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "22222222-2222-4222-8222-000000000001"
+          },
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000002\"]",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "blockUuid": "22222222-2222-4222-8222-000000000002"
+          },
+          "contentVersion": "dbd2f0b125eaa061b811fd7208d58269f1e5ca27614a629c363d5ce9d87fa3dc",
+          "structureVersion": "7f21a56177937c21d9c94032732d384cd314dff32561a3bdada1412efd1f98b1",
+          "position": {
+            "kind": "after"
+          },
+          "parent": {
+            "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"22222222-2222-4222-8222-000000000001\"]",
+            "target": {
+              "kind": "logseq-block",
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "blockUuid": "22222222-2222-4222-8222-000000000001"
+            },
+            "contentVersion": "c2289ebb96529bfabcd3c0519a24897b96899682c7a998333a45c551a2c5d7db"
+          }
+        }
+      },
+      "stale": {
+        "ok": false,
+        "reason": "stale-content"
+      },
+      "authority": {
+        "ok": false,
+        "reason": "unknown-field"
+      }
+    },
+    {
+      "step": "final-build-real-native-new-sentence",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "width": 980,
+      "input": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000018",
+          "value": "[想法] 最后的阅读锚点，返回后仍能继续。 认可后的这句继续保留为当前原文。",
+          "focused": true
+        }
+      ],
+      "screenshot": "narrow-native-input.jpeg"
+    },
+    {
+      "step": "final-build-native-commit-report-and-accepted-history",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "changed": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000018",
+          "content": "[想法] 最后的阅读锚点，返回后仍能继续。 认可后的这句继续保留为当前原文。\nid:: 22222222-2222-4222-8222-000000000018",
+          "contentVersion": "e7bac2754a5b06bfc628316f498bb1069f64e19ff58cdf6ba2be2d56a7ba929f"
+        }
+      ],
+      "structureUnchanged": true,
+      "acceptedHistoryUnchanged": true,
+      "bookmark": {
+        "scroll": 493,
+        "uuid": "22222222-2222-4222-8222-000000000017",
+        "offset": -16.5,
+        "sameNode": true
+      },
+      "reportMode": "report"
+    },
+    {
+      "step": "final-build-wide-real-native-report-beside",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "width": 1440,
+      "main": {
+        "x": 0,
+        "y": 48,
+        "width": 920,
+        "height": 765,
+        "top": 48,
+        "right": 920,
+        "bottom": 813,
+        "left": 0
+      },
+      "inputs": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000002",
+          "focused": true,
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.",
+          "rect": {
+            "x": 101.5,
+            "y": 50,
+            "width": 748,
+            "height": 48,
+            "top": 50,
+            "right": 849.5,
+            "bottom": 98,
+            "left": 101.5
+          }
+        }
+      ],
+      "report": [
+        {
+          "x": 920,
+          "y": 48,
+          "width": 520,
+          "height": 765,
+          "top": 48,
+          "right": 1440,
+          "bottom": 813,
+          "left": 920
+        }
+      ],
+      "screenshot": "wide-native-report.jpeg"
+    },
+    {
+      "step": "final-build-same-live-native-input-selection",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "before": {
+        "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.",
+        "selection": [
+          9,
+          13
+        ]
+      },
+      "after": {
+        "sameNode": true,
+        "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.",
+        "selection": [
+          9,
+          13
+        ],
+        "focused": true
+      }
+    },
+    {
+      "step": "real-dark-host-readable-existing-light-report-surface",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "nativeClasses": "tc-sidebar-docked dark-theme",
+      "reportColors": {
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(34, 34, 34)"
+      },
+      "sourceUnchanged": true,
+      "screenshot": "dark-host-report.jpeg"
+    },
+    {
+      "step": "final-build-read-only-history-retains-pre-native-edit-version",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "historyUnchanged": true,
+      "rows": 0,
+      "headings": 0,
+      "reportModeDisabled": true,
+      "historicalLast": "[想法] 最后的阅读锚点，返回后仍能继续。\n",
+      "denyTarget": {
+        "ok": false,
+        "reason": "historical-view"
+      },
+      "denyNative": {
+        "ok": false,
+        "reason": "historical-view"
+      },
+      "screenshot": "accepted-stage-history.jpeg"
+    },
+    {
+      "step": "final-build-real-stable-material-link-read-return",
+      "buildHash": "b3c463308f100791c269e0fbb492f83366f4533eefac6b1f7c8073646717c67d",
+      "materialId": "2a80dcb5-73c3-4aee-ab97-2d19093ab469",
+      "before": {
+        "scope": {
+          "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+          "rootUuid": "22222222-2222-4222-8222-000000000001"
+        },
+        "mode": "report",
+        "scroll": 0
+      },
+      "after": {
+        "scope": {
+          "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-report/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+          "rootUuid": "22222222-2222-4222-8222-000000000001"
+        },
+        "mode": "report",
+        "scroll": 0
+      },
+      "screenshot": "material-reading.jpeg"
+    },
+    {
+      "step": "exact-full-check-build-real-native-input",
+      "buildHash": "e6399df03c11cbada4b4682ebc5c343e785ba3e26b016b38202968920d664c7e",
+      "loadedScriptHash": "e6399df03c11cbada4b4682ebc5c343e785ba3e26b016b38202968920d664c7e",
+      "width": 1440,
+      "input": [
+        {
+          "uuid": "22222222-2222-4222-8222-000000000002",
+          "value": "[注] 目前先保留本地文件，后续还要核对引用。 现在已在原生编辑器补充一句，并返回报告核对。 Native input verified.",
+          "focused": true,
+          "rect": {
+            "x": 101.5,
+            "y": 50,
+            "width": 748,
+            "height": 48,
+            "top": 50,
+            "right": 849.5,
+            "bottom": 98,
+            "left": 101.5
+          }
+        }
+      ],
+      "main": {
+        "x": 0,
+        "y": 48,
+        "width": 920,
+        "height": 765,
+        "top": 48,
+        "right": 920,
+        "bottom": 813,
+        "left": 0
+      },
+      "report": [
+        {
+          "x": 920,
+          "y": 48,
+          "width": 520,
+          "height": 765,
+          "top": 48,
+          "right": 1440,
+          "bottom": 813,
+          "left": 920
+        }
+      ],
+      "screenshot": "wide-native-report.jpeg"
+    }
+  ],
+  "notVerified": [
+    "physical Chinese IME",
+    "system Undo",
+    "clipboard across applications",
+    "native arbitrary file drop/caret insertion",
+    "other OS",
+    "two live Graphs",
+    "materials branch 02 integration"
+  ],
+  "productionPreservation": {
+    "before": 3540,
+    "after": 3540,
+    "changed": 0,
+    "missing": 0,
+    "added": 0,
+    "scope": "Selected production Graph and global Logseq configuration files; private filename lists remain in ignored local evidence"
+  },
+  "runtimeShutdown": {
+    "method": "identity-checked sandbox:stop",
+    "desktopRunning": false,
+    "kernelRunning": false
+  },
+  "automatedVerification": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "workspaceTests": 552,
+    "pluginTests": 318,
+    "sandboxTests": 5,
+    "boundaryTests": 12,
+    "targetedTests": 32,
+    "failures": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "tasteResult": "PASS",
+    "tasteActivation": "KEEP_0.1.0_ACTIVE",
+    "logs": "tmp/native-editor-report (ignored, own worktree)"
+  },
+  "codeCommit": "e71f376d55df9cbd26e74ad59766488d2063545b",
+  "commits": {
+    "host": "81c0c8cb5132ab9bb1f5b61c08f52d127330db81",
+    "report": "4e09677ea8b461bc58a7b73b4e7a0502fab78bd8",
+    "entryAndRegressions": "e71f376d55df9cbd26e74ad59766488d2063545b"
+  }
+}
