@@ -99,7 +99,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     const isDeclaredFormal = (node: RawBlock) => ownership?.roots.has(node.uuid) || formalSyntax(node.content) || lookupBlockIdentity(node.uuid,scope.graphId).kind === "FORMAL";
     const isFormal = (node: RawBlock) => isDeclaredFormal(node) || node.children.some(value => {const child=rawBlock(value);return child && managedSyntax(child.content,child.properties);});
     const isManaged = (node: RawBlock) => ownership?.managed.has(node.uuid) || managedSyntax(node.content,node.properties);
-    const isAmbiguous = (node: RawBlock, parent: RawBlock | null) => !!parent && !ownership?.roots.has(parent.uuid) && isFormal(parent) && (parseFormalAnchor(parent.content)?.kind!=="MINI_PROJECT" || parent.children.some(value=>{const c=rawBlock(value);return c && managedSyntax(c.content,c.properties);})) && !isDeclaredFormal(node) && (node.children.length > 0 || !node.content.includes("\n"));
+    const isAmbiguous = (node: RawBlock, parent: RawBlock | null) => !!parent && !ownership?.roots.has(parent.uuid) && isFormal(parent) && (lookupBlockIdentity(parent.uuid,scope.graphId).kind==="FORMAL" || parseFormalAnchor(parent.content)?.kind!=="MINI_PROJECT" || parent.children.some(value=>{const c=rawBlock(value);return c && managedSyntax(c.content,c.properties);})) && !isDeclaredFormal(node) && (node.children.length > 0 || !node.content.includes("\n"));
     const visit = async (node: RawBlock, parent: string | null, order: number, depth: number, chain: RawBlock[]) => {
       if (!valid()) fail("SCOPE_REVOKED");
       if (depth > limits.depth || rows.length >= limits.blocks || raws.has(node.uuid)) fail("INVALID_SUBTREE");
