@@ -123,7 +123,7 @@ export function installAgentWorkspace(options: {
         if (connection === value && !disposed)
             timer = setTimeout(() => void tick(value), options.intervalMs ?? 250);
     };
-    const allow = async (explicitTarget?: string) => {
+    const allow = async (explicitTarget?: string, organize=false) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
         revoke();
@@ -138,7 +138,7 @@ export function installAgentWorkspace(options: {
         const files = desktopFiles(() => selected.scope.graphId), descriptor = parseWorkspaceDescriptor(JSON.parse(await files.read(path)), true) as WorkspacePluginDescriptor;
         if (disposed || epoch !== generation)
             throw new WorkspaceError("CONNECTION_REVOKED");
-        await options.content.establish(target);
+        await options.content.establish(target,organize);
         const lease = options.content.capture(selected.scope);
         if (!lease)
             throw new WorkspaceError("SCOPE_MISMATCH");
@@ -152,7 +152,7 @@ export function installAgentWorkspace(options: {
         connection = value;
         failures = 0;
         void tick(value);
-        await logseq.UI.showMsg("已连接这份工作，允许维护此处正文。材料权限与 TODO 保护继续有效。", "success");
+        await logseq.UI.showMsg(organize?"已连接，允许润色正文及同一对象内整理原块位置；TODO 文本及材料权限保持。":"已连接这份工作，允许维护此处正文。材料权限与 TODO 保护继续有效。", "success");
     };
     const localCall = async (command: "files.list" | "files.read" | "files.associate", payload: Record<string, unknown>): Promise<unknown> => {
         const value = connection;
@@ -194,10 +194,12 @@ export function installAgentWorkspace(options: {
         if (!disposed)
             return allow(uuid).catch(report);
     });
+    const organizeMenu=logseq.App.registerCommand("block-context-menu-item",{key:"agent-workspace-organize-block",label:"工作台：允许 agent 润色并整理此工作原块"},({uuid}:{uuid:string})=>{if(!disposed)return allow(uuid,true).catch(report);});
     const offGraph = logseq.App.onCurrentGraphChanged(revoke), disposers: Array<() => void> = [offGraph];
+    if(typeof organizeMenu==="function")disposers.push(organizeMenu);
     if (typeof menu === "function")
         disposers.push(menu);
-    for (const [key, label, action] of [["agent-workspace-allow", "工作台：允许 agent 连接当前工作", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
+    for (const [key, label, action] of [["agent-workspace-organize", "工作台：允许 agent 润色并整理当前工作原块", async()=>allow(undefined,true)], ["agent-workspace-allow", "工作台：允许 agent 连接当前工作", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
         const off = logseq.App.registerCommandPalette({ key, label }, () => {
             if (!disposed)
                 return action().catch(report);

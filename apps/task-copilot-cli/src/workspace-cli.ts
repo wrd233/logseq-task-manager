@@ -16,6 +16,8 @@ export const workspaceHelp = `Task Copilot natural workspace CLI (local connecti
   workspace materials save --input-file <path|->
   workspace focus request --question <text> | source | read | apply --input-file <path|-> | cancel | exit | back
   workspace content read | pending | apply --input-file <path|-> | result <requestId> | recover <requestId> | retry --input-file <path|->
+  # move-block uses content.apply or stage.submit, patch schemaVersion:2; inspect capabilities first.
+  # Requires local "允许 agent 润色并整理当前工作原块"; text-only permission never grants moves.
   workspace sessions list | add --platform <name> --session-id <id> [--url <real-link>] [--description <text>] | remove --platform <name> --session-id <id>
   workspace stage read | submit --input-file <path|->  # unavailable without installed provider; no approval
   --directory <work-directory> (default cwd; finds nearest WORKSPACE.md + agent locator)

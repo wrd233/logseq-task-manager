@@ -265,6 +265,29 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         await assert.rejects(cli(["stage", "submit"], { ...stageInput, actor: "user", accepted: true }), /UNSUPPORTED_FIELD/);
         await assert.rejects(cli(["stage", "submit"], { ...stageInput, patch: { ...stagePatch, scope: { ...stageSnapshot.scope, rootUuid: f.b } } }), /SCOPE_MISMATCH/);
         await assert.rejects(cli(["stage", "accept"], { stageId: stage.start.id }), /CLI_USAGE/);
+        // New structure operations go through the same independent CLI, private
+        // companion, installed content executor and formal stage provider.
+        assert.equal((await cli(["capabilities"])).contentProtocol.structureAuthorized,false);
+        const makeMove=async(id:string)=>{
+            const read=await cli(["content","read"]),a=read.blocks.find((b:{target:{blockUuid:string}})=>b.target.blockUuid===f.a),b=read.blocks.find((b:{target:{blockUuid:string}})=>b.target.blockUuid===f.b);
+            return {schemaVersion:2,requestId:id,scope:read.scope,metadata:{stageId:stage.start.id,runId:null},operations:[{operationId:"move",type:"move-block",target:a.target,expectedContentVersion:a.contentVersion,expectedParentUuid:a.parentUuid,destination:b.target,expectedDestinationVersion:b.contentVersion,expectedDestinationParentUuid:b.parentUuid,position:"after",expectedStructureVersion:read.structureVersion}]};
+        };
+        const deniedMove=await cli(["content","apply"],await makeMove("text-only-move"));
+        assert.equal(deniedMove.record.items[0].reason,"STRUCTURE_AUTHORIZATION_REQUIRED");
+        await f.commands.get("agent-workspace-organize")!();
+        assert.equal((await cli(["capabilities"])).contentProtocol.structureAuthorized,true);
+        const movePatch=await makeMove("pure-move"),moveInput={stageId:stage.start.id,expectedRevision:stageResult.stageRevision,patch:movePatch},beforeMove=f.counts().moves;
+        const moved=await cli(["stage","submit"],moveInput);
+        assert.equal(moved.status,"complete",JSON.stringify(moved));assert.equal(moved.stageProblem,null);assert.equal(moved.record.items[0].move.verified,true);
+        const movedStage=await cli(["stage","read"],{stageId:stage.start.id});
+        assert.notEqual(movedStage.revisions.at(-1).source.structureVersion,stageRead.revisions.at(-1).source.structureVersion);
+        assert.equal((await cli(["content","result","pure-move"])).record.digest,moved.record.digest);
+        assert.equal((await cli(["content","recover","pure-move"])).status,"complete");
+        assert.equal((await cli(["stage","submit"],moveInput)).stageRevision,moved.stageRevision);assert.equal(f.counts().moves,beforeMove+1);
+        // Historical source facts survive a later native move with unchanged text.
+        const history=JSON.stringify(movedStage);f.nativeMove(f.a,f.b,{before:true});
+        assert.equal(JSON.stringify(await cli(["stage","read"],{stageId:stage.start.id})),history);
+        assert.equal((await cli(["content","apply"],movePatch)).record.digest,moved.record.digest);assert.equal(f.counts().moves,beforeMove+1);
         await cli(["sessions", "add", "--platform", "codex", "--session-id", "chosen"]);
         assert.equal((await cli(["sessions", "list"])).references[0].url, null);
         // A full bridge restart rotates descriptors and requires a fresh local grant.
@@ -275,7 +298,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         await f.commands.get("agent-workspace-allow")!();
         assert.equal((await cli(["content", "result", "patch-1"])).record.digest, applied.record.digest);
         assert.equal((await cli(["content", "result", "stage-patch"])).record.digest, stageResult.record.digest);
-        assert.equal((await cli(["stage", "read"], {})).revisions.at(-1).id, stageResult.stageRevision);
+        assert.equal((await cli(["stage", "read"], {})).revisions.at(-1).id, moved.stageRevision);
         await api.workspace.bind({ scope: f.scope, directory });
         await assert.rejects(cli(["refresh"]), /WORKSPACE_OFFLINE|CONNECTION_REVOKED/);
         await f.commands.get("agent-workspace-allow")!();

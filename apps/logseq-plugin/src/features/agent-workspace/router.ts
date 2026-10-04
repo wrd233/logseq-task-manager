@@ -72,7 +72,7 @@ export class AgentWorkspaceRouter {
         const content = this.ports.content.api;
         const check = () => this.assert(binding, lease);
         if (command === "status")
-            return { channel: "online", binding, capabilities: { read: true, files: true, materials: true, focus: this.ports.work !== null, content: true, stage: this.ports.stage !== undefined }, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: false };
+            return { channel: "online", binding, capabilities: { read: true, files: true, materials: true, focus: this.ports.work !== null, content: true, stage: this.ports.stage !== undefined }, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: false, contentProtocol: content.capabilities() };
         if ((command === "refresh" || command === "source.read") && this.ports.source) {
             const reading = await this.ports.source.refresh(binding.scope);
             await check();
