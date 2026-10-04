@@ -10,7 +10,7 @@
  * Logseq only recognises TODO/DONE workflow markers when the marker is the
  * first non-whitespace token of a block. A bold `[任务]` prefix before the
  * marker makes the block an ordinary paragraph in Logseq's database. We
- * therefore keep the user's bold `[任务]` decoration but place it after the
+ * therefore keep the source's bold `[任务]` / `[事务]` decoration after the
  * workflow marker:
  *
  *   TODO **[任务]** <title>
@@ -50,8 +50,10 @@ export function normalizeFormalTitle(value: string): string {
   const parsed = parseFormalAnchor(value);
   if (parsed) return parsed.title;
   let title = value.trim();
+  const labelFirst = /^(?:\*\*)?\[(?:任务|事务|MiniProject)\](?:\*\*)?\s*/u.exec(title);
+  if (labelFirst) title = title.slice(labelFirst[0].length);
   title = title.replace(/^(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
-  title = title.replace(/^(?:\*\*)?\[(?:任务|事务|MiniProject)\](?:\*\*)?\s*/u, "");
+  if (!labelFirst) title = title.replace(/^(?:\*\*)?\[(?:任务|事务|MiniProject)\](?:\*\*)?\s*/u, "");
   title = title.replace(/\s+#MiniProject\s*$/u, "").trim();
   title = title.replace(/\s*#MiniProject\s*$/u, "").trim();
   return title;

@@ -113,4 +113,8 @@ test("semantic title text is not interpreted as another layer of anchor decorati
     assert.equal(replaceTaskMarker(source, "DONE"), `DONE **[事务]** ${title}`);
   }
   assert.equal(extractTitleFromSourceLine("**[事务]** TODO 旧标题"), "旧标题");
+  for (const label of ["任务", "事务"]) {
+    assert.equal(extractTitleFromSourceLine(`[${label}] TODO 旧标题`), "旧标题");
+    assert.equal(extractTitleFromSourceLine(`TODO [${label}] 旧标题`), "旧标题");
+  }
 });
