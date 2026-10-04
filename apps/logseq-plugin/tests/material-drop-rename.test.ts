@@ -179,3 +179,16 @@ test('pending references do not freeze verified file renames or later external i
     const list = await f.service.list('外部名称'); assert.equal(list.length, 1); assert.doesNotMatch(list[0]!.snippet, /暂不可用/);
   } finally { await f.cleanup(); }
 });
+
+test('verified material save refreshes physical identity before a later external rename', async () => {
+  const f = await fixture(); try {
+    const m = await f.add(); const {store} = await f.service.locate(m.id);
+    await store.grantEditing(m.id);
+    const before = await store.record(m.id);
+    const result = await f.service.save(m.id, m.version!, m.content!, 'human revised body', 'user'); assert.equal(result.status, 'success');
+    const saved = await store.record(m.id); assert.equal(saved.fileIdentity, await f.io.identity!(m.path)); assert.notEqual(saved.fileIdentity, before.fileIdentity);
+    await rename(m.path, join(f.files, '编辑后外部名称.md'));
+    const read = await f.service.read(m.id); assert.equal(read.availability, 'available'); assert.equal(read.content, 'human revised body'); assert.equal(read.id, m.id);
+    assert.deepEqual(read.capabilities.edit, {user: true, agent: false}); assert.equal((await store.record(m.id)).original, before.original);
+  } finally {await f.cleanup();}
+});

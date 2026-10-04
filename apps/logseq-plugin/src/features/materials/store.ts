@@ -215,7 +215,11 @@ export class MaterialStore {
       if (current === next) return next;
       await this.verified(`${this.root}/.longdoc/history/${id}.${Date.now()}.${crypto.randomUUID()}.md`, current);
       if (await this.io.read(path) !== base || await this.path(id) !== path) throw new ConflictError(await this.io.read(path));
-      await this.atomic(path, next); return next;
+      await this.atomic(path, next);
+      // Our verified replacement may have a new inode. Record that observed
+      // identity now; never infer it later from an equal-content neighbour.
+      await this.put({...record, fileIdentity: await this.io.identity?.(path) ?? null});
+      return next;
     }));
   }
   async catalog(): Promise<MaterialRecord[]> {

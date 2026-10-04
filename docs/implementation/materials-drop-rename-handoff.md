@@ -32,7 +32,7 @@
 
 初始 `npm run check` 中 Console API 测试返回 404，原因是新 checkout 尚未构建 Console 静态资源；先执行原 `npm run build` 后，独立 Console API 测试 1/1 通过。没有改产品逻辑解决这个构建前置条件。中间完整并发测试发现新 UI 测试的固定 100ms 等待不可靠，改为等待真实材料行／操作事实，未放宽业务断言。
 
-最终检查记录在此 worktree 的忽略目录 `tmp/final-delivery-check.log`。完整门禁包含 requirements 生成、全部类型与 lint、所有 workspace 测试、sandbox 回归、全部构建及二进制校验、边界与 Taste；本轮数量和最终结果见本文末的交付事实。不是旧交接的通过数。
+最终检查记录在此 worktree 的忽略目录 `tmp/complete-check.log`。完整门禁包含 requirements 生成、全部类型与 lint、所有 workspace 测试、sandbox 回归、全部构建及二进制校验、边界与 Taste；本轮数量和最终结果见本文末的交付事实。不是旧交接的通过数。
 
 相关回归关注文件／Graph 的真实行为：basename 与重名、Unicode／空格／大小写、二进制与 UUID 旧文件、原文和权限保留、同内容双文件和硬链接歧义、物理 rename 后元数据失败／回复丢失／恢复不重放、无 identity 明确重定位、登记范围批量更新、别名保护、未知 Journal 查询、原生编辑／composition、来源版本与结构、跨 Graph payload、导入中切换工作、复制后的面板导航与已提交粘贴证据。DOM paste/drop 是模拟事件，测试名与下面实机范围分别说明。
 
@@ -73,6 +73,6 @@
 
 ## 交付事实
 
-完整 `npm run check` 最终退出 0：workspace 测试 551/551（插件 317/317），sandbox 5/5，边界回归 12/12，共 568/568。requirements、全仓类型、lint、构建、二进制校验、依赖边界和 Taste 均通过；`git diff --check` 通过。新增材料 core/UI 回归 17/17，新增宿主身份回归 1/1，包含在上述数量中。
+完整 `npm run check` 最终退出 0：workspace 测试 552/552（插件 318/318），sandbox 5/5，边界回归 12/12，共 569/569。requirements、全仓类型、lint、构建、二进制校验、依赖边界和 Taste 均通过；`git diff --check` 通过。新增材料 core/UI 回归 18/18，新增宿主身份回归 1/1，包含在上述数量中。补充回归证明模块自身版本化保存后更新物理身份，后续外部改名仍能读取已编辑文件；权限与收纳时原文保持。
 
 本地提交：`4492b81` 为宿主窄能力与读回夹具；`bbb22dc` 为材料核心与行为回归；`0c484a3` 为共享 installer 接线与 UI 集成回归。最终文档 HEAD 以交付回复和 `git log` 为准。功能、共享适配和文档分开提交，便于最终整合统一注册及释放。没有通过清理主 checkout、他人 stash 或其未提交文件生成交付。
