@@ -2,6 +2,8 @@
 
 一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
+2026-10-04：原生编辑与报告视图整合到最新 main。工作视图可按有限标记完整分组，真实原块可在宽窗并排编辑或窄窗切换后返回；聚焦、材料与只读历史继续组合。远端更新、共享接线及 582 项整合检查见[整合记录](native-editor-report-main-2026-10-04.md)。原交接的“本地提交未推送”为功能交付时点，材料拖放消费者仍待整合。
+
 2026-10-04：事务／任务书写兼容整合到 main。`[事务]` 与 `[任务]` 同类识别，明确正式化、标题／状态和规范化保留标签与完整正文；MiniProject、页面组织、UUID 导航和离线保护沿用已有权威。基线、共享接线、材料测试等待修复及本轮验证见[整合记录](writing-compatibility-main-2026-10-04.md)。原功能交接的“未推送”描述属于其交付时点。
 
 2026-10-04：独立 `codex/workbench-ux-polish` 分支完成紧凑阅读操作、来源标题、阶段变化展示、显式目录预览与离线收纳识别，并用同一合成工作走通 Desktop UI 和真正外部 CLI。用户从[图文手册](../user-guide/README.md)进入；共享路径、550 项检查与未验范围见[本轮交接](../implementation/workbench-ux-polish-handoff.md)。此记录是本地分支交付，不表示已合入 main。
@@ -56,7 +58,7 @@ apps/logseq-plugin/src/
 
 2026-10-03 的自然工作区外部接入已提供真实 shell CLI：工作目录识别、权威 refresh 与明确 last-known 缓存、有界文件发现、材料、会话引用、聚焦、受控正文写回，以及正式阶段 read/submit。它使用独立私有本机 companion，不依赖 Kernel/tasksEnabled，不提供阶段认可。实际操作与边界见 [agent 工作区交接](../implementation/agent-workspace-handoff.md)，三方合并与本轮验证见 [main 整合记录](agent-workspace-main-2026-10-03.md)。
 
-插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回实际路径、能力、正文与 SHA-256 或不可用结果。另有 workspace、lenses、content、stages 入口，详见各模块交接；`materials.list/read/capture/associate/save` 共用材料核心；Agent 保存检查编辑边界、预期旧文与版本，引用失败返回部分成功。真实调用例子与本地上下文限制见[材料架构](../architecture/materials-module-architecture.md)。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
+插件上下文中 `window.taskCopilotWorkbench` 提供 `read()`、`open(uuid)`、`openMaterial(id)`、`close()`、`readMaterials(content)` 和 `apply(operation)`。材料读取返回实际路径、能力、正文与 SHA-256 或不可用结果。另有 workspace、lenses、content、stages、report 入口，详见各模块交接；report 的完整块映射、封闭落点与原生导航见[实际架构](../architecture/native-editor-report-architecture.md)；`materials.list/read/capture/associate/save` 共用材料核心；Agent 保存检查编辑边界、预期旧文与版本，引用失败返回部分成功。真实调用例子与本地上下文限制见[材料架构](../architecture/materials-module-architecture.md)。它不是新增的远端 Agent 服务，vNext 的正式 Agent 接口继续使用 Kernel/CLI。
 
 展示 `apply` 只接受 `layout/reorder/indent/collapse/display/focus`，请求必须携带当前 `graph/root/expectedSeq`。来源写入、原文同步、Git、删块与任意样式探针均无此入口。read/apply 返回独立快照；有效来源、草稿、展示或范围变化使 seq 递增，重复检查与重绘不递增，成功的无变化操作不重新保存布局。
 
