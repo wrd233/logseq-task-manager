@@ -1,7 +1,9 @@
-import type { ApplyResult, BlockSnapshot, CallOrigin, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation } from "./protocol.ts";
+import type { ApplyResult, BlockSnapshot, CallOrigin, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation, MoveOperation } from "./protocol.ts";
 import { clone, result } from "./journal.ts";
 import { assertChildContent, assertProtected } from "./protection.ts";
 import { childIdentity, combineText, ContentError, fail, parsePatch, sameScope, sha256 } from "./validation.ts";
+
+import { inspectMove, verifyMove } from "./structure.ts";
 
 const queues = new Map<string, Promise<void>>();
 async function serial<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -35,7 +37,7 @@ function settle(facts: ItemFact[], status: ItemFact["status"], reason: string | 
 function groups(patch: Patch): Operation[][] {
   const result: Operation[][] = [], texts = new Map<string, Operation[]>();
   for (const op of patch.operations) {
-    if (op.type === "insert-child") result.push([op]);
+    if (op.type === "insert-child" || op.type === "move-block") { result.push([op]); texts.clear(); }
     else { let group = texts.get(op.target.blockUuid); if (!group) { group=[];texts.set(op.target.blockUuid,group);result.push(group); } group.push(op); }
   }
   return result;
@@ -91,8 +93,9 @@ export class ContentExecutor {
       let journalProblem:string|null=null;
       for (const ops of groups(patch)) {
         const childUuid=ops[0]!.type==="insert-child"?await childIdentity(patch,ops[0]!):null;
-        const keys=[sourceKey(patch.scope,ops[0]!.target.blockUuid),...(childUuid?[sourceKey(patch.scope,childUuid)]:[])].sort();
-        try { await serialSources(keys,()=>this.executeGroup(record,ops,childUuid,lease,keys)); }
+        const moveKeys=ops[0]!.type==="move-block"?[sourceKey(patch.scope,ops[0]!.destination.blockUuid)]:[];
+        const keys=[...new Set([sourceKey(patch.scope,"content-graph-writes"),sourceKey(patch.scope,patch.scope.rootUuid),...moveKeys,sourceKey(patch.scope,ops[0]!.target.blockUuid),...(childUuid?[sourceKey(patch.scope,childUuid)]:[])])].sort();
+        try { await serialSources(keys,()=>ops[0]!.type==="move-block"?this.executeMove(record,ops[0]!,lease,keys):this.executeGroup(record,ops,childUuid,lease,keys)); }
         catch (error) {
           if (!(error instanceof JournalFailure)) throw error;
           journalProblem=message(error);
@@ -106,7 +109,7 @@ export class ContentExecutor {
   /** Only the trusted scope-establishment command calls this. It is not a patch
    * capability: native identity is an independently journaled association fact. */
   async persistScopeIdentity(scope:SourceScope,origin:CallOrigin):Promise<ApplyResult>{
-    const lease=this.lease(scope),valid=this.valid(lease),keys=[sourceKey(scope,scope.rootUuid)];
+    const lease=this.lease(scope),valid=this.valid(lease),keys=[sourceKey(scope,"content-graph-writes"),sourceKey(scope,scope.rootUuid)].sort();
     return serialSources(keys,async()=>{
       const read=await this.read(scope),base=block(read,scope.rootUuid);this.assert(lease);
       if(read.protections.get(scope.rootUuid)?.ranges.some(range=>range.reason==="managed"||range.reason==="ambiguous-formal-field"))fail("PROTECTED_SCOPE_ROOT");
@@ -150,6 +153,7 @@ export class ContentExecutor {
     const protection=read.protections.get(first.target.blockUuid);if (!protection) fail("PROTECTION_UNAVAILABLE");
     const todoAllowed=(op:Operation)=>this.ports.authority.allowsTodo(lease,op);
     let next:string;
+    if(first.type==="move-block")fail("MOVE_REQUIRES_STRUCTURE_PATH");
     if (first.type==="insert-child") {
       if (!protection.insertAllowed && !(protection.ranges.every(range=>range.reason==="todo"||range.reason==="property"||range.reason==="formal-title") && todoAllowed(first))) fail("PROTECTED_PARENT");
       assertChildContent(first.content,todoAllowed(first));next=first.content;
@@ -175,6 +179,43 @@ export class ContentExecutor {
     });
     try { await Promise.race([operation,stopped]);this.assert(lease); }
     finally { if(timer)clearTimeout(timer);lease.signal.removeEventListener("abort",abort); }
+  }
+  private async executeMove(record:RequestRecord,op:MoveOperation,lease:ScopeLease,keys:readonly string[]):Promise<void>{
+    const fact=record.items.find(f=>f.operationId===op.operationId)!,valid=this.valid(lease),scope=lease.scope;
+    let dispatched=false;
+    const inspect=async()=>{
+      this.assert(lease);
+      if(!this.ports.authority.allowsStructure?.(lease))fail("STRUCTURE_AUTHORIZATION_REQUIRED");
+      if(!this.ports.writer.move || this.ports.writer.supportsMove?.()===false)fail("MOVE_UNSUPPORTED_BY_HOST");
+      if(keys.some(k=>inFlight.has(k)))fail("HOST_CALL_IN_FLIGHT");
+      const read=await this.read(scope),plan=await inspectMove(read,op);this.assert(lease);
+      await this.ports.editing.assertSafe(scope,plan.affected,valid);this.assert(lease);
+      return {read,plan};
+    };
+    try{
+      const before=await inspect();
+      fact.baseContent=before.plan.source.content;fact.baseVersion=before.plan.source.contentVersion;fact.parentUuid=before.plan.source.parentUuid;fact.proposedContent=before.plan.source.content;
+      fact.move={before:clone(before.read.snapshot),after:null,propertiesBefore:before.plan.properties,ownersBefore:Object.fromEntries(Object.keys(before.plan.properties).map(id=>[id,before.read.structure!.get(id)!.ownerUuid])),propertiesAfter:null,verified:false};
+      if(before.plan.expected.structureVersion===before.read.snapshot.structureVersion){settle([fact],"NO_CHANGE",null);await this.persist(record);return;}
+      fact.phase="EXECUTING";fact.status="OUTCOME_UNKNOWN";fact.dispatchedAt=new Date().toISOString();await this.persist(record);this.assert(lease);
+      const fresh=await inspect();
+      if(JSON.stringify([...fresh.read.structure??[]])!==JSON.stringify([...before.read.structure??[]]))fail("MOVE_PROTECTION_CONFLICT");
+      if(fresh.read.snapshot.sourceSetVersion!==before.read.snapshot.sourceSetVersion) {
+        // Unrelated text is safe. Every moved descendant must still match its saved base.
+        for(const id of Object.keys(fact.move.propertiesBefore))if(fresh.read.snapshot.blocks.find(b=>b.target.blockUuid===id)?.contentVersion!==before.read.snapshot.blocks.find(b=>b.target.blockUuid===id)?.contentVersion)fail("SUBTREE_CONTENT_CONFLICT");
+      }
+      await this.ports.editing.assertSafe(scope,fresh.plan.affected,valid);this.assert(lease);
+      dispatched=true;await this.callHost(lease,keys,()=>this.ports.writer.move!(scope,op.target.blockUuid,op.destination.blockUuid,op.position,valid));
+      fact.phase="ACKNOWLEDGED";fact.acknowledgedAt=new Date().toISOString();await this.persist(record);this.assert(lease);
+      const after=await this.read(scope);await verifyMove(after,op,fact.move);this.assert(lease);
+      const actual=block(after,op.target.blockUuid);fact.actualContent=actual.content;fact.actualVersion=actual.contentVersion;fact.currentContent=actual.content;fact.currentVersion=actual.contentVersion;
+      fact.contentVerified=true;fact.verifiedAt=new Date().toISOString();settle([fact],"APPLIED_VERIFIED",null);await this.persist(record);
+    }catch(error){
+      if(error instanceof JournalFailure){if(!dispatched)settle([fact],"NOT_APPLIED","JOURNAL_INTENT_FAILED");throw error;}
+      const reason=message(error);settle([fact],dispatched?"OUTCOME_UNKNOWN":/CONFLICT|MISMATCH/u.test(reason)?"CONFLICT":"BLOCKED",reason);
+      if(valid())try{const read=await this.read(scope),current=read.snapshot.blocks.find(b=>b.target.blockUuid===op.target.blockUuid);fact.currentContent=current?.content??null;fact.currentVersion=current?.contentVersion??null;}catch{/* Keep the durable proposal. */}
+      await this.persist(record);
+    }
   }
   private async executeGroup(record:RequestRecord, ops:Operation[], childUuid:string|null, lease:ScopeLease, keys:readonly string[]):Promise<void> {
     const facts=ops.map(op=>record.items.find(item=>item.operationId===op.operationId)!), first=ops[0]!, valid=this.valid(lease), scope=lease.scope;
@@ -279,6 +320,13 @@ export class ContentExecutor {
           const read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
           const current=block(read,fact.childUuid??fact.target.blockUuid);
           fact.currentContent=current.content;fact.currentVersion=current.contentVersion;
+          if(op.type==="move-block"){
+            if(!fact.move)fail("MOVE_INTENT_MISSING");
+            const observed=clone(fact.move);await verifyMove(read,op,observed);this.assert(lease);
+            fact.move.after=observed.after;fact.move.propertiesAfter=observed.propertiesAfter;fact.expectationObserved=true;
+            // Observing the intended state after a lost ACK cannot establish authorship.
+            changed=true;continue;
+          }
           fact.expectationObserved=record.intentKind==="scope-identity"
             ? current.parentUuid===fact.parentUuid && insertedContentMatches(current.content,fact.identity!.before,scope.rootUuid)
             : op.type==="insert-child"?current.parentUuid===op.target.blockUuid && insertedContentMatches(current.content,op.content,fact.childUuid!):current.content===fact.proposedContent && current.parentUuid===fact.parentUuid;
@@ -318,7 +366,7 @@ export class ContentExecutor {
       if(fact.identity.status==="VERIFIED")return result(record);
       const child=scopeIdentity?scope.rootUuid:fact.childUuid!,parent=scopeIdentity?fact.parentUuid:op.target.blockUuid;
       const body=scopeIdentity?fact.identity.before:(op as Extract<Operation,{type:"insert-child"}>).content;
-      const keys=[...new Set([sourceKey(scope,child),sourceKey(scope,op.target.blockUuid)])].sort();
+      const keys=[...new Set([sourceKey(scope,"content-graph-writes"),sourceKey(scope,child),sourceKey(scope,op.target.blockUuid)])].sort();
       return serialSources(keys,async()=>{
         const valid=this.valid(lease),read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
         const current=block(read,child);

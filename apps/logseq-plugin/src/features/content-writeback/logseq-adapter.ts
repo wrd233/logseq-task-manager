@@ -1,3 +1,4 @@
+import { parseFormalAnchor } from "../../canonical-writing.ts";
 import { snapshot } from "../../workspace/source-protocol.ts";
 import type { SourceReader as CommittedSourceReader } from "../../workspace/source-reader.ts";
 import { lookupBlockIdentity } from "../../block-identity.ts";
@@ -6,7 +7,7 @@ import { hostDocument } from "../../host/panel-host.ts";
 import { pluginRuntime } from "../../plugin-runtime.ts";
 import { reviewFieldUuid } from "../../projection-renderer.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
-import type { BlockSnapshot, EditingGuard, SourceRead, SourceReader, SourceScope, SourceWriter } from "./protocol.ts";
+import type { BlockSnapshot, EditingGuard, MoveOperation, SourceRead, SourceReader, SourceScope, SourceWriter } from "./protocol.ts";
 import { formalSyntax, managedSyntax, protectionFor, todoRanges } from "./protection.ts";
 import { fail, limits, sha256, uuidPattern, wellFormed } from "./validation.ts";
 
@@ -81,6 +82,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     const root = rawBlock(raw);
     if (raw && (!root || root.uuid !== scope.rootUuid)) fail("SOURCE_SHAPE_UNSUPPORTED");
     const rows: BlockSnapshot[] = [], raws = new Map<string,RawBlock>(), paths = new Map<string,readonly string[]>(), children = new Map<string,readonly string[]>();
+    const structure = new Map<string, {blocked: boolean; ownerUuid: string | null; properties: Record<string,unknown>}>();
     const protections = new Map<string, ReturnType<typeof protectionFor>>();
     const ancestors: RawBlock[] = [];
     let ancestor = root;
@@ -97,7 +99,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     const isDeclaredFormal = (node: RawBlock) => ownership?.roots.has(node.uuid) || formalSyntax(node.content) || lookupBlockIdentity(node.uuid,scope.graphId).kind === "FORMAL";
     const isFormal = (node: RawBlock) => isDeclaredFormal(node) || node.children.some(value => {const child=rawBlock(value);return child && managedSyntax(child.content,child.properties);});
     const isManaged = (node: RawBlock) => ownership?.managed.has(node.uuid) || managedSyntax(node.content,node.properties);
-    const isAmbiguous = (node: RawBlock, parent: RawBlock | null) => !!parent && !ownership?.roots.has(parent.uuid) && isFormal(parent) && !isDeclaredFormal(node) && (node.children.length > 0 || !node.content.includes("\n"));
+    const isAmbiguous = (node: RawBlock, parent: RawBlock | null) => !!parent && !ownership?.roots.has(parent.uuid) && isFormal(parent) && (parseFormalAnchor(parent.content)?.kind!=="MINI_PROJECT" || parent.children.some(value=>{const c=rawBlock(value);return c && managedSyntax(c.content,c.properties);})) && !isDeclaredFormal(node) && (node.children.length > 0 || !node.content.includes("\n"));
     const visit = async (node: RawBlock, parent: string | null, order: number, depth: number, chain: RawBlock[]) => {
       if (!valid()) fail("SCOPE_REVOKED");
       if (depth > limits.depth || rows.length >= limits.blocks || raws.has(node.uuid)) fail("INVALID_SUBTREE");
@@ -106,6 +108,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
       const childNodes = node.children.map(value => {const child=rawBlock(value);if (!child) fail("SOURCE_SHAPE_UNSUPPORTED");return child;});
       raws.set(node.uuid,node); children.set(node.uuid,childNodes.map(child=>child.uuid)); paths.set(node.uuid,[...chain.map(node=>node.uuid),node.uuid]);
       rows.push({sourceId:JSON.stringify(["logseq",scope.graphId,node.uuid]),target:{kind:"logseq-block",graphId:scope.graphId,blockUuid:node.uuid},content:node.content,contentVersion:await sha256(node.content),parentUuid:parent,order,depth,availability:"available"});
+      structure.set(node.uuid, {blocked: !!isFormal(node) || !!isManaged(node) || chain.some(isManaged) || !!isAmbiguous(node,parentNode) || chain.some((a,i)=>isAmbiguous(a,chain[i-1]??null)), ownerUuid: [...chain].reverse().find(isFormal)?.uuid ?? null, properties: structuredClone(node.properties)});
       protections.set(node.uuid,protectionFor(node.content,{
         formal:!!isFormal(node), managed:!!isManaged(node)||chain.some(isManaged), ambiguous:!!isAmbiguous(node,parentNode)||chain.some((ancestor,index)=>isAmbiguous(ancestor,chain[index-1]??null)),
         todoAncestor:chain.some(node=>todoRanges(node.content).some(range=>range.start===0) && !isFormal(node)),
@@ -135,7 +138,7 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     // Protection/ancestry facts must describe the same committed version.
     if (committed.structureVersion !== facts.structureVersion || committed.sourceSetVersion !== facts.sourceSetVersion) fail("SOURCE_CHANGED_DURING_READ");
     await this.assertGraph(scope,valid);
-    return {snapshot: committed, protections, children, paths};
+    return {snapshot: committed, protections, children, paths, structure};
   }
   async assertSafe(scope: SourceScope, affected: readonly string[], valid: () => boolean): Promise<void> {
     const composing = () => [...this.composing].some(target => {
@@ -155,6 +158,11 @@ export class LogseqContentAdapter implements SourceReader, SourceWriter, Editing
     return logseq.settings?.tasksEnabled !== false && runtimeScope.graphId === scope.graphId
       ? pluginRuntime.withSelfWrite(uuid,() => this.call(scope,valid,action),false,runtimeScope)
       : this.call(scope,valid,action);
+  }
+  supportsMove(): boolean { return typeof logseq.Editor.moveBlock === "function"; }
+  async move(scope: SourceScope, uuid: string, destination: string, position: MoveOperation["position"], valid: () => boolean): Promise<void> {
+    if (typeof logseq.Editor.moveBlock !== "function") fail("MOVE_UNSUPPORTED_BY_HOST");
+    await this.write(scope,uuid,valid,() => logseq.Editor.moveBlock(uuid,destination,{before:position==="before",children:position==="first-child"}));
   }
   async update(scope: SourceScope, uuid: string, content: string, valid: () => boolean): Promise<void> {
     await this.write(scope,uuid,valid,() => logseq.Editor.updateBlock(uuid,content));

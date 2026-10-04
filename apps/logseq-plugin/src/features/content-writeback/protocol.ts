@@ -9,9 +9,21 @@ export type TextOperation = OperationBase & {
   context: { before: string; after: string } | null;
 };
 export type ChildOperation = OperationBase & { type: "insert-child"; content: string; childUuid: string | null };
-export type Operation = TextOperation | ChildOperation;
+export type MoveOperation = OperationBase & {
+  type: "move-block"; destination: BlockTarget; position: "before" | "after" | "first-child";
+  expectedDestinationVersion: string; expectedDestinationParentUuid: string | null;
+  expectedStructureVersion: string;
+};
+export type Operation = TextOperation | ChildOperation | MoveOperation;
+export type MoveFact = {
+  before: SourceSnapshot; after: SourceSnapshot | null;
+  propertiesBefore: Record<string, Record<string, unknown>>;
+  ownersBefore: Record<string, string | null>;
+  propertiesAfter: Record<string, Record<string, unknown>> | null;
+  verified: boolean;
+};
 export type Patch = {
-  schemaVersion: 1; requestId: string; scope: SourceScope; operations: readonly Operation[];
+  schemaVersion: 1 | 2; requestId: string; scope: SourceScope; operations: readonly Operation[];
   metadata: { runId: string | null; stageId: string | null } | null;
 };
 export type ItemStatus = "NOT_APPLIED" | "APPLIED_VERIFIED" | "CONFLICT" | "BLOCKED" | "OUTCOME_UNKNOWN" | "NO_CHANGE";
@@ -26,7 +38,7 @@ export type ItemFact = {
   reason: string | null; baseContent: string | null; baseVersion: string | null;
   proposedContent: string | null; actualContent: string | null; actualVersion: string | null;
   currentContent: string | null; currentVersion: string | null; parentUuid: string | null; childUuid: string | null;
-  identity: IdentityFact | null; contentVerified: boolean; expectationObserved: boolean;
+  identity: IdentityFact | null; move?: MoveFact; contentVerified: boolean; expectationObserved: boolean;
   dispatchedAt: string | null; acknowledgedAt: string | null; verifiedAt: string | null;
 };
 export type RequestRecord = {
@@ -39,6 +51,7 @@ export type ProtectedRange = TextRange & { reason: "property" | "formal-title" |
 export type Protection = { ranges: readonly ProtectedRange[]; insertAllowed: boolean };
 export interface SourceRead {
   snapshot: SourceSnapshot; protections: ReadonlyMap<string, Protection>;
+  structure?: ReadonlyMap<string, { blocked: boolean; ownerUuid: string | null; properties: Record<string, unknown> }>;
   children: ReadonlyMap<string, readonly string[]>; paths: ReadonlyMap<string, readonly string[]>;
 }
 export interface SourceReader {
@@ -49,10 +62,13 @@ export interface ScopeLease { scope: SourceScope; epoch: number; signal: AbortSi
 export interface ScopeAuthority {
   capture(scope: SourceScope): ScopeLease | null;
   valid(lease: ScopeLease): boolean;
+  allowsStructure?(lease: ScopeLease): boolean;
   allowsTodo(lease: ScopeLease, operation: Operation): boolean;
 }
 export interface EditingGuard { assertSafe(scope: SourceScope, affected: readonly string[], valid: () => boolean): Promise<void> }
 export interface SourceWriter {
+  supportsMove?(): boolean;
+  move?(scope: SourceScope, uuid: string, destination: string, position: MoveOperation["position"], valid: () => boolean): Promise<void>;
   update(scope: SourceScope, uuid: string, content: string, valid: () => boolean): Promise<void>;
   insert(scope: SourceScope, parent: string, lastChild: string | null, uuid: string, content: string, valid: () => boolean): Promise<void>;
   persistIdentity(scope: SourceScope, uuid: string, content: string, valid: () => boolean): Promise<void>;

@@ -7,7 +7,7 @@ export function propertyLines(content: string): string[] {
   return content.split(/(?<=\n)/u).filter(line => /^\s*[^\s:]+::/u.test(line));
 }
 export function formalSyntax(content: string): boolean {
-  return !!parseFormalAnchor(content) || /^\s*(?:(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+)?(?:\*\*)?\[(?:任务|MiniProject|Project)\]/u.test(content);
+  return !!parseFormalAnchor(content) || /^\s*(?:(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+)?(?:\*\*)?\[(?:任务|事务|MiniProject|Project)\]/u.test(content);
 }
 export function managedSyntax(content: string, properties: Record<string, unknown> = {}): boolean {
   return Object.keys(properties).some(key => key.toLowerCase().startsWith("task-copilot")) ||

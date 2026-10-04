@@ -5,6 +5,8 @@ import { fail, parsePatch, sameScope, sha256 } from "./validation.ts";
 export interface JournalStorage {
   getItem(key: string): Promise<unknown>; setItem(key: string, text: string): Promise<void>; allKeys(): Promise<unknown>;
 }
+import { validateMoveFact } from "./structure.ts";
+
 const prefix = "content-writeback-v1-";
 const maxRecordLength = 16_777_216;
 export async function requestKey(scope: SourceScope, requestId: string): Promise<string> {
@@ -39,6 +41,13 @@ export class PrivateOperationJournal implements OperationJournal {
     const patch = parsePatch(record.patch);
     if (await sha256(JSON.stringify(patch)) !== record.digest || key!==`${await requestKey(patch.scope, patch.requestId)}-${String(record.sequence).padStart(6,"0")}`) fail("JOURNAL_DIGEST_MISMATCH");
     if (record.items.length !== patch.operations.length || record.items.some((item, i) => item.operationId !== patch.operations[i]?.operationId || !["PENDING", "EXECUTING", "ACKNOWLEDGED", "SETTLED"].includes(item.phase) || !["NOT_APPLIED", "APPLIED_VERIFIED", "CONFLICT", "BLOCKED", "OUTCOME_UNKNOWN", "NO_CHANGE"].includes(item.status))) fail("JOURNAL_CORRUPT");
+    for(const [i,item] of record.items.entries()){
+      const op=patch.operations[i]!;
+      if(op.type==="move-block"){
+        if(item.move)await validateMoveFact(op,item.move);
+        if(item.status==="APPLIED_VERIFIED" && (!item.move?.verified || !item.contentVerified))fail("JOURNAL_MOVE_FACT_INVALID");
+      }
+    }
     return clone(record);
   }
   async load(scope: SourceScope, requestId: string): Promise<RequestRecord | null> {

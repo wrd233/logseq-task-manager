@@ -28,6 +28,12 @@ function explanation(reason:string):string{
     RECOVERY_ATTRIBUTION_UNKNOWN:"当前内容可以核对，尚无法证明先前写入的实际结果。",
     HOST_TIMEOUT:"宿主尚未确认写入结果，请查询恢复记录。",
     SCOPE_REVOKED:"工作范围已失效，提议已保留。",
+    STRUCTURE_VERSION_CONFLICT:"原块位置已改变，请核对当前位置后重新提交。",
+    STRUCTURE_AUTHORIZATION_REQUIRED:"此工作只允许润色；整理原块位置需在本地明确授权。",
+    MOVE_OBJECT_OWNERSHIP_CONFLICT:"不能将普通记录转挂到另一个正式对象。",
+    PROTECTED_MOVE_SUBTREE:"子树包含受保护内容，提议已保留。",
+    MOVE_CYCLE:"不能把块移到自己的子树中。",
+    MOVE_READBACK_STRUCTURE_MISMATCH:"宿主移动后的结构尚无法确认，请查询保留的记录。",
     CHILD_UUID_ALREADY_EXISTS:"新块身份已被占用，未覆盖已有内容。",
   };
   return known[reason]??(/^[A-Z_]+$/u.test(reason)?"此次提议尚未确认应用，请保留输入并查询恢复结果。":reason);
@@ -85,7 +91,7 @@ export class ContentUI {
       let composing=false,busy=false;
       const submit=button(explicitTodo?"明确修改此 TODO":"写入正文",()=>{if(composing||busy||!this.current(revision,scope))return;busy=true;submit.disabled=true;void(async()=>{
         const prior=pendingPatch?.operations[0];
-        if(prior && (prior.type==="insert-child"||prior.expectedText!==old.value||prior.text!==next.value))fail("请先处理原提议的恢复结果，再修改此次输入。");
+        if(prior && ((prior.type!=="replace-text"&&prior.type!=="insert-text")||prior.expectedText!==old.value||prior.text!==next.value))fail("请先处理原提议的恢复结果，再修改此次输入。");
         const op=prior??this.operation(target,old.value,next.value);pendingPatch??=this.patch(scope,op);
         localStorage.setItem(key,JSON.stringify({old:old.value,next:next.value,patch:pendingPatch}));
         if(explicitTodo)this.boundary.grantTodo(op);
@@ -131,8 +137,12 @@ export class ContentUI {
       const read=await this.boundary.executor.read(scope),op=record.patch.operations.find(op=>op.operationId===operationId)!;
       const current=read.snapshot.blocks.find(block=>block.target.blockUuid===(fact.childUuid??fact.target.blockUuid));
       this.text(body,"当前原文",current?.content??"来源不可用");
-      const proposed=fact.proposedContent??(op.type==="insert-child"?op.content:op.text);this.text(body,fact.proposedContent===null?"提议片段":"提议正文",proposed);
-      const old=element("details");old.append(element("summary","按需查看旧文"));this.text(old,"读取基础 / 预期片段",fact.baseContent??(op.type==="insert-child"?"无基础正文":op.expectedText));body.append(old);
+      const destination=op.type==="move-block"?read.snapshot.blocks.find(b=>b.target.blockUuid===op.destination.blockUuid):null;
+      const position={before:"前面",after:"后面","first-child":"第一条子块"};
+      const proposed=op.type==="move-block"?`移到“${destination?.content?.split("\n")[0]??op.destination.blockUuid}”的${position[op.position]}；保留原块及子树。`:fact.proposedContent??(op.type==="insert-child"?op.content:op.text);
+      this.text(body,op.type==="move-block"?"位置提议":fact.proposedContent===null?"提议片段":"提议正文",proposed);
+      if(op.type==="move-block"&&fact.move){const details=element("details");details.append(element("summary","查看已记录的位置"));this.text(details,"移动前 / 读回位置",JSON.stringify({before:fact.move.before.blocks.filter(b=>b.target.blockUuid===op.target.blockUuid).map(b=>[b.parentUuid,b.order,b.depth]),after:fact.move.after?.blocks.filter(b=>b.target.blockUuid===op.target.blockUuid).map(b=>[b.parentUuid,b.order,b.depth])},null,2));body.append(details);}
+      const old=element("details");old.append(element("summary","按需查看旧文"));this.text(old,"读取基础 / 预期片段",fact.baseContent??(op.type==="insert-child"||op.type==="move-block"?"无基础正文":op.expectedText));body.append(old);
       const status=element("p",explanation(fact.reason??fact.status));body.append(status);
       const action=(run:()=>Promise<unknown>)=>{void run().then(()=>{if(this.current(revision,scope))void this.recovery().catch(this.boundary.report);}).catch(error=>{if(this.current(revision,scope))status.textContent=String(error);});};
       if(fact.status!=="OUTCOME_UNKNOWN")body.append(button("保留当前文",()=>action(()=>this.boundary.executor.resolve(scope,record.patch.requestId,operationId,"keep-current"))));
@@ -141,6 +151,9 @@ export class ContentUI {
       if((fact.contentVerified||record.intentKind==="scope-identity")&&fact.identity&&fact.identity.status!=="VERIFIED")body.append(button("重新核验并保存身份",()=>action(()=>this.boundary.executor.resumeIdentity(scope,record.patch.requestId,operationId))));
       if(record.intentKind==="scope-identity")return;
       if(!current?.contentVersion||fact.contentVerified||!["NOT_APPLIED","CONFLICT","BLOCKED"].includes(fact.status))return;
+      if(op.type==="move-block"){
+        if(["NOT_APPLIED","CONFLICT","BLOCKED"].includes(fact.status))body.append(button("按当前结构重新提交此移动",()=>action(()=>{const destination=read.snapshot.blocks.find(b=>b.target.blockUuid===op.destination.blockUuid);if(!destination?.contentVersion)fail("MOVE_MEMBER_UNAVAILABLE");return this.boundary.executor.retry(scope,record.patch.requestId,{schemaVersion:2,requestId:crypto.randomUUID(),scope,operations:[{...op,expectedContentVersion:current.contentVersion!,expectedParentUuid:current.parentUuid,expectedDestinationVersion:destination.contentVersion,expectedDestinationParentUuid:destination.parentUuid,expectedStructureVersion:read.snapshot.structureVersion}],metadata:record.patch.metadata},this.boundary.origin("content-retry-move"));})));return;
+      }
       if(op.type==="insert-child"){
         body.append(button("按当前版本重新追加此提议",()=>action(()=>this.boundary.executor.retry(scope,record.patch.requestId,this.patch(scope,{...op,expectedContentVersion:current.contentVersion!,expectedParentUuid:current.parentUuid}),this.boundary.origin("content-retry")))));return;
       }
