@@ -6,6 +6,7 @@ import type { ComposedView } from "./view-composer.ts";
 export type ReviewChange = {
   kind: "added" | "modified" | "removed" | "structure" | "problem";
   before: string | null; after: string | null; version: string | null;
+  location?: {before:{parentUuid:string|null;order:number;depth:number};after:{parentUuid:string|null;order:number;depth:number}} | null;
   label: string; problem: string | null;
   inline: {prefix: string; inserted: string; suffix: string} | null;
 };

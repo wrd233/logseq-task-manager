@@ -37,7 +37,7 @@ export function parseScope(input: unknown): SourceScope {
   const value = object(input); keys(value, ["graphId", "rootUuid"]);
   return { graphId: string(value.graphId, 2048), rootUuid: uuid(value.rootUuid) };
 }
-function parseOperation(input: unknown, scope: SourceScope): Operation {
+function parseOperation(input: unknown, scope: SourceScope, schemaVersion: 1 | 2): Operation {
   const op = object(input), target = object(op.target);
   keys(target, ["kind", "graphId", "blockUuid"]);
   if (target.kind !== "logseq-block") fail("UNSUPPORTED_SOURCE");
@@ -48,6 +48,16 @@ function parseOperation(input: unknown, scope: SourceScope): Operation {
   };
   if (!versionPattern.test(base.expectedContentVersion)) fail("INVALID_VERSION");
   const fields = ["operationId", "type", "target", "expectedContentVersion", "expectedParentUuid"];
+  if (op.type === "move-block") {
+    if (schemaVersion !== 2) fail("MOVE_REQUIRES_SCHEMA_2");
+    keys(op, [...fields, "destination", "position", "expectedDestinationVersion", "expectedDestinationParentUuid", "expectedStructureVersion"]);
+    const destination = object(op.destination); keys(destination, ["kind", "graphId", "blockUuid"]);
+    if (destination.kind !== "logseq-block" || destination.graphId !== scope.graphId) fail("TARGET_GRAPH_MISMATCH");
+    if (op.position !== "before" && op.position !== "after" && op.position !== "first-child") fail("INVALID_MOVE_POSITION");
+    if (typeof op.expectedStructureVersion !== "string" || !versionPattern.test(op.expectedStructureVersion) || typeof op.expectedDestinationVersion !== "string" || !versionPattern.test(op.expectedDestinationVersion)) fail("INVALID_VERSION");
+    return {...base, type: "move-block", destination: {kind:"logseq-block",graphId:scope.graphId,blockUuid:uuid(destination.blockUuid)}, position:op.position,
+      expectedDestinationVersion:op.expectedDestinationVersion, expectedDestinationParentUuid:op.expectedDestinationParentUuid === null ? null : uuid(op.expectedDestinationParentUuid), expectedStructureVersion:op.expectedStructureVersion};
+  }
   if (op.type === "insert-child") {
     keys(op, [...fields, "content", "childUuid"]);
     return { ...base, type: "insert-child", content: string(op.content, limits.text), childUuid: op.childUuid === undefined || op.childUuid === null ? null : uuid(op.childUuid) };
@@ -70,17 +80,17 @@ function parseOperation(input: unknown, scope: SourceScope): Operation {
 }
 export function parsePatch(input: unknown): Patch {
   const value = object(input); keys(value, ["schemaVersion", "requestId", "scope", "operations", "metadata"]);
-  if (value.schemaVersion !== 1) fail("UNSUPPORTED_SCHEMA");
+  if (value.schemaVersion !== 1 && value.schemaVersion !== 2) fail("UNSUPPORTED_SCHEMA");
   const scope = parseScope(value.scope), requestId = string(value.requestId, 128);
   if (!Array.isArray(value.operations) || !value.operations.length || value.operations.length > limits.operations) fail("INVALID_OPERATIONS");
-  const operations = value.operations.map(op => parseOperation(op, scope));
+  const operations = value.operations.map(op => parseOperation(op, scope, value.schemaVersion as 1 | 2));
   if (new Set(operations.map(op => op.operationId)).size !== operations.length) fail("DUPLICATE_OPERATION_ID");
   let metadata: Patch["metadata"] = null;
   if (value.metadata !== undefined && value.metadata !== null) {
     const extra = object(value.metadata); keys(extra, ["runId", "stageId"]);
     metadata = { runId: extra.runId == null ? null : string(extra.runId, 128), stageId: extra.stageId == null ? null : string(extra.stageId, 128) };
   }
-  const patch: Patch = { schemaVersion: 1, requestId, scope, operations, metadata };
+  const patch: Patch = { schemaVersion: value.schemaVersion, requestId, scope, operations, metadata };
   if (new TextEncoder().encode(JSON.stringify(patch)).length > limits.request) fail("REQUEST_TOO_LARGE");
   return patch;
 }

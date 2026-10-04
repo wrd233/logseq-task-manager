@@ -22,7 +22,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const report=(error:unknown)=>{if(!disposed)void logseq.UI.showMsg(error instanceof Error?error.message:String(error),"warning");};
   const scope=():SourceScope=>{if(disposed)fail("CONTENT_DISPOSED");const current=authority.current();if(!current)fail("AUTHORIZATION_REQUIRED");return current;};
   const origin=(command:string):CallOrigin=>({kind:"local-user-command",command});
-  const establish=async(target?:string):Promise<SourceScope>=>{
+  const establish=async(target?:string,structure=false):Promise<SourceScope>=>{
     if(disposed)fail("CONTENT_DISPOSED");
     const nonce=++setup;authority.revoke();ui.close();
     const graph=await logseq.App.getCurrentGraph();if(disposed||nonce!==setup)fail("SCOPE_REVOKED");
@@ -31,7 +31,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     if(!current)fail("SOURCE_UNAVAILABLE");
     const selected={graphId:graphIdentity(graph),rootUuid:uuid(current.uuid)};
     await adapter.assertGraph(selected,()=>!disposed&&nonce===setup);
-    const lease=authority.bind(selected);
+    const lease=authority.bind(selected,structure);
     try{
       const read=await executor.read(selected);if(!read.snapshot.blocks.some(block=>block.availability==="available"))fail("SOURCE_UNAVAILABLE");authority.confirmRoot(lease,read.paths.get(selected.rootUuid)??[]);
       if(await adapter.needsRootIdentity(selected,()=>authority.valid(lease))){const identified=await executor.persistScopeIdentity(selected,origin("content-authorize"));if(!identified.durable||identified.status!=="complete")fail(identified.journalProblem??identified.record.items[0]!.reason??"SCOPE_IDENTITY_UNCONFIRMED");}
@@ -57,6 +57,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     const id=uuid(selected.uuid);if(!authority.current())await establish(id);return id;
   };
   command("content-authorize","工作台：允许维护当前块的正文子树",async()=>{await establish();await logseq.UI.showMsg("已允许维护此处自然正文。正式字段和 TODO 继续受保护。","success");});
+  command("content-authorize-organize","工作台：允许整理当前工作正文及原块位置",async()=>{await establish(undefined,true);await logseq.UI.showMsg("已允许维护自然正文及同一对象内的普通块位置。正式对象与 TODO 文本仍受保护。","success");});
   command("content-revoke","工作台：停止正文维护",async()=>{setup++;authority.revoke();ui.close();});
   command("content-replace","工作台：局部修改当前块正文",async()=>ui.edit(await selectedTarget(),false));
   command("content-edit-todo","工作台：明确修改当前 TODO 文本",async()=>ui.edit(await selectedTarget(),true));
@@ -67,6 +68,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const remove=logseq.App.registerCommand("block-context-menu-item",{key:"content-authorize-block",label:"工作台：允许维护此处正文"},async({uuid:target}: {uuid:string})=>{if(!disposed)try{await establish(target);await logseq.UI.showMsg("已允许维护此处自然正文。","success");}catch(error){report(error);}});
   if(typeof remove==="function")disposers.push(remove);
   const api={
+    capabilities:()=>({patchSchemas:[1,2],operations:["replace-text","insert-text","insert-child",...(adapter.supportsMove()?["move-block"]:[])],structureAuthorized:!disposed && !!authority.current() && authority.allowsStructure(authority.capture(authority.current()!)!)}),
     scope:()=>disposed?null:authority.current(),
     read:async(input?:unknown)=>{
       const selected=input===undefined?scope():parseScope(input),read=await executor.read(selected);

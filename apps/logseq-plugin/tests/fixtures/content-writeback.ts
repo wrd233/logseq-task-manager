@@ -22,8 +22,16 @@ export async function contentFixture(timeout=1000){
     const node:Node={id:nextId++,uuid,content,properties:{},parent:{id:parentId},page:{id:1},left:{id:sibling?.id??parentId},children:[]};blocks.set(uuid,node);blocks.get(parent)?.children.push(uuid);return node;
   };
   add(root,"工作现场\n范围说明","");add(a,"Alpha 😀\r\nBeta\r\n重复 重复");add(b,"另一个块的正文");
-  let graph="A",editing:string|boolean=false,current=root,db=false,writes=0,inserts=0,identities=0;
+  let graph="A",editing:string|boolean=false,current=root,db=false,writes=0,inserts=0,identities=0,moves=0;
   let writeHook:((uuid:string,text:string)=>Promise<void>)|null=null,insertHook:((uuid:string)=>Promise<void>)|null=null,identityHook:(()=>Promise<void>)|null=null;
+  let moveHook:((uuid:string,target:string,opts:{before?:boolean;children?:boolean})=>Promise<void>)|null=null;
+  const nativeMove=(uuid:string,target:string,opts:{before?:boolean;children?:boolean})=>{
+    const node=blocks.get(uuid)!,anchor=blocks.get(target)!,old=[...blocks.values()].find(b=>b.id===node.parent.id)!,parent=opts.children?anchor:[...blocks.values()].find(b=>b.id===anchor.parent.id)!;
+    old.children=old.children.filter(id=>id!==uuid);
+    const index=opts.children?0:parent.children.indexOf(target)+(opts.before?0:1);
+    parent.children.splice(index,0,uuid);node.parent={id:parent.id};
+    for(const b of [old,parent])b.children.forEach((id,i)=>{blocks.get(id)!.left={id:i?blocks.get(b.children[i-1]!)!.id:b.id};});
+  };
   let readHook:((uuid:string,includeChildren:boolean)=>Promise<void>)|null=null,storageHook:((key:string,value:string)=>Promise<void>)|null=null;
   const dbListeners=new Set<(event:unknown)=>void>();
   const commands=new Map<string,()=>unknown>(),menus=new Map<string,(input:{uuid:string})=>unknown>(),graphListeners=new Set<()=>void>(),messages:string[]=[];
@@ -40,6 +48,7 @@ export async function contentFixture(timeout=1000){
       getCurrentBlock:async()=>snapshot(blocks.get(current)!,false),
       getBlock:async(id:string|number,options?:{includeChildren?:boolean})=>{const node=typeof id==="number"?[...blocks.values()].find(node=>node.id===id):blocks.get(id);if(readHook&&node)await readHook(node.uuid,!!options?.includeChildren);return node?snapshot(node,!!options?.includeChildren):null;},
       checkEditing:async()=>editing,getEditingBlockContent:async()=>"uncommitted draft",
+      moveBlock:async(uuid:string,target:string,opts:{before?:boolean;children?:boolean}={})=>{moves++;if(moveHook)await moveHook(uuid,target,opts);else nativeMove(uuid,target,opts);},
       updateBlock:async(uuid:string,text:string)=>{writes++;if(writeHook)await writeHook(uuid,text);else blocks.get(uuid)!.content=text;},
       insertBlock:async(target:string,text:string,options:{sibling:boolean;customUUID:string})=>{inserts++;if(blocks.has(options.customUUID))throw Error("UUID collision");const targetNode=blocks.get(target)!,parent=options.sibling?[...blocks.values()].find(node=>node.id===targetNode.parent.id)!:targetNode;const node=add(options.customUUID ?? crypto.randomUUID(),text,parent.uuid);if(insertHook)await insertHook(node.uuid);return snapshot(node,false);},
       upsertBlockProperty:async(uuid:string,key:string,value:string)=>{identities++;if(identityHook)await identityHook();const node=blocks.get(uuid)!;node.properties[key]=value;if(key==="id"&&!node.content.includes(`id:: ${value}`))node.content+=`\nid:: ${value}`;},
@@ -66,7 +75,8 @@ export async function contentFixture(timeout=1000){
     move:(id:string,parent:string)=>{const node=blocks.get(id)!,previous=[...blocks.values()].find(item=>item.id===node.parent.id);if(previous)previous.children=previous.children.filter(uuid=>uuid!==id);node.parent={id:blocks.get(parent)!.id};blocks.get(parent)!.children.push(id);},
     editing:(value:string|boolean)=>{editing=value;},current:(uuid:string)=>{current=uuid;},db:(value:boolean)=>{db=value;},
     onWrite:(hook:typeof writeHook)=>{writeHook=hook;},onInsert:(hook:typeof insertHook)=>{insertHook=hook;},onIdentity:(hook:typeof identityHook)=>{identityHook=hook;},onRead:(hook:typeof readHook)=>{readHook=hook;},onStorage:(hook:typeof storageHook)=>{storageHook=hook;},
-    counts:()=>({writes,inserts,identities,showCount,graphSubscriptions:graphListeners.size}),
+    nativeMove,onMove:(hook:typeof moveHook)=>{moveHook=hook;},
+    counts:()=>({writes,inserts,identities,moves,showCount,graphSubscriptions:graphListeners.size}),
     changed:()=>{for(const fn of dbListeners)fn({});},
     boot:()=>ready,unload:async()=>{await unload?.();},
     cleanup:async()=>{authority.revoke();adapter.dispose();await browser.happyDOM.abort();globalThis.window=previous.window;globalThis.document=previous.document;globalThis.localStorage=previous.localStorage;globalThis.logseq=previous.logseq;await rm(directory,{recursive:true,force:true});},

@@ -356,7 +356,7 @@ test("corrupt newest journal never falls back to an earlier intent and never rep
 });
 test("closed schema bounds source targets, payload size, insert context and operation vocabulary",async()=>{
   const f=await contentFixture();try{
-    const payload=f.patch([await f.text(f.a,"Beta","ok")]);assert.throws(()=>parsePatch({...payload,schemaVersion:2}),/UNSUPPORTED_SCHEMA/);
+    const payload=f.patch([await f.text(f.a,"Beta","ok")]);assert.throws(()=>parsePatch({...payload,schemaVersion:3}),/UNSUPPORTED_SCHEMA/);
     assert.throws(()=>parsePatch({...payload,operations:[{...payload.operations[0],type:"delete-block"}]}),/UNSUPPORTED_OPERATION/);
     assert.throws(()=>parsePatch({...payload,operations:[{...payload.operations[0],target:{kind:"markdown",graphId:f.scope.graphId,blockUuid:f.a}}]}),/UNSUPPORTED_SOURCE/);
     assert.throws(()=>parsePatch({...payload,operations:[{...payload.operations[0],text:"x".repeat(262145)}]}),/INVALID_STRING/);

@@ -199,6 +199,10 @@ export class WorkViewRenderer {
           const details=element("details"),summary=element("summary","旧文与来源");
           const old=change.before?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??"当时没有此块";
           details.append(summary,element("small",change.label));
+          if(change.location){
+            const location=(p:{parentUuid:string|null;order:number;depth:number})=>`${p.parentUuid??"页面"} · 第 ${p.order+1} 块 · 深度 ${p.depth}`;
+            details.append(element("small",`位置：${location(change.location.before)} → ${location(change.location.after)}`));
+          }
           if(change.inline&&change.before!==null){
             const inline=change.inline,removed=old.slice(inline.prefix.length,old.length-inline.suffix.length);
             const previous=element("pre");previous.append(document.createTextNode(inline.prefix),element("del",removed),document.createTextNode(inline.suffix));details.append(previous);
