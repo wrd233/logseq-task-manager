@@ -235,19 +235,19 @@ export class LogseqGraphAdapter implements GraphAdapter {
       inspection = await this.#inspect(this.#sourceFor(), before);
     }
 
-    const desiredSource = canonicalizeFormalSource(inspection.source.content, {
+    const desiredSource = canonicalizeFormalSource(inspection.source.rawContent, {
       title: after.title,
       lifecycle: after.lifecycle,
       marker: sourceMarker(inspection.source.content),
     });
-    if (desiredSource && canonicalizeGraphContent(inspection.source.content) !== desiredSource) {
+    if (desiredSource && canonicalizeGraphContent(inspection.source.content) !== canonicalizeGraphContent(desiredSource)) {
       const fresh = await this.#required(this.#sourceFor(), false);
-      const currentSource = canonicalizeFormalSource(fresh.content, {
+      const currentSource = canonicalizeFormalSource(fresh.rawContent, {
         title: after.title,
         lifecycle: after.lifecycle,
         marker: sourceMarker(fresh.content),
       });
-      if (currentSource && canonicalizeGraphContent(fresh.content) !== currentSource) {
+      if (currentSource && canonicalizeGraphContent(fresh.content) !== canonicalizeGraphContent(currentSource)) {
         await this.#host.updateBlock(fresh.uuid, currentSource);
       }
     }
@@ -335,8 +335,8 @@ export class LogseqGraphAdapter implements GraphAdapter {
     // Retry a lost Graph reply only when registered blocks still match this
     // effect. Unrelated or edited blocks are never adopted as our projection.
     if (!this.#transitionSafe(inspection, empty, effect.projection)) throw new Error("GRAPH_EXPECTED_ABSENT");
-    const desiredSource = canonicalizeFormalSource(inspection.source.content, { title: effect.projection.title, lifecycle: effect.projection.lifecycle, marker: sourceMarker(inspection.source.content) });
-    const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(inspection.source.content) !== desiredSource;
+    const desiredSource = canonicalizeFormalSource(inspection.source.rawContent, { title: effect.projection.title, lifecycle: effect.projection.lifecycle, marker: sourceMarker(inspection.source.content) });
+    const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(inspection.source.content) !== canonicalizeGraphContent(desiredSource);
     if (inspection.snapshot.projection?.projectionHash === effect.projection.projectionHash && !sourceNeedsUpdate) {
       this.#known.set(effect.sourceBlockUuid, effect.projection);
       return this.#result(effect, effect.projection.projectionHash);
@@ -378,12 +378,12 @@ export class LogseqGraphAdapter implements GraphAdapter {
       const after = changedProjection(effect, before);
       const afterInspection = await this.#inspect(effect.sourceBlockUuid, after);
       const markerAfter = effect.type !== "CHANGE_CLOSURE_FIELDS" || afterInspection.snapshot.sourceMarker === (effect.resultingSourceMarker ?? null);
-      const desiredSource = canonicalizeFormalSource(afterInspection.source.content, {
+      const desiredSource = canonicalizeFormalSource(afterInspection.source.rawContent, {
         title: after.title,
         lifecycle: after.lifecycle,
         marker: sourceMarker(afterInspection.source.content),
       });
-      const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(afterInspection.source.content) !== desiredSource;
+      const sourceNeedsUpdate = desiredSource !== null && canonicalizeGraphContent(afterInspection.source.content) !== canonicalizeGraphContent(desiredSource);
       if (afterInspection.snapshot.projection?.projectionHash === after.projectionHash && markerAfter && !sourceNeedsUpdate) {
         this.#known.set(effect.sourceBlockUuid, after);
         return this.#result(effect, after.projectionHash);

@@ -156,6 +156,42 @@ test("fresh ownership protects renamed managed UUIDs and permits certified ordin
     f.blocks.get(f.a)!.content="certified ordinary record";const op=await f.text(f.a,"ordinary","natural");assert.equal((await executor.apply(f.patch([op]))).status,"complete");
   }finally{adapter.dispose();await f.cleanup();}
 });
+
+for(const line of ["TODO **[事务]** 正式标题", "**[事务]** TODO 正式标题", "[事务] 正式标题"])test(`affair syntax is protected offline without creating identity: ${line}`,async()=>{
+  const f=await contentFixture();try{
+    f.blocks.get(f.root)!.content=`${line}\n自然说明\nid:: ${f.root}`;
+    const read=await f.executor.read(f.scope);
+    assert.ok(read.protections.get(f.root)!.ranges.some(range=>range.reason==="formal-title"));
+    assert.equal((await f.executor.apply(f.patch([await f.text(f.root,"正式标题","wrong")]))).record.items[0]!.reason,"PROTECTED_FORMAL_TITLE");
+    assert.equal((await f.executor.apply(f.patch([await f.text(f.b,"正文","wrong")]))).record.items[0]!.reason,"PROTECTED_AMBIGUOUS_FORMAL_FIELD");
+    assert.equal((await f.executor.apply(f.patch([await f.text(f.root,"自然说明","更新说明")]))).status,"complete");
+    assert.equal(f.counts().identities,0);assert.equal(f.counts().inserts,0);
+    assert.ok(f.blocks.get(f.root)!.content.startsWith(line));
+  }finally{await f.cleanup();}
+});
+
+test("affair ownership online protects renamed formal roots, managed fields and local TODOs without granting ordinary writes extra authority",async()=>{
+  const f=await contentFixture(),adapter=new LogseqContentAdapter(async()=>({roots:new Set([f.root]),managed:new Set([f.b])}));try{
+    f.blocks.get(f.root)!.content="改名后无标签\n自然说明";
+    f.blocks.get(f.b)!.content="[想法] 被改名的受管理字段";
+    f.blocks.get(f.a)!.content="TODO 普通内部待办";
+    const executor=new ContentExecutor({reader:adapter,writer:adapter,editing:adapter,authority:f.authority,journal:f.journal});
+    for(const [uuid,text,reason] of [[f.root,"改名后","PROTECTED_FORMAL_TITLE"],[f.b,"想法","PROTECTED_MANAGED"],[f.a,"普通","PROTECTED_TODO"]] as const){
+      assert.equal((await executor.apply(f.patch([await f.text(uuid,text,"wrong")]))).record.items[0]!.reason,reason);
+    }
+    assert.equal(f.counts().writes,0);assert.equal(f.counts().identities,0);
+  }finally{adapter.dispose();await f.cleanup();}
+});
+
+test("ordinary content cannot introduce an affair anchor through text or child insertion",async()=>{
+  const f=await contentFixture();try{
+    const formal=await f.text(f.b,f.blocks.get(f.b)!.content,"TODO **[事务]** 新事务");
+    assert.equal((await f.executor.apply(f.patch([formal]))).record.items[0]!.reason,"FORMAL_PATH_REQUIRED");
+    const child=await f.child(f.root,"TODO **[事务]** 新事务");
+    assert.equal((await f.executor.apply(f.patch([child]))).record.items[0]!.reason,"ORDINARY_CHILD_REQUIRED");
+    assert.equal(f.counts().writes,0);assert.equal(f.counts().inserts,0);
+  }finally{await f.cleanup();}
+});
 test("whole-block replacement, appended property and newly introduced formal syntax cannot bypass protection",async()=>{
   const f=await contentFixture();try{
     f.blocks.get(f.a)!.content=`ordinary\nid:: ${f.a}`;assert.equal((await f.executor.apply(f.patch([await f.text(f.a,f.blocks.get(f.a)!.content,"new")]))).record.items[0]!.reason,"PROTECTED_PROPERTY");

@@ -1,4 +1,4 @@
-import { parseFormalAnchor, TASK_MARKERS } from "../../canonical-writing.ts";
+import { hasFormalAnchorSyntax, TASK_MARKERS } from "../../canonical-writing.ts";
 import { managedLabels } from "../../writing-convention.ts";
 import type { Operation, ProtectedRange, Protection, TextOperation } from "./protocol.ts";
 import { fail } from "./validation.ts";
@@ -7,7 +7,7 @@ export function propertyLines(content: string): string[] {
   return content.split(/(?<=\n)/u).filter(line => /^\s*[^\s:]+::/u.test(line));
 }
 export function formalSyntax(content: string): boolean {
-  return !!parseFormalAnchor(content) || /^\s*(?:(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+)?(?:\*\*)?\[(?:任务|MiniProject|Project)\]/u.test(content);
+  return hasFormalAnchorSyntax(content);
 }
 export function managedSyntax(content: string, properties: Record<string, unknown> = {}): boolean {
   return Object.keys(properties).some(key => key.toLowerCase().startsWith("task-copilot")) ||

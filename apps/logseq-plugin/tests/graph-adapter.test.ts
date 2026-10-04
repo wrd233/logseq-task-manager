@@ -357,6 +357,35 @@ test("canonical Task rename updates the managed source line", async () => {
   assert.equal(host.nodes.get("source-01")!.content, "TODO **[任务]** 新标题");
 });
 
+for (const label of ["任务", "事务"]) test(`${label} projections preserve raw source identity, properties, natural text and subtree through rename/closure/restart`, async () => {
+  const tail = "\r\n[注] 条件保持\r\n无标记反例 😀\r\nTODO 局部待办\r\nid:: source-01\r\ncustom:: [材料](longdoc://stable-id)\r\n";
+  const host = new Host(`TODO **[${label}]** 自然记录${tail}`);
+  host.addNaturalChild("ordinary-todo", "TODO 普通内部待办");
+  host.addNaturalChild("nested-object", "TODO **[事务]** 自然记录");
+  host.nodes.set("nested-note", { uuid: "nested-note", parent: "nested-object", children: [], content: "[想法] 嵌套记录 ((ordinary-todo))" });
+  host.nodes.get("nested-object")!.children.push("nested-note");
+  const natural = structuredClone([...host.nodes.values()].filter(node => node.uuid !== "source-01"));
+  const adapter = new LogseqGraphAdapter(host, "graph-01");
+  const readBefore = structuredClone([...host.nodes]);
+  await adapter.readGraphSnapshot({ graphId: "graph-01", sourceBlockUuid: "source-01" });
+  assert.deepEqual([...host.nodes], readBefore, "reading an anchor never mutates or formalizes it");
+  await adapter.applyGraphEffect(upsert);
+  assert.equal(host.nodes.get("source-01")!.content, `TODO **[${label}]** 自然记录${tail}`);
+  const renamed = reproject(initial, { title: "新标题" });
+  const rename = { type: "UPDATE_MANAGED_FIELD", commitId: "rename", effectId: "rename", graphId: "graph-01", sourceBlockUuid: "source-01", fieldUuid: identity.titleUuid, content: "新标题", expectedProjectionHash: initial.projectionHash, resultingProjectionHash: renamed.projectionHash, expectedProjection: initial, resultingProjection: renamed } satisfies GraphEffect;
+  await adapter.applyGraphEffect(rename);
+  assert.equal(host.nodes.get("source-01")!.content, `TODO **[${label}]** 新标题${tail}`);
+  const completed = reproject(renamed, { lifecycle: "COMPLETED", engagement: null, closure: { type: "COMPLETED", recordId: "completed", outcomeSummary: "新标题" } });
+  await adapter.applyGraphEffect(closureEffect(renamed, completed, "TODO", "DONE", "complete"));
+  assert.equal(host.nodes.get("source-01")!.content, `DONE **[${label}]** 新标题${tail}`);
+  const restarted = new LogseqGraphAdapter(host, "graph-01");
+  await restarted.rerenderManagedProjection({ graphId: "graph-01", sourceBlockUuid: "source-01", expectedProjection: completed });
+  await restarted.applyGraphEffect(closureEffect(completed, renamed, "DONE", "TODO", "reopen"));
+  assert.equal(host.nodes.get("source-01")!.content, `TODO **[${label}]** 新标题${tail}`);
+  assert.deepEqual([...host.nodes.values()].filter(node => node.uuid !== "source-01"), natural);
+  assert.deepEqual(host.nodes.get("source-01")!.children, ["ordinary-todo", "nested-object"]);
+});
+
 test("canonical MiniProject source stays idempotent through upsert and rerender", async () => {
   const host = new Host("**[MiniProject]** 完成采购技术规格书整理 #MiniProject");
   const mini = projection({ title: "完成采购技术规格书整理" });

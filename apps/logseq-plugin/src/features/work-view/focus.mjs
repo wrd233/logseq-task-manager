@@ -1,12 +1,8 @@
-// Work objects are a small, explicit vocabulary. Rendering labels are independent.
+import {extractObjectNavigationLabel} from '../../canonical-writing.ts';
+// Navigation labels are presentation, never proof of formal identity.
 export function workObject(content='') {
-  const first=String(content).split('\n')[0].trim().replace(/^(TODO|DONE|DOING|NOW|LATER|WAITING|CANCELED|CANCELLED)\s+/, '');
-  const task=/^\*\*\[(事务|事项|任务)\]\*\*/.exec(first);
-  if(task)return {type:'task',title:first.slice(task[0].length).trim()||task[1]};
-  const mini=/^\*\*\[MiniProject\]\*\*/.exec(first);
-  if(mini&&/(?:^|\s)#MiniProject(?=\s|$)/.test(first.slice(mini[0].length)))
-    return {type:'miniproject',title:first.slice(mini[0].length).replace(/(?:^|\s)#MiniProject(?=\s|$)/g,'').trim()||'MiniProject'};
-  return null;
+  const label=extractObjectNavigationLabel(String(content));
+  return label?{type:label.kind==='TASK'?'task':'miniproject',title:label.title}:null;
 }
 // Source parent IDs only. An unmarked block is traversable, never an object crumb.
 export async function ancestry(uuid,getBlock,{limit=256,resolve}={}) {

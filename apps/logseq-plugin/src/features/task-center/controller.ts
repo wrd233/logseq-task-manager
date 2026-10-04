@@ -1,12 +1,13 @@
 import { panels } from "../../workspace/context.ts";
 import { markNavigation } from "../../host/panel-host.ts";
 import { ClientError, FormalOutcomeUnknownError, type KernelClient } from "@task-copilot/client/browser";
-import { buildManagedProjection, projectClosure, canonicalizeGraphContent, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject, type FormalCommitResult, type ProjectionObligation, type SemanticOperation, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
+import { buildManagedProjection, projectClosure, parseSemanticOperation, type GraphEffect, type GraphSnapshot, type ManagedProjection, type WorkMapNode, type WorkObject, type FormalCommitResult, type ProjectionObligation, type SemanticOperation, type TrustedGraphEvidenceMaterial } from "@task-copilot/contracts";
 import { contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, type BlockIdentity } from "../../block-context.ts";
 import { blockIdentityCache, type GraphScope } from "../../block-identity.ts";
-import { extractTitleFromSourceLine, formatFormalAnchor } from "../../canonical-writing.ts";
+import { extractTitleFromSourceLine, formatFormalSource, taskMarkerFromContent } from "../../canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "../../formal-marker-host.ts";
-import { type LogseqGraphAdapter, logseqBlock } from "../../graph-adapter.ts";
+import { type LogseqGraphAdapter } from "../../graph-adapter.ts";
+import { logseqBlock } from "../../projection-reader.ts";
 import { pluginRuntime } from "../../plugin-runtime.ts";
 import { registerOnlineDoneMarkerCommand } from "../../marker-command.ts";
 import { readRecoveryVerificationSnapshot } from "../../recovery-verification.ts";
@@ -191,14 +192,16 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     upsertBlockProperty: (uuid, key, value) => pluginRuntime.withSelfWrite(uuid, () => pluginRuntime.inGraph(scope, () => logseq.Editor.upsertBlockProperty(uuid, key, value)), false, scope),
   }, { uuid: current.uuid, content: current.content, isDbGraph: await pluginRuntime.inGraph(scope, () => currentGraphIsDb(logseq.App)) });
   const rawTitle = extractTitleFromSourceLine(stable.content);
-  const canonicalSource = formatFormalAnchor({ kind, title: rawTitle });
-  const originalContent = stable.content;
+  const source = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
+  if (!source || source.uuid !== stable.uuid || source.content !== stable.content) throw new Error("来源已变化，请重新选择当前记录后纳入。");
+  const originalContent = source.rawContent;
+  const canonicalSource = formatFormalSource(originalContent, { kind, title: rawTitle });
   let formal: Awaited<ReturnType<typeof api.commitFormal>>;
   let submitted = false;
   try {
-    if (canonicalizeGraphContent(originalContent) !== canonicalSource) {
+    if (originalContent !== canonicalSource) {
       const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
-      if (!latest || canonicalizeGraphContent(latest.content) !== canonicalizeGraphContent(originalContent)) throw new Error("来源已变化，请重新选择当前记录后纳入。");
+      if (!latest || latest.rawContent !== originalContent) throw new Error("来源已变化，请重新选择当前记录后纳入。");
       await pluginRuntime.updateSource(graphId, stable.uuid, canonicalSource, scope);
     }
     const snapshot = await adapter.readGraphSnapshot({ graphId, sourceBlockUuid: stable.uuid });
@@ -207,10 +210,10 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     submitted = true;
     formal = await submitFormal(api, scope, `create:${stable.uuid}`, { kind: "COMMIT", operation, snapshot });
   } catch (error) {
-    if ((!submitted || (error instanceof ClientError && error.status > 0 && error.status < 500)) && !(error instanceof FormalOutcomeUnknownError) && canonicalizeGraphContent(originalContent) !== canonicalSource) {
+    if ((!submitted || (error instanceof ClientError && error.status > 0 && error.status < 500)) && !(error instanceof FormalOutcomeUnknownError) && originalContent !== canonicalSource) {
       try {
         const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
-        if (latest && canonicalizeGraphContent(latest.content) === canonicalSource) await pluginRuntime.updateSource(graphId, stable.uuid, originalContent, scope);
+        if (latest && latest.rawContent === canonicalSource) await pluginRuntime.updateSource(graphId, stable.uuid, originalContent, scope);
       } catch { /* Original Graph may be unavailable; preserve newer source edits and the original failure. */ }
     }
     throw error;
@@ -955,15 +958,15 @@ async function correctCurrentReality(): Promise<void> {
   await finishDecision(api, scope, result);
 }
 
-async function currentTaskContext(blockUuid?: string) {
+async function currentTaskContext(blockUuid?: string, taskOnly = true) {
   const { adapter, graphId, scope } = await adapterForCurrentGraph();
   const api = await client();
   const identity = blockUuid ? await revalidateBlockIdentity(api, blockUuid) : null;
   const workObjectId = blockUuid ? identity?.object.id : await readCommandState(currentWorkObjectKey, scope);
   if (typeof workObjectId !== "string" || !workObjectId) throw new Error("没有明确的当前 WorkObject；请先正式化当前记录。");
-  const pending = await resumePendingFormal(api, scope, `closure:${workObjectId}`);
+  const pending = taskOnly ? await resumePendingFormal(api, scope, `closure:${workObjectId}`) : null;
   const target = await api.showObject(workObjectId); assertCommandScope(scope);
-  if (target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看结束评估。");
+  if (taskOnly && target.object.kind !== "TASK") throw new Error("这个快捷命令只处理 Task；MiniProject / Project 请在对象页查看结束评估。");
   const anchor = target.anchor as AnchorView | null; if (!anchor) throw new Error("当前 Task 没有 Primary Anchor。");
   if (graphId !== anchor.graphId) throw new Error("当前 Graph 不是目标 Task 的 Primary Anchor Graph。");
   return { api, target, anchor, adapter, graphId, scope, pending };
@@ -1087,7 +1090,7 @@ async function recoverIncomplete(): Promise<void> {
 }
 
 async function rerenderCurrentFormalItem(): Promise<void> {
-  const value = await currentTaskContext();
+  const value = await currentTaskContext(undefined, false);
   const recovery = (await value.api.listRecovery()).recovery;
   if (recovery.length) throw new Error("存在未完成 Commit；请先运行“恢复未完成提交”。");
   const obligations = (await value.api.listProjectionObligations()).obligations.filter(item => item.workObjectId === value.target.object.id && item.status !== "VERIFIED");
@@ -1103,12 +1106,13 @@ async function rerenderCurrentFormalItem(): Promise<void> {
     if (source) {
       const sourceTitle = extractTitleFromSourceLine(source.content);
       if (sourceTitle === value.target.object.title) {
-        const canonical = formatFormalAnchor({
+        const canonical = formatFormalSource(source.rawContent, {
           kind: value.target.object.kind,
           title: sourceTitle,
           lifecycle: value.target.object.lifecycle === "COMPLETED" ? "COMPLETED" : "OPEN",
+          marker: value.target.object.lifecycle === "COMPLETED" ? "DONE" : taskMarkerFromContent(source.rawContent),
         });
-        if (canonicalizeGraphContent(source.content) !== canonical) {
+        if (source.rawContent !== canonical) {
           await pluginRuntime.updateSource(value.graphId, source.uuid, canonical, value.scope);
         }
       }
