@@ -8,6 +8,7 @@ import { indent, type SourceRow } from "./model.mjs";
 import type { ViewPresentation } from "./operations.ts";
 import { composeWorkView, type ComposedView } from "./view-composer.ts";
 import type { ReviewChange } from "./review-port.ts";
+import type { ReportComposition } from "./report-model.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
@@ -23,6 +24,7 @@ interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
   menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
+  nativeEdit: HTMLButtonElement;
   menuContext: HTMLElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
@@ -37,6 +39,8 @@ export class WorkViewRenderer {
   private layout: Array<{ uuid: string; depth: number }> = [];
   private composingUuid: string | null = null;
   private historical = false;
+  private reporting = false;
+  private readonly headings = new Map<string,HTMLElement>();
   get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {
     container.addEventListener("click", event => {
@@ -83,44 +87,67 @@ export class WorkViewRenderer {
     const indent = button("增加视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: 1 }));
     const outdent = button("减少视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: -1 }));
     const range = button("只看此处", () => this.actions.range(uuid));
-    controls.append(menuContext, select, expand, button("在 Logseq 中打开", () => this.actions.locate(uuid)), button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
+    const nativeEdit = button("编辑原文", () => { menu.open = false; this.actions.locate(uuid); });
+    controls.append(menuContext, select, expand, nativeEdit, button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
     node.append(grip, fold, body, menu);
     node.addEventListener("click", event => {
       if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
+    node.addEventListener("dblclick",event => {
+      if (this.reporting && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
+    });
     node.onkeydown = event => {
       if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing) {
         event.preventDefault(); event.stopPropagation(); menu.open = false; summary.focus({ preventScroll: true }); return;
       }
       if (event.isComposing || this.composing || this.historical) return;
       if ((event.target as HTMLElement).closest("button,summary,select,a,input,textarea,[contenteditable=true]")) return;
+      if (this.reporting) { if (event.key === "Enter") { event.preventDefault(); this.actions.locate(uuid); } return; }
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit };
   }
 
-  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}): void {
+  render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}, report?: ReportComposition): void {
     this.historical=!!review?.historical;
+    this.reporting=!!report;
     const view = composition ?? composeWorkView(rows, state);
-    this.layout = state.items.map(item => ({ ...item }));
+    this.layout = view.items.map(item => ({uuid:item.uuid,depth:item.depth}));
     const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
     const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
     const anchor = Array.from(this.container.children).find(element => {
       const node = element as HTMLElement, rect = node.getBoundingClientRect();
-      return !node.hidden && rect.bottom > top && rect.top < bottom;
+      return !!node.dataset.uuid && !node.hidden && rect.bottom > top && rect.top < bottom;
     }) as HTMLElement | undefined;
     const anchorOffset = anchor ? anchor.getBoundingClientRect().top - top : 0;
     const source = new Map(rows.map(row => [row.uuid, row]));
     const keep = new Set(state.items.map(item => item.uuid));
     for (const [id, entry] of this.entries) if (!keep.has(id)) { entry.node.remove(); this.entries.delete(id); }
+    const wantedHeadings=new Set(report?.headings.map(heading=>heading.key));
+    for (const [key,node] of this.headings) if (!wantedHeadings.has(key)) { node.remove(); this.headings.delete(key); }
+    const headings=new Map(report?.headings.map(heading=>[heading.beforeUuid,heading]));
+    const fragments=new Map(report?.fragments.map(fragment=>[fragment.target.blockUuid,fragment]));
     let cursor = this.container.firstElementChild;
     view.items.forEach((item, index) => {
       const row = source.get(item.uuid); if (!row) return;
       let entry = this.entries.get(item.uuid);
       if (!entry) { entry = this.create(item.uuid); this.entries.set(item.uuid, entry); }
       const { hidden, folded, child } = item;
+      const heading=headings.get(item.uuid);
+      if (heading) {
+        let node=this.headings.get(heading.key);
+        if (!node) { node=element("h2","","wb-report-section"); node.dataset.reportSection=heading.key; this.headings.set(heading.key,node); }
+        if (node.textContent!==heading.title) node.textContent=heading.title;
+        node.style.setProperty("--report-depth",String(heading.depth));node.setAttribute("aria-level",String(Math.min(6,heading.depth+1)));
+        if (node!==cursor) this.container.insertBefore(node,cursor); cursor=node.nextElementSibling;
+      }
+      entry.node.classList.toggle("wb-report-row",!!report); entry.node.tabIndex=report ? 0 : -1;
+      const fragment=fragments.get(item.uuid);
+      if (fragment) { entry.node.dataset.reportSourceId=fragment.sourceId; entry.node.dataset.reportContentVersion=fragment.contentVersion; }
+      else { delete entry.node.dataset.reportSourceId; delete entry.node.dataset.reportContentVersion; }
+      if (fragment?.objectKind) entry.node.dataset.objectKind=fragment.objectKind; else delete entry.node.dataset.objectKind;
       const change=review?.changes.get(item.uuid);
       if (entry.node.hidden !== hidden) entry.node.hidden = hidden;
       entry.node.classList.toggle("selected", state.selected === item.uuid);
@@ -129,7 +156,7 @@ export class WorkViewRenderer {
       if (entry.node.style.getPropertyValue("--depth") !== String(item.depth)) entry.node.style.setProperty("--depth", String(item.depth));
       const level = displayLevel(row.content, state.overrides[item.uuid], { root: index === 0, missing: !!row.missing }).level;
       if (entry.node.dataset.display !== level) entry.node.dataset.display = level;
-      entry.grip.disabled = index === 0 || this.historical; entry.fold.disabled = !child || this.historical;
+      entry.grip.disabled = index === 0 || this.historical || !!report; entry.fold.disabled = !child || this.historical;
       entry.grip.style.visibility = index === 0 || this.historical ? "hidden" : "";
       entry.fold.style.visibility = child ? "" : "hidden";
       const foldLabel = child ? folded ? "▸" : "▾" : "";
@@ -138,9 +165,10 @@ export class WorkViewRenderer {
       entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
       entry.select.disabled = this.historical;
       entry.expand.hidden = level !== "compact"; entry.expand.disabled = this.historical || item.full;
-      entry.indent.disabled = index === 0 || this.historical || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
-      entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical;
+      entry.indent.disabled = index === 0 || this.historical || !!report || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
+      entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical || !!report;
       entry.range.disabled = this.historical;
+      entry.nativeEdit.disabled = this.historical;
       const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
       if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
       const inline=change?.inline&&change.after===row.content?change.inline:null;
@@ -214,7 +242,7 @@ export class WorkViewRenderer {
     const bounds = this.container.getBoundingClientRect();
     const anchor = Array.from(this.container.children).find(value => {
       const node = value as HTMLElement, rect = node.getBoundingClientRect();
-      return !node.hidden && rect.bottom > bounds.top && rect.top < bounds.bottom;
+      return !!node.dataset.uuid && !node.hidden && rect.bottom > bounds.top && rect.top < bounds.bottom;
     }) as HTMLElement | undefined;
     const uuid = anchor?.dataset.uuid ?? null, fallback: string[] = [];
     if (uuid) {
@@ -252,5 +280,5 @@ export class WorkViewRenderer {
       const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
     }
   }
-  clear(): void { this.entries.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
+  clear(): void { this.entries.clear(); this.headings.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
 }

@@ -79,6 +79,11 @@ export class WorkViewLenses {
     const result = await this.captured(true);
     return result.ok ? { ok: true, value: structuredClone(result.value) } : result;
   }
+  /** Trusted sibling renderer consumes the same installed provider without scheduling a second refresh. */
+  async committedSource(): Promise<LensResult<LensSourceSnapshot>> {
+    const result = await this.captured(false);
+    return result.ok ? {ok:true,value:structuredClone(result.value)} : result;
+  }
   async sourceChanged(): Promise<void> {
     const active = this.state.active;
     if (!active) return;
