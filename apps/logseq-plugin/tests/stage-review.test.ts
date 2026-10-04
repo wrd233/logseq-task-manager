@@ -113,6 +113,29 @@ test("focused review discovers outside changes, show-all retains lens and anchor
   }finally{await t.cleanup();}
 });
 
+test("report preserves stage show-all, immutable history and return to the existing lens",async()=>{
+  const t=await fixture();try{
+    assert.equal((await t.work.reportAPI.setMode("report")).ok,true);
+    const row=t.row(t.f.a),other=t.row(t.f.b),before=JSON.stringify(await t.stages.api.history());
+    await t.work.lensesAPI.select(t.f.a);assert.equal(other.hidden,true);
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent?.includes("范围外变化"))!.click();
+    assert.equal(other.hidden,false);assert.equal(t.work.lensesAPI.read().phase,"focused");
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
+    assert.equal(other.hidden,true);assert.equal(t.row(t.f.a),row);
+    document.querySelector<HTMLElement>(".wb-stage-entry")!.click();
+    await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("历史")??false,"historical mode unavailable");
+    assert.equal(document.querySelectorAll(".wb-report-row").length,0);
+    assert.equal((await t.work.reportAPI.setMode("structure")).ok,false);
+    assert.deepEqual(await t.work.reportAPI.resolve({}),{ok:false,reason:"historical-view"});
+    assert.deepEqual(await t.work.reportAPI.openNative({}),{ok:false,reason:"historical-view"});
+    assert.equal((document.querySelector(".wb-report-mode") as HTMLButtonElement).disabled,true);
+    assert.ok(Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(b=>b.textContent==="编辑原文").every(b=>b.disabled));
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
+    assert.ok(t.row(t.f.a).classList.contains("wb-report-row"));assert.equal(t.row(t.f.b).hidden,true);
+    assert.equal(t.work.reportAPI.read().mode,"report");assert.equal(JSON.stringify(await t.stages.api.history()),before);
+  }finally{await t.cleanup();}
+});
+
 test("review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage",async()=>{
   const t=await fixture();let second:ReturnType<typeof installStageWorkbench>|null=null;try{
     const row=t.row(t.f.a);row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"editor");

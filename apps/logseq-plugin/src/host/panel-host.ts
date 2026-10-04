@@ -1,4 +1,4 @@
-import { sidebarLayoutSpec } from "../sidebar-layout.ts";
+import { sidebarLayoutSpec, type SidebarLayoutSpec } from "../sidebar-layout.ts";
 import { panels, type PanelCloseReason } from "../workspace/context.ts";
 
 export function hostDocument(): Document | null {
@@ -48,6 +48,7 @@ export function markNavigation(label: string): void {
 export class FeaturePanel {
   readonly root = element("section", "", "wb-panel");
   private resize: (() => void) | null = null;
+  private nativeExposure = false;
   constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
     document.body.append(this.root); panels.register(name, reason => this.close(false, reason));
@@ -55,22 +56,31 @@ export class FeaturePanel {
   get visible(): boolean { return !this.root.hidden; }
   async open(revision?: number): Promise<boolean> {
     if (!await panels.activate(this.name, revision)) return false;
+    this.nativeExposure=false;
     this.root.hidden = false; markNavigation(this.label);
     this.layout();
-    if (!this.resize) { this.resize = () => this.layout(); window.top?.addEventListener("resize", this.resize); }
+    if (!this.resize) {
+      this.resize = () => { if (this.layout()?.mode === "COMPACT" && this.nativeExposure) void this.close(true,"switch",false); };
+      window.top?.addEventListener("resize", this.resize);
+    }
     logseq.showMainUI({ autoFocus: false });
     return true;
   }
-  async close(cancelPending = true, reason: PanelCloseReason = "close"): Promise<void> {
+  async close(cancelPending = true, reason: PanelCloseReason = "close", restoreEditingCursor = true): Promise<void> {
+    this.nativeExposure=false;
     if (!this.visible) { panels.release(this.name); return; }
     if (cancelPending) panels.reserve();
     await this.beforeClose(reason); this.root.hidden = true;
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
     const doc = hostDocument(); doc?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
-    panels.release(this.name); logseq.hideMainUI({ restoreEditingCursor: true });
+    panels.release(this.name); logseq.hideMainUI({ restoreEditingCursor });
   }
-  private layout(): void {
-    const doc = hostDocument(); if (!doc) return;
+  async exposeNative(): Promise<"beside" | "switch"> {
+    if (this.visible && this.layout()?.mode === "DOCKED") { this.nativeExposure=true;return "beside"; }
+    await this.close(true,"switch",false); return "switch";
+  }
+  private layout(): SidebarLayoutSpec | null {
+    const doc = hostDocument(); if (!doc) return null;
     const visibleWidth = (selector: string) => {
       const node = doc.querySelector(selector); return node && doc.defaultView?.getComputedStyle(node).display !== "none" ? Math.round(node.getBoundingClientRect().width) : 0;
     };
@@ -80,5 +90,6 @@ export class FeaturePanel {
     doc.body.classList.toggle("tc-sidebar-compact", spec.mode === "COMPACT");
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
     logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
+    return spec;
   }
 }

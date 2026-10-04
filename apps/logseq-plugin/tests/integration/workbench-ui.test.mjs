@@ -94,6 +94,7 @@ test('combined panels preserve source text, load linked material and retain conf
     assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'reorder',uuid:'b',target:'a',mode:'before'}).ok,true);
     assert.equal(work.apply({graph:snapshot.graph,root:'root',expectedSeq:snapshot.seq,type:'sync-source'}).ok,false);
     assert.equal(JSON.stringify([...blocks]),original);
+    assert.equal((await work.reportAPI.setMode('report')).ok,true);
     assert.equal((await work.lensesAPI.select('a')).ok,true);
     const selectedNode=browser.document.querySelector('.wb-row[data-uuid=a]');
     selectedNode.parentElement.scrollTop=91;
@@ -107,6 +108,7 @@ test('combined panels preserve source text, load linked material and retain conf
     for(let i=0;i<40&&!work.panel.visible;i++)await delay(5);
     assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
     assert.equal(work.lensesAPI.read().plan.question,'选定范围');
+    assert.equal(work.reportAPI.read().mode,'report');assert.equal(work.reportAPI.read().status,'current');
     assert.equal(browser.document.querySelector('.wb-row[data-uuid=a]'),selectedNode);
     assert.equal(selectedNode.parentElement.scrollTop,91);
     assert.equal(files.get(record.path),'# 材料\nexternal');
@@ -206,6 +208,12 @@ test('composition root leaves runtime disabled while work and materials remain u
     assert.equal(source.ok,true);assert.match(source.value.blocks[0].contentVersion,/^[0-9a-f]{64}$/);
     assert.equal((await lens.select('root')).ok,true);assert.equal(lens.read().phase,'focused');
     lens.exit();assert.equal(lens.read().phase,'reading');
+    const report=browser.taskCopilotWorkbench.report;
+    for (const method of ["read", "setMode", "refresh", "resolve", "openNative", "resume"]) assert.equal(typeof report[method], "function");
+    assert.equal((await report.setMode('report')).ok,true);
+    assert.equal(report.read().fragments[0].contentVersion,source.value.blocks[0].contentVersion);
+    assert.equal(report.read().structureVersion,source.value.structureVersion);
+    assert.equal(report.read().fragments[0].target.blockUuid,'root');
     const nav=browser.document.querySelector('#workbench-navigation');
     const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='材料');
     materials.click();await delay(20);
