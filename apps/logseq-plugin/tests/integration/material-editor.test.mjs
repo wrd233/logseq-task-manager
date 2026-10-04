@@ -272,17 +272,22 @@ test('user and agent captures share HTML conversion and preserve the original fo
 
 test('explicit submitted text survives a file failure and the user resumes the same material from its record', async () => {
   const f = await fixture();
+  const button = label => [...f.materials.panel.root.querySelectorAll('button')].find(b => b.textContent === label);
+  const until = async condition => {
+    for (let i = 0; i < 200; i++) { if (condition()) return; await delay(10); }
+    assert.fail('material recovery did not reach the expected visible state');
+  };
   try {
     await f.materials.bindDirectory('projectA','/projects/A');await f.materials.library('projectA');
     [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='收纳文本').click();await delay(10);
     const form=f.materials.panel.root.querySelector('.wb-material-form'),text='explicit text that must survive';form.querySelector('textarea').value=text;
     const storage=globalThis.localStorage;globalThis.localStorage={setItem:()=>{throw Error('quota');}};form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));assert.equal(form.isConnected,true);assert.equal(form.querySelector('textarea').value,text);globalThis.localStorage=storage;
     f.intercept(async path=>{if(path.endsWith('.md'))throw Error('disk full');});
-    form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));await delay(40);
+    form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));await until(() => button('继续保存收纳'));
     const key=[...Array(f.browser.localStorage.length)].map((_,i)=>f.browser.localStorage.key(i)).find(k=>k.startsWith('workbench:pending:'));
     assert.ok(key);const pending=JSON.parse(f.browser.localStorage.getItem(key));assert.equal(pending.plain,text);assert.ok(pending.materialId);
     assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden,true);
-    f.intercept(null);[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='继续保存收纳').click();await delay(40);
+    f.intercept(null);button('继续保存收纳').click();await until(() => !button('继续保存收纳'));
     const view=await f.materials.readMaterial(pending.materialId);assert.equal(view.content,text);assert.equal(view.writeState,'ready');
     assert.equal([...f.files.keys()].filter(path=>path.startsWith('/projects/A/')&&path.endsWith('.md')).length,1);
   } finally {await f.close();}
