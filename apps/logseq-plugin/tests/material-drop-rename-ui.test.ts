@@ -5,10 +5,10 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {contentFixture} from './fixtures/content-writeback.ts';
-import {Materials} from '../src/features/materials/controller.ts';
 import {installMaterialTransfers} from '../src/features/materials/install-transfer.ts';
 import {installContentWriteback} from '../src/features/content-writeback/installer.ts';
 import {MATERIAL_MIME} from '../src/features/materials/drop.ts';
+import {resolveBodyTarget, type BodyPosition} from '../src/features/work-view/report-target.ts';
 
 async function until(probe: () => boolean | Promise<boolean>, description: string): Promise<void> {
   const deadline = Date.now() + 5000;
@@ -18,13 +18,19 @@ async function until(probe: () => boolean | Promise<boolean>, description: strin
 
 async function fixture(){
   const c=await contentFixture(),root=await mkdtemp(join(tmpdir(),'materials-drop-ui-')),work=join(root,'work');await mkdir(work);logseq.settings!.materialsDirectory=work;
+  const {Materials}=await import('../src/features/materials/controller.ts');
   const apis={openPath:async()=>{},doAction:async(args:unknown[])=>{const[op,...p]=args as string[];if(op==='readFile')return readFile(p[0]!,'utf8');if(op==='writeFile')return writeFile(p[1]!,p[2]!);if(op==='mkdir-recur')return mkdir(p[0]!,{recursive:true});if(op==='rename')return rename(p[0]!,p[1]!);if(op==='listdir')return readdir(p[0]!);if(op==='stat'){const s=await stat(p[0]!);return{mode:s.mode,size:s.size,dev:s.dev,ino:s.ino,birthtimeMs:s.birthtimeMs};}throw Error('unsupported');}};
   Object.assign(c.browser,{apis});
   const content=installContentWriteback({adapter:c.adapter});await content.local.authorize(c.root);
   let view:{graph:string;root:string;draft:string|null;blocks:Array<{uuid:string;content:string|null}>}={graph:c.scope.graphId,root:c.root,draft:null,blocks:(await content.api.read()).blocks.map(b=>({uuid:b.target.blockUuid,content:b.content}))};
   const materials=new Materials(undefined,()=>c.root);
   const source={read:async(scope:typeof c.scope)=>{assert.deepEqual(scope,c.scope);return content.api.read(scope);}};
-  installMaterialTransfers(materials,content,source,{snapshot:()=>view});
+  installMaterialTransfers(materials,content,source,{snapshot:()=>view,resolveBodyDrop:async(element:Element,position:BodyPosition)=>{
+    const row=element.closest('.wb-body')?.closest<HTMLElement>('.wb-row'),read=await source.read(c.scope);
+    const block=read.blocks.find(b=>b.target.blockUuid===row?.dataset.uuid),shown=view.blocks.find(b=>b.uuid===row?.dataset.uuid);
+    if(!row||row.classList.contains('wb-review-history')||view.draft||!block?.contentVersion||shown?.content!==block.content)return{ok:false as const,reason:'ambiguous-body-target'};
+    return{ok:true as const,value:resolveBodyTarget({schemaVersion:1,scope:c.scope,sourceId:block.sourceId,contentVersion:block.contentVersion,structureVersion:read.structureVersion,position:{kind:position}},read)};
+  }});
   const find=(text:string)=>Array.from(materials.panel.root.querySelectorAll('button')).find(b=>b.textContent===text)!;
   const drop=(target:HTMLElement,data:{types:string[];files?:File[];internal?:string})=>{
     const event=new c.browser.Event('drop',{bubbles:true,cancelable:true});Object.defineProperty(event,'dataTransfer',{value:{types:data.types,files:data.files??[],getData:(type:string)=>type===MATERIAL_MIME?data.internal??'':''}});target.dispatchEvent(event as unknown as Event);
@@ -48,6 +54,59 @@ test('real composition wiring: simulated list drop changes no source; report bod
     f.drop(paragraph,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:record.id,scope:{...f.c.scope,graphId:'other'}})});await delay(60);assert.equal(f.c.counts().inserts,before+1);
     row.classList.add('wb-review-history');f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await delay(60);assert.equal(f.c.counts().inserts,before+1);assert.match(f.c.messages.join(' '),/可靠原文映射/);
   }finally{await f.cleanup();}
+});
+
+test('published report body mapping, MiniProject reference renames and immutable stage history compose through the existing executors',async()=>{
+  const f=await fixture();
+  const {WorkView}=await import('../src/features/work-view/controller.ts');
+  const {installStageWorkbench}=await import('../src/features/stage-workbench/installer.ts');
+  const work=new WorkView(()=>{}),stages=installStageWorkbench({content:f.content,work,storage:f.c.storage});
+  try{
+    f.c.blocks.get(f.c.root)!.content='**[MiniProject]** 整理资料 #MiniProject';
+    f.c.blocks.get(f.c.a)!.content='[注] 保留资料的来源。';
+    f.c.blocks.get(f.c.b)!.content='[目标] 阅读并核对原文。';
+    await f.content.local.authorize(f.c.root,true);
+    installMaterialTransfers(f.materials,f.content,{read:scope=>f.content.api.read(scope)},work);
+    const path=join(f.work,'报告资料.md');await writeFile(path,'原文件字节');
+    await f.materials.library(f.c.root);
+    const file=new f.c.browser.File(['原文件字节'],'报告资料.md');Object.defineProperty(file,'path',{value:path});
+    f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});
+    await until(async()=> (await f.materials.listMaterials(f.c.root)).materials.length===1,'report composition association');
+    const material=(await f.materials.listMaterials(f.c.root)).materials[0]!;
+    await work.open(f.c.root);assert.equal((await work.reportAPI.setMode('report')).ok,true);
+    const body=document.querySelector<HTMLElement>(`.wb-row[data-uuid="${f.c.a}"] .wb-body`)!;
+    const mapped=await work.resolveBodyDrop(body,'child');assert.equal(mapped.ok,true);
+    f.drop(body,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:material.id,scope:f.c.scope})});
+    const recordPath=join(f.work,'.longdoc',`${material.id}.json`);
+    await until(async()=>JSON.parse(await readFile(recordPath,'utf8')).references?.[0]?.status==='synced','published report verified child');
+    const record=JSON.parse(await readFile(recordPath,'utf8')),child=record.references[0].target.blockUuid;
+    assert.equal(f.c.blocks.get(child)!.content.split('\n')[0],material.reference);
+    assert.equal((await f.content.api.result(record.references[0].patch.requestId))!.record.items[0]!.status,'APPLIED_VERIFIED');
+    const display=Array.from(document.querySelectorAll<HTMLElement>('.wb-row')).map(row=>row.dataset.uuid);
+    assert.ok(display.indexOf(f.c.b)<display.indexOf(f.c.a));
+    await work.refresh();
+    const stage=await stages.api.begin({goal:'保留材料引用历史',requestKey:crypto.randomUUID(),expectedStageId:null});
+    await stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.start.id,requestKey:crypto.randomUUID(),requestIds:[]});
+    await f.c.commands.get('stage-accept')!();const accepted=await stages.api.history();assert.equal(accepted.stages[0]!.acceptances.length,1);const history=JSON.stringify(accepted);
+    await f.materials.library(f.c.root);
+    f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value='归档资料';f.find('保存').click();
+    await until(()=>f.c.blocks.get(child)!.content.includes('归档资料](longdoc://'),'MiniProject generated reference follows verified filename');
+    assert.equal((await f.materials.readMaterial(material.id)).path,join(f.work,'归档资料.md'));
+    assert.equal(await readFile(join(f.work,'归档资料.md'),'utf8'),'原文件字节');
+    assert.equal(JSON.stringify(await stages.api.history()),history);
+    await work.open(f.c.root);assert.equal((await work.reportAPI.setMode('report')).ok,true);
+    const heading=document.querySelector<HTMLElement>('.wb-report-section')!;assert.ok(heading);
+    assert.equal((await work.resolveBodyDrop(heading,'child')).ok,false);
+    f.c.editing(f.c.a);f.drop(document.querySelector<HTMLElement>(`.wb-row[data-uuid="${f.c.a}"] .wb-body`)!,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:material.id,scope:f.c.scope})});
+    await until(()=>f.c.messages.some(message=>message.includes('可靠原文映射')),'native draft rejects report mapping');
+    assert.equal(f.c.counts().inserts,1);f.c.editing(false);
+    await f.c.commands.get('stage-history')!();
+    document.querySelector<HTMLButtonElement>('.wb-stage-entry')!.click();await until(()=>!!document.querySelector('.wb-review-history'),'immutable stage history visible');
+    const historical=document.querySelector<HTMLElement>('.wb-review-history .wb-body')!;assert.ok(historical);
+    assert.equal((await work.resolveBodyDrop(historical,'child')).ok,false);
+    assert.equal(JSON.stringify(await stages.api.history()),history);
+  }finally{stages.dispose();work.dispose();await f.cleanup();}
 });
 
 test('list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target',async()=>{

@@ -3,10 +3,10 @@ import type { SourceSnapshot, SourceScope } from "../../workspace/source-protoco
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { Materials } from "./controller.ts";
 import type { MaterialDropTarget } from "./references.ts";
+import type { WorkView } from "../work-view/controller.ts";
 
-/** Minimal composition adapter for the current main block-level report.
- * Branch 01 can replace resolve with a version-bound fragment/native port. */
-export function installMaterialTransfers(materials: Materials, content: ContentInstallation, source: {read(scope: SourceScope): Promise<SourceSnapshot>}, work: {snapshot(): unknown} | null): void {
+/** Composition adapter consuming the published report's versioned body port. */
+export function installMaterialTransfers(materials: Materials, content: ContentInstallation, source: {read(scope: SourceScope): Promise<SourceSnapshot>}, work: Pick<WorkView, "snapshot" | "resolveBodyDrop"> | null): void {
   const scope = async (rootUuid: string) => ({graphId: graphIdentity(await logseq.App.getCurrentGraph()), rootUuid});
   const valid = (selected: SourceScope) => {
     const current = work?.snapshot() as {graph?: string; root?: string; draft?: string | null} | null;
@@ -29,17 +29,13 @@ export function installMaterialTransfers(materials: Materials, content: ContentI
       },
     },
     resolve: async element => {
-      const body = element.closest('.wb-row .wb-body'), row = body?.closest<HTMLElement>('.wb-row');
-      if (!row?.dataset.uuid || row.classList.contains('wb-review-history')) return null;
-      const before = work?.snapshot() as {graph?: string; root?: string; draft?: string | null; blocks?: Array<{uuid: string; content: string}>} | null;
-      if (!before?.root || !before.graph || before.draft) return null;
-      const selected = await scope(before.root); if (selected.graphId !== before.graph) return null;
-      const read = await source.read(selected), block = read.blocks.find(item => item.target.blockUuid === row.dataset.uuid);
-      const after = work?.snapshot() as typeof before;
-      if (!block?.contentVersion || block.availability !== "available" || after?.root !== before.root || after.graph !== before.graph || !row.isConnected) return null;
-      // A row UUID alone is not a source mapping. Confirm current displayed source bytes.
-      const shown = before.blocks?.find(item => item.uuid === row.dataset.uuid);
-      if (!shown || shown.content !== block.content) return null;
+      if (!element.isConnected) return null;
+      const resolved = await work?.resolveBodyDrop(element, "child");
+      if (!resolved?.ok || resolved.value.position.kind !== "child" || !valid(resolved.value.scope)) return null;
+      const mapped = resolved.value, selected = await scope(mapped.scope.rootUuid);
+      if (selected.graphId !== mapped.scope.graphId) return null;
+      const read = await source.read(selected), block = read.blocks.find(item => item.sourceId === mapped.sourceId && item.target.blockUuid === mapped.target.blockUuid);
+      if (!block?.contentVersion || block.availability !== "available" || block.contentVersion !== mapped.contentVersion || read.structureVersion !== mapped.structureVersion || !valid(selected) || !element.isConnected) return null;
       return {scope: selected, sourceId: block.sourceId, target: block.target, contentVersion: block.contentVersion, parentUuid: block.parentUuid, structureVersion: read.structureVersion, position: {kind: "child"}} satisfies MaterialDropTarget;
     },
   });

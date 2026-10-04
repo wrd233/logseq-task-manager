@@ -1,5 +1,5 @@
 import type { SourceScope, BlockTarget, SourceSnapshot } from "../../workspace/source-protocol.ts";
-import type { ApplyResult, Patch } from "../content-writeback/protocol.ts";
+import type { ApplyResult, Operation, Patch, TextOperation } from "../content-writeback/protocol.ts";
 import type { MaterialService } from "./service.ts";
 import { makeLink, versionOf } from "./store.ts";
 import { idFrom } from "./links.ts";
@@ -21,6 +21,7 @@ export type ReferenceFact = {
   sourceContent?: string; // Bounded, version-verified position evidence, never editable authority.
 };
 const same = (a: SourceScope | null, b: SourceScope) => !!a && a.graphId === b.graphId && a.rootUuid === b.rootUuid;
+const isText = (operation: Operation): operation is TextOperation => operation.type === "replace-text" || operation.type === "insert-text";
 export class MaterialReferences {
   constructor(private readonly service: MaterialService, private readonly port: MaterialContentPort) {}
   private async put(id: string, fact: ReferenceFact): Promise<void> {
@@ -72,8 +73,8 @@ export class MaterialReferences {
       const uuid = item.childUuid ?? item.target.blockUuid;
       const op = fact.patch?.operations.find(op => op.operationId === (fact.operationId ?? "reference"));
       let start = item.actualContent.indexOf(fact.text);
-      if (op && op.type !== "insert-child") {
-        const shift = fact.patch!.operations.reduce((sum, previous) => sum + (previous.type !== "insert-child" && previous.range.start < op.range.start ? previous.text.length - previous.expectedText.length : 0), 0);
+      if (op && isText(op)) {
+        const shift = fact.patch!.operations.reduce((sum, previous) => sum + (isText(previous) && previous.range.start < op.range.start ? previous.text.length - previous.expectedText.length : 0), 0);
         const offset = op.range.start + shift;
         if (item.actualContent.slice(offset, offset + fact.text.length) === fact.text) start = offset;
         else if (start < 0 || item.actualContent.indexOf(fact.text, start + 1) >= 0) return {status: "partial", problem: "引用已写入，但跟随名称的位置无法确认。"};
@@ -103,7 +104,7 @@ export class MaterialReferences {
         if (item?.status === "APPLIED_VERIFIED" && known?.durable) { await this.settle(id, old, known); pending++; continue; }
         if (!known || !known.durable || item?.status === "OUTCOME_UNKNOWN" || old.patch.operations.some(op => op.type === "insert-child")) { pending++; continue; }
         const op = old.patch.operations.find(op => op.operationId === (old.operationId ?? "reference"));
-        if (op && op.type !== "insert-child") { old.text = op.expectedText; old.start = op.range.start; old.end = op.range.end; }
+        if (op && isText(op)) { old.text = op.expectedText; old.start = op.range.start; old.end = op.range.end; }
       }
       if (block?.content !== null && block?.content !== undefined && block.contentVersion !== old.contentVersion && old.sourceContent && await versionOf(old.sourceContent) === old.contentVersion) {
         // A single bounded change outside a registered range can shift that range.
