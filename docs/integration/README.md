@@ -2,6 +2,8 @@
 
 一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
+2026-10-04：[材料拖入与文件改名](../design/materials-drop-rename-design.md)增加列表原文件关联、报告块级引用、真实剪贴板复制、实际 basename 改名及有限物理身份定位。[架构](../architecture/materials-drop-rename-architecture.md)与[交接](../implementation/materials-drop-rename-handoff.md)区分实际支持范围、逐项恢复和未验的原生精确拖放。此项为独立功能分支本地交付。
+
 2026-10-04：独立 `codex/workbench-ux-polish` 分支完成紧凑阅读操作、来源标题、阶段变化展示、显式目录预览与离线收纳识别，并用同一合成工作走通 Desktop UI 和真正外部 CLI。用户从[图文手册](../user-guide/README.md)进入；共享路径、550 项检查与未验范围见[本轮交接](../implementation/workbench-ux-polish-handoff.md)。此记录是本地分支交付，不表示已合入 main。
 
 2026-10-03：阶段记录与原位审阅已接入既有工作视图，支持显式开始阶段、同阶段纠正与原文建议、具体修订认可、材料成果及不可变历史。来源来自已发布的 workspace-context，正文与文件继续通过 content 和材料模块保存。API、权限和未验范围见[阶段交接](../implementation/stage-workbench-handoff.md)；本次 main 整合的基线及验证见[整合记录](stage-workbench-main-2026-10-03.md)。
@@ -47,7 +49,7 @@ apps/logseq-plugin/src/
 - 收纳文件、关联与捕获记录、历史按工作目录选择或全局默认保存。`.longdoc/<id>.json` 是每篇材料的独立记录；文档库从这些记录扫描，不使用原型的共享可覆盖 catalog。整个目录连同隐藏目录应一起备份。
 - 正式任务状态仍在 Kernel SQLite；视图布局与未保存草稿按 Graph 和范围保存于插件本地存储。
 - 文件写入使用前后版本比较、历史备份、临时文件与读回核对。Web Locks 协调同源插件窗口；外部程序的极端并发写入没有跨进程原子比较交换保证。
-- 目前材料目标是 macOS 文件 Graph。Markdown 可读并按授权编辑，其他普通文件仅登记和外部打开；支持已知多目录定位与显式失联重定位。多根工作区、二进制正文提取/预览、自动移动识别和 Kernel 外部文件 Evidence 仍为后续需求。
+- 目前材料目标是 macOS 文件 Graph。Markdown 可读并按授权编辑，其他普通文件仅登记和外部打开；支持已知多目录定位与显式失联重定位。多根工作区、二进制正文提取/预览、任意跨目录移动识别和 Kernel 外部文件 Evidence 仍为后续需求。
 - 普通块仅打开视图时不会写入 `id::`；因此索引重建后其恢复能力仍有限。显式关联文件或收纳时才保存来源身份。
 
 ## 本地协作接口
