@@ -34,7 +34,7 @@ async function fixture() {
   globalThis.logseq = {
     settings: { materialsDirectory: '/materialsA' },
     App: { getCurrentGraph: async () => ({ path: graph }), registerCommandPalette: (spec, action) => commands.set(spec.key,action), onCurrentGraphChanged: fn => { changed = fn; return () => { changed = null; }; } },
-    Editor: { getCurrentBlock: async () => blocks.get('source'), getBlock: async uuid => blocks.get(uuid), upsertBlockProperty: async (uuid, key, value) => {blocks.get(uuid).properties[key] = value;}, insertBlock: async (uuid, content) => {if(rejectInsertion)throw Error('insertion failed');const child={uuid:crypto.randomUUID(),content};blocks.get(uuid).children.push(child);return child;}, checkEditing: async () => false },
+    Editor: { getCurrentBlock: async () => blocks.get('source'), getBlock: async uuid => blocks.get(uuid), upsertBlockProperty: async (uuid, key, value) => {blocks.get(uuid).properties[key] = value;}, insertBlock: async (uuid, content) => {if(rejectInsertion)throw Error('insertion failed');const child={uuid:crypto.randomUUID(),content,properties:{}};blocks.get(uuid).children.push(child);blocks.set(child.uuid,child);return child;}, checkEditing: async () => false },
     UI: { showMsg: async () => {} }, showMainUI: () => {}, hideMainUI: () => {}, setMainUIInlineStyle: () => {},
   };
   const { MaterialStore } = await import('../../src/features/materials/store.ts');

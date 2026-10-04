@@ -11,6 +11,11 @@ export function desktopFiles(graphPath: () => string): FileIO {
     catch (error) { if (error instanceof Error) throw error; throw new Error(error && typeof error === "object" && "message" in error ? String(error.message) : String(error), {cause: error}); }
   };
   return {
+    identity: async path => {
+      const value = await call("stat", path) as {dev?: number; ino?: number; birthtimeMs?: number} | null;
+      return value && Number.isSafeInteger(value.dev) && Number.isSafeInteger(value.ino) && value.ino! > 0 && typeof value.birthtimeMs === "number" && Number.isFinite(value.birthtimeMs) && value.birthtimeMs > 0
+        ? JSON.stringify([value.dev, value.ino, value.birthtimeMs]) : null;
+    },
     read: async path => { const text = await call("readFile", path); if (typeof text !== "string") throw new Error("文件读取失败。"); return text; },
     write: async (path, text) => { await call("writeFile", graphPath(), path, text); },
     mkdir: async path => { await call("mkdir-recur", path); },
