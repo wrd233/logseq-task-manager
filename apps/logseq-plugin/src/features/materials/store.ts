@@ -10,6 +10,7 @@ export interface MaterialAssociation { graph: string; sourceUuid: string }
 export interface MaterialRecord {
   id: string;
   title: string;
+  summary?: string;
   createdAt: string;
   kind: "capture" | "reference";
   path?: string;
@@ -165,6 +166,7 @@ export class MaterialStore {
     this.file(id);
     const record = JSON.parse(await this.io.read(`${this.root}/.longdoc/${id}.json`)) as MaterialRecord;
     if (record.id !== id || !["capture", "reference"].includes(record.kind) || typeof record.createdAt !== "string" || (record.creation !== undefined && !["pending", "ready"].includes(record.creation)) || (record.creation === "pending" && (typeof record.pendingBody !== "string" || typeof record.path !== "string")) || typeof record.title !== "string" || typeof record.original !== "string" || (record.schemaVersion !== undefined && record.schemaVersion !== 2) || (record.role !== undefined && !["reference", "input", "draft", "output"].includes(record.role)) || (record.editing !== undefined && (typeof record.editing.user !== "boolean" || typeof record.editing.agent !== "boolean")) || (record.associations !== undefined && (!Array.isArray(record.associations) || record.associations.some(item => typeof item.graph !== "string" || typeof item.sourceUuid !== "string")))) throw new Error("文档记录无效，停止读写。");
+    if (record.summary !== undefined && (typeof record.summary !== "string" || record.summary.length > 160 || /[\r\n]/.test(record.summary))) throw new Error("材料概述记录无效。");
     if (record.fileIdentity !== undefined && record.fileIdentity !== null && typeof record.fileIdentity !== "string") throw new Error("文件身份记录无效。");
     if (record.rename && (typeof record.rename.requestId !== "string" || typeof record.rename.from !== "string" || typeof record.rename.to !== "string" || !["prepared", "file-renamed", "complete", "uncertain"].includes(record.rename.status) || record.rename.identity !== null && typeof record.rename.identity !== "string" || record.rename.version !== null && !/^[a-f0-9]{64}$/.test(record.rename.version))) throw new Error("改名记录无效。");
     if (record.rename) {
@@ -234,10 +236,11 @@ export class MaterialStore {
     const needle = query.toLocaleLowerCase(), result: Array<MaterialRecord & {snippet: string}> = [];
     for (const record of await this.catalog()) {
       if (record.graph && record.graph !== graph && !associationsOf(record).some(item => item.graph === graph)) continue;
+      const matchesName = `${record.title}\n${record.summary ?? ""}`.toLocaleLowerCase().includes(needle);
       try {
         const path = await this.path(record.id), body = markdownFile(path) ? await this.read(record.id) : "仅支持外部打开", index = body.toLocaleLowerCase().indexOf(needle);
-        if (!needle || index >= 0 || record.title.toLocaleLowerCase().includes(needle)) result.push({ ...record, snippet: body.slice(Math.max(0, index - 35), Math.max(0, index) + 100) });
-      } catch (error) { if (!needle || record.title.toLocaleLowerCase().includes(needle)) result.push({ ...record, snippet: `文件暂不可用：${error instanceof Error ? error.message : String(error)}` }); }
+        if (!needle || index >= 0 || matchesName) result.push({ ...record, snippet: body.slice(Math.max(0, index - 35), Math.max(0, index) + 100) });
+      } catch (error) { if (!needle || matchesName) result.push({ ...record, snippet: `文件暂不可用：${error instanceof Error ? error.message : String(error)}` }); }
     }
     return result;
   }

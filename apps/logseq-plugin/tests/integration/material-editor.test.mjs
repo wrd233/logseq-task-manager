@@ -63,17 +63,17 @@ test('offline directory preview leaves identity, source and editing permission u
     const path='/projects/A/协作参考.md', text='# 协作参考\n\n只读文件先阅读，再选择关联。';
     f.files.set(path,text); await f.materials.bindDirectory('projectA','/projects/A'); await f.materials.library('projectA');
     const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
-    assert.ok(find('目录文件')); assert.ok(find('返回工作'));
+    assert.ok(find('目录文件')); assert.ok(find('返回正文'));
     find('目录文件').click(); await delay(30); const writes=f.writes.length;
     assert.match(f.materials.panel.root.textContent,/尚未关联/);
-    find('阅读').click(); await delay(30);
+    find('协作参考.md').click(); await delay(30);
     assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作参考');
     assert.equal(f.writes.length,writes); assert.equal(f.blocks.get('projectA').children.length,0);
     assert.equal(find('编辑原文件'),undefined); assert.equal(f.files.get(path),text);
     find('关联当前工作').click(); await delay(60);
     const rows=await f.materials.listMaterials('projectA'); assert.equal(rows.materials.length,1);
     assert.deepEqual(rows.materials[0].capabilities.edit,{user:false,agent:false});
-    assert.equal(rows.materials[0].path,path); assert.equal(f.files.get(path),text); assert.equal(f.blocks.get('projectA').children.length,1);
+    assert.equal(rows.materials[0].path,path); assert.equal(f.files.get(path),text); assert.equal(f.blocks.get('projectA').children.length,0);
     await f.materials.library('projectA'); find('目录文件').click(); await delay(30);
     assert.match(f.materials.panel.root.textContent,/已关联材料/); assert.equal(find('关联'),undefined);
   } finally {await f.close();}
@@ -90,7 +90,7 @@ test('offline directory reads an existing captured output through its original i
     find('目录文件').click();await delay(30);
     assert.match(f.materials.panel.root.textContent,/已关联材料/);
     assert.equal(find('关联'),undefined);
-    find('阅读').click();await delay(30);
+    find(output.path.split('/').at(-1)).click();await delay(30);
     assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作说明');
     const after=await f.materials.listMaterials('projectA');
     assert.equal(after.materials.length,1);assert.equal(after.materials[0].id,output.id);
@@ -108,7 +108,7 @@ test('a delayed connected preview cannot revive a previous Graph or offer a writ
     f.materials.setDirectoryObserver({available:()=>true,stop:()=>{},list:async()=>({files:[{path:'/projects/A/参考.md',kind:'file',availability:'available',materialId:null}],truncated:false}),read:async()=>{started.resolve();return gate.promise;},associate:async()=>{associated++;throw Error('unexpected association');}});
     await f.materials.library('projectA');
     [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='目录文件').click();await delay(30);
-    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='阅读').click();await started.promise;
+    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='参考.md').click();await started.promise;
     f.switchGraph('B');gate.resolve({content:'# 旧 Graph 的内容'});await delay(30);
     assert.equal(f.materials.panel.visible,false);assert.equal(associated,0);
     assert.doesNotMatch(f.materials.panel.root.textContent,/旧 Graph 的内容/);
@@ -165,6 +165,38 @@ test('an already-started save remains bound to its original Graph and dispose wa
   } finally { await f.close(); }
 });
 
+test('navigation keeps the editor when composing or when a dirty draft cannot be cached', async () => {
+  const f = await fixture();
+  try {
+    await f.materials.openDoc(f.docA.id); await f.materials.beginEditing();
+    f.composition('compositionstart'); f.input('组合输入仍未完成');
+    await assert.rejects(f.materials.library('projectB'), /完成当前输入/);
+    assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden, false);
+    assert.equal(f.editor.value, '组合输入仍未完成'); assert.equal(f.files.get(f.docA.path), 'base A');
+    f.composition('compositionend');
+    const storage = globalThis.localStorage;
+    globalThis.localStorage = {setItem: () => { throw Error('quota exceeded'); }};
+    try {
+      await assert.rejects(f.materials.library('projectB'), /草稿缓存暂不可写/);
+      assert.equal(f.editor.value, '组合输入仍未完成'); assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden, false);
+    } finally { globalThis.localStorage = storage; }
+    await f.saveTimers(); assert.equal(f.files.get(f.docA.path), '组合输入仍未完成');
+  } finally { await f.close(); }
+});
+
+test('a missing material keeps a selectable draft without pretending the original can be read or edited', async () => {
+  const f = await fixture();
+  try {
+    await f.materials.openDoc(f.docA.id); await f.materials.beginEditing(); f.input('离线保留草稿');
+    f.files.delete(f.docA.path); await f.materials.library('projectA'); await f.materials.openDoc(f.docA.id);
+    assert.match(f.materials.panel.root.textContent, /文件失联/); assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden, true);
+    [...f.materials.panel.root.querySelectorAll('button')].find(button => button.textContent === '查看保留草稿').click();
+    const draft = f.materials.panel.root.querySelector('textarea[aria-label="保留草稿"]');
+    assert.equal(draft.value, '离线保留草稿'); assert.equal(draft.readOnly, true);
+    assert.equal(f.files.has(f.docA.path), false); assert.ok(f.browser.localStorage.getItem(`workbench:draft:/A:${f.docA.id}`));
+  } finally { await f.close(); }
+});
+
 test('restoring captured source stops before writing when Graph changes during its SDK read', async () => {
   const f = await fixture();
   try {
@@ -205,11 +237,13 @@ test('project A capture → another page reading → draft editing → project B
     await click('编辑'); f.input('保留我的冲突草稿'); f.files.set(captured.material.path, '外部修改'); await f.tick(); await f.tick();
     assert.equal(f.materials.panel.root.querySelector('.wb-conflict').hidden, false);
     await f.materials.library('projectB'); await f.materials.openDoc(captured.material.id);
+    assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden,true);
+    await click('恢复保留草稿');
     assert.equal(f.editor.value, '保留我的冲突草稿'); assert.equal(f.materials.panel.root.querySelector('.wb-conflict').hidden, false);
     await click('另存草稿后加载外部版本');
     const rows = await f.materials.linkedContext(captured.material.reference); assert.equal(rows[0].content, '外部修改');
     assert.ok([...f.files.entries()].some(([path,text]) => path.startsWith('/projects/A/') && path.endsWith('.md') && text === '保留我的冲突草稿'));
-    await f.materials.library('projectA'); await f.materials.openDoc(captured.material.id); await click('返回工作'); assert.equal(f.returned, 'projectA');
+    await f.materials.library('projectA'); await f.materials.openDoc(captured.material.id); await click('返回正文'); assert.equal(f.returned, 'projectA');
   } finally {await f.close();}
 });
 

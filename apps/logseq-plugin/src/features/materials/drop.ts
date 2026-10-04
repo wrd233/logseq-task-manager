@@ -8,6 +8,10 @@ export type MaterialDrag = {schemaVersion: 1; materialId: string; scope: SourceS
 export interface MaterialTransferPort {
   scope(rootUuid: string): Promise<SourceScope>;
   read(scope: SourceScope): Promise<SourceSnapshot>;
+  /** Presentation hook only. resolve remains the sole authority for source positions. */
+  body(element: Element): Element | null;
+  /** Current work owner, used for file association even when a source position is rejected. */
+  currentScope(): SourceScope | null;
   resolve(element: Element): Promise<MaterialDropTarget | null>;
   valid(scope: SourceScope): boolean;
   content: MaterialContentPort;

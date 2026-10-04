@@ -92,6 +92,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value='归档资料';f.find('保存').click();
     await until(()=>f.c.blocks.get(child)!.content.includes('归档资料](longdoc://'),'MiniProject generated reference follows verified filename');
+    await until(()=>f.materials.panel.root.querySelector('.wb-status')!.textContent!.includes('稳定链接保持可用'),'rename UI has finished returning to the list');
     assert.equal((await f.materials.readMaterial(material.id)).path,join(f.work,'归档资料.md'));
     assert.equal(await readFile(join(f.work,'归档资料.md'),'utf8'),'原文件字节');
     assert.equal(JSON.stringify(await stages.api.history()),history);

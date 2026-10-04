@@ -4,7 +4,7 @@ import { MaterialStore, MaterialWriteError, ConflictError, associationsOf, editi
 import { discoverExternalRename, renameMaterialFile, recoverMaterialRename, type RenameResult } from "./file-operations.ts";
 
 export interface MaterialView {
-  id: string; title: string; kind: MaterialRecord["kind"]; role: MaterialRole | "legacy";
+  id: string; title: string; summary?: string; kind: MaterialRecord["kind"]; role: MaterialRole | "legacy";
   path: string; recordRoot: string; sourceUuid: string | null;
   associations: ReturnType<typeof associationsOf>; reference: string;
   writeState: "ready" | "pending";
@@ -48,6 +48,7 @@ export class MaterialService {
     try { if (this.canRename(id)) record = await discoverExternalRename(store, record); } catch { /* Preserve unavailable records; discovery must not block reading history. */ }
     const path = await store.path(id);
     const view: MaterialView = {id, title: record.title, kind: record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
+    if (record.summary) view.summary = record.summary;
     if (record.creation === "pending") view.problem = "收纳保存尚未完成，请重试原请求。";
     try {
       if (markdownFile(path)) { view.content = await store.read(id); view.version = await versionOf(view.content); }
@@ -126,6 +127,13 @@ export class MaterialService {
     const {store} = await this.locate(id); return renameMaterialFile(store, id, name, requestId);
   }
   async recoverRename(id: string): Promise<RenameResult> { const {store} = await this.locate(id); return recoverMaterialRename(store, id); }
+  /** A local description affects recognition only, never file names, links or editing grants. */
+  async describe(id: string, summary: string): Promise<void> {
+    summary = summary.trim();
+    if (summary.length > 160 || /[\r\n]/.test(summary)) throw new Error("概述请使用不超过 160 字的一句话。");
+    const {store} = await this.locate(id);
+    await store.update(id, record => { const next = {...record}; if (summary) next.summary = summary; else delete next.summary; return next; });
+  }
   async associate(id: string, context: MaterialWorkContext): Promise<MaterialResult> {
     if (context.graph !== this.graph || !context.sourceUuid) throw new Error("请选择当前 Graph 的工作块。");
     const {store} = await this.locate(id); await store.associate(id, {graph: this.graph, sourceUuid: context.sourceUuid});
