@@ -2,6 +2,8 @@
 
 2026-10-02。本页描述已经实现的材料能力，产品路径见[产品设计](../design/materials-module-design.md)。总工作区设计中的镜像、阶段、聚焦和正式授权接口仍为其他模块的目标，不是本页已经提供的 API。
 
+2026-10-04 增量：可选物理文件身份、逐项改名事实与版本绑定引用证据已接入原独立记录。文件位置仍通过稳定 ID 定位，名称维护复用现有 content executor。真实端口、宿主限制和恢复见[增量架构](materials-drop-rename-architecture.md)。
+
 ## 模块与依赖
 
 ```mermaid

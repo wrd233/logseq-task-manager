@@ -5,6 +5,7 @@ import { startTaskCenter, openTaskCenter } from "./features/task-center/controll
 import { WorkView } from "./features/work-view/controller.ts";
 import type { CaptureRequest } from "./features/materials/service.ts";
 import { Materials } from "./features/materials/controller.ts";
+import { installMaterialTransfers } from "./features/materials/install-transfer.ts";
 import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
 import { panels } from "./workspace/context.ts";
 import { installWorkspaceContext } from "./features/workspace-context/install.ts";
@@ -71,6 +72,7 @@ async function main(): Promise<void> {
   const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
   const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
   content = installContentWriteback({adapter: new LogseqContentAdapter(null, workspace.sourceReader)});
+  if (materials) installMaterialTransfers(materials, content, workspace.source, work);
   stages = installStageWorkbench({content,work,source:workspace.source,materials:{
     read:id=>requireMaterials().readMaterial(id),
     open:id=>requireMaterials().openDoc(id,currentWorkRoot()),

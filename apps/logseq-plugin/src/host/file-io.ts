@@ -6,4 +6,7 @@ export interface FileIO {
   rename(from: string, to: string): Promise<void>;
   list(path: string): Promise<string[]>;
   stat?(path: string): Promise<{ type: "file" | "directory"; size: number }>;
+  /** Host-observed filesystem identity, or null when the host cannot supply it.
+   * Must not be synthesized from size, name, content or modification time. */
+  identity?(path: string): Promise<string | null>;
 }

@@ -1,6 +1,7 @@
 import type { FileIO } from "../../host/file-io.ts";
 import { captureDirectory, type MaterialDirectories, type MaterialWorkContext } from "../../workspace/material-context.ts";
 import { MaterialStore, MaterialWriteError, ConflictError, associationsOf, editingOf, markdownFile, makeLink, normalizeRoot, versionOf, type MaterialRecord, type MaterialRole } from "./store.ts";
+import { discoverExternalRename, renameMaterialFile, recoverMaterialRename, type RenameResult } from "./file-operations.ts";
 
 export interface MaterialView {
   id: string; title: string; kind: MaterialRecord["kind"]; role: MaterialRole | "legacy";
@@ -15,12 +16,13 @@ export interface CaptureRequest {
   requestKey: string; text: string; html?: string; title?: string; role?: MaterialRole; sourceUuid?: string;
 }
 export type MaterialResult = { status: "success" | "partial"; material: MaterialView; problem?: string } | { status: "conflict"; material: MaterialView; proposed: string; current: string };
+const associating = new Map<string, Promise<MaterialResult>>();
 
 /** Human and Agent adapters share this service. DOM and Logseq writes stay at the edge. */
 export class MaterialService {
   readonly listProblems: string[] = [];
   private readonly pending = new Map<string, Promise<MaterialRecord>>();
-  constructor(readonly io: FileIO, readonly directories: MaterialDirectories, readonly graph: string, readonly globalRoot: string | null, private readonly convert: (text: string, html: string) => string) {
+  constructor(readonly io: FileIO, readonly directories: MaterialDirectories, readonly graph: string, readonly globalRoot: string | null, private readonly convert: (text: string, html: string) => string, private readonly canRename: (id: string) => boolean = () => true) {
     if (globalRoot) directories.register(graph, globalRoot);
   }
   private stores(): MaterialStore[] { return this.directories.roots(this.graph).map(root => new MaterialStore(this.io, normalizeRoot(root, this.graph))); }
@@ -41,7 +43,10 @@ export class MaterialService {
     const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); return match;
   }
   async read(id: string): Promise<MaterialView> {
-    const {store, record} = await this.locate(id), path = await store.path(id);
+    const located = await this.locate(id), store = located.store;
+    let record = located.record;
+    try { if (this.canRename(id)) record = await discoverExternalRename(store, record); } catch { /* Preserve unavailable records; discovery must not block reading history. */ }
+    const path = await store.path(id);
     const view: MaterialView = {id, title: record.title, kind: record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
     if (record.creation === "pending") view.problem = "收纳保存尚未完成，请重试原请求。";
     try {
@@ -87,10 +92,23 @@ export class MaterialService {
     finally { if (this.pending.get(key) === running) this.pending.delete(key); }
   }
   async associateFile(path: string, context: MaterialWorkContext): Promise<MaterialResult> {
+    path = normalizeRoot(path, this.graph);
+    const key = JSON.stringify([this.graph, path]), active = associating.get(key);
+    if (active) {
+      const result = await active;
+      this.directories.register(this.graph, result.material.recordRoot); this.directories.remember(this.graph, result.material.id, result.material.recordRoot);
+      return context.sourceUuid ? this.associate(result.material.id, context) : result;
+    }
+    const running = this.associateFileOnce(path, context); associating.set(key, running);
+    try { return await running; } finally { if (associating.get(key) === running) associating.delete(key); }
+  }
+  private async associateFileOnce(path: string, context: MaterialWorkContext): Promise<MaterialResult> {
     if (context.graph !== this.graph) throw new Error("材料 Graph 范围已变化。");
     path = normalizeRoot(path, this.graph);
     for (const store of this.stores()) {
-      const record = (await store.catalog()).find(item => item.path === path);
+      const records = await store.catalog();
+      for (let i = 0; i < records.length; i++) if (this.canRename(records[i]!.id)) records[i] = await discoverExternalRename(store, records[i]!).catch(() => records[i]!);
+      const record = records.find(item => item.path === path);
       if (record) return this.associate(record.id, context);
     }
     // Associations use the work root, never create a role directory for an existing file.
@@ -102,6 +120,12 @@ export class MaterialService {
     this.directories.remember(this.graph, record.id, root);
     return {status: "success", material: await this.read(record.id)};
   }
+  /** Trusted local UI calls only. Never route caller-supplied actor/authorized flags here. */
+  async renameLocal(id: string, name: string, requestId: string): Promise<RenameResult> {
+    if (!this.canRename(id)) throw new Error("材料正在编辑或有未保存草稿，请完成编辑后改名。");
+    const {store} = await this.locate(id); return renameMaterialFile(store, id, name, requestId);
+  }
+  async recoverRename(id: string): Promise<RenameResult> { const {store} = await this.locate(id); return recoverMaterialRename(store, id); }
   async associate(id: string, context: MaterialWorkContext): Promise<MaterialResult> {
     if (context.graph !== this.graph || !context.sourceUuid) throw new Error("请选择当前 Graph 的工作块。");
     const {store} = await this.locate(id); await store.associate(id, {graph: this.graph, sourceUuid: context.sourceUuid});
@@ -118,6 +142,9 @@ export class MaterialService {
     const results: Array<MaterialRecord & {snippet: string}> = [];
     const seen = new Set<string>();
     for (const store of this.stores()) {
+      for (const record of await store.catalog().catch(() => [])) {
+        if (this.canRename(record.id)) await discoverExternalRename(store, record).catch(() => undefined);
+      }
       const entries = await store.search(query, this.graph).catch(error => { this.listProblems.push(`${store.root}: ${String(error)}`); return []; });
       for (const record of entries) {
         if (seen.has(record.id)) throw new Error("多个已知目录包含同一材料身份，请核对备份目录。");

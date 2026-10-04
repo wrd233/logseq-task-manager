@@ -49,3 +49,16 @@ test("Desktop compact stat distinguishes an existing empty directory and a file,
     assert.deepEqual(calls, ["stat:/empty", "listdir:/empty", "stat:/file", "listdir:/file", "stat:/unreadable", "listdir:/unreadable", "stat:/missing", "listdir:/missing", "stat:/"]);
   } finally {globalThis.window = previous; await browser.happyDOM.abort();}
 });
+
+test("filesystem identity requires all observed physical facts; compact/unsafe stats never invent an identity", async () => {
+  const previous = globalThis.window;
+  let value: unknown = {dev: 1, ino: 42, birthtimeMs: 1234};
+  globalThis.window = {top: {apis: {doAction: async () => value}}} as unknown as Window & typeof globalThis;
+  try {
+    const io = desktopFiles(() => "/graph");
+    assert.equal(await io.identity!("/file"), "[1,42,1234]");
+    for (const invalid of [null, {size: 4}, {dev: 1, ino: 42}, {dev: 1, ino: 0, birthtimeMs: 1234}, {dev: 1, ino: 42, birthtimeMs: 0}, {dev: 1, ino: Number.MAX_SAFE_INTEGER + 1, birthtimeMs: 1234}]) {
+      value = invalid; assert.equal(await io.identity!("/file"), null);
+    }
+  } finally { globalThis.window = previous; }
+});

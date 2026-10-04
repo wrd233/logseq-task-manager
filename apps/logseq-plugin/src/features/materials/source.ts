@@ -3,6 +3,9 @@ import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-i
 import type { MaterialWorkContext } from "../../workspace/material-context.ts";
 import type { MaterialService, MaterialResult } from "./service.ts";
 import { isLong, makeLink, idFrom, type MaterialRecord } from "./store.ts";
+import { versionOf } from "./store.ts";
+import { graphIdentity } from "../../graph-adapter.ts";
+import type { ReferenceFact } from "./references.ts";
 
 interface SourceScope {
   epoch(): number;
@@ -11,11 +14,24 @@ interface SourceScope {
   service(): Promise<MaterialService>;
   workContext(uuid: string | null): Promise<MaterialWorkContext>;
   fail(error: unknown): void;
+  referenceRoot?(uuid: string): string;
 }
 /** SDK/input adapter only; file identity, conversion and authorization live in the core. */
 export class MaterialSourceActions {
   private pendingCapture = false;
   constructor(private readonly scope: SourceScope) {}
+  private async rememberReference(result: MaterialResult, uuid: string, epoch: number, graph: string, insertionParent?: string): Promise<void> {
+    if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("引用登记暂停，原生输入仍保留。");
+    await this.persistSource(uuid, epoch, graph);
+    const block = await this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(uuid));
+    if (!block?.content) throw new Error("引用已写入，来源读回暂不可用。");
+    const text = result.material.reference, start = block.content.indexOf(text);
+    if (start < 0 || block.content.indexOf(text, start + 1) >= 0) throw new Error("引用位置无法确认，保留原文。");
+    const sourceGraph = graphIdentity(await this.sourceAction(epoch, graph, () => logseq.App.getCurrentGraph()));
+    const fact: ReferenceFact = {key: `material-source:${uuid}:${result.material.id}`, scope: {graphId: sourceGraph, rootUuid: this.scope.referenceRoot?.(insertionParent ?? uuid) ?? insertionParent ?? uuid}, sourceId: JSON.stringify(["logseq", sourceGraph, uuid]), target: {kind: "logseq-block", graphId: sourceGraph, blockUuid: uuid}, parentUuid: insertionParent ?? null, mode: "follow-filename", text, start, end: start + text.length, contentVersion: await versionOf(block.content), status: "synced", ...(block.content.length <= 12000 ? {sourceContent: block.content} : {}), ...(insertionParent ? {insertionParent} : {})};
+    const {store} = await (await this.scope.service()).locate(result.material.id); this.scope.assertScope(epoch);
+    await store.update(result.material.id, record => ({...record, references: [...(record.references ?? []).filter(item => item.key !== fact.key), fact]}));
+  }
   async persistSource(uuid: string, epoch: number, graph: string): Promise<void> {
     const block = await this.sourceAction(epoch, graph, () => logseq.Editor.getBlock(uuid));
     if (!block) throw new Error("来源块暂不可用。");
@@ -36,7 +52,10 @@ export class MaterialSourceActions {
       // Desktop supports focus although SDK 0.3.4 omits it from its option type.
       // Programmatic references must not start a new native editing session.
       const insertion = {sibling: false, focus: false};
-      if (!(block?.children ?? []).some(child => typeof child !== "object" || Array.isArray(child) ? false : idFrom(child.content ?? "") === result.material.id)) await this.sourceAction(epoch, graph, () => logseq.Editor.insertBlock(uuid, result.material.reference, insertion));
+      if (!(block?.children ?? []).some(child => typeof child !== "object" || Array.isArray(child) ? false : idFrom(child.content ?? "") === result.material.id)) {
+        const inserted = await this.sourceAction(epoch, graph, () => logseq.Editor.insertBlock(uuid, result.material.reference, insertion));
+        if (inserted?.uuid) await this.rememberReference(result, inserted.uuid, epoch, graph, uuid);
+      }
       return result;
     } catch (error) { return {status: "partial", material: result.material, problem: `材料已保存，引用未插入：${error instanceof Error ? error.message : String(error)}。可从材料库补关联。`}; }
   }
@@ -59,6 +78,7 @@ export class MaterialSourceActions {
       if ((verified?.content ?? "").replace(/\n?\s*id::[^\n]*/g, "") !== original.replace(/\n?\s*id::[^\n]*/g, "") || await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("原块已变化");
       const properties = original.split(/\r?\n/).filter(line => /^\s*[\w-]+::/.test(line));
       await this.sourceAction(epoch, graph, () => logseq.Editor.updateBlock(block.uuid, `${result.material.reference}\n${properties.filter(line => !/^\s*id::/.test(line)).join("\n")}\nid:: ${block.uuid}`));
+      await this.rememberReference(result, block.uuid, epoch, graph);
     } catch (error) { problem = `材料已保存，原块未替换：${String(error)}。可从材料库打开。`; }
     return problem ? {status: "partial", material: result.material, problem} : result;
   }
@@ -95,6 +115,13 @@ export class MaterialSourceActions {
       else target.select();
       const insertion = persisted ? makeLink(record) : `${snapshot.value.slice(0, snapshot.start)}${makeLink(record)}${snapshot.value.slice(snapshot.end)}\nid:: ${uuid}`;
       if (!hostDocument()?.execCommand("insertText", false, insertion)) throw new Error("编辑器拒绝插入，材料和原文已保留。");
+      void (async () => {
+        for (let attempt = 0; attempt < 12; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 750)); this.scope.assertScope(epoch);
+          if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) continue;
+          await this.rememberReference(result, uuid, epoch, graph); return;
+        }
+      })().catch(() => undefined); // No verified native commit leaves a normal untracked link.
       localStorage.removeItem(pending);
     })().catch(error => {
       if (!capturedRecord && epoch === this.scope.epoch() && target.isConnected && target.value === snapshot.value && target.selectionStart === snapshot.start && target.selectionEnd === snapshot.end && hostDocument()?.activeElement === target) {
