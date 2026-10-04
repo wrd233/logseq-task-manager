@@ -1,3 +1,4 @@
+import { validateMoveFact } from "../content-writeback/structure.ts";
 import { readOptionalPrivateItem } from "../../private-storage.ts";
 import { clone } from "../content-writeback/journal.ts";
 import { fail, parseScope, sameScope, sha256, uuid } from "../content-writeback/validation.ts";
@@ -46,7 +47,7 @@ async function verifyRevision(r:StageRevision,scope:StageEvent["scope"],stageId:
   uuid(r.id);uuid(r.parent);
   if(!sameScope(r.source.scope,scope)||!Number.isFinite(Date.parse(r.at))||typeof r.requestKey!=="string"||r.requestKey.length>128||!Array.isArray(r.facts)||r.facts.length>64||!/^\w{64}$/.test(r.inputDigest))fail("STAGE_REVISION_INVALID");
   await verifySource(r.source);await verifyFiles(r.files);
-  for(const f of r.facts){if(!sameScope(f.record.patch.scope,scope)||f.record.patch.metadata?.stageId!==stageId||await sha256(JSON.stringify(f.record.patch))!==f.record.digest)fail("STAGE_FACT_SCOPE");}
+  for(const f of r.facts){if(!sameScope(f.record.patch.scope,scope)||f.record.patch.metadata?.stageId!==stageId||await sha256(JSON.stringify(f.record.patch))!==f.record.digest)fail("STAGE_FACT_SCOPE");for(const item of f.record.items){const op=f.record.patch.operations.find(op=>op.operationId===item.operationId);if(op?.type==="move-block"){if(item.move)await validateMoveFact(op,item.move);if(item.status==="APPLIED_VERIFIED"&&!item.move?.verified)fail("STAGE_MOVE_FACT_INVALID");}}}
   if(await sha256(JSON.stringify({source:[r.source.structureVersion,r.source.sourceSetVersion],facts:r.facts,files:r.files}))!==r.fingerprint)fail("STAGE_REVISION_HASH");
 }
 /** Immutable, verified events. No mutable catalog, no caller paths, no source replay. */

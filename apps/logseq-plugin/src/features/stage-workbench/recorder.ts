@@ -1,3 +1,4 @@
+import { validateMoveFact } from "../content-writeback/structure.ts";
 import { clone } from "../content-writeback/journal.ts";
 import { fail, object, sameScope, sha256, uuid } from "../content-writeback/validation.ts";
 import type { ApplyResult } from "../content-writeback/protocol.ts";
@@ -102,6 +103,7 @@ export class StageRecorder {
       for(const fact of record.items){
         const operation=record.patch.operations.find(op=>op.operationId===fact.operationId);
         if(!operation||operation.target.blockUuid!==fact.target.blockUuid||fact.target.graphId!==stage.start.scope.graphId)fail("STAGE_FACT_TARGET");
+        if(operation.type==="move-block" && fact.move)await validateMoveFact(operation,fact.move);
         if(!versions.has(fact.target.blockUuid)){
           // An actually observed native/unknown-origin new block may be corrected later.
           // This verifies its pre-request version; it does not upgrade the older write's status.
