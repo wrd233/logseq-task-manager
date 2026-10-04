@@ -1,6 +1,6 @@
 # 材料拖入与文件改名
 
-2026-10-04。基于已发布 `e666e7be1367e97dabf5f787c7dcb944ac70e815` 的增量实现。既有收纳、阅读、编辑与恢复见[材料模块设计](materials-module-design.md)；本页的实现、验证与剩余接入见[架构](../architecture/materials-drop-rename-architecture.md)和[交接](../implementation/materials-drop-rename-handoff.md)。
+2026-10-04。基于已发布 `e666e7be1367e97dabf5f787c7dcb944ac70e815` 的增量实现，现已[整合最新 main](../integration/materials-drop-rename-main-2026-10-04.md)的报告与正文整理能力。既有收纳、阅读、编辑与恢复见[材料模块设计](materials-module-design.md)；本页的实现、验证与剩余接入见[架构](../architecture/materials-drop-rename-architecture.md)和[交接](../implementation/materials-drop-rename-handoff.md)。
 
 ## 目标与范围
 
@@ -46,5 +46,5 @@
 
 - 自动化覆盖真正文件改名／读回、相同内容文件、硬链接歧义、权限和元数据失败、已登记范围批量更新、标签改动、回复丢失、来源保护、重复调用与异步工作切换。
 - 隔离 macOS Logseq 0.10.9 已验证 Chromium 文件拖入产生真实路径、列表只关联、报告子块写入及持久 Journal、真实剪贴板复制、真实 basename 改名及稳定 ID 打开。完整结果以交接的最终记录为准。
-- 当前 content-writeback 的保守正式字段识别可能阻止无 Kernel 所有权证据的 MiniProject 嵌套引用名称同步。此时文件可改名、旧链接仍可打开，原文字面保留并显示待同步；本分支不绕过该保护。
-- Finder 原生系统 drag、原生任意字位落点、中文 IME、跨 OS 和完整原生 Undo 不标为通过。复制后的原生粘贴只有在两分钟内、同一工作、唯一生成链接且已提交内容读回一致时才登记跟随证据；未证明时保留普通链接。实际系统粘贴待实机补验，精确端口待 01 整合。
+- 最新 main 的自然 MiniProject 子树识别已通过组合回归：生成引用跟随文件名，已认可阶段历史不变。正式对象、managed 子树、TODO 或当前输入保护仍可能阻止名称同步；此时文件可改名，旧链接仍可打开并显示待同步。整合构建未重新做 Desktop 验收。
+- Finder 原生系统 drag、原生任意字位落点、中文 IME、跨 OS 和完整原生 Undo 不标为通过。复制后的原生粘贴只有在两分钟内、同一工作、唯一生成链接且已提交内容读回一致时才登记跟随证据；未证明时保留普通链接。报告块级端口已整合，实际系统粘贴、精确字位与原生跨面板消费仍待验证或接入。

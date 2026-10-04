@@ -4,6 +4,8 @@
 
 产品规则见[设计](../design/materials-drop-rename-design.md)，具体接口与数据权威见[架构](../architecture/materials-drop-rename-architecture.md)。已有材料模块的收纳／编辑能力保留，本文交接增量，公共手册和 PDF 留给最终整合。
 
+后续用户已明确授权合入最新 main 并推送；[整合记录](../integration/materials-drop-rename-main-2026-10-04.md)补充新版报告端口、schema 2 兼容、MiniProject 组合回归与本轮检查。下文“没有推送／合入 main”及基线限制是原功能交付时点，不代表整合后的当前状态；原 Desktop 截图继续标识原构建。
+
 ## 用户现在可做
 
 - 拖已保存文件到当前材料列表：按原路径关联，重复同一路径沿用材料 ID，正文不插引用；宿主缺少 File 路径时可以明确路径关联。

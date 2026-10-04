@@ -1,6 +1,6 @@
 # 材料拖入、引用事实与改名架构
 
-2026-10-04。[产品设计](../design/materials-drop-rename-design.md)；[交接与实测](../implementation/materials-drop-rename-handoff.md)。本页描述基于 `e666e7b` 的实际代码，不定义另一个 Workspace、正文 executor 或材料 catalog。
+2026-10-04。[产品设计](../design/materials-drop-rename-design.md)；[交接与实测](../implementation/materials-drop-rename-handoff.md)；[最新 main 整合](../integration/materials-drop-rename-main-2026-10-04.md)。实现起于 `e666e7b`，已整合 `df307ef` 的报告与正文整理能力；不定义另一个 Workspace、正文 executor 或材料 catalog。
 
 ## 边界与权威
 
@@ -16,6 +16,7 @@ flowchart TB
   Refs --> Port[MaterialContentPort]
   Port --> Content[既有 authority / EditingGuard / Journal / executor]
   Transfer --> Map[install-transfer 块级来源适配]
+  Map --> Report[WorkView.resolveBodyDrop 版本化正文落点]
   Map --> Source[单一 workspace source provider]
 ```
 
@@ -27,7 +28,7 @@ flowchart TB
 | --- | --- |
 | `features/materials/drop.ts` | 独立内部 MIME、scope 验证、实际 Electron File 路径核验、消费端口 |
 | `transfer-ui.ts` | 事件快照、列表意图、连续路径、真实 Clipboard API、就近失败处理和释放 |
-| `install-transfer.ts` | main 现有报告块映射、当前工作复核、现有 ContentInstallation 窄接线 |
+| `install-transfer.ts` | 消费报告已有 resolveBodyDrop、复核 provider 版本与当前工作、接入 ContentInstallation |
 | `references.ts` | 生成、版本范围登记、按 Journal 恢复、按证据更新名称；不实现写入 executor |
 | `file-operations.ts`、`names.ts` | basename 校验、逐项意图／恢复、有限物理身份查找 |
 | `service.ts`、`store.ts` | 复用原读取／关联／锁／独立记录／文件保护，增加必要事实 |
@@ -85,7 +86,7 @@ sequenceDiagram
   end
 ```
 
-当前组合器只给出 `position: {kind:"child"}`；core 能消费版本绑定 UTF-16 `offset`，但此能力未在 main UI 中虚报为精确鼠标字位。实际报告目标包含 `SourceScope/sourceId/BlockTarget/contentVersion/parentUuid/structureVersion`，显示字节必须等于 provider 已提交字节。合成标题与坐标不生成身份。来源写入和冲突恢复全部使用既有 executor。
+当前组合器只给出 `position: {kind:"child"}`；core 能消费版本绑定 UTF-16 `offset`，但此能力未在 main UI 中虚报为精确鼠标字位。`WorkView.resolveBodyDrop(element,"child")` 是报告落点 owner，负责当前面板归属、可见性、历史、原生输入与版本核验；材料适配再通过 workspace provider 复核 scope、sourceId、BlockTarget、contentVersion 和 structureVersion，不另造报告映射。合成标题与坐标不生成身份。来源写入和冲突恢复全部使用既有 executor。
 
 内部 MIME 为 `application/x-task-copilot-material`，仅接受版本、UUID 和当前 scope，不接受 actor／authorized 字段。重复原路径关联按 Graph+路径协调同一请求，并复用已有记录。重复已核验报告 drop 查询已登记 child，沿用同一材料和引用；未知请求查询原 Journal，不盲重放。导入与正文请求不是一笔事务，部分结果可以分别核验。
 
@@ -167,4 +168,4 @@ installMaterialTransfers(materials, content, workspace.source, work);
 // 本地明确 UI 才调用 service.renameLocal(id, basename, requestId)。
 ```
 
-01 可替换消费端口的 `resolve/valid/navigate`，提供精确来源片段／原生明确意图；02 保留材料导入与引用编排；03 的现有 authority/Journal 是唯一正文写入边界。baseline 对 MiniProject 结构含糊的保护仍可能阻止引用名称同步，后续接入需在正文模块确认真实来源保护，不由材料模块扩大授权。阶段系统只消费真实版本结果，不改其历史或认可。
+报告的块级来源端口与正文的 schema 2 整理能力已从发布 main 接入。引用编排只创建 schema 1 文本／子块操作；范围计算明确识别 replace-text 和 insert-text，不把 move-block 当成文字替换。当前 main 的统一正式识别允许无正式所有权的自然 MiniProject 子树维护，组合回归已证明其中生成的材料标签可跟随文件改名；正式对象、managed 子树和 TODO 保护仍由原 authority/executor 判断，材料不扩大授权。阶段系统只消费真实版本结果，不改其历史或认可。原生精确字位与跨面板 drop 消费仍未接入。
