@@ -13,3 +13,17 @@ test('held membership follows source relocation rather than retained presentatio
 test('object prefixes do not require a space before the title',()=>{assert.equal(workObject('**[任务]**紧接标题').title,'紧接标题')});
 
 test("canonical vNext task markers retain navigation labels",()=>{for(const marker of ["TODO","DONE","DOING","NOW","LATER"])assert.equal(workObject(marker+" **[任务]** 正式任务").title,"正式任务");});
+
+test('legacy and marker-first affair roots use the canonical clean title while same-name nested roots keep UUID ancestry',async()=>{
+  const title='核对 **重点** [资料](longdoc://stable-id)';
+  for(const label of ['任务','事务'])for(const marker of ['TODO','DONE','DOING','NOW','LATER','CANCELED','CANCELLED']){
+    assert.equal(workObject(`${marker} **[${label}]** ${title}`).title,title);
+    assert.equal(workObject(`**[${label}]** ${marker} ${title}`).title,title);
+  }
+  const tree={outer:{uuid:'outer',content:'TODO **[事务]** 同名',parent:{id:'Project'},page:{id:'Project'}},inner:{uuid:'inner',content:'TODO **[任务]** 同名',parent:{id:'outer'},page:{id:'Project'}},note:{uuid:'note',content:'[目标] 保留条件',parent:{id:'inner'},page:{id:'Project'}}};
+  const trace=await ancestry('note',async id=>tree[id]);
+  assert.deepEqual(trace.objects.map(x=>[x.uuid,x.title]),[['outer','同名'],['inner','同名']]);
+  assert.equal(clickDecision({},trace).uuid,'inner');
+  assert.equal(workObject('TODO 普通内部待办'),null);
+  assert.equal(workObject('> TODO **[事务]** 引用'),null);
+});
