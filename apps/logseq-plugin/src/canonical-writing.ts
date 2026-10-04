@@ -22,6 +22,8 @@
  */
 
 export const TASK_LABEL = "任务";
+export const TASK_LABELS = [TASK_LABEL, "事务"] as const;
+export type TaskLabel = (typeof TASK_LABELS)[number];
 export const MINI_PROJECT_LABEL = "MiniProject";
 export const MINI_PROJECT_TAG = "#MiniProject";
 
@@ -33,22 +35,23 @@ export interface FormalAnchorFormatInput {
   title: string;
   lifecycle?: "OPEN" | "COMPLETED" | "CANCELLED";
   marker?: TaskMarker | null;
+  taskLabel?: TaskLabel;
 }
 
 export interface ParsedFormalAnchor {
   kind: "TASK" | "MINI_PROJECT";
   title: string;
   marker: TaskMarker | null;
+  taskLabel?: TaskLabel;
 }
 
 /** Strip projection decoration from a Kernel title candidate. */
 export function normalizeFormalTitle(value: string): string {
-  let title = value.replace(/\s+/gu, " ").trim();
-  title = title.replace(/^\*\*\[任务\]\*\*\s*/u, "");
-  title = title.replace(/^\*\*\[MiniProject\]\*\*\s*/u, "");
-  title = title.replace(/^\[任务\]\s*/u, "");
-  title = title.replace(/^\[MiniProject\]\s*/u, "");
+  const parsed = parseFormalAnchor(value);
+  if (parsed) return parsed.title;
+  let title = value.trim();
   title = title.replace(/^(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "");
+  title = title.replace(/^(?:\*\*)?\[(?:任务|事务|MiniProject)\](?:\*\*)?\s*/u, "");
   title = title.replace(/\s+#MiniProject\s*$/u, "").trim();
   title = title.replace(/\s*#MiniProject\s*$/u, "").trim();
   return title;
@@ -68,13 +71,16 @@ function taskMarkerFor(input: FormalAnchorFormatInput): TaskMarker | null {
  * MiniProject uses the exact requested bold prefix + trailing tag.
  */
 export function formatFormalAnchor(input: FormalAnchorFormatInput): string {
-  const title = normalizeFormalTitle(input.title);
+  // Callers provide a semantic title; do not strip a second marker/label from
+  // the title's own text (e.g. a task named "TODO 语法说明").
+  const title = input.title.trim();
   if (input.kind === "MINI_PROJECT") {
     return `**[${MINI_PROJECT_LABEL}]** ${title} ${MINI_PROJECT_TAG}`;
   }
   if (input.kind !== "TASK") throw new Error("PROJECT_DOES_NOT_USE_BLOCK_ANCHOR_FORMATTER");
   const marker = taskMarkerFor(input);
-  return marker ? `${marker} **[${TASK_LABEL}]** ${title}` : `**[${TASK_LABEL}]** ${title}`;
+  const label = input.taskLabel ?? TASK_LABEL;
+  return marker ? `${marker} **[${label}]** ${title}` : `**[${label}]** ${title}`;
 }
 
 function firstLine(content: string): string {
@@ -86,17 +92,48 @@ export function parseFormalAnchor(content: string): ParsedFormalAnchor | null {
   const line = firstLine(content);
   const mini = /^\*\*\[MiniProject\]\*\*\s+(.+?)(?:\s+#MiniProject)?\s*$/u.exec(line);
   if (mini) {
-    return { kind: "MINI_PROJECT", title: normalizeFormalTitle(mini[1]!), marker: null };
+    return { kind: "MINI_PROJECT", title: mini[1]!.replace(/\s*#MiniProject\s*$/u, "").trim(), marker: null };
   }
-  const markerFirst = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+\*\*\[任务\]\*\*\s+(.+)$/u.exec(line);
+  const markerFirst = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+\*\*\[(任务|事务)\]\*\*\s+(.+)$/u.exec(line);
   if (markerFirst) {
-    return { kind: "TASK", title: normalizeFormalTitle(markerFirst[2]!), marker: markerFirst[1] as TaskMarker };
+    return { kind: "TASK", title: markerFirst[3]!.trim(), marker: markerFirst[1] as TaskMarker, taskLabel: markerFirst[2] as TaskLabel };
   }
-  const prefixFirst = /^\*\*\[任务\]\*\*\s+(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+(.+)$/u.exec(line);
+  const prefixFirst = /^\*\*\[(任务|事务)\]\*\*\s+(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+(.+)$/u.exec(line);
   if (prefixFirst) {
-    return { kind: "TASK", title: normalizeFormalTitle(prefixFirst[2]!), marker: prefixFirst[1] as TaskMarker };
+    return { kind: "TASK", title: prefixFirst[3]!.trim(), marker: prefixFirst[2] as TaskMarker, taskLabel: prefixFirst[1] as TaskLabel };
   }
   return null;
+}
+
+/** Conservative syntax protection, not proof of formal identity or authority. */
+export function hasFormalAnchorSyntax(content: string): boolean {
+  return !!parseFormalAnchor(content) || /^\s*(?:(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+)?(?:\*\*)?\[(?:任务|事务|MiniProject|Project)\]/u.test(content);
+}
+
+/** Existing navigation vocabulary only; ordinary TODOs and pages are not roots. */
+export function extractObjectNavigationLabel(content: string): { kind: "TASK" | "MINI_PROJECT"; title: string } | null {
+  const parsed = parseFormalAnchor(content);
+  if (parsed?.kind === "TASK") return { kind: parsed.kind, title: parsed.title };
+  const line = firstLine(content).replace(/^(?:TODO|DONE|DOING|NOW|LATER|WAITING|CANCELED|CANCELLED)\s+/u, "");
+  const task = /^\*\*\[(事务|事项|任务)\]\*\*/u.exec(line);
+  if (task) return { kind: "TASK", title: line.slice(task[0].length).trim() || task[1]! };
+  const mini = /^\*\*\[MiniProject\]\*\*/u.exec(line);
+  if (mini && /(?:^|\s)#MiniProject(?=\s|$)/u.test(line.slice(mini[0].length))) {
+    return { kind: "MINI_PROJECT", title: line.slice(mini[0].length).replace(/(?:^|\s)#MiniProject(?=\s|$)/gu, "").trim() || MINI_PROJECT_LABEL };
+  }
+  return null;
+}
+
+function replaceFirstLine(content: string, line: string): string {
+  const end = content.search(/\r?\n/u);
+  return line + (end < 0 ? "" : content.slice(end));
+}
+
+/** Explicit formalization/normalization preserves source spelling and all tail bytes. */
+export function formatFormalSource(content: string, input: FormalAnchorFormatInput): string {
+  const parsed = parseFormalAnchor(content);
+  const label = parsed?.taskLabel ?? /^(?:(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+)?\*\*\[(任务|事务)\]\*\*/u.exec(firstLine(content))?.[1] as TaskLabel | undefined;
+  return replaceFirstLine(content, formatFormalAnchor({ ...input, taskLabel: label ?? input.taskLabel ?? TASK_LABEL }));
 }
 
 export function isCanonicalFormalAnchor(content: string, kind?: "TASK" | "MINI_PROJECT"): boolean {
@@ -121,7 +158,7 @@ export function canonicalizeFormalSource(
     marker: overrides.marker === undefined ? parsed.marker : overrides.marker,
   };
   if (overrides.lifecycle !== undefined) input.lifecycle = overrides.lifecycle;
-  return formatFormalAnchor(input);
+  return formatFormalSource(content, input);
 }
 
 /** Extract a clean semantic title from a canonical anchor line, if any. */
@@ -134,7 +171,7 @@ export function extractTitleFromSourceLine(content: string): string {
   const line = firstLine(content);
   const parsed = parseFormalAnchor(line);
   if (parsed) return parsed.title;
-  return normalizeFormalTitle(line.replace(/^(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, ""));
+  return normalizeFormalTitle(line);
 }
 
 export function isTaskMarker(value: unknown): value is TaskMarker {
@@ -145,7 +182,7 @@ export function taskMarkerFromContent(content: string): TaskMarker | null {
   const line = firstLine(content);
   const markerFirst = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
   if (markerFirst) return markerFirst[1] as TaskMarker;
-  const prefixFirst = /^\*\*\[任务\]\*\*\s+(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
+  const prefixFirst = /^\*\*\[(?:任务|事务)\]\*\*\s+(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
   if (prefixFirst) return prefixFirst[1] as TaskMarker;
   return null;
 }
@@ -154,17 +191,12 @@ export function taskMarkerFromContent(content: string): TaskMarker | null {
 export function replaceTaskMarker(content: string, marker: TaskMarker): string {
   const parsed = parseFormalAnchor(content);
   if (parsed?.kind === "TASK") {
-    return formatFormalAnchor({ kind: "TASK", title: parsed.title, marker });
+    return formatFormalSource(content, { kind: "TASK", title: parsed.title, marker });
   }
-  const line = firstLine(content);
-  const markerFirst = /^(TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
+  const line = content.split(/\r?\n/u, 1)[0] ?? "";
+  const markerFirst = /^(\s*)(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
   if (markerFirst) {
-    return `${marker} ${content.slice(markerFirst[0].length)}`;
-  }
-  const prefixFirst = /^\*\*\[任务\]\*\*\s+(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u.exec(line);
-  if (prefixFirst) {
-    const natural = content.slice(prefixFirst[0].length);
-    return `${marker} **[${TASK_LABEL}]** ${natural}`;
+    return `${markerFirst[1]}${marker} ${content.slice(markerFirst[0].length)}`;
   }
   return `${marker} ${content.replace(/^(?:TODO|DONE|DOING|NOW|LATER|CANCELED|CANCELLED)\s+/u, "")}`;
 }
