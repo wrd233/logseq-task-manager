@@ -112,6 +112,7 @@ async function main(): Promise<void> {
     },
     readMaterials: async (content: string) => { requireActive(); return materials?.linkedContext(content) ?? []; },
     lenses: work?.lensesAPI ?? null,
+    report: work?.reportAPI ?? null,
   };
   publishedApi = api;
   host.taskCopilotWorkbench = api;
