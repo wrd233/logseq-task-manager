@@ -35,18 +35,18 @@ test("finite leading marks distinguish facts from ordinary text, code, unknown m
   assert.equal(reportCategory("TODO 普通待办"),"todos");assert.equal(reportCategory("TODO **[事务]** 原写法"),"objects");
   for(const text of ["条件里提到[目标]","[风险] 条件","```\n[想法] 代码\n```","无标记原文"])assert.equal(reportCategory(text),null);
 });
-test("report grouping retains all complete source bodies, adjacent conditions, UUIDs, nested objects and original truth",async()=>{
+test("report grouping preserves ambiguous sibling adjacency, complete bodies, UUIDs, nested objects and original truth",async()=>{
   const source=await sourceFixture(), before=JSON.stringify(source);
   const state={items:source.blocks.map(b=>({uuid:b.target.blockUuid,depth:b.depth})),collapsed:[],expanded:[],overrides:{},selected:""};
   const report=composeReport(source,state,null,new Set());
-  assert.deepEqual(report.view.items.map(i=>i.uuid),["root","goal","note","condition","note2","counter","unknown","idea","todo","task","code","link"]);
+  assert.deepEqual(report.view.items.map(i=>i.uuid),["root","note","condition","goal","idea","todo","note2","counter","unknown","task","code","link"]);
   assert.equal(new Set(report.view.items.map(i=>i.uuid)).size,source.blocks.length);
   assert.ok(report.view.items.every(i=>i.full&&!i.hidden));
-  assert.deepEqual(report.headings.map(h=>h.title),["目标","记录与说明","想法","待办","工作事项"]);
+  assert.deepEqual(report.headings.map(h=>h.title),["想法","待办"]);
   assert.equal(report.fragments.find(f=>f.target.blockUuid==="task")?.objectKind,"task");
   assert.equal(report.fragments.find(f=>f.target.blockUuid==="code")?.parentUuid,"task");
   assert.equal(report.fragments.length,source.blocks.length);assert.equal(JSON.stringify(source),before);
-  assert.deepEqual(report.headings.find(h=>h.title==="工作事项")?.sourceIds,["task","code","link"].map(id=>sourceId(scope.graphId,id)));
+  assert.deepEqual(report.fragments.slice(-3).map(f=>f.sourceId),["task","code","link"].map(id=>sourceId(scope.graphId,id)));
   for(const fragment of report.fragments){
     const original=source.blocks.find(b=>b.sourceId===fragment.sourceId)!;
     assert.equal(fragment.contentVersion,createHash("sha256").update(original.content!,"utf8").digest("hex"));
