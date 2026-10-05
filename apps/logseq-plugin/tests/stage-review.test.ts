@@ -137,6 +137,24 @@ test("report preserves stage show-all, immutable history and return to the exist
   }finally{await t.cleanup();}
 });
 
+test("historical raw comparison shows saved text without carrying the current report version",async()=>{
+  const t=await fixture();try{
+    assert.equal((await t.work.reportAPI.setMode("report")).ok,true);
+    const history=JSON.stringify(await t.stages.api.history()),row=t.row(t.f.a);
+    Array.from(row.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="对照原文")!.click();
+    t.f.blocks.get(t.f.a)!.content="当前原文已经有后来修改";await t.work.refresh();
+    const raw=row.querySelector<HTMLElement>('[aria-label="原文对照"]')!,current=raw.dataset.contentVersion;
+    assert.ok(current);assert.match(raw.textContent!,/后来修改/);
+    document.querySelector<HTMLElement>(".wb-stage-entry")!.click();
+    await wait(()=>row.classList.contains("wb-review-history"),"historical mode unavailable");
+    assert.match(raw.textContent!,/Revised/);assert.doesNotMatch(raw.textContent!,/后来修改/);
+    assert.equal(raw.dataset.contentVersion,undefined);assert.equal(raw.dataset.sourceId,undefined);
+    assert.deepEqual(t.work.reportAPI.compare({}),{ok:false,reason:"historical-view"});
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
+    assert.equal(raw.dataset.contentVersion,current);assert.match(raw.textContent!,/后来修改/);assert.equal(JSON.stringify(await t.stages.api.history()),history);
+  }finally{await t.cleanup();}
+});
+
 test("review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage",async()=>{
   const t=await fixture();let second:ReturnType<typeof installStageWorkbench>|null=null;try{
     const row=t.row(t.f.a);row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"editor");

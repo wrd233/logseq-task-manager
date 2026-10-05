@@ -1,0 +1,1605 @@
+{
+  "schemaVersion": 1,
+  "steps": [
+    {
+      "name": "wide-with-left-sidebar-native",
+      "time": "2026-10-05T02:38:07.004Z",
+      "data": {
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "beside"
+          },
+          "notice": null
+        },
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 246,
+            "y": 48,
+            "width": 674,
+            "height": 852,
+            "top": 48,
+            "right": 920,
+            "bottom": 900,
+            "left": 246,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 246,
+            "height": 902,
+            "top": 0,
+            "right": 246,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 1440,
+            "y": 0,
+            "width": 0,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 1440,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 920,
+              "y": 48,
+              "width": 520,
+              "height": 852,
+              "top": 48,
+              "right": 1440,
+              "bottom": 900,
+              "left": 920
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-docked"
+        },
+        "input": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "anchor": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3530.5
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-wide-to-narrow-native-continuity",
+      "time": "2026-10-05T02:38:27.052Z",
+      "data": {
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": false,
+          "same": true
+        },
+        "narrow": {
+          "width": 980,
+          "height": 700,
+          "main": {
+            "x": 246,
+            "y": 48,
+            "width": 734,
+            "height": 652,
+            "top": 48,
+            "right": 980,
+            "bottom": 700,
+            "left": 246,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 246,
+            "height": 702,
+            "top": 0,
+            "right": 246,
+            "bottom": 702,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 980,
+            "y": 0,
+            "width": 0,
+            "height": 700,
+            "top": 0,
+            "right": 980,
+            "bottom": 700,
+            "left": 980,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          ],
+          "returns": 1,
+          "hostClasses": "white-theme light-theme"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "switch"
+          },
+          "notice": null
+        }
+      },
+      "verdict": "failed before host blur fix"
+    },
+    {
+      "name": "native-yield-after-installed-host-blur-fix",
+      "time": "2026-10-05T02:42:41.309Z",
+      "data": {
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "narrow": {
+          "width": 980,
+          "height": 700,
+          "main": {
+            "x": 246,
+            "y": 48,
+            "width": 734,
+            "height": 652,
+            "top": 48,
+            "right": 980,
+            "bottom": 700,
+            "left": 246,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 246,
+            "height": 702,
+            "top": 0,
+            "right": 246,
+            "bottom": 702,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 980,
+            "y": 0,
+            "width": 0,
+            "height": 700,
+            "top": 0,
+            "right": 980,
+            "bottom": 700,
+            "left": 980,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          ],
+          "returns": 1,
+          "hostClasses": "white-theme light-theme"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "switch"
+          },
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "os-keyboard-return-while-drafting-denied",
+      "time": "2026-10-05T02:42:58.391Z",
+      "data": {
+        "input": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "switch"
+          },
+          "notice": null
+        },
+        "layout": {
+          "width": 980,
+          "height": 700,
+          "main": {
+            "x": 246,
+            "y": 48,
+            "width": 734,
+            "height": 652,
+            "top": 48,
+            "right": 980,
+            "bottom": 700,
+            "left": 246,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 246,
+            "height": 702,
+            "top": 0,
+            "right": 246,
+            "bottom": 702,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 980,
+            "y": 0,
+            "width": 0,
+            "height": 700,
+            "top": 0,
+            "right": 980,
+            "bottom": 700,
+            "left": 980,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            }
+          ],
+          "returns": 1,
+          "hostClasses": "white-theme light-theme"
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "os-keyboard-reading-return-anchor",
+      "time": "2026-10-05T02:43:26.992Z",
+      "data": {
+        "transport": "Computer Use OS Escape then Cmd+Alt+R",
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "rect": {
+            "x": 26,
+            "y": 183.28125,
+            "width": 465,
+            "height": 113,
+            "top": 183.28125,
+            "right": 491,
+            "bottom": 296.28125,
+            "left": 26
+          },
+          "anchor": {
+            "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+            "offset": -63.90625,
+            "scroll": 3530.5
+          }
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3285.5
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-material-port-return",
+      "time": "2026-10-05T02:44:20.860Z",
+      "data": {
+        "materialId": "e606a37c-1a1e-4fa7-89ed-f80d80d72049",
+        "sourceUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6",
+        "before": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3285.5
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3285.5
+        },
+        "hashBefore": "22a99b28fbd568e0db32f0d7933e8373205ee1c6b87c2d839825d76accd54327",
+        "hashAfter": "22a99b28fbd568e0db32f0d7933e8373205ee1c6b87c2d839825d76accd54327",
+        "editing": false
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-report-material-link-behavior",
+      "time": "2026-10-05T02:44:21.078Z",
+      "data": {
+        "materialId": "e606a37c-1a1e-4fa7-89ed-f80d80d72049",
+        "before": {
+          "uuid": "472a5822-d8e5-48f2-9ae7-baf7bcaa841e",
+          "offset": -54,
+          "scroll": 1126.5
+        },
+        "after": {
+          "uuid": "472a5822-d8e5-48f2-9ae7-baf7bcaa841e",
+          "offset": -54,
+          "scroll": 1126.5
+        },
+        "editing": false,
+        "hash": "22a99b28fbd568e0db32f0d7933e8373205ee1c6b87c2d839825d76accd54327"
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-cross-page-native-target",
+      "time": "2026-10-05T02:44:54.504Z",
+      "data": {
+        "previousPage": "Native Reading Other Work",
+        "targetPage": "Native Reading Long Work",
+        "target": {
+          "schemaVersion": 1,
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"e431ddf0-5422-4a48-b0d9-ab5075ba4880\"]",
+          "contentVersion": "777e8dab54fcbc9ef96e91781c5a56960cfa52f541c6d0f17ce24921fe890ac8",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "position": {
+            "kind": "block"
+          }
+        },
+        "input": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": false
+        },
+        "bookmark": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3530.5
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "beside"
+          },
+          "notice": null
+        },
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 0,
+            "y": 48,
+            "width": 920,
+            "height": 852,
+            "top": 48,
+            "right": 920,
+            "bottom": 900,
+            "left": 0,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 902,
+            "top": 0,
+            "right": 0,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 1440,
+            "y": 0,
+            "width": 0,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 1440,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 920,
+              "y": 48,
+              "width": 520,
+              "height": 852,
+              "top": 48,
+              "right": 1440,
+              "bottom": 900,
+              "left": 920
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-docked"
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-right-sidebar-adaptive-reading",
+      "time": "2026-10-05T02:45:33.825Z",
+      "data": {
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 0,
+            "y": 48,
+            "width": 588.3203125,
+            "height": 852,
+            "top": 48,
+            "right": 588.3203125,
+            "bottom": 900,
+            "left": 0,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 902,
+            "top": 0,
+            "right": 0,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 1108.3203125,
+            "y": 0,
+            "width": 331.6796875,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 1108.3203125,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 721,
+              "y": 48,
+              "width": 520,
+              "height": 852,
+              "top": 48,
+              "right": 1241,
+              "bottom": 900,
+              "left": 721
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-docked"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "transient animation; superseded by settled layout"
+    },
+    {
+      "name": "actual-both-sidebars-compact-reading",
+      "time": "2026-10-05T02:45:34.310Z",
+      "data": {
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 163.9296875,
+            "y": 48,
+            "width": 700.0703125,
+            "height": 852,
+            "top": 48,
+            "right": 864,
+            "bottom": 900,
+            "left": 163.9296875,
+            "visibility": "hidden",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 163.9296875,
+            "height": 902,
+            "top": 0,
+            "right": 163.9296875,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 864,
+            "y": 0,
+            "width": 576,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 864,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 28,
+              "y": 48,
+              "width": 836,
+              "height": 852,
+              "top": 48,
+              "right": 864,
+              "bottom": 900,
+              "left": 28
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-compact"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "transient animation; no final geometry claim"
+    },
+    {
+      "name": "actual-stage-first-snapshot",
+      "time": "2026-10-05T02:47:04.652Z",
+      "data": {
+        "stageId": "73dbeaae-2439-4a7b-ac00-8c0ab8a75120",
+        "revisions": 1,
+        "acceptances": 1,
+        "staleTargetResult": {
+          "ok": false,
+          "reason": "stale-content"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-history-current-return",
+      "time": "2026-10-05T02:48:37.129Z",
+      "data": {
+        "firstStageId": "73dbeaae-2439-4a7b-ac00-8c0ab8a75120",
+        "secondStageId": "cb66aa9a-05c8-4631-b2f5-930ece42d72e",
+        "firstStageUnchanged": true,
+        "denied": {
+          "ok": false,
+          "reason": "historical-view"
+        },
+        "compare": {
+          "ok": false,
+          "reason": "historical-view"
+        },
+        "historyText": "[目标] 第52段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 阶段一核对通过。\n",
+        "before": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3534.5
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3534.5
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-focused-reading-exit",
+      "time": "2026-10-05T02:49:27.722Z",
+      "data": {
+        "scope": {
+          "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+          "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+        },
+        "phase": "focused",
+        "before": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3534.5
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3534.5
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-native-insert-defers-reading-refresh",
+      "time": "2026-10-05T02:51:59.723Z",
+      "data": {
+        "input": {
+          "uuid": "6ac3108b-fbea-4ffb-ac23-c8630efcccbe",
+          "value": "新增无标记正文：更新来自实际原生 Graph，锚点按 UUID 保留。",
+          "start": 35,
+          "end": 35,
+          "focus": true,
+          "same": false
+        },
+        "editing": "6ac3108b-fbea-4ffb-ac23-c8630efcccbe",
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "stale",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        },
+        "refresh": {
+          "ok": false,
+          "reason": "editing-in-progress"
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-source-add-and-update",
+      "time": "2026-10-05T02:52:00.790Z",
+      "data": {
+        "insertedUuid": "6ac3108b-fbea-4ffb-ac23-c8630efcccbe",
+        "count": 99,
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "offset": -0.03125,
+          "scroll": 4145
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "offset": -0.03125,
+          "scroll": 4145
+        },
+        "unchangedBody": true
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-source-membership-and-deletion-final",
+      "time": "2026-10-05T02:53:29.577Z",
+      "data": {
+        "movedUuid": "898a7719-d979-47bd-8d74-db9cc9915177",
+        "oldTarget": {
+          "schemaVersion": 1,
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"898a7719-d979-47bd-8d74-db9cc9915177\"]",
+          "contentVersion": "6c06ca9bfb094a868819957589d28a2035633d8844834a70646a8b7a8642847c",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "position": {
+            "kind": "block"
+          }
+        },
+        "denial": {
+          "ok": false,
+          "reason": "stale-structure"
+        },
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "offset": 0.09375,
+          "height": 113
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "offset": 0.09375,
+          "height": 113
+        },
+        "unchangedBody": true,
+        "insertedThenDeleted": "6ac3108b-fbea-4ffb-ac23-c8630efcccbe",
+        "orphanCount": 0,
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-deleted-work-and-explicit-relocation",
+      "time": "2026-10-05T02:54:04.169Z",
+      "data": {
+        "deletedRoot": "804aeeb8-ce87-400c-9b48-73c5a3f44dd8",
+        "deletedChild": "653945ed-e6a0-4203-abcc-4f47dc62367f",
+        "refresh": {
+          "ok": false,
+          "reason": "source-unavailable"
+        },
+        "absent": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "804aeeb8-ce87-400c-9b48-73c5a3f44dd8"
+          },
+          "mode": "report",
+          "status": "unavailable",
+          "structureVersion": "d1a675d794c4b23c9638259fef922ab8a42c0d596c4af0f6d26654a9d9433486",
+          "count": 2,
+          "native": null,
+          "notice": "source-unavailable"
+        },
+        "denial": {
+          "ok": false,
+          "reason": "source-unavailable"
+        },
+        "oldScope": {
+          "ok": false,
+          "reason": "scope-mismatch"
+        },
+        "before": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3594.5
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3530.5
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-desktop-graph-switch",
+      "time": "2026-10-05T02:56:23.758Z",
+      "data": {
+        "transport": "Computer Use host Add Graph; isolated directory dialog",
+        "before": {
+          "target": {
+            "schemaVersion": 1,
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"e431ddf0-5422-4a48-b0d9-ab5075ba4880\"]",
+            "contentVersion": "777e8dab54fcbc9ef96e91781c5a56960cfa52f541c6d0f17ce24921fe890ac8",
+            "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+            "position": {
+              "kind": "block"
+            }
+          },
+          "reading": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "report",
+            "status": "current",
+            "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+            "count": 98,
+            "native": null,
+            "notice": null
+          },
+          "anchor": {
+            "uuid": "0d760073-e855-4391-8e53-6f96d0e0aae6",
+            "offset": 14,
+            "scroll": 7
+          },
+          "graph": {
+            "url": "logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "name": "graph",
+            "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph"
+          }
+        },
+        "graph": {
+          "url": "logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/native-editor-reading/graph-two",
+          "name": "graph-two",
+          "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/native-editor-reading/graph-two"
+        },
+        "cleared": {
+          "scope": null,
+          "mode": "report",
+          "status": "unavailable",
+          "structureVersion": null,
+          "count": 0,
+          "native": null,
+          "notice": null
+        },
+        "oldWhileHidden": {
+          "ok": false,
+          "reason": "view-not-visible"
+        },
+        "oldGraph": {
+          "ok": false,
+          "reason": "scope-mismatch"
+        },
+        "after": {
+          "scope": {
+            "graphId": "graph-two:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/native-editor-reading/graph-two",
+            "rootUuid": "202a2007-cff9-4fb5-9dee-ef2d4348cbed"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "460a9d2d93ade5ec99cf738b4bf4250b7bdb6ba25bb6d0706f859b0822a7a7c6",
+          "count": 1,
+          "native": null,
+          "notice": null
+        },
+        "layout": {
+          "width": 980,
+          "height": 700,
+          "main": {
+            "x": 246,
+            "y": 48,
+            "width": 734,
+            "height": 652,
+            "top": 48,
+            "right": 980,
+            "bottom": 700,
+            "left": 246,
+            "visibility": "hidden",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 246,
+            "height": 702,
+            "top": 0,
+            "right": 246,
+            "bottom": 702,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 980,
+            "y": 0,
+            "width": 0,
+            "height": 700,
+            "top": 0,
+            "right": 980,
+            "bottom": 700,
+            "left": 980,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 246,
+              "y": 48,
+              "width": 734,
+              "height": 652,
+              "top": 48,
+              "right": 980,
+              "bottom": 700,
+              "left": 246
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-compact"
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-graph-return-by-work-identity",
+      "time": "2026-10-05T02:56:47.714Z",
+      "data": {
+        "graph": {
+          "url": "logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+          "name": "graph",
+          "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph"
+        },
+        "before": {
+          "uuid": "0d760073-e855-4391-8e53-6f96d0e0aae6",
+          "offset": 14,
+          "scroll": 7
+        },
+        "after": {
+          "uuid": "0d760073-e855-4391-8e53-6f96d0e0aae6",
+          "offset": 14,
+          "scroll": 7
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": null,
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "os-system-clipboard-native-paste",
+      "time": "2026-10-05T02:57:44.227Z",
+      "data": {
+        "transport": "Computer Use system pasteboard with automatic previous clipboard restore",
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": false
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。CLIPBOARD_NATIVE_PROBE",
+          "start": 112,
+          "end": 112,
+          "focus": true,
+          "same": false
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "switch"
+          },
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "os-undo-after-system-clipboard",
+      "time": "2026-10-05T02:57:45.194Z",
+      "data": {
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": false
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": false
+        },
+        "restoredExactValue": true
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "comparison-focus-before-pointer-guard",
+      "time": "2026-10-05T03:03:54.092Z",
+      "data": {
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "menuInput": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": false,
+          "same": true
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 90,
+          "end": 90,
+          "focus": false,
+          "same": true
+        },
+        "editing": "e431ddf0-5422-4a48-b0d9-ab5075ba4880"
+      },
+      "verdict": "failed before pointer focus guard"
+    },
+    {
+      "name": "actual-source-comparison-with-live-native-selection",
+      "time": "2026-10-05T03:06:11.964Z",
+      "data": {
+        "writingUuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "comparedUuid": "c20b355b-0a44-4b63-bc68-74b2f0f9d740",
+        "before": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "menuInput": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "after": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "target": {
+          "schemaVersion": 1,
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"c20b355b-0a44-4b63-bc68-74b2f0f9d740\"]",
+          "contentVersion": "05d24e4431fc56ec91f90dd0b3a0581286c1ee4b2136a24bc77b8338097b964c",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "position": {
+            "kind": "block"
+          }
+        },
+        "raw": {
+          "content": "[注] 第49段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。\nid:: c20b355b-0a44-4b63-bc68-74b2f0f9d740",
+          "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"c20b355b-0a44-4b63-bc68-74b2f0f9d740\"]",
+          "contentVersion": "05d24e4431fc56ec91f90dd0b3a0581286c1ee4b2136a24bc77b8338097b964c",
+          "visible": true
+        },
+        "compared": {
+          "ok": true,
+          "value": {
+            "target": {
+              "schemaVersion": 1,
+              "scope": {
+                "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+                "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+              },
+              "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"c20b355b-0a44-4b63-bc68-74b2f0f9d740\"]",
+              "target": {
+                "kind": "logseq-block",
+                "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+                "blockUuid": "c20b355b-0a44-4b63-bc68-74b2f0f9d740"
+              },
+              "contentVersion": "05d24e4431fc56ec91f90dd0b3a0581286c1ee4b2136a24bc77b8338097b964c",
+              "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+              "position": {
+                "kind": "block"
+              },
+              "parent": null
+            },
+            "content": "[注] 第49段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。\nid:: c20b355b-0a44-4b63-bc68-74b2f0f9d740",
+            "status": "current"
+          }
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-right-sidebar-settled-layout",
+      "time": "2026-10-05T03:09:11.425Z",
+      "data": {
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 0,
+            "y": 48,
+            "width": 560,
+            "height": 852,
+            "top": 48,
+            "right": 560,
+            "bottom": 900,
+            "left": 0,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 902,
+            "top": 0,
+            "right": 0,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 864,
+            "y": 0,
+            "width": 576,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 864,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 560,
+              "y": 48,
+              "width": 304,
+              "height": 852,
+              "top": 48,
+              "right": 864,
+              "bottom": 900,
+              "left": 560
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-docked"
+        },
+        "reading": {
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+            "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+          },
+          "mode": "report",
+          "status": "current",
+          "structureVersion": "1cb5e7aed005e6060e6c90f6d8a5cadf29918ba6d2700e1c4f60b1641f431c71",
+          "count": 98,
+          "native": {
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+              "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+            },
+            "mode": "beside"
+          },
+          "notice": null
+        }
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "actual-final-fixture-size-and-identities",
+      "time": "2026-10-05T03:09:12.224Z",
+      "data": {
+        "blocks": 98,
+        "chineseCharacters": 4456,
+        "maxDepth": 4,
+        "transactionUuids": [
+          "829b280d-397f-4032-a410-8028f9fe2b54",
+          "08e34ecc-7644-46aa-86aa-1c810ada84cf"
+        ],
+        "miniProjectUuids": [
+          "0d760073-e855-4391-8e53-6f96d0e0aae6",
+          "a8cd51a4-3805-4a86-aeb3-e2b3941e5868"
+        ],
+        "plainParagraphs": 65,
+        "hasCode": true,
+        "hasMaterial": true
+      },
+      "verdict": "passed asserted runtime checks"
+    },
+    {
+      "name": "final-build-deleted-visible-source-ancestor",
+      "time": "2026-10-05T03:35:18.391Z",
+      "data": {
+        "removedUuid": "e95cbd6d-836c-41dc-9937-b24ce1519463",
+        "ancestorUuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "ancestorOffset": 0.09375,
+        "before": {
+          "uuid": "e95cbd6d-836c-41dc-9937-b24ce1519463",
+          "offset": -0.90625,
+          "scroll": 3644.5
+        },
+        "after": {
+          "uuid": "c911846e-567a-4645-af7f-78058dfafc24",
+          "offset": -63.90625,
+          "scroll": 3530.5
+        },
+        "count": 98,
+        "scope": {
+          "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+          "rootUuid": "0d760073-e855-4391-8e53-6f96d0e0aae6"
+        }
+      },
+      "verdict": "passed asserted runtime checks",
+      "buildPhase": "final full-check build"
+    },
+    {
+      "name": "final-build-historical-raw-identity",
+      "time": "2026-10-05T03:35:18.728Z",
+      "data": {
+        "uuid": "41766933-e52a-4a41-acc7-335810812567",
+        "currentVersion": "ebb39802962a046763c81517958283fea5301af02e2e81ea335e07e5045b6fe0",
+        "historicalHash": "b8d9b7f54c6032d81320665582e82aa0da5870d9fe9c55dee29898ca70dcb7cc",
+        "historicalSourceId": null,
+        "historicalContentVersion": null,
+        "currentApiDenied": "historical-view",
+        "beforeHistory": {
+          "uuid": "24ccda13-910d-4457-8fd1-4b81f917b5fd",
+          "offset": -60,
+          "scroll": 172.5
+        },
+        "afterHistory": {
+          "uuid": "24ccda13-910d-4457-8fd1-4b81f917b5fd",
+          "offset": -60,
+          "scroll": 172.5
+        }
+      },
+      "verdict": "passed asserted runtime checks",
+      "buildPhase": "final full-check build"
+    },
+    {
+      "name": "final-build-os-native-selection",
+      "time": "2026-10-05T03:36:01.829Z",
+      "data": {
+        "input": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true,
+          "same": true
+        },
+        "editing": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "layout": {
+          "width": 1440,
+          "height": 900,
+          "main": {
+            "x": 0,
+            "y": 48,
+            "width": 920,
+            "height": 852,
+            "top": 48,
+            "right": 920,
+            "bottom": 900,
+            "left": 0,
+            "visibility": "visible",
+            "display": "flex"
+          },
+          "left": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 902,
+            "top": 0,
+            "right": 0,
+            "bottom": 902,
+            "left": 0,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "right": {
+            "x": 1440,
+            "y": 0,
+            "width": 0,
+            "height": 900,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900,
+            "left": 1440,
+            "visibility": "visible",
+            "display": "block"
+          },
+          "panel": null,
+          "frames": [
+            {
+              "x": 920,
+              "y": 48,
+              "width": 520,
+              "height": 852,
+              "top": 48,
+              "right": 1440,
+              "bottom": 900,
+              "left": 920
+            }
+          ],
+          "returns": 0,
+          "hostClasses": "white-theme light-theme tc-sidebar-docked"
+        },
+        "readingAnchor": {
+          "uuid": "24ccda13-910d-4457-8fd1-4b81f917b5fd",
+          "offset": -60,
+          "scroll": 172.5
+        }
+      },
+      "verdict": "passed asserted runtime checks",
+      "buildPhase": "final full-check build"
+    }
+  ],
+  "environment": {
+    "baseline": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+    "host": "Logseq 0.10.15 Desktop",
+    "sdk": "0.3.4",
+    "os": "macOS 15.1 arm64",
+    "isolation": "private clone, Graphs, home and profile; Kernel disabled",
+    "port": 19333,
+    "verifiedCodeHead": "34473ae56d46cbbc8da1e3a80790b6407e9d5353"
+  },
+  "unverified": [
+    "physical Chinese IME candidate/composition workflow",
+    "cross-application system file drag and drop",
+    "other OS and host versions",
+    "arbitrary native caret placement"
+  ],
+  "finalBuild": {
+    "time": "2026-10-05T03:31:52.241Z",
+    "scripts": [
+      {
+        "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/apps/logseq-plugin/dist/logseq-sdk.js",
+        "bytes": 111127,
+        "loadedBytes": 111127,
+        "sha256": "f294df775860d7e10354358f8c4a70bb81e22d18d7353bc48afe80365a604582",
+        "loadedSha256": "f294df775860d7e10354358f8c4a70bb81e22d18d7353bc48afe80365a604582",
+        "equal": true
+      },
+      {
+        "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/apps/logseq-plugin/dist/index.js",
+        "bytes": 938225,
+        "loadedBytes": 938225,
+        "sha256": "0f4fe2b5ce4e4b7410b7b28a235269203922959a171fa4cc8ea0b954ed6d62c2",
+        "loadedSha256": "0f4fe2b5ce4e4b7410b7b28a235269203922959a171fa4cc8ea0b954ed6d62c2",
+        "equal": true
+      }
+    ],
+    "sdk": "0.3.4"
+  },
+  "terminalObservation": {
+    "recordedPid": 28001,
+    "pidPresent": false,
+    "cdpAvailable": false,
+    "log": "tmp/logseq-sandbox/evidence/desktop.log",
+    "logEvent": "2026-10-05 13:10 WindowServer event port death followed by window-all-closed Quitting",
+    "kernel": null,
+    "note": "Observed after completed runtime checks; no signal sent to this absent or reused PID."
+  },
+  "harnessObservations": [
+    {
+      "fact": "insertBatchBlock returned null but readback showed the new real UUID and SDK began native editing; OS Escape ended the input before refresh.",
+      "classification": "SDK acknowledgement observation"
+    },
+    {
+      "fact": "ancestor top offset 0.09375px left 0.09375px of the preceding paragraph visible, so the first-visible-row assertion alone was too strict; verified the actual ancestor position.",
+      "classification": "subpixel geometry observation"
+    }
+  ]
+}

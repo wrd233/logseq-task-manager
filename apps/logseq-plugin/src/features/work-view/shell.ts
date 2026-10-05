@@ -4,7 +4,7 @@ import { workObject } from "./focus.mjs";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 
 export interface WorkShellIdentity { scope: SourceScope; title: string; kind: string; sourceId?: string; contentVersion?: string }
-export interface WorkShellAction { group?: string; label: string; run(): void | Promise<void>; description?: string; disabled?: boolean }
+export interface WorkShellAction { group?: string; label: string; run(): void | Promise<void>; description?: string; disabled?: boolean; preserveInputFocus?: boolean }
 export interface WorkShellState {
   identity: WorkShellIdentity | null; content: "body" | "materials"; structure: boolean;
   native: boolean; draft: boolean; historical: boolean; review: boolean; reviewLabel: string;
@@ -25,6 +25,8 @@ export class WorkViewShell {
   private actionSignature = "";
   constructor(actions: { body(): void; materials(): void; native(): void; review(): void; changed(): void; fail(error: unknown): void }) {
     this.native = button("在 Logseq 写作", actions.native); this.native.className = "wb-primary";
+    this.native.onpointerdown = event => event.preventDefault();
+    this.menu.trigger.onpointerdown = event => event.preventDefault();
     this.body = button("正文", actions.body); this.materials = button("材料", actions.materials);
     this.review = button("审阅与历史", actions.review); this.review.className = "wb-review-entry";
     const identity = element("div", "", "wb-work-identity"); identity.append(this.kind, this.title);
@@ -36,7 +38,7 @@ export class WorkViewShell {
     this.root.append(line, tabs, this.notice);
     this.menu.content.addEventListener("click", event => {
       const target = (event.target as Element).closest("button"); if (!target || target.disabled) return;
-      this.menu.close();
+      this.menu.close(target.dataset.preserveInputFocus !== "true");
     });
     this.fail = actions.fail; this.changed = actions.changed;
     this.menu.root.addEventListener("toggle", () => { if (this.menu.root.open) this.changed(); });
@@ -62,7 +64,7 @@ export class WorkViewShell {
     set(this.review, state.review ? "收起审阅" : state.reviewLabel);
     this.review.setAttribute("aria-expanded", String(state.review)); this.review.classList.toggle("wb-attention", state.attention);
     this.notice.hidden = !state.notice; set(this.notice, state.notice);
-    const signature = JSON.stringify([state.identity?.scope, state.actions.map(({ label, description, disabled, group }) => [label, description, disabled, group])]);
+    const signature = JSON.stringify([state.identity?.scope, state.actions.map(({ label, description, disabled, group, preserveInputFocus }) => [label, description, disabled, group, preserveInputFocus])]);
     if (signature !== this.actionSignature) {
       this.actionSignature = signature; const focused = document.activeElement as HTMLElement | null;
       const focusedLabel = this.menu.content.contains(focused) ? focused?.dataset.actionLabel : null;
@@ -71,6 +73,10 @@ export class WorkViewShell {
       for (const action of state.actions) {
         const item = button(action.label, () => { void Promise.resolve().then(action.run).then(this.changed).catch(this.fail); });
         item.dataset.actionLabel = action.label; item.disabled = !!action.disabled;
+        if (action.preserveInputFocus) {
+          item.dataset.preserveInputFocus = "true";
+          item.onpointerdown = event => event.preventDefault();
+        }
         if (action.description) item.append(element("small", action.description));
         let container: HTMLElement = this.menu.content;
         if (action.group) {

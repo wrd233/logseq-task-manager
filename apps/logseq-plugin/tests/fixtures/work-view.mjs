@@ -37,7 +37,10 @@ export async function fixture(Controller, count = 3, options = {}) {
     DB: { onChanged: fn => { changed = fn; return () => { changed = null; }; } },
     showMainUI: () => {}, hideMainUI: () => {}, setMainUIInlineStyle: () => {},
   };
-  const work = new WorkView(options.onMaterials ?? (() => {}), { initialReadingMode: "structure", ...options });
+  // Saved-layout tests retain structure mode; an explicit undefined mode
+  // requests the production default instead of introducing a fixture override.
+  const initialReadingMode = Object.hasOwn(options, 'readingMode') ? options.readingMode : options.initialReadingMode ?? 'structure';
+  const work = new WorkView(options.onMaterials ?? (() => {}), {...options, initialReadingMode});
   return {
     browser, work, root, blocks, stats, commands, setCurrent: uuid => { current = blocks.get(uuid); },
     change: event => changed?.(event),

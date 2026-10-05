@@ -1,4 +1,4 @@
-import { sidebarLayoutSpec, type SidebarLayoutSpec } from "../sidebar-layout.ts";
+import { readingLayoutSpec, type SidebarLayoutSpec } from "../sidebar-layout.ts";
 import { panels, type PanelCloseReason } from "../workspace/context.ts";
 
 export function hostDocument(): Document | null {
@@ -100,47 +100,105 @@ export class FeaturePanel {
   readonly root = element("section", "", "wb-panel");
   private resize: (() => void) | null = null;
   private nativeExposure = false;
+  private onNativeSwitch: (() => void) | null = null;
+  private stopLayout: (() => void) | null = null;
+  private hostStyle: HTMLStyleElement | null = null;
+  private lifetime = 0;
+  private disposed = false;
+  private readonly unregister: () => void;
   constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
-    document.body.append(this.root); panels.register(name, reason => this.close(false, reason));
+    document.body.append(this.root); this.unregister = panels.register(name, reason => this.close(false, reason));
   }
   get visible(): boolean { return !this.root.hidden; }
   async open(revision?: number): Promise<boolean> {
-    if (!await panels.activate(this.name, revision)) return false;
+    const lifetime = ++this.lifetime;
+    if (this.disposed || !await panels.activate(this.name, revision)) return false;
+    if (this.disposed || lifetime !== this.lifetime) { if (!this.visible) panels.release(this.name); return false; }
     this.nativeExposure=false;
+    this.onNativeSwitch=null;
     this.root.hidden = false; markNavigation(this.label);
+    logseq.setMainUIInlineStyle({ display: "" });
     this.layout();
     if (!this.resize) {
-      this.resize = () => { if (this.layout()?.mode === "COMPACT" && this.nativeExposure) void this.close(true,"switch",false); };
+      this.resize = () => {
+        if (!this.visible || this.disposed) return;
+        if (this.layout()?.mode === "COMPACT" && this.nativeExposure) {
+          const switched = this.onNativeSwitch;
+          void this.close(true,"switch",false).then(() => { if (!this.disposed && !this.visible) switched?.(); });
+        }
+      };
       window.top?.addEventListener("resize", this.resize);
+      this.observeLayout();
     }
     logseq.showMainUI({ autoFocus: false });
     return true;
   }
   async close(cancelPending = true, reason: PanelCloseReason = "close", restoreEditingCursor = true): Promise<void> {
+    const lifetime = ++this.lifetime;
     this.nativeExposure=false;
+    this.onNativeSwitch=null;
     if (!this.visible) { panels.release(this.name); return; }
     if (cancelPending) panels.reserve();
-    await this.beforeClose(reason); this.root.hidden = true;
+    await this.beforeClose(reason);
+    if (lifetime !== this.lifetime) return;
+    this.root.hidden = true;
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
-    const doc = hostDocument(); doc?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
-    panels.release(this.name); logseq.hideMainUI({ restoreEditingCursor });
+    this.stopLayout?.(); this.stopLayout=null;
+    this.hostStyle?.remove(); this.hostStyle=null;
+    if (panels.active === this.name) {
+      hostDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
+      panels.release(this.name);
+      const doc=hostDocument(), focused=doc?.activeElement;
+      // Desktop 0.10.15 hideMainUI unconditionally blurs activeElement, even
+      // with restoreEditingCursor:false. Yield visually without interrupting
+      // an existing native draft or composition; the next open clears display.
+      if (!restoreEditingCursor && focused?.matches("#main-content-container .block-editor textarea")) logseq.setMainUIInlineStyle({ display: "none" });
+      else logseq.hideMainUI({ restoreEditingCursor });
+    }
   }
-  async exposeNative(): Promise<"beside" | "switch"> {
-    if (this.visible && this.layout()?.mode === "DOCKED") { this.nativeExposure=true;return "beside"; }
+  async exposeNative(onSwitch?: () => void): Promise<"beside" | "switch"> {
+    if (this.visible && this.layout()?.mode === "DOCKED") { this.nativeExposure=true;this.onNativeSwitch=onSwitch??null;return "beside"; }
     await this.close(true,"switch",false); return "switch";
+  }
+  private observeLayout(): void {
+    const doc=hostDocument(), view=doc?.defaultView;
+    if (!doc || !view) return;
+    const selectors="#left-sidebar,.cp__right-sidebar";
+    const observed=new Set<Element>();
+    const observer=typeof view.ResizeObserver === "function" ? new view.ResizeObserver(() => this.resize?.()) : null;
+    const observe=() => doc.querySelectorAll(selectors).forEach(node => { if (!observed.has(node)) { observed.add(node); observer?.observe(node); } });
+    observe();
+    const mutation=new view.MutationObserver(records => {
+      if (!records.some(record => record.target === doc.body || (record.target as Element).closest?.(selectors) || [...Array.from(record.addedNodes),...Array.from(record.removedNodes)].some(node => (node as Element).matches?.(selectors) || (node as Element).querySelector?.(selectors)))) return;
+      observe(); this.resize?.();
+    });
+    mutation.observe(doc.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class","style","hidden"]});
+    this.stopLayout=() => { observer?.disconnect(); mutation.disconnect(); observed.clear(); };
   }
   private layout(): SidebarLayoutSpec | null {
     const doc = hostDocument(); if (!doc) return null;
     const visibleWidth = (selector: string) => {
-      const node = doc.querySelector(selector); return node && doc.defaultView?.getComputedStyle(node).display !== "none" ? Math.round(node.getBoundingClientRect().width) : 0;
+      const node = doc.querySelector(selector), style=node && doc.defaultView?.getComputedStyle(node);
+      return node && style?.display !== "none" && style?.visibility !== "hidden" ? Math.round(node.getBoundingClientRect().width) : 0;
     };
-    const spec = sidebarLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: 560, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    const spec = readingLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: 520, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    if (!this.hostStyle) {
+      this.hostStyle=doc.createElement("style"); this.hostStyle.dataset.workbenchHostLayout=this.name;
+      this.hostStyle.textContent="body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}";
+      doc.head.append(this.hostStyle);
+    }
     doc.documentElement.style.setProperty("--tc-sidebar-width", `${spec.sidebarWidth}px`);
-    doc.body.classList.toggle("tc-sidebar-docked", spec.mode === "DOCKED");
-    doc.body.classList.toggle("tc-sidebar-compact", spec.mode === "COMPACT");
+    for (const [name,enabled] of [["tc-sidebar-docked",spec.mode === "DOCKED"],["tc-sidebar-compact",spec.mode === "COMPACT" && !this.nativeExposure]] as const) {
+      if (doc.body.classList.contains(name) !== enabled) doc.body.classList.toggle(name,enabled);
+    }
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
     logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
     return spec;
+  }
+  async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed=true;
+    await this.close(); this.unregister(); this.root.remove();
   }
 }
