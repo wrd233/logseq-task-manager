@@ -49,3 +49,17 @@ test('a restarted file Graph resolves the saved page name to its new real page U
   assert.deepEqual(restored.reportAPI.read().fragments.map(f=>f.target.blockUuid),['b0']);assert.equal(JSON.stringify([...f.blocks]),before);
  }finally{restored?.dispose();await f.close();}
 });
+
+test('host divider persists the completed drag without disturbing native input and is removed on close and dispose',async()=>{
+ const f=await fixture(null,3,{initialReadingMode:'report'});
+ try{
+  Object.defineProperty(f.browser.document.documentElement,'clientWidth',{value:1400,configurable:true});
+  const input=f.browser.document.createElement('textarea');input.value='原生草稿';f.browser.document.body.append(input);input.focus();input.setSelectionRange(1,3);
+  await f.work.open('root');const divider=f.browser.document.querySelector('[data-workbench-divider=work]');assert.ok(divider);assert.equal(divider.parentElement,f.browser.document.body);
+  const down=new f.browser.PointerEvent('pointerdown',{clientX:900,pointerId:1,cancelable:true});divider.dispatchEvent(down);assert.equal(down.defaultPrevented,true);
+  divider.dispatchEvent(new f.browser.PointerEvent('pointermove',{clientX:840,pointerId:1}));divider.dispatchEvent(new f.browser.PointerEvent('pointerup',{clientX:840,pointerId:1}));
+  assert.equal(f.browser.localStorage.getItem('workbench:panel-width'),'444');assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'原生草稿');assert.equal(input.selectionStart,1);assert.equal(input.selectionEnd,3);
+  await f.work.panel.close();assert.equal(f.browser.document.querySelector('[data-workbench-divider=work]'),null);
+  await f.work.open('root');assert.equal(f.browser.document.querySelectorAll('[data-workbench-divider=work]').length,1);f.work.dispose();await delay(10);assert.equal(f.browser.document.querySelector('[data-workbench-divider=work]'),null);
+ }finally{await f.close();}
+});

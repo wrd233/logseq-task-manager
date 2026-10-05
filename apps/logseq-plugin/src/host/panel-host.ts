@@ -102,17 +102,20 @@ export class FeaturePanel {
   private nativeExposure = false;
   private width = parseSidebarWidth(localStorage.getItem("workbench:panel-width"));
   private hostResize: ResizeObserver | null = null;
-  private readonly splitter = element("div", "", "wb-reading-divider");
+  private readonly splitter = hostDocument()?.createElement("div") ?? element("div");
   private dragging: {x:number;width:number} | null = null;
   private readonly unregister: () => void;
   constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
     document.body.append(this.root); this.unregister=panels.register(name, reason => this.close(false, reason));
     this.splitter.setAttribute("role","separator");this.splitter.setAttribute("aria-label","调整阅读与原生写作宽度");this.splitter.setAttribute("aria-orientation","vertical");this.splitter.tabIndex=0;
-    this.splitter.style.cssText="position:absolute;left:0;top:32px;bottom:0;width:6px;cursor:col-resize;z-index:30;touch-action:none";
-    this.root.append(this.splitter);
-    this.splitter.onpointerdown=event=>{event.preventDefault();this.dragging={x:event.screenX,width:this.width};this.splitter.setPointerCapture?.(event.pointerId);};
-    this.splitter.onpointermove=event=>{if(this.dragging){this.width=parseSidebarWidth(this.dragging.width+this.dragging.x-event.screenX);this.layout();}};
+    this.splitter.className="wb-reading-divider";this.splitter.dataset.workbenchDivider=name;
+    this.splitter.setAttribute("aria-valuemin","300");this.splitter.setAttribute("aria-valuemax","520");
+    this.splitter.style.cssText="position:fixed;bottom:0;width:6px;cursor:col-resize;z-index:10001;touch-action:none;border-left:1px solid var(--ls-border-color,#ddd)";
+    // Capture in the host document: moving the plugin iframe during a drag can
+    // cancel an iframe's pointer capture before pointerup reaches its listener.
+    this.splitter.onpointerdown=event=>{event.preventDefault();this.dragging={x:event.clientX,width:this.width};this.splitter.setPointerCapture?.(event.pointerId);};
+    this.splitter.onpointermove=event=>{if(this.dragging){this.width=parseSidebarWidth(this.dragging.width+this.dragging.x-event.clientX);this.layout();}};
     this.splitter.onpointerup=()=>{if(this.dragging){this.dragging=null;localStorage.setItem("workbench:panel-width",String(this.width));}};
     this.splitter.onpointercancel=this.splitter.onpointerup;
     this.splitter.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();this.width=parseSidebarWidth(this.width+(event.key==="ArrowLeft"?16:-16));localStorage.setItem("workbench:panel-width",String(this.width));this.layout();};
@@ -122,6 +125,7 @@ export class FeaturePanel {
     if (!await panels.activate(this.name, revision)) return false;
     this.nativeExposure=false;
     this.root.hidden = false; markNavigation(this.label);
+    hostDocument()?.body.append(this.splitter);
     this.layout();
     if (!this.resize) {
       this.resize = () => { if (this.layout()?.mode === "COMPACT" && this.nativeExposure) void this.close(true,"switch",false); };
@@ -137,6 +141,7 @@ export class FeaturePanel {
     if (!this.visible) { panels.release(this.name); return; }
     if (cancelPending) panels.reserve();
     await this.beforeClose(reason); this.root.hidden = true;
+    this.dragging=null;this.splitter.remove();
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
     this.hostResize?.disconnect();this.hostResize=null;
     const doc = hostDocument(); doc?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
@@ -146,7 +151,7 @@ export class FeaturePanel {
     if (this.visible && this.layout()?.mode === "DOCKED") { this.nativeExposure=true;return "beside"; }
     await this.close(true,"switch",false); return "switch";
   }
-  dispose(): void { if(this.resize)window.top?.removeEventListener("resize",this.resize);this.resize=null;this.hostResize?.disconnect();this.hostResize=null;this.root.remove();this.unregister(); }
+  dispose(): void { if(this.resize)window.top?.removeEventListener("resize",this.resize);this.resize=null;this.hostResize?.disconnect();this.hostResize=null;this.splitter.remove();this.root.remove();this.unregister(); }
   private layout(): SidebarLayoutSpec | null {
     const doc = hostDocument(); if (!doc) return null;
     const visibleWidth = (selector: string) => {
@@ -158,6 +163,7 @@ export class FeaturePanel {
     doc.body.classList.toggle("tc-sidebar-docked", spec.mode === "DOCKED");
     doc.body.classList.toggle("tc-sidebar-compact", spec.mode === "COMPACT");
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
+    this.splitter.style.left=`${spec.panelLeft}px`;this.splitter.style.top=`${top+32}px`;
     logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
     return spec;
   }
