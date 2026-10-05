@@ -1,0 +1,18 @@
+{
+  cleanProfile: true,
+  pluginUrl: 'file:///Users/mac/.codex/simple-start-reading-install-01a10a9e/task-copilot-workbench/dist/index.html?__v__=0.2.0',
+  bundleSha256: 'be837238674a7e9db6f0a93fcfbe14dd9fc21f7f5660a49044cf2e578a8ced71',
+  toolbar: [ { text: '工作台', font: '13px' } ],
+  settings: {
+    kernelDescriptorJson: '',
+    agentWorkspaceDescriptor: '',
+    workViewEnabled: true,
+    materialsEnabled: true,
+    tasksEnabled: false,
+    materialsDirectory: '',
+    materialsAutoCapture: false,
+    materialsMinChars: 2000,
+    materialsMinLines: 30,
+    disabled: false
+  }
+}

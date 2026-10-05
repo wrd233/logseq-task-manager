@@ -1,0 +1,9 @@
+
+> task-copilot-vnext@0.2.0 package:plugin
+> npm run build && node apps/logseq-plugin/scripts/package.mjs
+
+
+> task-copilot-vnext@0.2.0 build
+> node scripts/build-all.mjs && node scripts/check-built-binaries.mjs
+
+{"output":"/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip","sha256":"5fcc62f3772709839429e849e5c0d5fdb5bad0c733dc62b31a1efc47df1ebab2","commit":"e5eca0588aaa2d3a418049ff716505b3528a8da1","files":428}
