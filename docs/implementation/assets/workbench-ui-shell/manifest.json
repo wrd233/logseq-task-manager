@@ -1,0 +1,216 @@
+{
+  "base": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+  "codeHead": "8b98bfcee9a423323a5b2605e1ec79f52c77aaeb",
+  "branch": "codex/workbench-ui-shell",
+  "host": "Logseq 0.10.9 isolated Desktop",
+  "os": "Darwin 24.2.0 x86_64",
+  "node": "20.20.2",
+  "npm": "10.8.2",
+  "check": {
+    "tests": 640,
+    "fail": 0
+  },
+  "bundles": [
+    {
+      "path": "apps/logseq-plugin/dist/index.js",
+      "sha256": "57ba581f4e881888708ac8dda1c40065d249582c5c92d2b608dddb0fbb1f5890"
+    },
+    {
+      "path": "apps/logseq-plugin/dist/logseq-sdk.js",
+      "sha256": "f294df775860d7e10354358f8c4a70bb81e22d18d7353bc48afe80365a604582"
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2624,
+      "sha256": "d3fb2fa16024c57f15ccfc6c6e7ef912ae9202ab848247a295b305a07ed3d172"
+    },
+    {
+      "path": "after-material-final.json",
+      "bytes": 122,
+      "sha256": "153d639df3d32e95701ac1d8391c1976f5cbf58649b68eed139900d79e301d01"
+    },
+    {
+      "path": "before-material-final.json",
+      "bytes": 122,
+      "sha256": "153d639df3d32e95701ac1d8391c1976f5cbf58649b68eed139900d79e301d01"
+    },
+    {
+      "path": "body-final.json",
+      "bytes": 18697,
+      "sha256": "22c95e302c0ed8705c1c0ae36340e9181fb235f80b1ae3870a1195a0ea0158a2"
+    },
+    {
+      "path": "check-delivery.log",
+      "bytes": 164042,
+      "sha256": "bdd3bb0be903e13b0e5f62ae4050188d4120ce309597c50112266262830cfa0c"
+    },
+    {
+      "path": "cleanup.json",
+      "bytes": 322,
+      "sha256": "47a91e221e9e701888129beab5fbbfdc91322c5e68e7e51b93bb46e71485cb8c"
+    },
+    {
+      "path": "connection-active.json",
+      "bytes": 143,
+      "sha256": "25bcf885f9f189432c2abb36dd42b80298df2497a932a0bac0e2781f184c0390"
+    },
+    {
+      "path": "connection-stopped.json",
+      "bytes": 869,
+      "sha256": "827b1141a8e728b3f39fc36754970e5b3c3356197c5717cfc40a349d9fe23e4b"
+    },
+    {
+      "path": "coverage.json",
+      "bytes": 361,
+      "sha256": "03286214187c23e05e27549326b5d1e22825494ef207f0e93640c7b6e87cac9f"
+    },
+    {
+      "path": "desktop-body-dark.png",
+      "bytes": 1086194,
+      "sha256": "8f8b6ed2e70417943a8691f96fc26b31047dac29f728bdf840846c34b77bcd9f",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "desktop-body-light.png",
+      "bytes": 1069751,
+      "sha256": "f4d314aea053340b045d293bb697962f0ae73212422219da6a186858baf99716",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "desktop-history.png",
+      "bytes": 1002936,
+      "sha256": "28216e6124ae1722ec0ceb8b2386700e601a23e7215887ee4d4af9686220280e",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "desktop-materials.png",
+      "bytes": 827373,
+      "sha256": "ff423e90bbeffc3990f2a9fd29cdfaf936082db9633671ee62d7643793b54ae1",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "desktop-narrow.png",
+      "bytes": 197079,
+      "sha256": "828cc1c47142d318ebdce8394122bd7fae1bfc0504f8a5b2845044120fbe5d78",
+      "width": 680,
+      "height": 780
+    },
+    {
+      "path": "desktop-native-narrow.png",
+      "bytes": 187719,
+      "sha256": "40d301883be5f245d583be6ac589e736da3449868960e9547e9c34b4b2c795ff",
+      "width": 680,
+      "height": 780
+    },
+    {
+      "path": "desktop-review.png",
+      "bytes": 1041733,
+      "sha256": "3c3be2bcd0b9c04eeed5a7f1340319ba1a7f23f756520eb80a01ef59a1541313",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "desktop-short-materials.png",
+      "bytes": 336418,
+      "sha256": "0144f76ec46a3fc1dc77c5021a2c8c47bbbb69fc6c6f51d5d738c64de0f11ea1",
+      "width": 1440,
+      "height": 950
+    },
+    {
+      "path": "desktop-short-work.png",
+      "bytes": 320699,
+      "sha256": "34198471b6b1f20661a314621c22496979726a1fe2327dc7dc4d93a6a9339c12",
+      "width": 1440,
+      "height": 950
+    },
+    {
+      "path": "desktop-work-menu.png",
+      "bytes": 1080478,
+      "sha256": "413bb79c5fcbbb534209fd7e9ee7842781e27fc69b830a1010f1ec0b299b4502",
+      "width": 2880,
+      "height": 1900
+    },
+    {
+      "path": "final-scope-guard.log",
+      "bytes": 878,
+      "sha256": "5305212b8104d8fdb484e6f50e6197f56a45f42f85d82e8e821892115b447247"
+    },
+    {
+      "path": "fixtures/fixture-map.json",
+      "bytes": 26205,
+      "sha256": "441e42a7cd58cb1b30428a50a4fbe8c941fd45d05bd2bddc8dff4051c6c1ca11"
+    },
+    {
+      "path": "fixtures/interview-notes.md",
+      "bytes": 134,
+      "sha256": "ea3f5f6bd817e176f1adbc12f4320d36dc952e27660c1ab84896b51d343c09a8"
+    },
+    {
+      "path": "fixtures/material-index.md",
+      "bytes": 133,
+      "sha256": "3488cf80e77962eef50c86d58d10aab1e6baafb1da5c7cf52327b14dc5835ea4"
+    },
+    {
+      "path": "fixtures/reference-guide.md",
+      "bytes": 134,
+      "sha256": "a13e61f75f624ccde9e2ba068b89a09a790bd958f72ff3959b53151806240fc2"
+    },
+    {
+      "path": "fixtures/research-plan.md",
+      "bytes": 132,
+      "sha256": "89f7ccaa1c69f7a9581812a2b0cd7f23e03a6a5c07531104f24dbcebeb85d007"
+    },
+    {
+      "path": "fixtures/工作界面验收.md",
+      "bytes": 18263,
+      "sha256": "b7e8e5a80891a55f4f5b95f179f3238218e14b8a819d5ac037386834b1206e57"
+    },
+    {
+      "path": "history-final.json",
+      "bytes": 449,
+      "sha256": "b4b433a49bbf1a69fc4be30c935d60db91ac879d6551774066130874580aec41"
+    },
+    {
+      "path": "menu-escape.json",
+      "bytes": 171,
+      "sha256": "7926f25995e7343e9d78a5ea08712571eadeb5c3b6aec27f6d4f9fdd41b06043"
+    },
+    {
+      "path": "menu-open.json",
+      "bytes": 170,
+      "sha256": "ec221819de161c9d065544d6d59a66d8b15d388c6f062d56a1a69b310b687d42"
+    },
+    {
+      "path": "narrow-return.json",
+      "bytes": 231,
+      "sha256": "db0dafdeedced2d6b6c90709b11cabc42ef03a0d79cd740a4532154e3e234b26"
+    },
+    {
+      "path": "short-materials.json",
+      "bytes": 384,
+      "sha256": "37435fd7dce110b41d24614baf71228411e215f432a0f342bc2e4b52768e942b"
+    },
+    {
+      "path": "short-return.json",
+      "bytes": 111,
+      "sha256": "913d69a359c5b7de65b3f4a011ad88234a6c5b8d3080154181be1394383c122e"
+    },
+    {
+      "path": "short-work.json",
+      "bytes": 193,
+      "sha256": "22ba7114039e36652fc67c75d368bc509e0d2212b34813b0eda177bc9b19f531"
+    },
+    {
+      "path": "theme-dark.json",
+      "bytes": 166,
+      "sha256": "b990458dc7f1039b496647679f41cd6853107aba1e56e85303141d60bb68a10b"
+    }
+  ],
+  "finalScopeGuardExitCode": 0
+}

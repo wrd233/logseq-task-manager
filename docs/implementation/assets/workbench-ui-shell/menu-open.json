@@ -1,0 +1,13 @@
+{
+  "menus": [
+    {
+      "open": false,
+      "label": "工作台"
+    },
+    {
+      "open": true,
+      "label": "工作选项"
+    }
+  ],
+  "focus": "工作选项"
+}

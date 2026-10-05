@@ -1,0 +1,15 @@
+{
+  "sourceBlocks": 93,
+  "reportRows": 93,
+  "missingUuids": [],
+  "extraUuids": [],
+  "bodyBlocks": 92,
+  "bodyCharacters": 4867,
+  "cjkCharacters": 3821,
+  "maxDepth": 4,
+  "importIdentityAdjustment": {
+    "exampleId": "b70",
+    "authoredFixtureUuid": "7109a7ff-7aed-48ef-b346-886d91e45792",
+    "observedUuid": "6ac29d63-53a4-49a6-b153-63c2315e391c"
+  }
+}

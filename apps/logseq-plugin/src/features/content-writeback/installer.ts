@@ -96,7 +96,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   };
   // Trusted installers retain the actual scope lease; local user UI keeps its
   // command origin. Neither port is part of the public content namespace.
-  const local={authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
+  const local={recovery:async(root:string)=>{await establish(root);await ui.recovery();},authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
   return {api,local,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

@@ -12,15 +12,14 @@ async function wait(check:()=>boolean,message:string){
 async function fixture(){
   const f=await contentFixture(),content=installContentWriteback({journal:f.journal,adapter:f.adapter});
   const {WorkView}=await import("../src/features/work-view/controller.ts");
-  const work=new WorkView(()=>{}),stages=installStageWorkbench({content,work,storage:f.storage});
-  await content.local.authorize(f.root);await work.open(f.root);
+  const work=new WorkView(()=>{}, {initialReadingMode:"structure"}),stages=installStageWorkbench({content,work,storage:f.storage});
+  await content.local.authorize(f.root);await work.open(f.root);await work.setReviewOpen(true);
   const stage=await stages.api.begin({goal:"原位审阅真实测试",requestKey:crypto.randomUUID(),expectedStageId:null});
   const source=await content.api.read();
   const operations=source.blocks.filter(b=>[f.a,f.b].includes(b.target.blockUuid)).map((b,i)=>({operationId:"item-"+i,type:"replace-text" as const,target:b.target,expectedContentVersion:b.contentVersion!,expectedParentUuid:b.parentUuid,range:{start:0,end:i===0?5:3},expectedText:b.content!.slice(0,i===0?5:3),text:i===0?"Revised":"修改后",context:null}));
   const patch:Patch={schemaVersion:1,requestId:crypto.randomUUID(),scope:source.scope,operations,metadata:{stageId:stage.start.id,runId:null}};
   const result=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch});
   assert.equal(result.stageProblem,null);await work.refresh();
-  document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();
   return {f,content,work,stages,stage,row:(id:string)=>document.querySelector<HTMLElement>(`article[data-uuid="${id}"]`)!,
     cleanup:async()=>{stages.dispose();work.dispose();content.dispose();await f.cleanup();}};
 }
@@ -130,7 +129,7 @@ test("report preserves stage show-all, immutable history and return to the exist
     assert.equal((await t.work.reportAPI.setMode("structure")).ok,false);
     assert.deepEqual(await t.work.reportAPI.resolve({}),{ok:false,reason:"historical-view"});
     assert.deepEqual(await t.work.reportAPI.openNative({}),{ok:false,reason:"historical-view"});
-    assert.equal((document.querySelector(".wb-report-mode") as HTMLButtonElement).disabled,true);
+    assert.equal(Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-menu-content button")).find(b=>b.dataset.actionLabel==="查看原结构")!.disabled,true);
     assert.ok(Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(b=>b.textContent==="编辑原文").every(b=>b.disabled));
     Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
     assert.ok(t.row(t.f.a).classList.contains("wb-report-row"));assert.equal(t.row(t.f.b).hidden,true);
@@ -145,7 +144,7 @@ test("review draft survives installer restart; it is explicit, rereads current t
     t.stages.dispose();t.f.blocks.get(t.f.a)!.content="重启后原文已有人工修改";
     second=installStageWorkbench({content:t.content,work:t.work,storage:t.f.storage});await t.work.open(t.f.root);await t.work.refresh();
     await wait(()=>document.querySelector(".wb-stage-entry")!==null,"restored history");
-    document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();
+    await t.work.setReviewOpen(true);
     row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"restore draft");
     assert.equal(row.querySelector("textarea")!.value,"尚未提交的用户输入");
     assert.match(row.querySelector(".wb-review-editor")!.textContent!,/重启后原文已有人工修改/);

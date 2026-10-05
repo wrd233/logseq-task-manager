@@ -69,11 +69,12 @@ test('native material references return to the clicked block even when another w
     f.workRoot('projectA'); await f.materials.library('projectA');
     const block = f.browser.document.createElement('div'); block.className = 'ls-block'; block.setAttribute('blockid', 'elsewhere');
     const native = f.browser.document.createElement('a'); native.href = `longdoc://${f.docA.id}`; native.textContent = '手写别名'; block.append(native); f.browser.document.body.append(block);
-    native.click(); await delay(30); assert.ok(f.materials.panel.root.querySelector('.wb-reading'));
+    native.click(); await until(() => !!f.materials.panel.root.querySelector('.wb-reading'), 'native material reading completed');
     assert.equal((await f.materials.readMaterial(f.docA.id)).path, f.docA.path);
     await f.materials.ui.returnToBody(); assert.equal(f.returned, 'elsewhere');
     const report = f.browser.document.createElement('a'); report.href = native.href; f.browser.document.body.append(report);
-    f.workRoot('projectB'); report.click(); await delay(30); await f.materials.ui.returnToBody();
+    f.workRoot('projectB'); await f.materials.library('projectB'); report.click();
+    await until(() => !!f.materials.panel.root.querySelector('.wb-reading'), 'report material reading completed'); await f.materials.ui.returnToBody();
     assert.equal(f.returned, 'projectB'); assert.equal((await f.materials.readMaterial(f.docA.id)).path, f.docA.path);
   } finally {await f.close();}
 });

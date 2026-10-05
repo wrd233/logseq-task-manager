@@ -20,8 +20,8 @@ export class NativeEditorHost {
   showReturn(): void {
     if (this.disposed || this.control || !this.document) return;
     const control = this.document.createElement("button"); control.type = "button";
-    control.dataset.nativeReportReturn = "true"; control.textContent = "返回报告"; control.title = "返回报告 · Cmd/Ctrl+Alt+R";
-    control.setAttribute("aria-label","返回报告");
+    control.dataset.nativeReportReturn = "true"; control.textContent = "返回正文"; control.title = "返回正文 · Cmd/Ctrl+Alt+R";
+    control.setAttribute("aria-label","返回正文");
     control.style.cssText = "font:inherit;font-size:13px;padding:4px 9px;border:1px solid var(--ls-border-color,#aaa);border-radius:4px;color:var(--ls-primary-text-color,#222);background:var(--ls-primary-background-color,#fff);cursor:pointer;margin:4px;flex:none";
     control.onclick = () => { if (!this.composing) this.onReturn(); };
     const header = this.document.querySelector(".cp__header");

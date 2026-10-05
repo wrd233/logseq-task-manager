@@ -109,7 +109,7 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
   command("stage-collaboration","工作台：查看协作与这次改动",async()=>{await options.work?.open();review?.open();});
   command("stage-checkpoint","工作台：记录当前阶段版本",async()=>review?.checkpoint());
   command("stage-history","工作台：查看阶段历史",async()=>{await options.work?.open();await review?.openHistory();});
-  command("stage-accept","工作台：认可当前所见阶段版本",async()=>review?.acceptSeen(),"mod+alt+enter");
+  command("stage-accept","工作台：认可当前所见阶段版本",async()=>{if(options.work&&!options.work.reviewing){await options.work.setReviewOpen(true);return;}await review?.acceptSeen();},"mod+alt+enter");
   const api={
     begin:async(input:unknown)=>{const result=await recorder.begin(input);await review?.reload();return result;},
     read:async(input:unknown)=>{const value=fields(input,["stageId"]);return recorder.read(scope(),uuid(value.stageId));},

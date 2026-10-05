@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation();
+    materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
   const currentWorkRoot = () => (work?.snapshot() as {root?: string} | undefined)?.root ?? null;
   if (logseq.settings?.materialsEnabled !== false) {
-    try { materials = new Materials(async uuid => { if (work) await work.open(uuid); }, currentWorkRoot, workspace.materialBindings); } catch (error) { report(error); }
+    try { materials = new Materials(async uuid => { if (work) await work.returnToBody(uuid); }, currentWorkRoot, workspace.materialBindings); } catch (error) { report(error); }
   }
   if (logseq.settings?.workViewEnabled !== false) {
     try { work = new WorkView((content, uuid) => {
@@ -61,10 +61,13 @@ async function main(): Promise<void> {
   } else {
     logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}");
   }
+  if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
-  if (work) actions["工作视图"] = () => void work?.open().catch(report);
-  if (materials) actions["材料"] = () => void materials?.ui.show(currentWorkRoot()).catch(report);
-  if (logseq.settings?.tasksEnabled !== false) actions["任务"] = () => void openTaskCenter().catch(report);
+  if (work) actions["返回当前工作"] = () => void work?.open().catch(report);
+  if (work) actions["打开当前块的工作"] = () => void work?.openCurrentWork().catch(report);
+  if (materials) actions["查找全部材料"] = () => void materials?.library(null).catch(report);
+  if (logseq.settings?.tasksEnabled !== false) actions["正式任务"] = () => void openTaskCenter().catch(report);
+  actions["插件设置"] = () => void panels.closeActive().then(() => logseq.showSettingsUI()).catch(report);
   if (disposed) return;
   removeNavigation = installNavigation(actions);
   logseq.provideModel({ workbenchOpen: () => { if (disposed) return; if (work) void work.open().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
@@ -96,6 +99,20 @@ async function main(): Promise<void> {
     submit:async (input,binding)=>{requireStageScope(binding.scope);return stageApi.submit(input);},
   }});
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
+  work?.setContextActions(() => {
+    const root = currentWorkRoot(), scope = root ? { graphId: (work!.snapshot() as {graph: string}).graph, rootUuid: root } : null;
+    if (!root || !scope) return [];
+    const connection = agentWorkspace?.api.status();
+    const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
+    return [
+      { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
+      { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },
+      { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },
+      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "需要先设置私有连接；本地阅读不需要连接", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
+      { group: "外部连接与恢复", label: "允许润色并整理原块", description: "明确授予此工作内的结构维护许可", run: () => agentWorkspace!.local.connect(root, true) },
+      { group: "外部连接与恢复", label: "查看写回冲突与恢复", description: "核对未知结果和原请求；不盲目重放", run: () => content!.local.recovery(root) },
+    ];
+  });
   const api = {
     read: () => disposed ? null : work?.snapshot() ?? null,
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },

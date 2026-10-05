@@ -89,7 +89,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     await work.refresh();
     const stage=await stages.api.begin({goal:'保留材料引用历史',requestKey:crypto.randomUUID(),expectedStageId:null});
     await stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.start.id,requestKey:crypto.randomUUID(),requestIds:[]});
-    document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();await work.refresh();
+    await work.setReviewOpen(true);
     await f.c.commands.get('stage-accept')!();const accepted=await stages.api.history();assert.equal(accepted.stages[0]!.acceptances.length,1);const history=JSON.stringify(accepted);
     await f.materials.library(f.c.root);
     f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');
@@ -118,7 +118,7 @@ test('list rename uses actual file IO and returns compact success; pending nativ
     const path=join(f.work,'旧名称.md'),body='unchanged';await writeFile(path,body);await f.materials.library(f.c.root);
     const file=new f.c.browser.File([body],'旧名称.md');Object.defineProperty(file,'path',{value:path});f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'rename fixture association');
     const first=(await f.materials.listMaterials(f.c.root)).materials[0]!;
-    f.find('改文件名').click();await delay(30);const input=f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!;input.value='新名称';f.find('保存').click();await until(async () => (await f.materials.readMaterial(first.id)).path === join(f.work,'新名称.md'), 'rename record verified');
+    f.find('改文件名').click();await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename prompt ready');const input=f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!;input.value='新名称';f.find('保存').click();await until(async () => (await f.materials.readMaterial(first.id)).path === join(f.work,'新名称.md'), 'rename record verified');
     const renamed=await f.materials.readMaterial(first.id);assert.equal(renamed.path,join(f.work,'新名称.md'));assert.equal(await readFile(renamed.path,'utf8'),body);assert.equal(renamed.id,first.id);
     const row=document.createElement('article');row.className='wb-row';row.dataset.uuid=f.c.a;const paragraph=document.createElement('div');paragraph.className='wb-body';row.append(paragraph);document.body.append(row);
     const snap=await f.content.api.read();f.setView({graph:f.c.scope.graphId,root:f.c.root,draft:null,blocks:snap.blocks.map(b=>({uuid:b.target.blockUuid,content:b.target.blockUuid===f.c.a?'stale displayed text':b.content}))});
@@ -143,7 +143,8 @@ test('a work switch during real file registration retains the association but in
     apis.doAction = async args => { if (first && args[0] === 'stat' && args[1] === path) { first = false; reached(); await blocked; } return call(args); };
     const file = new f.c.browser.File([body], '晚到文件.md'); Object.defineProperty(file, 'path', {value: path});
     f.drop(paragraph, {types: ['Files'], files: [file as unknown as File]}); await entered;
-    f.setView({graph: f.c.scope.graphId, root: crypto.randomUUID(), draft: null, blocks: []}); release(); await delay(150);
+    f.setView({graph: f.c.scope.graphId, root: crypto.randomUUID(), draft: null, blocks: []}); release();
+    await until(() => !!row.querySelector('[data-material-continuation]'), 'completed registration after work switch');
     assert.equal(f.c.counts().inserts, 0);
     assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1);
     assert.equal(await readFile(path, 'utf8'), body);

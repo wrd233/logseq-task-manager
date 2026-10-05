@@ -16,6 +16,7 @@ test("report grouping and native drafts remain independent of authorized moves a
     const child = f.add("[原文件](longdoc://stable-reference)\n限制仍然成立", f.a);
     await content.local.authorize(f.root, true);
     await work.open(f.root);
+    await work.setReviewOpen(true);
     assert.equal((await work.reportAPI.setMode("report")).ok, true);
     const source = await content.api.read();
     const a = source.blocks.find(b => b.target.blockUuid === f.a)!, b = source.blocks.find(b => b.target.blockUuid === f.b)!;

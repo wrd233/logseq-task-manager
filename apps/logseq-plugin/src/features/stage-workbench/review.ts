@@ -54,8 +54,9 @@ export class StageReview implements ReviewPort {
   private displayedRevision:string|null=null;
   private collaboration:CollaborationPort|null=null;
   setCollaboration(port:CollaborationPort|null):void{this.collaboration=port;this.setup.refresh();}
-  open():void{if(this.busy())return;this.expanded=true;this.chrome();this.bridge?.repaint();this.run(()=>this.reload());}
-  async openHistory():Promise<void>{if(this.busy())return;this.expanded=true;this.more.open=true;this.historyBox.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
+  enter():void{this.expanded=true;this.chrome();}
+  open():void{if(this.busy())return;this.enter();void this.bridge?.openReview();this.bridge?.repaint();this.run(()=>this.reload());}
+  async openHistory():Promise<void>{if(this.busy())return;this.enter();await this.bridge?.openReview();this.more.open=true;this.historyBox.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
   private draftKey(uuid:string):string{return `workbench:stage-draft:${JSON.stringify(this.scope)}:${uuid}`;}
   private savedDraft(uuid:string):ReviewDraft|null{
     try{const raw=localStorage.getItem(this.draftKey(uuid));if(!raw)return null;const d=JSON.parse(raw);
@@ -64,7 +65,13 @@ export class StageReview implements ReviewPort {
       return d;
     }catch{return null;}
   }
-  focusGoal():void{if(this.busy())return;this.expanded=true;this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
+  focusGoal():void{if(this.busy())return;this.enter();void this.bridge?.openReview();this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
+  navigation() {
+    const stage = this.stage(), accepted = !!this.seen && !!stage?.acceptances.some(a => a.revisionId === this.seen!.id);
+    return { attention: this.changeCount > 0 && (!accepted || !this.currentMatches), busy: this.editing || this.draft, historical: this.historyMode,
+      notice: this.editing ? "审阅输入尚未提交 · 先提交或保留草稿，再收起审阅。" : this.issue.textContent ?? "" };
+  }
+  leave(): boolean { if (this.busy()) return false; this.returnCurrent(); this.expanded = false; this.chrome(); return true; }
   private readonly label=element("span");
   private readonly issue=element("small","","wb-error");
   private readonly goal=element("input");
@@ -83,7 +90,7 @@ export class StageReview implements ReviewPort {
   private readonly filesBox=element("details");
   private readonly filesList=element("div");
   private readonly fileIds=new Set<string>();
-  private readonly entry=button("协作",()=>{if(this.expanded){if(this.busy())return;this.returnCurrent();this.expanded=false;this.chrome();this.bridge?.repaint();}else this.open();});
+  private readonly entry=button("协作",()=>{if(this.expanded){if(this.bridge){void this.bridge.closeReview();return;}this.leave();}else this.open();});
   private readonly contextNote=element("small");
   private readonly controls=element("div","","wb-collaboration-controls");
   private readonly more=element("details");
@@ -91,6 +98,7 @@ export class StageReview implements ReviewPort {
   private readonly versionText=element("pre");
   private readonly setup=collaborationSetup(()=>this.scope,()=>this.collaboration,action=>this.run(action),()=>this.busy());
   constructor(readonly recorder:StageRecorder,private readonly actions:ReviewActions){
+    this.entry.className="wb-collaboration-entry";
     this.goal.placeholder="本阶段的一句话目标";this.goal.maxLength=240;this.goal.setAttribute("aria-label","阶段目标");
     this.goal.onkeydown=event=>{
       if(event.isComposing)return;

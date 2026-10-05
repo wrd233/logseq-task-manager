@@ -10,6 +10,8 @@ import { parseFormalAnchor } from "../../canonical-writing.ts";
 import { MaterialSourceActions } from "./source.ts";
 import { MaterialTransfers } from "./transfer-ui.ts";
 import type { MaterialTransferPort } from "./drop.ts";
+import { graphIdentity } from "../../graph-adapter.ts";
+import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { panels } from "../../workspace/context.ts";
 import { MaterialStore, ConflictError, normalizeRoot, idFrom, restoreCapture, titleOf, associationsOf, type MaterialRecord } from "./store.ts";
 
@@ -38,6 +40,15 @@ export class Materials {
   readonly panel: FeaturePanel;
   readonly ui: MaterialReadingUI;
   private listPosition: {graph: string; root: string | null; query: string; scroll: number; selected: string | null} | null = null;
+  private workChrome: ((surface: HTMLElement, scope: SourceScope | null) => boolean) | null = null;
+  private graphId = "";
+  private beforeWorkMaterials: ((scope: SourceScope) => void) | null = null;
+  private nativeWorkContext: ((uuid: string) => Promise<string | null>) | null = null;
+  private linkEpoch = 0;
+  setWorkChrome(mount: ((surface: HTMLElement, scope: SourceScope | null) => boolean) | null, before: ((scope: SourceScope) => void) | null = null, nativeContext: ((uuid: string) => Promise<string | null>) | null = null): void { this.workChrome = mount; this.beforeWorkMaterials = before; this.nativeWorkContext = nativeContext; }
+  private mountWorkChrome(): void { this.workChrome?.(this.panel.root, this.contextUuid ? { graphId: this.graphId, rootUuid: this.contextUuid } : null); }
+  private returnButton(): HTMLButtonElement { const item = button("返回正文", () => void this.returnToBody().catch(this.fail)); item.className = "wb-material-return"; return item; }
+  private closeButton(): HTMLButtonElement { const item = button("关闭", () => void this.panel.close().catch(this.fail)); item.className = "wb-material-close"; return item; }
   private store: MaterialStore | null = null;
   private service: MaterialService | null = null;
   private readonly directories: MaterialDirectories;
@@ -89,7 +100,13 @@ export class Materials {
       if (event.button !== 0) return;
       const anchor = (event.target as Element | null)?.closest?.("a,[data-href]");
       const id = idFrom(anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href") ?? "");
-      if (!id) return; event.preventDefault(); event.stopImmediatePropagation(); this.contextUuid = (event.target as Element | null)?.closest(".ls-block")?.getAttribute("blockid") ?? this.currentWorkRoot?.() ?? this.contextUuid; void this.openDoc(id).catch(this.fail);
+      if (!id) return; event.preventDefault(); event.stopImmediatePropagation();
+      const native = (event.target as Element | null)?.closest(".ls-block")?.getAttribute("blockid"), epoch = this.epoch, ticket = ++this.linkEpoch;
+      void (async () => {
+        const root = native ? this.nativeWorkContext ? await this.nativeWorkContext(native) : native : this.currentWorkRoot?.() ?? this.contextUuid;
+        if (epoch !== this.epoch || ticket !== this.linkEpoch || this.disposed || native && root === null) return;
+        this.contextUuid = root; await this.openDoc(id);
+      })().catch(this.fail);
     };
     const paste = (event: ClipboardEvent) => this.sources.onPaste(event);
     doc?.addEventListener("click", link, true); document.addEventListener("click", link, true); doc?.addEventListener("paste", paste, true);
@@ -126,6 +143,7 @@ export class Materials {
     if (this.disposed) throw new Error("材料模块已关闭。");
     const graph = await logseq.App.getCurrentGraph(); this.assertScope(epoch);
     if (!graph?.path) throw new Error("请先打开本地文件 Graph。");
+    this.graphId = graphIdentity(graph);
     const directory = String(logseq.settings?.materialsDirectory ?? "").trim();
     const root = directory ? normalizeRoot(directory, graph.path) : null;
     if (!this.service || this.graph !== graph.path || this.service.globalRoot !== root) {
@@ -183,11 +201,11 @@ export class Materials {
     this.rememberList(); await this.leave(); if (this.disposed || !panels.isLatest(navigation)) return;
     this.epoch++; this.current = null; this.mode = "reading"; this.contextUuid = rootUuid; this.conflict.hidden = true;
     this.editorRoot.hidden = true; this.body.hidden = false;
-    this.heading.replaceChildren(element("strong", rootUuid ? "材料" : "全部材料"), button("加入材料", () => void this.addMaterials().catch(this.fail)), button("关闭", () => void this.panel.close().catch(this.fail)));
+    this.heading.replaceChildren(element("strong", rootUuid ? "材料" : "全部材料"), button("加入材料", () => void this.addMaterials().catch(this.fail)), this.closeButton());
     const management = element("details"), summary = element("summary", "目录与查找"); management.append(summary); this.heading.append(management);
     if (rootUuid) {
       this.heading.append(button("目录文件", () => void this.directoryFiles().catch(this.fail)));
-      if (this.returnWork) this.heading.append(button("返回正文", () => void this.returnToBody().catch(this.fail)));
+      if (this.returnWork) this.heading.append(this.returnButton());
       management.append(button("查找全部材料", () => void this.library(null).catch(this.fail)));
       management.append(button("绑定工作目录", () => void this.bindCurrentDirectory().catch(this.fail)), button("解除目录绑定", () => void this.bindDirectory(rootUuid, null).then(() => this.library(rootUuid)).catch(this.fail)));
     }
@@ -202,6 +220,7 @@ export class Materials {
     }
     if(rootUuid&&this.directoryObserver){
       const context=await this.workContext(rootUuid),connected=this.directoryObserver.available(context);
+      management.append(element("small",connected?"连接已允许 · 不表示 agent 正在工作":"未连接 · 本地阅读与材料仍可用"));
       if(connected)management.append(button("停止 agent 连接",()=>{this.directoryObserver?.stop();void this.library(rootUuid).catch(this.fail);}));
     }
     const results = element("div"), recovery = element("div"), tools = element("div", "", "wb-material-tools"), drop = materialDropArea(rootUuid);
@@ -221,7 +240,9 @@ export class Materials {
         })().catch(this.fail)));
       } catch { recovery.append(element("p", "一条恢复记录不可读，原记录仍保留。")); }
     }
+    if (this.contextUuid) this.beforeWorkMaterials?.({ graphId: this.graphId, rootUuid: this.contextUuid });
     if (!await this.panel.open(navigation)) return;
+    this.mountWorkChrome();
     const related = new Set([...content.matchAll(/longdoc:\/\/([0-9a-f-]{36})/gi)].map(match => match[1]));
     let searchEpoch = 0;
     const search = async () => {
@@ -277,16 +298,17 @@ export class Materials {
       if (epoch !== this.epoch) return;
       this.current = null; this.mode = "reading"; this.editorRoot.hidden = true; this.body.hidden = false;
       this.heading.replaceChildren(element("strong", "材料暂不可用"), button("‹ 材料库", () => void this.library(this.contextUuid).catch(this.fail)));
-      if (this.contextUuid && this.returnWork) this.heading.append(button("返回正文", () => void this.returnToBody().catch(this.fail)));
+      if (this.contextUuid && this.returnWork) this.heading.append(this.returnButton());
       this.body.replaceChildren(element("p", error instanceof Error ? error.message : String(error)), button("登记原材料目录", () => void this.registerDirectory(id).catch(this.fail)));
-      await this.panel.open(navigation); return;
+      if (this.contextUuid) this.beforeWorkMaterials?.({ graphId: this.graphId, rootUuid: this.contextUuid });
+      if (await this.panel.open(navigation)) this.mountWorkChrome(); return;
     }
     const {store} = located, view = await service.read(id), record = await store.record(id);
     if (epoch !== this.epoch || !panels.isLatest(navigation)) return;
     this.store = store; this.current = record; this.mode = "reading"; this.base = view.content ?? ""; this.stableExternal = null; this.conflict.hidden = true;
     if (located.record.title !== record.title && record.references?.length) void this.transfers.sync(id).catch(this.fail);
-    this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(this.contextUuid).catch(this.fail)), element("strong", record.summary || record.title), button("复制链接", () => void this.transfers.copy(id, this.contextUuid).catch(this.fail)), button("关闭", () => void this.panel.close().catch(this.fail)));
-    if (this.contextUuid && this.returnWork) this.heading.append(button("返回正文", () => void this.returnToBody().catch(this.fail)));
+    this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(this.contextUuid).catch(this.fail)), element("strong", record.summary || record.title), button("复制链接", () => void this.transfers.copy(id, this.contextUuid).catch(this.fail)), this.closeButton());
+    if (this.contextUuid && this.returnWork) this.heading.append(this.returnButton());
     const more = element("details"), summary = element("summary", "更多"); more.append(summary); this.heading.append(more);
     more.append(button("改文件名", () => void this.transfers.rename(id, this.contextUuid).catch(this.fail)), button("写概述", () => void this.describe(id).catch(this.fail)), button("同步名称与引用", () => void this.recoverMaterial(id).catch(this.fail)), button("补关联", () => void this.linkExisting(id).catch(this.fail)), button("重新定位", () => void this.relocate().catch(this.fail)), button("来源", () => void this.locate().catch(this.fail)), element("small", `${record.kind === "reference" ? "原文件" : "收纳创建"} · ${roleLabel(record.role)}`));
     if (record.kind === "capture" && record.sourceUuid) more.append(button("恢复收纳原文", () => void this.restore().catch(this.fail)));
@@ -304,7 +326,9 @@ export class Materials {
       this.body.append(element("p", view.availability === "unavailable" ? "文件失联，原关联与历史仍保留。" : "此文件在默认应用中查看；这里保留关联与稳定链接。"));
       this.body.append(button(view.availability === "unavailable" ? "重新定位" : "在默认应用打开", () => void (view.availability === "unavailable" ? this.relocate() : this.openExternal(id)).catch(this.fail)));
     }
+    if (this.contextUuid) this.beforeWorkMaterials?.({ graphId: this.graphId, rootUuid: this.contextUuid });
     if (!await this.panel.open(navigation)) return;
+    this.mountWorkChrome();
     const draft = localStorage.getItem(this.key());
     if (draft) {
       if (view.content !== null) this.heading.append(button("恢复保留草稿", () => void this.beginEditing(false).catch(this.fail)));
@@ -522,7 +546,7 @@ export class Materials {
     const list=element("div");
     const header=()=>{
       this.heading.replaceChildren(element("strong","工作目录文件"),button("‹ 已关联材料",()=>void this.library(sourceUuid).catch(this.fail)));
-      if(this.returnWork)this.heading.append(button("返回正文",()=>void this.returnToBody().catch(this.fail)));
+      if(this.returnWork)this.heading.append(this.returnButton());
     };
     const preview=async(path:string,read:()=>Promise<{content?:string|null}>,associate:()=>Promise<MaterialResult>)=>{
       this.assertScope(epoch);
@@ -532,7 +556,7 @@ export class Materials {
         if(epoch!==this.epoch)return;
         void associate().then(result=>{this.assertScope(epoch);return this.openDoc(result.material.id);}).catch(this.fail);
       }));
-      if(this.returnWork)this.heading.append(button("返回正文",()=>void this.returnToBody().catch(this.fail)));
+      if(this.returnWork)this.heading.append(this.returnButton());
       const reading=view.content===null||view.content===undefined?element("p","此格式或大小不支持正文预览，可在默认应用查看。"): /\.(md|markdown)$/i.test(path)?renderReading(view.content):element("pre",view.content,"wb-reading");
       reading.style.whiteSpace=reading.tagName==="PRE"?"pre-wrap":"";
       this.body.replaceChildren(element("small","目录文件 · 尚未关联 · 只读预览"),reading,button("在默认应用打开",()=>void this.openUnassociated(path,epoch).catch(this.fail)));

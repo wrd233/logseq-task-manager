@@ -33,6 +33,11 @@ export type ReviewFrame = {
 };
 export interface ReviewPort {
   readonly bar: HTMLElement;
+  /** Optional UI adapter; revision/acceptance authority stays in the review owner. */
+  navigation?(): { attention: boolean; busy: boolean; historical: boolean; notice: string };
+  /** Reveal the review owner's controls when the shared work entry opens. */
+  enter?(): void;
+  leave?(): boolean;
   scopeChanged(scope: ReviewContext["scope"] | null): void;
   compose(context: ReviewContext): ReviewFrame;
   edit(uuid: string, container: HTMLElement, suggest: boolean): void;
