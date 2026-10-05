@@ -43,6 +43,7 @@ test("report grouping and native drafts remain independent of authorized moves a
     assert.equal(applied.status, "complete");
     await work.refresh();
     assert.equal((await work.reportAPI.setMode("report")).ok, true);
+    document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();
     const row = document.querySelector<HTMLElement>(`article[data-uuid="${f.a}"]`)!;
     assert.ok(row.classList.contains("wb-report-row"));
     assert.match(row.textContent!, /结构变化/);

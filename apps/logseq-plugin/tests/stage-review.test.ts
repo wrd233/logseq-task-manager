@@ -20,6 +20,7 @@ async function fixture(){
   const patch:Patch={schemaVersion:1,requestId:crypto.randomUUID(),scope:source.scope,operations,metadata:{stageId:stage.start.id,runId:null}};
   const result=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch});
   assert.equal(result.stageProblem,null);await work.refresh();
+  document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();
   return {f,content,work,stages,stage,row:(id:string)=>document.querySelector<HTMLElement>(`article[data-uuid="${id}"]`)!,
     cleanup:async()=>{stages.dispose();work.dispose();content.dispose();await f.cleanup();}};
 }
@@ -63,13 +64,14 @@ test("clicking a changed body edits the full current authoritative source; compo
 });
 test("suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent",async()=>{
   const t=await fixture();try{
-    const row=t.row(t.f.b),suggest=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="建议")!;suggest.click();
+    const row=t.row(t.f.b),suggest=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="原文建议")!;suggest.click();
     await wait(()=>!!row.querySelector("textarea"),"suggestion editor unavailable");
     row.querySelector("textarea")!.value="保留这个限制条件";
     Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="写入原文建议")!.click();
     await wait(()=>!row.querySelector("textarea"),"suggestion not submitted");
     const child=[...t.f.blocks.values()].find(b=>b.content.includes("保留这个限制条件"));
     assert.ok(child);assert.match(child.content,/\*\*\[注\]\*\*/);
+    await wait(()=>!!document.querySelector(`article[data-uuid="${child.uuid}"]`),"new suggestion revision not yet displayed");
     await t.f.commands.get("stage-accept")!();
     const history=await t.stages.api.history(),acceptance=history.stages[0]!.acceptances[0]!;
     assert.ok(acceptance);const count=history.stages[0]!.revisions.length;
@@ -90,7 +92,7 @@ test("historical view uses immutable saved text; correcting it reads present sou
     await wait(()=>document.querySelector(".wb-stage-bar>span")?.textContent?.startsWith("历史")??false,"historical mode unavailable");
     assert.match(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/Revised/);
     assert.doesNotMatch(t.row(t.f.a).querySelector(".wb-body")!.textContent!,/当前人工/);
-    const row=t.row(t.f.a),correct=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="在当前内容中纠正")!;correct.click();
+    const row=t.row(t.f.a),correct=Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="重新读取当前原文并纠正")!;correct.click();
     await wait(()=>!!row.querySelector("textarea"),"historical correction editor unavailable");
     const input=row.querySelector("textarea")!;assert.equal(input.value,"当前人工改变过的内容");input.value="修正当前人工内容";
     Array.from(row.querySelectorAll("button")).find(b=>b.textContent==="提交修改")!.click();
@@ -143,6 +145,7 @@ test("review draft survives installer restart; it is explicit, rereads current t
     t.stages.dispose();t.f.blocks.get(t.f.a)!.content="重启后原文已有人工修改";
     second=installStageWorkbench({content:t.content,work:t.work,storage:t.f.storage});await t.work.open(t.f.root);await t.work.refresh();
     await wait(()=>document.querySelector(".wb-stage-entry")!==null,"restored history");
+    document.querySelector<HTMLButtonElement>(".wb-stage-bar>button")!.click();
     row.querySelector<HTMLElement>(".wb-body")!.click();await wait(()=>!!row.querySelector("textarea"),"restore draft");
     assert.equal(row.querySelector("textarea")!.value,"尚未提交的用户输入");
     assert.match(row.querySelector(".wb-review-editor")!.textContent!,/重启后原文已有人工修改/);
@@ -171,7 +174,7 @@ test("later current edits cannot be mistaken for an unseen pending result; expli
     t.f.blocks.get(t.f.a)!.content="原文后来又有人工修改";await t.work.refresh();
     assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当前原文已不同/);
     assert.match(t.row(t.f.a).querySelector(".wb-review-info")!.textContent!,/当时提交的结果/);
-    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可所见版本")!;
+    const accept=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="认可这个版本")!;
     assert.equal(accept.disabled,true);await t.f.commands.get("stage-accept")!();
     assert.equal((await t.stages.api.history()).stages[0]!.acceptances.length,0);
     const submitted=Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="查看待认可版本")!;

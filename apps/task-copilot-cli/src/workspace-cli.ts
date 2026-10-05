@@ -19,7 +19,8 @@ export const workspaceHelp = `Task Copilot natural workspace CLI (local connecti
   # move-block uses content.apply or stage.submit, patch schemaVersion:2; inspect capabilities first.
   # Requires local "允许 agent 润色并整理当前工作原块"; text-only permission never grants moves.
   workspace sessions list | add --platform <name> --session-id <id> [--url <real-link>] [--description <text>] | remove --platform <name> --session-id <id>
-  workspace stage read | submit --input-file <path|->  # unavailable without installed provider; no approval
+  workspace stage read --input-file <path|->  # JSON: {stageId}; unavailable without installed provider
+  workspace stage submit --input-file <path|->  # same local stage; no approval
   --directory <work-directory> (default cwd; finds nearest WORKSPACE.md + agent locator)
   --state-dir <private-directory> (default TASK_COPILOT_WORKSPACE_STATE or ~/.task-copilot-workspace)
   --client <session-label> (default TASK_COPILOT_WORKSPACE_CLIENT or shell; use distinct labels for independent sessions)

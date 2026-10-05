@@ -82,3 +82,27 @@ test("coverage distinguishes explicit hidden ranges from unavailable sources and
   assert.deepEqual(report.coverage.unavailableSourceIds,[blocks[44]!.sourceId]);
   assert.equal(report.fragments.some(f=>f.sourceId===blocks[44]!.sourceId),false);
 });
+
+test("collaboration highlights retain literal identity examples in full current and historical reports; reading never opens an editor",async()=>{
+  const browser=new Window();Object.assign(globalThis,{window:browser,document:browser.document});
+  try{
+    const {WorkViewRenderer}=await import("../src/features/work-view/renderer.ts");
+    const original=await sourceFixture(),before=original.blocks.find(b=>b.content?.includes("id:: 这是一行代码中的原文"))!;
+    const content=before.content!.replace("这是一行代码中的原文","这是一行代码中的完整原文"),id=before.target.blockUuid;
+    const current=await snapshot(scope,await Promise.all(original.blocks.map(async b=>b===before?{...b,content,contentVersion:await sha256(content)}:b)));
+    const state=personal(),report=composeReport(current,state,null,new Set()),container=document.createElement("main");document.body.append(container);
+    let corrections=0;
+    const renderer=new WorkViewRenderer(container,{operation:()=>{},toggle:()=>{},raw:()=>{},locate:()=>{},enter:()=>{},range:()=>{},repaint:()=>{},reviewEdit:()=>{corrections++;}});
+    const changes=new Map([[id,{kind:"modified" as const,before:before.content,after:content,version:current.blocks.find(b=>b.target.blockUuid===id)!.contentVersion,label:"修改 · 实际来源未知",problem:null,inline:null}]]);
+    for(const historical of [false,true]){
+      renderer.render(current.blocks.map(b=>({uuid:b.target.blockUuid,content:b.content!,depth:b.depth,sourceParent:b.parentUuid})),state,new Set(),report.view,{changes,historical},report);
+      const row=container.querySelector<HTMLElement>(`article[data-uuid="${id}"]`)!,body=row.querySelector<HTMLElement>(".wb-body")!;
+      assert.match(body.querySelector("pre code")!.textContent!,/id:: 这是一行代码中的完整原文/);
+      assert.doesNotMatch(body.textContent!,new RegExp(`id:: ${id}`));
+      assert.ok(body.querySelector("mark"));assert.equal(container.dataset.reportShown,"93");
+      body.click();assert.equal(corrections,0,"report text stays readable; correction has an explicit button");
+      assert.equal(Array.from(row.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="编辑原文")!.disabled,historical);
+      assert.equal(container.querySelectorAll("article").length,current.blocks.length);
+    }
+  }finally{await browser.happyDOM.abort();delete (globalThis as Partial<typeof globalThis>).window;delete (globalThis as Partial<typeof globalThis>).document;}
+});

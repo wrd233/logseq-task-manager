@@ -1,30 +1,34 @@
 import { button, element } from "../../host/panel-host.ts";
 import type { WorkView } from "../work-view/controller.ts";
 import type { ReadingBookmark } from "../work-view/renderer.ts";
-import type { ReviewContext, ReviewFrame, ReviewPort } from "../work-view/review-port.ts";
+import { reviewProblem, type ReviewContext, type ReviewFrame, type ReviewPort } from "../work-view/review-port.ts";
 import { copyPresentation } from "../work-view/operations.ts";
-import { sameScope, sha256 } from "../content-writeback/validation.ts";
-import type { Operation, SourceSnapshot } from "../content-writeback/protocol.ts";
-import { composeDiff, inlineDiff, observePositions } from "./diff.ts";
+import { parsePatch, sameScope, sha256 } from "../content-writeback/validation.ts";
+import type { ApplyResult, Operation, Patch, SourceSnapshot } from "../content-writeback/protocol.ts";
+import { composeDiff, inlineDiff, observeCurrentText, observePositions } from "./diff.ts";
 import { latest, revisionId } from "./recorder.ts";
 import type { StageRecorder } from "./recorder.ts";
 import type { Stage, StageHistory, StageRevision } from "./protocol.ts";
+import { collaborationSetup, type CollaborationPort } from "./collaboration-setup.ts";
 
 /** Missing identities sit by their last known predecessor; names never participate. */
 function withGhosts<T extends {uuid:string}>(items:readonly T[],ghosts:readonly T[],base:SourceSnapshot):T[]{
   const result=[...items],order=base.blocks.map(b=>b.target.blockUuid);
-  for(const ghost of ghosts){const at=order.indexOf(ghost.uuid);let anchor=-1;
+  for(const ghost of ghosts){const at=order.indexOf(ghost.uuid);if(at<0){result.push(ghost);continue;}let anchor=-1;
     for(let i=at-1;i>=0;i--){anchor=result.findIndex(x=>x.uuid===order[i]);if(anchor>=0)break;}
     result.splice(anchor<0?Math.min(at,result.length):anchor+1,0,ghost);
   }return result;
 }
 export interface ReviewActions {
   authorize(scope:ReviewContext["scope"]):Promise<void>;
-  submit(stageId:string,expectedRevision:string,operations:Operation[],local:boolean,requestId:string,correctionOf:StageRevision["correctionOf"]):Promise<unknown>;
+  submit(stageId:string,expectedRevision:string,operations:Operation[],local:boolean,requestId:string,correctionOf:StageRevision["correctionOf"]):Promise<ApplyResult & {stageProblem:string|null}>;
+  result(requestId:string):Promise<ApplyResult|null>;
+  recover(requestId:string):Promise<ApplyResult>;
   read():Promise<SourceSnapshot>;
   openFile?(id:string):Promise<unknown>;
   listFiles(scope:ReviewContext["scope"]):Promise<Array<{id:string;title:string}>>;
 }
+type ReviewDraft={stageId:string;text:string;suggest:boolean;type:string;request?:{patch:Patch;expectedRevision:string;correctionOf:StageRevision["correctionOf"]}|null};
 export class StageReview implements ReviewPort {
   readonly bar=element("div","","wb-stage-bar");
   private scope:ReviewContext["scope"]|null=null;
@@ -45,20 +49,29 @@ export class StageReview implements ReviewPort {
   private disposed=false;
   private frozen:ReviewFrame|null=null;
   private goalOpen=false;
+  private expanded=false;
+  private changeCount=0;
+  private displayedRevision:string|null=null;
+  private collaboration:CollaborationPort|null=null;
+  setCollaboration(port:CollaborationPort|null):void{this.collaboration=port;this.setup.refresh();}
+  open():void{if(this.busy())return;this.expanded=true;this.chrome();this.bridge?.repaint();this.run(()=>this.reload());}
+  async openHistory():Promise<void>{if(this.busy())return;this.expanded=true;this.more.open=true;this.historyBox.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
   private draftKey(uuid:string):string{return `workbench:stage-draft:${JSON.stringify(this.scope)}:${uuid}`;}
-  private savedDraft(uuid:string):{stageId:string;text:string;suggest:boolean;type:string}|null{
+  private savedDraft(uuid:string):ReviewDraft|null{
     try{const raw=localStorage.getItem(this.draftKey(uuid));if(!raw)return null;const d=JSON.parse(raw);
-      return typeof d.stageId==="string"&&typeof d.text==="string"&&d.text.length<=262144&&typeof d.suggest==="boolean"&&["[注]","[想法]"].includes(d.type)?d:null;
+      if(typeof d.stageId!=="string"||typeof d.text!=="string"||d.text.length>262144||typeof d.suggest!=="boolean"||!["[注]","[想法]"].includes(d.type))return null;
+      if(d.request){const patch=parsePatch(d.request.patch);if(!this.scope||!sameScope(patch.scope,this.scope)||patch.metadata?.stageId!==d.stageId||typeof d.request.expectedRevision!=="string")return null;d.request={...d.request,patch};}
+      return d;
     }catch{return null;}
   }
-  focusGoal():void{if(this.busy())return;this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
+  focusGoal():void{if(this.busy())return;this.expanded=true;this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
   private readonly label=element("span");
   private readonly issue=element("small","","wb-error");
   private readonly goal=element("input");
   private readonly beginButton=button("开始阶段",()=>this.run(()=>this.begin()));
-  private readonly checkpointButton=button("提交结果",()=>this.run(()=>this.checkpoint()));
+  private readonly checkpointButton=button("记录当前版本",()=>this.run(()=>this.checkpoint()));
   private readonly cancelGoalButton=button("取消",()=>{this.goalOpen=false;this.chrome();this.beginButton.focus();});
-  private readonly acceptButton=button("认可所见版本",()=>this.run(()=>this.acceptSeen()));
+  private readonly acceptButton=button("认可这个版本",()=>this.run(()=>this.acceptSeen()));
   private readonly submittedButton=button("查看待认可版本",()=>{
     if(this.busy()||!this.seen)return;this.remember();this.historyMode=true;this.submittedMode=true;this.all=true;
     this.chrome();this.bridge?.repaint();this.run(()=>this.reload());
@@ -70,6 +83,13 @@ export class StageReview implements ReviewPort {
   private readonly filesBox=element("details");
   private readonly filesList=element("div");
   private readonly fileIds=new Set<string>();
+  private readonly entry=button("协作",()=>{if(this.expanded){if(this.busy())return;this.returnCurrent();this.expanded=false;this.chrome();this.bridge?.repaint();}else this.open();});
+  private readonly contextNote=element("small");
+  private readonly controls=element("div","","wb-collaboration-controls");
+  private readonly more=element("details");
+  private readonly versionInfo=element("details");
+  private readonly versionText=element("pre");
+  private readonly setup=collaborationSetup(()=>this.scope,()=>this.collaboration,action=>this.run(action),()=>this.busy());
   constructor(readonly recorder:StageRecorder,private readonly actions:ReviewActions){
     this.goal.placeholder="本阶段的一句话目标";this.goal.maxLength=240;this.goal.setAttribute("aria-label","阶段目标");
     this.goal.onkeydown=event=>{
@@ -80,15 +100,23 @@ export class StageReview implements ReviewPort {
     this.historyBox.append(element("summary","阶段历史"),this.historyList);
     this.filesBox.append(element("summary","成果文件"),this.filesList);
     this.filesBox.addEventListener("toggle",()=>{if(this.filesBox.open)this.run(()=>this.files());});
-    this.bar.append(this.label,this.goal,this.beginButton,this.cancelGoalButton,this.checkpointButton,this.acceptButton,this.submittedButton,this.allButton,this.backButton,this.historyBox,this.filesBox,this.issue);
+    this.versionInfo.append(element("summary","当前所见版本详情"),this.versionText);
+    this.more.append(element("summary","历史、比较与阶段成果"),this.historyBox,this.filesBox,this.versionInfo);
+    this.checkpointButton.title="仅把当前原文、Journal 事实和选定成果记录为阶段版本，不发送给 agent 或发布。";
+    this.controls.append(this.goal,this.beginButton,this.cancelGoalButton,this.checkpointButton,this.acceptButton,this.submittedButton,this.allButton,this.backButton,this.more,this.setup.element);
+    this.bar.append(this.label,this.entry,this.contextNote,this.controls,this.issue);
     const style=element("style");style.textContent=`
       .wb-stage-bar{padding:6px 14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--ls-border-color,#ddd)}
       .wb-stage-bar>span{flex:1;min-width:180px}.wb-stage-bar input{max-width:260px}.wb-stage-bar details[open]{width:100%}
+      .wb-stage-bar [hidden]{display:none!important}.wb-collaboration-controls{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+      .wb-stage-bar .wb-notice{color:inherit;opacity:.75}
+      .wb-stage-bar>small:not(.wb-error){width:100%;opacity:.75}.wb-collaboration-controls>details{font-size:12px}
       .wb-stage-bar details pre,.wb-review-info pre{white-space:pre-wrap;max-height:280px;overflow:auto}
       .wb-stage-bar .wb-stage-entry{display:block;text-align:left;width:100%;border:0;margin:3px 0}
       .wb-review-change{border-left:2px solid var(--ls-link-text-color,#79978b)}
       .wb-review-info,.wb-review-editor{grid-column:3 / 5;font-size:12px}.wb-review-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
       .wb-review-info>span{border-bottom:1px dotted currentColor;opacity:.75}.wb-review-info details[open],.wb-review-info small{width:100%}
+      .wb-review-old{max-height:300px;overflow:auto}.wb-review-old p{margin:4px 0}
       .wb-review-insert{color:inherit;background:rgba(121,151,139,.2);border-bottom:2px solid currentColor}.wb-review-info del{text-decoration-thickness:2px}
       .wb-review-editor textarea{width:100%;min-height:130px;resize:vertical;white-space:pre-wrap}
       .wb-review-history .wb-grip{visibility:hidden}
@@ -98,12 +126,13 @@ export class StageReview implements ReviewPort {
   }
   attach(bridge:ReturnType<WorkView["attachReview"]>):void{this.bridge=bridge;}
   private run(action:()=>Promise<unknown>):void{
-    const ticket=this.ticket;void action().catch(error=>{if(ticket===this.ticket&&!this.disposed)this.issue.textContent=error instanceof Error?error.message:String(error);});
+    const ticket=this.ticket;void action().catch(error=>{if(ticket===this.ticket&&!this.disposed){this.issue.classList.remove("wb-notice");this.issue.textContent=error instanceof Error?error.message:String(error);}});
   }
   scopeChanged(scope:ReviewContext["scope"]|null):void{
     this.activeEditor?.replaceChildren();this.activeEditor=null;
     this.ticket++;this.recorder.invalidate();this.scope=scope;this.history={stages:[],current:null,currentEventId:null,problems:[]};
     this.selected=null;this.seen=null;this.historyMode=false;this.submittedMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.goalOpen=false;this.fileIds.clear();this.issue.textContent="";
+    this.expanded=false;this.changeCount=0;this.displayedRevision=null;
     this.chrome();if(scope)this.run(()=>this.reload());
   }
   private stage():Stage|null{return this.history.stages.find(s=>s.start.id===this.selected)??null;}
@@ -112,7 +141,8 @@ export class StageReview implements ReviewPort {
     const scope=this.scope,ticket=this.ticket;if(!scope)return;
     const history=await this.recorder.store.history(scope);if(ticket!==this.ticket||this.disposed)return;
     this.history=history;if(!this.selected)this.selected=history.current;
-    this.seen=this.historyMode&&this.seen?this.stage()?.revisions.find(r=>r.id===this.seen!.id)??null:this.stage()?latest(this.stage()!):null;
+    this.seen=(this.editing||this.draft||this.historyMode)&&this.seen?this.stage()?.revisions.find(r=>r.id===this.seen!.id)??null:this.stage()?latest(this.stage()!):null;
+    this.issue.classList.remove("wb-notice");
     this.issue.textContent=[...history.problems,...(history.storageNotes??[])].join(" · ");this.historyList.replaceChildren();
     for(const stage of [...history.stages].reverse()){
       const entry=button(`${stage.start.at.slice(0,16).replace("T"," ")} · ${stage.start.goal} · ${stage.acceptances.length?"有已认可版本":"待认可"}`,()=>this.showHistory(stage.start.id));entry.className="wb-stage-entry";
@@ -142,11 +172,19 @@ export class StageReview implements ReviewPort {
   private chrome():void{
     const stage=this.stage();
     const accepted=!!this.seen&&!!stage?.acceptances.some(a=>a.revisionId===this.seen!.id);
-    const mode=this.historyMode?this.submittedMode?"提交版本":"历史回看":"当前阶段";
-    this.label.textContent=stage?`${mode} · ${stage.start.goal}${accepted?" · 已认可":""}`:"阶段记录";
+    const mode=this.historyMode?this.submittedMode?"提交版本":"历史回看":"当前原文";
+    this.bar.dataset.reviewMode=this.historyMode?this.submittedMode?"submitted":"history":"current";
+    this.bar.dataset.reviewRevision=this.seen?.id??"";
+    this.versionText.textContent=this.seen?`修订：${this.seen.id}\n记录时间：${this.seen.at}\n正文集合版本：${this.seen.source.sourceSetVersion}\n结构版本：${this.seen.source.structureVersion}`:"还没有记录修订版本。";
+    this.label.textContent=stage?`${mode} · ${stage.start.goal}${accepted?" · 记录版本已认可":""}`:"阶段记录";
+    this.label.hidden=!this.expanded;
+    this.entry.textContent=this.expanded?"收起协作":this.changeCount&&(!accepted||!this.currentMatches)?`查看这次改动 · ${this.changeCount} 处`:"协作";
+    this.entry.setAttribute("aria-expanded",String(this.expanded));
+    this.controls.hidden=!this.expanded;this.contextNote.hidden=!this.expanded;
+    this.contextNote.textContent=this.historyMode?`${this.submittedMode?"此次提交":"历史"} · 修订 ${(stage?.revisions.findIndex(r=>r.id===this.seen?.id)??-1)+1} · 原文继续独立保存；认可只绑定此版本。`:this.seen?this.currentMatches?"当前原文与此次记录一致。认可只绑定所见记录，后续写作不受影响。":"当前原文与此次提交版本不同；请查看提交版本再认可，不会认可后来未展示的内容。":"按有意义的结果开始阶段。记录当前版本只保存在本机，不发送或发布。";
     const pendingDifferent=!!this.seen&&!this.historyMode&&!this.currentMatches&&!accepted;
     this.acceptButton.hidden=!this.seen;this.acceptButton.disabled=accepted||pendingDifferent;this.submittedButton.hidden=!pendingDifferent;
-    this.acceptButton.textContent=accepted?"已认可":"认可所见版本";
+    this.acceptButton.textContent=accepted?"已认可":"认可这个版本";
     this.checkpointButton.hidden=!this.writable()||this.historyMode;this.backButton.hidden=!this.historyMode&&!this.all;
     this.allButton.hidden=!stage?.revisions.length;this.goal.hidden=!this.goalOpen;this.cancelGoalButton.hidden=!this.goalOpen;
     this.beginButton.textContent=this.goalOpen?"开始":stage?"新目标":"开始阶段";
@@ -156,7 +194,7 @@ export class StageReview implements ReviewPort {
   }
   private remember():void{if(!this.bookmark)this.bookmark=this.bridge?.bookmark()??null;}
   private showHistory(id:string):void{
-    if(this.busy())return;this.remember();this.selected=id;this.seen=latest(this.stage()!);this.historyMode=true;this.submittedMode=false;this.all=true;
+    if(this.busy())return;this.expanded=true;this.remember();this.selected=id;this.seen=latest(this.stage()!);this.historyMode=true;this.submittedMode=false;this.all=true;
     this.chrome();this.bridge?.repaint();this.run(()=>this.reload());
   }
   private compare(value:"start"|"previous"):void{if(this.busy())return;this.comparison=value;if(this.filesBox.open)this.run(()=>this.files());this.bridge?.repaint();}
@@ -182,10 +220,11 @@ export class StageReview implements ReviewPort {
     this.selected=stage.start.id;this.seen=result;this.historyMode=false;
     // Explicit selected files are added by a second checkpoint only when they changed.
     if(this.fileIds.size)await this.recorder.checkpoint({stageId:stage.start.id,expectedRevision:result.id,requestKey:crypto.randomUUID(),requestIds:[],fileIds:[...this.fileIds]});
-    await this.reload();await this.bridge?.refresh();
+    await this.reload();await this.bridge?.refresh();this.issue.classList.add("wb-notice");this.issue.textContent="当前阶段版本已记录在本机，没有发送给 agent 或发布。";
   }
   async acceptSeen():Promise<void>{
     if(this.busy()||!this.scope||!this.seen||!this.stage())return;
+    if(!this.expanded || this.displayedRevision!==this.seen.id){this.open();this.issue.textContent="先查看这个版本，再认可所见记录。";return;}
     if(!this.historyMode&&!this.currentMatches&&!this.stage()!.acceptances.some(a=>a.revisionId===this.seen!.id)){
       this.issue.textContent="当前原文包含后来编辑；请查看待认可版本后认可。";return;
     }
@@ -212,10 +251,12 @@ export class StageReview implements ReviewPort {
       base=previous?.revisions.find(r=>r.id===stage.start.previousRevisionId)?.source??previous?.start.source??base;
     }
     const changes=composeDiff(base,source,this.seen);
-    if(!this.historyMode)observePositions(changes,source,context.rows);
+    if(!this.historyMode){observePositions(changes,source,context.rows);observeCurrentText(changes,source,context.rows,this.seen?.id??null);}
     if(!this.historyMode)for(const row of context.rows)if(this.savedDraft(row.uuid)&&!changes.has(row.uuid))changes.set(row.uuid,{kind:"problem",before:null,after:row.content,version:null,label:"保留的审阅草稿 · 点击继续",problem:null,inline:null});
     const outside=[...changes.keys()].filter(id=>!context.view.items.some(i=>i.uuid===id&&!i.hidden)).length;
+    if(this.changeCount!==changes.size){this.changeCount=changes.size;this.chrome();}
     this.allButton.textContent=outside?`还有 ${outside} 处范围外变化 · 看全部`:"看本阶段全部变化";
+    if(!this.expanded)return unchanged;
     if(this.editing&&this.frozen)return this.frozen;
     if(context.editing)return {...unchanged,changes,historical:false};
     let rows=context.rows,view=context.view;
@@ -229,7 +270,8 @@ export class StageReview implements ReviewPort {
       view={focused:false,visibleCount:items.length,items:items.map(i=>({...i,hidden:false,folded:false,child:false,full:true,emphasis:false}))};
     }else{
       // Missing old blocks retain historical identity/context, never attach to a same-title replacement.
-      const removed=base.blocks.filter(b=>changes.get(b.target.blockUuid)?.kind==="removed"&&!rows.some(r=>r.uuid===b.target.blockUuid));
+      const remembered=new Map([...base.blocks,...source.blocks].map(b=>[b.target.blockUuid,b]));
+      const removed=[...remembered.values()].filter(b=>changes.get(b.target.blockUuid)?.kind==="removed"&&!rows.some(r=>r.uuid===b.target.blockUuid));
       rows=withGhosts(rows,removed.map(b=>({uuid:b.target.blockUuid,content:"",depth:b.depth,sourceParent:b.parentUuid,missing:true})),base);
       state.items=withGhosts(state.items,removed.map(b=>({uuid:b.target.blockUuid,depth:b.depth})),base);
       const items=withGhosts(view.items,removed.map(b=>({uuid:b.target.blockUuid,depth:b.depth,hidden:!this.all,folded:false,child:false,full:true,emphasis:false})),base);
@@ -240,7 +282,8 @@ export class StageReview implements ReviewPort {
         view={...view,items:items.map(i=>visible.has(i.uuid)?{...i,hidden:false,folded:false,full:true}:i),visibleCount:items.filter(i=>!i.hidden||visible.has(i.uuid)).length};
       }else view={...view,items};
     }
-    const frame={rows,state,view,changes,historical:this.historyMode};this.frozen=frame;return frame;
+    view={...view,items:view.items.map(item=>changes.has(item.uuid)&&!item.hidden?{...item,full:true}:item)};
+    const frame={rows,state,view,changes,historical:this.historyMode};this.frozen=frame;this.displayedRevision=this.seen?.id??null;return frame;
   }
   edit(uuid:string,container:HTMLElement,suggest:boolean):void{
     if(this.editing){container.querySelector("textarea")?.focus();return;}
@@ -263,14 +306,17 @@ export class StageReview implements ReviewPort {
     if(saved)type.value=saved.type;
     const message=element("small",saved?"已保留输入；现在重新读取了当前原文，提交前请核对双方内容。":this.historyMode?"已读取当前权威原文；提交只修正当前内容，历史保留。":"完整当前原文 · 正式字段和 TODO 受保护");
     const key=this.draftKey(uuid);
-    const persist=()=>{try{localStorage.setItem(key,JSON.stringify({stageId:stage.start.id,text:area.value,suggest,type:type.value}));}catch{message.textContent="草稿保存失败，请保留当前输入再切换工作。";}};
+    let retained= saved?.request??null;
+    const persist=():boolean=>{try{localStorage.setItem(key,JSON.stringify({stageId:stage.start.id,text:area.value,suggest,type:type.value,request:retained}));return true;}catch{message.textContent="草稿保存失败，请保留当前输入再切换工作。";return false;}};
     const clear=()=>{localStorage.removeItem(key);this.editing=false;this.frozen=null;container.replaceChildren();};
     area.addEventListener("input",persist);type.addEventListener("change",persist);
     message.textContent+=` · 记录到当前阶段：${stage.start.goal}`;
-    const requestId=crypto.randomUUID();
-    let composing=false,pending=false,requestOperations:Operation[]|null=null;
+    const requestId=retained?.patch.requestId??crypto.randomUUID();
+    let composing=false,pending=false,uncertain=!!retained,verified=false,needsReread=false,requestOperations:Operation[]|null=retained?[...retained.patch.operations]:null;
+    const observed=element("details");observed.hidden=true;
+    const showFact=(result:ApplyResult)=>{const fact=result.record.items[0];observed.replaceChildren(element("summary","这次结果中保留的当前文"),element("pre",fact?.currentContent??"结果中没有可读当前文，请保留提议并重新读取。"));observed.hidden=false;};
     const save=button(suggest?"写入原文建议":"提交修改",()=>this.run(async()=>{
-      if(composing||pending||ticket!==this.ticket)return;pending=true;save.disabled=true;persist();
+      if(composing||pending||uncertain||needsReread||ticket!==this.ticket)return;pending=true;save.disabled=true;
       try{
         if(!requestOperations){
           if(suggest){
@@ -285,19 +331,44 @@ export class StageReview implements ReviewPort {
             requestOperations=[{operationId:crypto.randomUUID(),type:"replace-text",target:block.target,expectedContentVersion:previousVersion,expectedParentUuid:block.parentUuid,range:{start,end},expectedText:previousText.slice(start,end),text,context:{before:previousText.slice(Math.max(0,start-16),start),after:previousText.slice(end,end+16)}}];
           }
         }
-        const result=await this.actions.submit(stage.start.id,revisionId(stage),requestOperations,true,requestId,correctionOf) as {status?:string;stageProblem?:string|null};
+        retained??={patch:{schemaVersion:1,requestId,scope,operations:requestOperations,metadata:{stageId:stage.start.id,runId:null}},expectedRevision:revisionId(stage),correctionOf};
+        if(!persist())return;
+        const result=await this.actions.submit(stage.start.id,retained.expectedRevision,requestOperations,true,requestId,retained.correctionOf);
         if(ticket!==this.ticket)return;
-        if(result.status!=="complete"||result.stageProblem){message.textContent=`修改未完整确认，当前输入已保留。查看就近事实后重新读取，不重放未知写入。${result.stageProblem??""}`;return;}
+        if(result.status!=="complete"||!result.durable||result.stageProblem||result.record.items.some(item=>item.identity?.status==="OUTCOME_UNKNOWN")){
+          showFact(result);
+          uncertain=result.status==="outcome-unknown"||!result.durable||result.record.items.some(item=>item.status==="OUTCOME_UNKNOWN"||item.identity?.status==="OUTCOME_UNKNOWN")||!!result.stageProblem;
+          message.textContent=reviewProblem(`${result.status==="partial"?"部分修改已发生":"修改未完整确认"}；输入与原请求已保留。${result.record.items.map(item=>`${item.status} ${item.reason??""}`).join(" · ")} ${result.stageProblem??""}`);
+          if(!uncertain){retained=null;needsReread=true;persist();}
+          update();return;
+        }
         clear();await this.reload();await this.bridge?.refresh();
-      }finally{pending=false;save.disabled=composing;}
+      }catch(error){uncertain=!!retained;message.textContent=`操作未确认，输入与原请求已保留；请先查询事实。${String(error)}`;update();}
+      finally{pending=false;update();}
     }));
-    const reread=button("重新读取当前原文",()=>{if(composing||pending)return;persist();this.editing=false;this.frozen=null;container.replaceChildren();this.run(()=>this.openEditor(uuid,container,suggest));});
-    const cancel=button("保留草稿 / 关闭",()=>{if(composing||pending)return;persist();this.editing=false;this.frozen=null;container.replaceChildren();this.bridge?.repaint();});
-    const discard=button("丢弃草稿",()=>{if(composing||pending)return;clear();this.bridge?.repaint();});
+    const inspect=button("查询写入事实",()=>this.run(async()=>{
+      if(composing||pending||!retained)return;pending=true;update();
+      try{
+        const found=await this.actions.result(requestId);if(ticket!==this.ticket)return;
+        const result=found&&(found.status==="outcome-unknown"||!found.durable||found.record.items.some(item=>item.status==="OUTCOME_UNKNOWN"||item.identity?.status==="OUTCOME_UNKNOWN"))?await this.actions.recover(requestId):found;
+        if(ticket!==this.ticket)return;
+        if(result)showFact(result);
+        if(!result){uncertain=true;message.textContent="执行记录暂无法核实；输入和原请求保留，不自动重放。可关闭后继续原生写作，或稍后再查询。";}
+        else if(result.status==="complete"&&result.durable){uncertain=false;verified=true;save.textContent="补记此版本";message.textContent="原文写入已核实。补记使用同一请求，只补齐当前阶段记录；不会再次写原文。";}
+        else if(result.status==="not-applied"){retained=null;uncertain=false;needsReread=true;persist();message.textContent="已确认未应用。请重新读取当前原文后提交新请求。";}
+        else{uncertain=true;message.textContent=`${result.status==="partial"?"部分成功":"结果仍未知"}；原请求与输入保留，不重放。${result.record.items.map(item=>`${item.status} ${item.reason??""}`).join(" · ")}`;}
+      }catch(error){message.textContent=`事实暂不可查询；输入与原请求保留，不重放。${String(error)}`;}
+      finally{pending=false;update();}
+    }));
+    const reread=button("重新读取当前原文",()=>{if(composing||pending||uncertain||verified)return;if(!persist())return;this.editing=false;this.frozen=null;container.replaceChildren();this.run(()=>this.openEditor(uuid,container,suggest));});
+    const cancel=button("保留草稿 / 关闭",()=>{if(composing||pending||!persist())return;this.editing=false;this.frozen=null;container.replaceChildren();this.bridge?.repaint();});
+    const discard=button("丢弃草稿",()=>{if(composing||pending||retained)return;clear();this.bridge?.repaint();});
+    const update=()=>{save.disabled=composing||pending||uncertain||needsReread;reread.disabled=composing||pending||uncertain||verified;inspect.hidden=!retained;inspect.disabled=composing||pending;area.readOnly=pending||uncertain||verified;discard.disabled=!!retained;};
     area.addEventListener("compositionstart",()=>{composing=true;save.disabled=true;});
-    area.addEventListener("compositionend",()=>{composing=false;save.disabled=pending;persist();});
+    area.addEventListener("compositionend",()=>{composing=false;update();persist();});
     const current=element("details");current.append(element("summary","本次读取的当前原文"),element("pre",previousText));
-    this.editing=true;this.activeEditor=container;container.replaceChildren(message,...(saved?[current]:[]),area,...(suggest?[type]:[]),save,reread,cancel,discard);area.focus();
+    if(uncertain)message.textContent="输入及未确认的原请求已恢复；先查询写入事实，不创建新请求或重复追加。";
+    this.editing=true;this.activeEditor=container;container.replaceChildren(message,current,observed,area,...(suggest?[type]:[]),save,inspect,reread,cancel,discard);update();area.focus();
   }
   private async files():Promise<void>{
     if(!this.scope)return;const scope=this.scope,ticket=this.ticket;let choices:Array<{id:string;title:string}>=[],problem:string|null=null;
@@ -306,6 +377,7 @@ export class StageReview implements ReviewPort {
     this.filesList.replaceChildren();if(problem)this.filesList.append(element("small",problem,"wb-error"));
     for(const file of choices){
       const label=element("label"),check=element("input");check.type="checkbox";check.checked=this.fileIds.has(file.id);
+      check.disabled=this.historyMode;
       check.onchange=()=>{if(check.checked)this.fileIds.add(file.id);else this.fileIds.delete(file.id);};label.append(check,document.createTextNode(file.title));this.filesList.append(label);
     }
     const stage=this.stage(),previous=this.history.stages.find(s=>s.start.id===stage?.start.previousStageId);
@@ -321,10 +393,10 @@ export class StageReview implements ReviewPort {
         if(old?.content!==null&&old?.content!==undefined&&old.version!==file.version){const earlier=element("details");earlier.append(element("summary","当时旧文"),element("pre",old.content));details.append(earlier);}
       }
       details.append(element("small","记录差异 · 实际修改来源未知"));
-      if(file.editing.user&&this.actions.openFile)details.append(button("在材料中编辑当前文件",()=>this.run(()=>this.actions.openFile!(file.id))));
+      if(this.actions.openFile)details.append(button("查看当前材料",()=>this.run(()=>this.actions.openFile!(file.id))));
       if(file.problem)details.append(element("small",file.problem,"wb-error"));
       this.filesList.append(details);
     }
   }
-  dispose():void{this.disposed=true;this.scopeChanged(null);this.bar.remove();}
+  dispose():void{this.disposed=true;this.setup.dispose();this.scopeChanged(null);this.bar.remove();}
 }
