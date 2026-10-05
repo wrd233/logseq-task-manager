@@ -139,7 +139,11 @@ export function installAgentWorkspace(options: {
         }
         if (!path.startsWith("/"))
             throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED", "请先运行安装包中的协作启动器，再允许连接这份工作。已有自定义连接位置继续有效。");
-        const files = desktopFiles(() => selected.scope.graphId), descriptor = parseWorkspaceDescriptor(JSON.parse(await files.read(path)), true) as WorkspacePluginDescriptor;
+        const files = desktopFiles(() => selected.scope.graphId);
+        let descriptorText: string;
+        try { descriptorText=await files.read(path); }
+        catch(error) { throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED", `请先运行安装包中的协作启动器，再允许连接这份工作。连接文件暂不可读：${error instanceof Error ? error.message : String(error)}`); }
+        const descriptor = parseWorkspaceDescriptor(JSON.parse(descriptorText), true) as WorkspacePluginDescriptor;
         if (disposed || epoch !== generation)
             throw new WorkspaceError("CONNECTION_REVOKED");
         await options.content.establish(target,organize);

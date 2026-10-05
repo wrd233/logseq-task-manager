@@ -192,7 +192,7 @@ test('composition root leaves runtime disabled while work and materials remain u
     useSettingsSchema:()=>{},provideStyle:()=>{},provideModel:()=>{},beforeunload:fn=>{unload=fn;},
     ready:fn=>{boot=Promise.resolve().then(fn);return boot;},
     App:{registerUIItem:()=>{},registerCommandPalette:()=>{},registerCommand:()=>()=>{},getCurrentGraph:async()=>({name:'test',url:'/graph',path:'/graph'}),onCurrentGraphChanged:()=>()=>{}},
-    DB:{onChanged:()=>{subscriptions++;return()=>{};}},
+    DB:{onChanged:()=>{subscriptions++;return()=>{subscriptions--;};}},
     Editor:{getCurrentBlock:async()=>({uuid:'root'}),getBlock:async()=>({uuid:'root',content:'natural',id:2,parent:{id:1},page:{id:1},left:{id:1}}),registerBlockContextMenuItem:()=>()=>{},checkEditing:async()=>false},
     setMainUIInlineStyle:()=>{},showMainUI:()=>{},hideMainUI:()=>{},UI:{showMsg:async()=>{}},
   };
@@ -221,9 +221,10 @@ test('composition root leaves runtime disabled while work and materials remain u
     const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='查找全部材料');
     materials.click();await delay(20);
     assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
-    assert.equal(calls,0);assert.equal(subscriptions,2); // work-view and independent known-workspace observation; no task runtime
+    assert.equal(calls,0);assert.equal(subscriptions,3); // work-view, known-workspace observation and native reading entries; no task runtime
     await unload();await unload();
     assert.equal(browser.taskCopilotWorkbench,undefined);
+    assert.equal(subscriptions,0);
   } finally {
     await unload?.();globalThis.fetch=fetch;await browser.happyDOM.abort();
     delete globalThis.logseq;delete globalThis.window;delete globalThis.document;delete globalThis.localStorage;

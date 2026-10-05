@@ -183,6 +183,7 @@ test('committed source refreshes during native composition without replacing nat
     const order=[...node.parentElement.children],before=f.work.reportAPI.read();
     textarea.dispatchEvent(new f.browser.Event('compositionstart',{bubbles:true}));
     f.content('b0','[目标] 提交的新记录在组合输入结束后重组。');await f.tick();
+    for(let i=0;i<200&&f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion===before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion;i++)await delay(5);
     assert.deepEqual([...node.parentElement.children],order);assert.match(node.querySelector('.wb-body').textContent,/提交的新记录/);
     assert.equal(f.browser.document.querySelector('textarea'),textarea);
     assert.notEqual(f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion,before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion);

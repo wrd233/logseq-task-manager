@@ -394,11 +394,18 @@ export class WorkView {
     }
     const name=String(page?.originalName??page?.name??"");
     if(name && /(?:^|[\s/])(?:Project|Area)(?:[\s/:]|$)/iu.test(name)){await this.openPage(name);return;}
+    this.saveReadingSession(this.panel.visible || this.report.nativeActive);
     this.invalidate();this.rootUuid=null;this.pageName=null;this.graph=graph;this.state=emptyPresentation();
     this.shell.mount(this.panel.root);this.renderHeading();this.renderEmpty();
-    const last=localStorage.getItem(`workbench:last:${graph}`),source=last ? await logseq.Editor.getBlock(last) : null;
+    let saved;try{saved=JSON.parse(localStorage.getItem(`workbench:reading-session:${graph}`)??"null");}catch{ /* Fall back to the previous block entry. */ }
+    const savedScope=saved?.schemaVersion===1 && saved.scope?.graphId===graph && typeof saved.scope.rootUuid==="string" && ["report","structure"].includes(saved.mode) ? saved.scope as SourceScope : null;
+    const last=savedScope?.rootUuid ?? localStorage.getItem(`workbench:last:${graph}`);
+    const source=savedScope?.kind==="page" && typeof savedScope.pageName==="string" ? await logseq.Editor.getPage(savedScope.pageName) : last ? await logseq.Editor.getBlock(last) : null;
     if(ticket!==this.navigationEpoch || this.disposed)return;
-    if(source?.uuid && typeof source.content==="string")this.content.append(button(`继续阅读：${workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title}`,()=>void this.open(source.uuid).catch(this.fail)));
+    if(source?.uuid && source.uuid===last) {
+      const title=savedScope?.kind==="page" ? String(savedScope.pageName) : "content" in source && typeof source.content==="string" ? workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title : "上次工作";
+      this.content.append(button(`继续阅读：${title}`,()=>void (savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)).catch(this.fail)));
+    }
     await this.panel.open();
   }
   private saveReadingSession(open: boolean): void {
@@ -406,10 +413,10 @@ export class WorkView {
     const bookmark=this.renderer.bookmark();
     try{localStorage.setItem(`workbench:reading-session:${scope.graphId}`,JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,folds:this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback}}));}catch{ /* The live reading remains usable when storage is unavailable. */ }
   }
-  async restoreReadingSession(): Promise<void> {
+  async restoreReadingSession(requireOpen = true): Promise<void> {
     const graph=graphIdentity(await logseq.App.getCurrentGraph()),ticket=++this.navigationEpoch;
     let saved;try{saved=JSON.parse(localStorage.getItem(`workbench:reading-session:${graph}`)??"null");}catch{return;}
-    if(!saved || saved.schemaVersion!==1 || !saved.open || saved.scope?.graphId!==graph || !["report","structure"].includes(saved.mode))return;
+    if(!saved || saved.schemaVersion!==1 || requireOpen && !saved.open || saved.scope?.graphId!==graph || typeof saved.scope.rootUuid!=="string" || ![undefined,"page"].includes(saved.scope.kind) || saved.scope.kind==="page" && typeof saved.scope.pageName!=="string" || !["report","structure"].includes(saved.mode))return;
     const scope=saved.scope as SourceScope;
     const source=scope.kind==="page" ? await logseq.Editor.getPage(scope.pageName!) : await logseq.Editor.getBlock(scope.rootUuid);
     if(this.disposed || ticket!==this.navigationEpoch || !source || source.uuid!==scope.rootUuid)return;

@@ -14,10 +14,10 @@ const entry=new URL("../src/index.ts",import.meta.url).href;
 
 test("merged composition keeps lenses live after verified content writes and marks the old reading basis changed",async()=>{
   const f=await contentFixture(),fetch=globalThis.fetch;
-  const database:{changed?:Parameters<typeof logseq.DB.onChanged>[0]}={};
+  const database=new Set<Parameters<typeof logseq.DB.onChanged>[0]>();
   globalThis.fetch=async()=>{throw Error("Kernel offline");};
   logseq.settings!.workViewEnabled=true;
-  logseq.DB.onChanged=listener=>{database.changed=listener;return()=>{delete database.changed;};};
+  logseq.DB.onChanged=listener=>{database.add(listener);return()=>{database.delete(listener);};};
   try{
     await import(`${entry}?content-lenses-merge=1`);await f.boot();
     const bench=(window as unknown as {taskCopilotWorkbench:{
@@ -31,8 +31,8 @@ test("merged composition keeps lenses live after verified content writes and mar
     const source=await bench.content.read(),target=source.blocks.find(block=>block.target.blockUuid===f.a)!;
     const payload=f.patch([await f.text(f.a,"Beta","verified composed change")]);
     const written=await bench.content.apply(payload);assert.equal(written.status,"complete");
-    const current=await logseq.Editor.getBlock(f.a);assert.ok(current);assert.ok(database.changed);
-    database.changed({blocks:[current],txData:[[current.id,"block/content",current.content,1,true]]});
+    const current=await logseq.Editor.getBlock(f.a);assert.ok(current);assert.ok(database.size);
+    for(const changed of database)changed({blocks:[current],txData:[[current.id,"block/content",current.content,1,true]]});
     await until(()=>bench.lenses.read().basisChanged);
     assert.equal(bench.lenses.read().phase,"changed");assert.deepEqual(bench.lenses.read().plan,before.plan);
     const refreshed=await bench.lenses.source();assert.equal(refreshed.ok,true);
@@ -42,7 +42,7 @@ test("merged composition keeps lenses live after verified content writes and mar
     assert.notEqual(actual.contentVersion,target.contentVersion);
     assert.match(document.querySelector('[data-workbench-feature="work"]')!.textContent!,/verified composed change/);
     assert.equal(document.querySelector<HTMLElement>("[data-content-writeback]")!.hidden,true);
-    await bench.close();await f.unload();assert.equal(database.changed,undefined);assert.equal(bench.content.scope(),null);
+    await bench.close();await f.unload();assert.equal(database.size,0);assert.equal(bench.content.scope(),null);
   }finally{await f.unload();globalThis.fetch=fetch;await f.cleanup();}
 });
 
