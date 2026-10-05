@@ -105,8 +105,8 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
   };
   command("stage-begin","工作台：开始有意义阶段",async()=>{if(!options.work||!review)throw Error("WORK_VIEW_UNAVAILABLE");await options.work.open();review.focusGoal();});
   command("stage-checkpoint","工作台：提交当前阶段结果",async()=>review?.checkpoint());
-  command("stage-history","工作台：查看阶段历史",async()=>{await options.work?.open();await review?.reload();review?.bar.querySelector<HTMLDetailsElement>("details")?.setAttribute("open","");});
-  command("stage-accept","工作台：认可当前所见阶段版本",async()=>review?.acceptSeen(),"mod+alt+enter");
+  command("stage-history","工作台：查看阶段历史",async()=>{await options.work?.open();await options.work?.setReviewOpen(true);await review?.reload();review?.bar.querySelector<HTMLDetailsElement>("details")?.setAttribute("open","");});
+  command("stage-accept","工作台：认可当前所见阶段版本",async()=>{if(options.work&&!options.work.reviewing){await options.work.setReviewOpen(true);return;}await review?.acceptSeen();},"mod+alt+enter");
   const api={
     begin:async(input:unknown)=>{const result=await recorder.begin(input);await review?.reload();return result;},
     read:async(input:unknown)=>{const value=fields(input,["stageId"]);return recorder.read(scope(),uuid(value.stageId));},

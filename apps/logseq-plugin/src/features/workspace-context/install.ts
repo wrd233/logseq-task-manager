@@ -152,7 +152,7 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     },
     version: (scope: SourceScope) => service.sourceVersion(scope),
   };
-  return {api, source, sourceReader, materialBindings, service, dispose: () => {
+  return {local: { bind: (root: string) => promptBinding(root), rebind: (root: string) => promptBinding(root, true), open: (scope: SourceScope) => openEntry(scope) }, api, source, sourceReader, materialBindings, service, dispose: () => {
     if (disposed) return; disposed = true; uiEpoch++; service.dispose(); pending.clear();
     if (timer) clearTimeout(timer); clearInterval(poll); for (const remove of off) remove(); void panel.close(); panel.root.remove();
   }};
