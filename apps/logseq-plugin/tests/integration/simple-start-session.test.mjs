@@ -33,3 +33,19 @@ test('toolbar requires an explicit named continuation when the current native bl
   assert.equal(f.work.panel.root.querySelector('[data-uuid="nested"]').hidden,true);assert.equal(f.work.panel.root.querySelector('.wb-scroll').scrollTop,145);
  }finally{await f.close();}
 });
+
+test('a restarted file Graph resolves the saved page name to its new real page UUID without adding a block root or routing native pages',async()=>{
+ let reader;const provider={read:scope=>reader.read(scope,()=>true)};
+ const f=await fixture(null,3,{initialReadingMode:'report',source:provider});let restored;
+ try{
+  let page={uuid:'page-old',name:'project / 重启页',originalName:'Project / 重启页'};
+  globalThis.logseq.Editor.getPage=async()=>page;globalThis.logseq.Editor.getPageBlocksTree=async()=>[f.blocks.get('b0')];
+  const {SourceReader}=await import('../../src/workspace/source-reader.ts');
+  reader=new SourceReader({graphId:async()=> 'one:/one',getBlock:uuid=>globalThis.logseq.Editor.getBlock(uuid),getPage:()=>globalThis.logseq.Editor.getPage(),getPageBlocksTree:()=>globalThis.logseq.Editor.getPageBlocksTree()});
+  await f.work.openPage(page.originalName);assert.equal(f.work.reportAPI.read().scope.rootUuid,'page-old');
+  const before=JSON.stringify([...f.blocks]);f.work.dispose();await delay(10);page={...page,uuid:'page-new'};
+  const WorkView=f.work.constructor;restored=new WorkView(()=>{},{initialReadingMode:'report',source:provider});await restored.restoreReadingSession();
+  assert.equal(restored.panel.visible,true);assert.equal(restored.snapshot().root,null);assert.equal(restored.reportAPI.read().scope.rootUuid,'page-new');
+  assert.deepEqual(restored.reportAPI.read().fragments.map(f=>f.target.blockUuid),['b0']);assert.equal(JSON.stringify([...f.blocks]),before);
+ }finally{restored?.dispose();await f.close();}
+});

@@ -120,7 +120,7 @@ async function main(): Promise<void> {
       { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
       { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },
       { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },
-      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "需要先设置私有连接；本地阅读不需要连接", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
+      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "先运行随包协作启动器并关联工作目录", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
       { group: "外部连接与恢复", label: "允许润色并整理原块", description: "明确授予此工作内的结构维护许可", run: () => agentWorkspace!.local.connect(root, true) },
       { group: "外部连接与恢复", label: "查看写回冲突与恢复", description: "核对未知结果和原请求；不盲目重放", run: () => content!.local.recovery(root) },
     ];

@@ -402,7 +402,7 @@ export class WorkView {
     const last=savedScope?.rootUuid ?? localStorage.getItem(`workbench:last:${graph}`);
     const source=savedScope?.kind==="page" && typeof savedScope.pageName==="string" ? await logseq.Editor.getPage(savedScope.pageName) : last ? await logseq.Editor.getBlock(last) : null;
     if(ticket!==this.navigationEpoch || this.disposed)return;
-    if(source?.uuid && source.uuid===last) {
+    if(source?.uuid && (savedScope?.kind==="page" || source.uuid===last)) {
       const title=savedScope?.kind==="page" ? String(savedScope.pageName) : "content" in source && typeof source.content==="string" ? workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title : "上次工作";
       this.content.append(button(`继续阅读：${title}`,()=>void (savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)).catch(this.fail)));
     }
@@ -419,9 +419,12 @@ export class WorkView {
     if(!saved || saved.schemaVersion!==1 || requireOpen && !saved.open || saved.scope?.graphId!==graph || typeof saved.scope.rootUuid!=="string" || ![undefined,"page"].includes(saved.scope.kind) || saved.scope.kind==="page" && typeof saved.scope.pageName!=="string" || !["report","structure"].includes(saved.mode))return;
     const scope=saved.scope as SourceScope;
     const source=scope.kind==="page" ? await logseq.Editor.getPage(scope.pageName!) : await logseq.Editor.getBlock(scope.rootUuid);
-    if(this.disposed || ticket!==this.navigationEpoch || !source || source.uuid!==scope.rootUuid)return;
-    await this.enter(scope.rootUuid,"restore",panels.reserve(),scope.kind==="page"?scope.pageName!:null);
-    if(this.disposed || !this.panel.visible || !sameLensScope(scope,this.readingScope()!))return;
+    if(this.disposed || ticket!==this.navigationEpoch || !source?.uuid || scope.kind!=="page" && source.uuid!==scope.rootUuid)return;
+    // File Graph page UUIDs can change on restart. Resolve the saved page name in
+    // this Graph and read its current real identity; never retain a stale page UUID.
+    const actualScope=scope.kind==="page" ? {...scope,rootUuid:source.uuid} : scope;
+    await this.enter(actualScope.rootUuid,"restore",panels.reserve(),scope.kind==="page"?scope.pageName!:null);
+    if(this.disposed || !this.panel.visible || !sameLensScope(actualScope,this.readingScope()!))return;
     await this.report.api.setMode(saved.mode);
     if(Array.isArray(saved.folds))this.report.restoreFolds(saved.folds);
     const b=saved.bookmark;
