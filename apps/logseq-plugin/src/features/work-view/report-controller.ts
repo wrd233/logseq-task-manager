@@ -35,14 +35,14 @@ export class WorkViewReport {
   private native: {scope:SourceScope; bookmark:ReadingBookmark; mode:"beside" | "switch"} | null = null;
   private notice: string | null = null;
   private readonly editor = new NativeEditorHost(() => {
-    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回报告。" : `报告暂不能恢复：${result.reason}`); });
+    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`); });
   },() => this.sourceChanged());
   readonly api = {
     read: () => this.read(), setMode: (mode: unknown) => this.setMode(mode),
     refresh: () => this.capture(true), resolve: (input: unknown) => this.resolve(input),
     openNative: (input: unknown) => this.openNative(input), resume: () => this.resume(),
   };
-  constructor(private readonly host: ReportHost) {}
+  constructor(private readonly host: ReportHost, private readonly initialMode: "report" | "structure" = "structure") { this.mode = initialMode; }
   get active(): boolean { return this.mode === "report"; }
   get nativeActive(): boolean { return !!this.native; }
   get composing(): boolean { return this.editor.isComposing; }
@@ -205,7 +205,7 @@ export class WorkViewReport {
     } catch (error) { return reportFailure(error); }
   }
   reset(): void {
-    this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;
+    this.mode=this.initialMode; this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;
   }
   hide(reason: "switch" | "close"): void {
     if (reason === "close") this.reset();
