@@ -10,6 +10,7 @@ import { fields, revisionId, StageRecorder } from "./recorder.ts";
 import { StageReview } from "./review.ts";
 import type { SourceScope, SourceSnapshot } from "../../workspace/source-protocol.ts";
 import type { StageFile, StageStorage } from "./protocol.ts";
+import type { CollaborationPort } from "./collaboration-setup.ts";
 
 export interface StageMaterials {
   read(id:string):Promise<MaterialView>;
@@ -91,6 +92,7 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
   };
   const review=options.work?new StageReview(recorder,{
     authorize,read:()=>content.api.read(),openFile:id=>options.materials?.open?.(id)??Promise.resolve(),listFiles:selected=>options.materials?.list(selected)??Promise.resolve([]),
+    result:id=>content.api.result(id),recover:id=>content.api.recover(id),
     submit:(stageId,expectedRevision,operations,local,requestId,correctionOf)=>{
       const patch:Patch={schemaVersion:1,requestId,scope:scope(),operations,metadata:{stageId,runId:null}};
       return submit({stageId,expectedRevision,patch,correctionOf},local);
@@ -104,8 +106,9 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
     if(typeof remove==="function")disposers.push(remove);
   };
   command("stage-begin","工作台：开始有意义阶段",async()=>{if(!options.work||!review)throw Error("WORK_VIEW_UNAVAILABLE");await options.work.open();review.focusGoal();});
-  command("stage-checkpoint","工作台：提交当前阶段结果",async()=>review?.checkpoint());
-  command("stage-history","工作台：查看阶段历史",async()=>{await options.work?.open();await review?.reload();review?.bar.querySelector<HTMLDetailsElement>("details")?.setAttribute("open","");});
+  command("stage-collaboration","工作台：查看协作与这次改动",async()=>{await options.work?.open();review?.open();});
+  command("stage-checkpoint","工作台：记录当前阶段版本",async()=>review?.checkpoint());
+  command("stage-history","工作台：查看阶段历史",async()=>{await options.work?.open();await review?.openHistory();});
   command("stage-accept","工作台：认可当前所见阶段版本",async()=>review?.acceptSeen(),"mod+alt+enter");
   const api={
     begin:async(input:unknown)=>{const result=await recorder.begin(input);await review?.reload();return result;},
@@ -119,6 +122,6 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
     scope:()=>disposed?null:content.api.scope(),
   };
   // No actor, accept, authorization, or caller-provided source/file facts in this namespace.
-  return {api,dispose:()=>{if(disposed)return;disposed=true;recorder.dispose();review?.dispose();for(const remove of disposers)remove();}};
+  return {api,setCollaboration:(port:CollaborationPort|null)=>{if(!disposed)review?.setCollaboration(port);},dispose:()=>{if(disposed)return;disposed=true;review?.setCollaboration(null);recorder.dispose();review?.dispose();for(const remove of disposers)remove();}};
 }
 export type StageInstallation=ReturnType<typeof installStageWorkbench>;

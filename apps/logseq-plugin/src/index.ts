@@ -95,6 +95,7 @@ async function main(): Promise<void> {
     },
     submit:async (input,binding)=>{requireStageScope(binding.scope);return stageApi.submit(input);},
   }});
+  stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
   const api = {
     read: () => disposed ? null : work?.snapshot() ?? null,
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },
