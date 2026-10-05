@@ -57,6 +57,7 @@ export class WorkView {
   private reviewOpen = false;
   private followClicks = false;
   private failure = "";
+  private continuation: {title:string;run:()=>Promise<void>} | null = null;
   private contextActions: () => WorkShellAction[] = () => [];
   private readonly reviewHost = element("section", "", "wb-review-host");
   private readonly shell = new WorkViewShell({
@@ -187,6 +188,7 @@ export class WorkView {
     this.lenses.reset(); this.lensBar.render(this.lenses.read());
     this.materialBookmark = null; this.reviewOpen = false; this.reviewHost.hidden = true; this.contentChoice = "body"; this.failure = ""; this.shell.closeMenu();
     this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
+    this.continuation=null;
   }
   private async readTrace(uuid: string, graph = this.graph, valid = () => !this.disposed): Promise<Trace> {
     return ancestry(uuid, async id => valid() ? await logseq.Editor.getBlock(id) as AncestryBlock | null : null, { resolve: (id, content) => {
@@ -404,12 +406,13 @@ export class WorkView {
     if(ticket!==this.navigationEpoch || this.disposed)return;
     if(source?.uuid && (savedScope?.kind==="page" || source.uuid===last)) {
       const title=savedScope?.kind==="page" ? String(savedScope.pageName) : "content" in source && typeof source.content==="string" ? workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title : "上次工作";
-      this.content.append(button(`继续阅读：${title}`,()=>void (savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)).catch(this.fail)));
+      this.continuation={title,run:()=>savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)};
+      this.renderEmpty();
     }
     await this.panel.open();
   }
   private saveReadingSession(open: boolean): void {
-    const scope=this.readingScope();if(!scope || this.disposed || this.historical)return;
+    const scope=this.readingScope();if(!scope || this.disposed || this.historical || !this.panel.visible && !this.report.nativeActive)return;
     const bookmark=this.renderer.bookmark();
     try{localStorage.setItem(`workbench:reading-session:${scope.graphId}`,JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,folds:this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback}}));}catch{ /* The live reading remains usable when storage is unavailable. */ }
   }
@@ -443,6 +446,7 @@ export class WorkView {
   private renderEmpty(): void {
     const guide = element("div", "", "wb-empty");
     guide.append(element("h2", "从 Logseq 的一份工作开始"), element("p", "先选中工作标题或任意正文块，再打开这里。正文在 Logseq 写作，材料和改动按需查看。"), button("打开当前块的工作", () => void this.openCurrentWork().catch(this.fail)));
+    if(this.continuation){const entry=this.continuation;guide.append(button(`继续阅读：${entry.title}`,()=>void entry.run().catch(this.fail)));}
     this.content.replaceChildren(guide);
   }
   private renderHeading(): void {
