@@ -5,7 +5,7 @@ import {fixture,deferred} from '../fixtures/work-view.mjs';
 
 const row=(f,uuid)=>f.browser.document.querySelector(`.wb-row[data-uuid="${uuid}"]`);
 async function reportFixture(width=650,options={}) {
-  const f=await fixture(null,9,options);
+  const f=await fixture(null,9,{initialReadingMode:"report",...options});
   f.root.content='**[MiniProject]** 整理一份调研材料 #MiniProject';
   const bodies=['[注] 保留本地文件。','同名条件不能丢失。','[目标] 可继续维护的说明。','[想法] 原生写作，报告阅读。','TODO 核对日期','[注] 格式未支持仍能查看。','无标记反例。','[风险] 未知标记。'];
   bodies.forEach((body,i)=>{f.blocks.get(`b${i}`).content=body;});
@@ -21,7 +21,7 @@ async function reportFixture(width=650,options={}) {
   globalThis.logseq.App.pushState=async(_type,{name},{anchor})=>globalThis.logseq.Editor.scrollToBlockInPage(name,anchor.slice('block-content-'.length));
   globalThis.logseq.Editor.editBlock=async uuid=>{f.nativeCalls.push(['edit',uuid]);block.setAttribute('blockid',uuid);textarea.value=f.blocks.get(uuid).content;textarea.focus();f.editing(uuid,textarea.value);};
   await f.work.open('root');
-  const button=[...f.work.panel.root.querySelectorAll('.wb-heading button')].find(b=>b.textContent==='报告');assert.ok(button);button.click();
+  assert.equal(f.work.panel.root.querySelector('[data-work-content=body]').textContent,'正文');
   for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
   assert.equal(f.work.reportAPI.read().mode,'report');assert.equal(f.work.reportAPI.read().status,'current');
   return f;
@@ -88,7 +88,7 @@ test('wide docked window retains the report and native input, while report refle
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native.mode,'beside');
     f.editing('b0','[注] 尚未提交的原生草稿');await f.tick();
     assert.ok(!row(f,'b0').querySelector('.wb-body').textContent.includes('尚未提交'));
-    assert.match(f.work.panel.root.querySelector('.wb-status').textContent,/原生输入中/);
+    assert.match(f.work.panel.root.querySelector('.wb-work-notice').textContent,/原生输入尚未结束/);
     const fragment=f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0');
     assert.equal(fragment.contentVersion,(await f.work.lensesAPI.source()).value.blocks.find(b=>b.target.blockUuid==='b0').contentVersion);
     f.editing(false);assert.equal((await f.work.reportAPI.resume()).ok,true);

@@ -37,7 +37,7 @@ export async function fixture(Controller, count = 3, options = {}) {
     DB: { onChanged: fn => { changed = fn; return () => { changed = null; }; } },
     showMainUI: () => {}, hideMainUI: () => {}, setMainUIInlineStyle: () => {},
   };
-  const work = new WorkView(options.onMaterials ?? (() => {}), options);
+  const work = new WorkView(options.onMaterials ?? (() => {}), { initialReadingMode: "structure", ...options });
   return {
     browser, work, root, blocks, stats, commands, setCurrent: uuid => { current = blocks.get(uuid); },
     change: event => changed?.(event),

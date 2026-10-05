@@ -87,6 +87,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     await work.refresh();
     const stage=await stages.api.begin({goal:'保留材料引用历史',requestKey:crypto.randomUUID(),expectedStageId:null});
     await stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.start.id,requestKey:crypto.randomUUID(),requestIds:[]});
+    await work.setReviewOpen(true);
     await f.c.commands.get('stage-accept')!();const accepted=await stages.api.history();assert.equal(accepted.stages[0]!.acceptances.length,1);const history=JSON.stringify(accepted);
     await f.materials.library(f.c.root);
     f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');

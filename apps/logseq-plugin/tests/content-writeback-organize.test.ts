@@ -170,8 +170,8 @@ test("registered conflict UI explains location, preserves proposal on close and 
 });
 test("stage review renders same UUID movement with old/new position; accepted history stays immutable",async()=>{
   const f=await contentFixture(),content=installContentWriteback({journal:f.journal,adapter:f.adapter});
-  const {WorkView}=await import("../src/features/work-view/controller.ts"),{installStageWorkbench}=await import("../src/features/stage-workbench/installer.ts");const work=new WorkView(()=>{}),stages=installStageWorkbench({content,work,storage:f.storage});
-  try{await content.local.authorize(f.root,true);await work.open(f.root);const stage=await stages.api.begin({goal:"核验位置变化",requestKey:crypto.randomUUID(),expectedStageId:null});
+  const {WorkView}=await import("../src/features/work-view/controller.ts"),{installStageWorkbench}=await import("../src/features/stage-workbench/installer.ts");const work=new WorkView(()=>{}, {initialReadingMode:"structure"}),stages=installStageWorkbench({content,work,storage:f.storage});
+  try{await content.local.authorize(f.root,true);await work.open(f.root);await work.setReviewOpen(true);const stage=await stages.api.begin({goal:"核验位置变化",requestKey:crypto.randomUUID(),expectedStageId:null});
     const input={...patch(f,await move(f)),metadata:{stageId:stage.start.id,runId:null}},result=await stages.api.submit({stageId:stage.start.id,expectedRevision:stage.start.id,patch:input});assert.equal(result.stageProblem,null);await work.refresh();
     const row=document.querySelector<HTMLElement>(`article[data-uuid="${f.a}"]`)!;assert.match(row.textContent!,/结构变化/);assert.match(row.textContent!,/位置：.*→/);assert.doesNotMatch(row.textContent!,/新增|块已缺失/);
     await f.commands.get("stage-accept")!();const frozen=JSON.stringify(await stages.api.history());f.nativeMove(f.a,f.b,{before:true});await work.refresh();assert.equal(JSON.stringify(await stages.api.history()),frozen);

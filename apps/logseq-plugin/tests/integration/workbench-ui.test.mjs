@@ -85,7 +85,8 @@ test('combined panels preserve source text, load linked material and retain conf
   const io = {read:async path=>{if(!files.has(path))throw Error('ENOENT');return files.get(path);},write:async(path,text)=>{files.set(path,text);},mkdir:async()=>{},rename:async(from,to)=>{files.set(to,files.get(from));files.delete(from);},list:async path=>[...files.keys()].filter(file=>file.startsWith(path+'/'))};
   const store = new MaterialStore(io,'/materials');
   const record = await store.create('# 材料\nbase',{graph:'/graph',sourceUuid:'root'});
-  const work = new WorkView(()=>{}), materials = new Materials(uuid=>work.open(uuid), ()=>work.snapshot().root);
+  const work = new WorkView(()=>{}), materials = new Materials(uuid=>work.returnToBody(uuid), ()=>work.snapshot().root);
+  materials.setWorkChrome((surface,scope)=>work.mountMaterialChrome(surface,scope),scope=>work.rememberMaterials(scope));
   try {
     const original = JSON.stringify([...blocks]);
     await work.open('root'); assert.equal(active,true);
@@ -103,7 +104,9 @@ test('combined panels preserve source text, load linked material and retain conf
     await materials.openDoc(record.id); await materials.beginEditing(); assert.equal(fakeEditor.value,'# 材料\nbase');
     fakeEditor.value='# 材料\nlocal';
     files.set(record.path,'# 材料\nexternal');
-    const returnWork=[...materials.panel.root.querySelectorAll('button')].find(button=>button.textContent==='返回工作');
+    assert.equal(materials.panel.root.querySelectorAll('.wb-work-shell').length,1);
+    assert.equal(materials.panel.root.querySelector('.wb-work-title').textContent,'整合工作');
+    const returnWork=materials.panel.root.querySelector('[data-work-content=body]');
     assert.ok(returnWork); returnWork.click();
     for(let i=0;i<40&&!work.panel.visible;i++)await delay(5);
     assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
@@ -215,7 +218,7 @@ test('composition root leaves runtime disabled while work and materials remain u
     assert.equal(report.read().structureVersion,source.value.structureVersion);
     assert.equal(report.read().fragments[0].target.blockUuid,'root');
     const nav=browser.document.querySelector('#workbench-navigation');
-    const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='材料');
+    const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='查找全部材料');
     materials.click();await delay(20);
     assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
     assert.equal(calls,0);assert.equal(subscriptions,2); // work-view and independent known-workspace observation; no task runtime

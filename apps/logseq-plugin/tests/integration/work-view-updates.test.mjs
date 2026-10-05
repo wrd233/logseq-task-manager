@@ -84,9 +84,9 @@ test('ordinary source title updates and focused counts reflect what is actually 
   const f = await fixture();
   try {
     f.root.content = '**普通工作的名字**'; await f.work.open('root');
-    assert.equal(f.work.panel.root.querySelector('.wb-heading strong').textContent, '普通工作的名字');
+    assert.equal(f.work.panel.root.querySelector('.wb-work-title').textContent, '普通工作的名字');
     f.content('root', '**新的工作名**'); await delay(70);
-    assert.equal(f.work.panel.root.querySelector('.wb-heading strong').textContent, '新的工作名');
+    assert.equal(f.work.panel.root.querySelector('.wb-work-title').textContent, '新的工作名');
     await f.work.lensesAPI.select('b0');
     assert.match(f.work.panel.root.querySelector('.wb-status').textContent, /显示 2 \/ 3 条/);
   } finally {await f.close();}

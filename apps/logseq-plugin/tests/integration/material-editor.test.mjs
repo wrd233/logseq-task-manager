@@ -63,7 +63,7 @@ test('offline directory preview leaves identity, source and editing permission u
     const path='/projects/A/协作参考.md', text='# 协作参考\n\n只读文件先阅读，再选择关联。';
     f.files.set(path,text); await f.materials.bindDirectory('projectA','/projects/A'); await f.materials.library('projectA');
     const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
-    assert.ok(find('目录文件')); assert.ok(find('返回工作'));
+    assert.ok(find('目录文件')); assert.ok(find('返回正文'));
     find('目录文件').click(); await delay(30); const writes=f.writes.length;
     assert.match(f.materials.panel.root.textContent,/尚未关联/);
     find('阅读').click(); await delay(30);
@@ -209,7 +209,7 @@ test('project A capture → another page reading → draft editing → project B
     await click('另存草稿后加载外部版本');
     const rows = await f.materials.linkedContext(captured.material.reference); assert.equal(rows[0].content, '外部修改');
     assert.ok([...f.files.entries()].some(([path,text]) => path.startsWith('/projects/A/') && path.endsWith('.md') && text === '保留我的冲突草稿'));
-    await f.materials.library('projectA'); await f.materials.openDoc(captured.material.id); await click('返回工作'); assert.equal(f.returned, 'projectA');
+    await f.materials.library('projectA'); await f.materials.openDoc(captured.material.id); await click('返回正文'); assert.equal(f.returned, 'projectA');
   } finally {await f.close();}
 });
 

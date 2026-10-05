@@ -12,8 +12,8 @@ async function wait(check:()=>boolean,message:string){
 async function fixture(){
   const f=await contentFixture(),content=installContentWriteback({journal:f.journal,adapter:f.adapter});
   const {WorkView}=await import("../src/features/work-view/controller.ts");
-  const work=new WorkView(()=>{}),stages=installStageWorkbench({content,work,storage:f.storage});
-  await content.local.authorize(f.root);await work.open(f.root);
+  const work=new WorkView(()=>{}, {initialReadingMode:"structure"}),stages=installStageWorkbench({content,work,storage:f.storage});
+  await content.local.authorize(f.root);await work.open(f.root);await work.setReviewOpen(true);
   const stage=await stages.api.begin({goal:"原位审阅真实测试",requestKey:crypto.randomUUID(),expectedStageId:null});
   const source=await content.api.read();
   const operations=source.blocks.filter(b=>[f.a,f.b].includes(b.target.blockUuid)).map((b,i)=>({operationId:"item-"+i,type:"replace-text" as const,target:b.target,expectedContentVersion:b.contentVersion!,expectedParentUuid:b.parentUuid,range:{start:0,end:i===0?5:3},expectedText:b.content!.slice(0,i===0?5:3),text:i===0?"Revised":"修改后",context:null}));
@@ -128,7 +128,7 @@ test("report preserves stage show-all, immutable history and return to the exist
     assert.equal((await t.work.reportAPI.setMode("structure")).ok,false);
     assert.deepEqual(await t.work.reportAPI.resolve({}),{ok:false,reason:"historical-view"});
     assert.deepEqual(await t.work.reportAPI.openNative({}),{ok:false,reason:"historical-view"});
-    assert.equal((document.querySelector(".wb-report-mode") as HTMLButtonElement).disabled,true);
+    assert.equal(Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-menu-content button")).find(b=>b.dataset.actionLabel==="查看原结构")!.disabled,true);
     assert.ok(Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(b=>b.textContent==="编辑原文").every(b=>b.disabled));
     Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
     assert.ok(t.row(t.f.a).classList.contains("wb-report-row"));assert.equal(t.row(t.f.b).hidden,true);

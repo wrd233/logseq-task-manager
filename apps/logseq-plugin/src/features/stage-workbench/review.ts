@@ -51,7 +51,13 @@ export class StageReview implements ReviewPort {
       return typeof d.stageId==="string"&&typeof d.text==="string"&&d.text.length<=262144&&typeof d.suggest==="boolean"&&["[注]","[想法]"].includes(d.type)?d:null;
     }catch{return null;}
   }
-  focusGoal():void{if(this.busy())return;this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
+  focusGoal():void{if(this.busy())return;void this.bridge?.openReview();this.goalOpen=true;this.goal.value="";this.chrome();this.goal.focus();}
+  navigation() {
+    const stage = this.stage(), accepted = !!this.seen && !!stage?.acceptances.some(a => a.revisionId === this.seen!.id);
+    return { attention: !!this.seen && !accepted, busy: this.editing || this.draft, historical: this.historyMode,
+      notice: this.editing ? "审阅输入尚未提交 · 先提交或保留草稿，再收起审阅。" : this.issue.textContent ?? "" };
+  }
+  leave(): boolean { if (this.busy()) return false; this.returnCurrent(); return true; }
   private readonly label=element("span");
   private readonly issue=element("small","","wb-error");
   private readonly goal=element("input");

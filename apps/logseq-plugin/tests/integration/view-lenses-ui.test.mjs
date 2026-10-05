@@ -71,8 +71,7 @@ test('manual UI and registered current-block commands apply a real subtree witho
   try {
     node(f, 'a').querySelector('.wb-body').click();
     assert.equal(f.work.snapshot().view.selected, 'a');
-    const heading = f.browser.document.querySelector('.wb-heading');
-    [...heading.querySelectorAll('button')].find(button => button.textContent === '只看选定范围').click();
+    f.browser.document.querySelector('[data-action-label="只看选定范围"]').click();
     await settle(() => f.work.lensesAPI.read().phase === 'focused');
     assert.deepEqual(visible(f), ['root', 's1', 'a']); assert.equal(f.work.lensesAPI.read().plan.question, '选定范围');
     f.commands.get('workbench-exit-lens')(); assert.equal(f.work.lensesAPI.read().phase, 'reading');
@@ -236,7 +235,7 @@ test('material opening failure keeps the current question and location; switchin
   try {
     await f.work.lensesAPI.apply(await prepare(f, ['a', 'c']));
     const a = node(f, 'a'), container = a.parentElement; container.scrollTop = 91;
-    const materialButton = [...f.browser.document.querySelector('.wb-heading').querySelectorAll('button')].find(button => button.textContent === '材料');
+    const materialButton = f.browser.document.querySelector('[data-work-content=materials]');
     materialButton.click(); await settle(() => f.browser.document.querySelector('.wb-status').textContent === '材料不可读');
     assert.equal(f.work.panel.visible, true); assert.equal(f.work.lensesAPI.read().plan.question, '验证充分吗？'); assert.equal(container.scrollTop, 91);
     material = new FeaturePanel('materials', '材料');
