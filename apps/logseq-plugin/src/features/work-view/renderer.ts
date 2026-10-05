@@ -1,6 +1,4 @@
-import { safeMarkdownURI } from "../materials/links.ts";
-import DOMPurify from "dompurify";
-import { marked } from "./vendor/marked.js";
+import { highlightReview, renderMarkdown, renderReviewInfo } from "./review-renderer.ts";
 import { button, element } from "../../host/panel-host.ts";
 import { displayLevel, levels } from "./display.mjs";
 import { workObject } from "./focus.mjs";
@@ -171,18 +169,15 @@ export class WorkViewRenderer {
       entry.nativeEdit.disabled = this.historical;
       const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
       if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
-      const inline=change?.inline&&change.after===row.content?change.inline:null;
-      const bodySignature=JSON.stringify([row.content,inline]);
+      const bodySignature=JSON.stringify([row.content,change?.kind,change?.before,change?.after]);
       if (!hidden && this.composingUuid !== item.uuid && entry.bodySignature !== bodySignature) {
         const selection = document.getSelection();
         if (selection?.rangeCount) {
           const range = selection.getRangeAt(0);
           if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) selection.removeAllRanges();
         }
-        if(inline){
-          const mark=element("mark",inline.inserted);mark.className="wb-review-insert";
-          const text=element("div");text.style.whiteSpace="pre-wrap";text.append(document.createTextNode(inline.prefix),mark,document.createTextNode(inline.suffix));entry.body.replaceChildren(text);
-        }else entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
+        entry.body.innerHTML = renderMarkdown(row.content);
+        highlightReview(entry.body,change,row.content);
         entry.content = row.content;
         entry.bodySignature=bodySignature;
       }
@@ -193,28 +188,12 @@ export class WorkViewRenderer {
         if(change){
           if(!entry.editor){entry.editor=element("div","","wb-review-editor");entry.node.append(entry.editor);}
           if(!entry.review){entry.review=element("div","","wb-review-info");entry.node.append(entry.review);}
-          const label=element("span",change.label.split(" · ")[0]);
           const correct=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,false);
           const suggest=()=>this.actions.reviewEdit?.(item.uuid,entry!.editor!,true);
-          const details=element("details"),summary=element("summary","旧文与来源");
-          const old=change.before?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??"当时没有此块";
-          details.append(summary,element("small",change.label));
-          if(change.location){
-            const location=(p:{parentUuid:string|null;order:number;depth:number})=>`${p.parentUuid??"页面"} · 第 ${p.order+1} 块 · 深度 ${p.depth}`;
-            details.append(element("small",`位置：${location(change.location.before)} → ${location(change.location.after)}`));
-          }
-          if(change.inline&&change.before!==null){
-            const inline=change.inline,removed=old.slice(inline.prefix.length,old.length-inline.suffix.length);
-            const previous=element("pre");previous.append(document.createTextNode(inline.prefix),element("del",removed),document.createTextNode(inline.suffix));details.append(previous);
-          }else details.append(element("pre",old));
-          entry.review.replaceChildren(label,button(review?.historical?"在当前内容中纠正":"修改",correct),button("建议",suggest),details);
-          if(change.problem)entry.review.append(element("small",change.problem,"wb-error"));
-          if(change.after!==row.content&&!review?.historical){
-            const submitted=element("details");submitted.append(element("summary","当时提交的结果"),element("pre",change.after??"当时没有可读结果"));
-            entry.review.append(element("small","当前原文已不同于当时结果；修改将重新读取当前版本。"),submitted);
-          }
+          renderReviewInfo(entry.review,change,{historical:!!review?.historical,current:row.content,correct,suggest,
+            parentName:uuid=>uuid===null?"页面":source.get(uuid)?.content.split("\n")[0]?.replace(/\*\*|__/g,"").slice(0,48)??`已缺失父块 ${uuid.slice(0,8)}`});
           entry.review.hidden=false;
-          entry.body.onclick=event=>{if(!(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
+          entry.body.onclick=event=>{if(!review?.historical && change.kind!=="removed" && !(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
         }else{if(entry.review)entry.review.hidden=true;entry.body.onclick=null;}
         entry.reviewSignature=reviewSignature;
       }
