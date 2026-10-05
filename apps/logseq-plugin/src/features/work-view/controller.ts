@@ -384,7 +384,8 @@ export class WorkView {
   }
   async openToolbar(): Promise<void> {
     const ticket=++this.navigationEpoch,graph=graphIdentity(await logseq.App.getCurrentGraph());
-    const block=await logseq.Editor.getCurrentBlock(),page=typeof logseq.Editor.getCurrentPage==="function" ? await logseq.Editor.getCurrentPage() : null;
+    const native=hostDocument()?.activeElement?.closest(".ls-block")?.getAttribute("blockid");
+    const block=native ? await logseq.Editor.getBlock(native) : null,page=typeof logseq.Editor.getCurrentPage==="function" ? await logseq.Editor.getCurrentPage() : null;
     if(this.disposed || ticket!==this.navigationEpoch)return;
     if(block && (!page || block.page?.id===page.id)) {
       const trace=await this.readTrace(block.uuid,graph,()=>ticket===this.navigationEpoch&&!this.disposed);
@@ -393,7 +394,8 @@ export class WorkView {
     }
     const name=String(page?.originalName??page?.name??"");
     if(name && /(?:^|[\s/])(?:Project|Area)(?:[\s/:]|$)/iu.test(name)){await this.openPage(name);return;}
-    this.shell.mount(this.panel.root);this.renderEmpty();
+    this.invalidate();this.rootUuid=null;this.pageName=null;this.graph=graph;this.state=emptyPresentation();
+    this.shell.mount(this.panel.root);this.renderHeading();this.renderEmpty();
     const last=localStorage.getItem(`workbench:last:${graph}`),source=last ? await logseq.Editor.getBlock(last) : null;
     if(ticket!==this.navigationEpoch || this.disposed)return;
     if(source?.uuid && typeof source.content==="string")this.content.append(button(`继续阅读：${workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title}`,()=>void this.open(source.uuid).catch(this.fail)));
