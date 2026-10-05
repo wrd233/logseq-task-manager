@@ -23,7 +23,8 @@ work.setContextActions(() => {
 });
 materials.setWorkChrome(
   (surface, scope) => work.mountMaterialChrome(surface, scope),
-  scope => work.rememberMaterials(scope)
+  scope => work.rememberMaterials(scope),
+  uuid => work.materialContext(uuid)
 );
 // 材料返回实际构造回调：uuid => work.returnToBody(uuid)
 await work.setReviewOpen(true);
@@ -33,7 +34,9 @@ await work.setReviewOpen(true);
 
 `WorkShellIdentity` 带 SourceScope、title、kind、sourceId、contentVersion。`WorkShellState` 描述当前内容位、原结构、原生可见性、输入、历史、审阅、提示及动作。shell 移动同一 DOM header 到实际工作／材料 surface，材料区没有第二套工作状态。
 
-`ReadingBookmark` 仍由 renderer capture/restore。切材料前在面板尚有真实几何尺寸时捕获；关闭后的 mount 不覆盖该书签。返回使用既有 work.open 流程，只有 Graph 和 root 全匹配才能 restore。新工作、Graph 切换或失效结果不能复活旧身份或书签。
+`ReadingBookmark` 仍由 renderer capture/restore。切材料前在面板尚有真实几何尺寸时捕获；关闭后的 mount 不覆盖该书签。返回使用既有 work.open 流程，只有 Graph 和 root 全匹配才能 restore。原生材料链接通过现有 readTrace 核对祖先：当前工作子块保留 root，明确其他来源按其真实工作返回；过期祖先读取返回 null，不打开旧材料。材料不另建 source provider。新工作、Graph 切换或失效结果不能复活旧身份或书签。
+
+最新 main 组合增加可选 `enter()`，由工作级入口展开 review owner 的控件；bridge.closeReview 将原模块的收起动作交回同一入口，`leave()` 仍可拒绝。替换 review owner 时重新收起，保留草稿由原 owner 显式恢复。
 
 ReviewPort 可选 `navigation()` 返回 attention/busy/historical/notice；`leave()` 可以拒绝。`compose()` 仍持续更新 owner 的来源事实，但只有展开审阅才把 changes/view 叠到正文。历史 frame 强制审阅展开。bridge.openReview 只负责入口，认可仍绑定 owner 已显示的 revision。
 
@@ -41,4 +44,4 @@ ReviewPort 可选 `navigation()` 返回 attention/busy/historical/notice；`leav
 
 02 接管报告正文时保留 shell 的初始 report、根标题对应与 SourceScope。03 接管宿主布局和输入恢复时保留本分支公共样式／navigation 与「返回正文」语义。04 保留 `setWorkChrome` 的 before/mount 顺序和真实范围；05 保留 ReviewPort 可选导航、安全离开及 bridge.openReview。renderer 没有本分支的领域重写。
 
-当前没有另外三分支的交付提交，本分支全部入口可操作且挂载基线真实能力。没有静态占位页、空回调、通用 UI 框架、额外 source provider 或状态库。
+以上为原固定基线实现；后续 main 合并保留已交付的完整报告、材料阅读 UI 和协作 owner，具体组合见[整合记录](../integration/workbench-ui-shell-main-2026-10-05.md)。原始分支全部入口可操作且挂载基线真实能力。没有静态占位页、空回调、通用 UI 框架、额外 source provider 或状态库。

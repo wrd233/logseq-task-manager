@@ -15,6 +15,6 @@
 | 连接断开、材料暂不可用、写入结果未知 | [恢复](workbench-usage.md#遇到问题时怎样继续) |
 | 让外部 agent 正确接入 | [接入附录与开始提示词](workbench-usage.md#agent-接入附录) |
 
-手册版本：2026-10-04。实机验证：2026-10-03–04（Asia/Shanghai），macOS 15.2 / x86_64、Logseq 0.10.9、插件 0.2.0。交付产品源码为 `10f0a664ec136902e839e2503127e249da8ce81a`；后续提交仅增加文档和截图。截图来自本分支的同一份隔离合成工作，逐图提交与校验值见[截图证据](assets/workbench/evidence.md)。
+操作路径版本：2026-10-05，正文／材料与就近审阅入口见[本次整合记录](../integration/workbench-ui-shell-main-2026-10-05.md)。下列历史截图的实机验证：2026-10-03–04（Asia/Shanghai），macOS 15.2 / x86_64、Logseq 0.10.9、插件 0.2.0。交付产品源码为 `10f0a664ec136902e839e2503127e249da8ce81a`；后续提交仅增加文档和截图。截图来自本分支的同一份隔离合成工作，逐图提交与校验值见[截图证据](assets/workbench/evidence.md)。
 
 实现背景见[体验设计](../design/workbench-ux-polish-design.md)、[实际架构](../architecture/workbench-ux-polish-architecture.md)和[实施交接](../implementation/workbench-ux-polish-handoff.md)。

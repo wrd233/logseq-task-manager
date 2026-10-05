@@ -1,6 +1,8 @@
 # 工作台整合说明
 
-一个仓库、一个 Logseq 插件，内部保留工作视图、材料和任务三个入口。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
+一个仓库、一个 Logseq 插件。当前工作以「正文／材料」切换为主要入口，原生写作和审阅就近打开；正式任务及插件设置从「工作台」菜单进入。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
+
+2026-10-05：整体工作级界面整合到最新 main，同时保留完整报告、材料阅读与协作审阅的新版实现。共享导航、材料书签和审阅开闭的接线及回归结果见[整合记录](workbench-ui-shell-main-2026-10-05.md)，当前操作路径见[使用手册](../user-guide/workbench-usage.md)。实现分支旧交接中的“未推送”为功能交付时点。
 
 2026-10-04：[材料拖入与文件改名](../design/materials-drop-rename-design.md)整合到最新 main，增加列表原文件关联、报告块级引用、真实剪贴板复制、实际 basename 改名及有限物理身份定位。[架构](../architecture/materials-drop-rename-architecture.md)与[功能交接](../implementation/materials-drop-rename-handoff.md)区分实际支持范围、逐项恢复和未验的原生精确拖放；本次合并与验证见[整合记录](materials-drop-rename-main-2026-10-04.md)。原交接的“未推送”属于功能交付时点。
 
@@ -22,10 +24,10 @@
 
 使用 Node 20，执行 `npm ci`、`npm run build`。在 Logseq 加载 `apps/logseq-plugin`，插件 ID 仍为 `task-copilot-vnext`。
 
-- 工作视图：块右键“工作台：从此块打开工作视图”，或在当前块运行“工作台：从当前块打开工作视图”。快捷键 `Cmd/Ctrl+Alt+P`。原文继续在 Logseq 编辑，拖动、Tab 缩进、折叠和展示级别保存为本地视图状态。
+- 工作视图：默认完整报告；「在 Logseq 写作」打开真实原块，「工作选项 → 查看原结构」可调整展示排列。块右键“工作台：从此块打开工作视图”，或在当前块运行“工作台：从当前块打开工作视图”。快捷键 `Cmd/Ctrl+Alt+P`。原文继续在 Logseq 编辑，拖动、Tab 缩进、折叠和展示级别保存为本地视图状态。
 - 材料：从工作视图内进入当前工作材料，绑定已有 Graph 外工作目录；没有绑定才用 `materialsDirectory`。可显式收纳文本、当前块，或关联 Markdown、PDF、图片等普通文件。点击 `longdoc://` 先阅读 Markdown，选择编辑才加载编辑器；其他文件仅外部打开。原文件不搬迁，多任务关联不复制正文。详见[产品设计](../design/materials-module-design.md)。
 - 长文本自动收纳默认关闭，配置目录后通过 `materialsAutoCapture` 开启。原始粘贴、捕获记录和保存历史分别保留；原生撤销移除引用和本次插入的来源 id，外部文件继续保留。
-- 任务：使用原有 TC 入口或共同面板的“任务”。填写 Kernel descriptor 后使用原有正式化、今天、事项详情、Closure、Undo 和恢复操作。
+- 任务：使用原有 TC 入口或「工作台」菜单的“正式任务”。填写 Kernel descriptor 后使用原有正式化、今天、事项详情、Closure、Undo 和恢复操作。
 
 三个模块的启用设置修改后重载插件。tasksEnabled=false 不启动正式任务运行时的共享 Worker、来源观察和身份刷新；自然正文的工作区观察继续可用。面板切换不重启插件运行时。工作视图与材料不依赖 Kernel 在线。材料目录没有个人路径默认值，未配置目录时仍能使用其他入口。内嵌编辑器资源随构建打包，首次打开文档时加载。
 

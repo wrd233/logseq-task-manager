@@ -1,6 +1,6 @@
 # 工作级 UI Shell 实施交接
 
-状态：已实施、构建、回归并在隔离的真实 Logseq Desktop 验证。分支 `codex/workbench-ui-shell`，没有 push、PR 或合入 main。
+状态：已实施、构建、回归并在隔离的真实 Logseq Desktop 验证。以下记录为实现分支 `codex/workbench-ui-shell` 交付时点，当时没有 push、PR 或合入 main。后续用户授权的 main 合并与发布另见[2026-10-05 整合记录](../integration/workbench-ui-shell-main-2026-10-05.md)。
 
 ## 基线、提交与运行位置
 

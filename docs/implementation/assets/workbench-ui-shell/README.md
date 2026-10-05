@@ -24,3 +24,8 @@ check-delivery.log 为完整成功 gate（640 tests，0 fail）；final-scope-gu
 fixtures/ 保存任务包长文替换真实 UUID 后的映射、原生 Markdown 页面以及四份合成 Markdown 材料。路径是当时隔离工作树路径；换机器复用时需要重新关联材料和目录，不复制私有 descriptor／token。
 
 现场过程中曾出现磁盘 ENOSPC，详情见交接的检查限制；截图与 gate 不替代对失败写入的恢复核验。中文系统输入法候选窗、其他主题插件、物理 OS 窗口拖动、Kernel 与真实外部 agent 未在该现场验证。
+# 2026-10-05 main 整合证据
+
+`main-*` 文件记录产品合并提交 `d7473c8` 的完整门禁和真实隔离 Desktop 复验，详见[整合记录](../../../integration/workbench-ui-shell-main-2026-10-05.md)。`main-check.log` 为 672 项通过的完整日志；`main-integration-evidence.json` 区分原始 bundle 哈希与仅来源路径注释不同的执行文本，记录材料/历史返回位置及原文哈希。
+
+下文其余文件仍属于原固定基线功能交付，不能当作最新 main 的重复实机验证。

@@ -1,0 +1,3712 @@
+
+> task-copilot-vnext@0.2.0 check
+> npm run docs:requirements && npm run typecheck && npm run lint && npm test && npm run test:sandbox && npm run build && npm run check:boundaries && npm run taste:eval
+
+
+> task-copilot-vnext@0.2.0 docs:requirements
+> node scripts/build-requirements-map.mjs
+
+Built standalone requirements map: 44 nodes.
+
+> task-copilot-vnext@0.2.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @task-copilot/kernel-console@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/kernel-service@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/logseq-plugin@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/cli@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/agent@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/client@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/contracts@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/domain@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/kernel@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/sqlite@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/test-support@0.2.0 typecheck
+> tsc --noEmit
+
+
+> task-copilot-vnext@0.2.0 lint
+> eslint .
+
+
+> task-copilot-vnext@0.2.0 test
+> npm run test --workspaces --if-present
+
+
+> @task-copilot/kernel-console@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: el creates elements with class, text, and dataset
+ok 1 - el creates elements with class, text, and dataset
+  ---
+  duration_ms: 7.527992
+  ...
+# Subtest: el attaches event listeners and appends children
+ok 2 - el attaches event listeners and appends children
+  ---
+  duration_ms: 5.17423
+  ...
+# Subtest: project cards include open and recently completed projects
+ok 3 - project cards include open and recently completed projects
+  ---
+  duration_ms: 46.576184
+  ...
+# Subtest: cold history contains only completed/cancelled objects
+ok 4 - cold history contains only completed/cancelled objects
+  ---
+  duration_ms: 0.901574
+  ...
+# Subtest: frontier prefers cohesive MiniProject over its tasks and includes WAITING
+ok 5 - frontier prefers cohesive MiniProject over its tasks and includes WAITING
+  ---
+  duration_ms: 3.295569
+  ...
+# Subtest: meaningful changes use object-level baseline version
+ok 6 - meaningful changes use object-level baseline version
+  ---
+  duration_ms: 3.117066
+  ...
+# Subtest: independent MiniProject and Task are first-class and unowned is not an anomaly
+ok 7 - independent MiniProject and Task are first-class and unowned is not an anomaly
+  ---
+  duration_ms: 1.536688
+  ...
+# Subtest: attention excludes transient retry and workspace offline but includes stable failures
+ok 8 - attention excludes transient retry and workspace offline but includes stable failures
+  ---
+  duration_ms: 3.990001
+  ...
+# Subtest: attention includes graph mismatch and manual recovery
+ok 9 - attention includes graph mismatch and manual recovery
+  ---
+  duration_ms: 1.057506
+  ...
+# Subtest: closed objects without anchors are quiet in Attention
+ok 10 - closed objects without anchors are quiet in Attention
+  ---
+  duration_ms: 0.964229
+  ...
+# Subtest: pending projection explains temporary anchor absence without duplicate Anchor Missing
+ok 11 - pending projection explains temporary anchor absence without duplicate Anchor Missing
+  ---
+  duration_ms: 1.19982
+  ...
+# Subtest: open object with verified workspace and no explanation still shows Anchor Missing
+ok 12 - open object with verified workspace and no explanation still shows Anchor Missing
+  ---
+  duration_ms: 0.928694
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2509.779331
+
+> @task-copilot/kernel-service@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: context application preserves deterministic ID, Graph scope and correction atomicity
+ok 1 - context application preserves deterministic ID, Graph scope and correction atomicity
+  ---
+  duration_ms: 1003.867794
+  ...
+# Subtest: reading capability uses only target commits and never mutates formal state or ledger
+ok 2 - reading capability uses only target commits and never mutates formal state or ledger
+  ---
+  duration_ms: 384.532793
+  ...
+# Subtest: console world/search/viewed are read-only Kernel Service clients
+ok 3 - console world/search/viewed are read-only Kernel Service clients
+  ---
+  duration_ms: 1633.432456
+  ...
+# Subtest: dogfood correction HTTP endpoint applies a governed USER reality fix
+ok 4 - dogfood correction HTTP endpoint applies a governed USER reality fix
+  ---
+  duration_ms: 1312.948938
+  ...
+# Subtest: scope-out source change records coverage but does not auto-associate Context
+ok 5 - scope-out source change records coverage but does not auto-associate Context
+  ---
+  duration_ms: 689.762895
+  ...
+# Subtest: scope-out autonomous job is skipped without marking source reconciled or busy-looping
+ok 6 - scope-out autonomous job is skipped without marking source reconciled or busy-looping
+  ---
+  duration_ms: 352.592547
+  ...
+# Subtest: INTERACTIVE explicit reconcile bypasses dogfood scope
+ok 7 - INTERACTIVE explicit reconcile bypasses dogfood scope
+  ---
+  duration_ms: 408.456233
+  ...
+# Subtest: dogfood scope includes root descendants dynamically from ownership
+ok 8 - dogfood scope includes root descendants dynamically from ownership
+  ---
+  duration_ms: 989.115985
+  ...
+# Subtest: same dogfood scope instance reflects live ownership moves
+ok 9 - same dogfood scope instance reflects live ownership moves
+  ---
+  duration_ms: 343.385705
+  ...
+# Subtest: no config is legacy unrestricted; explicit empty roots is an empty autonomous scope
+ok 10 - no config is legacy unrestricted; explicit empty roots is an empty autonomous scope
+  ---
+  duration_ms: 397.118914
+  ...
+# Subtest: loadDogfoodConfig parses a minimal config and tolerates missing file
+ok 11 - loadDogfoodConfig parses a minimal config and tolerates missing file
+  ---
+  duration_ms: 19.561806
+  ...
+# Subtest: each dogfood traversal reads ownerships once and empty scope performs no hierarchy reads
+ok 12 - each dogfood traversal reads ownerships once and empty scope performs no hierarchy reads
+  ---
+  duration_ms: 599.868363
+  ...
+# Subtest: formal HTTP receipts survive lost responses and uncertain transport without duplicate commits; Undo keeps USER permission
+ok 13 - formal HTTP receipts survive lost responses and uncertain transport without duplicate commits; Undo keeps USER permission
+  ---
+  duration_ms: 1541.332364
+  ...
+# Subtest: broker fails fast offline and coordinates one typed Graph request
+ok 14 - broker fails fast offline and coordinates one typed Graph request
+  ---
+  duration_ms: 12.235254
+  ...
+# Subtest: broker rejects another Graph and mismatched response kinds
+ok 15 - broker rejects another Graph and mismatched response kinds
+  ---
+  duration_ms: 2.049108
+  ...
+# Subtest: an unacknowledged delivery is leased and redelivered with the same request identity
+ok 16 - an unacknowledged delivery is leased and redelivered with the same request identity
+  ---
+  duration_ms: 48.444222
+  ...
+# Subtest: the broker rejects Graph replacement and cross-Graph responses while a request is active
+ok 17 - the broker rejects Graph replacement and cross-Graph responses while a request is active
+  ---
+  duration_ms: 1.71216
+  ...
+# Subtest: delivery coalesces overlapping drains, preserves Kernel verification, and stops further claims
+ok 18 - delivery coalesces overlapping drains, preserves Kernel verification, and stops further claims
+  ---
+  duration_ms: 684.309209
+  ...
+# Subtest: slow tick stays serial across timer firings; stop after delivery does not claim a new job
+ok 19 - slow tick stays serial across timer firings; stop after delivery does not claim a new job
+  ---
+  duration_ms: 528.462536
+  ...
+# Subtest: a slow cognition run keeps its own remote budget and finishes its claimed job after stop
+ok 20 - a slow cognition run keeps its own remote budget and finishes its claimed job after stop
+  ---
+  duration_ms: 543.75818
+  ...
+# Subtest: Now indexes shared collections once and keeps ProjectIntent changes at the same formal version
+ok 21 - Now indexes shared collections once and keeps ProjectIntent changes at the same formal version
+  ---
+  duration_ms: 915.685193
+  ...
+# Subtest: objectContext captures formal fields and closure state before asynchronous Graph snippets
+ok 22 - objectContext captures formal fields and closure state before asynchronous Graph snippets
+  ---
+  duration_ms: 406.856597
+  ...
+# Subtest: parent and child pending reasons use their own OPEN packages only
+ok 23 - parent and child pending reasons use their own OPEN packages only
+  ---
+  duration_ms: 625.647719
+  ...
+# Subtest: one Broker delivery with invalid readback spends one attempt; a delayed failure cannot downgrade VERIFIED
+ok 24 - one Broker delivery with invalid readback spends one attempt; a delayed failure cannot downgrade VERIFIED
+  ---
+  duration_ms: 647.281486
+  ...
+# Subtest: first manual NO_CHANGE records actual observation without a source-change event
+ok 25 - first manual NO_CHANGE records actual observation without a source-change event
+  ---
+  duration_ms: 500.539563
+  ...
+# Subtest: a newer source observation during cognition remains uncovered and supersedes the old job
+ok 26 - a newer source observation during cognition remains uncovered and supersedes the old job
+  ---
+  duration_ms: 518.384877
+  ...
+# Subtest: Discovery skips ACTIVE associations by graph and block and does not call cognition
+ok 27 - Discovery skips ACTIVE associations by graph and block and does not call cognition
+  ---
+  duration_ms: 226.055577
+  ...
+# Subtest: startup failures release owned resources immediately; contenders and repeated close preserve other owners
+ok 28 - startup failures release owned resources immediately; contenders and repeated close preserve other owners
+  ---
+  duration_ms: 545.74552
+  ...
+# Subtest: service binds to loopback, writes a private descriptor, and rejects missing tokens
+ok 29 - service binds to loopback, writes a private descriptor, and rejects missing tokens
+  ---
+  duration_ms: 1287.894824
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5899.578042
+
+> @task-copilot/logseq-plugin@0.2.0 test
+> tsx --test tests/*.test.ts tests/integration/*.test.mjs
+
+TAP version 13
+# Subtest: independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled
+ok 1 - independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled
+  ---
+  duration_ms: 145150.866742
+  ...
+# Subtest: anchor index classifies primary anchors and ignores incomplete entries
+ok 2 - anchor index classifies primary anchors and ignores incomplete entries
+  ---
+  duration_ms: 6.576631
+  ...
+# Subtest: cache lookup defaults unknown blocks to ordinary
+ok 3 - cache lookup defaults unknown blocks to ordinary
+  ---
+  duration_ms: 0.780022
+  ...
+# Subtest: cache refresh, invalidation, and revision work as a presentation cache
+ok 4 - cache refresh, invalidation, and revision work as a presentation cache
+  ---
+  duration_ms: 1.2996
+  ...
+# Subtest: cache staleness is time based and misses are stale
+ok 5 - cache staleness is time based and misses are stale
+  ---
+  duration_ms: 0.655213
+  ...
+# Subtest: ordinary blocks only get two formalize actions
+ok 6 - ordinary blocks only get two formalize actions
+  ---
+  duration_ms: 1.517892
+  ...
+# Subtest: Task and MiniProject blocks share three core actions
+ok 7 - Task and MiniProject blocks share three core actions
+  ---
+  duration_ms: 0.751716
+  ...
+# Subtest: Project blocks keep open and discuss only
+ok 8 - Project blocks keep open and discuss only
+  ---
+  duration_ms: 0.647436
+  ...
+# Subtest: menu labels are user-facing and contain no internal terms
+ok 9 - menu labels are user-facing and contain no internal terms
+  ---
+  duration_ms: 1.164084
+  ...
+# Subtest: Task canonical form keeps Logseq workflow marker first and bold [任务] label
+ok 10 - Task canonical form keeps Logseq workflow marker first and bold [任务] label
+  ---
+  duration_ms: 4.063064
+  ...
+# Subtest: MiniProject canonical form uses the exact requested bold prefix and trailing tag
+ok 11 - MiniProject canonical form uses the exact requested bold prefix and trailing tag
+  ---
+  duration_ms: 0.531497
+  ...
+# Subtest: Project does not use the block anchor formatter
+ok 12 - Project does not use the block anchor formatter
+  ---
+  duration_ms: 1.242827
+  ...
+# Subtest: parse/extract handles marker-first canonical Task
+ok 13 - parse/extract handles marker-first canonical Task
+  ---
+  duration_ms: 48.210508
+  ...
+# Subtest: parse/extract handles prefix-first legacy canonical Task and normalizes it
+ok 14 - parse/extract handles prefix-first legacy canonical Task and normalizes it
+  ---
+  duration_ms: 1.86885
+  ...
+# Subtest: parse/extract handles MiniProject canonical line
+ok 15 - parse/extract handles MiniProject canonical line
+  ---
+  duration_ms: 2.331045
+  ...
+# Subtest: title stripping removes marker, bold labels, and MiniProject tag without eating semantic markdown
+ok 16 - title stripping removes marker, bold labels, and MiniProject tag without eating semantic markdown
+  ---
+  duration_ms: 1.257667
+  ...
+# Subtest: canonicalize is idempotent and never rewrites natural content
+ok 17 - canonicalize is idempotent and never rewrites natural content
+  ---
+  duration_ms: 1.891765
+  ...
+# Subtest: replaceTaskMarker preserves canonical decoration and converts prefix-first to marker-first
+ok 18 - replaceTaskMarker preserves canonical decoration and converts prefix-first to marker-first
+  ---
+  duration_ms: 1.405906
+  ...
+# Subtest: both task spellings and every supported marker share TASK semantics and retain source spelling
+ok 19 - both task spellings and every supported marker share TASK semantics and retain source spelling
+  ---
+  duration_ms: 6.6555
+  ...
+# Subtest: source normalization, title changes and marker changes retain complete multiline/property bytes
+ok 20 - source normalization, title changes and marker changes retain complete multiline/property bytes
+  ---
+  duration_ms: 1.945106
+  ...
+# Subtest: anchor parsing never claims ordinary TODOs, prose, quoted or coded labels
+ok 21 - anchor parsing never claims ordinary TODOs, prose, quoted or coded labels
+  ---
+  duration_ms: 0.637221
+  ...
+# Subtest: semantic title text is not interpreted as another layer of anchor decoration
+ok 22 - semantic title text is not interpreted as another layer of anchor decoration
+  ---
+  duration_ms: 0.980141
+  ...
+# Subtest: bounded display hunks reconstruct repeated, multiline and astral text without splitting code points
+ok 23 - bounded display hunks reconstruct repeated, multiline and astral text without splitting code points
+  ---
+  duration_ms: 125.95904
+  ...
+# Subtest: ordinary reading exposes one collaboration entry, keeps setup optional and never writes or fabricates agent activity
+ok 24 - ordinary reading exposes one collaboration entry, keeps setup optional and never writes or fabricates agent activity
+  ---
+  duration_ms: 3370.8315
+  ...
+# Subtest: real local begin and record name their local effect; remote changes stay discoverable without opening a console
+ok 25 - real local begin and record name their local effect; remote changes stay discoverable without opening a console
+  ---
+  duration_ms: 2849.951245
+  ...
+# Subtest: collapsed shortcut cannot approve an unseen revision; submitted snapshots and later native writing remain distinct
+ok 26 - collapsed shortcut cannot approve an unseen revision; submitted snapshots and later native writing remain distinct
+  ---
+  duration_ms: 3129.846816
+  ...
+# Subtest: sparse changes preserve long Markdown links emphasis code and every unchanged sentence
+ok 27 - sparse changes preserve long Markdown links emphasis code and every unchanged sentence
+  ---
+  duration_ms: 1777.948679
+  ...
+# Subtest: lost suggestion reply is queried using its retained request after restart and is never appended twice
+ok 28 - lost suggestion reply is queried using its retained request after restart and is never appended twice
+  ---
+  duration_ms: 2732.976614
+  ...
+# Subtest: native drafts and composition keep the reading frame and review proposal rather than changing mode
+ok 29 - native drafts and composition keep the reading frame and review proposal rather than changing mode
+  ---
+  duration_ms: 1713.137424
+  ...
+# Subtest: verified source with failed final Journal save retains its request; recovery stays unknown without durable attribution and never rewrites source
+ok 30 - verified source with failed final Journal save retains its request; recovery stays unknown without durable attribution and never rewrites source
+  ---
+  duration_ms: 1749.046036
+  ...
+# Subtest: durable source success with stage-save failure can repair the same stage using the original request without another write
+ok 31 - durable source success with stage-save failure can repair the same stage using the original request without another write
+  ---
+  duration_ms: 2259.395991
+  ...
+# Subtest: confirmed version conflict keeps both texts and disables stale save until an explicit current reread
+ok 32 - confirmed version conflict keeps both texts and disables stale save until an explicit current reread
+  ---
+  duration_ms: 2128.753031
+  ...
+# Subtest: large focused reading exposes all changes and missing blocks without mutating its reading scope or history
+ok 33 - large focused reading exposes all changes and missing blocks without mutating its reading scope or history
+  ---
+  duration_ms: 27499.899831
+  ...
+# Subtest: local connection controls use a private scope port; external stage APIs never expose approval or authority
+ok 34 - local connection controls use a private scope port; external stage APIs never expose approval or authority
+  ---
+  duration_ms: 330.636022
+  ...
+# Subtest: shared work entry composes the default full report, explicit review and read-only history without changing source or its reading scope
+ok 35 - shared work entry composes the default full report, explicit review and read-only history without changing source or its reading scope
+  ---
+  duration_ms: 1659.892157
+  ...
+# Subtest: report grouping and native drafts remain independent of authorized moves and immutable stage history
+ok 36 - report grouping and native drafts remain independent of authorized moves and immutable stage history
+  ---
+  duration_ms: 6797.937726
+  ...
+# Subtest: merged composition keeps lenses live after verified content writes and marks the old reading basis changed
+ok 37 - merged composition keeps lenses live after verified content writes and marks the old reading basis changed
+  ---
+  duration_ms: 5788.826802
+  ...
+# Subtest: explicit file-graph scope association persists native identity once; DB scope and read never add id
+ok 38 - explicit file-graph scope association persists native identity once; DB scope and read never add id
+  ---
+  duration_ms: 322.661487
+  ...
+# Subtest: scope identity journal failure denies scope without an untracked native property write
+ok 39 - scope identity journal failure denies scope without an untracked native property write
+  ---
+  duration_ms: 31.243641
+  ...
+# Subtest: scope association never overwrites an inconsistent existing native identity
+ok 40 - scope association never overwrites an inconsistent existing native identity
+  ---
+  duration_ms: 16.352537
+  ...
+# Subtest: real composition root registers the default content API and completes controlled synthetic Logseq operations across reload
+ok 41 - real composition root registers the default content API and completes controlled synthetic Logseq operations across reload
+  ---
+  duration_ms: 1120.044224
+  ...
+# Subtest: the local form blocks ambiguous snippets and IME submission; explicit TODO command grants one concrete patch
+ok 42 - the local form blocks ambiguous snippets and IME submission; explicit TODO command grants one concrete patch
+  ---
+  duration_ms: 1147.028099
+  ...
+# Subtest: conflict panel preserves current/proposed/optional old text, closes without loss, and retries only against the displayed new version
+ok 43 - conflict panel preserves current/proposed/optional old text, closes without loss, and retries only against the displayed new version
+  ---
+  duration_ms: 621.747233
+  ...
+# Subtest: append form keeps its request identity after partial identity failure, repeated submit and a new installer
+ok 44 - append form keeps its request identity after partial identity failure, repeated submit and a new installer
+  ---
+  duration_ms: 577.565297
+  ...
+# Subtest: TODO conflict retry requires another explicit concrete user action on the displayed new version
+ok 45 - TODO conflict retry requires another explicit concrete user action on the displayed new version
+  ---
+  duration_ms: 685.173173
+  ...
+# Subtest: registered scope setup, dispose and graph changes invalidate late host requests without restoring stale UI or grants
+ok 46 - registered scope setup, dispose and graph changes invalidate late host requests without restoring stale UI or grants
+  ---
+  duration_ms: 419.59263
+  ...
+# Subtest: a local edit command cannot authorize a different Graph from a late current-block response
+ok 47 - a local edit command cannot authorize a different Graph from a late current-block response
+  ---
+  duration_ms: 18.386075
+  ...
+# Subtest: trusted scope never expands through forged roots, aliases, resolution fields or metadata
+ok 48 - trusted scope never expands through forged roots, aliases, resolution fields or metadata
+  ---
+  duration_ms: 53.762283
+  ...
+# Subtest: a recovery panel waiting for another panel to close cannot open after scope revocation or disposal
+ok 49 - a recovery panel waiting for another panel to close cannot open after scope revocation or disposal
+  ---
+  duration_ms: 383.808406
+  ...
+# Subtest: native before preserves UUID, subtree, raw text, properties and idempotence
+ok 50 - native before preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 1075.660741
+  ...
+# Subtest: native after preserves UUID, subtree, raw text, properties and idempotence
+ok 51 - native after preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 297.786197
+  ...
+# Subtest: native first-child preserves UUID, subtree, raw text, properties and idempotence
+ok 52 - native first-child preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 388.042365
+  ...
+# Subtest: schema negotiation and trusted structure permission cannot be supplied by input
+ok 53 - schema negotiation and trusted structure permission cannot be supplied by input
+  ---
+  duration_ms: 490.17851
+  ...
+# Subtest: stale source refuses without moving
+ok 54 - stale source refuses without moving
+  ---
+  duration_ms: 292.474136
+  ...
+# Subtest: stale target refuses without moving
+ok 55 - stale target refuses without moving
+  ---
+  duration_ms: 44.132103
+  ...
+# Subtest: stale parent refuses without moving
+ok 56 - stale parent refuses without moving
+  ---
+  duration_ms: 33.940955
+  ...
+# Subtest: stale neighbor refuses without moving
+ok 57 - stale neighbor refuses without moving
+  ---
+  duration_ms: 314.416895
+  ...
+# Subtest: unrelated text is allowed; cycles, root, membership and forged graph are refused
+ok 58 - unrelated text is allowed; cycles, root, membership and forged graph are refused
+  ---
+  duration_ms: 392.204397
+  ...
+# Subtest: MiniProject ordinary notes and TODO move within ownership; formal/managed wrappers and another object cannot
+ok 59 - MiniProject ordinary notes and TODO move within ownership; formal/managed wrappers and another object cannot
+  ---
+  duration_ms: 575.263583
+  ...
+# Subtest: editing guard protects source
+ok 60 - editing guard protects source
+  ---
+  duration_ms: 212.22696
+  ...
+# Subtest: editing guard protects child
+ok 61 - editing guard protects child
+  ---
+  duration_ms: 175.471997
+  ...
+# Subtest: editing guard protects destination
+ok 62 - editing guard protects destination
+  ---
+  duration_ms: 46.565601
+  ...
+# Subtest: editing guard protects parent
+ok 63 - editing guard protects parent
+  ---
+  duration_ms: 51.252265
+  ...
+# Subtest: editing guard protects composition
+ok 64 - editing guard protects composition
+  ---
+  duration_ms: 452.726249
+  ...
+# Subtest: lost-reply is recoverable without repeating a move
+ok 65 - lost-reply is recoverable without repeating a move
+  ---
+  duration_ms: 331.590899
+  ...
+# Subtest: timeout is recoverable without repeating a move
+ok 66 - timeout is recoverable without repeating a move
+  ---
+  duration_ms: 327.42776
+  ...
+# Subtest: readback is recoverable without repeating a move
+ok 67 - readback is recoverable without repeating a move
+  ---
+  duration_ms: 260.407424
+  ...
+# Subtest: journal-intent is recoverable without repeating a move
+ok 68 - journal-intent is recoverable without repeating a move
+  ---
+  duration_ms: 198.53138
+  ...
+# Subtest: journal-result is recoverable without repeating a move
+ok 69 - journal-result is recoverable without repeating a move
+  ---
+  duration_ms: 258.850663
+  ...
+# Subtest: graph is recoverable without repeating a move
+ok 70 - graph is recoverable without repeating a move
+  ---
+  duration_ms: 227.517289
+  ...
+# Subtest: mixed batch records one move and one stale text; dependent moves need new source structure
+ok 71 - mixed batch records one move and one stale text; dependent moves need new source structure
+  ---
+  duration_ms: 393.99543
+  ...
+# Subtest: pure moves create immutable stage revisions; later manual moves are never attributed to an old write
+ok 72 - pure moves create immutable stage revisions; later manual moves are never attributed to an old write
+  ---
+  duration_ms: 756.12194
+  ...
+# Subtest: queued moves stop after revoke; already dispatched move stays unknown until actual SDK settles
+ok 73 - queued moves stop after revoke; already dispatched move stays unknown until actual SDK settles
+  ---
+  duration_ms: 267.723307
+  ...
+# Subtest: unsupported SDK and properties readback mismatch fail closed; native id representation is recorded separately
+ok 74 - unsupported SDK and properties readback mismatch fail closed; native id representation is recorded separately
+  ---
+  duration_ms: 518.677225
+  ...
+# Subtest: empty/no-op move remains NO_CHANGE and unrelated request then advances normally
+ok 75 - empty/no-op move remains NO_CHANGE and unrelated request then advances normally
+  ---
+  duration_ms: 245.138668
+  ...
+# Subtest: first-child prepends to existing children; descendant changes between intent and dispatch stop SDK
+ok 76 - first-child prepends to existing children; descendant changes between intent and dispatch stop SDK
+  ---
+  duration_ms: 416.159488
+  ...
+# Subtest: old text and child journals remain queryable next to v2; corrupt movement facts never become success
+ok 77 - old text and child journals remain queryable next to v2; corrupt movement facts never become success
+  ---
+  duration_ms: 426.683006
+  ...
+# Subtest: registered conflict UI explains location, preserves proposal on close and retries only with new source
+ok 78 - registered conflict UI explains location, preserves proposal on close and retries only with new source
+  ---
+  duration_ms: 1191.924029
+  ...
+# Subtest: stage review renders same UUID movement with old/new position; accepted history stays immutable
+ok 79 - stage review renders same UUID movement with old/new position; accepted history stays immutable
+  ---
+  duration_ms: 3714.150706
+  ...
+# Subtest: known formal MiniProject with unavailable managed index retains ambiguity protection
+ok 80 - known formal MiniProject with unavailable managed index retains ambiguity protection
+  ---
+  duration_ms: 311.779212
+  ...
+# Subtest: native identity delta permits only one exact property line and preserves original newline bytes
+ok 81 - native identity delta permits only one exact property line and preserves original newline bytes
+  ---
+  duration_ms: 113.640801
+  ...
+# Subtest: background child insertion does not open the native editor and can finish identity verification
+ok 82 - background child insertion does not open the native editor and can finish identity verification
+  ---
+  duration_ms: 597.120167
+  ...
+# Subtest: fresh Desktop FileStorage null keys mean absence; malformed key results fail closed
+ok 83 - fresh Desktop FileStorage null keys mean absence; malformed key results fail closed
+  ---
+  duration_ms: 338.412392
+  ...
+# Subtest: scope identity has a durable independent intent and unknown attribution can resume identity without a body replay
+ok 84 - scope identity has a durable independent intent and unknown attribution can resume identity without a body replay
+  ---
+  duration_ms: 267.973533
+  ...
+# Subtest: full raw UTF-8 versions and true preorder/parent/sibling versions have an independent SHA256 oracle
+ok 85 - full raw UTF-8 versions and true preorder/parent/sibling versions have an independent SHA256 oracle
+  ---
+  duration_ms: 293.616158
+  ...
+# Subtest: a selected page root publishes real native sibling order and rejects broken left links
+ok 86 - a selected page root publishes real native sibling order and rejects broken left links
+  ---
+  duration_ms: 69.391758
+  ...
+# Subtest: partial replace and contextual insertion preserve CRLF, emoji and untouched repeated text
+ok 87 - partial replace and contextual insertion preserve CRLF, emoji and untouched repeated text
+  ---
+  duration_ms: 552.637407
+  ...
+# Subtest: nonintersecting same-block operations combine into one real write; no change creates no false fact
+ok 88 - nonintersecting same-block operations combine into one real write; no change creates no false fact
+  ---
+  duration_ms: 63.859636
+  ...
+# Subtest: ordinary append uses stable UUID, exact parent/body readback and separately verified native identity
+ok 89 - ordinary append uses stable UUID, exact parent/body readback and separately verified native identity
+  ---
+  duration_ms: 331.342984
+  ...
+# Subtest: DB Graph child identity never adds a file-graph id line
+ok 90 - DB Graph child identity never adds a file-graph id line
+  ---
+  duration_ms: 199.448765
+  ...
+# Subtest: UTF16 split positions and illegal ranges are refused with the source unchanged
+ok 91 - UTF16 split positions and illegal ranges are refused with the source unchanged
+  ---
+  duration_ms: 179.426697
+  ...
+# Subtest: overlapping edits and inconsistent same-block bases fail that block without blocking another safe block
+ok 92 - overlapping edits and inconsistent same-block bases fail that block without blocking another safe block
+  ---
+  duration_ms: 87.68665
+  ...
+# Subtest: current full version mismatch rejects old offsets even when old text remains elsewhere
+ok 93 - current full version mismatch rejects old offsets even when old text remains elsewhere
+  ---
+  duration_ms: 235.727388
+  ...
+# Subtest: unrelated source edits do not invalidate a target; actual target parent or membership changes do
+ok 94 - unrelated source edits do not invalidate a target; actual target parent or membership changes do
+  ---
+  duration_ms: 263.166593
+  ...
+# Subtest: authorized root movement changes its captured ancestry and blocks queued proposals
+ok 95 - authorized root movement changes its captured ancestry and blocks queued proposals
+  ---
+  duration_ms: 211.342293
+  ...
+# Subtest: native identity cannot be rewritten through natural content
+ok 96 - native identity cannot be rewritten through natural content
+  ---
+  duration_ms: 34.666014
+  ...
+# Subtest: association property cannot be rewritten through natural content
+ok 97 - association property cannot be rewritten through natural content
+  ---
+  duration_ms: 222.757179
+  ...
+# Subtest: managed attribute cannot be rewritten through natural content
+ok 98 - managed attribute cannot be rewritten through natural content
+  ---
+  duration_ms: 30.482969
+  ...
+# Subtest: managed field cannot be rewritten through natural content
+ok 99 - managed field cannot be rewritten through natural content
+  ---
+  duration_ms: 341.297336
+  ...
+# Subtest: legacy field cannot be rewritten through natural content
+ok 100 - legacy field cannot be rewritten through natural content
+  ---
+  duration_ms: 30.585412
+  ...
+# Subtest: formal first line is protected offline while exact natural descriptions and ordinary multiline work records are editable
+ok 101 - formal first line is protected offline while exact natural descriptions and ordinary multiline work records are editable
+  ---
+  duration_ms: 449.670041
+  ...
+# Subtest: fresh ownership protects renamed managed UUIDs and permits certified ordinary formal children
+ok 102 - fresh ownership protects renamed managed UUIDs and permits certified ordinary formal children
+  ---
+  duration_ms: 389.041225
+  ...
+# Subtest: affair syntax is protected offline without creating identity: TODO **[事务]** 正式标题
+ok 103 - affair syntax is protected offline without creating identity: TODO **[事务]** 正式标题
+  ---
+  duration_ms: 241.328748
+  ...
+# Subtest: affair syntax is protected offline without creating identity: **[事务]** TODO 正式标题
+ok 104 - affair syntax is protected offline without creating identity: **[事务]** TODO 正式标题
+  ---
+  duration_ms: 295.821365
+  ...
+# Subtest: affair syntax is protected offline without creating identity: [事务] 正式标题
+ok 105 - affair syntax is protected offline without creating identity: [事务] 正式标题
+  ---
+  duration_ms: 327.349369
+  ...
+# Subtest: affair ownership online protects renamed formal roots, managed fields and local TODOs without granting ordinary writes extra authority
+ok 106 - affair ownership online protects renamed formal roots, managed fields and local TODOs without granting ordinary writes extra authority
+  ---
+  duration_ms: 216.644298
+  ...
+# Subtest: ordinary content cannot introduce an affair anchor through text or child insertion
+ok 107 - ordinary content cannot introduce an affair anchor through text or child insertion
+  ---
+  duration_ms: 63.776186
+  ...
+# Subtest: whole-block replacement, appended property and newly introduced formal syntax cannot bypass protection
+ok 108 - whole-block replacement, appended property and newly introduced formal syntax cannot bypass protection
+  ---
+  duration_ms: 265.103351
+  ...
+# Subtest: TODO defaults read-only, including continuations and descendants; a trusted exact grant permits only that operation
+ok 109 - TODO defaults read-only, including continuations and descendants; a trusted exact grant permits only that operation
+  ---
+  duration_ms: 715.981396
+  ...
+# Subtest: offline formal field ambiguity protects renamed branches and cannot be bypassed by choosing a descendant root
+ok 110 - offline formal field ambiguity protects renamed branches and cannot be bypassed by choosing a descendant root
+  ---
+  duration_ms: 343.549148
+  ...
+# Subtest: code and external quotation are inert text; source instructions and forged privilege fields never execute or authorize
+ok 111 - code and external quotation are inert text; source instructions and forged privilege fields never execute or authorize
+  ---
+  duration_ms: 465.372391
+  ...
+# Subtest: native draft and composition guards never force save, exit editing, or overwrite input
+ok 112 - native draft and composition guards never force save, exit editing, or overwrite input
+  ---
+  duration_ms: 91.201519
+  ...
+# Subtest: same request payload returns historical verified facts after restart and later source edits; different payload is refused
+ok 113 - same request payload returns historical verified facts after restart and later source edits; different payload is refused
+  ---
+  duration_ms: 344.118844
+  ...
+# Subtest: same-key concurrent requests execute once and independent stale same-block requests serialize rather than lose an edit
+ok 114 - same-key concurrent requests execute once and independent stale same-block requests serialize rather than lose an edit
+  ---
+  duration_ms: 461.88987
+  ...
+# Subtest: partial batch records real success/conflict and explicit retry uses the new version without replaying success
+ok 115 - partial batch records real success/conflict and explicit retry uses the new version without replaying success
+  ---
+  duration_ms: 330.997326
+  ...
+# Subtest: an oversized combined journal intent stops before Graph dispatch and its earlier intent stays readable
+ok 116 - an oversized combined journal intent stops before Graph dispatch and its earlier intent stays readable
+  ---
+  duration_ms: 9808.179929
+  ...
+# Subtest: intent journal failure stops before any source call; pending pre-dispatch record recovers as unapplied
+ok 117 - intent journal failure stops before any source call; pending pre-dispatch record recovers as unapplied
+  ---
+  duration_ms: 371.158611
+  ...
+# Subtest: verified source write with lost final journal save stays fenced from replay; recovery observes content without false attribution
+ok 118 - verified source write with lost final journal save stays fenced from replay; recovery observes content without false attribution
+  ---
+  duration_ms: 58.144757
+  ...
+# Subtest: readback mismatch is outcome unknown and retains the newer real body
+ok 119 - readback mismatch is outcome unknown and retains the newer real body
+  ---
+  duration_ms: 331.090108
+  ...
+# Subtest: host timeout records unknown and holds a source fence until its uncancellable SDK request settles
+ok 120 - host timeout records unknown and holds a source fence until its uncancellable SDK request settles
+  ---
+  duration_ms: 237.999132
+  ...
+# Subtest: insert-child reply loss and an unrelated existing UUID cannot create duplicates or be claimed as verified creation
+ok 121 - insert-child reply loss and an unrelated existing UUID cannot create duplicates or be claimed as verified creation
+  ---
+  duration_ms: 327.899814
+  ...
+# Subtest: new child body and failed durable identity remain separate facts, explicit identity recovery never appends again
+ok 122 - new child body and failed durable identity remain separate facts, explicit identity recovery never appends again
+  ---
+  duration_ms: 76.632619
+  ...
+# Subtest: identity recovery refuses a later human child edit and never rewrites it
+ok 123 - identity recovery refuses a later human child edit and never rewrites it
+  ---
+  duration_ms: 310.631151
+  ...
+# Subtest: revoking a scope invalidates a queued write and an in-flight result honestly stays unknown
+ok 124 - revoking a scope invalidates a queued write and an in-flight result honestly stays unknown
+  ---
+  duration_ms: 45.655922
+  ...
+# Subtest: Graph switch during a source read stops before SDK write and preserves the proposal
+ok 125 - Graph switch during a source read stops before SDK write and preserves the proposal
+  ---
+  duration_ms: 20.347938
+  ...
+# Subtest: special object-key operation IDs remain discoverable conflicts and resolve durably without prototype changes
+ok 126 - special object-key operation IDs remain discoverable conflicts and resolve durably without prototype changes
+  ---
+  duration_ms: 662.389304
+  ...
+# Subtest: corrupt newest journal never falls back to an earlier intent and never replays a success
+ok 127 - corrupt newest journal never falls back to an earlier intent and never replays a success
+  ---
+  duration_ms: 349.210618
+  ...
+# Subtest: closed schema bounds source targets, payload size, insert context and operation vocabulary
+ok 128 - closed schema bounds source targets, payload size, insert context and operation vocabulary
+  ---
+  duration_ms: 16.054503
+  ...
+# Subtest: Desktop missing-stat null is checked against the parent; unreadable existing paths never become absent
+ok 129 - Desktop missing-stat null is checked against the parent; unreadable existing paths never become absent
+  ---
+  duration_ms: 92.318247
+  ...
+# Subtest: mode-less Desktop stat requires real readdir or ENOTDIR evidence and never guesses on denied/unknown results
+ok 130 - mode-less Desktop stat requires real readdir or ENOTDIR evidence and never guesses on denied/unknown results
+  ---
+  duration_ms: 43.581813
+  ...
+# Subtest: Desktop compact stat distinguishes an existing empty directory and a file, and never treats access failure as a file
+ok 131 - Desktop compact stat distinguishes an existing empty directory and a file, and never treats access failure as a file
+  ---
+  duration_ms: 263.938933
+  ...
+# Subtest: filesystem identity requires all observed physical facts; compact/unsafe stats never invent an identity
+ok 132 - filesystem identity requires all observed physical facts; compact/unsafe stats never invent an identity
+  ---
+  duration_ms: 2.683475
+  ...
+# Subtest: ordinary blocks are not marker eligible
+ok 133 - ordinary blocks are not marker eligible
+  ---
+  duration_ms: 3.329156
+  ...
+# Subtest: Task, MiniProject, and Project share one formal marker identity
+ok 134 - Task, MiniProject, and Project share one formal marker identity
+  ---
+  duration_ms: 0.980315
+  ...
+# Subtest: marker glyph is one stable glyph for every kind
+ok 135 - marker glyph is one stable glyph for every kind
+  ---
+  duration_ms: 0.676952
+  ...
+# Subtest: tooltip exposes kind and user-facing state only, never internal ids
+ok 136 - tooltip exposes kind and user-facing state only, never internal ids
+  ---
+  duration_ms: 1.375006
+  ...
+# Subtest: tooltip falls back to lifecycle copy when engagement is absent
+ok 137 - tooltip falls back to lifecycle copy when engagement is absent
+  ---
+  duration_ms: 2.051324
+  ...
+# Subtest: warning consistency uses ◇! and user-facing projection warning tooltip
+ok 138 - warning consistency uses ◇! and user-facing projection warning tooltip
+  ---
+  duration_ms: 0.797497
+  ...
+# Subtest: normal consistency keeps the plain formal glyph
+ok 139 - normal consistency keeps the plain formal glyph
+  ---
+  duration_ms: 0.477015
+  ...
+# Subtest: stable projection anomaly excludes transient retries and business states
+ok 140 - stable projection anomaly excludes transient retries and business states
+  ---
+  duration_ms: 8.280713
+  ...
+# Subtest: ordinary formalization is a verified zero-noise projection
+ok 141 - ordinary formalization is a verified zero-noise projection
+  ---
+  duration_ms: 96.496861
+  ...
+# Subtest: typed ADD_REFERENCE preserves source text and fails closed on stale topology
+ok 142 - typed ADD_REFERENCE preserves source text and fails closed on stale topology
+  ---
+  duration_ms: 17.66737
+  ...
+# Subtest: title-only DB block shapes pass through the formalization entry and Graph Adapter
+ok 143 - title-only DB block shapes pass through the formalization entry and Graph Adapter
+  ---
+  duration_ms: 6.639015
+  ...
+# Subtest: focus is UUID-addressed, label-independent, and safely standardized by re-render
+ok 144 - focus is UUID-addressed, label-independent, and safely standardized by re-render
+  ---
+  duration_ms: 70.209935
+  ...
+# Subtest: value or topology conflicts fail closed and preserve natural children
+ok 145 - value or topology conflicts fail closed and preserve natural children
+  ---
+  duration_ms: 54.810598
+  ...
+# Subtest: Waiting and review render as sparse ordered children while full semantics stay Kernel-owned
+ok 146 - Waiting and review render as sparse ordered children while full semantics stay Kernel-owned
+  ---
+  duration_ms: 73.35065
+  ...
+# Subtest: managed field reorder or natural interleaving is a topology conflict
+ok 147 - managed field reorder or natural interleaving is a topology conflict
+  ---
+  duration_ms: 8.784999
+  ...
+# Subtest: partial multi-block response loss resumes without overwriting a third value
+ok 148 - partial multi-block response loss resumes without overwriting a third value
+  ---
+  duration_ms: 12.825229
+  ...
+# Subtest: Completion uses DONE alone when outcome repeats title and shows only an informative outcome
+ok 149 - Completion uses DONE alone when outcome repeats title and shows only an informative outcome
+  ---
+  duration_ms: 141.289816
+  ...
+# Subtest: Cancellation and reopen use one stable closure UUID
+ok 150 - Cancellation and reopen use one stable closure UUID
+  ---
+  duration_ms: 55.450475
+  ...
+# Subtest: marker response loss and restart-style retry converge safely
+ok 151 - marker response loss and restart-style retry converge safely
+  ---
+  duration_ms: 5.539613
+  ...
+# Subtest: a managed edit between marker and presentation writes is retained and fails closed
+ok 152 - a managed edit between marker and presentation writes is retained and fails closed
+  ---
+  duration_ms: 97.741629
+  ...
+# Subtest: bounded legacy engineering projection is presentation-equivalent and safely converges
+ok 153 - bounded legacy engineering projection is presentation-equivalent and safely converges
+  ---
+  duration_ms: 65.496009
+  ...
+# Subtest: legacy ownership expansion prevents destructive re-render
+ok 154 - legacy ownership expansion prevents destructive re-render
+  ---
+  duration_ms: 9.878102
+  ...
+# Subtest: create compensation removes registered presentation only
+ok 155 - create compensation removes registered presentation only
+  ---
+  duration_ms: 9.450063
+  ...
+# Subtest: create compensation waits for stale removed blocks before reporting absence
+ok 156 - create compensation waits for stale removed blocks before reporting absence
+  ---
+  duration_ms: 343.431109
+  ...
+# Subtest: restart recovery verifies registered projection UUID absence instead of trusting an empty adapter cache
+ok 157 - restart recovery verifies registered projection UUID absence instead of trusting an empty adapter cache
+  ---
+  duration_ms: 507.224651
+  ...
+# Subtest: fresh readback tolerates only the exact pre-write projection while Logseq catches up
+ok 158 - fresh readback tolerates only the exact pre-write projection while Logseq catches up
+  ---
+  duration_ms: 47.563748
+  ...
+# Subtest: evidence material remains a fresh canonical read bound to the separate proof capability
+ok 159 - evidence material remains a fresh canonical read bound to the separate proof capability
+  ---
+  duration_ms: 10.824537
+  ...
+# Subtest: canonical Task source is normalized from legacy prefix-first and completed in place
+ok 160 - canonical Task source is normalized from legacy prefix-first and completed in place
+  ---
+  duration_ms: 4.117816
+  ...
+# Subtest: canonical Task rename updates the managed source line
+ok 161 - canonical Task rename updates the managed source line
+  ---
+  duration_ms: 1.854675
+  ...
+# Subtest: 任务 projections preserve raw source identity, properties, natural text and subtree through rename/closure/restart
+ok 162 - 任务 projections preserve raw source identity, properties, natural text and subtree through rename/closure/restart
+  ---
+  duration_ms: 60.684627
+  ...
+# Subtest: 事务 projections preserve raw source identity, properties, natural text and subtree through rename/closure/restart
+ok 163 - 事务 projections preserve raw source identity, properties, natural text and subtree through rename/closure/restart
+  ---
+  duration_ms: 12.77508
+  ...
+# Subtest: canonical MiniProject source stays idempotent through upsert and rerender
+ok 164 - canonical MiniProject source stays idempotent through upsert and rerender
+  ---
+  duration_ms: 4.272761
+  ...
+# Subtest: natural Task source is never normalized by the Graph Adapter
+ok 165 - natural Task source is never normalized by the Graph Adapter
+  ---
+  duration_ms: 13.135816
+  ...
+# Subtest: CREATE delivery resumes exact or partial owned presentation after a lost reply and removal proves actual UUID absence
+ok 166 - CREATE delivery resumes exact or partial owned presentation after a lost reply and removal proves actual UUID absence
+  ---
+  duration_ms: 194.445574
+  ...
+# Subtest: background worker exposes bounded Graph semantics and trusted Evidence, not filesystem RPC
+ok 167 - background worker exposes bounded Graph semantics and trusted Evidence, not filesystem RPC
+  ---
+  duration_ms: 7.870639
+  ...
+# Subtest: worker fails an already claimed request after scope invalidation and does not resume after stop
+ok 168 - worker fails an already claimed request after scope invalidation and does not resume after stop
+  ---
+  duration_ms: 534.452111
+  ...
+# Subtest: offline defaults distinguish tasks, notes and unmarked long prose
+ok 169 - offline defaults distinguish tasks, notes and unmarked long prose
+  ---
+  duration_ms: 57.349106
+  ...
+# Subtest: explicit preferences survive changed source, auto restores code decisions
+ok 170 - explicit preferences survive changed source, auto restores code decisions
+  ---
+  duration_ms: 6.707847
+  ...
+# Subtest: only explicit task aliases and tagged MiniProject are objects
+ok 171 - only explicit task aliases and tagged MiniProject are objects
+  ---
+  duration_ms: 13.580829
+  ...
+# Subtest: ordinary context traversed, nearest wins, only object crumbs
+ok 172 - ordinary context traversed, nearest wins, only object crumbs
+  ---
+  duration_ms: 3.606398
+  ...
+# Subtest: breadcrumb hold contains nested objects via SOURCE ancestry; external exits
+ok 173 - breadcrumb hold contains nested objects via SOURCE ancestry; external exits
+  ---
+  duration_ms: 99.288565
+  ...
+# Subtest: default sibling switches; explicit ordinary scope holds only its subtree
+ok 174 - default sibling switches; explicit ordinary scope holds only its subtree
+  ---
+  duration_ms: 0.917378
+  ...
+# Subtest: cycles and overlong paths do not switch scope
+ok 175 - cycles and overlong paths do not switch scope
+  ---
+  duration_ms: 1.419056
+  ...
+# Subtest: unreadable parent is not mistaken for a normal end; page ID terminates safely
+ok 176 - unreadable parent is not mistaken for a normal end; page ID terminates safely
+  ---
+  duration_ms: 2.906549
+  ...
+# Subtest: held membership follows source relocation rather than retained presentation references
+ok 177 - held membership follows source relocation rather than retained presentation references
+  ---
+  duration_ms: 3.745644
+  ...
+# Subtest: object prefixes do not require a space before the title
+ok 178 - object prefixes do not require a space before the title
+  ---
+  duration_ms: 0.88973
+  ...
+# Subtest: canonical vNext task markers retain navigation labels
+ok 179 - canonical vNext task markers retain navigation labels
+  ---
+  duration_ms: 8.862367
+  ...
+# Subtest: legacy and marker-first affair roots use the canonical clean title while same-name nested roots keep UUID ancestry
+ok 180 - legacy and marker-first affair roots use the canonical clean title while same-name nested roots keep UUID ancestry
+  ---
+  duration_ms: 1.932313
+  ...
+# Subtest: native material references return to the clicked block even when another work is open; report references use current work
+ok 181 - native material references return to the clicked block even when another work is open; report references use current work
+  ---
+  duration_ms: 3034.35453
+  ...
+# Subtest: offline directory preview leaves identity, source and editing permission untouched until explicit association
+ok 182 - offline directory preview leaves identity, source and editing permission untouched until explicit association
+  ---
+  duration_ms: 1103.285092
+  ...
+# Subtest: offline directory reads an existing captured output through its original identity and permissions
+ok 183 - offline directory reads an existing captured output through its original identity and permissions
+  ---
+  duration_ms: 298.906879
+  ...
+# Subtest: a delayed connected preview cannot revive a previous Graph or offer a write there
+ok 184 - a delayed connected preview cannot revive a previous Graph or offer a write there
+  ---
+  duration_ms: 238.732176
+  ...
+# Subtest: material editor is reused, unrelated polls preserve focus and IME waits until composition ends before autosave
+ok 185 - material editor is reused, unrelated polls preserve focus and IME waits until composition ends before autosave
+  ---
+  duration_ms: 388.04055
+  ...
+# Subtest: stable external versions update a clean editor but never replace a dirty draft; each Graph restores its own draft
+ok 186 - stable external versions update a clean editor but never replace a dirty draft; each Graph restores its own draft
+  ---
+  duration_ms: 456.684927
+  ...
+# Subtest: an already-started save remains bound to its original Graph and dispose waits to destroy the editor
+ok 187 - an already-started save remains bound to its original Graph and dispose waits to destroy the editor
+  ---
+  duration_ms: 126.18304
+  ...
+# Subtest: navigation keeps the editor when composing or when a dirty draft cannot be cached
+ok 188 - navigation keeps the editor when composing or when a dirty draft cannot be cached
+  ---
+  duration_ms: 131.851051
+  ...
+# Subtest: a missing material keeps a selectable draft without pretending the original can be read or edited
+ok 189 - a missing material keeps a selectable draft without pretending the original can be read or edited
+  ---
+  duration_ms: 359.97294
+  ...
+# Subtest: restoring captured source stops before writing when Graph changes during its SDK read
+ok 190 - restoring captured source stops before writing when Graph changes during its SDK read
+  ---
+  duration_ms: 291.93398
+  ...
+# Subtest: project A capture → another page reading → draft editing → project B → A old link → external conflict → retained draft recovery → return to task
+ok 191 - project A capture → another page reading → draft editing → project B → A old link → external conflict → retained draft recovery → return to task
+  ---
+  duration_ms: 1350.384545
+  ...
+# Subtest: failed reference insertion returns the saved identity and replay repairs the link once without another material
+ok 192 - failed reference insertion returns the saved identity and replay repairs the link once without another material
+  ---
+  duration_ms: 34.447168
+  ...
+# Subtest: automatic paste respects opt-in, short/internal/code input and retains a saved capture when position or Graph changes
+ok 193 - automatic paste respects opt-in, short/internal/code input and retains a saved capture when position or Graph changes
+  ---
+  duration_ms: 190.788897
+  ...
+# Subtest: user and agent captures share HTML conversion and preserve the original for recovery
+ok 194 - user and agent captures share HTML conversion and preserve the original for recovery
+  ---
+  duration_ms: 130.875989
+  ...
+# Subtest: explicit submitted text survives a file failure and the user resumes the same material from its record
+ok 195 - explicit submitted text survives a file failure and the user resumes the same material from its record
+  ---
+  duration_ms: 318.4888
+  ...
+# Subtest: view subtree move leaves source intact and preserves children
+ok 196 - view subtree move leaves source intact and preserves children
+  ---
+  duration_ms: 5.805619
+  ...
+# Subtest: indent and outdent whole subtree, root immovable
+ok 197 - indent and outdent whole subtree, root immovable
+  ---
+  duration_ms: 1.532428
+  ...
+# Subtest: source edits/reorder/insertion/removal/resurrection do not reorder existing references
+ok 198 - source edits/reorder/insertion/removal/resurrection do not reorder existing references
+  ---
+  duration_ms: 1.150679
+  ...
+# Subtest: compatible personal markers and orthogonal task state
+ok 199 - compatible personal markers and orthogonal task state
+  ---
+  duration_ms: 3.387346
+  ...
+# Subtest: no semantics from code, page refs, quotation, non-prefix and unfinished labels
+ok 200 - no semantics from code, page refs, quotation, non-prefix and unfinished labels
+  ---
+  duration_ms: 0.935932
+  ...
+# Subtest: 300 nodes / 2000 source updates preserve customized layout
+ok 201 - 300 nodes / 2000 source updates preserve customized layout
+  ---
+  duration_ms: 9542.634891
+  ...
+# Subtest: real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+ok 202 - real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+  ---
+  duration_ms: 4619.356722
+  ...
+# Subtest: narrow window yields the panel, really invokes native editing and restores current report after host commit
+ok 203 - narrow window yields the panel, really invokes native editing and restores current report after host commit
+  ---
+  duration_ms: 2075.216761
+  ...
+# Subtest: navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+ok 204 - navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+  ---
+  duration_ms: 1209.475348
+  ...
+# Subtest: wide docked window retains the report and native input, while report reflects only committed source
+ok 205 - wide docked window retains the report and native input, while report reflects only committed source
+  ---
+  duration_ms: 1327.932424
+  ...
+# Subtest: returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+ok 206 - returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+  ---
+  duration_ms: 1711.860124
+  ...
+# Subtest: resizing beside native composition to a narrow window yields the report without saving or cancelling input
+ok 207 - resizing beside native composition to a narrow window yields the report without saving or cancelling input
+  ---
+  duration_ms: 1141.411149
+  ...
+# Subtest: report folds, focus and explicit original layout survive reading toggles without source or layout writes
+ok 208 - report folds, focus and explicit original layout survive reading toggles without source or layout writes
+  ---
+  duration_ms: 1115.39539
+  ...
+# Subtest: stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+ok 209 - stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+  ---
+  duration_ms: 1020.212869
+  ...
+# Subtest: switching away while native navigation is pending preserves reading but cancels the old edit
+ok 210 - switching away while native navigation is pending preserves reading but cancels the old edit
+  ---
+  duration_ms: 604.895077
+  ...
+# Subtest: Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+ok 211 - Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+  ---
+  duration_ms: 821.937571
+  ...
+# Subtest: committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+ok 212 - committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+  ---
+  duration_ms: 718.247991
+  ...
+# Subtest: source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+ok 213 - source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+  ---
+  duration_ms: 724.476031
+  ...
+# Subtest: source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+ok 214 - source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+  ---
+  duration_ms: 777.634674
+  ...
+# Subtest: a commit racing after source resolution cancels native navigation before yielding the panel
+ok 215 - a commit racing after source resolution cancels native navigation before yielding the panel
+  ---
+  duration_ms: 615.306644
+  ...
+# Subtest: entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+ok 216 - entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+  ---
+  duration_ms: 19373.324284
+  ...
+# Subtest: middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+ok 217 - middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+  ---
+  duration_ms: 5985.180304
+  ...
+# Subtest: long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+ok 218 - long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+  ---
+  duration_ms: 9022.117373
+  ...
+# Subtest: standalone requirement tree filters, expands, selects and distinguishes enablement from implementation
+ok 219 - standalone requirement tree filters, expands, selects and distinguishes enablement from implementation
+  ---
+  duration_ms: 2875.381213
+  ...
+# formalize Error: GRAPH_SCOPE_CHANGED
+#     at PluginRuntime.assertCurrent (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:86:82)
+#     at PluginRuntime.inGraph (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:220:41)
+#     at async formalizeCurrentRecord (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:181:31)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# formalize Error: fixture commit rejected
+#     at KernelClient.KernelClient.commitFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/tests/integration/task-command-scope.test.mjs:28:105)
+#     at submitCapturedFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:103:58)
+# Subtest: registered formalize command captures Graph before reading and rollback preserves a newer user edit
+ok 220 - registered formalize command captures Graph before reading and rollback preserves a newer user edit
+  ---
+  duration_ms: 941.0908
+  ...
+# Subtest: registered TASK closures, compensation, Focus, Engagement and Online DONE update formal state and audit
+ok 221 - registered TASK closures, compensation, Focus, Engagement and Online DONE update formal state and audit
+  ---
+  duration_ms: 4947.585312
+  ...
+# cancel-task Error: GRAPH_SCOPE_CHANGED
+#     at assertCommandScope (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:43:68)
+#     at executeClosureOperation (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:975:3)
+#     at cancelCurrentTask (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1008:27)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# agent-current-focus Error: GRAPH_SCOPE_CHANGED
+#     at PluginRuntime.assertCurrent (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:86:82)
+#     at PluginRuntime.inGraph (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:220:41)
+#     at async letAgentUpdateCurrentFocus (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:236:32)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# Subtest: registered commands pin targets across prompts and reject A to B to A generations before Agent SDK or writes
+ok 222 - registered commands pin targets across prompts and reject A to B to A generations before Agent SDK or writes
+  ---
+  duration_ms: 1554.427612
+  ...
+# complete-task FormalOutcomeUnknownError: 正式请求结果尚未确定（closure-47a42f5d-eb9d-4419-b9c7-1a11bc7cab06）；再次执行会查询或重试同一请求。
+#     at KernelClient.KernelClient.commitFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/tests/integration/task-formal-commands.test.mjs:105:163)
+#     at submitCapturedFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:103:58) {
+#   operationId: 'closure-47a42f5d-eb9d-4419-b9c7-1a11bc7cab06',
+#   [cause]: Error: lost response and receipt unavailable
+#       at KernelClient.KernelClient.commitFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/tests/integration/task-formal-commands.test.mjs:105:206)
+#       at submitCapturedFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:103:58)
+# }
+# complete-task Error: 正式提交已成功（111d5924-9b2f-42d1-8fc3-735c5a4854d5）；Graph 作用域已切换，投影义务已保留。
+#     at finishFormal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:123:68)
+#     at executeClosureOperation (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:984:26)
+#     at runNextTicks (node:internal/process/task_queues:60:5)
+#     at listOnTimeout (node:internal/timers:545:9)
+#     at process.processTimers (node:internal/timers:519:7)
+#     at async completeCurrentTask (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:991:21)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# Subtest: registered completion retries an uncertain result under the same operation and retains a late accepted receipt without overwriting recent state
+ok 223 - registered completion retries an uncertain result under the same operation and retains a late accepted receipt without overwriting recent state
+  ---
+  duration_ms: 1305.854135
+  ...
+# rerender Error: 该事项的投影义务正在统一交付；核对完成后可重新渲染。
+#     at rerenderCurrentFormalItem (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1099:11)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# Subtest: registered presentation rerender delivers an unfinished formal obligation before any presentation write
+ok 224 - registered presentation rerender delivers an unfinished formal obligation before any presentation write
+  ---
+  duration_ms: 1164.531264
+  ...
+# complete-task Error: EACCES private storage
+#     at Object.globalThis.logseq.FileStorage.getItem (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/tests/integration/task-formal-commands.test.mjs:135:65)
+#     at readOptionalPrivateItem (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/private-storage.ts:8:30)
+#     at PluginRuntime.descriptor (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:89:26)
+#     at PluginRuntime.client (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:106:78)
+#     at client (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:150:71)
+#     at currentTaskContext (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:963:21)
+#     at async completeCurrentTask (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:989:17)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# Subtest: registered formal command reports unexpected private-storage IO and does not accept business state
+ok 225 - registered formal command reports unexpected private-storage IO and does not accept business state
+  ---
+  duration_ms: 1021.907563
+  ...
+# show-evidence Error: GRAPH_SCOPE_CHANGED
+#     at assertCommandScope (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:43:68)
+#     at showRecentEvidence (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1038:3)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# show-evidence Error: 当前 Graph 不是最近依据的 Graph。
+#     at showRecentEvidence (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1039:43)
+#     at async guarded (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/features/task-center/controller.ts:1130:9)
+# Subtest: registered evidence display rejects late A to B to A results and foreign legacy evidence
+ok 226 - registered evidence display rejects late A to B to A results and foreign legacy evidence
+  ---
+  duration_ms: 892.738208
+  ...
+# Subtest: actual work panel composes reversible multi-structure plans, complete blocks, unchanged source/layout and stable controls
+ok 227 - actual work panel composes reversible multi-structure plans, complete blocks, unchanged source/layout and stable controls
+  ---
+  duration_ms: 3222.29784
+  ...
+# Subtest: manual UI and registered current-block commands apply a real subtree without pretending to understand a question
+ok 228 - manual UI and registered current-block commands apply a real subtree without pretending to understand a question
+  ---
+  duration_ms: 1110.10013
+  ...
+# Subtest: new questions replace, rather than intersect; genuinely in-flight old reads and cancelled/closed results cannot revive plans
+ok 229 - new questions replace, rather than intersect; genuinely in-flight old reads and cancelled/closed results cannot revive plans
+  ---
+  duration_ms: 942.856037
+  ...
+# Subtest: committed source updates do not re-prune; draft versions remain separate and obsolete inference/emphasis is hidden
+ok 230 - committed source updates do not re-prune; draft versions remain separate and obsolete inference/emphasis is hidden
+  ---
+  duration_ms: 872.839705
+  ...
+# Subtest: user folds, ordering and display choices made while focused survive exit instead of being overwritten by an old snapshot
+ok 231 - user folds, ordering and display choices made while focused survive exit instead of being overwritten by an old snapshot
+  ---
+  duration_ms: 743.494734
+  ...
+# Subtest: composition preserves body nodes and keyboard state; new plans cannot hide an active edit
+ok 232 - composition preserves body nodes and keyboard state; new plans cannot hide an active edit
+  ---
+  duration_ms: 727.586052
+  ...
+# Subtest: previous questions revalidate versions; scope switches and dispose invalidate all stored and in-flight selection
+ok 233 - previous questions revalidate versions; scope switches and dispose invalidate all stored and in-flight selection
+  ---
+  duration_ms: 1252.986756
+  ...
+# Subtest: native editing that starts after source capture still prevents pruning, and cancellation during that check wins
+ok 234 - native editing that starts after source capture still prevents pruning, and cancellation during that check wins
+  ---
+  duration_ms: 511.057825
+  ...
+# Subtest: source failure preserves the focused reading but exposes unavailable versions; restored sources do not revive old inference
+ok 235 - source failure preserves the focused reading but exposes unavailable versions; restored sources do not revive old inference
+  ---
+  duration_ms: 589.295998
+  ...
+# Subtest: material opening failure keeps the current question and location; switching cancels pending requests and returning restores the lens
+ok 236 - material opening failure keeps the current question and location; switching cancels pending requests and returning restores the lens
+  ---
+  duration_ms: 852.353111
+  ...
+# Subtest: safe Markdown and block emphasis retain link semantics; reduced-motion styling is local and semantic inference remains text
+ok 237 - safe Markdown and block emphasis retain link semantics; reduced-motion styling is local and semantic inference remains text
+  ---
+  duration_ms: 501.992257
+  ...
+# Subtest: exit restores a reliable block offset after source growth, with stable focus and text selection during material suspension
+ok 238 - exit restores a reliable block offset after source growth, with stable focus and text selection during material suspension
+  ---
+  duration_ms: 602.458116
+  ...
+# Subtest: real public and UI entrances share versions, safe snapshots, no-op handling and retained DOM
+ok 239 - real public and UI entrances share versions, safe snapshots, no-op handling and retained DOM
+  ---
+  duration_ms: 2908.715446
+  ...
+# Subtest: 300-node content, presentation, raw and keyboard changes parse only changed bodies and preserve controls
+ok 240 - 300-node content, presentation, raw and keyboard changes parse only changed bodies and preserve controls
+  ---
+  duration_ms: 23750.714143
+  ...
+# Subtest: compact row actions remain discoverable, source updates retain their focus, Escape closes locally and indent has a button path
+ok 241 - compact row actions remain discoverable, source updates retain their focus, Escape closes locally and indent has a button path
+  ---
+  duration_ms: 504.828298
+  ...
+# Subtest: ordinary source title updates and focused counts reflect what is actually shown
+ok 242 - ordinary source title updates and focused counts reflect what is actually shown
+  ---
+  duration_ms: 318.852853
+  ...
+# Subtest: bursts coalesce, changes during a slow read get a later batch and failures do not strand the queue
+ok 243 - bursts coalesce, changes during a slow read get a later batch and failures do not strand the queue
+  ---
+  duration_ms: 391.363674
+  ...
+# Subtest: new scopes do not wait for old trees and late results cannot restore a disposed or switched view
+ok 244 - new scopes do not wait for old trees and late results cannot restore a disposed or switched view
+  ---
+  duration_ms: 190.834783
+  ...
+# Subtest: draft polling does not read trees and a switched editor never applies a previous draft to another block
+ok 245 - draft polling does not read trees and a switched editor never applies a previous draft to another block
+  ---
+  duration_ms: 370.350789
+  ...
+# Subtest: unknown topology events reconcile manual layout, retained and missing sources without losing item identity
+ok 246 - unknown topology events reconcile manual layout, retained and missing sources without losing item identity
+  ---
+  duration_ms: 305.020604
+  ...
+# Subtest: pointer handlers use current UUID layout and preserve the reading anchor when an earlier body grows
+ok 247 - pointer handlers use current UUID layout and preserve the reading anchor when an earlier body grows
+  ---
+  duration_ms: 226.079261
+  ...
+# Subtest: source changes hidden by a draft still invalidate a prior public version
+ok 248 - source changes hidden by a draft still invalidate a prior public version
+  ---
+  duration_ms: 369.612997
+  ...
+# Subtest: captured Desktop body datoms accept property metadata and page timestamps but reject incomplete or structural events
+ok 249 - captured Desktop body datoms accept property metadata and page timestamps but reject incomplete or structural events
+  ---
+  duration_ms: 3.063621
+  ...
+# Subtest: reading anchor follows current DOM order after manual layout rather than original cache insertion order
+ok 250 - reading anchor follows current DOM order after manual layout rather than original cache insertion order
+  ---
+  duration_ms: 122.736269
+  ...
+# Subtest: reading anchor preserves browser scroll adjustment already applied during layout
+ok 251 - reading anchor preserves browser scroll adjustment already applied during layout
+  ---
+  duration_ms: 221.477035
+  ...
+# Subtest: default body is a complete report even when the older personal structure was collapsed
+ok 252 - default body is a complete report even when the older personal structure was collapsed
+  ---
+  duration_ms: 2891.531131
+  ...
+# Subtest: materials mount uses the entire scope and body return retains mode, lens, selection and bookmark
+ok 253 - materials mount uses the entire scope and body return retains mode, lens, selection and bookmark
+  ---
+  duration_ms: 533.636117
+  ...
+# Subtest: work menu retains focus on source updates and Escape closes locally without intercepting composition
+ok 254 - work menu retains focus on source updates and Escape closes locally without intercepting composition
+  ---
+  duration_ms: 557.672415
+  ...
+# Subtest: first use has an actionable empty state and an explicit current-block action opens its nearest work
+ok 255 - first use has an actionable empty state and an explicit current-block action opens its nearest work
+  ---
+  duration_ms: 481.137842
+  ...
+# Subtest: a late source read cannot restore the previous work identity or its material scope
+ok 256 - a late source read cannot restore the previous work identity or its material scope
+  ---
+  duration_ms: 176.067225
+  ...
+# Subtest: the keyboard entrance resolves a selected child to its real work, just like the work menu
+ok 257 - the keyboard entrance resolves a selected child to its real work, just like the work menu
+  ---
+  duration_ms: 288.282702
+  ...
+# Subtest: native material context retains the current work for a child, resolves another work explicitly and discards a late ancestry read
+ok 258 - native material context retains the current work for a child, resolves another work explicitly and discards a late ancestry read
+  ---
+  duration_ms: 467.960881
+  ...
+# Subtest: work-view shares formal identity without starting task UI and retains natural fallback after Graph switch
+ok 259 - work-view shares formal identity without starting task UI and retains natural fallback after Graph switch
+  ---
+  duration_ms: 2556.837323
+  ...
+# Subtest: combined panels preserve source text, load linked material and retain conflicting drafts across switches
+ok 260 - combined panels preserve source text, load linked material and retain conflicting drafts across switches
+  ---
+  duration_ms: 2051.584001
+  ...
+# Subtest: task panel preserves sibling modules and cannot mount after a later navigation
+ok 261 - task panel preserves sibling modules and cannot mount after a later navigation
+  ---
+  duration_ms: 731.228366
+  ...
+# Subtest: composition root leaves runtime disabled while work and materials remain usable
+ok 262 - composition root leaves runtime disabled while work and materials remain usable
+  ---
+  duration_ms: 1232.677821
+  ...
+# Subtest: material references survive work-view and reading sanitization while executable and malformed URIs remain stripped
+ok 263 - material references survive work-view and reading sanitization while executable and malformed URIs remain stripped
+  ---
+  duration_ms: 120.733598
+  ...
+# Subtest: real workspace installation and Materials UI share binding, survive restart/offline, refresh known notes and dispose without Kernel
+ok 264 - real workspace installation and Materials UI share binding, survive restart/offline, refresh known notes and dispose without Kernel
+  ---
+  duration_ms: 3475.144647
+  ...
+# Subtest: installed workspace, lenses, content, materials and stages loop: committed write, observation, copied identity rejection, moved materials, restart and revoked APIs
+ok 265 - installed workspace, lenses, content, materials and stages loop: committed write, observation, copied identity rejection, moved materials, restart and revoked APIs
+  ---
+  duration_ms: 6967.491914
+  ...
+# Subtest: registered formalization, completion, Undo and normalization preserve affair/task spelling, multiline properties and block identity
+ok 266 - registered formalization, completion, Undo and normalization preserve affair/task spelling, multiline properties and block identity
+  ---
+  duration_ms: 2837.821219
+  ...
+# Subtest: online marker observer coalesces DONE for one block and ignores every other Graph change
+ok 267 - online marker observer coalesces DONE for one block and ignores every other Graph change
+  ---
+  duration_ms: 17.230699
+  ...
+# Subtest: online marker observer ignores duplicate DONE events while the first completion is in flight
+ok 268 - online marker observer ignores duplicate DONE events while the first completion is in flight
+  ---
+  duration_ms: 54.454983
+  ...
+# Subtest: real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure exposes selectable link
+ok 269 - real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure exposes selectable link
+  ---
+  duration_ms: 2183.283288
+  ...
+# Subtest: published report body mapping, MiniProject reference renames and immutable stage history compose through the existing executors
+ok 270 - published report body mapping, MiniProject reference renames and immutable stage history compose through the existing executors
+  ---
+  duration_ms: 5142.783268
+  ...
+# Subtest: list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target
+ok 271 - list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target
+  ---
+  duration_ms: 901.786426
+  ...
+# Subtest: a work switch during real file registration retains the association but inserts no late source reference
+ok 272 - a work switch during real file registration retains the association but inserts no late source reference
+  ---
+  duration_ms: 327.794111
+  ...
+# Subtest: copied reference proof survives panel navigation, observes a simulated committed native paste, and never writes source or consumes composition
+ok 273 - copied reference proof survives panel navigation, observes a simulated committed native paste, and never writes source or consumes composition
+  ---
+  duration_ms: 929.391847
+  ...
+# Subtest: file names follow the real filename; rename preserves ID, bytes, extension and reference/input permission
+ok 274 - file names follow the real filename; rename preserves ID, bytes, extension and reference/input permission
+  ---
+  duration_ms: 192.685077
+  ...
+# Subtest: no overwrite or path escape, Unicode names, case-only rename, duplicate drop and actor privileges stay separate
+ok 275 - no overwrite or path escape, Unicode names, case-only rename, duplicate drop and actor privileges stay separate
+  ---
+  duration_ms: 576.410588
+  ...
+# Subtest: intent/record/rename failures preserve individually queryable facts; recovery never repeats a dispatched rename
+ok 276 - intent/record/rename failures preserve individually queryable facts; recovery never repeats a dispatched rename
+  ---
+  duration_ms: 151.693583
+  ...
+# Subtest: no host identity means lost reply is unresolved; explicit relocation retains ID rather than claiming a same-content file
+ok 277 - no host identity means lost reply is unresolved; explicit relocation retains ID rather than claiming a same-content file
+  ---
+  duration_ms: 141.559567
+  ...
+# Subtest: external rename uses system identity in the original directory; identical bytes never select the wrong file
+ok 278 - external rename uses system identity in the original directory; identical bytes never select the wrong file
+  ---
+  duration_ms: 469.850533
+  ...
+# Subtest: busy material pauses rename/discovery; binary and old UUID captures keep their format and authority
+ok 279 - busy material pauses rename/discovery; binary and old UUID captures keep their format and authority
+  ---
+  duration_ms: 247.573157
+  ...
+# Subtest: drag payload cannot cross scope or confer authority, and a File name alone never invents an original path
+ok 280 - drag payload cannot cross scope or confer authority, and a File name alone never invents an original path
+  ---
+  duration_ms: 121.42982
+  ...
+# Subtest: versioned report drop uses actual child/Journals, repeated drops reuse identity; rename updates a generated reference and preserves history/alias
+ok 281 - versioned report drop uses actual child/Journals, repeated drops reuse identity; rename updates a generated reference and preserves history/alias
+  ---
+  duration_ms: 929.906365
+  ...
+# Subtest: reference failures retain files, actual native editing/composition and stale structure/content reject source writes
+ok 282 - reference failures retain files, actual native editing/composition and stale structure/content reject source writes
+  ---
+  duration_ms: 477.853357
+  ...
+# Subtest: two managed ranges in one committed block rename together; changed alias/range is never guessed from matching title
+ok 283 - two managed ranges in one committed block rename together; changed alias/range is never guessed from matching title
+  ---
+  duration_ms: 503.097261
+  ...
+# Subtest: reply loss queries existing content Journal after reload and never duplicates imported file or source reference
+ok 284 - reply loss queries existing content Journal after reload and never duplicates imported file or source reference
+  ---
+  duration_ms: 349.161278
+  ...
+# Subtest: metadata failure after physical rename leaves prepared evidence for reload recovery; denied IO never replays
+ok 285 - metadata failure after physical rename leaves prepared evidence for reload recovery; denied IO never replays
+  ---
+  duration_ms: 412.87875
+  ...
+# Subtest: pending references do not freeze verified file renames or later external identity discovery
+ok 286 - pending references do not freeze verified file renames or later external identity discovery
+  ---
+  duration_ms: 81.791717
+  ...
+# Subtest: verified material save refreshes physical identity before a later external rename
+ok 287 - verified material save refreshes physical identity before a later external rename
+  ---
+  duration_ms: 326.408527
+  ...
+# Subtest: capture chooses flat Task, existing Project purpose directories and global fallback without moving old files
+ok 288 - capture chooses flat Task, existing Project purpose directories and global fallback without moving old files
+  ---
+  duration_ms: 374.663219
+  ...
+# Subtest: unavailable explicit work directory retains input and never falls back to global
+ok 289 - unavailable explicit work directory retains input and never falls back to global
+  ---
+  duration_ms: 8.634841
+  ...
+# Subtest: stable ID survives title changes, directory switches and multiple task associations without body copies
+ok 290 - stable ID survives title changes, directory switches and multiple task associations without body copies
+  ---
+  duration_ms: 472.273566
+  ...
+# Subtest: same-title concurrent captures get readable distinct names and duplicate requests return the original versioned identity
+ok 291 - same-title concurrent captures get readable distinct names and duplicate requests return the original versioned identity
+  ---
+  duration_ms: 143.076698
+  ...
+# Subtest: reference/input defaults deny writes; explicit user editing and whole-file agent grants are independent
+ok 292 - reference/input defaults deny writes; explicit user editing and whole-file agent grants are independent
+  ---
+  duration_ms: 378.088596
+  ...
+# Subtest: missing material preserves associations and explicit relocation preserves identity, originals and history
+ok 293 - missing material preserves associations and explicit relocation preserves identity, originals and history
+  ---
+  duration_ms: 356.494544
+  ...
+# Subtest: PDF association declares external-only capability and preserves binary bytes
+ok 294 - PDF association declares external-only capability and preserves binary bytes
+  ---
+  duration_ms: 25.535288
+  ...
+# Subtest: legacy UUID records and longdoc references remain readable without metadata migration
+ok 295 - legacy UUID records and longdoc references remain readable without metadata migration
+  ---
+  duration_ms: 132.119478
+  ...
+# Subtest: partial capture can resume with the same request after failure and never duplicates or overwrites an external edit
+ok 296 - partial capture can resume with the same request after failure and never duplicates or overwrites an external edit
+  ---
+  duration_ms: 58.406602
+  ...
+# Subtest: directory bindings persist by Graph and source, and location hints rebuild solely from exact records
+ok 297 - directory bindings persist by Graph and source, and location hints rebuild solely from exact records
+  ---
+  duration_ms: 60.426844
+  ...
+# Subtest: case-insensitive readable names preserve an existing file, pending resume refuses later external content, and whole-block recovery protects added text/properties
+ok 298 - case-insensitive readable names preserve an existing file, pending resume refuses later external content, and whole-block recovery protects added text/properties
+  ---
+  duration_ms: 215.540081
+  ...
+# Subtest: independent material instances retain every capture without a shared catalog
+ok 299 - independent material instances retain every capture without a shared catalog
+  ---
+  duration_ms: 767.116245
+  ...
+# Subtest: capture keeps exact original and restoring rejects duplicate or changed references
+ok 300 - capture keeps exact original and restoring rejects duplicate or changed references
+  ---
+  duration_ms: 234.781839
+  ...
+# Subtest: associated Markdown remains at its original path and saves preserve history
+ok 301 - associated Markdown remains at its original path and saves preserve history
+  ---
+  duration_ms: 202.038935
+  ...
+# Subtest: external edits and backup failures never overwrite a stale source
+ok 302 - external edits and backup failures never overwrite a stale source
+  ---
+  duration_ms: 25.80306
+  ...
+# Subtest: external write during backup is detected, and silent IO failure is not a save
+ok 303 - external write during backup is detected, and silent IO failure is not a save
+  ---
+  duration_ms: 29.486075
+  ...
+# Subtest: record reservation failures create no orphan body and invalid roots are refused
+ok 304 - record reservation failures create no orphan body and invalid roots are refused
+  ---
+  duration_ms: 17.52433
+  ...
+# Subtest: long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation
+ok 305 - long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation
+  ---
+  duration_ms: 15617.278044
+  ...
+# Subtest: summary is optional record metadata: search, clearing and file rename preserve content, links and permissions
+ok 306 - summary is optional record metadata: search, clearing and file rename preserve content, links and permissions
+  ---
+  duration_ms: 519.483101
+  ...
+# Subtest: same-name conflict and permission failure retain the rename input and never overwrite another file
+ok 307 - same-name conflict and permission failure retain the rename input and never overwrite another file
+  ---
+  duration_ms: 294.428116
+  ...
+# Subtest: file picker joins real host files while binary clicks open exact path and report application failure truthfully
+ok 308 - file picker joins real host files while binary clicks open exact path and report application failure truthfully
+  ---
+  duration_ms: 195.558476
+  ...
+# Subtest: batch partial failure retains imported file without any Graph insertion; stale clipboard completion does not appear in another work
+ok 309 - batch partial failure retains imported file without any Graph insertion; stale clipboard completion does not appear in another work
+  ---
+  duration_ms: 219.113796
+  ...
+# Subtest: failed report insertion keeps associated material and visible selectable fallback, never reimports on recovery
+ok 310 - failed report insertion keeps associated material and visible selectable fallback, never reimports on recovery
+  ---
+  duration_ms: 354.036718
+  ...
+# Subtest: summary form refuses submission during composition and installed material listeners and styles dispose
+ok 311 - summary form refuses submission during composition and installed material listeners and styles dispose
+  ---
+  duration_ms: 269.442853
+  ...
+# Subtest: finite leading marks distinguish facts from ordinary text, code, unknown marks and formal objects
+ok 312 - finite leading marks distinguish facts from ordinary text, code, unknown marks and formal objects
+  ---
+  duration_ms: 6.67065
+  ...
+# Subtest: report grouping preserves ambiguous sibling adjacency, complete bodies, UUIDs, nested objects and original truth
+ok 313 - report grouping preserves ambiguous sibling adjacency, complete bodies, UUIDs, nested objects and original truth
+  ---
+  duration_ms: 223.961974
+  ...
+# Subtest: report folds and personal order are presentation overlays; switching does not replace the personal tree
+ok 314 - report folds and personal order are presentation overlays; switching does not replace the personal tree
+  ---
+  duration_ms: 39.540441
+  ...
+# Subtest: explicit body targets validate real source and parent versions, reject section keys, offsets, unknown authority and stale facts
+ok 315 - explicit body targets validate real source and parent versions, reject section keys, offsets, unknown authority and stale facts
+  ---
+  duration_ms: 13.63798
+  ...
+# Subtest: runtime owns one worker and observer, repeated starts and stops are safe
+ok 316 - runtime owns one worker and observer, repeated starts and stops are safe
+  ---
+  duration_ms: 800.187639
+  ...
+# Subtest: partial runtime startup failure cleans subscriptions and worker
+ok 317 - partial runtime startup failure cleans subscriptions and worker
+  ---
+  duration_ms: 285.284415
+  ...
+# Subtest: Graph A delayed refresh cannot replace B; same UUID and anomalous index are Graph scoped
+ok 318 - Graph A delayed refresh cannot replace B; same UUID and anomalous index are Graph scoped
+  ---
+  duration_ms: 27.597938
+  ...
+# Subtest: a bound adapter cannot write after Graph switch or unload
+ok 319 - a bound adapter cannot write after Graph switch or unload
+  ---
+  duration_ms: 5.304236
+  ...
+# Subtest: overlapping self writes retain suppression until the last write settles and expires
+ok 320 - overlapping self writes retain suppression until the last write settles and expires
+  ---
+  duration_ms: 2104.07863
+  ...
+# Subtest: descriptor parsing refreshes on private storage change and explicit reconnect
+ok 321 - descriptor parsing refreshes on private storage change and explicit reconnect
+  ---
+  duration_ms: 1.807388
+  ...
+# Subtest: a delayed command read and a captured write stay invalid after switching away and back to the same Graph
+ok 322 - a delayed command read and a captured write stay invalid after switching away and back to the same Graph
+  ---
+  duration_ms: 5.813658
+  ...
+# Subtest: journal read fallback stops between SDK calls when its Graph scope expires
+ok 323 - journal read fallback stops between SDK calls when its Graph scope expires
+  ---
+  duration_ms: 7.417986
+  ...
+# plugin-runtime TypeError: Cannot read properties of undefined (reading 'settings')
+#     at PluginRuntime.descriptor (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:90:31)
+#     at async Object.connection (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:134:32)
+#     at async tick (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/graph-gateway-worker.ts:62:21)
+# plugin-runtime TypeError: Cannot read properties of undefined (reading 'settings')
+#     at PluginRuntime.descriptor (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:90:31)
+#     at async PluginRuntime.client (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:106:67)
+#     at async <anonymous> (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:187:33)
+#     at async PluginRuntime.refreshIdentities (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:199:11)
+#     at async PluginRuntime.refreshQuietly (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/src/plugin-runtime.ts:179:11)
+# Subtest: Graph events during startup invalidate the initial read before any shared identity is installed
+ok 324 - Graph events during startup invalidate the initial read before any shared identity is installed
+  ---
+  duration_ms: 87.978713
+  ...
+# Subtest: explicit restart while a stopped initialization is pending starts one new set of resources
+ok 325 - explicit restart while a stopped initialization is pending starts one new set of resources
+  ---
+  duration_ms: 2.63257
+  ...
+# Subtest: an absent Desktop FileStorage descriptor permits the settings fallback
+ok 326 - an absent Desktop FileStorage descriptor permits the settings fallback
+  ---
+  duration_ms: 3.681045
+  ...
+# Subtest: existing descriptor content and modern null results are preserved
+ok 327 - existing descriptor content and modern null results are preserved
+  ---
+  duration_ms: 0.64388
+  ...
+# Subtest: storage permission and transport errors fail closed
+ok 328 - storage permission and transport errors fail closed
+  ---
+  duration_ms: 2.155781
+  ...
+# Subtest: zero-noise default renders no managed fields
+ok 329 - zero-noise default renders no managed fields
+  ---
+  duration_ms: 26.534017
+  ...
+# Subtest: MiniProject WorkIntent renders only sparse label-independent fields
+ok 330 - MiniProject WorkIntent renders only sparse label-independent fields
+  ---
+  duration_ms: 1.126769
+  ...
+# Subtest: focus, waiting, and review use stable identities and deterministic order
+ok 331 - focus, waiting, and review use stable identities and deterministic order
+  ---
+  duration_ms: 2.947006
+  ...
+# Subtest: a domain-normalized midnight review date stays natural in Logseq
+ok 332 - a domain-normalized midnight review date stays natural in Logseq
+  ---
+  duration_ms: 1.689354
+  ...
+# Subtest: completion is omitted when DONE and title already express the outcome
+ok 333 - completion is omitted when DONE and title already express the outcome
+  ---
+  duration_ms: 1.546036
+  ...
+# Subtest: cancellation renders a non-empty reason and empty values are omitted
+ok 334 - cancellation renders a non-empty reason and empty values are omitted
+  ---
+  duration_ms: 1.577182
+  ...
+# Subtest: GRAPH_APPLIED create compensation verifies absence without loading the deleted WorkObject
+ok 335 - GRAPH_APPLIED create compensation verifies absence without loading the deleted WorkObject
+  ---
+  duration_ms: 5.935538
+  ...
+# Subtest: removal recovery fails closed without the registered projection identity
+ok 336 - removal recovery fails closed without the registered projection identity
+  ---
+  duration_ms: 2.774085
+  ...
+# Subtest: every non-removal recovery still requires and reads its target projection
+ok 337 - every non-removal recovery still requires and reads its target projection
+  ---
+  duration_ms: 3.112359
+  ...
+# Subtest: long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+ok 338 - long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+  ---
+  duration_ms: 26.636492
+  ...
+# Subtest: ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+ok 339 - ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+  ---
+  duration_ms: 363.836439
+  ...
+# Subtest: each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+ok 340 - each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+  ---
+  duration_ms: 4268.109814
+  ...
+# Subtest: coverage distinguishes explicit hidden ranges from unavailable sources and never invents fragments for missing text
+ok 341 - coverage distinguishes explicit hidden ranges from unavailable sources and never invents fragments for missing text
+  ---
+  duration_ms: 170.429915
+  ...
+# Subtest: collaboration highlights retain literal identity examples in full current and historical reports; reading never opens an editor
+ok 342 - collaboration highlights retain literal identity examples in full current and historical reports; reading never opens an editor
+  ---
+  duration_ms: 2967.839344
+  ...
+# Subtest: sidebar width clamps to the supported 300-520 range
+ok 343 - sidebar width clamps to the supported 300-520 range
+  ---
+  duration_ms: 2.66006
+  ...
+# Subtest: persisted width parsing rejects malformed values and clamps outliers
+ok 344 - persisted width parsing rejects malformed values and clamps outliers
+  ---
+  duration_ms: 0.559833
+  ...
+# Subtest: layout mode docks only when main content keeps a comfortable width
+ok 345 - layout mode docks only when main content keeps a comfortable width
+  ---
+  duration_ms: 0.682105
+  ...
+# Subtest: reserved Logseq sidebars reduce the available main width
+ok 346 - reserved Logseq sidebars reduce the available main width
+  ---
+  duration_ms: 0.473506
+  ...
+# Subtest: docked geometry puts the panel against the reserved right edge without covering content
+ok 347 - docked geometry puts the panel against the reserved right edge without covering content
+  ---
+  duration_ms: 2.361698
+  ...
+# Subtest: compact geometry fills exactly the main area between reserved sidebars
+ok 348 - compact geometry fills exactly the main area between reserved sidebars
+  ---
+  duration_ms: 0.491209
+  ...
+# Subtest: geometry survives degenerate inputs without negative rectangles
+ok 349 - geometry survives degenerate inputs without negative rectangles
+  ---
+  duration_ms: 0.692565
+  ...
+# Subtest: main minimum width constant is explicit and non-zero
+ok 350 - main minimum width constant is explicit and non-zero
+  ---
+  duration_ms: 0.602753
+  ...
+# Subtest: source observer coalesces bursts and only reports Primary Anchor blocks
+ok 351 - source observer coalesces bursts and only reports Primary Anchor blocks
+  ---
+  duration_ms: 37.937878
+  ...
+# Subtest: system self-written source UUIDs are suppressed from semantic dirty
+ok 352 - system self-written source UUIDs are suppressed from semantic dirty
+  ---
+  duration_ms: 73.82342
+  ...
+# Subtest: pending observations belong to the event Graph and delayed batches stop at scope invalidation
+ok 353 - pending observations belong to the event Graph and delayed batches stop at scope invalidation
+  ---
+  duration_ms: 139.110492
+  ...
+# Subtest: switch before the quiet window cannot relabel an old event as the new Graph
+ok 354 - switch before the quiet window cannot relabel an old event as the new Graph
+  ---
+  duration_ms: 32.695639
+  ...
+# Subtest: graph mode uses the host capability when available
+ok 355 - graph mode uses the host capability when available
+  ---
+  duration_ms: 2.924593
+  ...
+# Subtest: older Desktop hosts identify a file graph by its absolute path
+ok 356 - older Desktop hosts identify a file graph by its absolute path
+  ---
+  duration_ms: 2.459038
+  ...
+# Subtest: graph-mode checker failures other than a missing host capability fail closed
+ok 357 - graph-mode checker failures other than a missing host capability fail closed
+  ---
+  duration_ms: 2.27702
+  ...
+# Subtest: older hosts fail closed when graph mode is ambiguous
+ok 358 - older hosts fail closed when graph mode is ambiguous
+  ---
+  duration_ms: 1.20105
+  ...
+# Subtest: file-graph formalization persists the native id without changing canonical natural content
+ok 359 - file-graph formalization persists the native id without changing canonical natural content
+  ---
+  duration_ms: 4.441929
+  ...
+# Subtest: DB graph identity requires no textual property write
+ok 360 - DB graph identity requires no textual property write
+  ---
+  duration_ms: 15.799897
+  ...
+# Subtest: file-graph formalization fails closed when the id property was not persisted
+ok 361 - file-graph formalization fails closed when the id property was not persisted
+  ---
+  duration_ms: 18.718996
+  ...
+# Subtest: stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+ok 362 - stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+  ---
+  duration_ms: 3408.1363
+  ...
+# Subtest: clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+ok 363 - clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+  ---
+  duration_ms: 1222.008057
+  ...
+# Subtest: suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+ok 364 - suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+  ---
+  duration_ms: 1237.675786
+  ...
+# Subtest: historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+ok 365 - historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+  ---
+  duration_ms: 847.498294
+  ...
+# Subtest: focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+ok 366 - focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+  ---
+  duration_ms: 352.606632
+  ...
+# Subtest: report preserves stage show-all, immutable history and return to the existing lens
+ok 367 - report preserves stage show-all, immutable history and return to the existing lens
+  ---
+  duration_ms: 381.793736
+  ...
+# Subtest: review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+ok 368 - review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+  ---
+  duration_ms: 489.868517
+  ...
+# Subtest: selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+ok 369 - selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+  ---
+  duration_ms: 410.666576
+  ...
+# Subtest: later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+ok 370 - later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+  ---
+  duration_ms: 363.179507
+  ...
+# Subtest: durable two-block write plus append forms one immutable revision; queries and repeated observations do not multiply it
+ok 371 - durable two-block write plus append forms one immutable revision; queries and repeated observations do not multiply it
+  ---
+  duration_ms: 933.403301
+  ...
+# Subtest: acceptance freezes the seen revision even when a newer revision arrived; later native edits do not revoke it or open stages
+ok 372 - acceptance freezes the seen revision even when a newer revision arrived; later native edits do not revoke it or open stages
+  ---
+  duration_ms: 737.977133
+  ...
+# Subtest: a new goal leaves old acceptance pending; explicit activation is required to continue an older stage
+ok 373 - a new goal leaves old acceptance pending; explicit activation is required to continue an older stage
+  ---
+  duration_ms: 569.247066
+  ...
+# Subtest: partial/conflict and lost acknowledgements preserve actual meanings, proposed text never becomes confirmed stage output
+ok 374 - partial/conflict and lost acknowledgements preserve actual meanings, proposed text never becomes confirmed stage output
+  ---
+  duration_ms: 563.492045
+  ...
+# Subtest: Journal success and failed stage persistence reconcile after restart without source replay
+ok 375 - Journal success and failed stage persistence reconcile after restart without source replay
+  ---
+  duration_ms: 502.406043
+  ...
+# Subtest: expected revision competition retains a candidate, while the canonical result and acceptance remain immutable
+ok 376 - expected revision competition retains a candidate, while the canonical result and acceptance remain immutable
+  ---
+  duration_ms: 236.913371
+  ...
+# Subtest: cross-process competing immutable children fail closed and keep both candidates
+ok 377 - cross-process competing immutable children fail closed and keep both candidates
+  ---
+  duration_ms: 372.042723
+  ...
+# Subtest: scope revoke A/B/A and dispose reject late stage capture; no new-scope record appears
+ok 378 - scope revoke A/B/A and dispose reject late stage capture; no new-scope record appears
+  ---
+  duration_ms: 76.773292
+  ...
+# Subtest: forged shapes, foreign facts and reused IDs cannot authorize or claim a stage
+ok 379 - forged shapes, foreign facts and reused IDs cannot authorize or claim a stage
+  ---
+  duration_ms: 175.311702
+  ...
+# Subtest: registered material snapshots preserve old bytes independently, and binary records make no backup promise
+ok 380 - registered material snapshots preserve old bytes independently, and binary records make no backup promise
+  ---
+  duration_ms: 99.48566
+  ...
+# Subtest: block identity, repeat text, removed blocks and long/complex Markdown use bounded honest diff
+ok 381 - block identity, repeat text, removed blocks and long/complex Markdown use bounded honest diff
+  ---
+  duration_ms: 47.154295
+  ...
+# Subtest: persisted id metadata does not prevent a precise plain-text change marker or alter its version facts
+ok 382 - persisted id metadata does not prevent a precise plain-text change marker or alter its version facts
+  ---
+  duration_ms: 59.77505
+  ...
+# Subtest: real installed local API writes through content and recovers idempotently, with no accept or actor capability
+ok 383 - real installed local API writes through content and recovers idempotently, with no accept or actor capability
+  ---
+  duration_ms: 251.946201
+  ...
+# Subtest: installed stage adapter retains real MaterialService versions and permissions using the formal unbound source provider
+ok 384 - installed stage adapter retains real MaterialService versions and permissions using the formal unbound source provider
+  ---
+  duration_ms: 494.583101
+  ...
+# Subtest: torn metadata publication recovers verified prepared bytes; interrupted preparation is retained without changing stage or replaying content
+ok 385 - torn metadata publication recovers verified prepared bytes; interrupted preparation is retained without changing stage or replaying content
+  ---
+  duration_ms: 190.895522
+  ...
+# Subtest: an observed new block from an unknown insertion can be corrected in the same stage without upgrading the unknown request
+ok 386 - an observed new block from an unknown insertion can be corrected in the same stage without upgrading the unknown request
+  ---
+  duration_ms: 213.766965
+  ...
+# Subtest: same submit after an explicit identity recovery records the new fact version exactly once and never inserts the body again
+ok 387 - same submit after an explicit identity recovery records the new fact version exactly once and never inserts the body again
+  ---
+  duration_ms: 548.608292
+  ...
+# Subtest: text prompt values are trimmed, bounded, and fail closed when empty
+ok 388 - text prompt values are trimmed, bounded, and fail closed when empty
+  ---
+  duration_ms: 2.594451
+  ...
+# Subtest: source exchange versions hash complete UTF-8 text and real preorder, independently of capture time
+ok 389 - source exchange versions hash complete UTF-8 text and real preorder, independently of capture time
+  ---
+  duration_ms: 201.02899
+  ...
+# Subtest: retained outside rows are not source members; unavailable snapshots carry no cached body/version
+ok 390 - retained outside rows are not source members; unavailable snapshots carry no cached body/version
+  ---
+  duration_ms: 81.985756
+  ...
+# Subtest: provider validation rejects forged identities, incorrect hashes/structure and content disguised as unavailable
+ok 391 - provider validation rejects forged identities, incorrect hashes/structure and content disguised as unavailable
+  ---
+  duration_ms: 14.611521
+  ...
+# Subtest: plan validation fails closed on schema, membership, scope, versions, precise ranges and arbitrary operations/styles
+ok 392 - plan validation fails closed on schema, membership, scope, versions, precise ranges and arbitrary operations/styles
+  ---
+  duration_ms: 171.662297
+  ...
+# Subtest: composer selects separate structures, retains full conditions, temporarily expands ancestors and never changes layout/source
+ok 393 - composer selects separate structures, retains full conditions, temporarily expands ancestors and never changes layout/source
+  ---
+  duration_ms: 14.662695
+  ...
+# Subtest: personal ancestry supplements real ancestry without replacing source hierarchy or reordering the personal view
+ok 394 - personal ancestry supplements real ancestry without replacing source hierarchy or reordering the personal view
+  ---
+  duration_ms: 9.25895
+  ...
+# Subtest: basis changes are independent of display/draft versions and invalidate inference without replacing the selection
+ok 395 - basis changes are independent of display/draft versions and invalidate inference without replacing the selection
+  ---
+  duration_ms: 89.149754
+  ...
+# Subtest: new requests replace selection, cancellations invalidate tickets, history is bounded and snapshots cannot mutate state
+ok 396 - new requests replace selection, cancellations invalidate tickets, history is bounded and snapshots cannot mutate state
+  ---
+  duration_ms: 6.452508
+  ...
+# Subtest: view operations reject stale scopes, source sync and research writers
+ok 397 - view operations reject stale scopes, source sync and research writers
+  ---
+  duration_ms: 10.529256
+  ...
+# Subtest: view layout cannot change membership, root or introduce invalid topology
+ok 398 - view layout cannot change membership, root or introduce invalid topology
+  ---
+  duration_ms: 7.122447
+  ...
+# Subtest: accepted view operations preserve original input and adjust only presentation
+ok 399 - accepted view operations preserve original input and adjust only presentation
+  ---
+  duration_ms: 1.311743
+  ...
+# Subtest: switching panels awaits draft preservation and closes exactly the previous module
+ok 400 - switching panels awaits draft preservation and closes exactly the previous module
+  ---
+  duration_ms: 5.552611
+  ...
+# Subtest: saved scope namespaces distinguish Graph and root without separator collisions
+ok 401 - saved scope namespaces distinguish Graph and root without separator collisions
+  ---
+  duration_ms: 0.63446
+  ...
+# Subtest: late task loads cannot revive a pane after a newer user navigation
+ok 402 - late task loads cannot revive a pane after a newer user navigation
+  ---
+  duration_ms: 0.52419
+  ...
+# Subtest: a failed draft-preserving close remains visible to the caller and does not poison later navigation
+ok 403 - a failed draft-preserving close remains visible to the caller and does not poison later navigation
+  ---
+  duration_ms: 1.982774
+  ...
+# Subtest: a released composition API cannot close a newly installed work view
+ok 404 - a released composition API cannot close a newly installed work view
+  ---
+  duration_ms: 1773.601028
+  ...
+# Subtest: all available natural-work capabilities install without a Kernel and drafts/layout cannot change committed versions
+ok 405 - all available natural-work capabilities install without a Kernel and drafts/layout cannot change committed versions
+  ---
+  duration_ms: 601.029905
+  ...
+# Subtest: lenses can consume actual SDK snapshots rooted below a parent or at a later page sibling
+ok 406 - lenses can consume actual SDK snapshots rooted below a parent or at a later page sibling
+  ---
+  duration_ms: 399.22143
+  ...
+# Subtest: actual nested-root provider supports descendant focus without including its outside parent
+ok 407 - actual nested-root provider supports descendant focus without including its outside parent
+  ---
+  duration_ms: 1082.438044
+  ...
+# Subtest: provider root compatibility still rejects cycles, negative order and invalid descendant topology with truthful hashes
+ok 408 - provider root compatibility still rejects cycles, negative order and invalid descendant topology with truthful hashes
+  ---
+  duration_ms: 22.260686
+  ...
+# Subtest: panel lifecycle distinguishes temporary navigation from explicit close without moving feature state into the coordinator
+ok 409 - panel lifecycle distinguishes temporary navigation from explicit close without moving feature state into the coordinator
+  ---
+  duration_ms: 6.049618
+  ...
+# Subtest: source contract hashes full UTF-8 body, preserves preorder/order, maps every UTF-16 span and never persists IDs on read
+ok 410 - source contract hashes full UTF-8 body, preserves preorder/order, maps every UTF-16 span and never persists IDs on read
+  ---
+  duration_ms: 126.888309
+  ...
+# Subtest: binding is idempotent, protects user entry/manifests, separates same names and Graphs, and explicitly creates directories
+ok 411 - binding is idempotent, protects user entry/manifests, separates same names and Graphs, and explicitly creates directories
+  ---
+  duration_ms: 624.725271
+  ...
+# Subtest: mechanical updates keep natural annotations, unchanged display/draft state does not publish a new body version, offline/restart preserves good mirrors
+ok 412 - mechanical updates keep natural annotations, unchanged display/draft state does not publish a new body version, offline/restart preserves good mirrors
+  ---
+  duration_ms: 277.850144
+  ...
+# Subtest: mirror temporary write, readback and pointer failures retain the old verified publication, including recovery after current corruption
+ok 413 - mirror temporary write, readback and pointer failures retain the old verified publication, including recovery after current corruption
+  ---
+  duration_ms: 684.33833
+  ...
+# Subtest: Graph change, unbind and directory rebind invalidate late reads and late file jobs without publishing to a new target
+ok 414 - Graph change, unbind and directory rebind invalidate late reads and late file jobs without publishing to a new target
+  ---
+  duration_ms: 403.390517
+  ...
+# Subtest: moving the whole directory explicitly recovers identity, missing directory never writes to global, and unbind retains all records
+ok 415 - moving the whole directory explicitly recovers identity, missing directory never writes to global, and unbind retains all records
+  ---
+  duration_ms: 358.613177
+  ...
+# Subtest: real MaterialService consumes the single binding, preserves legacy locations/fallback and exposes explicit block/page/material readings
+ok 416 - real MaterialService consumes the single binding, preserves legacy locations/fallback and exposes explicit block/page/material readings
+  ---
+  duration_ms: 1027.183507
+  ...
+# Subtest: source change during a read causes re-read instead of publishing an inconsistent observation
+ok 417 - source change during a read causes re-read instead of publishing an inconsistent observation
+  ---
+  duration_ms: 250.834108
+  ...
+# Subtest: Desktop missing-parent shape is confirmed as absent, but an unreadable existing record fails closed
+ok 418 - Desktop missing-parent shape is confirmed as absent, but an unreadable existing record fails closed
+  ---
+  duration_ms: 14.7886
+  ...
+# Subtest: external unavailable readings retain separately labeled old content across repeated refreshes and restart
+ok 419 - external unavailable readings retain separately labeled old content across repeated refreshes and restart
+  ---
+  duration_ms: 478.693696
+  ...
+# Subtest: concurrent different sources cannot replace one directory identity; interrupted entry publication retries the saved manifest
+ok 420 - concurrent different sources cannot replace one directory identity; interrupted entry publication retries the saved manifest
+  ---
+  duration_ms: 234.855073
+  ...
+# Subtest: shared live-source port works without a directory and expires on unbind without returning mirror bytes
+ok 421 - shared live-source port works without a directory and expires on unbind without returning mirror bytes
+  ---
+  duration_ms: 70.814779
+  ...
+1..421
+# tests 421
+# suites 0
+# pass 421
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 161092.295149
+
+> @task-copilot/cli@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: all reference commands support machine-readable output
+ok 1 - all reference commands support machine-readable output
+  ---
+  duration_ms: 9.173351
+  ...
+# Subtest: unknown commands fail without touching a fallback database
+ok 2 - unknown commands fail without touching a fallback database
+  ---
+  duration_ms: 1.347497
+  ...
+# Subtest: External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+ok 3 - External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+  ---
+  duration_ms: 10.349437
+  ...
+# Subtest: CLI emits stable JSON errors and refuses non-waiting proposal apply
+ok 4 - CLI emits stable JSON errors and refuses non-waiting proposal apply
+  ---
+  duration_ms: 1.185042
+  ...
+# Subtest: object filters fail closed instead of silently returning an empty list
+ok 5 - object filters fail closed instead of silently returning an empty list
+  ---
+  duration_ms: 0.926574
+  ...
+# Subtest: backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+ok 6 - backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+  ---
+  duration_ms: 100.255809
+  ...
+# Subtest: backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+ok 7 - backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+  ---
+  duration_ms: 48.726887
+  ...
+# Subtest: restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+ok 8 - restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+  ---
+  duration_ms: 166.456836
+  ...
+# Subtest: restore retains committed WAL data in the previous logical snapshot
+ok 9 - restore retains committed WAL data in the previous logical snapshot
+  ---
+  duration_ms: 409.18822
+  ...
+# Subtest: service status recognizes stale descriptor and never reports a dead pid as running
+ok 10 - service status recognizes stale descriptor and never reports a dead pid as running
+  ---
+  duration_ms: 15.191433
+  ...
+# Subtest: doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+ok 11 - doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+  ---
+  duration_ms: 17.006774
+  ...
+# Subtest: bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+ok 12 - bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+  ---
+  duration_ms: 152.776025
+  ...
+# Subtest: scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+ok 13 - scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+  ---
+  duration_ms: 152.594415
+  ...
+# Subtest: metadata links and material write paths are rejected before reading or writing outside roots
+ok 14 - metadata links and material write paths are rejected before reading or writing outside roots
+  ---
+  duration_ms: 29.080179
+  ...
+# Subtest: broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+ok 15 - broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+  ---
+  duration_ms: 37.620018
+  ...
+# Subtest: real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+ok 16 - real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+  ---
+  duration_ms: 375.809104
+  ...
+# Subtest: concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+ok 17 - concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+  ---
+  duration_ms: 233.559764
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2591.369428
+
+> @task-copilot/agent@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: Fake Agent deterministically covers proposal, no-op, ambiguity, scope expansion, and waiting
+ok 1 - Fake Agent deterministically covers proposal, no-op, ambiguity, scope expansion, and waiting
+  ---
+  duration_ms: 6.51034
+  ...
+# Subtest: MiniProject composite Skill and provisional Taste are immutable hashed packages with all restraint evals
+ok 2 - MiniProject composite Skill and provisional Taste are immutable hashed packages with all restraint evals
+  ---
+  duration_ms: 91.142393
+  ...
+# Subtest: Fake Engagement Agent covers enter, leave, no-op, ambiguity, parking, and scope
+ok 3 - Fake Engagement Agent covers enter, leave, no-op, ambiguity, parking, and scope
+  ---
+  duration_ms: 41.530279
+  ...
+# Subtest: versioned Engagement Skill eval cases execute every frozen semantic boundary
+ok 4 - versioned Engagement Skill eval cases execute every frozen semantic boundary
+  ---
+  duration_ms: 14.92752
+  ...
+# Subtest: DeepSeek parsing is syntax-only extraction with no semantic repair
+ok 5 - DeepSeek parsing is syntax-only extraction with no semantic repair
+  ---
+  duration_ms: 4.24854
+  ...
+# Subtest: Discovery judgment parser is strict, typed, and never fabricates missing fields
+ok 6 - Discovery judgment parser is strict, typed, and never fabricates missing fields
+  ---
+  duration_ms: 1.738394
+  ...
+# Subtest: DeepSeek executor enforces profile fields and bounded retries without silent fallback
+ok 7 - DeepSeek executor enforces profile fields and bounded retries without silent fallback
+  ---
+  duration_ms: 473.726819
+  ...
+# Subtest: DeepSeek discovery executor enforces profile gates and parses typed arrays
+ok 8 - DeepSeek discovery executor enforces profile gates and parses typed arrays
+  ---
+  duration_ms: 25.00548
+  ...
+# Subtest: Discovery parser validates ATTACH_TO_CANDIDATE and maturity gates
+ok 9 - Discovery parser validates ATTACH_TO_CANDIDATE and maturity gates
+  ---
+  duration_ms: 1.294796
+  ...
+# Subtest: conversation reasoning profiles split fast and deep budgets without changing authority semantics
+ok 10 - conversation reasoning profiles split fast and deep budgets without changing authority semantics
+  ---
+  duration_ms: 0.71783
+  ...
+# Subtest: closure semantic parser is strict and never repairs missing or invalid fields
+ok 11 - closure semantic parser is strict and never repairs missing or invalid fields
+  ---
+  duration_ms: 1.646107
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1528.716498
+
+> @task-copilot/client@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: client sends the capability token but has no database path or database API
+ok 1 - client sends the capability token but has no database path or database API
+  ---
+  duration_ms: 70.080462
+  ...
+# Subtest: the CLI descriptor parser drops Graph capabilities while the Plugin parser requires them
+ok 2 - the CLI descriptor parser drops Graph capabilities while the Plugin parser requires them
+  ---
+  duration_ms: 2.727597
+  ...
+# Subtest: descriptor parsing rejects deceptive non-loopback URLs before a bearer can be sent
+ok 3 - descriptor parsing rejects deceptive non-loopback URLs before a bearer can be sent
+  ---
+  duration_ms: 0.890171
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 851.500952
+
+> @task-copilot/contracts@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: CREATE_WORK_OBJECT is a closed semantic command with an exact Graph precondition
+ok 1 - CREATE_WORK_OBJECT is a closed semantic command with an exact Graph precondition
+  ---
+  duration_ms: 6.285137
+  ...
+# Subtest: the operation registry rejects generic writes and caller-selected database details
+ok 2 - the operation registry rejects generic writes and caller-selected database details
+  ---
+  duration_ms: 1.726419
+  ...
+# Subtest: stableHash is portable and order-independent for object keys
+ok 3 - stableHash is portable and order-independent for object keys
+  ---
+  duration_ms: 1.281603
+  ...
+# Subtest: SET_CURRENT_FOCUS is closed, atomic, and separates strong Evidence from projection hashes
+ok 4 - SET_CURRENT_FOCUS is closed, atomic, and separates strong Evidence from projection hashes
+  ---
+  duration_ms: 1.527943
+  ...
+# Subtest: UPDATE_WORK_INTENT is closed, sparse, and Evidence-bound
+ok 5 - UPDATE_WORK_INTENT is closed, sparse, and Evidence-bound
+  ---
+  duration_ms: 1.540529
+  ...
+# Subtest: MiniProject governance result asks one question or emits one narrow change
+ok 6 - MiniProject governance result asks one question or emits one narrow change
+  ---
+  duration_ms: 1.281793
+  ...
+# Subtest: Agent current-focus results are a closed runtime contract
+ok 7 - Agent current-focus results are a closed runtime contract
+  ---
+  duration_ms: 1.286304
+  ...
+# Subtest: CHANGE_ENGAGEMENT is one closed atomic Waiting transition
+ok 8 - CHANGE_ENGAGEMENT is one closed atomic Waiting transition
+  ---
+  duration_ms: 1.674375
+  ...
+# Subtest: Agent Engagement results reject PARKED and half transitions
+ok 9 - Agent Engagement results reject PARKED and half transitions
+  ---
+  duration_ms: 1.549016
+  ...
+# Subtest: Task Closure operations are closed semantic commands without generic lifecycle setters
+ok 10 - Task Closure operations are closed semantic commands without generic lifecycle setters
+  ---
+  duration_ms: 2.544298
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 823.011689
+
+> @task-copilot/domain@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: MiniProject WorkIntent stays sparse, bounded, and versioned
+ok 1 - MiniProject WorkIntent stays sparse, bounded, and versioned
+  ---
+  duration_ms: 9.052573
+  ...
+# Subtest: CREATE_WORK_OBJECT starts one stable open work object without coupling identity to its anchor
+ok 2 - CREATE_WORK_OBJECT starts one stable open work object without coupling identity to its anchor
+  ---
+  duration_ms: 0.869954
+  ...
+# Subtest: SET_CURRENT_FOCUS is nullable, short, normalized, and versioned
+ok 3 - SET_CURRENT_FOCUS is nullable, short, normalized, and versioned
+  ---
+  duration_ms: 1.115651
+  ...
+# Subtest: CHANGE_ENGAGEMENT atomically creates and clears the current WaitingCondition
+ok 4 - CHANGE_ENGAGEMENT atomically creates and clears the current WaitingCondition
+  ---
+  duration_ms: 1.106202
+  ...
+# Subtest: Domain rejects half waiting state, unsupported transitions, and stale from/version
+ok 5 - Domain rejects half waiting state, unsupported transitions, and stale from/version
+  ---
+  duration_ms: 2.069446
+  ...
+# Subtest: compensation restores the exact prior WaitingCondition instead of regenerating since
+ok 6 - compensation restores the exact prior WaitingCondition instead of regenerating since
+  ---
+  duration_ms: 1.029071
+  ...
+# Subtest: PrimaryOwnership permits only one shallow Project -> MiniProject -> Task tree
+ok 7 - PrimaryOwnership permits only one shallow Project -> MiniProject -> Task tree
+  ---
+  duration_ms: 1.262733
+  ...
+# Subtest: PrimaryOwnership rejects self, Project nesting, a second owner, cycles, and excess depth
+ok 8 - PrimaryOwnership rejects self, Project nesting, a second owner, cycles, and excess depth
+  ---
+  duration_ms: 1.78874
+  ...
+# Subtest: RENAME_WORK_OBJECT requires the current version and preserves lifecycle identity
+ok 9 - RENAME_WORK_OBJECT requires the current version and preserves lifecycle identity
+  ---
+  duration_ms: 1.26447
+  ...
+# Subtest: work object validation rejects unsupported kinds, empty titles, and ended engagement
+ok 10 - work object validation rejects unsupported kinds, empty titles, and ended engagement
+  ---
+  duration_ms: 1.104093
+  ...
+# Subtest: user completion closes one Task with a minimal immutable record and clears open-only state
+ok 11 - user completion closes one Task with a minimal immutable record and clears open-only state
+  ---
+  duration_ms: 1.820497
+  ...
+# Subtest: cancellation, reopen, and amendment preserve closure history
+ok 12 - cancellation, reopen, and amendment preserve closure history
+  ---
+  duration_ms: 2.910282
+  ...
+# Subtest: completion of a WAITING Task clears open state and compensation restores it exactly
+ok 13 - completion of a WAITING Task clears open state and compensation restores it exactly
+  ---
+  duration_ms: 0.96686
+  ...
+# Subtest: ProjectIntent is sparse, revision-bound, and never generates more than five KRs
+ok 14 - ProjectIntent is sparse, revision-bound, and never generates more than five KRs
+  ---
+  duration_ms: 3.213577
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 893.51221
+
+> @task-copilot/kernel@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: formal CREATE Undo removes current state and preserves evidence, governance and obligation history
+ok 1 - formal CREATE Undo removes current state and preserves evidence, governance and obligation history
+  ---
+  duration_ms: 429.200111
+  ...
+# Subtest: formal CREATE Undo rejects changed natural source and newer formal state
+ok 2 - formal CREATE Undo rejects changed natural source and newer formal state
+  ---
+  duration_ms: 202.93819
+  ...
+# Subtest: formal SET_CURRENT_FOCUS acceptance and Undo audit are atomic, exactly once, independent of delivery
+ok 3 - formal SET_CURRENT_FOCUS acceptance and Undo audit are atomic, exactly once, independent of delivery
+  ---
+  duration_ms: 212.408087
+  ...
+# Subtest: formal CHANGE_ENGAGEMENT acceptance and Undo audit are atomic, exactly once, independent of delivery
+ok 4 - formal CHANGE_ENGAGEMENT acceptance and Undo audit are atomic, exactly once, independent of delivery
+  ---
+  duration_ms: 229.994622
+  ...
+# Subtest: formal receipt survives a lost response without a second commit or obligation
+ok 5 - formal receipt survives a lost response without a second commit or obligation
+  ---
+  duration_ms: 167.80499
+  ...
+# Subtest: USER decision execution is atomic with its formal receipt, package and candidates and can be retried by decision ID
+ok 6 - USER decision execution is atomic with its formal receipt, package and candidates and can be retried by decision ID
+  ---
+  duration_ms: 193.525407
+  ...
+# Subtest: governed UPDATE_WORK_INTENT commits, verifies, and Undo restores sparse intent
+ok 7 - governed UPDATE_WORK_INTENT commits, verifies, and Undo restores sparse intent
+  ---
+  duration_ms: 465.058331
+  ...
+# Subtest: CREATE_WORK_OBJECT reaches success only after exact Graph verification
+ok 8 - CREATE_WORK_OBJECT reaches success only after exact Graph verification
+  ---
+  duration_ms: 172.932972
+  ...
+# Subtest: a source hash mismatch fails closed and records RECOVERY_REQUIRED without current-state writes
+ok 9 - a source hash mismatch fails closed and records RECOVERY_REQUIRED without current-state writes
+  ---
+  duration_ms: 163.076693
+  ...
+# Subtest: crashes after durable stages are discoverable with explicit recovery actions
+ok 10 - crashes after durable stages are discoverable with explicit recovery actions
+  ---
+  duration_ms: 344.372521
+  ...
+# Subtest: a crash after GRAPH_APPLIED is durable and restarts at verification
+ok 11 - a crash after GRAPH_APPLIED is durable and restarts at verification
+  ---
+  duration_ms: 154.76469
+  ...
+# Subtest: Undo is a compensation commit and refuses to delete a user-edited managed projection
+ok 12 - Undo is a compensation commit and refuses to delete a user-edited managed projection
+  ---
+  duration_ms: 173.685017
+  ...
+# Subtest: a GRAPH_APPLIED create compensation recovers after its WorkObject is already deleted
+ok 13 - a GRAPH_APPLIED create compensation recovers after its WorkObject is already deleted
+  ---
+  duration_ms: 150.702884
+  ...
+# Subtest: RENAME_WORK_OBJECT and its Undo are executable compensation commits with monotonic versions
+ok 14 - RENAME_WORK_OBJECT and its Undo are executable compensation commits with monotonic versions
+  ---
+  duration_ms: 160.584975
+  ...
+# Subtest: write authorization is bound to the configured local USER identity
+ok 15 - write authorization is bound to the configured local USER identity
+  ---
+  duration_ms: 142.349887
+  ...
+# Subtest: generic preparation rejects every Agent operation, including rename and undo entry
+ok 16 - generic preparation rejects every Agent operation, including rename and undo entry
+  ---
+  duration_ms: 141.396229
+  ...
+# Subtest: parseUserCorrectionUtterance maps natural language to governed operations
+ok 17 - parseUserCorrectionUtterance maps natural language to governed operations
+  ---
+  duration_ms: 11.645638
+  ...
+# Subtest: applyUserRealityCorrection creates a USER decision and fixes Formal Memory
+ok 18 - applyUserRealityCorrection creates a USER decision and fixes Formal Memory
+  ---
+  duration_ms: 432.163574
+  ...
+# Subtest: applyUserRealityCorrection rejects unsupported utterances without mutating
+ok 19 - applyUserRealityCorrection rejects unsupported utterances without mutating
+  ---
+  duration_ms: 195.76992
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3828.47984
+
+> @task-copilot/sqlite@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: v22 history migration preserves every row and audit FK while allowing current-state deletion
+ok 1 - v22 history migration preserves every row and audit FK while allowing current-state deletion
+  ---
+  duration_ms: 357.225799
+  ...
+# Subtest: failed v23 migration rolls back DDL, data and version together and closes its connection
+ok 2 - failed v23 migration rolls back DDL, data and version together and closes its connection
+  ---
+  duration_ms: 509.587885
+  ...
+# Subtest: schema v16 migrates to v23 without data loss
+ok 3 - schema v16 migrates to v23 without data loss
+  ---
+  duration_ms: 478.288224
+  ...
+# Subtest: schema v17 migrates to v23 without data loss
+ok 4 - schema v17 migrates to v23 without data loss
+  ---
+  duration_ms: 404.243344
+  ...
+# Subtest: schema v18 migrates to v23 without data loss
+ok 5 - schema v18 migrates to v23 without data loss
+  ---
+  duration_ms: 361.368656
+  ...
+# Subtest: schema v19 migrates to v23 without data loss
+ok 6 - schema v19 migrates to v23 without data loss
+  ---
+  duration_ms: 341.574385
+  ...
+# Subtest: schema v20 migrates to v23 without data loss
+ok 7 - schema v20 migrates to v23 without data loss
+  ---
+  duration_ms: 335.122068
+  ...
+# Subtest: schema v21 migrates to v23 without data loss
+ok 8 - schema v21 migrates to v23 without data loss
+  ---
+  duration_ms: 388.04899
+  ...
+# Subtest: future schema fails closed before any runtime migration or writer starts
+ok 9 - future schema fails closed before any runtime migration or writer starts
+  ---
+  duration_ms: 14.616716
+  ...
+# Subtest: malformed database fails closed
+ok 10 - malformed database fails closed
+  ---
+  duration_ms: 11.121019
+  ...
+# Subtest: vNext schema stores normalized current state without embedding an anchor in WorkObject
+ok 11 - vNext schema stores normalized current state without embedding an anchor in WorkObject
+  ---
+  duration_ms: 199.286341
+  ...
+# Subtest: the structured ledger is append-only and exposes incomplete commits for recovery
+ok 12 - the structured ledger is append-only and exposes incomplete commits for recovery
+  ---
+  duration_ms: 146.969657
+  ...
+# Subtest: schema v3 backfills deterministic Phase 3 focus and Phase 4 waiting UUIDs
+ok 13 - schema v3 backfills deterministic Phase 3 focus and Phase 4 waiting UUIDs
+  ---
+  duration_ms: 278.299645
+  ...
+# Subtest: schema v4 keeps immutable Closure records and resolves only the current effective closure
+ok 14 - schema v4 keeps immutable Closure records and resolves only the current effective closure
+  ---
+  duration_ms: 158.341844
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3350.832326
+
+> @task-copilot/test-support@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: correction is not immediately overridden by a replay of the same old context
+ok 1 - correction is not immediately overridden by a replay of the same old context
+  ---
+  duration_ms: 5826.851841
+  ...
+# Subtest: natural Logseq record -> explicit formalize -> audit -> safe compensation Undo
+ok 2 - natural Logseq record -> explicit formalize -> audit -> safe compensation Undo
+  ---
+  duration_ms: 2987.025542
+  ...
+# Subtest: Graph adapter throw never becomes client-visible success and remains recoverable after restart
+ok 3 - Graph adapter throw never becomes client-visible success and remains recoverable after restart
+  ---
+  duration_ms: 1564.184052
+  ...
+# Subtest: context associations are durable, dedupe, support correction memory, and never write Graph
+ok 4 - context associations are durable, dedupe, support correction memory, and never write Graph
+  ---
+  duration_ms: 2813.998967
+  ...
+# Subtest: governance issues dedupe per dimension/snapshot and retain resolved history
+ok 5 - governance issues dedupe per dimension/snapshot and retain resolved history
+  ---
+  duration_ms: 1702.026904
+  ...
+# Subtest: reconcile conflict: coverage clears, one evidence is frozen, and a dimension issue persists
+ok 6 - reconcile conflict: coverage clears, one evidence is frozen, and a dimension issue persists
+  ---
+  duration_ms: 2532.796057
+  ...
+# Subtest: governance issue resolution is causal and dimension-checked
+ok 7 - governance issue resolution is causal and dimension-checked
+  ---
+  duration_ms: 3237.726599
+  ...
+# Subtest: ExecutionProfile gates data scope, caps total context items, and truncates input characters
+ok 8 - ExecutionProfile gates data scope, caps total context items, and truncates input characters
+  ---
+  duration_ms: 4203.46081
+  ...
+# Subtest: governance issue identity uses stable source refs, not pack handles or wording
+ok 9 - governance issue identity uses stable source refs, not pack handles or wording
+  ---
+  duration_ms: 4166.472004
+  ...
+# Subtest: unique Decision Package + natural-language acceptance becomes an immutable USER decision and a formal USER commit
+ok 10 - unique Decision Package + natural-language acceptance becomes an immutable USER decision and a formal USER commit
+  ---
+  duration_ms: 2775.053541
+  ...
+# Subtest: short acknowledgements are exact-match only and never prefix-authorized
+ok 11 - short acknowledgements are exact-match only and never prefix-authorized
+  ---
+  duration_ms: 3249.67064
+  ...
+# Subtest: External Agent client cannot create trusted user events; trusted events are replay-safe
+ok 12 - External Agent client cannot create trusted user events; trusted events are replay-safe
+  ---
+  duration_ms: 1132.628166
+  ...
+# Subtest: package presentation revision mismatch makes an old user response stale
+ok 13 - package presentation revision mismatch makes an old user response stale
+  ---
+  duration_ms: 1190.20515
+  ...
+# Subtest: quoted speaker text is not USER authorization; ambiguity and staleness fail closed
+ok 14 - quoted speaker text is not USER authorization; ambiguity and staleness fail closed
+  ---
+  duration_ms: 1185.043305
+  ...
+# Subtest: coverage is honest: capped scopes are PARTIAL with continuation and no silent skip
+ok 15 - coverage is honest: capped scopes are PARTIAL with continuation and no silent skip
+  ---
+  duration_ms: 3297.229618
+  ...
+# Subtest: candidate continuity: new material attaches to an OPEN candidate and KEEP_OBSERVING does not package
+ok 16 - candidate continuity: new material attaches to an OPEN candidate and KEEP_OBSERVING does not package
+  ---
+  duration_ms: 1662.233743
+  ...
+# Subtest: maturity gate and minimal evidence: READY packages carry supporting evidence
+ok 17 - maturity gate and minimal evidence: READY packages carry supporting evidence
+  ---
+  duration_ms: 1726.787499
+  ...
+# Subtest: invalid ATTACH_TO_CANDIDATE and unchanged rerun are honest without remote rework
+ok 18 - invalid ATTACH_TO_CANDIDATE and unchanged rerun are honest without remote rework
+  ---
+  duration_ms: 1076.704648
+  ...
+# Subtest: wrong ATTACH_TO_CANDIDATE id fails closed without inventing a candidate
+ok 19 - wrong ATTACH_TO_CANDIDATE id fails closed without inventing a candidate
+  ---
+  duration_ms: 1110.9031
+  ...
+# Subtest: candidate revision invalidates an old package after source absorption
+ok 20 - candidate revision invalidates an old package after source absorption
+  ---
+  duration_ms: 1431.052974
+  ...
+# Subtest: READY without explicit supporting evidence is downgraded to KEEP_OBSERVING
+ok 21 - READY without explicit supporting evidence is downgraded to KEEP_OBSERVING
+  ---
+  duration_ms: 1189.75007
+  ...
+# Subtest: bounded Discovery is existing-object-first and suppresses ordinary material by default
+ok 22 - bounded Discovery is existing-object-first and suppresses ordinary material by default
+  ---
+  duration_ms: 2772.137047
+  ...
+# Subtest: duplicate discovery runs merge candidates and maturing them creates one CREATE package
+ok 23 - duplicate discovery runs merge candidates and maturing them creates one CREATE package
+  ---
+  duration_ms: 1896.225757
+  ...
+# Subtest: organize today matures a candidate and trusted USER 纳入 executes CREATE end to end
+ok 24 - organize today matures a candidate and trusted USER 纳入 executes CREATE end to end
+  ---
+  duration_ms: 2331.743184
+  ...
+# Subtest: invalid existing target and prompt-injection text never fabricate writes
+ok 25 - invalid existing target and prompt-injection text never fabricate writes
+  ---
+  duration_ms: 1263.468501
+  ...
+# Subtest: stale candidate source rejects old 纳入 and creates nothing
+ok 26 - stale candidate source rejects old 纳入 and creates nothing
+  ---
+  duration_ms: 1346.273744
+  ...
+# Subtest: organize today is an explicit one-off that respects global pause
+ok 27 - organize today is an explicit one-off that respects global pause
+  ---
+  duration_ms: 1206.668251
+  ...
+# Subtest: Graph offline discovery returns a failed run and does not fabricate results
+ok 28 - Graph offline discovery returns a failed run and does not fabricate results
+  ---
+  duration_ms: 1246.168851
+  ...
+# [kernel-service] request failed POST /v1/graph-adapter/requests/c4cebd68-e0c6-4748-9e2b-e2d2c9b3c6fd/complete GraphBrokerError: GRAPH_REQUEST_NOT_FOUND: Graph request is not pending.
+#     at GraphRequestBroker.complete (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/graph-broker.ts:95:25)
+#     at Server.<anonymous> (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/server.ts:257:68)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+#   code: 'GRAPH_REQUEST_NOT_FOUND'
+# }
+# Subtest: presented owner boundary is applied by trusted CREATE and candidate absorption is traceable
+ok 29 - presented owner boundary is applied by trusted CREATE and candidate absorption is traceable
+  ---
+  duration_ms: 5164.283168
+  ...
+# Subtest: discovery candidates and run receipts survive Kernel restart
+ok 30 - discovery candidates and run receipts survive Kernel restart
+  ---
+  duration_ms: 973.269187
+  ...
+# Subtest: unattended runtime defers remote work by budget instead of failing or bursting
+ok 31 - unattended runtime defers remote work by budget instead of failing or bursting
+  ---
+  duration_ms: 3780.116405
+  ...
+# Subtest: Project semantic revision refreshes queued maintenance instead of running stale cognition
+ok 32 - Project semantic revision refreshes queued maintenance instead of running stale cognition
+  ---
+  duration_ms: 1526.676096
+  ...
+# Subtest: runtime health reports PAUSED and DEGRADED and recovers only after real success
+ok 33 - runtime health reports PAUSED and DEGRADED and recovers only after real success
+  ---
+  duration_ms: 2014.44957
+  ...
+# Subtest: single kernel instance lease rejects a second active runtime and recovers after close
+ok 34 - single kernel instance lease rejects a second active runtime and recovers after close
+  ---
+  duration_ms: 1169.966326
+  ...
+# Subtest: stale runtime lease is recoverable after crash-like abandonment
+ok 35 - stale runtime lease is recoverable after crash-like abandonment
+  ---
+  duration_ms: 1035.540677
+  ...
+# Subtest: a RUNNING reconcile job is superseded safely by a newer source generation
+ok 36 - a RUNNING reconcile job is superseded safely by a newer source generation
+  ---
+  duration_ms: 1720.681451
+  ...
+# Subtest: graph-offline attempt does not consume remote budget
+ok 37 - graph-offline attempt does not consume remote budget
+  ---
+  duration_ms: 1484.731751
+  ...
+# Subtest: MiniProject readiness never uses evidence count; irrelevant evidence stays UNKNOWN and only attributed evidence reaches READY
+ok 38 - MiniProject readiness never uses evidence count; irrelevant evidence stays UNKNOWN and only attributed evidence reaches READY
+  ---
+  duration_ms: 4038.864903
+  ...
+# Subtest: Project readiness requires semantically supported KRs and a supported Objective; completion stays USER-only
+ok 39 - Project readiness requires semantically supported KRs and a supported Objective; completion stays USER-only
+  ---
+  duration_ms: 1724.757714
+  ...
+# Subtest: stale closure package fails closed when a child reopens before execution
+ok 40 - stale closure package fails closed when a child reopens before execution
+  ---
+  duration_ms: 1488.675594
+  ...
+# Subtest: deterministic gate blocks without any assessor call and Object GET never waits
+ok 41 - deterministic gate blocks without any assessor call and Object GET never waits
+  ---
+  duration_ms: 3058.374933
+  ...
+# Subtest: background closure job converges; RUNNING result is superseded by newer evidence instead of becoming current
+ok 42 - background closure job converges; RUNNING result is superseded by newer evidence instead of becoming current
+  ---
+  duration_ms: 1722.008221
+  ...
+# Subtest: host never repairs model output: empty support is UNKNOWN and invalid evidence reference fails the job
+ok 43 - host never repairs model output: empty support is UNKNOWN and invalid evidence reference fails the job
+  ---
+  duration_ms: 1353.473899
+  ...
+# Subtest: contradictory semantic result becomes CONFLICT and is never presented as ready
+ok 44 - contradictory semantic result becomes CONFLICT and is never presented as ready
+  ---
+  duration_ms: 1274.306637
+  ...
+# Subtest: OPEN closure package is proactively STALE after child reopen or new evidence
+ok 45 - OPEN closure package is proactively STALE after child reopen or new evidence
+  ---
+  duration_ms: 1450.974977
+  ...
+# Subtest: closure budget defers secondary assessments without consuming attempts or touching formal state
+ok 46 - closure budget defers secondary assessments without consuming attempts or touching formal state
+  ---
+  duration_ms: 1368.28755
+  ...
+# Subtest: READY surfaces once in Now and stops repeating after the user opens the object
+ok 47 - READY surfaces once in Now and stops repeating after the user opens the object
+  ---
+  duration_ms: 1662.517881
+  ...
+# Subtest: Now projection is selective, Confirmation is sparse, WorkMap and System derive from Kernel
+ok 48 - Now projection is selective, Confirmation is sparse, WorkMap and System derive from Kernel
+  ---
+  duration_ms: 3348.078
+  ...
+# Subtest: Object Context Pack gives bounded re-entry reality for an object
+ok 49 - Object Context Pack gives bounded re-entry reality for an object
+  ---
+  duration_ms: 1874.326345
+  ...
+# Subtest: Object conversation path: re-entry context, low-risk agent apply, USER boundary handoff
+ok 50 - Object conversation path: re-entry context, low-risk agent apply, USER boundary handoff
+  ---
+  duration_ms: 2175.313755
+  ...
+# Subtest: Cognitive baseline: Now changes are relative to the last time the user actually opened the object
+ok 51 - Cognitive baseline: Now changes are relative to the last time the user actually opened the object
+  ---
+  duration_ms: 3259.706609
+  ...
+# Subtest: Quiet WAITING and a bare currentFocus do not occupy Now
+ok 52 - Quiet WAITING and a bare currentFocus do not occupy Now
+  ---
+  duration_ms: 1841.109142
+  ...
+# Subtest: Pending Decision and Now are separate surfaces; a package-only object does not double-bomb
+ok 53 - Pending Decision and Now are separate surfaces; a package-only object does not double-bomb
+  ---
+  duration_ms: 1195.141047
+  ...
+# Subtest: USER-actor Formal mutation requires the Plugin trusted channel; a bare bearer token is not USER authority
+ok 54 - USER-actor Formal mutation requires the Plugin trusted channel; a bare bearer token is not USER authority
+  ---
+  duration_ms: 2754.497437
+  ...
+# Subtest: Ownership mutation has no production route and only executes through a trusted USER decision
+ok 55 - Ownership mutation has no production route and only executes through a trusted USER decision
+  ---
+  duration_ms: 1525.266204
+  ...
+# Subtest: WorkIntent Agent proposals package for USER authorization instead of applying directly
+ok 56 - WorkIntent Agent proposals package for USER authorization instead of applying directly
+  ---
+  duration_ms: 2015.232916
+  ...
+# Subtest: ProjectIntent is a USER-owned commitment executed only through a trusted package
+ok 57 - ProjectIntent is a USER-owned commitment executed only through a trusted package
+  ---
+  duration_ms: 2618.624595
+  ...
+# Subtest: ProjectIntent revision and stale project version fail closed
+ok 58 - ProjectIntent revision and stale project version fail closed
+  ---
+  duration_ms: 1466.486552
+  ...
+# Subtest: bare bearer cannot invent a USER ProjectIntent commit
+ok 59 - bare bearer cannot invent a USER ProjectIntent commit
+  ---
+  duration_ms: 1039.05158
+  ...
+# Subtest: Fake Agent vertical slice freezes Evidence, auto-applies one LOW proposal, and Undo restores focus with feedback
+ok 60 - Fake Agent vertical slice freezes Evidence, auto-applies one LOW proposal, and Undo restores focus with feedback
+  ---
+  duration_ms: 2714.346935
+  ...
+# Subtest: NO_PROPOSAL is durable and creates no Proposal, Commit, or Graph mutation
+ok 61 - NO_PROPOSAL is durable and creates no Proposal, Commit, or Graph mutation
+  ---
+  duration_ms: 1348.744771
+  ...
+# Subtest: Freeze accepts only proof-bound material read by the trusted Graph Adapter
+ok 62 - Freeze accepts only proof-bound material read by the trusted Graph Adapter
+  ---
+  duration_ms: 1102.510432
+  ...
+# Subtest: wrong Skill is rejected and Agent failures leave a minimal FAILED receipt
+ok 63 - wrong Skill is rejected and Agent failures leave a minimal FAILED receipt
+  ---
+  duration_ms: 3645.954911
+  ...
+# Subtest: a Proposal from another semantic operation contract version is invalidated before Commit
+ok 64 - a Proposal from another semantic operation contract version is invalidated before Commit
+  ---
+  duration_ms: 605.591875
+  ...
+# Subtest: stale Evidence invalidates a Proposal before any Commit or Ledger mutation
+ok 65 - stale Evidence invalidates a Proposal before any Commit or Ledger mutation
+  ---
+  duration_ms: 668.504648
+  ...
+# Subtest: stale target invalidates before Ledger mutation and user revision or dismissal records Feedback
+ok 66 - stale target invalidates before Ledger mutation and user revision or dismissal records Feedback
+  ---
+  duration_ms: 1741.066675
+  ...
+# Subtest: Agent Graph failure and a post-prepare race become explicit RECOVERY_REQUIRED; later semantic edits block old Undo
+ok 67 - Agent Graph failure and a post-prepare race become explicit RECOVERY_REQUIRED; later semantic edits block old Undo
+  ---
+  duration_ms: 1957.007854
+  ...
+# Subtest: Fake Agent reconciles ACTIONABLE to WAITING atomically, removes it from actionable, and Undo restores all state
+ok 68 - Fake Agent reconciles ACTIONABLE to WAITING atomically, removes it from actionable, and Undo restores all state
+  ---
+  duration_ms: 2714.870072
+  ...
+# Subtest: Fake Agent reconciles WAITING to ACTIONABLE and Undo restores the exact original WaitingCondition
+ok 69 - Fake Agent reconciles WAITING to ACTIONABLE and Undo restores the exact original WaitingCondition
+  ---
+  duration_ms: 1545.814746
+  ...
+# Subtest: ordinary plans, unresolved waiting, and parking language produce durable NO_PROPOSAL with zero mutation
+ok 70 - ordinary plans, unresolved waiting, and parking language produce durable NO_PROPOSAL with zero mutation
+  ---
+  duration_ms: 866.780388
+  ...
+# Subtest: stale Evidence invalidates an Engagement Proposal before any Commit
+ok 71 - stale Evidence invalidates an Engagement Proposal before any Commit
+  ---
+  duration_ms: 1655.974249
+  ...
+# Subtest: stale target and Graph race fail closed; later semantic change blocks old Engagement Undo
+ok 72 - stale target and Graph race fail closed; later semantic change blocks old Engagement Undo
+  ---
+  duration_ms: 2061.011055
+  ...
+# Subtest: Graph apply throw remains KERNEL_APPLIED and restart-visible instead of claiming WAITING success
+ok 73 - Graph apply throw remains KERNEL_APPLIED and restart-visible instead of claiming WAITING success
+  ---
+  duration_ms: 698.421605
+  ...
+# Subtest: new directly bound Evidence invalidates an older Engagement judgment
+ok 74 - new directly bound Evidence invalidates an older Engagement judgment
+  ---
+  duration_ms: 583.575766
+  ...
+# Subtest: wrong Engagement Skill is rejected and malformed output leaves FAILED receipt
+ok 75 - wrong Engagement Skill is rejected and malformed output leaves FAILED receipt
+  ---
+  duration_ms: 1894.320378
+  ...
+# Subtest: wrong-operation Agent output is rejected and durably recorded as FAILED
+ok 76 - wrong-operation Agent output is rejected and durably recorded as FAILED
+  ---
+  duration_ms: 500.149378
+  ...
+# [kernel-service] request failed POST /v1/commits/prepare DomainError: CLOSURE_LIFECYCLE_INVALID: Only an open WorkObject may be completed or cancelled.
+#     at assertOpenWorkObject (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/domain/src/index.ts:159:42)
+#     at completeWorkObject (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/domain/src/index.ts:167:3)
+#     at Kernel.\#prepare (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/kernel/src/index.ts:753:27)
+#     at Kernel.prepare (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/kernel/src/index.ts:615:17)
+#     at Server.<anonymous> (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/server.ts:576:36)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+#   code: 'CLOSURE_LIFECYCLE_INVALID'
+# }
+# Subtest: one USER action completes a Task, writes an immutable CompletionRecord, changes TODO to DONE, and Undo restores exact open state
+ok 77 - one USER action completes a Task, writes an immutable CompletionRecord, changes TODO to DONE, and Undo restores exact open state
+  ---
+  duration_ms: 2853.928513
+  ...
+# Subtest: marker labels are not copied into the formal Task title or generated completion summary
+ok 78 - marker labels are not copied into the formal Task title or generated completion summary
+  ---
+  duration_ms: 1011.736004
+  ...
+# [kernel-service] request failed POST /v1/commits/prepare DomainError: WORK_OBJECT_VERSION_MISMATCH: Expected version 2, found 3.
+#     at reopenWorkObject (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/domain/src/index.ts:186:55)
+#     at Kernel.\#prepare (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/kernel/src/index.ts:763:26)
+#     at Kernel.prepare (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/packages/kernel/src/index.ts:615:17)
+#     at Server.<anonymous> (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/server.ts:576:36)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+#   code: 'WORK_OBJECT_VERSION_MISMATCH'
+# }
+# Subtest: Cancellation, Reopen, and Amendment are USER-only records with distinct current semantics
+ok 79 - Cancellation, Reopen, and Amendment are USER-only records with distinct current semantics
+  ---
+  duration_ms: 1217.636342
+  ...
+# Subtest: Graph failure and marker race never become Closure success
+ok 80 - Graph failure and marker race never become Closure success
+  ---
+  duration_ms: 2300.876125
+  ...
+# Subtest: an online TODO to DONE observation enters the same USER completion transaction
+ok 81 - an online TODO to DONE observation enters the same USER completion transaction
+  ---
+  duration_ms: 567.827773
+  ...
+# Subtest: governed parent closure succeeds without children and rejects while a child is OPEN
+ok 82 - governed parent closure succeeds without children and rejects while a child is OPEN
+  ---
+  duration_ms: 1883.790447
+  ...
+# Subtest: completing a WAITING focused Task and Undo restore the exact open state while later writes block old Undo
+ok 83 - completing a WAITING focused Task and Undo restore the exact open state while later writes block old Undo
+  ---
+  duration_ms: 1300.48387
+  ...
+# Subtest: MiniProject governance supports one-question Grill, continuous low-risk apply, no-change, and boundary stop
+ok 84 - MiniProject governance supports one-question Grill, continuous low-risk apply, no-change, and boundary stop
+  ---
+  duration_ms: 4790.324824
+  ...
+# Subtest: External CLI executor reuses Skills, records reads separately, and commits focus plus bidirectional Engagement
+ok 85 - External CLI executor reuses Skills, records reads separately, and commits focus plus bidirectional Engagement
+  ---
+  duration_ms: 1357.386618
+  ...
+# Subtest: External NO_PROPOSAL is durable with zero Proposal or Commit
+ok 86 - External NO_PROPOSAL is durable with zero Proposal or Commit
+  ---
+  duration_ms: 649.161356
+  ...
+# Subtest: External NEEDS_MORE_CONTEXT is durable and run idempotence is bound to the exact Evidence set
+ok 87 - External NEEDS_MORE_CONTEXT is durable and run idempotence is bound to the exact Evidence set
+  ---
+  duration_ms: 690.376219
+  ...
+# Subtest: External contract rejects missing Evidence, PARKED result, stale target, and search-only proposal
+ok 88 - External contract rejects missing Evidence, PARKED result, stale target, and search-only proposal
+  ---
+  duration_ms: 1390.894555
+  ...
+# [kernel-service] request failed POST /v1/external/proposals/f36dbadf-47e6-46d3-8769-18dd1791bacd/apply GraphBrokerError: GRAPH_ADAPTER_OFFLINE: The trusted Logseq Graph Adapter is not connected.
+#     at GraphRequestBroker.request (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/graph-broker.ts:72:53)
+#     at ExternalAgentCoordinator.applyProposal (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/external-agent-coordinator.ts:103:50)
+#     at Server.<anonymous> (/Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/kernel-service/src/server.ts:447:92)
+#     at Server.emit (node:events:524:28)
+#     at parserOnIncoming (node:_http_server:1139:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:118:17) {
+#   code: 'GRAPH_ADAPTER_OFFLINE'
+# }
+# Subtest: Graph Adapter offline fails fast without creating a formal Commit
+ok 89 - Graph Adapter offline fails fast without creating a formal Commit
+  ---
+  duration_ms: 3987.841295
+  ...
+# Subtest: External apply invalidates stale Evidence and safely retries a transient Graph failure
+ok 90 - External apply invalidates stale Evidence and safely retries a transient Graph failure
+  ---
+  duration_ms: 596.30505
+  ...
+# Subtest: a pending External proposal resumes after Kernel restart and Plugin worker reload
+ok 91 - a pending External proposal resumes after Kernel restart and Plugin worker reload
+  ---
+  duration_ms: 365.960423
+  ...
+# Subtest: formal external focus application commits audit before failed projection and resumes after service restart
+ok 92 - formal external focus application commits audit before failed projection and resumes after service restart
+  ---
+  duration_ms: 469.142067
+  ...
+# Subtest: unexpected receipt IO is diagnostic; only genuinely inactive External runs report GRAPH_READ_RUN_NOT_ACTIVE
+ok 93 - unexpected receipt IO is diagnostic; only genuinely inactive External runs report GRAPH_READ_RUN_NOT_ACTIVE
+  ---
+  duration_ms: 273.831158
+  ...
+# Subtest: A1+A2: formal commit succeeds without Graph, creates durable projection obligation, then converges
+ok 94 - A1+A2: formal commit succeeds without Graph, creates durable projection obligation, then converges
+  ---
+  duration_ms: 1747.684108
+  ...
+# Subtest: A2: projection worker drains a durable obligation automatically once the Graph Adapter returns
+ok 95 - A2: projection worker drains a durable obligation automatically once the Graph Adapter returns
+  ---
+  duration_ms: 1750.806366
+  ...
+# Subtest: projection retry is bounded and degrades instead of hot-looping on a persistent Graph failure
+ok 96 - projection retry is bounded and degrades instead of hot-looping on a persistent Graph failure
+  ---
+  duration_ms: 2662.189113
+  ...
+# Subtest: A3: user-edited projection is never silently overwritten while an obligation is pending
+ok 97 - A3: user-edited projection is never silently overwritten while an obligation is pending
+  ---
+  duration_ms: 1301.280773
+  ...
+# Subtest: A5: pending/failed projection obligations survive Kernel restart and can converge afterwards
+ok 98 - A5: pending/failed projection obligations survive Kernel restart and can converge afterwards
+  ---
+  duration_ms: 710.166149
+  ...
+# Subtest: formal commit with a supplied stale snapshot fails closed before any formal write
+ok 99 - formal commit with a supplied stale snapshot fails closed before any formal write
+  ---
+  duration_ms: 332.746669
+  ...
+# Subtest: GP9-1/GP9-2: one source burst queues one persistent reconcile; built-in loop commits and clears coverage
+ok 100 - GP9-1/GP9-2: one source burst queues one persistent reconcile; built-in loop commits and clears coverage
+  ---
+  duration_ms: 2450.021258
+  ...
+# Subtest: GP9-3: paused maintenance records changes without running; explicit one-shot reconcile still works and pause remains
+ok 101 - GP9-3: paused maintenance records changes without running; explicit one-shot reconcile still works and pause remains
+  ---
+  duration_ms: 1798.841533
+  ...
+# Subtest: GP9-4: stale active job is superseded by the latest source snapshot instead of old-result-wins
+ok 102 - GP9-4: stale active job is superseded by the latest source snapshot instead of old-result-wins
+  ---
+  duration_ms: 2126.878464
+  ...
+# Subtest: reconcile queue and coverage survive Kernel restart and continue from the persisted job
+ok 103 - reconcile queue and coverage survive Kernel restart and continue from the persisted job
+  ---
+  duration_ms: 2261.76179
+  ...
+# Subtest: first manual check without coverage can accept a formal change and covers the observed source at the resulting version
+ok 104 - first manual check without coverage can accept a formal change and covers the observed source at the resulting version
+  ---
+  duration_ms: 1286.545158
+  ...
+# Subtest: v1 protocol samples survive formal creation, updates, closure, amendments and compensation Undo
+ok 105 - v1 protocol samples survive formal creation, updates, closure, amendments and compensation Undo
+  ---
+  duration_ms: 875.944945
+  ...
+1..105
+# tests 105
+# suites 0
+# pass 105
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 31852.71053
+
+> task-copilot-vnext@0.2.0 test:sandbox
+> node --test scripts/logseq-sandbox.test.mjs
+
+TAP version 13
+# Subtest: production Logseq and normal Kernel commands are never owned by the sandbox
+ok 1 - production Logseq and normal Kernel commands are never owned by the sandbox
+  ---
+  duration_ms: 5.539312
+  ...
+# Subtest: a copied application without its isolated profile is refused
+ok 2 - a copied application without its isolated profile is refused
+  ---
+  duration_ms: 0.612277
+  ...
+# Subtest: only the copied application with the isolated profile is owned
+ok 3 - only the copied application with the isolated profile is owned
+  ---
+  duration_ms: 0.513966
+  ...
+# Subtest: Kernel ownership requires both the unique sandbox runner and its loader
+ok 4 - Kernel ownership requires both the unique sandbox runner and its loader
+  ---
+  duration_ms: 0.594003
+  ...
+# Subtest: similar profile and runner names cannot pass process ownership checks
+ok 5 - similar profile and runner names cannot pass process ownership checks
+  ---
+  duration_ms: 1.370156
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 280.145885
+
+> task-copilot-vnext@0.2.0 build
+> node scripts/build-all.mjs && node scripts/check-built-binaries.mjs
+
+
+> task-copilot-vnext@0.2.0 check:boundaries
+> node --test scripts/check-boundaries.test.mjs && node scripts/check-boundaries.mjs
+
+TAP version 13
+# Subtest: work-view rejects task UI imports, re-exports and dynamic imports in .ts
+ok 1 - work-view rejects task UI imports, re-exports and dynamic imports in .ts
+  ---
+  duration_ms: 81.294791
+  ...
+# Subtest: work-view rejects task UI imports, re-exports and dynamic imports in .mjs
+ok 2 - work-view rejects task UI imports, re-exports and dynamic imports in .mjs
+  ---
+  duration_ms: 7.53979
+  ...
+# Subtest: shared contracts reject infrastructure imports while allowing domain types
+ok 3 - shared contracts reject infrastructure imports while allowing domain types
+  ---
+  duration_ms: 48.40917
+  ...
+# Subtest: runtime cannot import feature UI and task UI cannot own worker lifecycle
+ok 4 - runtime cannot import feature UI and task UI cannot own worker lifecycle
+  ---
+  duration_ms: 2.430777
+  ...
+# Subtest: formal and query capabilities depend on structural ports rather than SQLite implementation
+ok 5 - formal and query capabilities depend on structural ports rather than SQLite implementation
+  ---
+  duration_ms: 20.248457
+  ...
+# Subtest: host file capability rejects feature imports in .ts
+ok 6 - host file capability rejects feature imports in .ts
+  ---
+  duration_ms: 3.817022
+  ...
+# Subtest: host file capability rejects feature imports in .mjs
+ok 7 - host file capability rejects feature imports in .mjs
+  ---
+  duration_ms: 3.389232
+  ...
+# Subtest: discovery-coordinator rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+ok 8 - discovery-coordinator rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+  ---
+  duration_ms: 17.77602
+  ...
+# Subtest: external-agent-coordinator rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+ok 9 - external-agent-coordinator rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+  ---
+  duration_ms: 13.101944
+  ...
+# Subtest: dogfood-scope rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+ok 10 - dogfood-scope rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+  ---
+  duration_ms: 13.024781
+  ...
+# Subtest: future-query rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+ok 11 - future-query rejects SQLite types, subpaths, relative imports, re-exports, require and literal dynamic imports
+  ---
+  duration_ms: 10.99525
+  ...
+# Subtest: paths aliases and extensionless target UI paths cannot bypass actual boundaries
+ok 12 - paths aliases and extensionless target UI paths cannot bypass actual boundaries
+  ---
+  duration_ms: 15.76425
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2002.105441
+Dependency boundaries verified.
+
+> task-copilot-vnext@0.2.0 taste:eval
+> node scripts/evaluate-taste-candidate.mjs --candidate 0.1.1
+
+{"profile":"miniproject-governance","active":{"version":"0.1.0","contentHash":"9023451cc8093f1e04e4781e2055fe7d054b5feb61f7d7beb5af4be6736918dd"},"candidate":{"version":"0.1.1","contentHash":"820876ae23c93773f43d3c14cbac8abf78da1c4ff65871bee843ac505cc6d02d"},"pairwiseCases":6,"regressionCases":4,"result":"PASS","activationDecision":"KEEP_0.1.0_ACTIVE","autoActivated":false}

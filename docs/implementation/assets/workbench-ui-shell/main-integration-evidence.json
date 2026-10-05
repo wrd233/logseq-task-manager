@@ -1,0 +1,303 @@
+{
+  "fixedBase": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+  "sourceHead": "9d8f47b1b261a3e7886a8fed78c4004d73063fbb",
+  "remoteMainBefore": "06f24bd28a2bd979e9fab207332d984e3bec7a9e",
+  "productMerge": "d7473c871f624caade1b692a8161922f471a5db4",
+  "check": {
+    "exitCode": 0,
+    "workspaceTests": 655,
+    "pluginTests": 421,
+    "sandboxTests": 5,
+    "boundaryTests": 12,
+    "totalTests": 672,
+    "fail": 0,
+    "skip": 0,
+    "cancel": 0,
+    "taste": "PASS",
+    "node": "20.20.2",
+    "npm": "10.8.2"
+  },
+  "desktop": {
+    "version": "0.10.9",
+    "openedVia": "Actual published plugin open(uuid) entry through CUA forwarding to isolated Desktop",
+    "sourceBlocks": 93,
+    "materialEntries": 4,
+    "bodyAndHistoryReturnScroll": 560,
+    "sourceUnchanged": true,
+    "runtimeBuild": {
+      "url": "file:///Users/mac/.codex/worktrees/workbench-ui-shell/logseq-task-manager/apps/logseq-plugin/dist/index.js",
+      "runtimeSha256": "1e4a54b37b1acd0bc6a5530a85a2418573c5c4bfcfc0c74f5519b421b2718f58",
+      "builtSha256": "9eaea40187b21a5bead844d1150d362093dd21a66f2fc86f48a2556e783e9cbf",
+      "matches": false,
+      "verification": "Ignore only esbuild source path and sourceMappingURL comment lines; plugin-only and root builds use different working directories.",
+      "executableTextMatches": true,
+      "executableTextSha256": "6be7e9dfc5ba7a0f68285da39a5bab1bb37bfd5359dd7218aa2f2c4d034aabcb"
+    },
+    "states": {
+      "main-before-material": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 560,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": false,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-materials": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "materials",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 0,
+        "workVisible": false,
+        "materialsVisible": true,
+        "workHeaders": 1,
+        "materialHeaders": 1,
+        "materialSummary": "材料\n加入材料\n目录与查找\n目录文件",
+        "materialEntries": 4,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": true,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-material-document": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "materials",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 0,
+        "workVisible": false,
+        "materialsVisible": true,
+        "workHeaders": 1,
+        "materialHeaders": 1,
+        "materialSummary": "‹ 材料列表\nreference-guide.md\n复制链接\n更多\n编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": true,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-after-material": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 560,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "‹ 材料列表reference-guide.md复制链接关闭返回正文更多改文件名写概述同步名称与引用补关联重新定位来源原文件 · 参考资料编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": false,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-review": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": true
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 560,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "‹ 材料列表reference-guide.md复制链接关闭返回正文更多改文件名写概述同步名称与引用补关联重新定位来源原文件 · 参考资料编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": false,
+        "reviewControlsHidden": false,
+        "nativeDisabled": false,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-history": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": true
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 0,
+        "bodyScroll": 600.5,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "‹ 材料列表reference-guide.md复制链接关闭返回正文更多改文件名写概述同步名称与引用补关联重新定位来源原文件 · 参考资料编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "history",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": false,
+        "reviewControlsHidden": false,
+        "nativeDisabled": true,
+        "notice": "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-after-history": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 560,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "‹ 材料列表reference-guide.md复制链接关闭返回正文更多改文件名写概述同步名称与引用补关联重新定位来源原文件 · 参考资料编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": false,
+        "notice": "",
+        "viewport": {
+          "width": 520,
+          "height": 902
+        },
+        "width": 520,
+        "scrollWidth": 520,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      },
+      "main-narrow": {
+        "root": "3daaf9d9-5643-450d-b732-aeba1078e13f",
+        "shell": {
+          "content": "body",
+          "review": false
+        },
+        "title": "整理本地研究材料和正文引用",
+        "mode": "report",
+        "status": "current",
+        "fragments": 93,
+        "reportRows": 93,
+        "bodyScroll": 452,
+        "workVisible": true,
+        "materialsVisible": false,
+        "workHeaders": 1,
+        "materialHeaders": 0,
+        "materialSummary": "‹ 材料列表reference-guide.md复制链接关闭返回正文更多改文件名写概述同步名称与引用补关联重新定位来源原文件 · 参考资料编辑原文件",
+        "materialEntries": 0,
+        "reviewMode": "current",
+        "revision": "cb770d25-6f06-48ef-bd5a-1f02c9443087",
+        "reviewHostHidden": true,
+        "reviewControlsHidden": true,
+        "nativeDisabled": false,
+        "notice": "",
+        "viewport": {
+          "width": 680,
+          "height": 732
+        },
+        "width": 680,
+        "scrollWidth": 680,
+        "sourceTextSha256": "66a35dce490842b04170263b156dfc8d6bb1c2a1616fd1807d6ec6c602b8c786"
+      }
+    }
+  },
+  "cleanup": {
+    "ownedDesktopStopped": true,
+    "ownedBridgeStopped": true,
+    "viewportOverrideCleared": true,
+    "ownedRamDisksDetached": true,
+    "graphAndProfileRetained": true,
+    "productionGraphUsed": false
+  }
+}
