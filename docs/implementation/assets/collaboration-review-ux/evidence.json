@@ -1,0 +1,203 @@
+{
+  "at": "2026-10-05T03:13:38.229Z",
+  "base": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+  "platform": "macOS 15.1 arm64",
+  "logseq": "0.10.15",
+  "node": "20.20.2",
+  "npm": "10.8.2",
+  "tasksEnabled": false,
+  "kernelStarted": false,
+  "cdpPort": 19347,
+  "source": {
+    "blocksAtStart": 87,
+    "charactersAtStart": 5929,
+    "rootUuid": "6ac29f10-3c37-4923-a40c-0b6265bba1f5",
+    "materialId": "ba77a436-fe10-49d7-845b-d0b01ffb789e"
+  },
+  "transport": {
+    "kind": "production workspace CLI in independent Node processes",
+    "client": "review-acceptance",
+    "stageId": "51277f40-346f-440c-b1cb-8140107388f8",
+    "moveVerified": true,
+    "query": "complete",
+    "recover": "complete",
+    "replaySameRecord": true,
+    "todoUnchanged": true,
+    "before": [
+      {
+        "uuid": "8b762b75-d1f7-40d6-a909-1ae956c57230",
+        "parentUuid": "6ac29f10-3c37-4923-a40c-0b6265bba1f5",
+        "order": 1,
+        "depth": 1,
+        "contentVersion": "fc5a665c1e164c4a691100e1590d7010b63f31b18f33f5750fb993c2d7e51b07",
+        "content": "[想法] 把反例与验证方法放近一点，但没有授权前不改状态。"
+      },
+      {
+        "uuid": "ed5838c2-79bd-4172-a315-2c80ad8b06e9",
+        "parentUuid": "8b762b75-d1f7-40d6-a909-1ae956c57230",
+        "order": 0,
+        "depth": 2,
+        "contentVersion": "7da22cfcaba66dac1db032ad879f7c002a67ce1d1aa48b8e5e92ef559cd99920",
+        "content": "普通子树：移动时保留引用 ((7f31fd57-c6bd-4cbe-bc8c-800bed300367)) 与 UUID。"
+      },
+      {
+        "uuid": "6662984b-9214-45ab-b6c9-8c9a1ce924f0",
+        "parentUuid": "ed5838c2-79bd-4172-a315-2c80ad8b06e9",
+        "order": 0,
+        "depth": 3,
+        "contentVersion": "db6ff6a1fb2d786f288bdd6a37ec0be12e42831d791eaf99a6f4602747e7d65f",
+        "content": "第四层条件：仅在同一工作对象内整理位置，保留限制和普通 TODO。"
+      }
+    ],
+    "after": [
+      {
+        "uuid": "8b762b75-d1f7-40d6-a909-1ae956c57230",
+        "parentUuid": "6ac29f10-3c37-4923-a40c-0b6265bba1f5",
+        "order": 12,
+        "depth": 1,
+        "contentVersion": "fc5a665c1e164c4a691100e1590d7010b63f31b18f33f5750fb993c2d7e51b07",
+        "content": "[想法] 把反例与验证方法放近一点，但没有授权前不改状态。"
+      },
+      {
+        "uuid": "ed5838c2-79bd-4172-a315-2c80ad8b06e9",
+        "parentUuid": "8b762b75-d1f7-40d6-a909-1ae956c57230",
+        "order": 0,
+        "depth": 2,
+        "contentVersion": "7da22cfcaba66dac1db032ad879f7c002a67ce1d1aa48b8e5e92ef559cd99920",
+        "content": "普通子树：移动时保留引用 ((7f31fd57-c6bd-4cbe-bc8c-800bed300367)) 与 UUID。"
+      },
+      {
+        "uuid": "6662984b-9214-45ab-b6c9-8c9a1ce924f0",
+        "parentUuid": "ed5838c2-79bd-4172-a315-2c80ad8b06e9",
+        "order": 0,
+        "depth": 3,
+        "contentVersion": "db6ff6a1fb2d786f288bdd6a37ec0be12e42831d791eaf99a6f4602747e7d65f",
+        "content": "第四层条件：仅在同一工作对象内整理位置，保留限制和普通 TODO。"
+      }
+    ]
+  },
+  "local": {
+    "correction": true,
+    "suggestionCount": 1,
+    "acceptedRevision": "534d952b-941b-41e1-9390-914fea3d384f",
+    "shownRevision": "534d952b-941b-41e1-9390-914fea3d384f",
+    "historyHash": "bc188758c71d5186e0bedfcd0b95bc93fbf42ff339487f6dc3f1ce900c8c4cd2"
+  },
+  "native": {
+    "matchedTextarea": "edit-block-3-7f31fd57-c6bd-4cbe-bc8c-800bed300367",
+    "draftWasRead": true,
+    "savedText": "[注] **目前表述稍显冗长**，保留原来的口吻和全部条件。只有样本来自同一时期时才比较；反例是同内容的两份文件，不能仅凭名字断言同一来源。链接与 `原始代码` 不丢失。\n原生后来补充：这项判断仍有条件，认可不阻塞继续写作。",
+    "acceptedHistoryUnchanged": true,
+    "inputMethod": "CDP Input.insertText and real Logseq Escape save; no physical IME claim"
+  },
+  "reload": {
+    "oldRevisionsUnchanged": true,
+    "oldAcceptanceUnchanged": true,
+    "connected": false,
+    "revisions": 9,
+    "blocks": 88,
+    "material": "available",
+    "localRecordTone": true
+  },
+  "focus": {
+    "before": {
+      "phase": "focused",
+      "visible": 3,
+      "label": "还有 14 处范围外变化 · 看全部"
+    },
+    "all": {
+      "phase": "focused",
+      "visible": 17
+    },
+    "returned": {
+      "phase": "focused",
+      "visible": 3
+    }
+  },
+  "partial": {
+    "status": "partial",
+    "durable": true,
+    "items": [
+      {
+        "type": "replace-text",
+        "status": "APPLIED_VERIFIED",
+        "reason": null
+      },
+      {
+        "type": "replace-text",
+        "status": "BLOCKED",
+        "reason": "PROTECTED_TODO"
+      }
+    ],
+    "queryStatus": "partial",
+    "todoUnchanged": true,
+    "conflictStatus": "not-applied",
+    "conflictItems": [
+      {
+        "status": "CONFLICT",
+        "reason": "CONTENT_VERSION_CONFLICT",
+        "proposal": null,
+        "current": "记录 20：先核验数据条件与引用，保留这项不确定判断。相同现象可能由不同因素造成，需要对照反例；未说明适用范围前，不把个人观察写成确定结论。"
+      }
+    ]
+  },
+  "stagePartial": {
+    "status": "partial",
+    "durable": true,
+    "items": [
+      {
+        "type": "replace-text",
+        "status": "APPLIED_VERIFIED",
+        "reason": null
+      },
+      {
+        "type": "replace-text",
+        "status": "BLOCKED",
+        "reason": "PROTECTED_TODO"
+      }
+    ],
+    "queryStatus": "partial",
+    "todoUnchanged": true,
+    "conflictStatus": "not-applied",
+    "conflictItems": [
+      {
+        "status": "CONFLICT",
+        "reason": "CONTENT_VERSION_CONFLICT",
+        "proposal": null,
+        "current": "[注] 记录 21：先核验数据条件与引用，保留这项不确定判断。相同现象可能由不同因素造成，需要对照反例；未说明适用范围前，不把个人观察写成确定结论。"
+      }
+    ]
+  },
+  "conflictUI": {
+    "problem": "修改未完整确认；输入与原请求已保留。BLOCKED TODO 受保护；明确修改请使用既有的「修改当前 TODO 文本」入口。 ",
+    "proposal": "TODO 这条提议需要明确 TODO 许可，不要自动完成。（这条提议需要明确 TODO 许可）",
+    "saveDisabled": true,
+    "currentRetained": true,
+    "current": "TODO 查看第二份资料，不要自动完成。\n"
+  },
+  "checks": {
+    "targeted": 58,
+    "businessTests": 629,
+    "sandboxTests": 5,
+    "boundaryTests": 12,
+    "totalTests": 646,
+    "failures": 0,
+    "skipped": 0,
+    "full": "npm run check",
+    "diff": "git diff --check"
+  },
+  "unverified": [
+    "physical system Chinese IME",
+    "system Undo",
+    "native system file drag/drop",
+    "other OS",
+    "Desktop crash/Journal corruption fault injection"
+  ],
+  "images": {
+    "default-reading.png": "6ca4b197afec7f8d89048a3b448cb8bdb6cbd65a43e9680fc194ce8adbf8f3df",
+    "report-review.png": "5c40bd1d31713a8deef52c94f3c948025fdedb4c733a7c60cc7ab25f9dd9da8f",
+    "history-version.png": "dcb5e22d122b365d39d63cbc70d624e02d69636bdb3a46f182e72d81714dfe02",
+    "partial-review.png": "0555f847caeed42d68194bf4795ecabe2a98f5ab3f71ffc157eb9f2c8b8131e1",
+    "conflict-proposal.png": "859d113f318d230804717314eac111351df67d70ef50ca3331948fdcab3c342f"
+  }
+}
