@@ -201,7 +201,9 @@ export class FeaturePanel {
     const spec = readingLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: this.width, mainMinWidth:440, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
     if (!this.hostStyle) {
       this.hostStyle=doc.createElement("style"); this.hostStyle.dataset.workbenchHostLayout=this.name;
-      this.hostStyle.textContent="body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}";
+      // Cover native content without visibility:hidden, which blurs a live
+      // textarea and makes its read-only focus lease unavailable in Desktop.
+      this.hostStyle.textContent="body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}";
       doc.head.append(this.hostStyle);
     }
     this.splitter.hidden=spec.mode!=="DOCKED"; this.splitter.setAttribute("aria-valuenow",String(spec.sidebarWidth));

@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   if (logseq.settings?.tasksEnabled !== false && await pluginRuntime.configured()) {
     try {await activateTasks();} catch(error){pluginRuntime.stop();report(error);}
   }
-  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}");
+  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
   if (work) actions["阅读当前工作或继续阅读"] = () => void work?.openToolbar().catch(report);
