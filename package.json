@@ -25,7 +25,8 @@
     "test:sandbox": "node --test scripts/logseq-sandbox.test.mjs",
     "check": "npm run docs:requirements && npm run typecheck && npm run lint && npm test && npm run test:sandbox && npm run build && npm run check:boundaries && npm run taste:eval",
     "task-copilot": "tsx apps/task-copilot-cli/src/main.ts",
-    "docs:requirements": "node scripts/build-requirements-map.mjs"
+    "docs:requirements": "node scripts/build-requirements-map.mjs",
+    "package:plugin": "npm run build && node apps/logseq-plugin/scripts/package.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

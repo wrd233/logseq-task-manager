@@ -1,0 +1,32 @@
+{
+  "launcherActuallyRan": true,
+  "productionCliBundle": "/Users/mac/.codex/simple-start-reading-install-01a10a9e/task-copilot-workbench/dist/workspace.mjs",
+  "descriptorSetting": "",
+  "automaticallyDiscovered": true,
+  "workspaceDirectory": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/collaboration-work-b80",
+  "binding": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+    },
+    "directory": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/collaboration-work-b80",
+    "organization": "flat",
+    "workspaceId": "2e0c8412-ee7b-4044-9a5f-909dacbec7b5",
+    "provider": "workspace"
+  },
+  "cliCommands": [
+    "status",
+    "refresh",
+    "read"
+  ],
+  "localReadingAfterDisconnect": {
+    "status": "current",
+    "fragments": 98
+  },
+  "noAutomaticAgentWork": true,
+  "cliExactPerUuidBodyParentDepthMatch": true,
+  "cliBlockCount": 98,
+  "authorization": "Explicit local work permission",
+  "todoAuthority": false,
+  "structureAuthority": false
+}

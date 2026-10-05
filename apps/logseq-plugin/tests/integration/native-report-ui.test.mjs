@@ -6,6 +6,14 @@ import {fixture,deferred} from '../fixtures/work-view.mjs';
 
 const row=(f,uuid)=>f.browser.document.querySelector(`.wb-row[data-uuid="${uuid}"]`);
 const edit=(f,uuid)=>[...row(f,uuid).querySelectorAll('button')].find(button=>button.textContent==='编辑原文').click();
+async function nativeReady(f,uuid) {
+  for(let i=0;i<400;i++){
+    const input=f.browser.document.querySelector('textarea');
+    if(input?.closest('.ls-block')?.getAttribute('blockid')===uuid&&f.browser.document.activeElement===input)return;
+    await delay(10);
+  }
+  assert.fail('native editor must finish opening before draft assertions');
+}
 async function reportFixture(width=650,options={}) {
   const f=await fixture(null,9,{initialReadingMode:"report",...options});
   f.root.content='**[MiniProject]** 整理一份调研材料 #MiniProject';
@@ -57,10 +65,11 @@ test('narrow window yields the panel, really invokes native editing and restores
     assert.deepEqual(f.nativeCalls,[['locate','b3','fixture'],['edit','b3']]);assert.equal(f.work.panel.visible,false);
     assert.deepEqual(f.hidden.at(-1),{restoreEditingCursor:false});
     assert.ok(f.browser.document.querySelector('[data-native-report-return]'));
-    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');assert.equal(f.work.panel.visible,false);
+    const input=f.browser.document.querySelector('textarea');input.value='保留原生草稿';input.setSelectionRange(2,4);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留原生草稿');assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,4);assert.equal(f.work.panel.visible,true);
     f.content('b3','[想法] 原生写作，报告阅读。\n原生提交的新句。');f.editing(false);
-    f.browser.document.querySelector('[data-native-report-return]').click();
-    for(let i=0;i<60&&f.work.reportAPI.read().native;i++)await delay(5);
+    await f.tick();
+    for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native,null);
     assert.equal(f.work.panel.root.querySelector('.wb-work-shell .wb-primary').textContent,'在 Logseq 写作');
     assert.ok(row(f,'b3').querySelector('.wb-body').textContent.includes('原生提交的新句。'));
@@ -123,7 +132,7 @@ test('resizing beside native composition to a narrow window yields the report wi
     f.browser.dispatchEvent(new f.browser.Event('resize'));await delay(15);
     assert.equal(f.work.panel.visible,false);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
     assert.equal(f.work.reportAPI.read().native.mode,'switch');assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'正在组合的原生草稿');
-    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);
     input.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));f.editing(false);
     assert.equal((await f.work.reportAPI.resume()).ok,true);
   }finally{await f.close();}
@@ -179,16 +188,18 @@ test('Graph/root changes and dispose invalidate delayed source navigation and re
   }finally{await f.close();}
 });
 
-test('committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies',async()=>{
+test('committed source refreshes during native composition without replacing native input or unchanged report bodies',async()=>{
   const f=await reportFixture(1400);
   try {
     const textarea=f.browser.document.querySelector('textarea'),node=row(f,'b0'),unchanged=row(f,'b3').querySelector('.wb-body').firstChild;
     const order=[...node.parentElement.children],before=f.work.reportAPI.read();
     textarea.dispatchEvent(new f.browser.Event('compositionstart',{bubbles:true}));
     f.content('b0','[目标] 提交的新记录在组合输入结束后重组。');await f.tick();
-    assert.deepEqual([...node.parentElement.children],order);assert.match(node.querySelector('.wb-body').textContent,/保留本地文件/);
-    assert.equal(f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion,before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion);
-    assert.equal(f.work.reportAPI.read().status,'stale');assert.equal((await f.work.reportAPI.refresh()).reason,'editing-in-progress');
+    for(let i=0;i<200&&f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion===before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion;i++)await delay(5);
+    assert.deepEqual([...node.parentElement.children],order);assert.match(node.querySelector('.wb-body').textContent,/提交的新记录/);
+    assert.equal(f.browser.document.querySelector('textarea'),textarea);
+    assert.notEqual(f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion,before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion);
+    assert.equal(f.work.reportAPI.read().status,'current');assert.equal((await f.work.reportAPI.refresh()).ok,true);
     textarea.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));
     for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.match(node.querySelector('.wb-body').textContent,/提交的新记录/);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);
@@ -267,7 +278,10 @@ test('text selection and raw comparison never request native routing; comparison
     assert.equal(raw.dataset.contentVersion,fragment.contentVersion);assert.deepEqual(f.nativeCalls,[]);
     assert.equal(JSON.stringify([...f.blocks]),before);
     f.editing('b1','另一块正在输入');f.content('b0','外部已经提交的新句。');await f.work.refresh();
-    assert.equal(f.work.reportAPI.compare(request).value.status,'stale');assert.equal(raw.textContent,compared.value.content);
+    assert.equal(f.work.reportAPI.compare(request).reason,'stale-content');assert.equal(raw.textContent,'外部已经提交的新句。');assert.equal(compared.value.content,'[注] 保留本地文件。');
+    const current=f.work.reportAPI.read(),latest=current.fragments.find(f=>f.target.blockUuid==='b0');
+    const refreshed=f.work.reportAPI.compare({...request,contentVersion:latest.contentVersion,structureVersion:current.structureVersion});
+    assert.equal(refreshed.ok,true);assert.equal(refreshed.value.status,'current');assert.equal(refreshed.value.content,'外部已经提交的新句。');
     assert.equal((await f.work.reportAPI.openNative(request)).reason,'editing-in-progress');
     f.editing(false);await f.tick();
   } finally {await f.close();}
@@ -276,7 +290,7 @@ test('text selection and raw comparison never request native routing; comparison
 test('the visible continue-writing action reuses the live input and exact selection without refreshing the report',async()=>{
   const f=await reportFixture(1400);
   try {
-    edit(f,'b0');await delay(60);
+    edit(f,'b0');await nativeReady(f,'b0');
     const input=f.browser.document.querySelector('textarea');input.value='当前原生草稿继续写';input.setSelectionRange(2,5);f.editing('b0',input.value);await f.tick();
     const calls=[...f.nativeCalls],version=f.work.reportAPI.read().sourceSetVersion;
     const menu=row(f,'b0').querySelector('summary'),compare=[...row(f,'b0').querySelectorAll('button')].find(node=>node.textContent==='对照原文');
@@ -298,7 +312,7 @@ test('the visible continue-writing action reuses the live input and exact select
 test('the work-menu native-page action preserves live input while yielding a narrow layout',async()=>{
   const f=await reportFixture(1400);
   try {
-    edit(f,'b0');await delay(60);
+    edit(f,'b0');await nativeReady(f,'b0');
     const input=f.browser.document.querySelector('textarea');input.value='菜单返回原生页时保留草稿';input.setSelectionRange(2,6);f.editing('b0',input.value);await f.tick();
     const calls=[...f.nativeCalls],version=f.work.reportAPI.read().sourceSetVersion;
     const menu=f.work.panel.root.querySelector('.wb-work-shell .wb-menu'),trigger=menu.querySelector('summary');
@@ -318,15 +332,18 @@ test('the work-menu native-page action preserves live input while yielding a nar
   } finally {await f.close();}
 });
 
-test('ordinary native input defers committed report changes, then publishes only changed bodies after input ends',async()=>{
+test('ordinary native input retains its draft while saved report updates only changed bodies',async()=>{
   const f=await reportFixture(1400);
   try {
-    edit(f,'b0');await delay(60);
+    edit(f,'b0');
+    await nativeReady(f,'b0');
     const input=f.browser.document.querySelector('textarea'), unchanged=row(f,'b3').querySelector('.wb-body').firstChild;
     f.editing('b0','未提交的原生草稿');input.value='未提交的原生草稿';input.setSelectionRange(1,3);
     f.content('b1','外部提交的新条件。');await f.work.refresh();
-    assert.doesNotMatch(row(f,'b1').textContent,/外部提交/);assert.equal(f.work.reportAPI.read().status,'stale');
-    assert.equal((await f.work.reportAPI.refresh()).reason,'editing-in-progress');assert.equal(input.value,'未提交的原生草稿');assert.equal(input.selectionEnd,3);
+    assert.match(row(f,'b1').textContent,/外部提交/);assert.equal(f.work.reportAPI.read().status,'current');
+    assert.equal((await f.work.reportAPI.refresh()).ok,true);assert.equal(input.value,'未提交的原生草稿');
+    assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.deepEqual([input.selectionStart,input.selectionEnd],[1,3]);
+    assert.doesNotMatch(row(f,'b0').querySelector('.wb-body').textContent,/未提交的原生草稿/);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);
     f.editing(false);await f.tick();
     await delay(30);assert.match(row(f,'b1').textContent,/外部提交/);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);
     assert.equal(f.work.reportAPI.read().status,'current');
@@ -336,17 +353,18 @@ test('ordinary native input defers committed report changes, then publishes only
 test('opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control',async()=>{
   const f=await reportFixture(1400);
   try {
-    edit(f,'b0');await delay(60);
+    edit(f,'b0');await nativeReady(f,'b0');
     const input=f.browser.document.querySelector('textarea');input.value='保留侧栏变化时的草稿';f.editing('b0',input.value);input.setSelectionRange(3,6);
     // Installed Desktop blurs the current input on hideMainUI, independent of
     // restoreEditingCursor. The native yield path must avoid that call.
     globalThis.logseq.hideMainUI=options=>{f.hidden.push(options);f.browser.document.activeElement.blur();};
-    const right=f.browser.document.createElement('aside');right.className='cp__right-sidebar';right.getBoundingClientRect=()=>({width:610});f.browser.document.body.append(right);await delay(40);
+    const right=f.browser.document.createElement('aside');right.className='cp__right-sidebar';right.getBoundingClientRect=()=>({width:730});f.browser.document.body.append(right);await delay(40);
     assert.equal(f.work.panel.visible,false);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留侧栏变化时的草稿');
     assert.deepEqual([input.selectionStart,input.selectionEnd],[3,6]);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
     const controls=f.browser.document.querySelectorAll('[data-native-report-return]');assert.equal(controls.length,1);assert.equal(controls[0].type,'button');
-    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');
-    f.editing(false);assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+    assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留侧栏变化时的草稿');assert.deepEqual([input.selectionStart,input.selectionEnd],[3,6]);
+    f.editing(false);
     assert.ok(f.mainStyles.some(style=>style.display===''));
     await f.work.panel.close();assert.equal(f.browser.document.querySelector('[data-workbench-host-layout]'),null);
   } finally {await f.close();}
@@ -404,11 +422,13 @@ test('autosave changes may continue the same input lease, but a moved-out UUID c
   const provider={read:scope=>new SourceReader({getBlock:(uuid,options)=>globalThis.logseq.Editor.getBlock(uuid,options),graphId:async()=>graphIdentity(await globalThis.logseq.App.getCurrentGraph())}).read(scope,()=>true)};
   const f=await reportFixture(1400,{source:provider});
   try {
-    edit(f,'b0');await delay(60);
+    edit(f,'b0');await nativeReady(f,'b0');
     const input=f.browser.document.querySelector('textarea');input.value='已自动保存但仍在输入';input.setSelectionRange(2,6);f.editing('b0',input.value);
     const old=f.work.reportAPI.read(),fragment=old.fragments.find(f=>f.target.blockUuid==='b0');
     f.content('b0',input.value);await f.work.refresh();
     const target={schemaVersion:1,scope:old.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:old.structureVersion,position:{kind:'block'}};
+    assert.equal((await f.work.reportAPI.resolve(target)).reason,'stale-content');
+    assert.equal((await f.work.reportAPI.openNative({...target,position:{kind:'child'}})).reason,'editing-in-progress');
     const calls=[...f.nativeCalls];assert.equal((await f.work.reportAPI.openNative(target)).ok,true);
     assert.deepEqual(f.nativeCalls,calls);assert.equal(input.value,'已自动保存但仍在输入');assert.deepEqual([input.selectionStart,input.selectionEnd],[2,6]);
     f.root.children=f.root.children.filter(child=>child.uuid!=='b0');

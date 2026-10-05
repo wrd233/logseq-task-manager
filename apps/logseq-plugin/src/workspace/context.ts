@@ -12,7 +12,7 @@ export class PanelCoordinator {
 
   register(name: string, close: (reason: PanelCloseReason) => void | Promise<void>): () => void {
     this.closers.set(name, close);
-    return () => { if (this.closers.get(name) === close) this.closers.delete(name); };
+    return () => {if(this.closers.get(name)===close){this.closers.delete(name);this.release(name);}};
   }
 
   reserve(): number { return ++this.revision; }

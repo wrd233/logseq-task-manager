@@ -2,6 +2,7 @@ import { NativeEditorHost } from "../../host/native-editor.ts";
 import type { FeaturePanel } from "../../host/panel-host.ts";
 import { sha256, type SourceScope, type SourceSnapshot } from "../../workspace/source-protocol.ts";
 import { logseqSourceId, sameLensScope } from "./lens-source.ts";
+import { lensRecord } from "./lens-input.ts";
 import type { LensResult } from "./lens-controller.ts";
 import type { ReadingBookmark, WorkViewRenderer } from "./renderer.ts";
 import type { ViewPresentation } from "./operations.ts";
@@ -93,9 +94,7 @@ export class WorkViewReport {
   async capture(fresh: boolean): Promise<LensResult<SourceSnapshot>> {
     const scope = this.host.scope(), lifetime = this.lifetime;
     if (!scope || this.disposed || !this.host.visible()) return deny("view-not-visible");
-    if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
-    if (this.source && await this.editor.editing()) { this.refreshQueued=true; return deny("editing-in-progress"); }
-    if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
+    if (this.host.renderer.composing) return deny("editing-in-progress");
     if (!fresh && this.sourceRevision === this.host.revision() && this.source) return {ok:true,value:structuredClone(this.source)};
     if (!fresh && this.reading) return this.reading;
     const ticket = ++this.readTicket;
@@ -103,14 +102,10 @@ export class WorkViewReport {
       const result = await this.host.source(fresh);
       if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
       if (ticket !== this.readTicket) return deny("superseded-source-read");
-      if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
-      const revision=this.host.revision();
-      if (this.source && await this.editor.editing()) { this.refreshQueued=true; return deny("editing-in-progress"); }
-      if (!this.valid(scope,lifetime) || ticket !== this.readTicket) return deny("scope-mismatch");
-      if (revision !== this.host.revision()) { this.refreshQueued=true; return deny("source-changed-during-read"); }
+      if (this.host.renderer.composing) return deny("editing-in-progress");
       if (!result.ok) { this.notice=result.reason; this.host.changed(); return result; }
       if (!sameLensScope(result.value.scope,scope)) return deny("scope-mismatch");
-      if (result.value.blocks[0]?.availability !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
+      if ((result.value.page?.availability ?? result.value.blocks[0]?.availability) !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
       this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null; this.host.changed();
       return {ok:true,value:structuredClone(this.source)};
     })();
@@ -123,16 +118,9 @@ export class WorkViewReport {
     }
   }
   sourceChanged(): void {
-    if (this.active && this.host.visible() && !this.editor.isComposing && !this.host.renderer.composing) {
+    if (this.active && this.host.visible() && !this.host.renderer.composing) {
       if (this.reading) this.refreshQueued=true;
-      else {
-        const scope=this.host.scope(), lifetime=this.lifetime;
-        void this.editor.editing().then(editing => {
-          if (!scope || !this.valid(scope,lifetime) || !this.host.visible()) return;
-          if (editing || this.editor.isComposing) { this.refreshQueued=true; return; }
-          this.refreshQueued=false; void this.capture(false);
-        }).catch(() => { if (scope && this.valid(scope,lifetime)) { this.notice="source-unavailable";this.host.changed(); } });
-      }
+      else { this.refreshQueued=false; void this.capture(false); }
     }
   }
   async setMode(mode: unknown): Promise<LensResult> {
@@ -188,8 +176,14 @@ export class WorkViewReport {
       this.native={scope:{...scope},bookmark,mode}; this.host.changed(); return {ok:true,value:null};
     } finally { this.yielding=false; }
   }
+  sessionFolds(): string[] { return [...this.folds]; }
+  restoreFolds(values: unknown[]): void {
+    const available=new Set(this.source?.blocks.map(block=>block.target.blockUuid)??[]);
+    this.folds=new Set(values.filter((id):id is string=>typeof id==="string"&&available.has(id)));this.host.changed();
+  }
   async resolve(input: unknown): Promise<LensResult<BodyTarget>> {
     if (this.host.historical()) return deny("historical-view");
+    if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
     try {
       const source = await this.capture(true);
       if (!this.host.visible()) return deny("view-not-visible");
@@ -244,7 +238,21 @@ export class WorkViewReport {
       // snapshot, route again or reload its value just to continue writing.
       if (existing) {
         if (!this.source) return deny("editing-in-progress");
-        const target=resolveBodyTarget(input,this.source);
+        let target: BodyTarget;
+        try { target=resolveBodyTarget(input,this.source); }
+        catch (error) {
+          const reason=reportFailure(error).reason;
+          if (reason !== "stale-content" && reason !== "stale-structure") throw error;
+          const raw=lensRecord(input,["schemaVersion","scope","sourceId","contentVersion","structureVersion","position"],"invalid-report-target");
+          const position=lensRecord(raw.position,["kind"],"invalid-report-position");
+          if (typeof existing !== "string" || position.kind !== "block" || raw.sourceId !== logseqSourceId(scope.graphId,existing)) return deny("editing-in-progress");
+          const fragment=reportFragment(this.source,raw.sourceId);
+          if (!fragment) return deny("source-not-in-scope");
+          // A saved report may have advanced while this exact textarea kept its
+          // lease. Renew only its read-only focus target; writes still resolve
+          // the caller's original versions through resolveBodyTarget.
+          target=resolveBodyTarget({...raw,contentVersion:fragment.contentVersion,structureVersion:this.source.structureVersion},this.source);
+        }
         if (target.position.kind !== "block" || existing !== target.target.blockUuid) return deny("editing-in-progress");
         const latest=await this.host.navigationSource();
         if (!valid() || await this.host.currentGraph() !== scope.graphId || !valid()) return deny("scope-mismatch");
@@ -298,7 +306,7 @@ export class WorkViewReport {
   async resume(): Promise<LensResult> {
     try {
     if (this.disposed) return deny("scope-mismatch");
-    if (this.host.renderer.composing || !await this.editor.available()) return deny("editing-in-progress");
+    if (this.host.renderer.composing) return deny("editing-in-progress");
     const native=this.native, scope=this.host.scope(), lifetime=this.lifetime;
     if (!scope || (native && !sameLensScope(native.scope,scope))) return deny("scope-mismatch");
     if (await this.host.currentGraph() !== scope.graphId || !this.valid(scope,lifetime)) return deny("scope-mismatch");
@@ -316,10 +324,10 @@ export class WorkViewReport {
     this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;
   }
   hide(reason: "switch" | "close"): void {
-    if (reason === "close") this.reset();
-    else if (!this.yielding) {
+    if (!this.yielding) {
       this.navigation++; this.suspended=this.native?.bookmark??this.host.renderer.bookmark(); this.remember(); this.editor.hideReturn();
     }
+    if (reason === "close") this.native=null;
   }
   dispose(): void { this.disposed=true; this.reset(); this.sessions.clear(); this.editor.dispose(); }
 }

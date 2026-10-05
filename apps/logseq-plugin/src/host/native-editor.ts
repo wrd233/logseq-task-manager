@@ -29,6 +29,7 @@ export class NativeEditorHost {
     control.style.cssText = "font:inherit;font-size:13px;padding:4px 9px;border:1px solid var(--ls-border-color,#aaa);border-radius:4px;color:var(--ls-primary-text-color,#222);background:var(--ls-primary-background-color,#fff);cursor:pointer;margin:4px;flex:none";
     // Keep the native editor focused until the consumer has checked for a draft.
     control.onpointerdown = event => event.preventDefault();
+    control.addEventListener("mousedown", event => event.preventDefault());
     control.onclick = () => { this.onReturn(); };
     const header = this.document.querySelector(".cp__header");
     if (header) header.append(control);

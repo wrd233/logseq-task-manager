@@ -1,0 +1,27 @@
+{
+  "before": {
+    "draftSha256": "04d37f140417bab5f5326588758006c3cee57377e8da95b87a98103f142ea4d8",
+    "selection": [
+      101,
+      101
+    ],
+    "savedSha256": "58a2964ec202eaf287e7ee081ed256d622156380f1f23405eed529022a48e702"
+  },
+  "after": {
+    "sameNode": true,
+    "focused": true,
+    "draftSha256": "04d37f140417bab5f5326588758006c3cee57377e8da95b87a98103f142ea4d8",
+    "selection": [
+      101,
+      101
+    ],
+    "savedSha256": "ec7f781ff578b09c22cb194967e8a96d504233545fdd35babaf5d87fc617537a"
+  },
+  "committed": {
+    "savedSha256": "ec7f781ff578b09c22cb194967e8a96d504233545fdd35babaf5d87fc617537a",
+    "fragmentSha256": "ec7f781ff578b09c22cb194967e8a96d504233545fdd35babaf5d87fc617537a",
+    "status": "current",
+    "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph\",\"6ab94095-338d-476d-bd4a-650d3bffcc81\"]"
+  },
+  "physicalImeVerified": false
+}

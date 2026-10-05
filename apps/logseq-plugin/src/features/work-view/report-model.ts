@@ -49,7 +49,7 @@ export const defaultReportFolds = (): Set<string> => new Set();
 export function composeReport(source: SourceSnapshot, personal: ViewPresentation, lens: LensSelection | null, folds: ReadonlySet<string>, overlay?: ComposedView): ReportComposition {
   const byUuid = new Map(source.blocks.map(block => [block.target.blockUuid, block]));
   const children = new Map<string, string[]>();
-  for (const block of source.blocks.slice(1)) {
+  for (const block of source.page ? source.blocks : source.blocks.slice(1)) {
     const siblings = children.get(block.parentUuid!) ?? []; siblings.push(block.target.blockUuid); children.set(block.parentUuid!, siblings);
   }
   const rows: SourceRow[] = source.blocks.map(block => ({uuid:block.target.blockUuid, content:block.content ?? "来源暂不可用", depth:block.depth, sourceParent:block.parentUuid}));
@@ -85,7 +85,8 @@ export function composeReport(source: SourceSnapshot, personal: ViewPresentation
       }
     }
   };
-  emit(source.scope.rootUuid);
+  if (source.page) { for(const block of source.blocks)if(block.depth===0)emit(block.target.blockUuid); }
+  else emit(source.scope.rootUuid);
   const view={...(overlay??base),items:(overlay?.items??arranged.map(uuid=>items.get(uuid)!)).map(item=>({...item,full:true}))};
   const shown=new Set(view.items.filter(item=>!item.hidden).map(item=>item.uuid));
   const available=source.blocks.filter(block=>block.availability==="available");

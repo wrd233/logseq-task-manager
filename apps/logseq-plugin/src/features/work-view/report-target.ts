@@ -19,6 +19,7 @@ export function resolveBodyTarget(input: unknown, source: SourceSnapshot): BodyT
   requireLens(lensHash(raw.structureVersion) === source.structureVersion,"stale-structure");
   const position = lensRecord(raw.position,["kind"],"invalid-report-position");
   requireLens(["block","before","after","child"].includes(String(position.kind)),"unsupported-report-position");
+  requireLens(!source.page || position.kind === "block", "page-write-unavailable");
   const block = source.blocks.find(block => block.sourceId === sourceId);
   requireLens(!!block,"source-not-in-scope");
   requireLens(block.availability === "available" && !!block.contentVersion,"source-unavailable");

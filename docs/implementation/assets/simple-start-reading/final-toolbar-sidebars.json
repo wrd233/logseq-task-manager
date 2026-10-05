@@ -1,0 +1,29 @@
+{
+  "chooser": {
+    "root": null,
+    "scope": null,
+    "text": "从 Logseq 的一份工作开始先选中工作标题或任意正文块，再打开这里。正文在 Logseq 写作，材料和改动按需查看。打开当前块的工作继续阅读：一键阅读长文验收"
+  },
+  "continued": {
+    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+    "rootUuid": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+  },
+  "sidebars": [
+    {
+      "name": "Toggle left sidebar",
+      "mode": "white-theme light-theme tc-sidebar-compact",
+      "width": 734,
+      "left": 246,
+      "right": 0,
+      "root": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+    },
+    {
+      "name": "Toggle right sidebar",
+      "mode": "white-theme light-theme tc-sidebar-compact",
+      "width": 588,
+      "left": 0,
+      "right": 392,
+      "root": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+    }
+  ]
+}

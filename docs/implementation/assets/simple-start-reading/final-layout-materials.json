@@ -1,0 +1,72 @@
+{
+  "middleNative": {
+    "before": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625,
+      "scrollTop": 4481
+    },
+    "after": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625,
+      "scrollTop": 4481
+    },
+    "sameNode": true,
+    "focused": true,
+    "start": 3,
+    "end": 7,
+    "returnButtons": 0
+  },
+  "divider": {
+    "initialWidth": 384,
+    "width": 444,
+    "saved": "444",
+    "layoutWidth": "444px",
+    "mode": "white-theme light-theme tc-sidebar-docked"
+  },
+  "narrow": {
+    "returnVisible": true,
+    "editingNode": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+    "panelVisible": false
+  },
+  "materials": {
+    "root": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home/Documents/Task Copilot Materials/7f7cf524d6a4de5294c3",
+    "firstSaveWithoutSettings": true,
+    "ordinaryReadableFile": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home/Documents/Task Copilot Materials/7f7cf524d6a4de5294c3/默认目录材料验收.md",
+    "contentHash": "37c789726f5da8a951404c3654be044bce90b0a5da60bd7fb24b7ea0430b9434",
+    "reference": "[📄 默认目录材料验收](longdoc://852b934d-95c6-2130-9c5a-e7ca24a9a3a7)",
+    "permission": {
+      "user": false,
+      "agent": false
+    },
+    "noWorkBindingRequired": true,
+    "directoryCreatedAfterCleanStartup": true,
+    "birthtimeMs": 1791192125651.7534,
+    "cleanStartupScreenshotTimeMs": 1791192104164.586,
+    "bookmark": {
+      "before": {
+        "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+        "offset": -0.015625,
+        "scrollTop": 4454
+      },
+      "after": {
+        "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+        "offset": -0.015625,
+        "scrollTop": 4454
+      }
+    }
+  },
+  "closeReopen": {
+    "before": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625,
+      "scrollTop": 4256
+    },
+    "after": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625,
+      "scrollTop": 4256
+    },
+    "hiddenCount": 3,
+    "hiddenCountAfter": 3
+  }
+}

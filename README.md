@@ -2,6 +2,8 @@
 
 Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext 任务管理整合为一个 Logseq 插件。工作视图与材料可独立使用，本地 Kernel 继续管理正式任务状态与语义提交。
 
+首次安装与一键阅读从[简明说明](docs/user-guide/simple-start-reading.md)开始，可直接[下载本地安装 ZIP](docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip)。基础阅读零必填配置，事务或 MiniProject 标题旁一次点击进入完整原文；不需要 Node、Kernel 或协作连接。
+
 普通工作从[中文图文手册](docs/user-guide/README.md)开始，包含目录材料、阶段审阅、聚焦、断连恢复与[自然工作 agent 接入](docs/user-guide/workbench-usage.md#agent-接入附录)。2026-10-04 独立体验优化分支的实现与实机边界见[交接](docs/implementation/workbench-ux-polish-handoff.md)；普通工作不需要下面正式任务 Kernel 的启动步骤。
 
 材料模块本轮使用与保存规则见[独立产品设计](docs/design/materials-module-design.md)，接口与权威边界见[独立架构](docs/architecture/materials-module-architecture.md)。

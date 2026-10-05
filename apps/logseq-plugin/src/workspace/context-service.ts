@@ -25,7 +25,7 @@ async function serial<T>(key: string, action: () => Promise<T>): Promise<T> {
   };
   return typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request(`task-copilot:${key}`, run) : run();
 }
-const scopeKey = (scope: SourceScope): string => JSON.stringify([scope.graphId, scope.rootUuid]);
+const scopeKey = (scope: SourceScope): string => JSON.stringify([scope.graphId, scope.rootUuid, scope.kind ?? "block", scope.pageName ?? null]);
 const copyReading = (reading: ContextReading): ContextReading => JSON.parse(JSON.stringify(reading)) as ContextReading;
 function versions(bundle: ReadingBundle): string {
   return JSON.stringify([bundle.primary.structureVersion, bundle.primary.sourceSetVersion, bundle.sources.map(s => [s.association, s.availability, s.snapshot?.structureVersion, s.snapshot?.sourceSetVersion, s.material?.path, s.material?.version])]);
@@ -57,12 +57,14 @@ export class WorkspaceContextService {
     return this.reader.read(scope, () => ownValid() && consumerValid());
   }
   async resolve(input: SourceScope): Promise<WorkspaceBinding | null> {
+    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), hint = this.registry.hint(scope);
     let graph = hint?.materialGraph;
     if (!graph) { const current = await this.host.current(); guard(valid); if (current.graphId === scope.graphId) graph = current.materialGraph; }
     const result = await this.registry.resolve(scope, graph); guard(valid); return result;
   }
   async bind(input: BindRequest): Promise<ContextReading> {
+    if (input.scope.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input.scope); input = {...input, scope}; this.bump(scope); const valid = this.valid(scope), current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId) throw new ScopeExpired();
     const directory = directoryOf(input.directory, current.materialGraph);
@@ -72,11 +74,13 @@ export class WorkspaceContextService {
     return {...result, binding};
   }
   async unbind(input: SourceScope): Promise<void> {
+    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input); this.bump(scope); const valid = this.valid(scope), current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId) throw new ScopeExpired();
     this.registry.unbind(scope, current.materialGraph);
   }
   async associate(input: {scope: SourceScope; source: unknown}): Promise<ContextReading> {
+    if (input.scope.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input.scope), source = associationOf(input.source); this.bump(scope); const valid = this.valid(scope);
     const current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId || (source.kind !== "material" && source.graphId !== scope.graphId)) throw new Error("关联来源必须属于当前 Graph。");
@@ -95,6 +99,7 @@ export class WorkspaceContextService {
     const binding = await this.resolve(scope); if (!binding) throw new Error("该工作尚未建立便携记录，请显式关联目录。旧材料目录仍可使用。"); return binding;
   }
   async read(input: SourceScope): Promise<ContextReading> {
+    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), key = scopeKey(scope);
     try {
       const binding = await this.requireBinding(scope); guard(valid);
@@ -117,6 +122,7 @@ export class WorkspaceContextService {
     }
   }
   async refresh(input: SourceScope): Promise<ContextReading> {
+    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), key = scopeKey(scope);
     return serial(`workspace-refresh:${key}`, async () => {
       guard(valid);

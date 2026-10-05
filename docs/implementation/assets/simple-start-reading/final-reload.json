@@ -1,0 +1,28 @@
+{
+  "build": "e5eca0588aaa2d3a418049ff716505b3528a8da1",
+  "disabled": {
+    "toolbar": 0,
+    "entries": [],
+    "divider": 0
+  },
+  "enabled": {
+    "toolbar": 1,
+    "entries": [
+      "87e7c941-7aaa-465c-ba06-4856373c4cc7",
+      "452cdc41-255f-4f0c-9bea-e7d2948d99c5"
+    ],
+    "divider": 0
+  },
+  "reloaded": {
+    "toolbar": 1,
+    "entries": [
+      "page:6ac37119-7384-4450-ae78-a561023cca57",
+      "87e7c941-7aaa-465c-ba06-4856373c4cc7",
+      "452cdc41-255f-4f0c-9bea-e7d2948d99c5",
+      "10206d48-f1d5-4e3c-a300-22b4e41e0677",
+      "42797b6a-36d7-4a34-9d1b-c31ff450ce72"
+    ],
+    "divider": 0
+  },
+  "readingCurrentAfterReload": true
+}

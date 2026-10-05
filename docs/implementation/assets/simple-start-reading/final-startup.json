@@ -1,0 +1,60 @@
+{
+  "graph": {
+    "url": "logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+    "name": "graph",
+    "path": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph"
+  },
+  "pluginUrl": "file:///Users/mac/.codex/simple-start-reading-install-01a10a9e/task-copilot-workbench/dist/index.html?__v__=0.2.0",
+  "settings": {
+    "kernelDescriptorJson": "",
+    "agentWorkspaceDescriptor": "",
+    "workViewEnabled": true,
+    "materialsEnabled": true,
+    "tasksEnabled": false,
+    "materialsDirectory": "",
+    "materialsAutoCapture": false,
+    "materialsMinChars": 2000,
+    "materialsMinLines": 30,
+    "disabled": false
+  },
+  "snapshot": {
+    "shell": {
+      "content": "body",
+      "review": false
+    },
+    "graph": "",
+    "root": null,
+    "readingScope": null,
+    "seq": 1,
+    "draft": null,
+    "blocks": [],
+    "presentation": [],
+    "view": {
+      "items": [],
+      "collapsed": [],
+      "overrides": {},
+      "expanded": [],
+      "selected": ""
+    },
+    "policy": "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable."
+  },
+  "toolbar": [
+    {
+      "text": "工作台",
+      "font": "13px"
+    }
+  ],
+  "agent": {
+    "connected": false,
+    "binding": null,
+    "formalWorkspace": "unavailable"
+  },
+  "contentScope": null,
+  "width": 980,
+  "height": 700,
+  "bundleSha256": "be837238674a7e9db6f0a93fcfbe14dd9fc21f7f5660a49044cf2e578a8ced71",
+  "buildCommit": "e5eca0588aaa2d3a418049ff716505b3528a8da1",
+  "checkedRuntimeBundleMatchesZip": true,
+  "noRequiredConfiguration": true,
+  "noKernelOrCompanionStarted": true
+}

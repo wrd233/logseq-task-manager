@@ -527,20 +527,6 @@ function syncToolbarState(): void {
   button.setAttribute("aria-label", button.title);
 }
 
-function ensureToolbarPinned(): void {
-  const doc = topDocument(); const view = doc?.defaultView;
-  if (!view) return;
-  const api = (view as Window & { logseq?: { api?: { get_state_from_store?: (path: unknown) => unknown; set_state_from_store?: (path: unknown, value: unknown) => unknown } } }).logseq?.api;
-  if (!api?.get_state_from_store || !api.set_state_from_store) return;
-  try {
-    const path = ["plugin/preferences", "pinnedToolbarItems"];
-    const current = api.get_state_from_store(path);
-    const key = "task-copilot-vnext:task-copilot-toolbar";
-    const next = Array.isArray(current) ? (current.includes(key) ? current : [...current, key]) : [key];
-    if (next !== current) api.set_state_from_store(path, next);
-  } catch (error) { console.warn("toolbar-pin", error); }
-}
-
 function toggleDailyPanel(): void {
   if (panelOpen) { closeDailyPanel(); return; }
   void guarded("open-daily", () => dailyPanel());
@@ -1156,8 +1142,6 @@ export async function startTaskCenter(): Promise<() => Promise<void>> {
   installPanelStyle();
   installHostLayoutStyle();
   logseq.provideModel({ taskCopilotToolbarToggle: () => { if (taskUiActive) toggleDailyPanel(); } });
-  logseq.App.registerUIItem("toolbar", { key: "task-copilot-toolbar", template: `<a class="button" data-on-click="taskCopilotToolbarToggle" data-tc-toolbar-button="true" title="打开 Task Copilot" aria-label="打开 Task Copilot"><span class="tc-toolbar-mark" aria-hidden="true">TC</span></a>` });
-  timers.push(window.setTimeout(() => { if (taskUiActive) { ensureToolbarPinned(); syncToolbarState(); } }, 300));
   registerContextMenuItems({ kind: "ORDINARY" });
   blockContextTrackerDispose = installBlockContextTracker();
   ensureFormalMarkerHost();

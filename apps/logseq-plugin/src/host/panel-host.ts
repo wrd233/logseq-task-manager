@@ -1,4 +1,4 @@
-import { readingLayoutSpec, type SidebarLayoutSpec } from "../sidebar-layout.ts";
+import { readingLayoutSpec, parseSidebarWidth, type SidebarLayoutSpec } from "../sidebar-layout.ts";
 import { panels, type PanelCloseReason } from "../workspace/context.ts";
 
 export function hostDocument(): Document | null {
@@ -100,6 +100,9 @@ export class FeaturePanel {
   readonly root = element("section", "", "wb-panel");
   private resize: (() => void) | null = null;
   private nativeExposure = false;
+  private width = parseSidebarWidth(localStorage.getItem("workbench:panel-width"));
+  private readonly splitter = hostDocument()?.createElement("div") ?? element("div");
+  private dragging: {x:number;width:number} | null = null;
   private onNativeSwitch: (() => void) | null = null;
   private stopLayout: (() => void) | null = null;
   private hostStyle: HTMLStyleElement | null = null;
@@ -109,6 +112,17 @@ export class FeaturePanel {
   constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
     document.body.append(this.root); this.unregister = panels.register(name, reason => this.close(false, reason));
+    this.splitter.setAttribute("role","separator");this.splitter.setAttribute("aria-label","调整阅读与原生写作宽度");this.splitter.setAttribute("aria-orientation","vertical");this.splitter.tabIndex=0;
+    this.splitter.className="wb-reading-divider";this.splitter.dataset.workbenchDivider=name;
+    this.splitter.setAttribute("aria-valuemin","300");this.splitter.setAttribute("aria-valuemax","520");
+    this.splitter.style.cssText="position:fixed;bottom:0;width:6px;cursor:col-resize;z-index:10001;touch-action:none;border-left:1px solid var(--ls-border-color,#ddd)";
+    // Capture in the host document: moving the plugin iframe during a drag can
+    // cancel an iframe's pointer capture before pointerup reaches its listener.
+    this.splitter.onpointerdown=event=>{event.preventDefault();this.dragging={x:event.clientX,width:this.width};this.splitter.setPointerCapture?.(event.pointerId);};
+    this.splitter.onpointermove=event=>{if(this.dragging){this.width=parseSidebarWidth(this.dragging.width+this.dragging.x-event.clientX);this.layout();}};
+    this.splitter.onpointerup=()=>{if(this.dragging){this.dragging=null;localStorage.setItem("workbench:panel-width",String(this.width));}};
+    this.splitter.onpointercancel=this.splitter.onpointerup;
+    this.splitter.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();this.width=parseSidebarWidth(this.width+(event.key==="ArrowLeft"?16:-16));localStorage.setItem("workbench:panel-width",String(this.width));this.layout();};
   }
   get visible(): boolean { return !this.root.hidden; }
   async open(revision?: number): Promise<boolean> {
@@ -119,6 +133,7 @@ export class FeaturePanel {
     this.onNativeSwitch=null;
     this.root.hidden = false; markNavigation(this.label);
     logseq.setMainUIInlineStyle({ display: "" });
+    hostDocument()?.body.append(this.splitter);
     this.layout();
     if (!this.resize) {
       this.resize = () => {
@@ -143,6 +158,7 @@ export class FeaturePanel {
     await this.beforeClose(reason);
     if (lifetime !== this.lifetime) return;
     this.root.hidden = true;
+    this.dragging=null; this.splitter.remove();
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
     this.stopLayout?.(); this.stopLayout=null;
     this.hostStyle?.remove(); this.hostStyle=null;
@@ -182,23 +198,25 @@ export class FeaturePanel {
       const node = doc.querySelector(selector), style=node && doc.defaultView?.getComputedStyle(node);
       return node && style?.display !== "none" && style?.visibility !== "hidden" ? Math.round(node.getBoundingClientRect().width) : 0;
     };
-    const spec = readingLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: 520, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    const spec = readingLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: this.width, mainMinWidth:440, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
     if (!this.hostStyle) {
       this.hostStyle=doc.createElement("style"); this.hostStyle.dataset.workbenchHostLayout=this.name;
       this.hostStyle.textContent="body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{visibility:hidden}";
       doc.head.append(this.hostStyle);
     }
+    this.splitter.hidden=spec.mode!=="DOCKED"; this.splitter.setAttribute("aria-valuenow",String(spec.sidebarWidth));
     doc.documentElement.style.setProperty("--tc-sidebar-width", `${spec.sidebarWidth}px`);
     for (const [name,enabled] of [["tc-sidebar-docked",spec.mode === "DOCKED"],["tc-sidebar-compact",spec.mode === "COMPACT" && !this.nativeExposure]] as const) {
       if (doc.body.classList.contains(name) !== enabled) doc.body.classList.toggle(name,enabled);
     }
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
+    this.splitter.style.left=`${spec.panelLeft}px`; this.splitter.style.top=`${top+32}px`;
     logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
     return spec;
   }
   async dispose(): Promise<void> {
     if (this.disposed) return;
     this.disposed=true;
-    await this.close(); this.unregister(); this.root.remove();
+    await this.close(); this.splitter.remove(); this.unregister(); this.root.remove();
   }
 }
