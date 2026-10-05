@@ -8,6 +8,7 @@ export interface WorkShellAction { group?: string; label: string; run(): void | 
 export interface WorkShellState {
   identity: WorkShellIdentity | null; content: "body" | "materials"; structure: boolean;
   native: boolean; draft: boolean; historical: boolean; review: boolean; reviewLabel: string;
+  parent?: {title:string;run():Promise<void>} | undefined;
   reviewAvailable: boolean; attention: boolean; notice: string; actions: WorkShellAction[];
 }
 
@@ -20,6 +21,7 @@ export class WorkViewShell {
   private readonly body: HTMLButtonElement;
   private readonly materials: HTMLButtonElement;
   private readonly review: HTMLButtonElement;
+  private readonly parent = button("", () => undefined);
   private readonly notice = element("div", "", "wb-work-notice");
   private readonly menu = disclosureMenu("工作选项", "当前工作的阅读与设置");
   private actionSignature = "";
@@ -30,7 +32,7 @@ export class WorkViewShell {
     const identity = element("div", "", "wb-work-identity"); identity.append(this.kind, this.title);
     const line = element("div", "", "wb-work-line"); line.append(identity, this.native, this.menu.root);
     const tabs = element("nav", "", "wb-content-navigation"); tabs.setAttribute("aria-label", "当前工作内容");
-    tabs.append(this.body, this.materials, this.review);
+    tabs.append(this.body, this.materials, this.parent, this.review);
     this.body.dataset.workContent = "body"; this.materials.dataset.workContent = "materials";
     this.notice.setAttribute("role", "status"); this.notice.hidden = true;
     this.root.append(line, tabs, this.notice);
@@ -51,7 +53,10 @@ export class WorkViewShell {
     this.root.dataset.workRoot = state.identity?.scope.rootUuid ?? "";
     this.title.dataset.sourceId = state.identity?.sourceId ?? "";
     this.title.dataset.contentVersion = state.identity?.contentVersion ?? "";
-    this.body.disabled = !state.identity; this.materials.disabled = !state.identity;
+    this.body.disabled = !state.identity; this.materials.disabled = !state.identity || state.identity.scope.kind === "page";
+    this.materials.title=state.identity?.scope.kind === "page" ? "整页只读；从实际工作块管理材料" : "当前工作的材料";
+    this.parent.hidden=!state.parent;set(this.parent,state.parent ? `返回：${state.parent.title}` : "");
+    this.parent.onclick=()=>{if(state.parent)void state.parent.run().catch(this.fail);};
     this.body.setAttribute("aria-current", String(state.content === "body"));
     this.materials.setAttribute("aria-current", String(state.content === "materials"));
     set(this.body, state.structure ? "正文 · 原结构" : "正文");

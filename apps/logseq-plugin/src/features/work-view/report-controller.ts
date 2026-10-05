@@ -63,7 +63,7 @@ export class WorkViewReport {
   async capture(fresh: boolean): Promise<LensResult<SourceSnapshot>> {
     const scope = this.host.scope(), lifetime = this.lifetime;
     if (!scope || this.disposed || !this.host.visible()) return deny("view-not-visible");
-    if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
+    if (this.host.renderer.composing) return deny("editing-in-progress");
     if (!fresh && this.sourceRevision === this.host.revision() && this.source) return {ok:true,value:structuredClone(this.source)};
     if (!fresh && this.reading) return this.reading;
     const ticket = ++this.readTicket;
@@ -71,10 +71,10 @@ export class WorkViewReport {
       const result = await this.host.source(fresh);
       if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
       if (ticket !== this.readTicket) return deny("superseded-source-read");
-      if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
+      if (this.host.renderer.composing) return deny("editing-in-progress");
       if (!result.ok) { this.notice=result.reason; this.host.changed(); return result; }
       if (!sameLensScope(result.value.scope,scope)) return deny("scope-mismatch");
-      if (result.value.blocks[0]?.availability !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
+      if ((result.value.page?.availability ?? result.value.blocks[0]?.availability) !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
       this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null; this.host.changed();
       return {ok:true,value:structuredClone(this.source)};
     })();
@@ -87,7 +87,7 @@ export class WorkViewReport {
     }
   }
   sourceChanged(): void {
-    if (this.active && this.host.visible() && !this.editor.isComposing && !this.host.renderer.composing) {
+    if (this.active && this.host.visible() && !this.host.renderer.composing) {
       if (this.reading) this.refreshQueued=true;
       else void this.capture(false);
     }
@@ -114,8 +114,14 @@ export class WorkViewReport {
     if (this.folds.has(uuid)) this.folds.delete(uuid); else this.folds.add(uuid);
     this.host.changed();
   }
+  sessionFolds(): string[] { return [...this.folds]; }
+  restoreFolds(values: unknown[]): void {
+    const available=new Set(this.source?.blocks.map(block=>block.target.blockUuid)??[]);
+    this.folds=new Set(values.filter((id):id is string=>typeof id==="string"&&available.has(id)));this.host.changed();
+  }
   async resolve(input: unknown): Promise<LensResult<BodyTarget>> {
     if (this.host.historical()) return deny("historical-view");
+    if (this.editor.isComposing || this.host.renderer.composing) return deny("editing-in-progress");
     try {
       const source = await this.capture(true);
       if (!this.host.visible()) return deny("view-not-visible");
@@ -193,7 +199,7 @@ export class WorkViewReport {
   async resume(): Promise<LensResult> {
     try {
     if (this.disposed) return deny("scope-mismatch");
-    if (this.host.renderer.composing || !await this.editor.available()) return deny("editing-in-progress");
+    if (this.host.renderer.composing) return deny("editing-in-progress");
     const native=this.native, scope=this.host.scope(), lifetime=this.lifetime;
     if (!scope || (native && !sameLensScope(native.scope,scope))) return deny("scope-mismatch");
     await this.host.open(scope.rootUuid);
@@ -208,8 +214,8 @@ export class WorkViewReport {
     this.mode=this.initialMode; this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;
   }
   hide(reason: "switch" | "close"): void {
-    if (reason === "close") this.reset();
-    else if (!this.yielding) this.navigation++;
+    if (!this.yielding) this.navigation++;
+    if (reason === "close") { this.native=null; this.editor.hideReturn(); }
   }
   dispose(): void { this.disposed=true; this.reset(); this.editor.dispose(); }
 }

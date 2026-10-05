@@ -13,6 +13,7 @@ import type { MaterialTransferPort } from "./drop.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { panels } from "../../workspace/context.ts";
+import { prepareDefaultMaterialDirectory } from "./default-directory.ts";
 import { MaterialStore, ConflictError, normalizeRoot, idFrom, restoreCapture, titleOf, associationsOf, type MaterialRecord } from "./store.ts";
 
 interface MarkdownEditor { getValue(): string; setValue(text: string, clearStack?: boolean): void; destroy(): void }
@@ -148,7 +149,13 @@ export class Materials {
     const root = directory ? normalizeRoot(directory, graph.path) : null;
     if (!this.service || this.graph !== graph.path || this.service.globalRoot !== root) {
       this.graph = graph.path;
-      this.service = new MaterialService(desktopFiles(() => graph.path), this.directories, graph.path, root, captureMarkdown, id => !this.materialBusy(id));
+      const io=desktopFiles(() => graph.path);
+      const defaultRoot=localStorage.getItem(`workbench:default-material-directory:${graph.path}`);
+      if(defaultRoot)this.directories.register(graph.path,normalizeRoot(defaultRoot,graph.path));
+      this.service = new MaterialService(io, this.directories, graph.path, root, captureMarkdown, id => !this.materialBusy(id), async()=>{
+        const directory=await prepareDefaultMaterialDirectory(io,localStorage,graph.path,problem=>materialPrompt(this.body,problem));
+        this.assertScope(epoch);return directory;
+      });
     }
     return this.service;
   }

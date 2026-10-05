@@ -54,10 +54,11 @@ test('narrow window yields the panel, really invokes native editing and restores
     assert.deepEqual(f.nativeCalls,[['locate','b3','fixture'],['edit','b3']]);assert.equal(f.work.panel.visible,false);
     assert.deepEqual(f.hidden.at(-1),{restoreEditingCursor:false});
     assert.ok(f.browser.document.querySelector('[data-native-report-return]'));
-    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');assert.equal(f.work.panel.visible,false);
+    const input=f.browser.document.querySelector('textarea');input.value='保留原生草稿';input.setSelectionRange(2,4);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留原生草稿');assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,4);assert.equal(f.work.panel.visible,true);
     f.content('b3','[想法] 原生写作，报告阅读。\n原生提交的新句。');f.editing(false);
-    f.browser.document.querySelector('[data-native-report-return]').click();
-    for(let i=0;i<60&&f.work.reportAPI.read().native;i++)await delay(5);
+    await f.tick();
+    for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native,null);
     assert.ok(row(f,'b3').querySelector('.wb-body').textContent.includes('原生提交的新句。'));
     assert.equal(row(f,'b3'),node);assert.equal(scroll.scrollTop,125);assert.equal(f.work.snapshot().root,'root');
@@ -119,7 +120,7 @@ test('resizing beside native composition to a narrow window yields the report wi
     f.browser.dispatchEvent(new f.browser.Event('resize'));await delay(15);
     assert.equal(f.work.panel.visible,false);assert.equal(f.hidden.at(-1).restoreEditingCursor,false);
     assert.equal(f.work.reportAPI.read().native.mode,'switch');assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'正在组合的原生草稿');
-    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);
     input.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));f.editing(false);
     assert.equal((await f.work.reportAPI.resume()).ok,true);
   }finally{await f.close();}
@@ -175,16 +176,17 @@ test('Graph/root changes and dispose invalidate delayed source navigation and re
   }finally{await f.close();}
 });
 
-test('committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies',async()=>{
+test('committed source refreshes during native composition without replacing native input or unchanged report bodies',async()=>{
   const f=await reportFixture(1400);
   try {
     const textarea=f.browser.document.querySelector('textarea'),node=row(f,'b0'),unchanged=row(f,'b3').querySelector('.wb-body').firstChild;
     const order=[...node.parentElement.children],before=f.work.reportAPI.read();
     textarea.dispatchEvent(new f.browser.Event('compositionstart',{bubbles:true}));
     f.content('b0','[目标] 提交的新记录在组合输入结束后重组。');await f.tick();
-    assert.deepEqual([...node.parentElement.children],order);assert.match(node.querySelector('.wb-body').textContent,/保留本地文件/);
-    assert.equal(f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion,before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion);
-    assert.equal(f.work.reportAPI.read().status,'stale');assert.equal((await f.work.reportAPI.refresh()).reason,'editing-in-progress');
+    assert.deepEqual([...node.parentElement.children],order);assert.match(node.querySelector('.wb-body').textContent,/提交的新记录/);
+    assert.equal(f.browser.document.querySelector('textarea'),textarea);
+    assert.notEqual(f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0').contentVersion,before.fragments.find(f=>f.target.blockUuid==='b0').contentVersion);
+    assert.equal(f.work.reportAPI.read().status,'current');assert.equal((await f.work.reportAPI.refresh()).ok,true);
     textarea.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));
     for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.match(node.querySelector('.wb-body').textContent,/提交的新记录/);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);

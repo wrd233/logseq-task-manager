@@ -22,7 +22,7 @@ const associating = new Map<string, Promise<MaterialResult>>();
 export class MaterialService {
   readonly listProblems: string[] = [];
   private readonly pending = new Map<string, Promise<MaterialRecord>>();
-  constructor(readonly io: FileIO, readonly directories: MaterialDirectories, readonly graph: string, readonly globalRoot: string | null, private readonly convert: (text: string, html: string) => string, private readonly canRename: (id: string) => boolean = () => true) {
+  constructor(readonly io: FileIO, readonly directories: MaterialDirectories, readonly graph: string, readonly globalRoot: string | null, private readonly convert: (text: string, html: string) => string, private readonly canRename: (id: string) => boolean = () => true, private readonly prepareDefault?: () => Promise<string>) {
     if (globalRoot) directories.register(graph, globalRoot);
   }
   private stores(): MaterialStore[] { return this.directories.roots(this.graph).map(root => new MaterialStore(this.io, normalizeRoot(root, this.graph))); }
@@ -59,7 +59,8 @@ export class MaterialService {
   async destination(context: MaterialWorkContext, role: MaterialRole): Promise<MaterialStore> {
     const validated = {...context, directory: context.directory ? normalizeRoot(context.directory, this.graph) : null};
     if (context.graph !== this.graph) throw new Error("材料 Graph 范围已变化。");
-    const root = await captureDirectory(this.io, validated, this.globalRoot, role);
+    const fallback = !validated.directory && !this.globalRoot ? await this.prepareDefault?.() ?? null : this.globalRoot;
+    const root = await captureDirectory(this.io, validated, fallback, role);
     this.directories.register(this.graph, root);
     return new MaterialStore(this.io, root);
   }
@@ -113,7 +114,7 @@ export class MaterialService {
       if (record) return this.associate(record.id, context);
     }
     // Associations use the work root, never create a role directory for an existing file.
-    const root = context.directory ? normalizeRoot(context.directory, this.graph) : this.globalRoot;
+    const root = context.directory ? normalizeRoot(context.directory, this.graph) : this.globalRoot ?? await this.prepareDefault?.();
     if (!root) throw new Error("请先绑定工作目录或配置全局材料目录。");
     if (context.directory) await captureDirectory(this.io, {...context, organization: "flat"}, root, "reference");
     this.directories.register(this.graph, root);

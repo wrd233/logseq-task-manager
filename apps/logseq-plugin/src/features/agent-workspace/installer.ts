@@ -1,5 +1,5 @@
 import { WorkspaceError, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
-import { desktopFiles } from "../../host/desktop-files.ts";
+import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { ScopeLease } from "../content-writeback/protocol.ts";
 import type { Materials } from "../materials/controller.ts";
@@ -132,9 +132,13 @@ export function installAgentWorkspace(options: {
         if (!target)
             throw new WorkspaceError("SOURCE_REQUIRED");
         const selected = await binding.selected(target);
-        const path = String(logseq.settings?.agentWorkspaceDescriptor ?? "").trim();
+        let path = String(logseq.settings?.agentWorkspaceDescriptor ?? "").trim();
+        if (!path) {
+          const dot=await desktopBridge().doAction(["getLogseqDotDirRoot"]);
+          if(typeof dot === "string" && dot.endsWith("/.logseq"))path=`${dot.slice(0,-8)}/.task-copilot-workspace/workspace-plugin.json`;
+        }
         if (!path.startsWith("/"))
-            throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED", "请先启动 workspace serve，并在设置中填写其私有插件 descriptor 路径。");
+            throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED", "请先运行安装包中的协作启动器，再允许连接这份工作。已有自定义连接位置继续有效。");
         const files = desktopFiles(() => selected.scope.graphId), descriptor = parseWorkspaceDescriptor(JSON.parse(await files.read(path)), true) as WorkspacePluginDescriptor;
         if (disposed || epoch !== generation)
             throw new WorkspaceError("CONNECTION_REVOKED");

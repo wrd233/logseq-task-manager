@@ -114,13 +114,14 @@ export function hasFormalAnchorSyntax(content: string): boolean {
 
 /** Existing navigation vocabulary only; ordinary TODOs and pages are not roots. */
 export function extractObjectNavigationLabel(content: string): { kind: "TASK" | "MINI_PROJECT"; title: string } | null {
+  if (/^(?: {4}|\t|\s*>|\s*```|\s*~~~)/u.test(content)) return null;
   const parsed = parseFormalAnchor(content);
   if (parsed?.kind === "TASK") return { kind: parsed.kind, title: parsed.title };
   const line = firstLine(content).replace(/^(?:TODO|DONE|DOING|NOW|LATER|WAITING|CANCELED|CANCELLED)\s+/u, "");
-  const task = /^\*\*\[(事务|事项|任务)\]\*\*/u.exec(line);
+  const task = /^(?:\*\*)?\[(事务|事项|任务)\](?:\*\*)?/u.exec(line);
   if (task) return { kind: "TASK", title: line.slice(task[0].length).trim() || task[1]! };
-  const mini = /^\*\*\[MiniProject\]\*\*/u.exec(line);
-  if (mini && /(?:^|\s)#MiniProject(?=\s|$)/u.test(line.slice(mini[0].length))) {
+  const mini = /^(?:\*\*)?\[MiniProject\](?:\*\*)?/u.exec(line);
+  if (mini) {
     return { kind: "MINI_PROJECT", title: line.slice(mini[0].length).replace(/(?:^|\s)#MiniProject(?=\s|$)/gu, "").trim() || MINI_PROJECT_LABEL };
   }
   return null;
