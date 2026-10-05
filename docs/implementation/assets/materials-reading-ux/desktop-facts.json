@@ -1,0 +1,566 @@
+{
+  "capturedCodeHead": "7a11cfd52d4524c02f85d8a58b5b21baedadafe8",
+  "runtime": {
+    "pid": 74986,
+    "home": "<sandbox>/home",
+    "osHome": "<sandbox>/home",
+    "userData": "<sandbox>/profile",
+    "appData": "<sandbox>/home/Library/Application Support"
+  },
+  "sample": {
+    "sourceCountBeforeInsert": 93,
+    "sourceCountAfterTwoInsertions": 95,
+    "root": "a4a04872-f282-4335-b519-6ed20d788ad0",
+    "actualSourceIds": [
+      "a4a04872-f282-4335-b519-6ed20d788ad0",
+      "7fa65765-a7b2-49c0-8d5e-49a93fce45f1",
+      "859f303f-7d82-4956-91df-cdabc4bc5d4d",
+      "20a272b0-2656-4d0e-a65a-0b099fc16eca",
+      "f57df93d-c483-4a04-9f2f-6b50321ee67e",
+      "08f80bda-519f-54eb-abf2-73d9466c3fe7",
+      "3bdde9cd-3a01-4268-b1f3-ca3373595f20",
+      "11cc67ea-f5f3-4191-9028-56e0c62a979d",
+      "7a241242-b374-5dad-a48c-dfd907d8354a",
+      "62a201ef-10eb-4c6b-bc58-50139a4ba653",
+      "54ee230a-5a94-4855-b28c-4c0b62f0e632",
+      "c8aecb6d-9805-42f5-b48c-9133d8260e0f",
+      "712f5cf2-d0d6-481b-bada-4a7d2073eaef",
+      "6337fc37-544d-4101-be97-57d6461890e9",
+      "2ce95fc2-d1ea-496f-9957-2c865accbf20",
+      "dd48d689-4675-4b05-9c3d-cb019b623e62",
+      "d180d956-a9e7-4ec7-885c-1817fa587a73",
+      "b1aef989-85da-466a-a475-56b6c92f13d7",
+      "321df889-a8b7-4ada-993b-1aaaec30a39c",
+      "1b462cb4-00fa-4317-9712-0543145ac9dc",
+      "848c9982-5314-455c-a7cc-8f0cd0bf2773",
+      "90cfd077-1c01-4882-99cd-c3782e71030d",
+      "016eda68-fa2c-48e8-81ab-8fe6edb40f66",
+      "4959d491-cabf-40ea-bfe0-ace858414b6a",
+      "2f133aa0-dcb9-434d-a109-35170f38081c",
+      "4e1fa96f-8752-4073-8f12-3cdf7225d983",
+      "5c4708d2-5f51-47e1-a048-0b93522f3d90",
+      "227aef25-8fe6-4f5f-beb4-cf8415114feb",
+      "7e855fdb-50cd-4f60-bc93-696ccef32cb8",
+      "7d0d3bc3-b2b9-497a-82da-5397f9faafaf",
+      "4c2fd5c1-e789-43a3-bcc8-7ba97d97e093",
+      "e01011fb-ba74-4afb-b208-0ece0f94c0f6",
+      "3ec8d522-f847-4def-b899-f6f522caca91",
+      "35813b8e-0842-4f4d-9741-30d250636a13",
+      "c988ef2d-c63f-4a0d-9626-3d28a5ac342a",
+      "26a0bfed-c94c-44ce-b678-b9fd4f5ed96a",
+      "e5f46b28-38a0-45e6-ad40-42c225eb1519",
+      "e9c4c922-ddb4-4d7b-88ba-0b01052e3b9f",
+      "a66b2752-aa2e-4452-a4fe-fcc4cf556243",
+      "541d24c6-b2e6-4d89-94bc-b6a8dbe728c2",
+      "8e36421d-2f44-4d2a-9bee-a1a8cced30c0",
+      "0671487f-a759-424e-9001-fa830727a9bf",
+      "3b95748b-73cf-4a3f-810b-ab45ed4ec0fd",
+      "00074708-af2a-4044-857e-28258830ad05",
+      "01052e2b-ce53-4886-9be0-6af600e30da7",
+      "8234f181-3fe3-4193-978a-7605f1a6864c",
+      "1b41286a-ddc9-48f0-9f21-8b8285bfddd1",
+      "b2583434-1231-434b-906a-9d13210e1fd5",
+      "83ccaf62-812a-4931-b704-65456936500c",
+      "aeddd114-bd0e-4f3a-8b1a-8fa9f9897582",
+      "014be7bc-5adb-41c7-9c19-87ae3dae1b34",
+      "71a49389-3fd5-42da-8b46-4c80764be3ac",
+      "aa0cbae9-99e9-43c5-8f7e-b9510aaa1d1d",
+      "6ae66464-3105-4535-8798-68c6e166768b",
+      "e382717a-fbcb-4ad5-a01c-f7396e1f7ce1",
+      "180ede64-61db-4b94-80e0-65682b1b7d9e",
+      "b0079660-e89e-4ce5-a558-70d9ab322cb7",
+      "cedd09e9-f0a8-4939-99e3-97ecc1c0260c",
+      "32a4baac-574e-407e-8d8a-dbb0d8b960bc",
+      "b6d8187c-2581-4c2b-b2a4-af77a2a82881",
+      "4f3650d7-b314-4619-80b6-7c238e2a6648",
+      "e54d850b-3e4c-43d6-8a23-b6f065c278c7",
+      "eb1a167f-bfc0-422b-bd0c-3a4dc46d80a8",
+      "22a3c65a-49eb-49f9-b021-3739eff4da3c",
+      "48956822-75ab-4d21-850d-bc21848c26cc",
+      "75b91d9e-d9b1-4efb-b206-e78f8b54abb4",
+      "8c3afcfb-9366-4e8b-8a26-66a669f5a5fb",
+      "7b74f7d7-28eb-4e7f-8886-7357de309f61",
+      "0ba91311-4b4a-4e56-81a3-a4c049d8f513",
+      "d0d8780e-2398-4b45-b83b-36968dee4be7",
+      "1895e831-f4cc-40c3-81dd-894f9a9c1663",
+      "9b062d91-e975-4b68-9355-e28c370ef1b3",
+      "6ac2a01a-5993-4ece-b8bb-4d71ae1a2a1f",
+      "3751dd1f-2123-4579-b0a4-386744503993",
+      "3d9ad56e-306a-4c14-9f82-06577f622cc6",
+      "2d1c62e5-ff38-44bf-8334-b5995227d9cd",
+      "2cc189bf-cb2d-4377-a246-48953b811a74",
+      "a40b0c91-7bdd-4a98-923d-16f0ed401869",
+      "0b0eaeff-69de-4a1c-a602-411475f3e175",
+      "c89095fc-6631-4b3f-a33c-af057af406d9",
+      "4c27a93c-8452-4f6e-919b-7dc4bc96251d",
+      "0f170063-c963-41f0-a6a4-3742da609e36",
+      "c6781dd9-e8e0-44f5-9fc7-3f941c536dab",
+      "fe731698-0c2b-487e-8479-fa234705e3ba",
+      "6eb0409a-0641-4b43-994a-8180a8065a27",
+      "854ed2ab-9717-43aa-9332-c32c74bbef69",
+      "6362bb7b-4b48-4372-91d0-a4184c3090da",
+      "ca760ba7-b2d3-4a1d-aa86-6618c27f8ba4",
+      "b1576c1c-a387-482d-826d-f710a84db345",
+      "fec6ec99-4448-4ecb-a945-85bdfc2114f2",
+      "923830b1-088c-40f1-a882-79dcf7b69823",
+      "6b65f888-34bf-4ce2-aeee-d0f3f8300fe4",
+      "84c229f8-d475-4962-aead-e245c8e014df",
+      "d2d9f454-a00a-47e5-9596-4100f8857413",
+      "fcc0d9db-3de8-4949-895c-f1c49926e564"
+    ]
+  },
+  "listJoin": {
+    "materials": [
+      {
+        "id": "491ba66f-f397-4834-9075-cbdf4b00ac8b",
+        "title": "来源二",
+        "kind": "reference",
+        "role": "reference",
+        "path": "<sandbox>/materials/来源二.md",
+        "recordRoot": "<sandbox>/materials",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+        "associations": [
+          {
+            "graph": "<sandbox>/graph",
+            "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+          }
+        ],
+        "reference": "[📄 来源二](longdoc://491ba66f-f397-4834-9075-cbdf4b00ac8b)",
+        "writeState": "ready",
+        "availability": "available",
+        "content": "相同正文，不同来源。\n",
+        "version": "b9c8b67df9bda4fc3a2c2a7ccd9eea3fe568b17f8f47f8bd82f18414b31b38e5",
+        "capabilities": {
+          "read": "markdown",
+          "edit": {
+            "user": false,
+            "agent": false
+          },
+          "open": true
+        }
+      },
+      {
+        "id": "806b50e0-85ae-420a-ab55-9cd81ec50483",
+        "title": "来源一",
+        "kind": "reference",
+        "role": "reference",
+        "path": "<sandbox>/materials/来源一.md",
+        "recordRoot": "<sandbox>/materials",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+        "associations": [
+          {
+            "graph": "<sandbox>/graph",
+            "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+          }
+        ],
+        "reference": "[📄 来源一](longdoc://806b50e0-85ae-420a-ab55-9cd81ec50483)",
+        "writeState": "ready",
+        "availability": "available",
+        "content": "相同正文，不同来源。\n",
+        "version": "b9c8b67df9bda4fc3a2c2a7ccd9eea3fe568b17f8f47f8bd82f18414b31b38e5",
+        "capabilities": {
+          "read": "markdown",
+          "edit": {
+            "user": false,
+            "agent": false
+          },
+          "open": true
+        }
+      },
+      {
+        "id": "a39f5a4e-e354-48be-8442-47dfa994c825",
+        "title": "合成资料",
+        "kind": "reference",
+        "role": "reference",
+        "path": "<sandbox>/materials/合成资料.pdf",
+        "recordRoot": "<sandbox>/materials",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+        "associations": [
+          {
+            "graph": "<sandbox>/graph",
+            "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+          }
+        ],
+        "reference": "[📄 合成资料](longdoc://a39f5a4e-e354-48be-8442-47dfa994c825)",
+        "writeState": "ready",
+        "availability": "available",
+        "content": null,
+        "version": null,
+        "capabilities": {
+          "read": "external",
+          "edit": {
+            "user": false,
+            "agent": false
+          },
+          "open": true
+        }
+      },
+      {
+        "id": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+        "title": "研究说明",
+        "kind": "reference",
+        "role": "reference",
+        "path": "<sandbox>/materials/研究说明.md",
+        "recordRoot": "<sandbox>/materials",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+        "associations": [
+          {
+            "graph": "<sandbox>/graph",
+            "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+          }
+        ],
+        "reference": "[📄 研究说明](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)",
+        "writeState": "ready",
+        "availability": "available",
+        "content": "# 研究说明\n\n这一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+        "version": "aa91ec2b870b78ee764b598e38f355177d9aba189613936721b1e7389c5dccdb",
+        "capabilities": {
+          "read": "markdown",
+          "edit": {
+            "user": false,
+            "agent": false
+          },
+          "open": true
+        }
+      }
+    ],
+    "graph": {
+      "url": "logseq_local_<sandbox>/graph",
+      "name": "graph",
+      "path": "<sandbox>/graph"
+    }
+  },
+  "clipboard": {
+    "systemClipboardMatches": true,
+    "materialId": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+    "link": "[📄 研究说明](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)"
+  },
+  "childInsertAndRenameJournal": [
+    {
+      "requestId": "material-name:2a482d8b-7586-425e-8c6f-d789e3a79c9e",
+      "status": "complete",
+      "durable": true,
+      "items": [
+        {
+          "operationId": "reference-0",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_<sandbox>/graph",
+            "blockUuid": "7a241242-b374-5dad-a48c-dfd907d8354a"
+          },
+          "type": "replace-text",
+          "status": "APPLIED_VERIFIED",
+          "contentVerified": true,
+          "actualContent": "[📄 研究 终稿](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)\nid:: 7a241242-b374-5dad-a48c-dfd907d8354a",
+          "childUuid": null,
+          "parentUuid": "7fa65765-a7b2-49c0-8d5e-49a93fce45f1"
+        }
+      ]
+    },
+    {
+      "requestId": "material-drop:c8fe99bbaf1d47eec8c41450fa96ec0449cf9b5fb1077e804a749af7de5f01fe",
+      "status": "complete",
+      "durable": true,
+      "items": [
+        {
+          "operationId": "reference",
+          "target": {
+            "kind": "logseq-block",
+            "graphId": "graph:logseq_local_<sandbox>/graph",
+            "blockUuid": "f57df93d-c483-4a04-9f2f-6b50321ee67e"
+          },
+          "type": "insert-child",
+          "status": "APPLIED_VERIFIED",
+          "contentVerified": true,
+          "actualContent": "[📄 研究 终稿](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)\nid:: 08f80bda-519f-54eb-abf2-73d9466c3fe7",
+          "childUuid": "08f80bda-519f-54eb-abf2-73d9466c3fe7",
+          "parentUuid": "20a272b0-2656-4d0e-a65a-0b099fc16eca"
+        }
+      ]
+    }
+  ],
+  "externalRenameFact": {
+    "sameBytes": true,
+    "materialId": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+    "oldName": "研究 终稿.md",
+    "newName": "外部归档.md"
+  },
+  "externalRenameRead": {
+    "id": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+    "title": "外部归档",
+    "kind": "reference",
+    "role": "reference",
+    "path": "<sandbox>/materials/外部归档.md",
+    "recordRoot": "<sandbox>/materials",
+    "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+    "associations": [
+      {
+        "graph": "<sandbox>/graph",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+      }
+    ],
+    "reference": "[📄 外部归档](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)",
+    "writeState": "ready",
+    "availability": "available",
+    "content": "# 研究说明\n\n这一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+    "version": "aa91ec2b870b78ee764b598e38f355177d9aba189613936721b1e7389c5dccdb",
+    "capabilities": {
+      "read": "markdown",
+      "edit": {
+        "user": false,
+        "agent": false
+      },
+      "open": true
+    }
+  },
+  "oldAInB": {
+    "currentRoot": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+    "material": {
+      "id": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+      "title": "外部归档",
+      "kind": "reference",
+      "role": "reference",
+      "path": "<sandbox>/materials/外部归档.md",
+      "recordRoot": "<sandbox>/materials",
+      "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+      "associations": [
+        {
+          "graph": "<sandbox>/graph",
+          "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+        }
+      ],
+      "reference": "[📄 外部归档](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)",
+      "writeState": "ready",
+      "availability": "available",
+      "content": "# 研究说明\n\n这一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+      "version": "aa91ec2b870b78ee764b598e38f355177d9aba189613936721b1e7389c5dccdb",
+      "capabilities": {
+        "read": "markdown",
+        "edit": {
+          "user": false,
+          "agent": false
+        },
+        "open": true
+      }
+    },
+    "bMaterials": {
+      "status": "success",
+      "materials": [],
+      "problems": []
+    }
+  },
+  "conflictAndDraft": {
+    "conflict": true,
+    "text": "‹ 材料列表\n外部归档\n复制链接\n关闭\n返回正文\n更多\n完成编辑\n\n检测到外部版本变化，当前草稿已保留。\n\n另存草稿并继续另存草稿后加载外部版本\n# 研究说明\n\n这人工核对：冲突草稿：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n\n外部文件已修改，当前草稿已保留。",
+    "drafts": [
+      {
+        "key": "workbench:draft:<sandbox>/graph:5fd81d58-8300-42e1-8816-6af6989acf2f",
+        "draft": {
+          "text": "# 研究说明\n\n这人工核对：冲突草稿：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+          "base": "# 研究说明\n\n这人工核对：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+          "at": 1791168342979
+        }
+      }
+    ],
+    "work": {
+      "graph": "graph:logseq_local_<sandbox>/graph",
+      "root": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+      "seq": 21,
+      "draft": null,
+      "blocks": [
+        {
+          "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+          "depth": 0,
+          "sourceParent": null,
+          "content": "**[MiniProject]** 核对另一个工作 #MiniProject\nid:: 6ac30b67-86d7-4ac8-81fb-81ae41a9c17b"
+        }
+      ],
+      "presentation": [
+        {
+          "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+          "depth": 0
+        }
+      ],
+      "view": {
+        "items": [
+          {
+            "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+            "depth": 0
+          }
+        ],
+        "collapsed": [],
+        "overrides": {},
+        "expanded": [],
+        "selected": ""
+      },
+      "policy": "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable."
+    }
+  },
+  "restoredDraft": {
+    "conflict": true,
+    "text": "‹ 材料列表\n外部归档\n复制链接\n关闭\n返回正文\n更多\n恢复保留草稿\n完成编辑\n\n检测到外部版本变化，当前草稿已保留。\n\n另存草稿并继续另存草稿后加载外部版本\n# 研究说明\n\n这人工核对：冲突草稿：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n\n已恢复草稿，外部版本另有修改。",
+    "drafts": [
+      {
+        "key": "workbench:draft:<sandbox>/graph:5fd81d58-8300-42e1-8816-6af6989acf2f",
+        "draft": {
+          "text": "# 研究说明\n\n这人工核对：冲突草稿：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+          "base": "# 研究说明\n\n这人工核对：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+          "at": 1791168600576
+        }
+      }
+    ],
+    "work": {
+      "graph": "graph:logseq_local_<sandbox>/graph",
+      "root": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+      "seq": 21,
+      "draft": null,
+      "blocks": [
+        {
+          "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+          "depth": 0,
+          "sourceParent": null,
+          "content": "**[MiniProject]** 核对另一个工作 #MiniProject\nid:: 6ac30b67-86d7-4ac8-81fb-81ae41a9c17b"
+        }
+      ],
+      "presentation": [
+        {
+          "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+          "depth": 0
+        }
+      ],
+      "view": {
+        "items": [
+          {
+            "uuid": "6ac30b67-86d7-4ac8-81fb-81ae41a9c17b",
+            "depth": 0
+          }
+        ],
+        "collapsed": [],
+        "overrides": {},
+        "expanded": [],
+        "selected": ""
+      },
+      "policy": "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable."
+    }
+  },
+  "savedAndKeptDraft": {
+    "savedBaseBeforeExternalConflict": "# 研究说明\n\n这人工核对：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+    "externalOriginalPreserved": true,
+    "draftCopyBody": "# 研究说明\n\n这人工核对：冲突草稿：一份文件用于真实材料阅读验证。\n\n## 阅读条件\n\n原文件与记录分别核对。\n",
+    "workBDirectMarkdownFiles": [
+      "WORKSPACE.md"
+    ],
+    "historySnapshots": 1
+  },
+  "lostFile": {
+    "material": {
+      "id": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+      "title": "外部归档",
+      "kind": "reference",
+      "role": "reference",
+      "path": "<sandbox>/materials/外部归档.md",
+      "recordRoot": "<sandbox>/materials",
+      "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+      "associations": [
+        {
+          "graph": "<sandbox>/graph",
+          "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+        }
+      ],
+      "reference": "[📄 外部归档](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)",
+      "writeState": "ready",
+      "availability": "unavailable",
+      "content": null,
+      "version": null,
+      "capabilities": {
+        "read": "markdown",
+        "edit": {
+          "user": true,
+          "agent": false
+        },
+        "open": true
+      },
+      "problem": "文件读取失败。"
+    },
+    "ui": "‹ 材料列表\n外部归档\n复制链接\n关闭\n返回正文\n更多\nMD · 文件失联\n外部归档.md\n\n文件已加入，部分引用待完成\n\n核验引用与改名\n\n文件失联，原关联与历史仍保留。\n\n重新定位"
+  },
+  "relocationInteraction": {
+    "interaction": "Desktop DOM click, value and form submit; not native mouse or file picker",
+    "formMounted": true
+  },
+  "relocated": {
+    "id": "5fd81d58-8300-42e1-8816-6af6989acf2f",
+    "title": "指定找回",
+    "kind": "reference",
+    "role": "reference",
+    "path": "<sandbox>/relocated/指定找回.md",
+    "recordRoot": "<sandbox>/materials",
+    "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+    "associations": [
+      {
+        "graph": "<sandbox>/graph",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+      }
+    ],
+    "reference": "[📄 指定找回](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)",
+    "writeState": "ready",
+    "availability": "available",
+    "content": "# 外部版本\n\n保留这次外部修改。\n",
+    "version": "55a94893f5691264eb59bcc9497b538bba290f905065b00e3f0f757cdaafc35e",
+    "capabilities": {
+      "read": "markdown",
+      "edit": {
+        "user": true,
+        "agent": false
+      },
+      "open": true
+    }
+  },
+  "binaryCapability": {
+    "id": "a39f5a4e-e354-48be-8442-47dfa994c825",
+    "title": "合成资料",
+    "kind": "reference",
+    "role": "reference",
+    "path": "<sandbox>/materials/合成资料.pdf",
+    "recordRoot": "<sandbox>/materials",
+    "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0",
+    "associations": [
+      {
+        "graph": "<sandbox>/graph",
+        "sourceUuid": "a4a04872-f282-4335-b519-6ed20d788ad0"
+      }
+    ],
+    "reference": "[📄 合成资料](longdoc://a39f5a4e-e354-48be-8442-47dfa994c825)",
+    "writeState": "ready",
+    "availability": "available",
+    "content": null,
+    "version": null,
+    "capabilities": {
+      "read": "external",
+      "edit": {
+        "user": false,
+        "agent": false
+      },
+      "open": true
+    }
+  },
+  "externalLaunch": {
+    "interaction": "Desktop DOM action calling real host openPath",
+    "status": "已交给默认应用：合成资料.pdf",
+    "ui": "‹ 材料列表\n合成资料\n复制链接\n关闭\n返回正文\n更多\nPDF · 在默认应用打开\n合成资料.pdf\n\n此文件在默认应用中查看；这里保留关联与稳定链接。\n\n在默认应用打开\n已交给默认应用：合成资料.pdf"
+  },
+  "returnedBody": {
+    "root": "a4a04872-f282-4335-b519-6ed20d788ad0",
+    "selected": "7fa65765-a7b2-49c0-8d5e-49a93fce45f1",
+    "mode": "report",
+    "materialPanelDisplay": "",
+    "alias": "[关于文件查找的那次访谈](longdoc://5fd81d58-8300-42e1-8816-6af6989acf2f)\nid:: 0671487f-a759-424e-9001-fa830727a9bf"
+  },
+  "limits": [
+    "Chromium Input.dispatchDragEvent is not Finder OS drag",
+    "Relocation and final return use Desktop DOM actions",
+    "Default application launch acknowledgment does not prove PDF rendering",
+    "Post-restart Page.captureScreenshot timed out; no fabricated conflict screenshot",
+    "Native reference return correction after capturedCodeHead is covered by automated regression"
+  ]
+}
