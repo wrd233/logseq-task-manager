@@ -1,0 +1,32 @@
+[
+  {
+    "name": "project / 一键阅读验收",
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "6ac36c28-f30c-4f61-b96b-cb546735c2ca",
+      "kind": "page",
+      "pageName": "Project / 一键阅读验收"
+    },
+    "count": 99,
+    "allContentVersionsMatch": true,
+    "sourceUnchanged": true,
+    "blockRootAbsent": true,
+    "materialDisabled": true,
+    "reviewVisible": false
+  },
+  {
+    "name": "area / 阅读验收",
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "6ac36c2a-a65a-4fa3-b63e-ffee5be0c66d",
+      "kind": "page",
+      "pageName": "Area / 阅读验收"
+    },
+    "count": 2,
+    "allContentVersionsMatch": true,
+    "sourceUnchanged": true,
+    "blockRootAbsent": true,
+    "materialDisabled": true,
+    "reviewVisible": false
+  }
+]

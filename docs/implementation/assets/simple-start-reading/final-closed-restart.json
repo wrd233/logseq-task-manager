@@ -1,0 +1,24 @@
+{
+  "closedOnRestart": true,
+  "saved": {
+    "schemaVersion": 1,
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "6ac36c28-f30c-4f61-b96b-cb546735c2ca",
+      "kind": "page",
+      "pageName": "Project / 一键阅读验收"
+    },
+    "open": false,
+    "mode": "report",
+    "folds": [],
+    "bookmark": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.21875,
+      "scrollTop": 4542,
+      "fallback": [
+        "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+      ]
+    }
+  },
+  "nativeRoute": ""
+}

@@ -1,7 +1,7 @@
 {
   "title": "工作台 · 需求与实现地图",
-  "updatedAt": "2026-10-02",
-  "baseline": "materials module on 23d0c71 (main 85ef106)",
+  "updatedAt": "2026-10-05",
+  "baseline": "simple-start-reading on e5eca0588aaa2d3a418049ff716505b3528a8da1; remote main dd081c9cc63fc91b4d62743141842c303128c4a2",
   "enablementNote": "启用情况描述整合版默认配置与前置条件，不读取或修改生产 Logseq 的配置。",
   "tree": {
     "id": "root",
@@ -24,9 +24,11 @@
             "status": "implemented",
             "enabled": "default",
             "implementation": [
-              "apps/logseq-plugin/src/features/work-view/controller.ts"
+              "apps/logseq-plugin/src/features/work-view/controller.ts",
+              "apps/logseq-plugin/src/host/reading-entry.ts",
+              "apps/logseq-plugin/src/workspace/source-reader.ts"
             ],
-            "acceptance": "命令、右键入口、普通块与正式任务均可进入；打开视图不正式化来源。"
+            "acceptance": "原生工作标题旁一次阅读、命令和右键进入普通块；MiniProject 全子树与 Project／Area 实际页面森林只读，不正式化、不改原文。"
           },
           {
             "id": "focus",
@@ -37,7 +39,7 @@
               "apps/logseq-plugin/src/features/work-view/focus.mjs",
               "apps/logseq-plugin/src/features/task-center/controller.ts"
             ],
-            "acceptance": "兼容 TODO/DONE **[任务]**；正式身份从任务缓存读取，可见标签仅辅助导航。"
+            "acceptance": "兼容事务／任务与省略重复标签的明确 MiniProject，代码／引文示例和普通 TODO 不升级；正式身份与写回授权不放宽。"
           },
           {
             "id": "breadcrumbs",
@@ -69,17 +71,17 @@
               "apps/logseq-plugin/src/workspace/context.ts",
               "apps/logseq-plugin/src/features/work-view/controller.ts"
             ],
-            "acceptance": "按 Graph 与根块隔离保存；稳定来源可以重载后恢复。普通块在重建索引后的恢复仍需扩展。"
+            "acceptance": "按 Graph 验证来源后恢复开闭、宽度、模式、UUID 书签和主动折叠；页名称解析为当前真实页身份，不自动路由原生页面。来源不存在不偷偷继续旧工作。"
           },
           {
             "id": "draft-preview",
-            "title": "跟随原文与当前编辑草稿",
+            "title": "原生输入期间阅读已保存来源",
             "status": "implemented",
             "enabled": "default",
             "implementation": [
               "apps/logseq-plugin/src/features/work-view/controller.ts"
             ],
-            "acceptance": "读取草稿前后核对编辑块，切换范围后拒绝旧异步结果。"
+            "acceptance": "报告只用已保存权威内容；打开及返回不替换原生 textarea 或强制保存。宿主保存后刷新，旧范围异步结果被拒绝；插件草稿与正文权威分别处理。"
           },
           {
             "id": "missing",
@@ -115,8 +117,8 @@
         "title": "汇集并使用 Logseq 之外的材料",
         "why": "围绕工作使用已有文件，保持原文位置、可编辑性与恢复能力。",
         "status": "partial",
-        "enabled": "conditional",
-        "setting": "materialsEnabled = true；工作目录绑定或 materialsDirectory",
+        "enabled": "default",
+        "setting": "materialsEnabled = true；首次实际保存准备 Graph 外默认目录，明确旧绑定／全局目录优先",
         "children": [
           {
             "id": "file-reference",
@@ -135,14 +137,14 @@
             "id": "capture",
             "title": "长文本收纳为外部 Markdown",
             "status": "implemented",
-            "enabled": "off",
-            "setting": "materialsAutoCapture = false",
+            "enabled": "conditional",
+            "setting": "显式收纳默认可用；自动粘贴需 materialsAutoCapture = true",
             "implementation": [
               "apps/logseq-plugin/src/features/materials/controller.ts",
               "apps/logseq-plugin/src/features/materials/service.ts",
               "apps/logseq-plugin/src/workspace/material-context.ts"
             ],
-            "acceptance": "显式文本和已提交块收纳、Agent 同一核心入口；自动粘贴仍默认关闭。按绑定目录保存，无绑定才用全局；原文、请求身份与部分失败可恢复。"
+            "acceptance": "显式收纳直接可用；自动粘贴默认关闭。保存优先绑定／全局目录，未配置则按 Graph 准备默认目录；失败就地选择并记住。原文、请求身份与部分失败可恢复。"
           },
           {
             "id": "editor",

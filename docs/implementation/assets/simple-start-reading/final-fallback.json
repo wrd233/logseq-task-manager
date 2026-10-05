@@ -1,0 +1,20 @@
+{
+  "failure": "Existing ordinary file occupies proposed directory (real host IO)",
+  "prompt": "材料目录暂不可用：请选择普通目录。。选择一个 Graph 外目录后继续保存。",
+  "selectedAtActualSave": true,
+  "rememberedDirectory": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/material-fallback-b80",
+  "materialFile": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/material-fallback-b80/真实目录不可用回退验收.md",
+  "reference": "[📄 真实目录不可用回退验收](longdoc://1f6fc37e-25b4-ad6a-1921-ad9849ed0dc4)",
+  "permission": {
+    "user": false,
+    "agent": false
+  },
+  "contentHash": "a9e90e4203c6f11cec85b76c52993212c55cbab98fd1ea34699782331f940ba4",
+  "previousDefaultFileUnchanged": true,
+  "previousReference": "[📄 默认目录材料验收](longdoc://852b934d-95c6-2130-9c5a-e7ca24a9a3a7)",
+  "localReadingCurrent": true,
+  "scope": {
+    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+    "rootUuid": "6ac36c2f-ba67-424e-be37-d5d9feb2790f"
+  }
+}

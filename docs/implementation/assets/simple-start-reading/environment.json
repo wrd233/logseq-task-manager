@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-05",
+  "remote": "https://github.com/wrd233/logseq-task-manager.git",
+  "remoteBaseSha": "dd081c9cc63fc91b4d62743141842c303128c4a2",
+  "implementationHead": "e5eca0588aaa2d3a418049ff716505b3528a8da1",
+  "coreJourneyBuild": "b80eb956aa7af9c0e0fe3a18434885d9ea4728dd",
+  "branch": "codex/simple-start-reading",
+  "os": "15.2",
+  "architecture": "x86_64",
+  "buildNode": "v20.20.2",
+  "buildNpm": "10.8.2",
+  "logseqDesktop": "0.10.9",
+  "sdk": "0.3.4",
+  "trackedDirtyAtPackageBuild": false,
+  "runtimeHashEquality": {
+    "allFinalRuntimeFilesEqualCoreJourneyBuild": true,
+    "filesCompared": 425,
+    "index.js": "be837238674a7e9db6f0a93fcfbe14dd9fc21f7f5660a49044cf2e578a8ced71",
+    "workspace.mjs": "faf37cb5c6f55a19df174b2b10d1e22fee46036bb7edca035623932e7ab727a6"
+  },
+  "actualDesktopControl": "Owned Electron CDP Input and real Logseq SDK; physical OS input operations not verified",
+  "isolation": {
+    "pid": 13197,
+    "home": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home",
+    "osHome": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home",
+    "userData": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/profile",
+    "appData": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home/Library/Application Support"
+  },
+  "productionGraphTouched": false,
+  "kernelStarted": false,
+  "companionStartedOnlyForExplicitCollaboration": true,
+  "noPushPrMergeOrDelegation": true,
+  "gitDiffCheck": 0,
+  "checks": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "tests": 681,
+    "pluginTests": 430,
+    "failures": 0,
+    "skipped": 0
+  },
+  "ownedDesktopStoppedAfterValidation": true,
+  "ownedCompanionStoppedAfterValidation": true
+}

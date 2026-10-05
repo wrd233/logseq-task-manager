@@ -1,0 +1,41 @@
+{
+  "nativeStart": {
+    "count": 2,
+    "charCount": 75,
+    "allUuidContentHashParentDepthMatch": true,
+    "structureVersion": "89ced4a154d620d6ae8e4c6ad4459e4c06668540b1980c18fb323cadff9425e5",
+    "sourceSetVersion": "dfbc35f634efed8563af2721b653b516a93151b89c1315f4f7a08dc69b8eb36b",
+    "sourceUnchanged": true,
+    "clicks": 1,
+    "requiredSettings": 0
+  },
+  "longReport": {
+    "count": 97,
+    "charCount": 9142,
+    "allUuidContentHashParentDepthMatch": true,
+    "structureVersion": "ce0e51fbbcc40cfa2dbc0db3948f3d018e7f02df201be5275d2fc3c87607ff65",
+    "sourceSetVersion": "cd4f6e651a08c81ad79d7f6d50ff08e6abfc5410a1ea38724b226f1b9b4b2cbc",
+    "sourceUnchanged": true
+  },
+  "nativeInput": {
+    "same": true,
+    "focused": true,
+    "start": 79,
+    "end": 79,
+    "draftValueHash": "5641b32712598e2784c1edf6b1ddde22e00fa0e5fa183262468e1db03d6b29df",
+    "savedVersionBeforeClick": "95bc6a601fbb350d84acae58111c9278de8fbadf6dfd399839bfdf4399ab01c8",
+    "savedVersionAfterHostAutosave": "58a2964ec202eaf287e7ee081ed256d622156380f1f23405eed529022a48e702",
+    "trustedReportMatchesSavedVersion": true,
+    "hostAutosavesDuringLiveEditing": true,
+    "physicalImeVerified": false
+  },
+  "nested": {
+    "count": 4,
+    "charCount": 268,
+    "allUuidContentHashParentDepthMatch": true,
+    "structureVersion": "9d5f9fed8fbcd553743eb65b236c95813bc05b2ac14c137713ae632289729caa",
+    "sourceSetVersion": "f018cc580a5b3646ef2e1b91550d4aad93f280c2d518d7a1dc75a852e140c681",
+    "parentButton": "返回：一键阅读长文验收"
+  },
+  "ordinaryClicksRetainRange": true
+}
