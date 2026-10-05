@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "steps": [
+    {
+      "name": "system-selection",
+      "value": {
+        "input": {
+          "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+          "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+          "start": 88,
+          "end": 90,
+          "focus": true
+        },
+        "editing": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "expected": "e431ddf0-5422-4a48-b0d9-ab5075ba4880"
+      },
+      "verdict": "passed observed native check",
+      "transport": "Computer Use macOS keyboard / text input"
+    },
+    {
+      "name": "system-clipboard-paste",
+      "value": {
+        "status": "not-verified",
+        "toolError": "-10005 clipboard read timeout",
+        "markerInInput": false
+      },
+      "verdict": "failed fullscreen attempt; later normal-window paste and undo passed in desktop-proof.json",
+      "transport": "Computer Use macOS keyboard / text input"
+    },
+    {
+      "name": "os-type-before-undo",
+      "value": {
+        "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写NATIVE_UNDO_PROBE",
+        "start": 105,
+        "end": 105,
+        "focus": true
+      },
+      "verdict": "passed observed native check",
+      "transport": "Computer Use macOS keyboard / text input"
+    },
+    {
+      "name": "os-native-undo",
+      "value": {
+        "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+        "start": 88,
+        "end": 90,
+        "focus": true,
+        "exactOriginalRestored": true,
+        "transport": "computer-use OS key"
+      },
+      "verdict": "passed observed native check",
+      "transport": "Computer Use macOS keyboard / text input"
+    },
+    {
+      "name": "visible-continue-after-autosave",
+      "transport": "Desktop CDP trusted pointer to installed UI",
+      "before": {
+        "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+        "start": 88,
+        "end": 90,
+        "focus": true,
+        "same": true
+      },
+      "after": {
+        "uuid": "e431ddf0-5422-4a48-b0d9-ab5075ba4880",
+        "value": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 现场原生输入继续写作。 现场原生输入继续写作。 现场原生输入继续写作。",
+        "start": 88,
+        "end": 90,
+        "focus": true,
+        "same": true
+      },
+      "verdict": "passed observed native check"
+    }
+  ],
+  "unverified": [
+    "Physical human Chinese IME candidate/composition sequence",
+    "Cross-application system file drag and drop"
+  ]
+}

@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "status": "Local implementation delivered; automated gates passed; manual ranges declared",
+  "time": "2026-10-05T07:37:52.090Z",
+  "baseline": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+  "branch": "codex/native-editor-reading",
+  "origin": "https://github.com/wrd233/logseq-task-manager.git",
+  "verifiedCodeHead": "34473ae56d46cbbc8da1e3a80790b6407e9d5353",
+  "verifiedCodeTree": "0cf1add226dbd9b64f38290e56ddf45ed5b3cca0",
+  "commits": {
+    "host": "1bf91ee12eab2dfc69baa61a39b9e942806588ec",
+    "feature": "af47c80c6f3fc17393def5604ffc5b34f1b93597",
+    "retry": "34473ae56d46cbbc8da1e3a80790b6407e9d5353"
+  },
+  "environment": {
+    "node": "20.20.2",
+    "npm": "10.8.2",
+    "os": "macOS 15.1",
+    "build": "24B2083",
+    "cpu": "arm64",
+    "logseq": "0.10.15",
+    "sdk": "0.3.4"
+  },
+  "checks": {
+    "install": {
+      "command": "npm ci",
+      "exitCode": 0,
+      "log": "tmp/native-editor-reading/install.log"
+    },
+    "baselineBuild": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "log": "tmp/native-editor-reading/baseline-build.log"
+    },
+    "targeted": {
+      "command": "node --import tsx --test tests/integration/native-report-ui.test.mjs tests/stage-review.test.ts tests/content-writeback-organize.test.ts tests/sidebar-layout.test.ts",
+      "cwd": "apps/logseq-plugin",
+      "exitCode": 0,
+      "tests": 74,
+      "pass": 74,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "log": "tmp/native-editor-reading/targeted-complete.log"
+    },
+    "full": {
+      "command": "npm run check",
+      "exitCode": 0,
+      "gates": [
+        "docs:requirements",
+        "typecheck",
+        "lint",
+        "workspace tests",
+        "sandbox tests",
+        "build and built-binary checks",
+        "boundary tests and scan",
+        "taste:eval"
+      ],
+      "workspaceTests": 629,
+      "pluginTests": 395,
+      "suites": [
+        {
+          "name": "@task-copilot/kernel-console:test",
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/kernel-service:test",
+          "tests": 29,
+          "pass": 29,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/logseq-plugin:test",
+          "tests": 395,
+          "pass": 395,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/cli:test",
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/agent:test",
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/client:test",
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/contracts:test",
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/domain:test",
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/kernel:test",
+          "tests": 19,
+          "pass": 19,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/sqlite:test",
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "@task-copilot/test-support:test",
+          "tests": 105,
+          "pass": 105,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "task-copilot-vnext:test:sandbox",
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        {
+          "name": "task-copilot-vnext:check:boundaries",
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      ],
+      "total": {
+        "tests": 646,
+        "pass": 646,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "log": "tmp/native-editor-reading/full-check-delivery.log"
+    },
+    "diff": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "sourceFrozen": {
+      "command": "git diff HEAD --exit-code -- apps/logseq-plugin/src apps/logseq-plugin/tests",
+      "exitCode": 0
+    },
+    "runtimeFinal": {
+      "command": "node --experimental-websocket tmp/native-editor-reading/final-runtime.mjs",
+      "exitCode": 0,
+      "log": "tmp/native-editor-reading/final-runtime.log"
+    },
+    "visualQA": {
+      "images": 14,
+      "method": "All original scenario screenshots inspected in a contact sheet; final wide/native, deleted-ancestor and historical-source screenshots individually inspected.",
+      "result": "passed"
+    },
+    "stagedDiff": {
+      "command": "git diff --cached --check",
+      "exitCode": 0
+    },
+    "allBaselineDiff": {
+      "command": "git diff 8529212296f0b65fb78ef7ccd2a2102474d9310a --check",
+      "exitCode": 0
+    }
+  },
+  "loadedBuild": {
+    "time": "2026-10-05T03:31:52.241Z",
+    "scripts": [
+      {
+        "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/apps/logseq-plugin/dist/logseq-sdk.js",
+        "bytes": 111127,
+        "loadedBytes": 111127,
+        "sha256": "f294df775860d7e10354358f8c4a70bb81e22d18d7353bc48afe80365a604582",
+        "loadedSha256": "f294df775860d7e10354358f8c4a70bb81e22d18d7353bc48afe80365a604582",
+        "equal": true
+      },
+      {
+        "path": "/Users/wangrundong/.codex/worktrees/native-editor-reading/任务管理中心-logseq插件/apps/logseq-plugin/dist/index.js",
+        "bytes": 938225,
+        "loadedBytes": 938225,
+        "sha256": "0f4fe2b5ce4e4b7410b7b28a235269203922959a171fa4cc8ea0b954ed6d62c2",
+        "loadedSha256": "0f4fe2b5ce4e4b7410b7b28a235269203922959a171fa4cc8ea0b954ed6d62c2",
+        "equal": true
+      }
+    ],
+    "sdk": "0.3.4"
+  },
+  "originalCheckout": {
+    "path": "/Users/wangrundong/work/任务管理中心-logseq插件",
+    "initialHead": "df307efee3572c312b1cbd9c04a4b93a81ac69f1",
+    "observedHead": "f0bfe2edff50ca6657bcf491209afa4b715df6b9",
+    "status": "clean",
+    "note": "Read-only observation. No merge from advancing main into the fixed-baseline worktree."
+  },
+  "isolation": {
+    "ownedDesktopPath": "tmp/logseq-sandbox/Logseq Task Copilot Lab.app",
+    "cdpPort": 19333,
+    "graphs": [
+      "tmp/logseq-sandbox/graph",
+      "tmp/native-editor-reading/graph-two"
+    ],
+    "privateMaterials": "tmp/native-editor-reading/materials",
+    "tasksEnabled": false,
+    "agentDescriptor": "empty",
+    "kernelStarted": false,
+    "terminal": {
+      "recordedPid": 28001,
+      "pidPresent": false,
+      "cdpAvailable": false,
+      "log": "tmp/logseq-sandbox/evidence/desktop.log",
+      "logEvent": "2026-10-05 13:10 WindowServer event port death followed by window-all-closed Quitting",
+      "kernel": null,
+      "note": "Observed after completed runtime checks; no signal sent to this absent or reused PID."
+    },
+    "remoteMutations": [],
+    "productionGraphWrites": []
+  },
+  "screenshots": {
+    "finalBuild": [
+      "wide-native-input.jpeg",
+      "deleted-anchor-ancestor.jpeg",
+      "historical-source-status.jpeg"
+    ],
+    "earlierFixedRuntime": [
+      "cross-page-native-target.jpeg",
+      "graph-switch-reading.jpeg",
+      "immutable-stage-history.jpeg",
+      "long-reading-return.jpeg",
+      "material-return-entry.jpeg",
+      "narrow-native-return.jpeg",
+      "right-sidebar-reading.jpeg",
+      "source-comparison-native-focus.jpeg",
+      "source-refresh-reading.jpeg",
+      "source-unavailable.jpeg",
+      "system-clipboard-native.jpeg"
+    ],
+    "note": "Earlier fixed-runtime screenshots attest their recorded step, not a full retest of the final build."
+  },
+  "unverified": [
+    "physical Chinese IME candidate/composition workflow",
+    "cross-application system file drag and drop",
+    "other OS and host versions",
+    "arbitrary native caret placement"
+  ],
+  "logs": [
+    {
+      "path": "tmp/native-editor-reading/full-check-delivery.log",
+      "bytes": 166406,
+      "sha256": "822c6e7f49a6c703d2e9e1bb4e9b08fc5a0c2a1503f09f70c73bcaf69ba4f7a2"
+    },
+    {
+      "path": "tmp/native-editor-reading/targeted-complete.log",
+      "bytes": 17007,
+      "sha256": "42255257a0fd63fc52e8b68531eca1ef813434c73814db4319d58b936ba69b7b"
+    },
+    {
+      "path": "tmp/native-editor-reading/baseline-build.log",
+      "bytes": 105,
+      "sha256": "27c81fa5ee5611f49e057b0345b63a3b530bb4c6501712cf6d280b42bd9511b2"
+    },
+    {
+      "path": "tmp/native-editor-reading/install.log",
+      "bytes": 484,
+      "sha256": "0b37a9b59c33e20ef765562c014920894f322ffd5bf865f1e3273657dce787a4"
+    },
+    {
+      "path": "tmp/native-editor-reading/final-runtime.log",
+      "bytes": 1143,
+      "sha256": "67040ae949a1c20a0c20248d368504fefdac2dd1938411f49da6570a97f7de27"
+    },
+    {
+      "path": "tmp/native-editor-reading/deleted-anchor-before.log",
+      "bytes": 8179,
+      "sha256": "c5899410062ce5e2c6c0261ea68f25f98a045ed02e40eb2748bf9d7f21b4396f"
+    }
+  ],
+  "assets": [
+    {
+      "path": "cross-page-native-target.jpeg",
+      "bytes": 758108,
+      "sha256": "a948190e98218905c02c67ca63529dfd2018d7c58956ffc2b85bb5921f330c74"
+    },
+    {
+      "path": "deleted-anchor-ancestor.jpeg",
+      "bytes": 767775,
+      "sha256": "2215c7d2758d0e80995af6a8ddca44ed1e25f182f05a43e431897a964e85b2cc"
+    },
+    {
+      "path": "desktop-proof.json",
+      "bytes": 57845,
+      "sha256": "a247e8097d35cdffc190b7d6dc4fa9167b666d5182549e3efa550143d008e31d"
+    },
+    {
+      "path": "fixture.json",
+      "bytes": 5888,
+      "sha256": "ac7c30e1352518250b7a501a9d3d2db8927f730d18b07dddfc272372f3106b0e"
+    },
+    {
+      "path": "graph-switch-reading.jpeg",
+      "bytes": 99053,
+      "sha256": "2875e412e512de1c46ad0e761da37667c5480012c21ed8ba045adf4df9ce1659"
+    },
+    {
+      "path": "historical-source-status.jpeg",
+      "bytes": 729599,
+      "sha256": "38a8c74be038318023881916a72c8d387c2f45bb60c18b7bcd391473cd43069e"
+    },
+    {
+      "path": "immutable-stage-history.jpeg",
+      "bytes": 760223,
+      "sha256": "86ae1fc213c54cdd1bf896b9639652242797bcee1af2535f32fb313987e332f2"
+    },
+    {
+      "path": "long-reading-return.jpeg",
+      "bytes": 267091,
+      "sha256": "777bd650b61eaa71c23791e3dde82798e1bf3142b848abfa633ab66092a4a9b9"
+    },
+    {
+      "path": "material-return-entry.jpeg",
+      "bytes": 107563,
+      "sha256": "7a6357f56932c8bd13d3c253eeed4bae0111fdf8e557f212b124d0afd4b5cda8"
+    },
+    {
+      "path": "narrow-native-return.jpeg",
+      "bytes": 418360,
+      "sha256": "41b4388816b348986d450f0bee45e2b9b21a714e4b695ee575dcc17459cdfaf7"
+    },
+    {
+      "path": "native-input-proof.json",
+      "bytes": 3626,
+      "sha256": "f85159b0b491e447d49a68957d161d2424b905933c71178fb9d6713db8a300c2"
+    },
+    {
+      "path": "right-sidebar-reading.jpeg",
+      "bytes": 525785,
+      "sha256": "c0b0874734d7ee315ab0127ba28e6b423b072a6a84b7c906d0ff139248de6557"
+    },
+    {
+      "path": "source-comparison-native-focus.jpeg",
+      "bytes": 729300,
+      "sha256": "a1f9b2a8ee1e666ff374a9dc5a4ec84e555f6582a7b5151b408c42a1e01a0280"
+    },
+    {
+      "path": "source-refresh-reading.jpeg",
+      "bytes": 755561,
+      "sha256": "ae8e93c43a0c786d6d6408b1e23cc9256ac49a02599a1505fa055d8a7bbe4020"
+    },
+    {
+      "path": "source-unavailable.jpeg",
+      "bytes": 586572,
+      "sha256": "f93f292f44501578381c31d0f37ac86a953a93ed4444101dfca765a409cba734"
+    },
+    {
+      "path": "system-clipboard-native.jpeg",
+      "bytes": 369957,
+      "sha256": "acf93c26db09afb3ce1ae0465b9b731b0c95fcd6c1dc50e602a3e4390cc288c9"
+    },
+    {
+      "path": "wide-native-input.jpeg",
+      "bytes": 732848,
+      "sha256": "3e5e5441f6f64368b013e05a84e213d01491505cddfe07207ed092badc0c6879"
+    },
+    {
+      "path": "objective-audit.md",
+      "bytes": 6860,
+      "sha256": "c8612edb92d3ddba29cd51da7c11678fdb8a6eba0ee7749626e5e041478e9791"
+    }
+  ],
+  "persistedFixture": {
+    "uuidCount": 98,
+    "chineseCharacters": 4456,
+    "maxDepth": 4,
+    "plainParagraphs": 65,
+    "materialSha256": "22a99b28fbd568e0db32f0d7933e8373205ee1c6b87c2d839825d76accd54327",
+    "temporaryUuidAbsent": true,
+    "rootMarkerPresent": true,
+    "method": "Read-only persisted Markdown (one tab per Logseq depth) and material SHA after Desktop exit"
+  },
+  "remotePublication": {
+    "command": "git -c http.proxy= -c https.proxy= -c http.version=HTTP/1.1 ls-remote --heads origin refs/heads/main",
+    "exitCode": 0,
+    "mainSha": "dd081c9cc63fc91b4d62743141842c303128c4a2",
+    "baselineAncestorCommand": "git merge-base --is-ancestor 8529212296f0b65fb78ef7ccd2a2102474d9310a dd081c9cc63fc91b4d62743141842c303128c4a2",
+    "baselineAncestorExitCode": 0,
+    "note": "Published SHA retrieved and exact baseline ancestry verified. Worktree HEAD retained; no merge or push.",
+    "fetchCommand": "git -c http.proxy= -c https.proxy= -c http.version=HTTP/1.1 fetch --no-tags origin dd081c9cc63fc91b4d62743141842c303128c4a2",
+    "fetchExitCode": 0
+  }
+}
