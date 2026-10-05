@@ -1,16 +1,16 @@
 import type { SourceRow } from "./model.mjs";
 import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-input.ts";
 
-import { snapshot, sha256, sourceId, type SourceScope as LensScope, type BlockSnapshot as LensBlock, type SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
+import { snapshot, sha256, sourceId, scopeOf, validateSnapshot, type SourceScope as LensScope, type BlockSnapshot as LensBlock, type SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
 export type { SourceScope as LensScope, BlockSnapshot as LensBlock, SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
 export interface LensSourcePort { read(scope: LensScope): Promise<unknown> }
 
 export const logseqSourceId = sourceId;
-export const sameLensScope = (a: LensScope, b: LensScope): boolean => a.graphId === b.graphId && a.rootUuid === b.rootUuid;
+export const sameLensScope = (a: LensScope, b: LensScope): boolean => a.graphId === b.graphId && a.rootUuid === b.rootUuid && a.kind === b.kind && a.pageName === b.pageName;
 export const sourceHash = sha256;
 export function readLensScope(value: unknown): LensScope {
-  const scope = lensRecord(value, ["graphId", "rootUuid"]);
-  return { graphId: lensText(scope.graphId, 2048), rootUuid: lensText(scope.rootUuid, 256) };
+  const scope = lensRecord(value, ["graphId", "rootUuid", "kind", "pageName"]);
+  return scopeOf(scope);
 }
 /** Only committed SDK rows enter here. Drafts, display order and seq are deliberately absent. */
 export async function captureLensSource(scope: LensScope, committed: readonly SourceRow[], availability: LensBlock["availability"] = "available"): Promise<LensSourceSnapshot> {
@@ -37,6 +37,9 @@ export async function captureLensSource(scope: LensScope, committed: readonly So
 
 /** Validate installed providers too; a caller-supplied version/capability is never proof. */
 export async function validateLensSource(value: unknown, expected: LensScope): Promise<LensSourceSnapshot> {
+  if (expected.kind === "page") {
+    const result=await validateSnapshot(value);requireLens(sameLensScope(result.scope,expected),"scope-mismatch");return result;
+  }
   const raw = lensRecord(value, ["schemaVersion", "scope", "blocks", "structureVersion", "sourceSetVersion", "capturedAt"], "invalid-source");
   requireLens(raw.schemaVersion === 1, "unsupported-source-schema");
   const scope = readLensScope(raw.scope); requireLens(sameLensScope(scope, expected), "scope-mismatch");

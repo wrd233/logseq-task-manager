@@ -23,7 +23,8 @@ export class NativeEditorHost {
     control.dataset.nativeReportReturn = "true"; control.textContent = "返回正文"; control.title = "返回正文 · Cmd/Ctrl+Alt+R";
     control.setAttribute("aria-label","返回正文");
     control.style.cssText = "font:inherit;font-size:13px;padding:4px 9px;border:1px solid var(--ls-border-color,#aaa);border-radius:4px;color:var(--ls-primary-text-color,#222);background:var(--ls-primary-background-color,#fff);cursor:pointer;margin:4px;flex:none";
-    control.onclick = () => { if (!this.composing) this.onReturn(); };
+    control.addEventListener("mousedown", event => event.preventDefault());
+    control.onclick = () => this.onReturn();
     const header = this.document.querySelector(".cp__header");
     if (header) header.append(control);
     else { control.style.position="fixed"; control.style.top="8px"; control.style.right="16px"; control.style.zIndex="1000"; this.document.body.append(control); }

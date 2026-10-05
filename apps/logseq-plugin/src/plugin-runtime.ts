@@ -95,6 +95,10 @@ export class PluginRuntime {
     if (raw !== stored) await logseq.FileStorage.setItem(descriptorKey, raw.trim());
     return value;
   }
+  async configured(): Promise<boolean> {
+    const stored=await readOptionalPrivateItem(logseq.FileStorage,descriptorKey);
+    return typeof stored === "string" && !!stored.trim() || typeof logseq.settings?.kernelDescriptorJson === "string" && !!logseq.settings.kernelDescriptorJson.trim();
+  }
   async connect(raw: string): Promise<void> {
     parsePluginKernelDescriptor(JSON.parse(raw));
     await logseq.FileStorage.setItem(descriptorKey, raw.trim());

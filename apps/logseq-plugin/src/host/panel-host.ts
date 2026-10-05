@@ -1,4 +1,4 @@
-import { sidebarLayoutSpec, type SidebarLayoutSpec } from "../sidebar-layout.ts";
+import { sidebarLayoutSpec, parseSidebarWidth, type SidebarLayoutSpec } from "../sidebar-layout.ts";
 import { panels, type PanelCloseReason } from "../workspace/context.ts";
 
 export function hostDocument(): Document | null {
@@ -100,9 +100,22 @@ export class FeaturePanel {
   readonly root = element("section", "", "wb-panel");
   private resize: (() => void) | null = null;
   private nativeExposure = false;
+  private width = parseSidebarWidth(localStorage.getItem("workbench:panel-width"));
+  private hostResize: ResizeObserver | null = null;
+  private readonly splitter = element("div", "", "wb-reading-divider");
+  private dragging: {x:number;width:number} | null = null;
+  private readonly unregister: () => void;
   constructor(readonly name: string, readonly label: string, private readonly beforeClose: (reason: PanelCloseReason) => void | Promise<void> = () => undefined) {
     this.root.dataset.workbenchFeature = name; this.root.hidden = true;
-    document.body.append(this.root); panels.register(name, reason => this.close(false, reason));
+    document.body.append(this.root); this.unregister=panels.register(name, reason => this.close(false, reason));
+    this.splitter.setAttribute("role","separator");this.splitter.setAttribute("aria-label","调整阅读与原生写作宽度");this.splitter.setAttribute("aria-orientation","vertical");this.splitter.tabIndex=0;
+    this.splitter.style.cssText="position:absolute;left:0;top:32px;bottom:0;width:6px;cursor:col-resize;z-index:30;touch-action:none";
+    this.root.append(this.splitter);
+    this.splitter.onpointerdown=event=>{event.preventDefault();this.dragging={x:event.screenX,width:this.width};this.splitter.setPointerCapture?.(event.pointerId);};
+    this.splitter.onpointermove=event=>{if(this.dragging){this.width=parseSidebarWidth(this.dragging.width+this.dragging.x-event.screenX);this.layout();}};
+    this.splitter.onpointerup=()=>{if(this.dragging){this.dragging=null;localStorage.setItem("workbench:panel-width",String(this.width));}};
+    this.splitter.onpointercancel=this.splitter.onpointerup;
+    this.splitter.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();this.width=parseSidebarWidth(this.width+(event.key==="ArrowLeft"?16:-16));localStorage.setItem("workbench:panel-width",String(this.width));this.layout();};
   }
   get visible(): boolean { return !this.root.hidden; }
   async open(revision?: number): Promise<boolean> {
@@ -113,6 +126,8 @@ export class FeaturePanel {
     if (!this.resize) {
       this.resize = () => { if (this.layout()?.mode === "COMPACT" && this.nativeExposure) void this.close(true,"switch",false); };
       window.top?.addEventListener("resize", this.resize);
+      const doc=hostDocument();
+      if(doc && typeof ResizeObserver!=="undefined") {this.hostResize=new ResizeObserver(this.resize);for(const node of Array.from(doc.querySelectorAll("#left-sidebar,.cp__right-sidebar")))this.hostResize.observe(node);}
     }
     logseq.showMainUI({ autoFocus: false });
     return true;
@@ -123,6 +138,7 @@ export class FeaturePanel {
     if (cancelPending) panels.reserve();
     await this.beforeClose(reason); this.root.hidden = true;
     if (this.resize) window.top?.removeEventListener("resize", this.resize); this.resize = null;
+    this.hostResize?.disconnect();this.hostResize=null;
     const doc = hostDocument(); doc?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
     panels.release(this.name); logseq.hideMainUI({ restoreEditingCursor });
   }
@@ -130,12 +146,14 @@ export class FeaturePanel {
     if (this.visible && this.layout()?.mode === "DOCKED") { this.nativeExposure=true;return "beside"; }
     await this.close(true,"switch",false); return "switch";
   }
+  dispose(): void { if(this.resize)window.top?.removeEventListener("resize",this.resize);this.resize=null;this.hostResize?.disconnect();this.hostResize=null;this.root.remove();this.unregister(); }
   private layout(): SidebarLayoutSpec | null {
     const doc = hostDocument(); if (!doc) return null;
     const visibleWidth = (selector: string) => {
       const node = doc.querySelector(selector); return node && doc.defaultView?.getComputedStyle(node).display !== "none" ? Math.round(node.getBoundingClientRect().width) : 0;
     };
-    const spec = sidebarLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: 560, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    const spec = sidebarLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: this.width, mainMinWidth:440, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    this.splitter.hidden=spec.mode!=="DOCKED";this.splitter.setAttribute("aria-valuenow",String(spec.sidebarWidth));
     doc.documentElement.style.setProperty("--tc-sidebar-width", `${spec.sidebarWidth}px`);
     doc.body.classList.toggle("tc-sidebar-docked", spec.mode === "DOCKED");
     doc.body.classList.toggle("tc-sidebar-compact", spec.mode === "COMPACT");
