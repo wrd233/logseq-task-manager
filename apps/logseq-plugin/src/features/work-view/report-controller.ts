@@ -7,7 +7,7 @@ import type { ReadingBookmark, WorkViewRenderer } from "./renderer.ts";
 import type { ViewPresentation } from "./operations.ts";
 import type { ComposedView, LensSelection } from "./view-composer.ts";
 import type { SourceRow } from "./model.mjs";
-import { composeReport, reportFragment, reportFragments } from "./report-model.ts";
+import { composeReport, defaultReportFolds, reportFragment, reportFragments } from "./report-model.ts";
 import { reportFailure, resolveBodyTarget, type BodyPosition, type BodyTarget } from "./report-target.ts";
 
 interface ReportHost {
@@ -99,7 +99,7 @@ export class WorkViewReport {
     if (this.host.historical()) return deny("historical-view");
     const bookmark = this.host.renderer.bookmark();
     if (mode !== this.mode) {
-      if (mode === "report") this.folds=new Set(this.host.presentation().collapsed);
+      if (mode === "report") this.folds=defaultReportFolds();
       this.mode=mode; this.host.changed();
     }
     if (mode === "report") {

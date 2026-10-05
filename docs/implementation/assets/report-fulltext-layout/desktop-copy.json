@@ -1,0 +1,11 @@
+{
+  "selection": "。",
+  "native": null,
+  "editing": false,
+  "events": [
+    {
+      "defaultPrevented": false,
+      "text": "。"
+    }
+  ]
+}

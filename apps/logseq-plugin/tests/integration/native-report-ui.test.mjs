@@ -30,7 +30,7 @@ test('real report entrance retains complete bodies and node identity while heade
   const f=await reportFixture();
   try {
     const before=JSON.stringify([...f.blocks]), nodes=[...f.work.panel.root.querySelectorAll('.wb-row')];
-    assert.deepEqual([...f.work.panel.root.querySelectorAll('.wb-report-section')].map(h=>h.textContent),['目标','记录与说明','想法','待办']);
+    assert.deepEqual([...f.work.panel.root.querySelectorAll('.wb-report-section')].map(h=>h.textContent),['想法','待办']);
     assert.equal(f.work.panel.root.querySelectorAll('.wb-row').length,9);
     assert.ok(row(f,'b1').textContent.includes('同名条件不能丢失。'));assert.ok(row(f,'b7').textContent.includes('[风险]'));
     for(const heading of f.work.panel.root.querySelectorAll('.wb-report-section')){
@@ -72,7 +72,7 @@ test('navigation acknowledgement precedes the native route render; success requi
       await delay(15);input.closest('.ls-block').setAttribute('blockid','route-render');f.editing(false);
     };
     globalThis.logseq.Editor.scrollToBlockInPage=(name,uuid)=>{void globalThis.logseq.App.pushState('page',{name},{anchor:'block-content-'+uuid});};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     await delay(35);
     assert.equal(await globalThis.logseq.Editor.checkEditing(),'b0');assert.equal(input.closest('.ls-block').getAttribute('blockid'),'b0');
@@ -97,7 +97,7 @@ test('wide docked window retains the report and native input, while report refle
 test('returning to the same native editor preserves its draft, input node and exact selection instead of reloading source',async()=>{
   const f=await reportFixture(1400);
   try {
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     const input=f.browser.document.querySelector('textarea');input.value='保留未提交的原生草稿';input.setSelectionRange(3,5);f.editing('b0',input.value);await f.tick();
     const before=[...f.nativeCalls],fragment=f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0'),source=f.work.reportAPI.read();
@@ -111,7 +111,7 @@ test('returning to the same native editor preserves its draft, input node and ex
 test('resizing beside native composition to a narrow window yields the report without saving or cancelling input',async()=>{
   const f=await reportFixture(1400);
   try {
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     const input=f.browser.document.querySelector('textarea');input.value='正在组合的原生草稿';f.editing('b0',input.value);
     input.dispatchEvent(new f.browser.Event('compositionstart',{bubbles:true}));
@@ -147,7 +147,7 @@ test('stale mapping, real host composition and existing native drafts refuse nav
     assert.equal((await f.work.reportAPI.setMode('structure')).reason,'editing-in-progress');
     const bodyTarget=await f.work.resolveBodyDrop(row(f,'b0').querySelector('.wb-body'),'after');assert.equal(bodyTarget.reason,'editing-in-progress');
     textarea.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));
-    f.editing('b1','保留未提交草稿');row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await delay(35);
+    f.editing('b1','保留未提交草稿');row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));await delay(35);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.work.panel.visible,true);f.editing(false);
   }finally{await f.close();}
 });
@@ -167,7 +167,7 @@ test('Graph/root changes and dispose invalidate delayed source navigation and re
   const f=await reportFixture();
   try {
     const page=deferred(),started=deferred();globalThis.logseq.Editor.getPage=async()=>{started.resolve();return page.promise;};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await started.promise;
+    row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));await started.promise;
     f.switchGraph('two');page.resolve({name:'fixture'});await delay(30);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
     assert.equal(f.work.reportAPI.read().scope,null);assert.equal((await f.work.reportAPI.resume()).reason,'scope-mismatch');
@@ -219,7 +219,7 @@ test('source loss labels the retained report as unavailable and rejects navigati
     f.setTreeRead(async()=>null);assert.equal((await f.work.reportAPI.refresh()).reason,'source-unavailable');
     assert.equal(f.work.reportAPI.read().status,'unavailable');assert.match(f.work.panel.root.querySelector('.wb-status').textContent,/最后已知内容/);
     assert.equal(node.querySelector('.wb-body').textContent,body);
-    node.dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await delay(30);assert.equal(f.nativeCalls.length,0);
+    node.dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));await delay(30);assert.equal(f.nativeCalls.length,0);
     f.setTreeRead(null);assert.equal((await f.work.reportAPI.refresh()).ok,true);assert.equal(f.work.reportAPI.read().status,'current');assert.equal(row(f,'b0'),node);
   }finally{await f.close();}
 });
@@ -228,7 +228,7 @@ test('a commit racing after source resolution cancels native navigation before y
   const f=await reportFixture();
   try {
     const page=deferred(),started=deferred();globalThis.logseq.Editor.getPage=async()=>{started.resolve();return page.promise;};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await started.promise;
+    row(f,'b0').dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true,altKey:true}));await started.promise;
     f.content('b1','导航等待期间已提交的新条件。');await f.work.refresh();page.resolve({name:'fixture'});await delay(35);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.work.panel.visible,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
   }finally{await f.close();}

@@ -1,0 +1,210 @@
+TAP version 13
+# Subtest: report grouping and native drafts remain independent of authorized moves and immutable stage history
+ok 1 - report grouping and native drafts remain independent of authorized moves and immutable stage history
+  ---
+  duration_ms: 2033.8475
+  ...
+# Subtest: real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+ok 2 - real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+  ---
+  duration_ms: 1964.093416
+  ...
+# Subtest: narrow window yields the panel, really invokes native editing and restores current report after host commit
+ok 3 - narrow window yields the panel, really invokes native editing and restores current report after host commit
+  ---
+  duration_ms: 60.252792
+  ...
+# Subtest: navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+ok 4 - navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+  ---
+  duration_ms: 85.781459
+  ...
+# Subtest: wide docked window retains the report and native input, while report reflects only committed source
+ok 5 - wide docked window retains the report and native input, while report reflects only committed source
+  ---
+  duration_ms: 95.155667
+  ...
+# Subtest: returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+ok 6 - returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+  ---
+  duration_ms: 98.660875
+  ...
+# Subtest: resizing beside native composition to a narrow window yields the report without saving or cancelling input
+ok 7 - resizing beside native composition to a narrow window yields the report without saving or cancelling input
+  ---
+  duration_ms: 38.441833
+  ...
+# Subtest: report folds, focus and explicit original layout survive reading toggles without source or layout writes
+ok 8 - report folds, focus and explicit original layout survive reading toggles without source or layout writes
+  ---
+  duration_ms: 29.954416
+  ...
+# Subtest: stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+ok 9 - stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+  ---
+  duration_ms: 134.2295
+  ...
+# Subtest: switching away while native navigation is pending preserves reading but cancels the old edit
+ok 10 - switching away while native navigation is pending preserves reading but cancels the old edit
+  ---
+  duration_ms: 16.471792
+  ...
+# Subtest: Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+ok 11 - Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+  ---
+  duration_ms: 49.166708
+  ...
+# Subtest: committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+ok 12 - committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+  ---
+  duration_ms: 91.19575
+  ...
+# Subtest: source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+ok 13 - source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+  ---
+  duration_ms: 24.716417
+  ...
+# Subtest: source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+ok 14 - source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+  ---
+  duration_ms: 52.161667
+  ...
+# Subtest: a commit racing after source resolution cancels native navigation before yielding the panel
+ok 15 - a commit racing after source resolution cancels native navigation before yielding the panel
+  ---
+  duration_ms: 50.458583
+  ...
+# Subtest: entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+ok 16 - entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+  ---
+  duration_ms: 2292.601875
+  ...
+# Subtest: middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+ok 17 - middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+  ---
+  duration_ms: 143.3205
+  ...
+# Subtest: long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+ok 18 - long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+  ---
+  duration_ms: 195.375292
+  ...
+# Subtest: real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure exposes selectable link
+ok 19 - real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure exposes selectable link
+  ---
+  duration_ms: 372.120375
+  ...
+# Subtest: published report body mapping, MiniProject reference renames and immutable stage history compose through the existing executors
+ok 20 - published report body mapping, MiniProject reference renames and immutable stage history compose through the existing executors
+  ---
+  duration_ms: 1738.124
+  ...
+# Subtest: list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target
+ok 21 - list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target
+  ---
+  duration_ms: 226.285959
+  ...
+# Subtest: a work switch during real file registration retains the association but inserts no late source reference
+ok 22 - a work switch during real file registration retains the association but inserts no late source reference
+  ---
+  duration_ms: 171.944583
+  ...
+# Subtest: copied reference proof survives panel navigation, observes a simulated committed native paste, and never writes source or consumes composition
+ok 23 - copied reference proof survives panel navigation, observes a simulated committed native paste, and never writes source or consumes composition
+  ---
+  duration_ms: 614.709709
+  ...
+# Subtest: finite leading marks distinguish facts from ordinary text, code, unknown marks and formal objects
+ok 24 - finite leading marks distinguish facts from ordinary text, code, unknown marks and formal objects
+  ---
+  duration_ms: 1.030792
+  ...
+# Subtest: report grouping preserves ambiguous sibling adjacency, complete bodies, UUIDs, nested objects and original truth
+ok 25 - report grouping preserves ambiguous sibling adjacency, complete bodies, UUIDs, nested objects and original truth
+  ---
+  duration_ms: 7.18875
+  ...
+# Subtest: report folds and personal order are presentation overlays; switching does not replace the personal tree
+ok 26 - report folds and personal order are presentation overlays; switching does not replace the personal tree
+  ---
+  duration_ms: 2.556584
+  ...
+# Subtest: explicit body targets validate real source and parent versions, reject section keys, offsets, unknown authority and stale facts
+ok 27 - explicit body targets validate real source and parent versions, reject section keys, offsets, unknown authority and stale facts
+  ---
+  duration_ms: 4.220833
+  ...
+# Subtest: long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+ok 28 - long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+  ---
+  duration_ms: 0.747292
+  ...
+# Subtest: ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+ok 29 - ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+  ---
+  duration_ms: 11.771583
+  ...
+# Subtest: each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+ok 30 - each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+  ---
+  duration_ms: 2005.127583
+  ...
+# Subtest: coverage distinguishes explicit hidden ranges from unavailable sources and never invents fragments for missing text
+ok 31 - coverage distinguishes explicit hidden ranges from unavailable sources and never invents fragments for missing text
+  ---
+  duration_ms: 6.343834
+  ...
+# Subtest: stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+ok 32 - stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+  ---
+  duration_ms: 2082.715917
+  ...
+# Subtest: clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+ok 33 - clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+  ---
+  duration_ms: 106.596833
+  ...
+# Subtest: suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+ok 34 - suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+  ---
+  duration_ms: 117.15275
+  ...
+# Subtest: historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+ok 35 - historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+  ---
+  duration_ms: 89.697583
+  ...
+# Subtest: focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+ok 36 - focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+  ---
+  duration_ms: 45.369416
+  ...
+# Subtest: report preserves stage show-all, immutable history and return to the existing lens
+ok 37 - report preserves stage show-all, immutable history and return to the existing lens
+  ---
+  duration_ms: 72.841333
+  ...
+# Subtest: review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+ok 38 - review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+  ---
+  duration_ms: 103.293667
+  ...
+# Subtest: selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+ok 39 - selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+  ---
+  duration_ms: 45.888125
+  ...
+# Subtest: later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+ok 40 - later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+  ---
+  duration_ms: 45.861042
+  ...
+1..40
+# tests 40
+# suites 0
+# pass 40
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4019.162

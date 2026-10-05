@@ -9,6 +9,7 @@ import type { ViewPresentation } from "./operations.ts";
 import { composeWorkView, type ComposedView } from "./view-composer.ts";
 import type { ReviewChange } from "./review-port.ts";
 import type { ReportComposition } from "./report-model.ts";
+import { reportMarkdown } from "./report-body.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
@@ -91,12 +92,12 @@ export class WorkViewRenderer {
     controls.append(menuContext, select, expand, nativeEdit, button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
     node.append(grip, fold, body, menu);
     node.addEventListener("click", event => {
-      if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
+      if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical && (!this.reporting || document.getSelection()?.isCollapsed !== false)) this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
     node.addEventListener("dblclick",event => {
-      if (this.reporting && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
+      if (this.reporting && event.altKey && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
     });
     node.onkeydown = event => {
       if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing) {
@@ -113,6 +114,8 @@ export class WorkViewRenderer {
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}, report?: ReportComposition): void {
     this.historical=!!review?.historical;
     this.reporting=!!report;
+    if(report){this.container.dataset.reportRange=report.coverage.range;this.container.dataset.reportAvailable=String(report.coverage.available);this.container.dataset.reportShown=String(report.coverage.shown);}
+    else {delete this.container.dataset.reportRange;delete this.container.dataset.reportAvailable;delete this.container.dataset.reportShown;}
     const view = composition ?? composeWorkView(rows, state);
     this.layout = view.items.map(item => ({uuid:item.uuid,depth:item.depth}));
     const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
@@ -145,8 +148,9 @@ export class WorkViewRenderer {
       }
       entry.node.classList.toggle("wb-report-row",!!report); entry.node.tabIndex=report ? 0 : -1;
       const fragment=fragments.get(item.uuid);
-      if (fragment) { entry.node.dataset.reportSourceId=fragment.sourceId; entry.node.dataset.reportContentVersion=fragment.contentVersion; }
-      else { delete entry.node.dataset.reportSourceId; delete entry.node.dataset.reportContentVersion; }
+      if (fragment) { entry.node.dataset.reportSourceId=fragment.sourceId; entry.node.dataset.reportContentVersion=fragment.contentVersion; entry.node.dataset.reportStructureVersion=report!.structureVersion; }
+      else { delete entry.node.dataset.reportSourceId; delete entry.node.dataset.reportContentVersion; delete entry.node.dataset.reportStructureVersion; }
+      entry.node.toggleAttribute("data-report-root",!!report&&index===0);
       if (fragment?.objectKind) entry.node.dataset.objectKind=fragment.objectKind; else delete entry.node.dataset.objectKind;
       const change=review?.changes.get(item.uuid);
       if (entry.node.hidden !== hidden) entry.node.hidden = hidden;
@@ -172,7 +176,7 @@ export class WorkViewRenderer {
       const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
       if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
       const inline=change?.inline&&change.after===row.content?change.inline:null;
-      const bodySignature=JSON.stringify([row.content,inline]);
+      const bodySignature=JSON.stringify([row.content,inline,!!report,this.historical]);
       if (!hidden && this.composingUuid !== item.uuid && entry.bodySignature !== bodySignature) {
         const selection = document.getSelection();
         if (selection?.rangeCount) {
@@ -182,7 +186,7 @@ export class WorkViewRenderer {
         if(inline){
           const mark=element("mark",inline.inserted);mark.className="wb-review-insert";
           const text=element("div");text.style.whiteSpace="pre-wrap";text.append(document.createTextNode(inline.prefix),mark,document.createTextNode(inline.suffix));entry.body.replaceChildren(text);
-        }else entry.body.innerHTML = DOMPurify.sanitize(marked.parse(row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
+        }else entry.body.innerHTML = DOMPurify.sanitize(marked.parse(report || this.historical ? reportMarkdown(row.content) : row.content.replace(/^\s*id::[^\n]*(?:\n|$)/gm, ""), { breaks: true }) as string, { ALLOWED_URI_REGEXP: safeMarkdownURI, FORBID_TAGS: ["img", "iframe", "style", "input", "button"], FORBID_ATTR: ["style"] });
         entry.content = row.content;
         entry.bodySignature=bodySignature;
       }
@@ -214,7 +218,7 @@ export class WorkViewRenderer {
             entry.review.append(element("small","当前原文已不同于当时结果；修改将重新读取当前版本。"),submitted);
           }
           entry.review.hidden=false;
-          entry.body.onclick=event=>{if(!(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
+          entry.body.onclick=event=>{if(!this.reporting&&!(event.target as HTMLElement).closest("a,button")&&!this.composing){event.stopPropagation();correct();}};
         }else{if(entry.review)entry.review.hidden=true;entry.body.onclick=null;}
         entry.reviewSignature=reviewSignature;
       }
