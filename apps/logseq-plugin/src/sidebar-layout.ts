@@ -57,3 +57,9 @@ export function sidebarLayoutSpec(input: SidebarLayoutInput): SidebarLayoutSpec 
   const panelRight = mode === "DOCKED" ? 0 : rightReserved;
   return { mode, sidebarWidth, leftReserved, rightReserved, availableMain, panelLeft, panelRight, panelWidth };
 }
+
+/** Reading can give back some panel width before it has to cover the native main area. */
+export function readingLayoutSpec(input: SidebarLayoutInput): SidebarLayoutSpec {
+  const available = input.viewportWidth - (input.leftReserved ?? 0) - (input.rightReserved ?? 0);
+  return sidebarLayoutSpec({ ...input, sidebarWidth: Math.min(clampSidebarWidth(input.sidebarWidth), available - (input.mainMinWidth ?? DOCKED_MAIN_MIN_WIDTH)) });
+}

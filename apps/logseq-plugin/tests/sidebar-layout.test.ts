@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   clampSidebarWidth, DOCKED_MAIN_MIN_WIDTH, layoutModeFor, parseSidebarWidth,
   SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, sidebarLayoutSpec,
+  readingLayoutSpec,
 } from "../src/sidebar-layout.ts";
 
 test("sidebar width clamps to the supported 300-520 range", () => {
@@ -12,6 +13,15 @@ test("sidebar width clamps to the supported 300-520 range", () => {
   assert.equal(clampSidebarWidth(384), 384);
   assert.equal(clampSidebarWidth(384.6), 385);
   assert.equal(clampSidebarWidth(Number.NaN), SIDEBAR_DEFAULT_WIDTH);
+});
+
+test("reading panel yields width before it yields the native editor", () => {
+  const spec=readingLayoutSpec({viewportWidth:1024,sidebarWidth:520});
+  assert.equal(spec.mode,"DOCKED");assert.equal(spec.panelWidth,464);assert.equal(spec.panelLeft,560);
+  const reserved=readingLayoutSpec({viewportWidth:1440,sidebarWidth:520,leftReserved:240,rightReserved:340});
+  assert.equal(reserved.mode,"DOCKED");assert.equal(reserved.panelWidth,300);assert.equal(reserved.panelLeft,800);
+  assert.equal(reserved.panelLeft-reserved.leftReserved,560);
+  assert.equal(readingLayoutSpec({viewportWidth:1439,sidebarWidth:520,leftReserved:240,rightReserved:340}).mode,"COMPACT");
 });
 
 test("persisted width parsing rejects malformed values and clamps outliers", () => {

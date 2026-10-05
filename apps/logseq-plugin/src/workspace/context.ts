@@ -10,7 +10,10 @@ export class PanelCoordinator {
   private revision = 0;
   private readonly closers = new Map<string, (reason: PanelCloseReason) => void | Promise<void>>();
 
-  register(name: string, close: (reason: PanelCloseReason) => void | Promise<void>): void { this.closers.set(name, close); }
+  register(name: string, close: (reason: PanelCloseReason) => void | Promise<void>): () => void {
+    this.closers.set(name, close);
+    return () => { if (this.closers.get(name) === close) this.closers.delete(name); };
+  }
 
   reserve(): number { return ++this.revision; }
   isLatest(revision: number): boolean { return revision === this.revision; }
