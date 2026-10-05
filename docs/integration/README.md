@@ -1,6 +1,6 @@
 # 工作台整合说明
 
-2026-10-05：材料交互继续在 `codex/materials-reading-ux` 更新，起点已同步 main `94f18ed`。未绑定工作自动准备专属目录，支持选择多个材料目录并指定默认位置；拖入复制、即时处理反馈、直接复制链接和原生长文本确认见[当前产品设计](../design/materials-module-design.md)、[架构](../architecture/materials-module-architecture.md)和[本轮交接](../implementation/materials-drawer-handoff.md)。本轮在功能分支交付，不自行推送或部署。
+2026-10-06：材料文件抽屉整合到最新 main。未绑定工作自动准备专属目录，支持多个材料目录及默认位置；拖入复制、即时反馈、直接复制链接和原生长文本确认见[产品设计](../design/materials-module-design.md)、[架构](../architecture/materials-module-architecture.md)和[功能交接](../implementation/materials-drawer-handoff.md)。快进合并、702 项既有完整检查及发布核验见[整合记录](materials-drawer-main-2026-10-06.md)；原交接中的“未推送”为功能分支交付时点。
 
 一个仓库、一个 Logseq 插件。当前工作以「正文／材料」切换为主要入口，原生写作和审阅就近打开；正式任务及插件设置从「工作台」菜单进入。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
