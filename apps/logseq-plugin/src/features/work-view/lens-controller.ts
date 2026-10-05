@@ -40,9 +40,9 @@ export class WorkViewLenses {
   constructor(private readonly host: LensHost, private readonly provider?: LensSourcePort) {}
   read() { return this.state.snapshot(this.host.scope()); }
   get selection() { return this.state.active; }
-  private current(scope: LensScope, lifetime: number): boolean {
+  private current(scope: LensScope, lifetime: number, hidden = false): boolean {
     const now = this.host.scope();
-    return lifetime === this.lifetime && this.host.visible() && !!now && sameLensScope(scope, now);
+    return lifetime === this.lifetime && (hidden || this.host.visible()) && !!now && sameLensScope(scope, now);
   }
   request(input: unknown): LensResult<FocusRequest> {
     try {
@@ -54,12 +54,12 @@ export class WorkViewLenses {
       return { ok: true, value };
     } catch (error) { return failure(error); }
   }
-  private async captured(refresh: boolean): Promise<LensResult<LensSourceSnapshot>> {
+  private async captured(refresh: boolean, hidden = false): Promise<LensResult<LensSourceSnapshot>> {
     const scope = this.host.scope(), lifetime = this.lifetime;
-    if (!scope || !this.host.visible()) return { ok: false, reason: "view-not-visible" };
+    if (!scope || (!hidden && !this.host.visible())) return { ok: false, reason: "view-not-visible" };
     try {
       if (refresh) await this.host.refresh();
-      if (!this.current(scope, lifetime)) return { ok: false, reason: "scope-mismatch" };
+      if (!this.current(scope, lifetime, hidden)) return { ok: false, reason: "scope-mismatch" };
       const committed = this.host.committed(), revision = committed.revision;
       let value: LensSourceSnapshot;
       if (this.provider) value = await validateLensSource(await this.provider.read({ ...scope }), scope);
@@ -70,7 +70,7 @@ export class WorkViewLenses {
         }
         value = await this.sourceCache.value;
       }
-      if (!this.current(scope, lifetime)) return { ok: false, reason: "scope-mismatch" };
+      if (!this.current(scope, lifetime, hidden)) return { ok: false, reason: "scope-mismatch" };
       if (this.host.committed().revision !== revision) return { ok: false, reason: "source-changed-during-read" };
       return { ok: true, value };
     } catch (error) { return failure(error); }
@@ -84,6 +84,9 @@ export class WorkViewLenses {
     const result = await this.captured(false);
     return result.ok ? {ok:true,value:structuredClone(result.value)} : result;
   }
+  /** Trusted navigation lease: reread the installed provider after yielding the
+   * panel, without publishing a report or touching a native draft. */
+  navigationSource(): Promise<LensResult<LensSourceSnapshot>> { return this.captured(false, true); }
   async sourceChanged(): Promise<void> {
     const active = this.state.active;
     if (!active) return;

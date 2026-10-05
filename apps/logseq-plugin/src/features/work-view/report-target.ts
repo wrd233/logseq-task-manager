@@ -30,5 +30,6 @@ export function resolveBodyTarget(input: unknown, source: SourceSnapshot): BodyT
     parent:parent ? {sourceId:parent.sourceId, target:{...parent.target}, contentVersion:parent.contentVersion!} : null};
 }
 export function reportFailure(error: unknown): {ok:false; reason:string} {
-  return {ok:false, reason:error instanceof LensInputError ? error.reason : "native-navigation-failed"};
+  const native: Record<string,string> = {NATIVE_SCOPE_EXPIRED:"scope-mismatch",NATIVE_EDITING_OR_SCOPE_CHANGED:"editing-in-progress",NATIVE_SOURCE_EXPIRED:"source-changed-during-read",NATIVE_INPUT_UNAVAILABLE:"native-input-unavailable"};
+  return {ok:false, reason:error instanceof LensInputError ? error.reason : error instanceof Error ? native[error.message]??"native-navigation-failed" : "native-navigation-failed"};
 }

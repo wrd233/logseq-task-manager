@@ -68,12 +68,12 @@ export class WorkView {
     reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
   });
 
-  constructor(private readonly onMaterials: (content: string, rootUuid: string) => void | Promise<void>, options: { source?: LensSourcePort } = {}) {
+  constructor(private readonly onMaterials: (content: string, rootUuid: string) => void | Promise<void>, options: { source?: LensSourcePort; readingMode?: "report" | "structure" } = {}) {
     this.lenses = new WorkViewLenses({
       scope: () => !this.disposed && this.rootUuid && this.graph ? { graphId: this.graph, rootUuid: this.rootUuid } : null,
       visible: () => !this.disposed && this.panel.visible,
       committed: () => ({ rows: this.sourceRows, revision: this.sourceRevision, availability: this.sourceAvailability }),
-      refresh: () => this.refresh(),
+      refresh: () => this.refreshSource(),
       editing: async () => !!this.draft || !!await logseq.Editor.checkEditing(),
       selected: () => this.state.selected,
       nativeBlock: async () => (await logseq.Editor.getCurrentBlock())?.uuid,
@@ -85,9 +85,10 @@ export class WorkView {
       revision: () => this.sourceRevision, currentGraph: async () => graphIdentity(await logseq.App.getCurrentGraph()),
       visible: () => this.panel.visible && !this.disposed, historical: () => this.historical,
       presentation: () => copyPresentation(this.state), source: fresh => fresh ? this.lenses.source() : this.lenses.committedSource(),
+      navigationSource: () => this.lenses.navigationSource(),
       panel:this.panel, renderer:this.renderer, changed: () => { if (!this.disposed) { this.seq++; this.render(); } },
       open: uuid => this.open(uuid), notify: text => { this.fail(new Error(text)); void logseq.UI?.showMsg(text,"warning"); },
-    });
+    }, options.readingMode);
     this.disposers.push(installLensStyle(),installReportStyle());
     this.panel.root.append(this.heading, this.lensBar.root, this.content, this.status);
     this.content.setAttribute("aria-label", "工作内容");
@@ -191,6 +192,7 @@ export class WorkView {
     const changed = graph !== this.graph || uuid !== this.rootUuid;
     if (changed) this.invalidate();
     this.graph = graph; this.rootUuid = uuid; this.held = held; this.trace = trace;
+    this.report.scopeChanged();
     if(changed)this.review?.scopeChanged({graphId:graph,rootUuid:uuid});
     if (changed) {
       this.state = emptyPresentation();
@@ -226,6 +228,7 @@ export class WorkView {
       await this.refresh();
       if (valid()) await this.lenses.resume();
       if (valid() && this.report.active) await this.report.capture(false);
+      if (valid()) await this.report.restoreReading();
     }
   }
 
@@ -233,6 +236,7 @@ export class WorkView {
     const ticket = ++this.navigationEpoch, epoch = this.epoch, graph = this.graph;
     const trace = await this.readTrace(uuid, graph, () => this.valid(epoch) && ticket === this.navigationEpoch);
     if (!this.valid(epoch) || ticket !== this.navigationEpoch || !this.panel.visible) return;
+    if (this.held || (this.rootUuid && trace.path.includes(this.rootUuid))) return;
     const lens = this.lenses.read();
     if ((lens.plan || lens.pending) && this.rootUuid && trace.path.includes(this.rootUuid)) return;
     const decision = clickDecision({ root: this.rootUuid, held: this.held }, trace);
@@ -240,7 +244,12 @@ export class WorkView {
     else if (decision.release) { this.held = null; this.renderHeading(); }
   }
 
-  refresh(): Promise<void> { return this.refreshQueue?.request(true, new Map(), true) ?? Promise.resolve(); }
+  private refreshSource(): Promise<void> { return this.refreshQueue?.request(true, new Map(), true) ?? Promise.resolve(); }
+  async refresh(): Promise<void> {
+    const reading=this.report.readingActive;
+    await this.refreshSource();
+    if (!reading && this.report.active && this.panel.visible && !this.disposed) await this.report.capture(false);
+  }
 
   private updateSource(rows: SourceRow[], available = this.sourceAvailable): void {
     const availability = available ? "available" : "missing";
@@ -262,6 +271,7 @@ export class WorkView {
     if (this.sourceRevision === this.publishedSourceRevision && JSON.stringify(rows) === JSON.stringify(this.rows) && draft?.uuid === this.draft?.uuid) return;
     this.publishedSourceRevision = this.sourceRevision;
     this.draft = draft; this.rows = rows;
+    if (!draft) this.report.sourceChanged();
     this.state = { ...this.state, items: reconcile(this.state.items, rows) };
     this.seq++; this.render(); this.persist();
   }
@@ -317,12 +327,17 @@ export class WorkView {
       void this.report.api.setMode(this.report.active ? "structure" : "report").then(result => { if (!result.ok) this.fail(new Error(result.reason)); });
     });
     mode.className="wb-report-mode"; mode.setAttribute("aria-pressed",String(this.report.active)); mode.disabled=this.historical;
+    mode.onpointerdown=event => event.preventDefault();
     const nativeEdit=button(this.report.active && this.draft ? "继续原生输入" : "编辑原文",() => {
       const uuid=this.report.active && this.draft ? this.draft.uuid : this.rootUuid;
       if (uuid) void this.locate(uuid).catch(this.fail);
     });
+    nativeEdit.onpointerdown=event => event.preventDefault();
     nativeEdit.disabled=this.historical;
-    this.heading.append(mode,nativeEdit,button("只看选定范围", () => { void this.lenses.api.select(); }), button("材料", () => { void this.openMaterials(); }), button("关闭", () => void this.panel.close()));
+    const nativePage=button("原生页面",() => { void this.report.api.showNative().then(result => { if (!result.ok) this.fail(new Error(result.reason)); }); });
+    nativePage.onpointerdown=event => event.preventDefault();
+    nativePage.disabled=this.historical;
+    this.heading.append(mode,nativeEdit,nativePage,button("只看选定范围", () => { void this.lenses.api.select(); }), button("材料", () => { void this.openMaterials(); }), button("关闭", () => void this.panel.close()));
   }
   private async openMaterials(): Promise<void> {
     const root = this.rootUuid, epoch = this.epoch;
@@ -364,6 +379,6 @@ export class WorkView {
     this.disposed = true; this.navigationEpoch++; this.invalidate();
     this.report.dispose();
     if (this.timer !== null) window.clearInterval(this.timer);
-    for (const off of this.disposers) off(); void this.panel.close();
+    for (const off of this.disposers) off(); void this.panel.dispose();
   }
 }

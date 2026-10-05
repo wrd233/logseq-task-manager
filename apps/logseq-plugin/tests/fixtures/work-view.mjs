@@ -37,7 +37,9 @@ export async function fixture(Controller, count = 3, options = {}) {
     DB: { onChanged: fn => { changed = fn; return () => { changed = null; }; } },
     showMainUI: () => {}, hideMainUI: () => {}, setMainUIInlineStyle: () => {},
   };
-  const work = new WorkView(options.onMaterials ?? (() => {}), options);
+  // These fixtures exercise saved structure layouts unless the test requests
+  // the production default/full reading path explicitly.
+  const work = new WorkView(options.onMaterials ?? (() => {}), {readingMode:'structure',...options});
   return {
     browser, work, root, blocks, stats, commands, setCurrent: uuid => { current = blocks.get(uuid); },
     change: event => changed?.(event),

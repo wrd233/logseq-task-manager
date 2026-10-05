@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
+import {setTimeout as schedule} from 'node:timers';
 import {fixture,deferred} from '../fixtures/work-view.mjs';
 
 const row=(f,uuid)=>f.browser.document.querySelector(`.wb-row[data-uuid="${uuid}"]`);
+const edit=(f,uuid)=>[...row(f,uuid).querySelectorAll('button')].find(button=>button.textContent==='编辑原文').click();
 async function reportFixture(width=650,options={}) {
   const f=await fixture(null,9,options);
   f.root.content='**[MiniProject]** 整理一份调研材料 #MiniProject';
@@ -15,10 +17,11 @@ async function reportFixture(width=650,options={}) {
   const block=f.browser.document.createElement('div');block.className='ls-block';
   const editor=f.browser.document.createElement('div');editor.className='block-editor';
   const textarea=f.browser.document.createElement('textarea');editor.append(textarea);block.append(editor);main.append(block);f.browser.document.body.prepend(main);
-  f.nativeCalls=[];f.hidden=[];
-  globalThis.logseq.hideMainUI=options=>f.hidden.push(options);
+  f.nativeCalls=[];f.hidden=[];f.mainStyles=[];
+  globalThis.logseq.setMainUIInlineStyle=style=>f.mainStyles.push(style);
+  globalThis.logseq.hideMainUI=options=>{f.hidden.push(options);f.browser.document.activeElement.blur();};
   globalThis.logseq.Editor.scrollToBlockInPage=(page,uuid)=>{f.nativeCalls.push(['locate',uuid,page]);};
-  globalThis.logseq.App.pushState=async(_type,{name},{anchor})=>globalThis.logseq.Editor.scrollToBlockInPage(name,anchor.slice('block-content-'.length));
+  globalThis.logseq.App.pushState=async(_type,{name},{anchor})=>{ const uuid=anchor.slice('block-content-'.length);globalThis.logseq.Editor.scrollToBlockInPage(name,uuid);block.setAttribute('blockid',uuid); };
   globalThis.logseq.Editor.editBlock=async uuid=>{f.nativeCalls.push(['edit',uuid]);block.setAttribute('blockid',uuid);textarea.value=f.blocks.get(uuid).content;textarea.focus();f.editing(uuid,textarea.value);};
   await f.work.open('root');
   const button=[...f.work.panel.root.querySelectorAll('.wb-heading button')].find(b=>b.textContent==='报告');assert.ok(button);button.click();
@@ -69,10 +72,10 @@ test('navigation acknowledgement precedes the native route render; success requi
     const input=f.browser.document.querySelector('textarea');
     globalThis.logseq.App.pushState=async(_type,{name},{anchor})=>{
       f.nativeCalls.push(['locate',anchor.slice('block-content-'.length),name]);
-      await delay(15);input.closest('.ls-block').setAttribute('blockid','route-render');f.editing(false);
+      await delay(15);input.closest('.ls-block').setAttribute('blockid',anchor.slice('block-content-'.length));f.editing(false);
     };
     globalThis.logseq.Editor.scrollToBlockInPage=(name,uuid)=>{void globalThis.logseq.App.pushState('page',{name},{anchor:'block-content-'+uuid});};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    edit(f,'b0');
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     await delay(35);
     assert.equal(await globalThis.logseq.Editor.checkEditing(),'b0');assert.equal(input.closest('.ls-block').getAttribute('blockid'),'b0');
@@ -97,7 +100,7 @@ test('wide docked window retains the report and native input, while report refle
 test('returning to the same native editor preserves its draft, input node and exact selection instead of reloading source',async()=>{
   const f=await reportFixture(1400);
   try {
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    edit(f,'b0');
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     const input=f.browser.document.querySelector('textarea');input.value='保留未提交的原生草稿';input.setSelectionRange(3,5);f.editing('b0',input.value);await f.tick();
     const before=[...f.nativeCalls],fragment=f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0'),source=f.work.reportAPI.read();
@@ -111,13 +114,13 @@ test('returning to the same native editor preserves its draft, input node and ex
 test('resizing beside native composition to a narrow window yields the report without saving or cancelling input',async()=>{
   const f=await reportFixture(1400);
   try {
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));
+    edit(f,'b0');
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     const input=f.browser.document.querySelector('textarea');input.value='正在组合的原生草稿';f.editing('b0',input.value);
     input.dispatchEvent(new f.browser.Event('compositionstart',{bubbles:true}));
     Object.defineProperty(f.browser.document.documentElement,'clientWidth',{value:650,configurable:true});
     f.browser.dispatchEvent(new f.browser.Event('resize'));await delay(15);
-    assert.equal(f.work.panel.visible,false);assert.equal(f.hidden.at(-1).restoreEditingCursor,false);
+    assert.equal(f.work.panel.visible,false);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
     assert.equal(f.work.reportAPI.read().native.mode,'switch');assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'正在组合的原生草稿');
     assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');
     input.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));f.editing(false);
@@ -147,7 +150,7 @@ test('stale mapping, real host composition and existing native drafts refuse nav
     assert.equal((await f.work.reportAPI.setMode('structure')).reason,'editing-in-progress');
     const bodyTarget=await f.work.resolveBodyDrop(row(f,'b0').querySelector('.wb-body'),'after');assert.equal(bodyTarget.reason,'editing-in-progress');
     textarea.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));
-    f.editing('b1','保留未提交草稿');row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await delay(35);
+    f.editing('b1','保留未提交草稿');edit(f,'b0');await delay(35);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.work.panel.visible,true);f.editing(false);
   }finally{await f.close();}
 });
@@ -167,7 +170,7 @@ test('Graph/root changes and dispose invalidate delayed source navigation and re
   const f=await reportFixture();
   try {
     const page=deferred(),started=deferred();globalThis.logseq.Editor.getPage=async()=>{started.resolve();return page.promise;};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await started.promise;
+    edit(f,'b0');await started.promise;
     f.switchGraph('two');page.resolve({name:'fixture'});await delay(30);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
     assert.equal(f.work.reportAPI.read().scope,null);assert.equal((await f.work.reportAPI.resume()).reason,'scope-mismatch');
@@ -228,8 +231,184 @@ test('a commit racing after source resolution cancels native navigation before y
   const f=await reportFixture();
   try {
     const page=deferred(),started=deferred();globalThis.logseq.Editor.getPage=async()=>{started.resolve();return page.promise;};
-    row(f,'b0').dispatchEvent(new f.browser.Event('dblclick',{bubbles:true}));await started.promise;
+    edit(f,'b0');await started.promise;
     f.content('b1','导航等待期间已提交的新条件。');await f.work.refresh();page.resolve({name:'fixture'});await delay(35);
     assert.equal(f.nativeCalls.length,0);assert.equal(f.work.panel.visible,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
   }finally{await f.close();}
+});
+
+test('production default opens complete reading without inheriting old structure folds or truncation',async()=>{
+  const f=await fixture(null,97,{readingMode:undefined});
+  try {
+    f.browser.localStorage.setItem('workbench:scope:'+JSON.stringify(['one:/one','root']),JSON.stringify({items:[{uuid:'root',depth:0}],collapsed:['root'],overrides:{b0:'compact'}}));
+    await f.work.open('root');
+    assert.equal(f.work.reportAPI.read().mode,'report');
+    assert.equal(f.work.reportAPI.read().fragments.length,97);
+    assert.equal([...f.work.panel.root.querySelectorAll('.wb-row')].filter(node=>!node.hidden).length,97);
+    assert.equal(row(f,'b0').querySelector('.wb-body').classList.contains('expanded'),true);
+    const before=JSON.stringify([...f.blocks]);
+    row(f,'root').querySelector('button[aria-label="折叠子项"]').click();
+    await f.work.reportAPI.setMode('structure');await f.work.reportAPI.setMode('report');
+    assert.equal(row(f,'b0').hidden,true);assert.equal(JSON.stringify([...f.blocks]),before);
+  } finally {await f.close();}
+});
+
+test('text selection and raw comparison never request native routing; comparison uses the captured source version',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    const node=row(f,'b0'), body=node.querySelector('.wb-body'), before=JSON.stringify([...f.blocks]);
+    body.dispatchEvent(new f.browser.MouseEvent('dblclick',{bubbles:true}));
+    [...node.querySelectorAll('button')].find(button=>button.textContent==='对照原文').click();
+    const raw=node.querySelector('pre[aria-label="原文对照"]');assert.equal(raw.textContent,f.blocks.get('b0').content);
+    const read=f.work.reportAPI.read(), fragment=read.fragments.find(f=>f.target.blockUuid==='b0');
+    const request={schemaVersion:1,scope:read.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:read.structureVersion,position:{kind:'block'}};
+    const compared=f.work.reportAPI.compare(request);assert.equal(compared.ok,true);assert.equal(compared.value.content,raw.textContent);
+    assert.equal(raw.dataset.contentVersion,fragment.contentVersion);assert.deepEqual(f.nativeCalls,[]);
+    assert.equal(JSON.stringify([...f.blocks]),before);
+    f.editing('b1','另一块正在输入');f.content('b0','外部已经提交的新句。');await f.work.refresh();
+    assert.equal(f.work.reportAPI.compare(request).value.status,'stale');assert.equal(raw.textContent,compared.value.content);
+    assert.equal((await f.work.reportAPI.openNative(request)).reason,'editing-in-progress');
+    f.editing(false);await f.tick();
+  } finally {await f.close();}
+});
+
+test('the visible continue-writing action reuses the live input and exact selection without refreshing the report',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    edit(f,'b0');await delay(60);
+    const input=f.browser.document.querySelector('textarea');input.value='当前原生草稿继续写';input.setSelectionRange(2,5);f.editing('b0',input.value);await f.tick();
+    const calls=[...f.nativeCalls],version=f.work.reportAPI.read().sourceSetVersion;
+    const menu=row(f,'b0').querySelector('summary'),compare=[...row(f,'b0').querySelectorAll('button')].find(node=>node.textContent==='对照原文');
+    for(const control of [menu,compare]){
+      const pointer=new f.browser.PointerEvent('pointerdown',{bubbles:true,cancelable:true});control.dispatchEvent(pointer);assert.equal(pointer.defaultPrevented,true);
+    }
+    compare.click();assert.equal(row(f,'b0').querySelector('[aria-label="原文对照"]').textContent,f.blocks.get('b0').content);
+    assert.equal(f.browser.document.activeElement,input);assert.deepEqual([input.selectionStart,input.selectionEnd],[2,5]);assert.deepEqual(f.nativeCalls,calls);
+    const button=[...f.work.panel.root.querySelectorAll('.wb-heading button')].find(node=>node.textContent==='继续原生输入');assert.ok(button);button.click();await delay(60);
+    assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'当前原生草稿继续写');assert.deepEqual([input.selectionStart,input.selectionEnd],[2,5]);
+    assert.deepEqual(f.nativeCalls,calls);assert.equal(f.work.reportAPI.read().sourceSetVersion,version);
+    assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+    f.editing(false);
+  } finally {await f.close();}
+});
+
+test('ordinary native input defers committed report changes, then publishes only changed bodies after input ends',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    edit(f,'b0');await delay(60);
+    const input=f.browser.document.querySelector('textarea'), unchanged=row(f,'b3').querySelector('.wb-body').firstChild;
+    f.editing('b0','未提交的原生草稿');input.value='未提交的原生草稿';input.setSelectionRange(1,3);
+    f.content('b1','外部提交的新条件。');await f.work.refresh();
+    assert.doesNotMatch(row(f,'b1').textContent,/外部提交/);assert.equal(f.work.reportAPI.read().status,'stale');
+    assert.equal((await f.work.reportAPI.refresh()).reason,'editing-in-progress');assert.equal(input.value,'未提交的原生草稿');assert.equal(input.selectionEnd,3);
+    f.editing(false);await f.tick();
+    await delay(30);assert.match(row(f,'b1').textContent,/外部提交/);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);
+    assert.equal(f.work.reportAPI.read().status,'current');
+  } finally {await f.close();}
+});
+
+test('opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    edit(f,'b0');await delay(60);
+    const input=f.browser.document.querySelector('textarea');input.value='保留侧栏变化时的草稿';f.editing('b0',input.value);input.setSelectionRange(3,6);
+    // Installed Desktop blurs the current input on hideMainUI, independent of
+    // restoreEditingCursor. The native yield path must avoid that call.
+    globalThis.logseq.hideMainUI=options=>{f.hidden.push(options);f.browser.document.activeElement.blur();};
+    const right=f.browser.document.createElement('aside');right.className='cp__right-sidebar';right.getBoundingClientRect=()=>({width:610});f.browser.document.body.append(right);await delay(40);
+    assert.equal(f.work.panel.visible,false);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留侧栏变化时的草稿');
+    assert.deepEqual([input.selectionStart,input.selectionEnd],[3,6]);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
+    const controls=f.browser.document.querySelectorAll('[data-native-report-return]');assert.equal(controls.length,1);assert.equal(controls[0].type,'button');
+    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');
+    f.editing(false);assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+    assert.ok(f.mainStyles.some(style=>style.display===''));
+    await f.work.panel.close();assert.equal(f.browser.document.querySelector('[data-workbench-host-layout]'),null);
+  } finally {await f.close();}
+});
+
+test('reading mode and explicit folds follow Graph/root identity across material switches and different works',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    const node=row(f,'b0'),scroll=node.parentElement;scroll.scrollTop=275;
+    row(f,'root').querySelector('button[aria-label="折叠子项"]').click();
+    await f.work.panel.close(true,'switch');await f.work.open('root');assert.equal(row(f,'b0').hidden,true);
+    row(f,'root').querySelector('button[aria-label="展开子项"]').click();scroll.scrollTop=275;
+    await f.work.open('b3');assert.equal(f.work.snapshot().root,'b3');assert.equal(row(f,'b3').hidden,false);
+    await f.work.open('root');assert.equal(f.work.reportAPI.read().mode,'report');assert.equal(row(f,'b0').hidden,false);assert.equal(scroll.scrollTop,275);
+    const clicked=f.browser.document.createElement('div');clicked.className='ls-block';clicked.setAttribute('blockid','b3');f.browser.document.body.append(clicked);clicked.click();await delay(20);
+    assert.equal(f.work.snapshot().root,'root');
+    f.switchGraph('other');await delay(20);assert.equal(f.work.reportAPI.read().scope,null);assert.equal(f.work.panel.visible,false);
+  } finally {await f.close();}
+});
+
+test('a void SDK route acknowledgement waits for the actual native block, and closing cancels late input',async()=>{
+  const f=await reportFixture();
+  try {
+    const input=f.browser.document.querySelector('textarea');
+    globalThis.logseq.App.pushState=(_type,{name},{anchor})=>{
+      f.nativeCalls.push(['locate',anchor.slice('block-content-'.length),name]);
+      schedule(()=>input.closest('.ls-block').setAttribute('blockid',anchor.slice('block-content-'.length)),110);
+    };
+    edit(f,'b0');await delay(35);assert.equal(f.nativeCalls.some(c=>c[0]==='edit'),false);
+    await delay(160);assert.equal(await globalThis.logseq.Editor.checkEditing(),'b0');assert.equal(f.browser.document.activeElement,input);
+    f.editing(false);await f.work.reportAPI.resume();input.closest('.ls-block').removeAttribute('blockid');
+    edit(f,'b1');await delay(35);f.work.dispose();await delay(160);
+    assert.equal(f.nativeCalls.filter(c=>c[0]==='edit').length,1);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+  } finally {await f.close();}
+});
+
+test('a hidden navigation lease revalidates membership from the installed provider after routing',async()=>{
+  const {SourceReader}=await import('../../src/workspace/source-reader.ts');
+  const {graphIdentity}=await import('../../src/graph-adapter.ts');
+  const provider={read:scope=>new SourceReader({getBlock:(uuid,options)=>globalThis.logseq.Editor.getBlock(uuid,options),graphId:async()=>graphIdentity(await globalThis.logseq.App.getCurrentGraph())}).read(scope,()=>true)};
+  const f=await reportFixture(650,{source:provider});
+  try {
+    const route=globalThis.logseq.App.pushState;
+    globalThis.logseq.App.pushState=async(...args)=>{await route(...args);f.root.children=f.root.children.filter(child=>child.uuid!=='b0');};
+    const read=f.work.reportAPI.read(),fragment=read.fragments.find(fragment=>fragment.target.blockUuid==='b0');
+    const result=await f.work.reportAPI.openNative({schemaVersion:1,scope:read.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:read.structureVersion,position:{kind:'block'}});
+    assert.equal(result.ok,false);assert.equal(f.nativeCalls.some(call=>call[0]==='edit'),false);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.work.panel.visible,true);
+  } finally {await f.close();}
+});
+
+test('autosave changes may continue the same input lease, but a moved-out UUID cannot take focus',async()=>{
+  const {SourceReader}=await import('../../src/workspace/source-reader.ts');
+  const {graphIdentity}=await import('../../src/graph-adapter.ts');
+  const provider={read:scope=>new SourceReader({getBlock:(uuid,options)=>globalThis.logseq.Editor.getBlock(uuid,options),graphId:async()=>graphIdentity(await globalThis.logseq.App.getCurrentGraph())}).read(scope,()=>true)};
+  const f=await reportFixture(1400,{source:provider});
+  try {
+    edit(f,'b0');await delay(60);
+    const input=f.browser.document.querySelector('textarea');input.value='已自动保存但仍在输入';input.setSelectionRange(2,6);f.editing('b0',input.value);
+    const old=f.work.reportAPI.read(),fragment=old.fragments.find(f=>f.target.blockUuid==='b0');
+    f.content('b0',input.value);await f.work.refresh();
+    const target={schemaVersion:1,scope:old.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:old.structureVersion,position:{kind:'block'}};
+    const calls=[...f.nativeCalls];assert.equal((await f.work.reportAPI.openNative(target)).ok,true);
+    assert.deepEqual(f.nativeCalls,calls);assert.equal(input.value,'已自动保存但仍在输入');assert.deepEqual([input.selectionStart,input.selectionEnd],[2,6]);
+    f.root.children=f.root.children.filter(child=>child.uuid!=='b0');
+    assert.equal((await f.work.reportAPI.openNative(target)).reason,'source-not-in-scope');
+    assert.equal(f.browser.document.querySelector('textarea'),input);f.editing(false);
+  } finally {await f.close();}
+});
+
+test('a deleted report source leaves no orphan paragraph; unchanged bodies and current scope survive',async()=>{
+  const {SourceReader}=await import('../../src/workspace/source-reader.ts');
+  const {graphIdentity}=await import('../../src/graph-adapter.ts');
+  const provider={read:scope=>new SourceReader({getBlock:(uuid,options)=>globalThis.logseq.Editor.getBlock(uuid,options),graphId:async()=>graphIdentity(await globalThis.logseq.App.getCurrentGraph())}).read(scope,()=>true)};
+  const f=await reportFixture(1400,{source:provider});
+  try {
+    const deleted=row(f,'b0'),unchanged=row(f,'b3').querySelector('.wb-body').firstChild;
+    const scroll=deleted.parentElement;
+    scroll.getBoundingClientRect=()=>({top:0,bottom:100});scroll.scrollTop=120;
+    for(const node of scroll.querySelectorAll('.wb-row')){
+      const position=node.dataset.uuid==='root'?0:node===deleted?120:1000;
+      node.getBoundingClientRect=()=>({top:position-scroll.scrollTop,bottom:position+20-scroll.scrollTop});
+    }
+    const read=f.work.reportAPI.read(),fragment=read.fragments.find(fragment=>fragment.target.blockUuid==='b0');
+    f.root.children=f.root.children.filter(child=>child.uuid!=='b0');f.blocks.delete('b0');await f.work.refresh();
+    await delay(20);assert.equal(deleted.isConnected,false);assert.equal(row(f,'b0'),null);assert.equal(row(f,'b3').querySelector('.wb-body').firstChild,unchanged);
+    assert.equal(scroll.scrollTop,0,'a deleted visible source returns to its real ancestor, not the old pixel position');
+    const old={schemaVersion:1,scope:read.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:read.structureVersion,position:{kind:'block'}};
+    assert.equal((await f.work.reportAPI.openNative(old)).ok,false);assert.deepEqual(f.nativeCalls,[]);assert.equal(f.work.snapshot().root,'root');
+  } finally {await f.close();}
 });

@@ -25,6 +25,7 @@ interface Entry {
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
   menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
   nativeEdit: HTMLButtonElement;
+  compare: HTMLButtonElement;
   menuContext: HTMLElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
@@ -75,6 +76,7 @@ export class WorkViewRenderer {
     const menu = element("details", "", "wb-row-menu"), summary = element("summary", "⋯");
     const menuContext = element("small", "", "wb-menu-context");
     summary.setAttribute("aria-label", "条目操作"); summary.title = "条目操作";
+    summary.onpointerdown=event => event.preventDefault();
     menu.append(summary, controls);
     menu.addEventListener("toggle", () => {
       if (menu.open) for (const entry of this.entries.values()) if (entry.menu !== menu && entry.menu.open) this.closeMenu(entry);
@@ -88,16 +90,17 @@ export class WorkViewRenderer {
     const outdent = button("减少视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: -1 }));
     const range = button("只看此处", () => this.actions.range(uuid));
     const nativeEdit = button("编辑原文", () => { menu.open = false; this.actions.locate(uuid); });
-    controls.append(menuContext, select, expand, nativeEdit, button("查看 Markdown 原文", () => this.actions.raw(uuid)), range, indent, outdent);
+    nativeEdit.setAttribute("aria-label","编辑此处原文");
+    nativeEdit.onpointerdown=event => event.preventDefault();
+    const compare=button("查看 Markdown 原文", () => this.actions.raw(uuid));
+    compare.onpointerdown=event => event.preventDefault();
+    controls.append(menuContext, select, expand, nativeEdit, compare, range, indent, outdent);
     node.append(grip, fold, body, menu);
     node.addEventListener("click", event => {
       if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical) this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
-    node.addEventListener("dblclick",event => {
-      if (this.reporting && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
-    });
     node.onkeydown = event => {
       if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing) {
         event.preventDefault(); event.stopPropagation(); menu.open = false; summary.focus({ preventScroll: true }); return;
@@ -107,15 +110,16 @@ export class WorkViewRenderer {
       if (this.reporting) { if (event.key === "Enter") { event.preventDefault(); this.actions.locate(uuid); } return; }
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, compare };
   }
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}, report?: ReportComposition): void {
     this.historical=!!review?.historical;
     this.reporting=!!report;
     const view = composition ?? composeWorkView(rows, state);
+    const reading=this.bookmark();
     this.layout = view.items.map(item => ({uuid:item.uuid,depth:item.depth}));
-    const focused = document.activeElement as HTMLElement | null, scroll = this.container.scrollTop;
+    const focused = document.activeElement as HTMLElement | null;
     const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
     const anchor = Array.from(this.container.children).find(element => {
       const node = element as HTMLElement, rect = node.getBoundingClientRect();
@@ -123,7 +127,7 @@ export class WorkViewRenderer {
     }) as HTMLElement | undefined;
     const anchorOffset = anchor ? anchor.getBoundingClientRect().top - top : 0;
     const source = new Map(rows.map(row => [row.uuid, row]));
-    const keep = new Set(state.items.map(item => item.uuid));
+    const keep = new Set(view.items.map(item => item.uuid));
     for (const [id, entry] of this.entries) if (!keep.has(id)) { entry.node.remove(); this.entries.delete(id); }
     const wantedHeadings=new Set(report?.headings.map(heading=>heading.key));
     for (const [key,node] of this.headings) if (!wantedHeadings.has(key)) { node.remove(); this.headings.delete(key); }
@@ -169,6 +173,7 @@ export class WorkViewRenderer {
       entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical || !!report;
       entry.range.disabled = this.historical;
       entry.nativeEdit.disabled = this.historical;
+      entry.compare.textContent=report ? "对照原文" : "查看 Markdown 原文";
       const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
       if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
       const inline=change?.inline&&change.after===row.content?change.inline:null;
@@ -224,9 +229,11 @@ export class WorkViewRenderer {
       if (canEnter && !entry.enter) { entry.enter = button("进入", () => this.actions.enter(item.uuid)); entry.controls.append(entry.enter); }
       if (entry.enter) entry.enter.hidden = !canEnter;
       if (rawBodies.has(item.uuid) && !entry.raw) {
-        entry.raw = element("pre"); entry.raw.style.gridColumn = "3"; entry.raw.style.whiteSpace = "pre-wrap"; entry.node.append(entry.raw);
+        entry.raw = element("pre"); entry.raw.style.gridColumn = "3"; entry.raw.style.whiteSpace = "pre-wrap"; entry.raw.setAttribute("aria-label","原文对照"); entry.node.append(entry.raw);
       }
       if (entry.raw) {
+        if (fragment) { entry.raw.dataset.sourceId=fragment.sourceId; entry.raw.dataset.contentVersion=fragment.contentVersion; }
+        else { delete entry.raw.dataset.sourceId; delete entry.raw.dataset.contentVersion; }
         entry.raw.hidden = !rawBodies.has(item.uuid);
         if (!entry.raw.hidden && entry.raw.textContent !== row.content) entry.raw.textContent = row.content;
       }
@@ -239,7 +246,8 @@ export class WorkViewRenderer {
       // Layout may already have applied the browser's scroll anchoring. Preserve that adjustment.
       const offset = anchor.getBoundingClientRect().top - top;
       this.container.scrollTop += offset - anchorOffset;
-    } else this.container.scrollTop = scroll;
+    } else this.restore(reading,[],false);
+    this.restoreSelection(reading);
   }
 
   bookmark(): ReadingBookmark {
@@ -263,24 +271,27 @@ export class WorkViewRenderer {
       const range = selected.getRangeAt(0);
       if (this.container.contains(range.startContainer) && this.container.contains(range.endContainer)) {
         const contents: Array<[string, string | undefined]> = [];
-        for (const [id, entry] of this.entries) if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) contents.push([id, entry.content]);
+        for (const [id, entry] of this.entries) if (range.intersectsNode(entry.body)) contents.push([id, entry.content]);
         bookmark.selection = { range: range.cloneRange(), contents };
       }
     }
     return bookmark;
   }
-  restore(bookmark: ReadingBookmark, preferred: readonly string[] = []): void {
+  restore(bookmark: ReadingBookmark, preferred: readonly string[] = [], restoreFocus = true): void {
     const visible = (uuid: string) => { const node = this.entries.get(uuid)?.node; return node && node.isConnected && !node.hidden ? node : null; };
     const original = bookmark.uuid ? visible(bookmark.uuid) : null;
     const node = original ?? [...preferred, ...bookmark.fallback].map(visible).find(Boolean);
     if (node) this.container.scrollTop += node.getBoundingClientRect().top - this.container.getBoundingClientRect().top - (original ? bookmark.offset : 0);
-    else this.container.scrollTop = bookmark.scrollTop;
-    if (bookmark.focused?.isConnected && !bookmark.focused.closest("[hidden]")) bookmark.focused.focus({ preventScroll: true });
-    else if (this.container.parentElement?.contains(document.activeElement) && document.activeElement?.closest("[hidden]")) {
+    else this.container.scrollTop = bookmark.uuid ? 0 : bookmark.scrollTop;
+    if (restoreFocus && bookmark.focused?.isConnected && !bookmark.focused.closest("[hidden]")) bookmark.focused.focus({ preventScroll: true });
+    else if (restoreFocus && this.container.parentElement?.contains(document.activeElement) && document.activeElement?.closest("[hidden]")) {
       (node ?? Array.from(this.container.children).find(value => !(value as HTMLElement).hidden) as HTMLElement | undefined)?.focus({ preventScroll: true });
     }
-    const selection = bookmark.selection;
-    if (selection && selection.range.startContainer.isConnected && selection.range.endContainer.isConnected && selection.contents.every(([id, content]) => visible(id) && this.entries.get(id)?.content === content)) {
+    if (restoreFocus) this.restoreSelection(bookmark);
+  }
+  private restoreSelection(bookmark: ReadingBookmark): void {
+    const selection=bookmark.selection;
+    if (selection && selection.range.startContainer.isConnected && selection.range.endContainer.isConnected && selection.contents.every(([id, content]) => this.entries.get(id)?.node.isConnected && !this.entries.get(id)?.node.hidden && this.entries.get(id)?.content === content)) {
       const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
     }
   }
