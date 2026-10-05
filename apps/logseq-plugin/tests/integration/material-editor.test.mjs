@@ -14,7 +14,7 @@ async function fixture() {
   const browser = new Window({ url: 'http://localhost/plugin/' });
   globalThis.window = browser; globalThis.document = browser.document; globalThis.localStorage = browser.localStorage; globalThis.location = browser.location;
   let graph = '/A', changed, editor, input, creates = 0, sets = 0, destroyed = 0, readCount = 0, intercept = null;
-  const directories = new Set(['/projects/A', '/projects/B']);
+  const directories = new Set(['/A', '/B', '/projects/A', '/projects/B']);
   const blocks = new Map(['source', 'projectA', 'projectB', 'elsewhere'].map(uuid => [uuid, {uuid, content: 'TODO 工作', properties: {id: uuid}, parent: {id: 99}, page: {id: 99}, children: []}]));
   let returned = null, rejectInsertion = false, workRoot = null;
   const commands = new Map();
@@ -24,7 +24,8 @@ async function fixture() {
   browser.apis = { doAction: async ([op, ...args]) => {
     if (op === 'readFile') { readCount++; if (!files.has(args[0])) throw Error('ENOENT'); return files.get(args[0]); }
     if (op === 'writeFile') { writes.push({ graph: args[0], path: args[1] }); if (intercept) await intercept(args[1]); files.set(args[1], args[2]); return; }
-    if (op === 'mkdir-recur') return;
+    if (op === 'mkdir-recur') {directories.add(args[0]);return;}
+    if (op === 'getLogseqDotDirRoot') return '/synthetic-home/.logseq';
     if (op === 'stat') { if (files.has(args[0])) return {mode: 0o100644, size: 1}; if (directories.has(args[0]) || [...files.keys()].some(path => path.startsWith(args[0] + '/'))) return {mode: 0o040755, size: 0}; throw Error('ENOENT'); }
     if (op === 'rename') { files.set(args[1], files.get(args[0])); files.delete(args[0]); return; }
     if (op === 'listdir') return [...files.keys()].filter(path => path.startsWith(args[0] + '/'));
@@ -348,4 +349,17 @@ test('explicit submitted text survives a file failure and the user resumes the s
     const view=await f.materials.readMaterial(pending.materialId);assert.equal(view.content,text);assert.equal(view.writeState,'ready');
     assert.equal([...f.files.keys()].filter(path=>path.startsWith('/projects/A/')&&path.endsWith('.md')).length,1);
   } finally {await f.close();}
+});
+
+test('first default material save uses the current navigation lifetime after reopening the library and retains existing files',async()=>{
+ const f=await fixture();
+ try{
+  globalThis.logseq.settings.materialsDirectory='';await f.materials.library('projectA');await f.materials.library('projectB');
+  assert.equal(f.browser.localStorage.getItem('workbench:default-material-directory:/A'),null);
+  const before=f.files.get(f.docA.path),saved=await f.materials.capture({requestKey:'default-first',text:'默认目录完整材料。',sourceUuid:'projectB'},'user');
+  assert.equal(saved.status,'success');assert.match(saved.material.recordRoot,/^\/synthetic-home\/Documents\/Task Copilot Materials\/[0-9a-f]{20}$/);
+  assert.equal(saved.material.capabilities.edit.agent,false);assert.equal(f.files.get(saved.material.path),'默认目录完整材料。');assert.equal(f.files.get(f.docA.path),before);
+  await f.materials.library('projectA');const next=await f.materials.capture({requestKey:'default-next',text:'重新打开后继续保存。',sourceUuid:'projectA'},'user');
+  assert.equal(next.status,'success');assert.equal(next.material.recordRoot,saved.material.recordRoot);assert.equal(f.files.get(f.docA.path),before);
+ }finally{await f.close();}
 });

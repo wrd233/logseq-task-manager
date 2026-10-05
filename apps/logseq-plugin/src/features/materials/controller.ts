@@ -153,8 +153,9 @@ export class Materials {
       const defaultRoot=localStorage.getItem(`workbench:default-material-directory:${graph.path}`);
       if(defaultRoot)this.directories.register(graph.path,normalizeRoot(defaultRoot,graph.path));
       this.service = new MaterialService(io, this.directories, graph.path, root, captureMarkdown, id => !this.materialBusy(id), async()=>{
+        const preparationEpoch=this.epoch;
         const directory=await prepareDefaultMaterialDirectory(io,localStorage,graph.path,problem=>materialPrompt(this.body,problem));
-        this.assertScope(epoch);return directory;
+        this.assertScope(preparationEpoch);return directory;
       });
     }
     return this.service;
