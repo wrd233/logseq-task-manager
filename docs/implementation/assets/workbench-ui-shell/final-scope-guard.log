@@ -1,0 +1,55 @@
+
+> task-copilot-vnext@0.2.0 typecheck
+> npm run typecheck --workspaces --if-present
+
+
+> @task-copilot/kernel-console@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/kernel-service@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/logseq-plugin@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/cli@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/agent@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/client@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/contracts@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/domain@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/kernel@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/sqlite@0.2.0 typecheck
+> tsc --noEmit
+
+
+> @task-copilot/test-support@0.2.0 typecheck
+> tsc --noEmit
+
+
+> task-copilot-vnext@0.2.0 lint
+> eslint .
+
+
+> task-copilot-vnext@0.2.0 build
+> node scripts/build-all.mjs && node scripts/check-built-binaries.mjs

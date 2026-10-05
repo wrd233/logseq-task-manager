@@ -1,0 +1,10 @@
+{
+  "desktopPid": 63845,
+  "desktopStop": "SIGTERM sent after exact owned app/profile check",
+  "companion": "stopped own service session",
+  "bridge": "stopped own bridge session",
+  "viewportOverride": "cleared through CUA",
+  "productionProcesses": "untouched",
+  "desktopExited": true,
+  "desktopCloneRemoved": true
+}
