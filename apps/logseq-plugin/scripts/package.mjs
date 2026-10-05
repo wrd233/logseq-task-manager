@@ -1,0 +1,28 @@
+import process from 'node:process';
+import console from 'node:console';
+import { execFileSync } from 'node:child_process';
+import { readFile, mkdir, writeFile, readdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { dirname, resolve, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const plugin=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=resolve(plugin,'../..');
+const output=resolve(process.argv[2]??resolve(repo,'docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip'));
+const pkg=JSON.parse(await readFile(resolve(plugin,'package.json'),'utf8'));
+const files=[];
+async function collect(directory){for(const name of (await readdir(directory)).sort()){const path=resolve(directory,name),info=await stat(path);if(info.isDirectory())await collect(path);else files.push({name:relative(plugin,path).replaceAll('\\','/'),path});}}
+await collect(resolve(plugin,'dist'));
+const sha=value=>createHash('sha256').update(value).digest('hex');
+const commit=execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
+const timestamp=Number(execFileSync('git',['show','-s','--format=%ct','HEAD'],{cwd:repo,encoding:'utf8'}).trim());
+const hashes=Object.fromEntries(await Promise.all(files.map(async file=>[file.name,sha(await readFile(file.path))])));
+const identity={schemaVersion:1,commit,builtFromDirtyTree:!!execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:repo,encoding:'utf8'}).trim(),files:hashes};
+const staging=resolve(repo,'tmp/simple-start-reading/package');await mkdir(staging,{recursive:true});
+await writeFile(resolve(staging,'package.json'),JSON.stringify({name:pkg.name,version:pkg.version,description:pkg.description,license:pkg.license,main:pkg.main,type:pkg.type,logseq:pkg.logseq},null,2)+'\n');
+await writeFile(resolve(staging,'build-identity.json'),JSON.stringify(identity,null,2)+'\n');
+await writeFile(resolve(staging,'Start collaboration.command'),'#!/bin/sh\ncd -- "$(dirname -- "$0")/dist" || exit 1\nif ! command -v node >/dev/null 2>&1; then printf "协作需要 Node 20.19 或更高版本。基础阅读不需要 Node。\\n"; exit 1; fi\nexec node workspace.mjs workspace serve "$@"\n');
+for(const name of ['package.json','build-identity.json','Start collaboration.command'])files.push({name,path:resolve(staging,name)});
+await mkdir(dirname(output),{recursive:true});
+const manifest=resolve(staging,'zip-input.json');await writeFile(manifest,JSON.stringify({files,output,timestamp}));
+execFileSync('python3',['-c',`import json,sys,zipfile,datetime\na=json.load(open(sys.argv[1]));dt=datetime.datetime.fromtimestamp(a['timestamp'],datetime.timezone.utc);stamp=(max(1980,dt.year),dt.month,dt.day,dt.hour,dt.minute,dt.second)\nwith zipfile.ZipFile(a['output'],'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:\n for f in sorted(a['files'],key=lambda f:f['name']):\n  i=zipfile.ZipInfo('task-copilot-workbench/'+f['name'],date_time=stamp);i.compress_type=zipfile.ZIP_DEFLATED;i.create_system=3;i.external_attr=(0o100755 if f['name'].endswith('.command') else 0o100644)<<16;z.writestr(i,open(f['path'],'rb').read())\n`,manifest]);
+const digest=sha(await readFile(output));await writeFile(output+'.sha256',digest+'  '+output.split('/').at(-1)+'\n');
+console.log(JSON.stringify({output,sha256:digest,commit,files:files.length}));
