@@ -5,9 +5,10 @@ import type { MaterialService } from "./service.ts";
 import type { MaterialRecord } from "./store.ts";
 import { makeLink, versionOf } from "./store.ts";
 import { MaterialReferences, type ReferenceFact } from "./references.ts";
-import { droppedPath, materialDrag, MATERIAL_MIME, supportsDrop, type MaterialTransferPort } from "./drop.ts";
+import { droppedPath, materialDrag, MATERIAL_MIME, supportsDrop, readDroppedFolder, type MaterialTransferPort } from "./drop.ts";
 import { fileTitle } from "./names.ts";
-import { materialAction, materialPrompt } from "./ui.ts";
+import { materialAction } from "./ui.ts";
+import { copyMaterialLink } from "../../host/clipboard.ts";
 
 export interface MaterialTransferHost {
   service(): Promise<MaterialService>;
@@ -28,6 +29,7 @@ export class MaterialTransfers {
   private hover: Element | null = null;
   private hint: HTMLElement | null = null;
   private hoverTicket = 0;
+  private readonly links = new Map<string, string>();
   constructor(private readonly host: MaterialTransferHost, private readonly form: HTMLElement) {
     for (const doc of new Set([document, hostDocument()].filter((value): value is Document => !!value))) {
       const over = (event: DragEvent) => {
@@ -56,7 +58,9 @@ export class MaterialTransfers {
         this.clearHover();
         // Snapshot the payload synchronously; DataTransfer is protected after dispatch.
         const files = Array.from(event.dataTransfer!.files), internal = event.dataTransfer!.getData(MATERIAL_MIME);
-        void this.drop(files, internal, list?.dataset.materialDropList ?? null, body).catch(this.host.fail);
+        const folders = new Map<number, FileSystemDirectoryEntry>();
+        for (const [index, item] of Array.from(event.dataTransfer!.items ?? []).entries()) { const entry = item.webkitGetAsEntry?.(); if (entry?.isDirectory) folders.set(index, entry as FileSystemDirectoryEntry); }
+        void this.drop(files, internal, list?.dataset.materialDropList ?? null, body, folders).catch(this.host.fail);
       };
       const paste = (event: ClipboardEvent) => this.nativePaste(event);
       const start = () => { this.composing = true; }, end = () => { this.composing = false; };
@@ -72,6 +76,7 @@ export class MaterialTransfers {
   setPort(port: MaterialTransferPort | null): void { this.clearHover(); this.port = port; }
   addFiles(files: File[], root: string | null): Promise<void> { return this.drop(files, "", root, null); }
   decorate(entry: HTMLElement, record: MaterialRecord, root: string | null, actions: Array<{label: string; run: () => Promise<void>}> = []): HTMLElement {
+    this.links.set(record.id, makeLink(record));
     const row = element("div", "", "wb-material-entry"); row.append(entry);
     const more = element("details"), summary = element("summary", "操作"); summary.setAttribute("aria-label", `${record.title} 的材料操作`);
     more.append(summary, button("复制链接", () => void this.copy(record.id, root).catch(this.host.fail)), button("改文件名", () => void this.rename(record.id, root).catch(this.host.fail))); row.append(more);
@@ -92,7 +97,10 @@ export class MaterialTransfers {
     }
     return row;
   }
-  private async drop(files: File[], internal: string, listRoot: string | null, body: Element | null): Promise<void> {
+  private async drop(files: File[], internal: string, listRoot: string | null, body: Element | null, folders = new Map<number, FileSystemDirectoryEntry>()): Promise<void> {
+    const queue = element("div", "", "wb-material-imports"); queue.setAttribute("role", "status");
+    const rows = files.map(file => { const row = element("div", "", "wb-material-import-row"), state = element("small", "等待加入…"); row.append(element("span", file.name), state); queue.append(row); return {row, state, key: crypto.randomUUID()}; });
+    if (files.length) (body ?? this.form).prepend(queue);
     const ticket = this.host.ticket(), service = await this.host.service(); this.host.assert(ticket);
     const port = this.port, target = body && port && !this.composing ? await port.resolve(body) : null;
     this.host.assert(ticket);
@@ -100,21 +108,39 @@ export class MaterialTransfers {
     if (body && !root) { this.announce("该位置没有可靠原文映射。请拖入当前工作的材料列表，或复制链接到原生编辑器。"); return; }
     if (body && current && (await port!.scope(current.rootUuid)).graphId !== current.graphId) throw new Error("当前 Graph 已变化，文件没有加入其他工作。");
     const context = await this.host.context(root); this.host.assert(ticket);
-    const ids: string[] = [], problems: string[] = [];
+    const ids: string[] = [], problems: string[] = []; let folderCount = 0;
+    const remember = (material: {id: string; reference: string}) => { if (!ids.includes(material.id)) ids.push(material.id); this.links.set(material.id, material.reference); };
     if (internal) {
       if (!port || !root) throw new Error("请从当前工作的材料入口拖动。");
       const payload = materialDrag(internal, await port.scope(root)); this.host.assert(ticket);
       ids.push((await service.associate(payload.materialId, context)).material.id);
     } else {
-      for (const file of files) {
+      for (const [index, file] of files.entries()) {
+        const progress = rows[index]!;
         try {
-        let path = await droppedPath(file, service.io); this.host.assert(ticket);
-        if (!path) {
-          if (body) { this.announce("宿主未提供原文件路径。请先在材料列表关联原文件，再复制链接到正文。"); continue; }
-          this.host.message("宿主未提供原文件路径。请指定已保存文件的路径，继续按原文件关联。");
-          path = await materialPrompt(this.form, `关联 ${file.name} 的绝对文件路径`); this.host.assert(ticket);
-        }
-        if (path) ids.push((await service.associateFile(path, context)).material.id);
+          const run = async () => {
+            this.host.assert(ticket); progress.state.textContent = "正在加入…";
+            const nativePath = (file as File & {path?: string}).path;
+            if (folders.has(index) || nativePath && (await service.io.stat?.(nativePath))?.type === "directory") {
+              const entry = folders.get(index);
+              const result = entry && !nativePath ? await service.importFolderBytes(file.name, (await readDroppedFolder(entry)).map(item => ({relative: item.relative, bytes: () => item.file.arrayBuffer()})), context, progress.key) : await service.importDirectory(nativePath!, context, progress.key);
+              for (const value of result.materials) remember(value.material);
+              if (result.problems.length) throw new Error(result.problems.join("；"));
+              folderCount++;
+            } else {
+              const path = await droppedPath(file, service.io); this.host.assert(ticket);
+              const value = await service.importFile(path ? {name: file.name, path} : {name: file.name, bytes: await file.arrayBuffer()}, context, progress.key);
+              remember(value.material);
+            }
+            this.host.assert(ticket); progress.state.textContent = "已加入";
+          };
+          progress.row.dataset.importState = "pending";
+          const failed = (error: unknown) => {
+            progress.row.dataset.importState = "failed"; progress.state.textContent = `未加入：${error instanceof Error ? error.message : String(error)}`;
+            if (!progress.row.querySelector("button")) progress.row.append(button("重试", () => void run().then(async () => { await this.host.refresh(root); progress.row.remove(); }).catch(failed)));
+          };
+          try { await run(); progress.row.dataset.importState = "complete"; if (!body) { await this.host.refresh(root); progress.row.remove(); } }
+          catch (error) { failed(error); throw error; }
         } catch (error) { this.host.assert(ticket); problems.push(`${file.name} 未加入：${error instanceof Error ? error.message : String(error)}`); }
       }
     }
@@ -143,19 +169,22 @@ export class MaterialTransfers {
         })().catch(this.host.fail)));
         row?.append(continuation);
       }
-    } else { await this.host.refresh(root); this.host.message(`${ids.length ? `已加入 ${ids.length} 份材料，正文未插入链接。` : "没有加入文件。"}${problems.length ? ` ${problems.join(" ")}` : ""}`); }
+    } else { await this.host.refresh(root); this.host.message(`${ids.length ? `已加入 ${ids.length} 份材料，正文未插入链接。` : folderCount ? `文件夹已保存，其中暂无可列出的文件。` : "没有加入文件。"}${problems.length ? ` ${problems.join(" ")}` : ""}`); }
+    for (const item of rows) if (item.row.dataset.importState === "complete") item.row.remove();
+    if (!queue.children.length) queue.remove();
   }
   private announce(text: string): void { this.host.message(text); void logseq.UI.showMsg(text, "info"); }
-  async copy(id: string, root: string | null, fallback: HTMLElement = this.form): Promise<void> {
-    const ticket = this.host.ticket(), service = await this.host.service(), material = await service.read(id); this.host.assert(ticket);
-    const text = material.reference;
+  async copy(id: string, root: string | null, _fallback: HTMLElement = this.form, reference?: string): Promise<void> {
+    const ticket = this.host.ticket(), cached = reference ?? this.links.get(id);
+    const copying = cached ? copyMaterialLink(cached).then(() => true, () => false) : null;
+    const service = await this.host.service(), material = await service.read(id); this.host.assert(ticket);
+    const text = cached ?? material.reference;
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("剪贴板不可用");
-      await navigator.clipboard.writeText(text);
+      if (copying ? !await copying : !await copyMaterialLink(text).then(() => true, () => false)) throw new Error("复制失败");
     } catch {
       this.host.assert(ticket);
-      const input = element("textarea", "", "wb-material-link-fallback"); input.value = text; input.readOnly = true; input.setAttribute("aria-label", "材料链接");
-      fallback.append(input); input.focus(); input.select(); this.host.message("复制未完成，请选择这段链接复制。");
+      if (_fallback !== this.form && _fallback.isConnected) _fallback.append(element("small", "复制未完成，请再次点击复制链接。"));
+      this.host.message("复制未完成，请再次点击复制链接。");
       return;
     }
     this.host.assert(ticket);

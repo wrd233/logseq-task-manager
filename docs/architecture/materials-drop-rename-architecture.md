@@ -1,5 +1,7 @@
 # 材料拖入、引用事实与改名架构
 
+> 历史增量说明。当前导入副本、目录偏好和剪贴板适配见[材料模块架构](materials-module-architecture.md)；本页保留此前关联式拖入的实现时点。
+
 2026-10-04。[产品设计](../design/materials-drop-rename-design.md)；[交接与实测](../implementation/materials-drop-rename-handoff.md)；[最新 main 整合](../integration/materials-drop-rename-main-2026-10-04.md)。实现起于 `e666e7b`，已整合 `df307ef` 的报告与正文整理能力；不定义另一个 Workspace、正文 executor 或材料 catalog。
 
 ## 边界与权威

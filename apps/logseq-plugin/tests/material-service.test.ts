@@ -32,7 +32,7 @@ test("capture chooses flat Task, existing Project purpose directories and global
     assert.equal(flat.material.path, join(f.a, "工作材料.md"));
     assert.equal(project.material.recordRoot, join(f.b, "materials"));
     assert.equal(draft.material.recordRoot, join(f.b, "notes"));
-    assert.equal(global.material.recordRoot, f.globalRoot);
+    assert.equal(global.material.recordRoot, join(f.globalRoot, "workspaces", "task-A"));
     assert.equal((await f.service.read(flat.material.id)).path, flat.material.path);
     assert.deepEqual((await readdir(f.a)).sort(), [".longdoc", "工作材料.md"]);
   } finally {await f.cleanup();}

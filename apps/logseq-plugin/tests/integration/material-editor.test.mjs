@@ -86,8 +86,8 @@ test('offline directory preview leaves identity, source and editing permission u
     const path='/projects/A/协作参考.md', text='# 协作参考\n\n只读文件先阅读，再选择关联。';
     f.files.set(path,text); await f.materials.bindDirectory('projectA','/projects/A'); await f.materials.library('projectA');
     const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
-    assert.ok(find('目录文件')); assert.ok(find('返回正文'));
-    find('目录文件').click(); await delay(30); const writes=f.writes.length;
+    assert.equal(find('目录文件'),undefined); assert.ok(find('目录'));
+    await f.materials.directoryFiles(); await delay(30); const writes=f.writes.length;
     assert.match(f.materials.panel.root.textContent,/尚未关联/);
     find('协作参考.md').click(); await delay(30);
     assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作参考');
@@ -97,7 +97,7 @@ test('offline directory preview leaves identity, source and editing permission u
     const rows=await f.materials.listMaterials('projectA'); assert.equal(rows.materials.length,1);
     assert.deepEqual(rows.materials[0].capabilities.edit,{user:false,agent:false});
     assert.equal(rows.materials[0].path,path); assert.equal(f.files.get(path),text); assert.equal(f.blocks.get('projectA').children.length,0);
-    await f.materials.library('projectA'); find('目录文件').click(); await delay(30);
+    await f.materials.library('projectA'); await f.materials.directoryFiles(); await delay(30);
     assert.match(f.materials.panel.root.textContent,/已关联材料/); assert.equal(find('关联'),undefined);
   } finally {await f.close();}
 });
@@ -110,7 +110,7 @@ test('offline directory reads an existing captured output through its original i
     await f.materials.bindDirectory('projectA','/projects/A');await f.materials.library('projectA');
     const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
     const before=await f.materials.listMaterials('projectA');
-    find('目录文件').click();await delay(30);
+    await f.materials.directoryFiles();await delay(30);
     assert.match(f.materials.panel.root.textContent,/已关联材料/);
     assert.equal(find('关联'),undefined);
     find(output.path.split('/').at(-1)).click();await delay(30);
@@ -130,7 +130,7 @@ test('a delayed connected preview cannot revive a previous Graph or offer a writ
     const gate=deferred(),started=deferred();let associated=0;
     f.materials.setDirectoryObserver({available:()=>true,stop:()=>{},list:async()=>({files:[{path:'/projects/A/参考.md',kind:'file',availability:'available',materialId:null}],truncated:false}),read:async()=>{started.resolve();return gate.promise;},associate:async()=>{associated++;throw Error('unexpected association');}});
     await f.materials.library('projectA');
-    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='目录文件').click();await delay(30);
+    await f.materials.directoryFiles();await delay(30);
     [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='参考.md').click();await started.promise;
     f.switchGraph('B');gate.resolve({content:'# 旧 Graph 的内容'});await delay(30);
     assert.equal(f.materials.panel.visible,false);assert.equal(associated,0);
@@ -305,7 +305,9 @@ test('automatic paste respects opt-in, short/internal/code input and retains a s
     input.value='before';input.setSelectionRange(6,6);
     let insertions=0;f.browser.document.execCommand=()=>{insertions++;return true;};
     const gate=deferred(),started=deferred();f.intercept(async path=>{if(path.endsWith('.md')){started.resolve();await gate.promise;}});
-    assert.equal(paste(input,plain).defaultPrevented,true);await started.promise;
+    assert.equal(paste(input,plain).defaultPrevented,false);input.value='before'+plain;
+    await until(()=>!!f.browser.document.querySelector('dialog input[aria-label="收纳文件名"]'),'capture prompt');
+    f.browser.document.querySelector('dialog form').dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));await started.promise;
     input.value='new current input';f.switchGraph('B');gate.resolve();
     await until(()=>[...Array(f.browser.localStorage.length)].map((_,i)=>f.browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')&&JSON.parse(f.browser.localStorage.getItem(key)).materialId),'saved capture identity retained after Graph switch');
     assert.equal(input.value,'new current input');assert.equal(insertions,0);
@@ -328,27 +330,25 @@ test('user and agent captures share HTML conversion and preserve the original fo
   } finally {await f.close();}
 });
 
-test('explicit submitted text survives a file failure and the user resumes the same material from its record', async () => {
-  const f = await fixture();
-  const button = label => [...f.materials.panel.root.querySelectorAll('button')].find(b => b.textContent === label);
-  const until = async condition => {
-    for (let i = 0; i < 200; i++) { if (condition()) return; await delay(10); }
-    assert.fail('material recovery did not reach the expected visible state');
-  };
-  try {
+test('confirmed paste survives a file failure and resumes the same material from its record', async () => {
+  const f=await fixture();try {
     await f.materials.bindDirectory('projectA','/projects/A');await f.materials.library('projectA');
-    [...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent==='收纳文本').click();await delay(10);
-    const form=f.materials.panel.root.querySelector('.wb-material-form'),text='explicit text that must survive';form.querySelector('textarea').value=text;
-    const storage=globalThis.localStorage;globalThis.localStorage={setItem:()=>{throw Error('quota');}};form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));assert.equal(form.isConnected,true);assert.equal(form.querySelector('textarea').value,text);globalThis.localStorage=storage;
-    f.intercept(async path=>{if(path.endsWith('.md'))throw Error('disk full');});
-    form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));await until(() => button('继续保存收纳'));
+    globalThis.logseq.settings.materialsAutoCapture=true;
+    const block=f.browser.document.createElement('div');block.className='ls-block';block.setAttribute('blockid','projectA');
+    const editor=f.browser.document.createElement('div');editor.className='block-editor';const input=f.browser.document.createElement('textarea');editor.append(input);block.append(editor);f.browser.document.body.append(block);input.focus();
+    const text='explicit text that must survive\n'.repeat(100);
+    const event=new f.browser.Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(event,'clipboardData',{value:{files:[],types:['text/plain'],getData:type=>type==='text/plain'?text:''}});input.dispatchEvent(event);input.value=text;
+    await until(()=>!!f.browser.document.querySelector('dialog'),'capture decision');
+    const form=f.browser.document.querySelector('dialog form'),name=form.querySelector('input');name.value='保留的原文';
+    f.intercept(async path=>{if(path.endsWith('.md'))throw Error('disk full');});form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));
+    await until(()=>form.textContent.includes('disk full'),'save failure retains dialog');assert.equal(input.value,text);
     const key=[...Array(f.browser.localStorage.length)].map((_,i)=>f.browser.localStorage.key(i)).find(k=>k.startsWith('workbench:pending:'));
-    assert.ok(key);const pending=JSON.parse(f.browser.localStorage.getItem(key));assert.equal(pending.plain,text);assert.ok(pending.materialId);
-    assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden,true);
-    f.intercept(null);button('继续保存收纳').click();await until(() => !button('继续保存收纳'));
-    const view=await f.materials.readMaterial(pending.materialId);assert.equal(view.content,text);assert.equal(view.writeState,'ready');
+    const pending=JSON.parse(f.browser.localStorage.getItem(key));assert.equal(pending.plain,text);assert.ok(pending.materialId);
+    f.intercept(null);f.browser.document.execCommand=()=>true;form.dispatchEvent(new f.browser.Event('submit',{bubbles:true,cancelable:true}));
+    await until(()=>!f.browser.document.querySelector('dialog'),'retry succeeds');
+    const view=await f.materials.readMaterial(pending.materialId);assert.equal(view.content,text);assert.equal(view.writeState,'ready');assert.equal(view.title,'保留的原文');
     assert.equal([...f.files.keys()].filter(path=>path.startsWith('/projects/A/')&&path.endsWith('.md')).length,1);
-  } finally {await f.close();}
+  }finally{await f.close();}
 });
 
 test('first default material save uses the current navigation lifetime after reopening the library and retains existing files',async()=>{
@@ -357,9 +357,9 @@ test('first default material save uses the current navigation lifetime after reo
   globalThis.logseq.settings.materialsDirectory='';await f.materials.library('projectA');await f.materials.library('projectB');
   assert.equal(f.browser.localStorage.getItem('workbench:default-material-directory:/A'),null);
   const before=f.files.get(f.docA.path),saved=await f.materials.capture({requestKey:'default-first',text:'默认目录完整材料。',sourceUuid:'projectB'},'user');
-  assert.equal(saved.status,'success');assert.match(saved.material.recordRoot,/^\/synthetic-home\/Documents\/Task Copilot Materials\/[0-9a-f]{20}$/);
+  assert.equal(saved.status,'success');assert.match(saved.material.recordRoot,/^\/synthetic-home\/Documents\/Task Copilot Materials\/[0-9a-f]{20}\/workspaces\/projectB$/);
   assert.equal(saved.material.capabilities.edit.agent,false);assert.equal(f.files.get(saved.material.path),'默认目录完整材料。');assert.equal(f.files.get(f.docA.path),before);
   await f.materials.library('projectA');const next=await f.materials.capture({requestKey:'default-next',text:'重新打开后继续保存。',sourceUuid:'projectA'},'user');
-  assert.equal(next.status,'success');assert.equal(next.material.recordRoot,saved.material.recordRoot);assert.equal(f.files.get(f.docA.path),before);
+  assert.equal(next.status,'success');assert.notEqual(next.material.recordRoot,saved.material.recordRoot);assert.ok(next.material.recordRoot.endsWith('/workspaces/projectA'));assert.equal(f.files.get(f.docA.path),before);
  }finally{await f.close();}
 });

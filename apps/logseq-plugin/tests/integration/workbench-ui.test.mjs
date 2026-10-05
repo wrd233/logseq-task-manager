@@ -122,7 +122,7 @@ test('combined panels preserve source text, load linked material and retain conf
     assert.equal(materials.panel.root.querySelector('.wb-conflict').hidden,false);
     assert.equal(files.get(record.path),'# 材料\nexternal');
 
-    // A failed capture must return the original paste when the editor is still unchanged.
+    // A failed preparation leaves native paste and undo untouched, retaining recovery content.
     globalThis.logseq.settings.materialsAutoCapture=true; globalThis.logseq.settings.materialsDirectory='/graph/invalid';
     const fixture=browser.document.createElement('div'); fixture.className='ls-block'; fixture.setAttribute('blockid','b');
     fixture.innerHTML='<div class="block-editor"><textarea></textarea></div>'; browser.document.body.append(fixture);
@@ -131,9 +131,9 @@ test('combined panels preserve source text, load linked material and retain conf
     browser.document.execCommand=(command,_ui,value)=>{assert.equal(command,'insertText');assert.equal(value,plain);target.value=value;fallback++;return true;};
     const event=new browser.Event('paste',{bubbles:true,cancelable:true});
     Object.defineProperty(event,'clipboardData',{value:{files:[],types:['text/plain'],getData:type=>type==='text/plain'?plain:''}});
-    target.dispatchEvent(event);
-    for(let i=0;i<40&&!fallback;i++)await delay(5);
-    assert.equal(event.defaultPrevented,true); assert.equal(fallback,1); assert.equal(target.value,plain);
+    target.dispatchEvent(event); target.value=plain;
+    await delay(100);
+    assert.equal(event.defaultPrevented,false); assert.equal(fallback,0); assert.equal(target.value,plain);
     assert.equal([...Array(browser.localStorage.length)].map((_,i)=>browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')),true); // recovery remains when disk work failed
   } finally {
     work.dispose(); materials.dispose(); await browser.happyDOM.abort();

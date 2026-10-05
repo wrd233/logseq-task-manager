@@ -1,5 +1,7 @@
 # 材料拖入与文件改名
 
+> 历史增量说明。2026-10-05 的默认目录、拖入复制、直接复制链接与原生长文本确认以[当前材料设计](materials-module-design.md)为准；本页保留此前实现时点的验证事实。
+
 2026-10-04。基于已发布 `e666e7be1367e97dabf5f787c7dcb944ac70e815` 的增量实现，现已[整合最新 main](../integration/materials-drop-rename-main-2026-10-04.md)的报告与正文整理能力。既有收纳、阅读、编辑与恢复见[材料模块设计](materials-module-design.md)；本页的实现、验证与剩余接入见[架构](../architecture/materials-drop-rename-architecture.md)和[交接](../implementation/materials-drop-rename-handoff.md)。
 
 ## 目标与范围

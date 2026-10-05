@@ -1,199 +1,178 @@
-# 材料模块架构与调用契约
+# 材料模块架构
 
-2026-10-02。本页描述已经实现的材料能力，产品路径见[产品设计](../design/materials-module-design.md)。总工作区设计中的镜像、阶段、聚焦和正式授权接口仍为其他模块的目标，不是本页已经提供的 API。
+2026-10-05。对应[当前产品设计](../design/materials-module-design.md)。沿用现有材料记录、文件保存、正文 Journal、工作区提供方和共享面板，不新建 Kernel 操作、服务端口或 Workspace 框架。
 
-2026-10-04 增量：可选物理文件身份、逐项改名事实与版本绑定引用证据已接入原独立记录。文件位置仍通过稳定 ID 定位，名称维护复用现有 content executor。真实端口、宿主限制和恢复见[增量架构](materials-drop-rename-architecture.md)。
-
-## 模块与依赖
+## 边界与依赖
 
 ```mermaid
 flowchart TB
-  UI[Materials 面板与用户命令] --> Service[MaterialService 核心编排]
-  API[插件上下文 Agent 适配] --> Service
-  UI --> Source[MaterialSourceActions SDK 与粘贴保护]
-  API --> Source
-  Source --> Service
-  Service --> Directories[MaterialDirectories 目录绑定与定位提示]
-  Service --> Store[MaterialStore 独立记录与版本写入]
-  Store --> IO[FileIO / Desktop 桥接]
-  Source --> Logseq[Logseq 来源与引用]
+  UI[文件列表 / 目录页 / 阅读编辑] --> Transfers[拖入与复制适配]
+  Paste[原生粘贴确认 / 显式块收纳] --> Sources[来源位置保护]
+  Agent[插件上下文材料 API] --> Service[MaterialService]
+  Transfers --> Service
+  Sources --> Service
+  Service --> Import[文件复制 / 操作恢复]
+  Service --> Convert[既有 HTML 清洗与 Markdown 转换]
+  Service --> Store[独立记录 / 版本 / 历史]
+  Service --> Dirs[目录偏好与精确定位]
+  Import --> Store
+  Store --> IO[FileIO / Desktop 适配]
+  Dirs --> Workspace[既有工作上下文窄接口]
+  Sources --> Native[Logseq SDK / 原生编辑器]
+  Transfers --> Journal[既有正文执行器与 Journal]
 ```
 
-- `features/materials/service.ts`：人和 Agent 共用的读取、收纳、关联、保存与实际结果，不依赖 DOM、Logseq SDK 或 Kernel。转换函数与文件能力由边界注入。
-- `store.ts`：独立材料记录、正文路径、权限检查、元数据修改、收纳断点、版本比较、历史、临时文件与读回。
-- `workspace/material-context.ts`：最小 `MaterialWorkContext`、目录绑定、已知目录登记和可重建定位提示；不管理任务生命周期或正式层级。
-- `source.ts`：Logseq SDK、稳定来源身份、引用插入、块收纳、原生粘贴及 Graph/epoch 检查。
-- `controller.ts`：阅读、编辑器复用、草稿与冲突、面板和 UI 协调。`conversion.ts` 清洗 HTML 与转换 Markdown，`ui.ts` 提供只读渲染和局部输入，`links.ts` 集中材料身份解析与安全协议规则，供材料与工作视图渲染复用。
-- `host/file-io.ts`、`host/desktop-files.ts`：文件能力；host 不反向依赖 feature。现有共享 Runtime、只读身份查询、工作视图和面板串行协调均复用，不引入 task-center 控制器依赖。
+`service.ts`、`store.ts`、`imports.ts` 和目录选择核心不依赖 DOM 或 Logseq SDK。`controller.ts` 保留阅读、编辑、草稿及面板协调；`folder-ui.ts` 管目录交互；`paste-ui.ts` 管一次收纳决定；`transfer-ui.ts` 管事件与反馈。`desktop-files.ts`、`clipboard.ts` 把桌面 IO 和浏览器能力限定在宿主适配层。
 
-没有新包、HTTP 服务、端口、事件总线、通用 Workspace 框架或正式 Kernel 操作。展示 `apply` 的白名单不包含材料文件写入。
+材料文件写入与展示 `apply` 分开。原文插入通过 `MaterialSourceActions` 或已有可信落点／正文 executor，文件写入没有加入布局白名单。工作区主 manifest 和正式 agent 授权仍由原模块负责。
 
-## 数据权威与身份
+## 身份与数据权威
 
 ```mermaid
 flowchart LR
-  A[工作块 A / Graph] --> R[独立材料记录 / 稳定 ID]
-  B[工作块 B / Graph] --> R
-  L[旧 longdoc 引用 / 任意标题] --> R
-  R --> F[一个原文件 / 实际路径]
-  R --> O[收纳当时原文与 HTML]
-  R --> H[该记录目录的编辑历史]
-  R -. 可重建提示 .-> I[Graph + ID → 记录目录]
+  A[工作 A] --> R[材料记录 / 稳定 ID]
+  B[工作 B] --> R
+  L[任意页面 longdoc 引用] --> R
+  R --> F[实际文件路径 / 正文]
+  R --> Original[收纳当时原文]
+  R --> History[文件修改历史]
+  Hint[可重建 ID 定位提示] -. 定位 .-> R
+  Destination[当前默认保存目录] --> New[下一份新材料]
 ```
 
-`.longdoc/<id>.json` 是材料身份、定位、来源、用途、编辑边界及关联的权威；Markdown 或原普通文件是正文的唯一权威。没有共享可覆盖 catalog，也不让索引或 Logseq 链接重写记录。
+`.longdoc/<id>.json` 是身份、路径、来源、用途、编辑边界和多工作关联的权威；实际文件是正文权威。没有共享可覆盖 catalog。标题与 basename 可变，ID 不依赖它们。旧 capture 没有 path 时继续读取 `<id>.md`。
 
-记录保持旧字段 `id/title/createdAt/kind/path/graph/sourceUuid/original/originalHTML/recoveredFrom`。新增字段为 `schemaVersion: 2`、`role`、`editing: {user, agent}`、`associations: [{graph,sourceUuid}]`、`requestKey/requestFingerprint`、`creation`、临时 `pendingBody`，以及显式整块收纳的 `restoreMode: "block"`。记录读取会拒绝未来 schema 和非法角色、权限、关联形状，不按文件名推断授权。
+保留 schemaVersion 2 与旧字段，新增可选 `imported: {sourcePath: string|null, requestKey}`，区分导入副本与原文件关联；`kind` 仍兼容 capture/reference。程序视图的 `origin` 为 capture/reference/import。用途 role 和 user/agent 编辑能力独立于来源，导入不自动授权。
 
-`id` 不依赖标题和文件名。普通新材料随机生成 UUID；带幂等请求的收纳用 Graph 与请求标识的 SHA-256 派生 UUID 形状的稳定 ID。hash 在这里仅生成请求身份，不用于认领同内容或同名文件。标题修改只修改记录。新 capture 在记录中保存可读文件路径，重名追加 ID 前 8 位；旧 capture 无 `path` 时按旧 `<id>.md` 读取。外部文件保留原路径与名称。
+`sourceUuid` 保留实际来源块；`ownerUuid` 是上下文中的材料目录归属。新材料关联同时包含来源和归属工作，便于工作列表呈现。多工作关联只添加关系，不复制正文。旧记录没有关联数组时从旧 graph/sourceUuid 派生。
 
-`sourceUuid/graph` 保留第一来源与原文恢复位置；`associations` 允许多个工作共同引用同一正文。没有新数组的旧记录从第一来源派生关联。新关系不覆盖收纳原文，也不转移正式任务语义。
-
-| 持久数据 | 职责与限制 |
+| 数据 | 职责 |
 | --- | --- |
-| `.longdoc/<id>.json` | 独立权威记录；pending 只在收纳未确认期间保留转换正文 |
-| `.longdoc/history/<id>.<time>.<uuid>.md` | 每次真正修改前的文件快照，不是阶段认可 |
-| `workbench:draft:<graph>:<id>` | 本地未保存正文及基础内容；切换和冲突恢复，非第二正文权威 |
-| `workbench:pending:*` | 粘贴位置、原文、Graph、固定工作上下文及已保存 ID；兼容旧恢复记录 |
-| `workbench:material-binding:[graph,uuid]` | 显式单源目录绑定，可解除；无完整 Workspace 对象 |
-| `workbench:material-root:[graph,root]` | 每目录一键登记，只记录可查目录，不保存可覆盖材料列表 |
-| `workbench:material-locator:[graph,id]` | 派生记录目录提示；失效时显式重登记，缺失可 exact ID 重建 |
+| 实际 Markdown／普通文件 | 唯一正文；二进制没有伪造文本或版本 |
+| `.longdoc/<id>.json` | 独立权威材料记录、权限、原文、关联及恢复事实 |
+| `.longdoc/history/` | 修改前正文快照，非阶段认可 |
+| `.longdoc/imports/<操作摘要>.json` | 单次复制目标、临时文件、阶段和身份；恢复后由材料记录回答读取 |
+| `workbench:draft:<graph>:<id>` | 未保存输入与基础内容，非第二正文权威 |
+| `workbench:pending:*` | 收纳原文、位置、固定 Graph／上下文及已保存 ID |
+| `workbench:material-binding:*` | 既有 Workspace 主绑定；材料偏好不覆盖它 |
+| `workbench:material-folders:*` | 工作的材料目录集合、默认位置及兼容主目录的显示选择 |
+| `workbench:material-root:*` | 已知记录根登记，不存材料正文或共享目录列表 |
+| `workbench:material-locator:*` | ID 或单次导入操作的派生精确目录提示 |
 
-目录登记与绑定在插件本地存储，清缓存会失去它们。独立记录仍在文件目录，可通过“登记材料目录”重建定位。它们不是完整跨机器迁移格式；备份或交接应包含 `.longdoc`，新环境显式登记路径。
+材料目录偏好只有一个本地写入权威。清理本地存储后需重新选择已有目录；选择动作注册根并可读取其中独立记录。备份应包含 `.longdoc`。路径提示、导入操作记录、正文历史和阶段快照不互相覆盖。
 
-## 新材料保存与旧材料定位
+## 保存目的地与跨目录定位
 
-`MaterialWorkContext` 只有 `{graph, sourceUuid, directory, organization}`。无工作区提供方时由本轮轻量绑定提供；源祖先就近查找最多 32 层。`organization` 为 `flat` 或 `project`，不表示正式工作种类或生命周期。当前用户界面识别明确项目标记，默认普通任务平铺；适配器可直接传入组织方式。
+`MaterialWorkContext` 为 `{graph, sourceUuid, ownerUuid?, directory, organization}`。UI 接入现有 `WorkView.materialContext`，随后做最多 32 层来源查找。没有 provider 时使用明确来源和已有目录绑定，不读取任务中心私有状态。
 
-`captureDirectory` 检查显式工作根可用，选择既有材料/工作记录/成果目录，缺少结构时返回用途默认路径，由首次实际收纳创建。无绑定才使用全局配置目录。已绑定但不可用时拒绝回退。关联原文件的记录存于工作根或全局根；正文不搬迁，也不为关联创建模板目录。
+保存首先使用工作默认材料目录。未绑定时复用已配置或宿主准备的 Graph 专属根，实际保存时创建 `workspaces/<编码的工作身份>`；无工作归属才保存到全局根。原接口的项目用途子目录能力继续可用；材料页添加的目录使用 flat，直接作为默认位置。明确目录不可读时失败，不回退。
 
 ```mermaid
 flowchart TB
-  Link[点击 longdoc 稳定 ID] --> Hint{有记录目录提示？}
-  Hint -->|有| Exact[读原目录 .longdoc/ID.json]
-  Hint -->|无| Roots[仅查 Graph 已登记目录的 exact ID]
-  Roots --> Unique{唯一记录？}
+  Link[点击稳定 ID] --> Hint{有定位提示？}
+  Hint -->|有| Exact[读取原记录根的 ID.json]
+  Hint -->|无| Known[只查已登记根的精确 ID]
+  Known --> Unique{唯一记录？}
   Unique -->|是| Exact
-  Unique -->|无或重复| Missing[说明不可用 / 显式登记原目录]
-  Exact --> Path[记录 path / 旧 UUID 文件回退]
-  Path --> Available{原文件可用？}
-  Available -->|是| Read[Markdown 阅读 / 普通文件外部打开]
-  Available -->|否| Relocate[保留关系与历史 / 明确重新定位文件]
+  Unique -->|否| Problem[不可用或重复 / 明确选择原目录]
+  Exact --> Path[记录路径 / 旧 UUID 回退]
+  Path --> Available{文件可用？}
+  Available -->|是| Read[Markdown 阅读或外部打开]
+  Available -->|否| Relocate[保留关系 / 明确重新定位]
   Relocate --> Exact
 ```
 
-已有材料定位不会使用当前工作的新收纳目录。失效提示不会自动改指另一个副本；没有提示时已知目录中的重复 ID 拒绝自动选择。列表来自独立记录，可重建，不全盘搜索、不做同名或内容 hash 认领。目录记录不可读时其他可读目录继续列出，并报告部分目录失败。
+已有材料读取从不查询当前默认目的地。已知提示失联时保留原位置；缺提示时唯一精确 ID 可重建。有限外部改名只接受同父目录中唯一可靠物理身份，不以名称、大小或内容 hash 认领文件；跨目录移动继续明确重定位。
 
-路径检查限定当前 macOS 绝对路径、拒绝 `.`/`..` 和 Graph 内路径；未解决符号链接的真实路径防护，用户配置不应通过符号链接指向 Graph。Desktop `stat` 的缺文件空值或空对象通过父目录列表确认，不能将已存在但不可读的条目当作缺文件。
+添加目录或选择“刷新文件”会遍历该显式目录中的普通文件，登记为当前工作只读关联，跳过隐藏目录和系统工作入口。最多 1000 项、24 层；无全盘扫描、语义分类或 watcher。登记根持续保存，解除显示关联不破坏旧材料定位。
 
-## 核心与真实调用入口
-
-插件 iframe 中提供 `window.taskCopilotWorkbench.materials`：
-
-| 方法 | 输入 | 输出 |
-| --- | --- | --- |
-| `list({sourceUuid?, query?})` | 不传工作块时查当前 Graph 已登记材料 | 含 status、materials 数组及 problems 的结果 |
-| `read(id)` | 稳定 ID | `MaterialView` |
-| `capture({requestKey,text,html?,title?,role?,sourceUuid?})` | 请求身份与原内容；sourceUuid 指定工作 | 保存结果及引用插入实际结果 |
-| `associate({id?,path?,sourceUuid})` | 已有材料或原文件及工作来源 | 原文件登记/多任务关联及引用结果 |
-| `save({id,expectedVersion,expectedContent,next})` | 读到的版本、预期旧文和提议正文 | success 或 conflict；权限/IO 无法执行时拒绝 Promise |
-
-读取结果包含 `id/title/kind/role/path/recordRoot/sourceUuid/associations/reference/content/version/availability/writeState/capabilities/problem?`。Markdown 正文版本为 SHA-256，其他文件明确 `content/version: null`、`read: "external"`，不假称提取内容或有二进制版本。权限是分别可查的 user/agent 编辑能力。`success/partial/conflict` 表达实际结果，冲突带当前正文和提议正文；该程序结果可供未来阶段模块消费，但不创建阶段。
-
-```js
-// 仅在启用材料模块的插件上下文中调用；从工作读取拿到真实 sourceUuid。
-const workbench = window.taskCopilotWorkbench;
-const materials = workbench.materials;
-const sourceUuid = workbench.read()?.root;
-if (!sourceUuid) throw new Error("请先从实际工作块打开工作视图");
-const saved = await materials.capture({
-  requestKey: "discussion-2026-10-02-01", // 重试沿用；新内容使用新标识
-  sourceUuid,
-  text: "# 讨论稿\n\n完整内容",
-  html: "", // 有 HTML 时由模块清洗、转换
-});
-if (saved.status === "partial") console.log(saved.problem, saved.material.reference);
-const view = await materials.read(saved.material.id);
-if (view.content === null || !view.version || view.writeState !== "ready" || !view.capabilities.edit.agent) {
-  throw new Error(view.problem || "材料未完成保存或未授权编辑");
-}
-const write = await materials.save({
-  id: view.id,
-  expectedVersion: view.version,
-  expectedContent: view.content,
-  next: view.content + "\n\n补充说明",
-});
-if (write.status === "conflict") console.log(write.current, write.proposed);
-// 用户切到另一工作视图后，再运行下面的关联操作；正文不复制。
-const anotherSourceUuid = workbench.read()?.root;
-if (anotherSourceUuid && anotherSourceUuid !== sourceUuid) {
-  await materials.associate({id: view.id, sourceUuid: anotherSourceUuid});
-}
-```
-
-Agent `capture` 默认角色为 output，可修改；UI 用户收纳默认 input，不自动取得 Agent 权限。Agent 保存不能请求提升权限；用户“编辑原文件”仅授予用户编辑，“允许 agent 编辑此工作稿”授予单个完整文件。此处是可信插件上下文的能力约定，不是隔离恶意插件脚本的安全沙箱，未提供外部进程连接、token 或 HTTP 接入。正式 Agent 任务操作继续使用现有 Kernel/CLI。
-
-兼容入口 `openMaterial(id)` 与 `readMaterials(content)` 保留。后者解析旧 longdoc 引用并返回材料内容、实际定位、能力、版本或不可用结果。正文能力与布局 `apply` 完全分开。
-
-## 收纳、引用与部分失败
+## 收纳、导入与引用
 
 ```mermaid
 sequenceDiagram
-  participant U as 用户 / Agent
-  participant A as 来源适配
+  participant U as 用户原生编辑区
+  participant P as 收纳确认
   participant S as 材料核心
   participant F as 文件与独立记录
-  participant G as Logseq
-  U->>A: 内容、请求 ID、固定工作来源
-  A->>S: capture 与工作上下文
-  S->>S: 查重、清洗转换、选择新保存目录
-  S->>F: pending 记录先落盘并读回
-  S->>F: 写正文、读回、记录确认 ready
-  F-->>S: 材料身份、路径与版本
-  S-->>A: 实际文件结果
-  A->>G: 检查 Graph、编辑位置与来源身份
-  alt 仍可安全写引用
-    A->>G: 原生粘贴 / 插入关联引用 / 受保护块替换
-    A-->>U: success 与材料结果
-  else 写引用失败或位置变化
-    A-->>U: partial 与已保存身份、补关联入口
+  U->>U: 原生粘贴长文本
+  U->>P: 普通文本达到既有阈值
+  P->>U: 文件名 / 收纳或保留原文
+  U->>P: 确认名称
+  P->>S: 原请求身份、原文、HTML、固定上下文
+  S->>F: 转换、写入与读回
+  F-->>S: ID / 路径 / 版本
+  S-->>P: 实际保存结果
+  P->>U: 核对 Graph、元素及精确粘贴正文
+  alt 位置仍匹配
+    P->>U: 同一原生插入替换粘贴范围为引用
+  else 位置变化或插入失败
+    P-->>U: 保留原文与文件，提供直接复制链接
   end
 ```
 
-请求 fingerprint 覆盖原文、HTML、标题、用途及固定工作目标。相同请求和 payload 返回原记录；修改内容或目标必须换请求标识。模块内同一请求协调与目录创建串行避免重复创建；记录中的请求身份支持重载后恢复。引用重试检查来源子块中的同一 ID，已有引用不重复追加。Logseq 与文件不是同一个事务；中断窗口内不能保证任意跨进程恰好一次引用插入。
+收纳继续使用既有 conversion、capture pending 和请求指纹。确认弹窗不阻止原生 paste；内部点击与键盘事件不冒泡到宿主的结束编辑／快捷键处理。保存成功后才替换，且只接受原 Graph、原输入元素和精确预期正文。无持久来源 id 时通过同一原生 insertText 加入引用及 id；已持久时只替换粘贴范围。原生位置变了不调用写入。提示开启设置默认 false，旧 true 继续生效。未完成收纳以可折叠恢复入口保留原文和选择的文件名。
 
-pending 记录在正文写前保存原文和转换正文，正文或 ready 记录失败时不丢失输入。继续保存检查现有正文：相同则完成确认，不存在才创建，不同则保留并报告冲突，不默认覆盖外部修改。原文恢复按稳定 ID 匹配唯一引用，标题变化不影响恢复。整块收纳恢复完整旧块并保留稳定来源 ID；有新增正文或修改其他属性时拒绝自动替换。恢复的是收纳前语义，不是后来文件的当前内容。
+拖入适配同步保留 File 与浏览器目录 handle。File.path 存在时必须通过宿主 stat、名称与大小核验；无路径时使用实际 File bytes，不要求用户输入路径，也不从虚拟 fullPath 猜 OS 路径。普通文件通过 FileIO.copy，浏览器内容通过 writeBytes；二者共用导入核心。目录遍历兼容浅层名称和宿主的递归绝对文件清单。文件夹保留文件相对结构，浏览器 bytes 按文件依次读取，不整批缓存正文；空嵌套目录和原文件系统元数据不保证复制。
+
+单次导入先持久化操作记录和可读目标名，复制到独立临时位置，核验后保存 copied 阶段，再检查重名并 rename，最后登记独立材料记录。副本完成但记录失败时，重试使用同一请求、目标和预分配 ID。请求核验包含提交内容、来源及工作归属，不把首次自动准备或之后切换的默认目录当作新请求；已保存收纳同样继续使用原记录位置，旧收纳指纹按原格式兼容核验。rename 回执不明时只能用保存的可靠物理身份核对；没有可靠证据则保留内容并报告待核验，不认领同内容文件。不同显式导入请求可生成独立副本；已在默认目录内的精确原路径复用关联。
+
+桌面适配通过宿主已有 `copyDirectory` 的普通文件复制（overwrite false、errorOnExist true）和 ArrayBuffer writeFile。Markdown 会实际读回比较正文，二进制由宿主字节复制加文件类型／大小核验，核心不声称执行二进制逐字节读回或给它生成 Markdown 内容版本。自动测试另从真实临时文件读取字节比较。
+
+立即显示待处理名称与阶段，成功后刷新紧凑列表，失败条目保留原请求以供重试。没有宿主字节进度回调，UI 不生成百分比。列表空查询读取记录而不全文搜索，列表视图检查可用性而不预读所有 Markdown 正文；打开时才取完整内容。
+
+直接复制优先在用户点击栈内通过宿主 document 的 copy 执行，恢复焦点，失败再用 Clipboard API；实际回执成功才显示已复制。缓存引用只提供别名文字与稳定 ID，不构成写权限。正文拖放仍使用既有可信块级子块、范围核验及 Journal，部分失败不重导入。
 
 ## 编辑、冲突与恢复
 
 ```mermaid
 flowchart TB
-  Read[读取实际正文、能力与版本] --> Intent[用户选择编辑 / 已有 Agent 授权]
-  Intent --> Draft[已有编辑器 / Graph+ID 草稿]
-  Draft --> Check[核对权限、基础正文与版本]
-  Check --> Match{与当前文件吻合？}
-  Match -->|是| History[保存旧文历史 / 再次写前检查]
-  History --> Write[临时文件 → rename → 读回]
-  Write --> Done[保存实际结果与新版本]
-  Match -->|否| Conflict[保留当前文件与本地草稿]
-  Conflict --> Copy[草稿另存到原材料记录目录]
-  Copy --> Resume[打开副本 / 加载外部版本]
+  Read[只读阅读] --> Intent[用户明确编辑 / 单文件 agent 授权]
+  Intent --> Draft[草稿绑定 ID、Graph、基础正文]
+  Draft --> Compare{版本与预期旧文匹配？}
+  Compare -->|是| History[写前核对与历史快照]
+  History --> Save[临时文件 / rename / 读回]
+  Save --> Read
+  Compare -->|否| Conflict[保留外部版本与草稿]
+  Conflict --> Copy[另存草稿副本]
+  Copy --> Reload[按明确选择加载外部版本]
+  Reload --> Read
+  Read --> Original[按稳定 ID 恢复收纳当时原文]
 ```
 
-UI 编辑器复用，切换材料清理旧文撤销栈；同文轮询不重建输入节点。中文组合态暂停自动保存，近期输入期间不应用外部版本，焦点与选区继续由现有编辑器保护。外部正文连续两次稳定后才刷新；脏草稿/组合态有变化时转冲突。保存失败的 Promise 结束后清理 saving 状态，后续操作可继续。
+程序 save 同样检查 editing 边界、expectedVersion 和 expectedContent。生成文件后续被人工改动仍有冲突保护，TODO 和批注不构成授权。草稿缓存失败或 IME 组合态会保留现场；开始的保存持有原记录根和 Graph，后续导航不能改目标。恢复草稿是明确操作；restoreCapture 恢复的是 record.original，别名变化不影响定位。
 
-保存用捕获的 store、path 和 Graph 完成，不因当前工作切换改变目标。草稿按 Graph/ID 保存基础正文，Graph 或 epoch 变化会阻止晚到结果更新新界面。重新定位保存现有草稿，随后与新路径文件核对基础版本，不能把旧草稿静默覆盖到新原件。
+同一运行时的写入队列／Web Locks 只协调参与者。普通 stat、copy、rename 和读回不是与任意外部程序之间的原子 CAS，也不提供全局多文件事务、绝对 no-replace rename 或断电保证。路径验证拒绝 Graph 内词法路径、`.`／`..`；符号链接的完整真实路径防护仍有限，不配置指向 Graph 的别名目录。
 
-## 并发保证与限制
+## 核心入口与真实例子
 
-同源 Web Locks 协调创建、单记录修改及文件保存；没有 Web Locks 时使用本 JS 模块按 key 的 Promise 队列，失败不会毒化队列。保存同时取得记录与文件锁，防止本模块元数据定位变更穿过写前检查。基础正文与 SHA-256 比较、历史快照、第二次写前核对、临时文件、rename 与读回检测普通外部修改。
+仅在启用插件的 iframe 上下文使用 `window.taskCopilotWorkbench.materials`；不声称已提供外部进程的完整材料服务。
 
-这些不是跨进程全局原子比较交换，也不是多个文件、Graph 与元数据的原子事务。外部编辑器可能在最后核对与 rename 之间写入；本模块能缩小和检测竞争，不能声称消除所有竞争。独立浏览器 origin、任意外部程序、崩溃/断电以及权限故障需显式保留失败和恢复结果。不是 CRDT、全文索引或自动合并平台。
+| 方法 | 实际行为 |
+| --- | --- |
+| `list({sourceUuid?, query?})` | 按工作或全局读取已登记材料，返回 status、materials、problems；程序查询仍兼容 |
+| `read(id)` | ID、标题、来源、路径、关联、能力、正文／版本或不可用结果 |
+| `capture({requestKey,text,html?,title?,role?,sourceUuid?})` | 同核转换、保存，来源可用时尝试写引用，返回实际部分失败 |
+| `import({path,requestKey,sourceUuid})` | 将普通文件复制到工作默认目录；不隐式写正文引用 |
+| `associate({id?,path?,sourceUuid})` | 复用身份或登记原文件，再通过来源接口关联引用 |
+| `save({id,expectedVersion,expectedContent,next})` | 检查 agent 编辑许可、版本及旧文；返回 success/conflict，执行错误拒绝 Promise |
 
-## 兼容与未来边界
+```js
+const api = window.taskCopilotWorkbench.materials;
+const captured = await api.capture({
+  requestKey: 'agent-document-42', sourceUuid: workRootUuid,
+  title: '研究草稿', text: '# 研究草稿\n\n内容', role: 'output'
+});
+const imported = await api.import({
+  requestKey: 'import-file-42', sourceUuid: workRootUuid,
+  path: '/absolute/external/source.pdf'
+});
+// 导入不写原文；明确需要引用时再关联。
+await api.associate({id: imported.material.id, sourceUuid: workRootUuid});
+const read = await api.read(captured.material.id);
+const saved = await api.save({id: read.id, expectedVersion: read.version,
+  expectedContent: read.content, next: read.content + '\n\n补充'});
+```
 
-旧文件不批量改名、移动或补元数据；旧独立记录、longdoc 链接、恢复记录、草稿键和 history 继续使用。旧引用无目录信息时从配置过/登记过的已知目录按 exact ID 定位。更改全局设置不会忘记此前登记的目录。记录读取不会改写旧格式；仅用户实际授权、关联、改标题、重新定位等明确操作更新对应记录。
+Markdown version 是实际正文 SHA-256，普通二进制 content/version 为 null、read 能力为 external。结果包括 `origin/kind/role/path/recordRoot/sourceUuid/associations/reference/availability/writeState/capabilities`。部分失败仍返回已保存材料，阶段模块可消费实际版本与修改结果，材料不自行创建阶段。
 
-完整工作区以后可提供同一窄上下文，替代本地绑定；阶段模块可消费当前文件版本和修改结果；外部 Agent 的传输和更细范围授权需另行设计。材料模块不实现镜像、阶段认可、正式任务授权、主动建议或全目录移动识别。
-
-验证按[整合验证](../integration/VALIDATION.md)区分自动化、实际 Desktop 和尚未验证条件；测试 fixture 使用隔离 Graph、临时目录与合成文件。
+旧 API、UUID 文件、longdoc 链接和恢复记录继续兼容；不自动迁移。完整检查、UI 验证与实机限制见[本轮交接](../implementation/materials-drawer-handoff.md)。

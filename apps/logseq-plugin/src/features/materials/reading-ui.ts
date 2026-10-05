@@ -22,7 +22,7 @@ export function referenceNotice(record: MaterialRecord): string | null {
 export function materialDropArea(root: string | null): HTMLElement {
   const area = element("section", "", "wb-material-drop-area"); area.dataset.materialDropList = root ?? "";
   area.setAttribute("aria-label", "拖入文件加入材料");
-  area.append(element("p", "把已保存的文件拖到这里"), element("small", "原文件留在原处；加入材料不会向正文插入链接。"));
+  area.append(element("p", "拖入文件或文件夹"), element("small", "复制到此工作的默认目录，保留原文件。"));
   return area;
 }
 /** Local material styles; the shared shell continues to own navigation and theme. */
@@ -31,6 +31,21 @@ export function installMaterialReadingStyle(): () => void {
   style.textContent = `
     [data-workbench-feature=materials] .wb-heading{gap:8px;align-items:center}
     [data-workbench-feature=materials] .wb-heading>strong{font-size:15px;min-width:0}
+    .wb-material-tabs{display:flex;gap:4px;margin-left:auto}
+    .wb-material-tabs button{border:0;border-radius:0;background:none;font-size:13px;padding:5px 9px}
+    .wb-material-tabs [aria-selected=true]{border-bottom:2px solid var(--ls-link-text-color,#6d8c7d)}
+    .wb-material-recovery{font-size:12px;margin:0 0 10px;max-width:100%;color:var(--ls-secondary-text-color,#666)}
+    .wb-material-recovery button{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px;font-size:12px}
+    .wb-material-import-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--ls-border-color,#eee);font-size:14px}
+    .wb-material-import-row small{color:var(--ls-secondary-text-color,#666)}
+    .wb-material-import-row[data-import-state=pending] small:before{content:'◌';display:inline-block;margin-right:5px;animation:wb-material-spin 1.2s linear infinite}
+    @keyframes wb-material-spin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.wb-material-import-row[data-import-state=pending] small:before{animation:none}}
+    .wb-material-folder-heading,.wb-material-folder{display:flex;align-items:center;gap:10px;font-size:13px;padding:9px 0}
+    .wb-material-folder-heading p,.wb-material-folder>div{flex:1;min-width:0}
+    .wb-material-folder{border-bottom:1px solid var(--ls-border-color,#eee)}
+    .wb-material-folder small{display:block;overflow-wrap:anywhere;color:var(--ls-secondary-text-color,#666)}
+    .wb-material-folder details button{display:block;margin:5px 0}
     .wb-material-work{width:100%;color:var(--ls-secondary-text-color,#666);font-size:12px;overflow-wrap:anywhere}
     .wb-material-tools{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap}
     .wb-material-tools input{flex:1;min-width:130px}

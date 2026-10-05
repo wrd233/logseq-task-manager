@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,readFile,writeFile,readdir,rename,stat,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,readFile,writeFile,readdir,rename,stat,rm,copyFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -19,11 +19,11 @@ async function until(probe: () => boolean | Promise<boolean>, description: strin
 async function fixture(){
   const c=await contentFixture(),root=await mkdtemp(join(tmpdir(),'materials-drop-ui-')),work=join(root,'work');await mkdir(work);logseq.settings!.materialsDirectory=work;
   const {Materials}=await import('../src/features/materials/controller.ts');
-  const apis={openPath:async()=>{},doAction:async(args:unknown[])=>{const[op,...p]=args as string[];if(op==='readFile')return readFile(p[0]!,'utf8');if(op==='writeFile')return writeFile(p[1]!,p[2]!);if(op==='mkdir-recur')return mkdir(p[0]!,{recursive:true});if(op==='rename')return rename(p[0]!,p[1]!);if(op==='listdir')return readdir(p[0]!);if(op==='stat'){const s=await stat(p[0]!);return{mode:s.mode,size:s.size,dev:s.dev,ino:s.ino,birthtimeMs:s.birthtimeMs};}throw Error('unsupported');}};
+  const apis={openPath:async()=>{},doAction:async(args:unknown[])=>{const[op,...p]=args as string[];if(op==='readFile')return readFile(p[0]!,'utf8');if(op==='writeFile')return writeFile(p[1]!,p[2]!);if(op==='mkdir-recur')return mkdir(p[0]!,{recursive:true});if(op==='copyDirectory')return copyFile(p[0]!,p[1]!,1);if(op==='rename')return rename(p[0]!,p[1]!);if(op==='listdir')return readdir(p[0]!);if(op==='stat'){const s=await stat(p[0]!);return{mode:s.mode,size:s.size,dev:s.dev,ino:s.ino,birthtimeMs:s.birthtimeMs};}throw Error('unsupported');}};
   Object.assign(c.browser,{apis});
   const content=installContentWriteback({adapter:c.adapter});await content.local.authorize(c.root);
   let view:{graph:string;root:string;draft:string|null;blocks:Array<{uuid:string;content:string|null}>}={graph:c.scope.graphId,root:c.root,draft:null,blocks:(await content.api.read()).blocks.map(b=>({uuid:b.target.blockUuid,content:b.content}))};
-  const materials=new Materials(undefined,()=>c.root);
+  const materials=new Materials(undefined,()=>c.root);await materials.bindDirectory(c.root,work);
   const source={read:async(scope:typeof c.scope)=>{assert.deepEqual(scope,c.scope);return content.api.read(scope);}};
   installMaterialTransfers(materials,content,source,{snapshot:()=>view,resolveBodyDrop:async(element:Element,position:BodyPosition)=>{
     const row=element.closest('.wb-body')?.closest<HTMLElement>('.wb-row'),read=await source.read(c.scope);
@@ -38,14 +38,15 @@ async function fixture(){
   return{c,content,materials,root,work,find,drop,setView:(next:typeof view)=>{view=next;},cleanup:async()=>{materials.dispose();content.dispose();await c.cleanup();await rm(root,{recursive:true,force:true});}};
 }
 
-test('real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure exposes selectable link',async()=>{
+test('real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure reports a retry without a manual copy step',async()=>{
   const f=await fixture();try{
     const path=join(f.work,'有 空格资料.md'),body='# 内文标题\n\n原始资料';await writeFile(path,body);await f.materials.library(f.c.root);
     const file=new f.c.browser.File([body],'有 空格资料.md');Object.defineProperty(file,'path',{value:path});
     const before=f.c.counts().inserts;
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'list association and rendered row');
     let list=await f.materials.listMaterials(f.c.root);assert.equal(list.materials.length,1);assert.equal(f.c.counts().inserts,before);assert.equal(list.materials[0]!.path,path);assert.equal(list.materials[0]!.title,'有 空格资料');
-    f.find('复制链接').click();await until(()=>!!f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'),'selectable clipboard fallback');const selectable=f.materials.panel.root.querySelector<HTMLTextAreaElement>('textarea[aria-label="材料链接"]')!;assert.equal(selectable.value,list.materials[0]!.reference);assert.match(f.materials.panel.root.textContent!,/复制未完成/);
+    Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async () => {throw Error('denied');}}});
+    f.find('复制链接').click();await until(()=>f.materials.panel.root.textContent!.includes('复制未完成'),'clipboard failure feedback');assert.equal(f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'),null);
     const row=document.createElement('article');row.className='wb-row';row.dataset.uuid=f.c.a;const paragraph=document.createElement('div');paragraph.className='wb-body';row.append(paragraph);document.body.append(row);
     f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await until(async () => JSON.parse(await readFile(join(f.work,'.longdoc',`${list.materials[0]!.id}.json`),'utf8')).references?.[0]?.status==='synced', 'report child verified');
     await until(()=>f.c.messages.some(m=>m.includes('已关联材料，并在该原文块下插入引用')),'verified first drop result displayed');

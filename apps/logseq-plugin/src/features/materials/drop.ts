@@ -23,7 +23,7 @@ export function materialDrag(data: string, scope: SourceScope): MaterialDrag {
   return value;
 }
 /** Electron File.path is used only when it is actually supplied and matches host IO.
- * No basename search, invented path or implicit content copy fallback. */
+ * No basename search or invented path; a pathless File must supply its actual bytes. */
 export async function droppedPath(file: File, io: FileIO): Promise<string | null> {
   const path = (file as File & {path?: unknown}).path;
   if (typeof path !== "string" || !path.startsWith("/") || !io.stat) return null;
@@ -32,3 +32,25 @@ export async function droppedPath(file: File, io: FileIO): Promise<string | null
   return path;
 }
 export function supportsDrop(data: DataTransfer | null): boolean { return !!data && (Array.from(data.types).includes(MATERIAL_MIME) || Array.from(data.types).includes("Files")); }
+
+export interface DroppedFolderFile { relative: string; file: File }
+/** Retain browser directory handles during dispatch; never infer an OS path from fullPath. */
+export async function readDroppedFolder(entry: FileSystemDirectoryEntry): Promise<DroppedFolderFile[]> {
+  const files: DroppedFolderFile[] = []; let count = 0;
+  async function visit(directory: FileSystemDirectoryEntry, prefix: string, depth: number): Promise<void> {
+    if (depth > 24) throw new Error("文件夹层级过深，请分批拖入。");
+    const reader = directory.createReader();
+    for (;;) {
+      const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+      if (!batch.length) return;
+      for (const child of batch) {
+        if (child.name.startsWith(".")) continue;
+        if (++count > 1000) throw new Error("文件夹超过 1000 项，请分批拖入。");
+        const relative = `${prefix}${child.name}`;
+        if (child.isDirectory) await visit(child as FileSystemDirectoryEntry, `${relative}/`, depth + 1);
+        else if (child.isFile) files.push({relative, file: await new Promise<File>((resolve, reject) => (child as FileSystemFileEntry).file(resolve, reject))});
+      }
+    }
+  }
+  await visit(entry, "", 0); return files;
+}

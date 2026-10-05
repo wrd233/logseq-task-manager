@@ -31,6 +31,7 @@ export interface MaterialRecord {
   fileIdentity?: string | null;
   rename?: RenameFact;
   references?: ReferenceFact[];
+  imported?: {sourcePath: string | null; requestKey: string};
 }
 export type CaptureMetadata = { [K in keyof Omit<MaterialRecord, "id" | "createdAt" | "kind" | "schemaVersion">]?: MaterialRecord[K] | undefined };
 function cleanMetadata(metadata: CaptureMetadata): Partial<Omit<MaterialRecord, "id" | "createdAt" | "kind" | "schemaVersion">> {
@@ -147,13 +148,14 @@ export class MaterialStore {
       return await this.put(ready);
     } catch (error) { throw new MaterialWriteError(record, error); }
   }
-  async reference(path: string, metadata: CaptureMetadata = {}): Promise<MaterialRecord> {
+  async reference(path: string, metadata: CaptureMetadata = {}, id: string = crypto.randomUUID()): Promise<MaterialRecord> {
+    if (!docIdPattern.test(id)) throw new Error("材料身份无效。");
     path = normalizeRoot(path, metadata.graph ?? "");
     const text = markdownFile(path) ? await this.io.read(path) : "";
     if (!markdownFile(path)) await this.checkFile(path);
     await this.init();
     const role = metadata.role ?? "reference";
-    return this.put({ ...cleanMetadata(metadata), id: crypto.randomUUID(), title: metadata.title ? titleOf(metadata.title) : fileTitle(path), fileIdentity: await this.io.identity?.(path) ?? null, schemaVersion: 2, role, editing: metadata.editing ?? {user: false, agent: false}, kind: "reference", path, createdAt: new Date().toISOString(), original: text });
+    return this.put({ ...cleanMetadata(metadata), id, title: metadata.title ? titleOf(metadata.title) : fileTitle(path), fileIdentity: await this.io.identity?.(path) ?? null, schemaVersion: 2, role, editing: metadata.editing ?? {user: false, agent: false}, kind: "reference", path, createdAt: new Date().toISOString(), original: text });
   }
   async checkFile(path: string): Promise<void> {
     if (this.io.stat) { const stat = await this.io.stat(path); if (stat.type !== "file") throw new Error("请选择普通文件。"); }

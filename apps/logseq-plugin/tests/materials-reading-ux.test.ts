@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, readFile, writeFile, readdir, rename, stat, rm} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, writeFile, readdir, rename, stat, rm, copyFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -26,6 +26,7 @@ async function fixture() {
       if (op === 'readFile') return readFile(paths[0]!, 'utf8');
       if (op === 'writeFile') return writeFile(paths[1]!, paths[2]!);
       if (op === 'mkdir-recur') return mkdir(paths[0]!, {recursive: true});
+      if (op === 'copyDirectory') return copyFile(paths[0]!, paths[1]!, 1);
       if (op === 'rename') return rename(paths[0]!, paths[1]!);
       if (op === 'listdir') return readdir(paths[0]!);
       if (op === 'stat') { const s = await stat(paths[0]!); return {mode: s.mode, size: s.size, dev: s.dev, ino: s.ino, birthtimeMs: s.birthtimeMs}; }
@@ -37,6 +38,7 @@ async function fixture() {
   const {WorkView} = await import('../src/features/work-view/controller.ts');
   const {Materials} = await import('../src/features/materials/controller.ts');
   const work = new WorkView(() => {}), materials = new Materials(uuid => work.open(uuid), () => (work.snapshot() as {root: string | null}).root ?? c.root);
+  await materials.bindDirectory(c.root, workDirectory);
   installMaterialTransfers(materials, content, {read: scope => content.api.read(scope)}, work);
   const find = (label: string) => Array.from(materials.panel.root.querySelectorAll('button')).find(node => node.textContent === label)!;
   const file = async (path: string) => {
@@ -77,7 +79,7 @@ test('long MiniProject and four real files: list joining, trusted report inserti
     assert.equal(views.length, 4); assert.equal(new Set(views.map(view => view.id)).size, 4);
     assert.equal(JSON.stringify([...f.c.blocks.values()]), before); assert.equal(f.c.counts().inserts, 0);
     const material = views.find(view => view.path === paths[0])!;
-    const replacements = new Map([['interview-notes', views.find(view => view.path === paths[1])!.id], ['reading-notes', material.id], ['reference-guide', material.id], ['source-a', views.find(view => view.path === paths[2])!.id], ['source-b', views.find(view => view.path === paths[3])!.id]]);
+    const replacements = new Map([['interview-notes', views.find(view => view.path === paths[1])!.id], ['reading-notes', material.id], ['reference-guide', material.id], ['source-a', views.find(view => view.title === '来源一')!.id], ['source-b', views.find(view => view.title === '来源二')!.id]]);
     for (const block of f.c.blocks.values()) block.content = block.content.replace(/longdoc:\/\/([\w-]+)/g, (_all, key: string) => `longdoc://${replacements.get(key) ?? material.id}`);
     const alias = f.c.add(`[我的阅读说明](longdoc://${material.id})`);
     const sourceBefore = JSON.stringify([...f.c.blocks.values()]);
@@ -162,12 +164,12 @@ test('same-name conflict and permission failure retain the rename input and neve
   } finally { await f.cleanup(); }
 });
 
-test('file picker joins real host files while binary clicks open exact path and report application failure truthfully', async () => {
+test('file drop joins real host files while binary clicks open exact path and report application failure truthfully', async () => {
   const f = await fixture(); try {
     const path = join(f.workDirectory, '原始图片.png'); await writeFile(path, Buffer.from([137, 80, 78, 71]));
-    await f.materials.ui.show(f.c.root); f.find('加入材料').click();
-    const picker = f.materials.panel.root.querySelector<HTMLInputElement>('input[type=file]')!;
-    Object.defineProperty(picker, 'files', {value: [await f.file(path)]}); picker.dispatchEvent(new f.c.browser.Event('change') as unknown as Event);
+    await f.joinFiles([path]);
+    assert.equal(f.materials.panel.root.querySelector('input[type=file]'), null);
+    assert.equal(f.find('加入材料'), undefined);
     await until(async () => (await f.materials.listMaterials(f.c.root)).materials.length === 1, 'picker result');
     const view = (await f.materials.listMaterials(f.c.root)).materials[0]!;
     await f.materials.ui.show(f.c.root); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
@@ -205,8 +207,10 @@ test('failed report insertion keeps associated material and visible selectable f
     body.dispatchEvent(f.event('drop', [await f.file(path)]));
     await until(() => !!document.querySelector('[data-material-continuation]'), 'partial source continuation');
     const continuation = document.querySelector<HTMLElement>('[data-material-continuation]')!;
+    Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async () => {throw Error('denied');}}});
     continuation.querySelector<HTMLButtonElement>('button')!.click();
-    await until(() => !!continuation.querySelector('textarea[aria-label="材料链接"]'), 'selectable fallback on visible report');
+    await until(() => continuation.textContent!.includes('复制未完成'), 'visible clipboard failure on report');
+    assert.equal(continuation.querySelector('textarea'), null);
     assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1); assert.equal(await readFile(path, 'utf8'), 'retained original');
     // Unknown SDK result remains a Journal query; retry must not duplicate the child already committed by the host.
     const retry = Array.from(continuation.querySelectorAll('button')).find(node => node.textContent === '重新核验并补插子块')!; retry.click();

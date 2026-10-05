@@ -20,8 +20,8 @@ logseq.useSettingsSchema([
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: false, title: "启用任务管理", description: "按需启用正式任务，需要本地 Kernel。已有配置继续保留。" },
-  { key: "materialsDirectory", type: "string", default: "", title: "Graph 外的材料目录", description: "请选择独立的绝对目录，避免指向 Graph 的符号链接。没有绑定工作目录时，保存收纳文档、关联记录和历史。" },
-  { key: "materialsAutoCapture", type: "boolean", default: false, title: "自动收纳长文本", description: "绑定工作目录或配置全局目录后接管外部长文本粘贴，保留原文与原生撤销。默认关闭。" },
+  { key: "materialsDirectory", type: "string", default: "", title: "默认材料根目录", description: "留空时自动准备 Graph 外目录。未绑定目录的工作在此拥有独立文件夹；可在材料的目录页添加其他位置。" },
+  { key: "materialsAutoCapture", type: "boolean", default: false, title: "粘贴长文本时询问收纳", description: "达到阈值时填写文件名并选择收纳，或保留原文。已有开启状态继续有效，默认关闭。" },
   { key: "materialsMinChars", type: "number", default: 2000, title: "收纳字符阈值", description: "单次粘贴达到此长度时收纳。" },
   { key: "materialsMinLines", type: "number", default: 30, title: "收纳非空行阈值", description: "单次粘贴达到此行数时收纳。" },
 ]);
@@ -140,6 +140,7 @@ async function main(): Promise<void> {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
       read: (id: string) => requireMaterials().readMaterial(id),
       capture: (request: CaptureRequest) => requireMaterials().capture(request),
+      import: (input: {path: string; requestKey: string; sourceUuid: string}) => requireMaterials().importMaterial(input),
       associate: (input: {id?: string; path?: string; sourceUuid: string}) => requireMaterials().associateMaterial(input),
       save: (input: {id: string; expectedVersion: string; expectedContent: string; next: string}) => requireMaterials().saveMaterial(input.id, input.expectedVersion, input.expectedContent, input.next),
     },

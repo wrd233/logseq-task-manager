@@ -9,4 +9,7 @@ export interface FileIO {
   /** Host-observed filesystem identity, or null when the host cannot supply it.
    * Must not be synthesized from size, name, content or modification time. */
   identity?(path: string): Promise<string | null>;
+  /** Copy a regular file without replacing an existing target. */
+  copy?(from: string, to: string): Promise<void>;
+  writeBytes?(path: string, bytes: ArrayBuffer): Promise<void>;
 }

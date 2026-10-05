@@ -2,9 +2,10 @@ import { hostDocument } from "../../host/panel-host.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import type { MaterialWorkContext } from "../../workspace/material-context.ts";
 import type { MaterialService, MaterialResult } from "./service.ts";
-import { isLong, makeLink, idFrom, type MaterialRecord } from "./store.ts";
+import { isLong, makeLink, idFrom, titleOf } from "./store.ts";
 import { versionOf } from "./store.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
+import { capturePastePrompt, type CapturePrompt } from "./paste-ui.ts";
 import type { ReferenceFact } from "./references.ts";
 
 interface SourceScope {
@@ -19,6 +20,10 @@ interface SourceScope {
 /** SDK/input adapter only; file identity, conversion and authorization live in the core. */
 export class MaterialSourceActions {
   private pendingCapture = false;
+  private prompt: CapturePrompt | null = null;
+  private composing = false;
+  composition(active: boolean): void { this.composing = active; }
+  cancelPrompt(): void { this.prompt?.close(); this.prompt = null; }
   constructor(private readonly scope: SourceScope) {}
   private async rememberReference(result: MaterialResult, uuid: string, epoch: number, graph: string, insertionParent?: string): Promise<void> {
     if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) throw new Error("引用登记暂停，原生输入仍保留。");
@@ -83,52 +88,53 @@ export class MaterialSourceActions {
     return problem ? {status: "partial", material: result.material, problem} : result;
   }
   onPaste(event: ClipboardEvent): void {
-    if (!logseq.settings?.materialsAutoCapture || this.pendingCapture) return;
+    if (!logseq.settings?.materialsAutoCapture || this.pendingCapture || this.composing) return;
     const target = event.target as HTMLTextAreaElement | null, data = event.clipboardData;
     if (target?.tagName !== "TEXTAREA" || !target.closest(".block-editor") || !data || data.files.length || [...data.types].some(type => type.includes("logseq"))) return;
     const plain = data.getData("text/plain"), html = data.getData("text/html");
     if (!isLong(plain, Number(logseq.settings?.materialsMinChars), Number(logseq.settings?.materialsMinLines))) return;
     if ((target.value.slice(0, target.selectionStart).match(/^\s*(```|~~~)/gm) ?? []).length % 2) return;
-
-    const uuid = target.closest(".ls-block")?.getAttribute("blockid");
-    const epoch = this.scope.epoch();
-    const snapshot = { value: target.value, start: target.selectionStart, end: target.selectionEnd };
+    const uuid = target.closest(".ls-block")?.getAttribute("blockid"); if (!uuid) return;
+    const epoch = this.scope.epoch(), snapshot = {value: target.value, start: target.selectionStart, end: target.selectionEnd};
+    const expected = snapshot.value.slice(0, snapshot.start) + plain + snapshot.value.slice(snapshot.end);
     const pending = `workbench:pending:${crypto.randomUUID()}`;
-    let capturedRecord: MaterialRecord | null = null;
     try { localStorage.setItem(pending, JSON.stringify({...snapshot, uuid, plain, html, graph: this.scope.graph() || null, at: Date.now()})); }
-    catch (error) { this.scope.fail(error); return; } // Native paste continues when recovery cannot be retained.
-    event.preventDefault(); event.stopImmediatePropagation(); this.pendingCapture = true;
-    void (async () => {
-      const service = await this.scope.service(), graph = this.scope.graph();
-      const context = await this.scope.workContext(uuid ?? null);
-      localStorage.setItem(pending, JSON.stringify({ ...snapshot, uuid, graph, context, plain, html, at: Date.now() }));
-      if (!uuid) throw new Error("无法确认来源块，原文已保留在恢复记录。");
-      const source = await logseq.Editor.getBlock(uuid); if (!source) throw new Error("来源块暂不可读。");
-      const result = await service.capture({requestKey: pending, text: plain, html}, context, "user");
-      if (result.status === "partial") throw new Error(result.problem ?? "保存未完成，原文已保留。");
-      const {record} = await service.locate(result.material.id); capturedRecord = record;
-      localStorage.setItem(pending, JSON.stringify({uuid, graph, context, plain, html, materialId: record.id, at: Date.now()}));
-      if (epoch !== this.scope.epoch() || (await logseq.App.getCurrentGraph())?.path !== graph || !target.isConnected || target.value !== snapshot.value || target.selectionStart !== snapshot.start || target.selectionEnd !== snapshot.end || hostDocument()?.activeElement !== target) throw new Error("材料已保存，编辑位置发生变化，请从材料库打开。");
-      target.focus();
-      const persisted = source.properties?.id === uuid;
-      if (persisted) target.setSelectionRange(snapshot.start, snapshot.end);
-      else target.select();
-      const insertion = persisted ? makeLink(record) : `${snapshot.value.slice(0, snapshot.start)}${makeLink(record)}${snapshot.value.slice(snapshot.end)}\nid:: ${uuid}`;
-      if (!hostDocument()?.execCommand("insertText", false, insertion)) throw new Error("编辑器拒绝插入，材料和原文已保留。");
-      void (async () => {
-        for (let attempt = 0; attempt < 12; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, 750)); this.scope.assertScope(epoch);
-          if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) continue;
-          await this.rememberReference(result, uuid, epoch, graph); return;
-        }
-      })().catch(() => undefined); // No verified native commit leaves a normal untracked link.
-      localStorage.removeItem(pending);
-    })().catch(error => {
-      if (!capturedRecord && epoch === this.scope.epoch() && target.isConnected && target.value === snapshot.value && target.selectionStart === snapshot.start && target.selectionEnd === snapshot.end && hostDocument()?.activeElement === target) {
-        target.setSelectionRange(snapshot.start, snapshot.end);
-        hostDocument()?.execCommand("insertText", false, plain);
-      }
-      this.scope.fail(error);
-    }).finally(() => { this.pendingCapture = false; });
+    catch { return; } // Native paste always proceeds, including when recovery storage is unavailable.
+    this.pendingCapture = true;
+    // Let the native paste and undo entry commit before presenting a decision.
+    setTimeout(() => void (async () => {
+      const service = await this.scope.service(), graph = service.graph;
+      this.scope.assertScope(epoch);
+      const context = await this.scope.workContext(uuid); this.scope.assertScope(epoch);
+      localStorage.setItem(pending, JSON.stringify({...snapshot, uuid, graph, context, plain, html, at: Date.now()}));
+      let savedId: string | null = null;
+      this.prompt = capturePastePrompt(titleOf(plain), async title => {
+        this.scope.assertScope(epoch);
+        localStorage.setItem(pending, JSON.stringify({...snapshot, uuid, graph, context, plain, html, title, materialId: savedId, at: Date.now()}));
+        const result = await service.capture({requestKey: pending, text: plain, html, title}, context, "user");
+        savedId = result.material.id;
+        localStorage.setItem(pending, JSON.stringify({uuid, graph, context, plain, html, title, materialId: savedId, at: Date.now()}));
+        if (result.status === "partial") throw new Error(result.problem ?? "材料保存未完成，原文仍保留；可重试保存。");
+        if (epoch !== this.scope.epoch() || (await logseq.App.getCurrentGraph())?.path !== graph || !target.isConnected || target.value !== expected) return {reference: result.material.reference, problem: "材料已保存，粘贴位置已变化。原文没有替换，可复制链接继续。"};
+        const block = await logseq.Editor.getBlock(uuid);
+        if (epoch !== this.scope.epoch() || (await logseq.App.getCurrentGraph())?.path !== graph || target.value !== expected || !block) return {reference: result.material.reference, problem: "材料已保存，原块暂不可用。原文仍保留。"};
+        this.prompt?.releaseNativeFocus(); target.focus();
+        const persisted = block.properties?.id === uuid;
+        if (persisted) target.setSelectionRange(snapshot.start, snapshot.start + plain.length);
+        else target.select();
+        const insertion = persisted ? makeLink({id: result.material.id, title: result.material.title}) : `${snapshot.value.slice(0, snapshot.start)}${result.material.reference}${snapshot.value.slice(snapshot.end)}\nid:: ${uuid}`;
+        if (!hostDocument()?.execCommand("insertText", false, insertion)) return {reference: result.material.reference, problem: "材料已保存，编辑器未接受链接。原文仍保留。"};
+        localStorage.removeItem(pending);
+        void (async () => {
+          for (let attempt = 0; attempt < 12; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 750)); this.scope.assertScope(epoch);
+            if (await this.sourceAction(epoch, graph, () => logseq.Editor.checkEditing())) continue;
+            await this.rememberReference(result, uuid, epoch, graph); return;
+          }
+        })().catch(() => undefined);
+        return {};
+      }, () => { if (!savedId) localStorage.removeItem(pending); });
+      await this.prompt.finished; this.prompt = null;
+    })().catch(error => { if (epoch === this.scope.epoch()) this.scope.fail(error); }).finally(() => { this.pendingCapture = false; }), 0);
   }
 }

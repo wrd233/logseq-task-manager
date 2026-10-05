@@ -20,6 +20,8 @@ export function desktopFiles(graphPath: () => string): FileIO {
     write: async (path, text) => { await call("writeFile", graphPath(), path, text); },
     mkdir: async path => { await call("mkdir-recur", path); },
     rename: async (from, to) => { await call("rename", from, to); },
+    copy: async (from, to) => { await call("copyDirectory", from, to, {overwrite: false, errorOnExist: true, dereference: false}); },
+    writeBytes: async (path, bytes) => { await call("writeFile", graphPath(), path, bytes); },
     list: async path => {
       const entries = await call("listdir", path, true);
       if (entries === null) return [];
@@ -63,4 +65,12 @@ export function desktopFiles(graphPath: () => string): FileIO {
       return {type: kind === 0o100000 ? "file" : "directory", size: value.size};
     },
   };
+}
+
+/** openDialog only selects a folder; openDir would also load its Graph files. */
+export async function pickMaterialDirectory(): Promise<string | null> {
+  const result = await desktopBridge().doAction(["openDialog"]);
+  if (result == null || result === "") return null;
+  if (typeof result !== "string") throw new Error("文件管理器没有返回可用目录。");
+  return result;
 }

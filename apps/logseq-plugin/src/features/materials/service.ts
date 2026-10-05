@@ -1,7 +1,8 @@
 import type { FileIO } from "../../host/file-io.ts";
-import { captureDirectory, type MaterialDirectories, type MaterialWorkContext } from "../../workspace/material-context.ts";
+import { captureDirectory, materialAssociations, type MaterialDirectories, type MaterialWorkContext } from "../../workspace/material-context.ts";
 import { MaterialStore, MaterialWriteError, ConflictError, associationsOf, editingOf, markdownFile, makeLink, normalizeRoot, versionOf, type MaterialRecord, type MaterialRole } from "./store.ts";
 import { discoverExternalRename, renameMaterialFile, recoverMaterialRename, type RenameResult } from "./file-operations.ts";
+import { importMaterial, importMaterialDirectory, importMaterialFolderBytes, type MaterialImport, type FolderImportFile } from "./imports.ts";
 
 export interface MaterialView {
   id: string; title: string; summary?: string; kind: MaterialRecord["kind"]; role: MaterialRole | "legacy";
@@ -11,6 +12,7 @@ export interface MaterialView {
   availability: "available" | "unavailable"; content: string | null; version: string | null;
   capabilities: { read: "markdown" | "external"; edit: { user: boolean; agent: boolean }; open: true };
   problem?: string;
+  origin: "capture" | "reference" | "import";
 }
 export interface CaptureRequest {
   requestKey: string; text: string; html?: string; title?: string; role?: MaterialRole; sourceUuid?: string;
@@ -42,16 +44,17 @@ export class MaterialService {
     if (matches.length !== 1) throw new Error(matches.length > 1 ? "多个目录存在相同材料身份，请核对目录备份。" : `材料记录暂不可用。可登记原材料目录后重试。${errors.length ? "部分已知目录不可读。" : ""}`);
     const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); return match;
   }
-  async read(id: string): Promise<MaterialView> {
+  async read(id: string, includeContent = true): Promise<MaterialView> {
     const located = await this.locate(id), store = located.store;
     let record = located.record;
     try { if (this.canRename(id)) record = await discoverExternalRename(store, record); } catch { /* Preserve unavailable records; discovery must not block reading history. */ }
     const path = await store.path(id);
-    const view: MaterialView = {id, title: record.title, kind: record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
+    const view: MaterialView = {id, title: record.title, kind: record.kind, origin: record.imported ? "import" : record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
     if (record.summary) view.summary = record.summary;
+    view.origin = record.imported ? "import" : record.kind;
     if (record.creation === "pending") view.problem = "收纳保存尚未完成，请重试原请求。";
     try {
-      if (markdownFile(path)) { view.content = await store.read(id); view.version = await versionOf(view.content); }
+      if (markdownFile(path) && includeContent) { view.content = await store.read(id); view.version = await versionOf(view.content); }
       else await store.checkFile(path);
     } catch (error) { view.availability = "unavailable"; view.problem = error instanceof Error ? error.message : String(error); }
     return view;
@@ -59,33 +62,44 @@ export class MaterialService {
   async destination(context: MaterialWorkContext, role: MaterialRole): Promise<MaterialStore> {
     const validated = {...context, directory: context.directory ? normalizeRoot(context.directory, this.graph) : null};
     if (context.graph !== this.graph) throw new Error("材料 Graph 范围已变化。");
+    const owner = context.ownerUuid ?? context.sourceUuid;
+    const folder = owner ? this.directories.defaultFolder(this.graph, owner) : null;
+    if (!validated.directory && folder) { validated.directory = normalizeRoot(folder.directory, this.graph); validated.organization = folder.organization; }
     const fallback = !validated.directory && !this.globalRoot ? await this.prepareDefault?.() ?? null : this.globalRoot;
+    if (!validated.directory && owner && fallback) {
+      const directory = `${fallback}/workspaces/${encodeURIComponent(owner).replace(/\./g, "%2E")}`;
+      await this.io.mkdir(directory);
+      this.directories.addFolder(this.graph, owner, {directory, organization: "flat", automatic: true}, true);
+      validated.directory = directory;
+    }
     const root = await captureDirectory(this.io, validated, fallback, role);
     this.directories.register(this.graph, root);
     return new MaterialStore(this.io, root);
   }
   async capture(request: CaptureRequest, context: MaterialWorkContext, actor: "user" | "agent" = "user"): Promise<MaterialResult> {
     if (typeof request.requestKey !== "string" || !request.requestKey || typeof request.text !== "string" || (request.role !== undefined && !["reference", "input", "draft", "output"].includes(request.role))) throw new Error("收纳需要非空请求标识与文本。");
+    if (context.graph !== this.graph) throw new Error("材料 Graph 范围已变化。");
     const role = request.role ?? (actor === "agent" ? "output" : "input");
-    const fingerprint = await versionOf(JSON.stringify({text: request.text, html: request.html ?? "", title: request.title ?? "", role, source: context.sourceUuid, directory: context.directory, organization: context.organization}));
+    const payload = {text: request.text, html: request.html ?? "", title: request.title ?? "", role, source: context.sourceUuid};
+    const fingerprint = await versionOf(JSON.stringify({...payload, graph: context.graph, owner: context.ownerUuid ?? context.sourceUuid}));
+    const legacyFingerprint = await versionOf(JSON.stringify({...payload, directory: context.directory, organization: context.organization}));
     const key = request.requestKey;
     const execute = async () => {
       for (const store of this.stores()) {
         const records = await store.catalog();
         const existing = records.find(record => record.requestKey === key);
         if (existing) {
-          if (existing.requestFingerprint !== fingerprint) throw new Error("重复请求的内容或目标已变化，请使用新的请求标识。");
+          if (existing.requestFingerprint !== fingerprint && existing.requestFingerprint !== legacyFingerprint) throw new Error("重复请求的内容或目标已变化，请使用新的请求标识。");
           this.directories.remember(this.graph, existing.id, store.root);
           return existing.creation === "pending" ? store.resumeCapture(existing) : existing;
         }
       }
       const store = await this.destination(context, role);
-      const record = await store.create(this.convert(request.text, request.html ?? ""), {graph: this.graph, sourceUuid: context.sourceUuid ?? undefined, associations: context.sourceUuid ? [{graph: this.graph, sourceUuid: context.sourceUuid}] : [], title: request.title, role, original: request.text, originalHTML: request.html, requestKey: key, requestFingerprint: fingerprint});
+      const record = await store.create(this.convert(request.text, request.html ?? ""), {graph: this.graph, sourceUuid: context.sourceUuid ?? undefined, associations: materialAssociations(context), title: request.title, role, original: request.text, originalHTML: request.html, requestKey: key, requestFingerprint: fingerprint});
       this.directories.remember(this.graph, record.id, store.root); return record;
     };
     const active = this.pending.get(key);
-    if (active) await active.catch(error => { if (!(error instanceof MaterialWriteError)) throw error; });
-    const running = execute(); this.pending.set(key, running);
+    const running = (active ?? Promise.resolve()).catch(error => { if (!(error instanceof MaterialWriteError)) throw error; }).then(execute); this.pending.set(key, running);
     try { const record = await running; const material = await this.read(record.id); return {status: material.availability === "available" && material.writeState === "ready" ? "success" : "partial", material}; }
     catch (error) {
       if (!(error instanceof MaterialWriteError)) throw error;
@@ -93,6 +107,9 @@ export class MaterialService {
     }
     finally { if (this.pending.get(key) === running) this.pending.delete(key); }
   }
+  importFile(input: MaterialImport, context: MaterialWorkContext, requestKey: string): Promise<MaterialResult> { return importMaterial(this, input, context, requestKey); }
+  importDirectory(path: string, context: MaterialWorkContext, requestKey: string): Promise<{materials: MaterialResult[]; problems: string[]}> { return importMaterialDirectory(this, path, context, requestKey); }
+  importFolderBytes(name: string, files: FolderImportFile[], context: MaterialWorkContext, requestKey: string): Promise<{materials: MaterialResult[]; problems: string[]}> { return importMaterialFolderBytes(this, name, files, context, requestKey); }
   async associateFile(path: string, context: MaterialWorkContext): Promise<MaterialResult> {
     path = normalizeRoot(path, this.graph);
     const key = JSON.stringify([this.graph, path]), active = associating.get(key);
@@ -114,11 +131,9 @@ export class MaterialService {
       if (record) return this.associate(record.id, context);
     }
     // Associations use the work root, never create a role directory for an existing file.
-    const root = context.directory ? normalizeRoot(context.directory, this.graph) : this.globalRoot ?? await this.prepareDefault?.();
-    if (!root) throw new Error("请先绑定工作目录或配置全局材料目录。");
-    if (context.directory) await captureDirectory(this.io, {...context, organization: "flat"}, root, "reference");
+    const root = (await this.destination({...context, organization: "flat"}, "reference")).root;
     this.directories.register(this.graph, root);
-    const store = new MaterialStore(this.io, root), record = await store.reference(path, {graph: this.graph, sourceUuid: context.sourceUuid ?? undefined, associations: context.sourceUuid ? [{graph: this.graph, sourceUuid: context.sourceUuid}] : []});
+    const store = new MaterialStore(this.io, root), record = await store.reference(path, {graph: this.graph, sourceUuid: context.sourceUuid ?? undefined, associations: materialAssociations(context)});
     this.directories.remember(this.graph, record.id, root);
     return {status: "success", material: await this.read(record.id)};
   }
@@ -137,7 +152,8 @@ export class MaterialService {
   }
   async associate(id: string, context: MaterialWorkContext): Promise<MaterialResult> {
     if (context.graph !== this.graph || !context.sourceUuid) throw new Error("请选择当前 Graph 的工作块。");
-    const {store} = await this.locate(id); await store.associate(id, {graph: this.graph, sourceUuid: context.sourceUuid});
+    const {store} = await this.locate(id);
+    for (const association of materialAssociations(context)) await store.associate(id, association);
     return {status: "success", material: await this.read(id)};
   }
   async save(id: string, expectedVersion: string, expectedContent: string, next: string, actor: "user" | "agent"): Promise<MaterialResult> {
@@ -154,7 +170,7 @@ export class MaterialService {
       for (const record of await store.catalog().catch(() => [])) {
         if (this.canRename(record.id)) await discoverExternalRename(store, record).catch(() => undefined);
       }
-      const entries = await store.search(query, this.graph).catch(error => { this.listProblems.push(`${store.root}: ${String(error)}`); return []; });
+      const entries = await (query ? store.search(query, this.graph) : store.catalog().then(records => records.filter(record => !record.graph || record.graph === this.graph).map(record => ({...record, snippet: ""})))).catch(error => { this.listProblems.push(`${store.root}: ${String(error)}`); return []; });
       for (const record of entries) {
         if (seen.has(record.id)) throw new Error("多个已知目录包含同一材料身份，请核对备份目录。");
         seen.add(record.id);
@@ -163,5 +179,27 @@ export class MaterialService {
       }
     }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  /** Explicit folder addition/refresh registers existing files without copying bodies. */
+  async refreshFolder(directory: string, context: MaterialWorkContext): Promise<string[]> {
+    const root = normalizeRoot(directory, this.graph), problems: string[] = [], visited = new Set<string>(); let count = 0;
+    const visit = async (path: string, depth: number): Promise<void> => {
+      if (depth > 24) { problems.push("目录层级过深，仅显示已读取文件。"); return; }
+      for (const entry of await this.io.list(path)) {
+        const child = entry.startsWith("/") ? entry : `${path}/${entry}`, name = child.split("/").at(-1)!;
+        if (!child.startsWith(`${path}/`) || visited.has(child)) continue;
+        const parts = child.slice(path.length + 1).split("/");
+        if (parts.some(part => part.startsWith(".")) || /^WORKSPACE(?:\.|$)/u.test(name)) continue;
+        visited.add(child);
+        if (parts.length + depth > 24) { problems.push(`${name}：目录层级过深。`); continue; }
+        if (++count > 1000) { problems.push("目录较大，仅显示前 1000 项。"); return; }
+        try {
+          const stat = await this.io.stat?.(child);
+          if (stat?.type === "directory") await visit(child, depth + 1);
+          else if (stat?.type === "file") await this.associateFile(child, {...context, directory: root, organization: "flat"});
+        } catch (error) { problems.push(`${name}：${String(error)}`); }
+      }
+    };
+    await visit(root, 0); return problems;
   }
 }

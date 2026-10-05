@@ -65,3 +65,15 @@ Desktop 验证发现并修复两处实际问题：缺文件 stat 的空值/空�
 本轮未实机验收真实中文 IME、系统剪贴板及原生 Undo、双 Graph 原生切换、断电/崩溃、长期 soak、其他 Logseq/平台、Markdown 相对附件定位及二进制预览。浏览器编辑命令和模拟事件不是这些行为的实机证明。普通 IO/rename/Web Locks 仍不提供跨进程原子 CAS。Agent 材料调用限定插件上下文，授权粒度为单个完整 Markdown 文件，未实现外部进程服务或段落授权。完整工作区、镜像、阶段与主动行动建议不在本轮交付中，最后一项仍保持取消。
 
 本轮最终行为与调用契约见[材料产品设计](../design/materials-module-design.md)和[材料架构](../architecture/materials-module-architecture.md)。
+
+## 材料文件抽屉优化 · 2026-10-05
+
+在既有 `codex/materials-reading-ux` 分支快进同步 origin/main `94f18ed` 后实施；交付前再次 fetch 确认 main 未继续变化。使用 Node 20.20.2 / npm 10.8.2，无依赖或工具链升级。完整基线检查通过 694 项（677 个工作区测试、5 个 Sandbox、12 个边界）；最终完整 `npm run check` 通过 702 项（685 个工作区测试，其中插件 451 项；5 个 Sandbox、12 个边界），0 失败／跳过。需求地图生成、全仓类型、lint、构建与 binary probe、实际依赖边界扫描、Taste 和 `git diff --check` 均通过。
+
+新增 8 项材料行为回归覆盖：专属默认目录、多目录默认选择且不覆盖 Workspace 主绑定、旧引用与移除目录后定位、精确二进制复制、可读重名、三个并发请求去重、复制完成后记录失败恢复、不暗中回退、原生／浏览器目录结构、宿主递归扁平清单、目录选择取消、即时名称／失败重试、直接复制、原生命名确认与取消、精确范围替换和当时原文恢复。旧输入、Graph、冲突草稿和版本保护继续通过。
+
+本轮独立准备隔离 Logseq 0.10.9 / SDK 0.3.4，全部测试 Graph、材料和应用副本位于忽略的 `tmp/materials-drawer-sandbox/`。实际核对默认 A 目录内的文件复制与只读列表、一次点击后系统剪贴板完整链接、多目录和默认选择、嵌套文件夹真实落盘、3150 字实际原生粘贴后命名确认、精确引用替换及 SDK／文件读回，以及 B 空列表下打开 A 旧引用仍定位 A 原文件。未启用 Kernel、agent 或远程模型，未操作真实用户 Graph、数据库和材料。
+
+插件程序入口另实测 import／capture 同请求重试返回相同 ID；参考 save 被拒绝，生成工作稿 save 成功，过期基础版本返回 conflict。自动准备默认目录不再误判请求变化，旧收纳指纹兼容回归通过。13 份本轮修改／新增 Markdown 中的 144 个本地链接核对通过。
+
+目录选择器由隔离启动器返回预置测试目录；文件夹使用受控 DOM 拖入事件，不能据此声称 Finder 鼠标拖入或 OS 原生选择器人工操作已验。真实 IME、完整 Undo、双 Graph 原生切换及本轮新的实机并发冲突链未验。普通 IO 不提供跨进程原子 CAS，空嵌套目录／文件系统元数据复制和完整符号链接防护有限。详细层次、最终功能与[实机截图](../implementation/assets/materials-drawer/README.md)见[本轮交接](../implementation/materials-drawer-handoff.md)。本轮在功能分支交付，未推送或部署。

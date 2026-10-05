@@ -158,7 +158,7 @@ test("real MaterialService consumes the single binding, preserves legacy locatio
     await f.service.bind({scope:f.scope,directory:f.b,rebind:true,organization:"project"});
     const next=await f.materials.capture({requestKey:"new",text:"# new",role:"output"},{graph:"/graph",sourceUuid:"root",...f.directories.binding("/graph","root")!});assert.equal(next.material.recordRoot,join(f.b,"成果"));
     assert.equal((await f.materials.read(legacy.material.id)).path,legacy.material.path);assert.equal(first.workspaceId,linked.workspaceId);
-    await f.service.unbind(f.scope);const fallback=await f.materials.capture({requestKey:"fallback",text:"fallback"},{graph:"/graph",sourceUuid:"root",directory:null,organization:"flat"});assert.equal(fallback.material.recordRoot,f.global);
+    await f.service.unbind(f.scope);const fallback=await f.materials.capture({requestKey:"fallback",text:"fallback"},{graph:"/graph",sourceUuid:"root",directory:null,organization:"flat"});assert.equal(fallback.material.recordRoot,join(f.global,"workspaces/root"));
   } finally {await f.cleanup();}
 });
 test("source change during a read causes re-read instead of publishing an inconsistent observation", async () => {
