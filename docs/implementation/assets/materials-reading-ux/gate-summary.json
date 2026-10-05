@@ -1,0 +1,42 @@
+{
+  "codeHead": "84b6ca6c5dd6617ff6b91e617ecb77f9f81d6935",
+  "command": "npm run check",
+  "exitCode": 0,
+  "node": "20.20.2",
+  "npm": "10.8.2",
+  "workspaceTests": 627,
+  "pluginTests": 393,
+  "sandboxTests": 5,
+  "boundaryTests": 12,
+  "totalTests": 644,
+  "failureCount": 0,
+  "skippedCount": 0,
+  "testSuiteCounts": [
+    12,
+    29,
+    393,
+    17,
+    11,
+    3,
+    10,
+    14,
+    19,
+    14,
+    105,
+    5,
+    12
+  ],
+  "checks": [
+    "requirements generation",
+    "typecheck",
+    "lint",
+    "workspace tests",
+    "sandbox tests",
+    "build",
+    "binary probes",
+    "dependency boundaries",
+    "taste evaluation",
+    "git diff --check"
+  ],
+  "logSha256": "5859d06d198f056d259ac243aa242130e85b39c447b44f52bbd4b1525dffeba6"
+}

@@ -14,6 +14,11 @@ export function installMaterialTransfers(materials: Materials, content: ContentI
   };
   materials.setTransferPort({
     scope, read: input => source.read(input),
+    body: element => element.closest('.wb-row .wb-body'),
+    currentScope: () => {
+      const current = work?.snapshot() as {graph?: string; root?: string} | null;
+      return current?.graph && current.root ? {graphId: current.graph, rootUuid: current.root} : null;
+    },
     valid,
     navigate: uuid => logseq.Editor.editBlock(uuid),
     content: {

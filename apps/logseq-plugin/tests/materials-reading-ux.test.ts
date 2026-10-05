@@ -1,0 +1,230 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp, mkdir, readFile, writeFile, readdir, rename, stat, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
+import {contentFixture, deferred} from './fixtures/content-writeback.ts';
+import {installContentWriteback} from '../src/features/content-writeback/installer.ts';
+import {installMaterialTransfers} from '../src/features/materials/install-transfer.ts';
+import {MATERIAL_MIME} from '../src/features/materials/drop.ts';
+
+async function until(probe: () => boolean | Promise<boolean>, label: string): Promise<void> {
+  const end = Date.now() + 6000;
+  while (Date.now() < end) { if (await probe()) return; await delay(20); }
+  assert.fail(label);
+}
+async function fixture() {
+  const c = await contentFixture(), root = await mkdtemp(join(tmpdir(), 'materials-reading-'));
+  const workDirectory = join(root, 'work'); await mkdir(workDirectory);
+  logseq.settings!.materialsDirectory = workDirectory;
+  const opened: string[] = [];
+  const apis = {
+    openPath: async (path: string): Promise<string> => { opened.push(path); return ''; },
+    doAction: async (args: unknown[]) => {
+      const [op, ...paths] = args as string[];
+      if (op === 'readFile') return readFile(paths[0]!, 'utf8');
+      if (op === 'writeFile') return writeFile(paths[1]!, paths[2]!);
+      if (op === 'mkdir-recur') return mkdir(paths[0]!, {recursive: true});
+      if (op === 'rename') return rename(paths[0]!, paths[1]!);
+      if (op === 'listdir') return readdir(paths[0]!);
+      if (op === 'stat') { const s = await stat(paths[0]!); return {mode: s.mode, size: s.size, dev: s.dev, ino: s.ino, birthtimeMs: s.birthtimeMs}; }
+      throw Error(`unsupported fixture operation ${op}`);
+    },
+  };
+  Object.assign(c.browser, {apis});
+  const content = installContentWriteback({adapter: c.adapter}); await content.local.authorize(c.root);
+  const {WorkView} = await import('../src/features/work-view/controller.ts');
+  const {Materials} = await import('../src/features/materials/controller.ts');
+  const work = new WorkView(() => {}), materials = new Materials(uuid => work.open(uuid), () => (work.snapshot() as {root: string | null}).root ?? c.root);
+  installMaterialTransfers(materials, content, {read: scope => content.api.read(scope)}, work);
+  const find = (label: string) => Array.from(materials.panel.root.querySelectorAll('button')).find(node => node.textContent === label)!;
+  const file = async (path: string) => {
+    const result = new c.browser.File([await readFile(path)], path.split('/').at(-1)!);
+    Object.defineProperty(result, 'path', {value: path}); return result as unknown as File;
+  };
+  const event = (type: string, files: File[] = [], internal = '') => {
+    const result = new c.browser.Event(type, {bubbles: true, cancelable: true});
+    Object.defineProperty(result, 'dataTransfer', {value: {types: internal ? [MATERIAL_MIME] : ['Files'], files, getData: (kind: string) => kind === MATERIAL_MIME ? internal : ''}});
+    return result as unknown as Event;
+  };
+  const joinFiles = async (paths: string[]) => {
+    await materials.ui.show(c.root);
+    const files = await Promise.all(paths.map(file));
+    materials.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(event('drop', files));
+    await until(() => materials.panel.root.textContent!.includes(`已加入 ${paths.length} 份材料`), 'file batch rendered');
+    return (await materials.listMaterials(c.root)).materials;
+  };
+  return {c, root, workDirectory, apis, opened, content, work, materials, find, file, event, joinFiles,
+    cleanup: async () => { materials.ui.dispose(); work.dispose(); content.dispose(); await delay(20); await c.cleanup(); await rm(root, {recursive: true, force: true}); },
+  };
+}
+
+test('long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation', async () => {
+  const f = await fixture(); try {
+    const sample = JSON.parse(await readFile(new URL('./fixtures/materials-reading-source.json', import.meta.url), 'utf8')) as {blocks: Array<{exampleId: string; depth: number; text: string}>};
+    f.c.blocks.delete(f.c.a); f.c.blocks.delete(f.c.b); f.c.blocks.get(f.c.root)!.children = [];
+    f.c.blocks.get(f.c.root)!.content = sample.blocks[0]!.text;
+    const parents = [f.c.root], ids = new Map<string, string>([['b00', f.c.root]]);
+    for (const block of sample.blocks.slice(1)) { const node = f.c.add(block.text, parents[block.depth - 1]); parents[block.depth] = node.uuid; ids.set(block.exampleId, node.uuid); }
+    assert.equal(ids.size, 93);
+    const paths = [join(f.workDirectory, '研究说明.md'), join(f.workDirectory, '访谈纪要.pdf'), join(f.root, '来源一.md'), join(f.root, '来源二.md')];
+    await writeFile(paths[0]!, '# 研究说明\n\n真实 Markdown 材料。');
+    await writeFile(paths[1]!, '%PDF-1.4\nsynthetic binary fixture');
+    await writeFile(paths[2]!, '相同正文，独立来源'); await writeFile(paths[3]!, '相同正文，独立来源');
+    const before = JSON.stringify([...f.c.blocks.values()]);
+    const views = await f.joinFiles(paths);
+    assert.equal(views.length, 4); assert.equal(new Set(views.map(view => view.id)).size, 4);
+    assert.equal(JSON.stringify([...f.c.blocks.values()]), before); assert.equal(f.c.counts().inserts, 0);
+    const material = views.find(view => view.path === paths[0])!;
+    const replacements = new Map([['interview-notes', views.find(view => view.path === paths[1])!.id], ['reading-notes', material.id], ['reference-guide', material.id], ['source-a', views.find(view => view.path === paths[2])!.id], ['source-b', views.find(view => view.path === paths[3])!.id]]);
+    for (const block of f.c.blocks.values()) block.content = block.content.replace(/longdoc:\/\/([\w-]+)/g, (_all, key: string) => `longdoc://${replacements.get(key) ?? material.id}`);
+    const alias = f.c.add(`[我的阅读说明](longdoc://${material.id})`);
+    const sourceBefore = JSON.stringify([...f.c.blocks.values()]);
+    await f.work.open(f.c.root); assert.equal((await f.work.reportAPI.setMode('report')).ok, true);
+    const parent = ids.get('b01')!;
+    const body = document.querySelector<HTMLElement>(`.wb-row[data-uuid="${parent}"] .wb-body`)!;
+    body.dispatchEvent(f.event('dragover', [], JSON.stringify({schemaVersion: 1, materialId: material.id, scope: f.c.scope})));
+    await until(() => !!body.querySelector('.wb-material-drop-hint')?.textContent?.includes('在该段下'), 'verified child hover');
+    body.dispatchEvent(f.event('drop', [], JSON.stringify({schemaVersion: 1, materialId: material.id, scope: f.c.scope})));
+    const recordPath = join(f.workDirectory, '.longdoc', `${material.id}.json`);
+    await until(async () => JSON.parse(await readFile(recordPath, 'utf8')).references?.[0]?.status === 'synced', 'report child committed');
+    const record = JSON.parse(await readFile(recordPath, 'utf8')), child = record.references[0].target.blockUuid;
+    assert.equal(f.c.counts().inserts, 1); assert.equal(f.c.blocks.get(child)!.content.split('\n')[0], material.reference);
+    assert.notEqual(JSON.stringify([...f.c.blocks.values()]), sourceBefore);
+    assert.equal((await f.content.api.result(record.references[0].patch.requestId))!.record.items[0]!.status, 'APPLIED_VERIFIED');
+    await f.work.refresh();
+    const row = document.querySelector<HTMLElement>(`.wb-row[data-uuid="${parent}"]`)!; row.click(); row.focus();
+    await f.materials.ui.show(f.c.root); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${material.id}"]`)!.click();
+    await until(() => !!f.materials.panel.root.querySelector('.wb-reading'), 'Markdown reading');
+    assert.equal(f.materials.panel.root.querySelector<HTMLElement>('.wb-editor')!.hidden, true);
+    await f.materials.ui.returnToBody(); assert.equal((f.work.snapshot() as {view: {selected: string}}).view.selected, parent);
+    assert.equal((await f.work.reportAPI.read()).mode, 'report');
+    await f.materials.ui.show(f.c.root); f.find('改文件名').click();
+    await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename form');
+    // Choose this material's action; the list includes four independent entries.
+    f.find('取消').click();
+    f.materials.panel.root.querySelector(`[data-material-id="${material.id}"]`)!.parentElement!.querySelectorAll<HTMLButtonElement>('details button')[1]!.click();
+    await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'selected rename');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '研究终稿'; f.find('保存').click();
+    await until(() => f.c.blocks.get(child)!.content.includes('研究终稿](longdoc://'), 'generated label follows');
+    assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
+    const path = join(f.workDirectory, '研究终稿.md'); assert.equal(await readFile(path, 'utf8'), '# 研究说明\n\n真实 Markdown 材料。');
+    const version = (await f.materials.readMaterial(material.id)).version;
+    await rename(path, join(f.workDirectory, '外部研究.md'));
+    await f.materials.ui.show(f.c.root); assert.equal((await f.materials.readMaterial(material.id)).path, join(f.workDirectory, '外部研究.md'));
+    await until(() => f.c.blocks.get(child)!.content.includes('外部研究](longdoc://'), 'external identity rename follows');
+    assert.equal((await f.materials.readMaterial(material.id)).version, version);
+    const elsewhere = join(f.root, '另处研究.md'); await rename(join(f.workDirectory, '外部研究.md'), elsewhere);
+    await f.materials.ui.open(material.id); assert.match(f.materials.panel.root.textContent!, /文件失联/);
+    assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
+    f.find('重新定位').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="重新定位到文件绝对路径"]'), 'relocation form');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="重新定位到文件绝对路径"]')!.value = elsewhere; f.find('保存').click();
+    await until(async () => (await f.materials.readMaterial(material.id)).availability === 'available', 'relocated exact identity');
+    const relocated = await f.materials.readMaterial(material.id); assert.equal(relocated.id, material.id); assert.equal(relocated.path, elsewhere); assert.equal(relocated.version, version);
+    assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
+  } finally { await f.cleanup(); }
+});
+
+test('summary is optional record metadata: search, clearing and file rename preserve content, links and permissions', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '参考.md'); await writeFile(path, '原始文件正文');
+    const [view] = await f.joinFiles([path]);
+    f.find('写概述').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="一句话概述"]'), 'summary input');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="一句话概述"]')!.value = '访谈第一轮的记录'; f.find('保存').click();
+    await until(async () => (await f.materials.readMaterial(view!.id)).summary === '访谈第一轮的记录', 'summary stored');
+    const described = await f.materials.readMaterial(view!.id); assert.equal(described.reference, view!.reference); assert.equal(described.version, view!.version); assert.deepEqual(described.capabilities.edit, {user: false, agent: false});
+    assert.equal((await f.materials.listMaterials(f.c.root, '第一轮')).materials[0]!.id, view!.id);
+    await f.materials.ui.show(f.c.root); f.find('改文件名').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '访谈参考'; f.find('保存').click();
+    await until(async () => (await f.materials.readMaterial(view!.id)).title === '访谈参考', 'file renamed');
+    assert.equal((await f.materials.readMaterial(view!.id)).summary, '访谈第一轮的记录'); assert.equal(await readFile(join(f.workDirectory, '访谈参考.md'), 'utf8'), '原始文件正文');
+    await f.materials.ui.show(f.c.root); f.find('写概述').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="一句话概述"]'), 'clear summary');
+    f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="一句话概述"]')!.value = ''; f.find('保存').click();
+    await until(async () => !(await f.materials.readMaterial(view!.id)).summary, 'empty summary removes metadata');
+    assert.equal((await f.materials.readMaterial(view!.id)).title, '访谈参考'); assert.equal(f.c.counts().inserts, 0);
+  } finally { await f.cleanup(); }
+});
+
+test('same-name conflict and permission failure retain the rename input and never overwrite another file', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '原件.md'), conflict = join(f.workDirectory, '重名.md'); await writeFile(path, 'original'); await writeFile(conflict, 'other');
+    const [view] = await f.joinFiles([path]); f.find('改文件名').click();
+    await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename');
+    const input = f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!; input.value = '重名'; f.find('保存').click();
+    await until(() => !input.readOnly && !!input.closest('form')!.querySelector('.wb-error')?.textContent, 'conflict returned');
+    assert.equal(input.value, '重名'); assert.equal(await readFile(path, 'utf8'), 'original'); assert.equal(await readFile(conflict, 'utf8'), 'other');
+    const call = f.apis.doAction; f.apis.doAction = async args => { if (args[0] === 'rename') throw Error('EACCES'); return call(args); };
+    input.value = '待保存名称'; f.find('保存').click(); await until(() => !input.readOnly && input.closest('form')!.textContent!.includes('EACCES'), 'permission failure visible');
+    assert.equal(input.value, '待保存名称'); assert.equal((await f.materials.readMaterial(view!.id)).path, path);
+    f.apis.doAction = call; f.find('保存').click(); await until(async () => (await f.materials.readMaterial(view!.id)).title === '待保存名称', 'retry without new material');
+    assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+test('file picker joins real host files while binary clicks open exact path and report application failure truthfully', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '原始图片.png'); await writeFile(path, Buffer.from([137, 80, 78, 71]));
+    await f.materials.ui.show(f.c.root); f.find('加入材料').click();
+    const picker = f.materials.panel.root.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(picker, 'files', {value: [await f.file(path)]}); picker.dispatchEvent(new f.c.browser.Event('change') as unknown as Event);
+    await until(async () => (await f.materials.listMaterials(f.c.root)).materials.length === 1, 'picker result');
+    const view = (await f.materials.listMaterials(f.c.root)).materials[0]!;
+    await f.materials.ui.show(f.c.root); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
+    await until(() => f.opened.length === 1, 'default app request'); assert.equal(f.opened[0], path); assert.equal(view.content, null); assert.equal(f.c.counts().inserts, 0);
+    assert.deepEqual(view.capabilities.edit, {user: false, agent: false}); assert.equal(await readFile(path).then(bytes => bytes.toString('hex')), '89504e47');
+    f.apis.openPath = async () => 'no default application'; f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
+    await until(() => f.materials.panel.root.textContent!.includes('no default application'), 'application error');
+    assert.doesNotMatch(f.materials.panel.root.querySelector('.wb-status')!.textContent!, /已交给默认应用/);
+  } finally { await f.cleanup(); }
+});
+
+test('batch partial failure retains imported file without any Graph insertion; stale clipboard completion does not appear in another work', async () => {
+  const f = await fixture(), previousNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator'); try {
+    const path = join(f.workDirectory, '成功.md'); await writeFile(path, 'saved');
+    await f.materials.ui.show(f.c.root);
+    const rejected = new f.c.browser.File(['missing'], '不存在.md'); Object.defineProperty(rejected, 'path', {value: join(f.workDirectory, '不存在.md')});
+    f.materials.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(f.event('drop', [await f.file(path), rejected as unknown as File]));
+    await until(() => f.materials.panel.root.textContent!.includes('不存在.md 未加入'), 'partial batch result');
+    assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1); assert.equal(f.c.counts().inserts, 0);
+    const gate = deferred<void>(), entered = deferred<void>();
+    Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async () => { entered.resolve(); await gate.promise; }}});
+    Object.defineProperty(globalThis, 'navigator', {configurable: true, value: f.c.browser.navigator});
+    f.find('复制链接').click(); await entered.promise;
+    const second = f.c.add('**[MiniProject]** 另一工作 #MiniProject'); await f.materials.ui.show(second.uuid); gate.resolve(); await delay(30);
+    assert.equal(f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'), null);
+    assert.doesNotMatch(f.materials.panel.root.querySelector('.wb-status')!.textContent!, /已复制材料/);
+  } finally { if (previousNavigator) Object.defineProperty(globalThis, 'navigator', previousNavigator); else Reflect.deleteProperty(globalThis, 'navigator'); await f.cleanup(); }
+});
+
+test('failed report insertion keeps associated material and visible selectable fallback, never reimports on recovery', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '保留材料.md'); await writeFile(path, 'retained original'); await f.work.open(f.c.root);
+    const body = document.querySelector<HTMLElement>(`.wb-row[data-uuid="${f.c.a}"] .wb-body`)!;
+    f.c.onInsert(async () => { throw Error('lost insertion reply'); });
+    body.dispatchEvent(f.event('drop', [await f.file(path)]));
+    await until(() => !!document.querySelector('[data-material-continuation]'), 'partial source continuation');
+    const continuation = document.querySelector<HTMLElement>('[data-material-continuation]')!;
+    continuation.querySelector<HTMLButtonElement>('button')!.click();
+    await until(() => !!continuation.querySelector('textarea[aria-label="材料链接"]'), 'selectable fallback on visible report');
+    assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1); assert.equal(await readFile(path, 'utf8'), 'retained original');
+    // Unknown SDK result remains a Journal query; retry must not duplicate the child already committed by the host.
+    const retry = Array.from(continuation.querySelectorAll('button')).find(node => node.textContent === '重新核验并补插子块')!; retry.click();
+    await delay(100); assert.equal(f.c.counts().inserts, 1); assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 1);
+  } finally { await f.cleanup(); }
+});
+
+test('summary form refuses submission during composition and installed material listeners and styles dispose', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '输入.md'); await writeFile(path, 'original'); const [view] = await f.joinFiles([path]);
+    f.find('写概述').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="一句话概述"]'), 'composition form');
+    const input = f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="一句话概述"]')!; input.value = '中文输入';
+    input.dispatchEvent(new f.c.browser.Event('compositionstart', {bubbles: true}) as unknown as Event); f.find('保存').click(); await delay(30);
+    assert.equal((await f.materials.readMaterial(view!.id)).summary, undefined);
+    input.dispatchEvent(new f.c.browser.Event('compositionend', {bubbles: true}) as unknown as Event); f.find('保存').click();
+    await until(async () => (await f.materials.readMaterial(view!.id)).summary === '中文输入', 'composition completion');
+    const subscriptions = f.c.counts().graphSubscriptions;
+    f.materials.ui.dispose(); assert.equal(document.querySelector('[data-material-reading-style]'), null);
+    assert.equal(f.c.counts().graphSubscriptions, subscriptions - 1);
+  } finally { await f.cleanup(); }
+});

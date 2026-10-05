@@ -103,7 +103,7 @@ test('combined panels preserve source text, load linked material and retain conf
     await materials.openDoc(record.id); await materials.beginEditing(); assert.equal(fakeEditor.value,'# 材料\nbase');
     fakeEditor.value='# 材料\nlocal';
     files.set(record.path,'# 材料\nexternal');
-    const returnWork=[...materials.panel.root.querySelectorAll('button')].find(button=>button.textContent==='返回工作');
+    const returnWork=[...materials.panel.root.querySelectorAll('button')].find(button=>button.textContent==='返回正文');
     assert.ok(returnWork); returnWork.click();
     for(let i=0;i<40&&!work.panel.visible;i++)await delay(5);
     assert.equal(materials.panel.visible,false); assert.equal(work.panel.visible,true);
