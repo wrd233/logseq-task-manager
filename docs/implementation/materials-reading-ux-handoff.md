@@ -36,9 +36,11 @@ Darwin x86_64；Node 20.20.2、npm 10.8.2，符合仓库指定工具链。独立
 
 初始完整基线通过：workspace 617/617、sandbox 5/5、边界 12/12，共 634/634。本轮新增十个行为回归，覆盖长样例、加入不改正文、同内容双文件、可信子块与 Journal、改名／别名／外部改名／重定位、概述、权限和重名重试、真实宿主路径入口、剪贴板迟到、部分失败、输入态／释放、草稿缓存失败及原生返回来源。原编辑、恢复、Graph／异步和共同 agent 行为仍由现有回归覆盖。
 
-最终完整 `npm run check` 通过：workspace 627/627（插件 393/393），sandbox 5/5，边界 12/12，共 644/644，无失败或跳过。包括需求地图原脚本生成、全部类型、lint、全部 workspace 测试、sandbox、构建及二进制校验、依赖边界与 Taste。`git diff --check` 通过。最终日志在本轮忽略目录 `tmp/materials-reading-final-check-verified.log`，可维护的结果摘要随证据提交。
+功能分支完整 `npm run check` 通过：workspace 627/627（插件 393/393），sandbox 5/5，边界 12/12，共 644/644，无失败或跳过。包括需求地图原脚本生成、全部类型、lint、全部 workspace 测试、sandbox、构建及二进制校验、依赖边界与 Taste。`git diff --check` 通过。最终日志在本轮忽略目录 `tmp/materials-reading-final-check-verified.log`，可维护的结果摘要随证据提交。
 
 中间验证区分问题来源：旧 UI 断言根据“加入不写正文／名称点击阅读／显式恢复草稿”更新；两处并发测试使用固定毫秒等待，改为等独立记录的材料 ID、已同步引用和实际结果消息，不放松断言。机器磁盘不足导致临时运行／IO 失败，清理仅限本轮临时文件后重验；未改产品行为绕过失败。
+
+用户授权整合时，最新远端 main 已前进到 `c1e59b3`，新增报告全文布局。无冲突合并后完成整仓检查：workspace 634/634（插件 400/400），sandbox 5/5、边界 12/12，共 651/651。真实受检 HEAD、整合测试等待修正和完整结果见[最新 main 整合记录](../integration/materials-reading-ux-main-2026-10-05.md)。原 Desktop 截图仍标识 `7a11cfd` 构建，不冒充整合后报告布局的实机验证。
 
 ## 隔离 Desktop 事实
 

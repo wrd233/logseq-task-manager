@@ -1,0 +1,48 @@
+{
+  "codeHead": "a4149314aa9b49bdbaffa9027fd478494e16faeb",
+  "mergedMainBase": "c1e59b33f44eb089d800a1500fac761d7f710de4",
+  "mergeCommit": "6f20815c8a07d530366a660a457abfb3d9957e3d",
+  "command": "npm run check",
+  "exitCode": 0,
+  "node": "20.20.2",
+  "npm": "10.8.2",
+  "workspaceTests": 634,
+  "pluginTests": 400,
+  "sandboxTests": 5,
+  "boundaryTests": 12,
+  "totalTests": 651,
+  "failureCount": 0,
+  "skippedCount": 0,
+  "testSuiteCounts": [
+    12,
+    29,
+    400,
+    17,
+    11,
+    3,
+    10,
+    14,
+    19,
+    14,
+    105,
+    5,
+    12
+  ],
+  "environment": {
+    "TSX_DISABLE_CACHE": "1",
+    "temporaryDirectory": "per-run private /tmp/task-copilot-materials-check.*; removed after completion"
+  },
+  "checks": [
+    "requirements generation",
+    "typecheck",
+    "lint",
+    "workspace tests",
+    "sandbox tests",
+    "build",
+    "binary probes",
+    "dependency boundaries",
+    "taste evaluation",
+    "git diff --check"
+  ],
+  "logSha256": "03852552b886c20b821ba79903d5d2fb01d4a64dd49f1e52ce67ac9f22706e71"
+}
