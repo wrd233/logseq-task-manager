@@ -89,7 +89,7 @@ export class Materials {
       if (event.button !== 0) return;
       const anchor = (event.target as Element | null)?.closest?.("a,[data-href]");
       const id = idFrom(anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href") ?? "");
-      if (!id) return; event.preventDefault(); event.stopImmediatePropagation(); this.contextUuid = this.currentWorkRoot?.() ?? (event.target as Element | null)?.closest(".ls-block")?.getAttribute("blockid") ?? this.contextUuid; void this.openDoc(id).catch(this.fail);
+      if (!id) return; event.preventDefault(); event.stopImmediatePropagation(); this.contextUuid = (event.target as Element | null)?.closest(".ls-block")?.getAttribute("blockid") ?? this.currentWorkRoot?.() ?? this.contextUuid; void this.openDoc(id).catch(this.fail);
     };
     const paste = (event: ClipboardEvent) => this.sources.onPaste(event);
     doc?.addEventListener("click", link, true); document.addEventListener("click", link, true); doc?.addEventListener("paste", paste, true);

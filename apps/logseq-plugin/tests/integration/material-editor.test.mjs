@@ -4,13 +4,19 @@ import { Window } from 'happy-dom';
 import { setTimeout as delay } from 'node:timers/promises';
 import { deferred } from '../fixtures/work-view.mjs';
 
+async function until(condition, description) {
+  const end = Date.now() + 5000;
+  while (Date.now() < end) {if (condition()) return; await delay(20);}
+  assert.fail(description);
+}
+
 async function fixture() {
   const browser = new Window({ url: 'http://localhost/plugin/' });
   globalThis.window = browser; globalThis.document = browser.document; globalThis.localStorage = browser.localStorage; globalThis.location = browser.location;
   let graph = '/A', changed, editor, input, creates = 0, sets = 0, destroyed = 0, readCount = 0, intercept = null;
   const directories = new Set(['/projects/A', '/projects/B']);
   const blocks = new Map(['source', 'projectA', 'projectB', 'elsewhere'].map(uuid => [uuid, {uuid, content: 'TODO 工作', properties: {id: uuid}, parent: {id: 99}, page: {id: 99}, children: []}]));
-  let returned = null, rejectInsertion = false;
+  let returned = null, rejectInsertion = false, workRoot = null;
   const commands = new Map();
   const files = new Map(), writes = [], intervals = new Map(), timeouts = new Map(); let timer = 0;
   browser.setInterval = fn => { const id = ++timer; intervals.set(id, fn); return id; }; browser.clearInterval = id => intervals.delete(id);
@@ -42,10 +48,10 @@ async function fixture() {
   const io = { read: async path => {if (!files.has(path)) throw Error('ENOENT'); return files.get(path);}, write: async (path, text) => { files.set(path, text); }, mkdir: async () => {}, rename: async (from, to) => { files.set(to, files.get(from)); files.delete(from); }, list: async path => [...files.keys()].filter(file => file.startsWith(path + '/')) };
   const a = new MaterialStore(io, '/materialsA'), b = new MaterialStore(io, '/materialsB');
   const docA = await a.create('base A', { graph: '/A', sourceUuid: 'source' }), docB = await b.create('base B', { graph: '/B', sourceUuid: 'source' });
-  const materials = new Materials(async uuid => {returned = uuid;});
+  const materials = new Materials(async uuid => {returned = uuid;}, () => workRoot);
   return {
     browser, materials, files, a, b, docA, docB, writes, blocks, commands,
-    get returned() {return returned;}, rejectInsertion: value => {rejectInsertion = value;},
+    get returned() {return returned;}, rejectInsertion: value => {rejectInsertion = value;}, workRoot: value => {workRoot = value;},
     get editor() { return editor; }, counts: () => ({ creates, sets, destroyed, readCount, saves: timeouts.size }),
     input: text => { editor.value = text; input(); },
     composition: type => materials.panel.root.querySelector('.wb-editor').dispatchEvent(new browser.Event(type, { bubbles: true })),
@@ -56,6 +62,21 @@ async function fixture() {
     close: async () => { materials.dispose(); await delay(10); await browser.happyDOM.abort(); delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location; delete globalThis.logseq; },
   };
 }
+
+test('native material references return to the clicked block even when another work is open; report references use current work', async () => {
+  const f = await fixture();
+  try {
+    f.workRoot('projectA'); await f.materials.library('projectA');
+    const block = f.browser.document.createElement('div'); block.className = 'ls-block'; block.setAttribute('blockid', 'elsewhere');
+    const native = f.browser.document.createElement('a'); native.href = `longdoc://${f.docA.id}`; native.textContent = '手写别名'; block.append(native); f.browser.document.body.append(block);
+    native.click(); await delay(30); assert.ok(f.materials.panel.root.querySelector('.wb-reading'));
+    assert.equal((await f.materials.readMaterial(f.docA.id)).path, f.docA.path);
+    await f.materials.ui.returnToBody(); assert.equal(f.returned, 'elsewhere');
+    const report = f.browser.document.createElement('a'); report.href = native.href; f.browser.document.body.append(report);
+    f.workRoot('projectB'); report.click(); await delay(30); await f.materials.ui.returnToBody();
+    assert.equal(f.returned, 'projectB'); assert.equal((await f.materials.readMaterial(f.docA.id)).path, f.docA.path);
+  } finally {await f.close();}
+});
 
 test('offline directory preview leaves identity, source and editing permission untouched until explicit association', async () => {
   const f = await fixture();
@@ -283,7 +304,8 @@ test('automatic paste respects opt-in, short/internal/code input and retains a s
     let insertions=0;f.browser.document.execCommand=()=>{insertions++;return true;};
     const gate=deferred(),started=deferred();f.intercept(async path=>{if(path.endsWith('.md')){started.resolve();await gate.promise;}});
     assert.equal(paste(input,plain).defaultPrevented,true);await started.promise;
-    input.value='new current input';f.switchGraph('B');gate.resolve();await delay(40);
+    input.value='new current input';f.switchGraph('B');gate.resolve();
+    await until(()=>[...Array(f.browser.localStorage.length)].map((_,i)=>f.browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')&&JSON.parse(f.browser.localStorage.getItem(key)).materialId),'saved capture identity retained after Graph switch');
     assert.equal(input.value,'new current input');assert.equal(insertions,0);
     const pending=[...Array(f.browser.localStorage.length)].map((_,i)=>f.browser.localStorage.key(i)).filter(key=>key.startsWith('workbench:pending:'));
     assert.equal(pending.length,1);const recovery=JSON.parse(f.browser.localStorage.getItem(pending[0]));assert.ok(recovery.materialId);assert.equal(recovery.graph,'/A');

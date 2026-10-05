@@ -45,14 +45,16 @@ test('real composition wiring: simulated list drop changes no source; report bod
     const before=f.c.counts().inserts;
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'list association and rendered row');
     let list=await f.materials.listMaterials(f.c.root);assert.equal(list.materials.length,1);assert.equal(f.c.counts().inserts,before);assert.equal(list.materials[0]!.path,path);assert.equal(list.materials[0]!.title,'有 空格资料');
-    f.find('复制链接').click();await delay(30);const selectable=f.materials.panel.root.querySelector<HTMLTextAreaElement>('textarea[aria-label="材料链接"]')!;assert.equal(selectable.value,list.materials[0]!.reference);assert.match(f.materials.panel.root.textContent!,/复制未完成/);
+    f.find('复制链接').click();await until(()=>!!f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'),'selectable clipboard fallback');const selectable=f.materials.panel.root.querySelector<HTMLTextAreaElement>('textarea[aria-label="材料链接"]')!;assert.equal(selectable.value,list.materials[0]!.reference);assert.match(f.materials.panel.root.textContent!,/复制未完成/);
     const row=document.createElement('article');row.className='wb-row';row.dataset.uuid=f.c.a;const paragraph=document.createElement('div');paragraph.className='wb-body';row.append(paragraph);document.body.append(row);
-    f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await until(() => f.c.counts().inserts === before + 1, 'report child dispatch');
+    f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await until(async () => JSON.parse(await readFile(join(f.work,'.longdoc',`${list.materials[0]!.id}.json`),'utf8')).references?.[0]?.status==='synced', 'report child verified');
+    await until(()=>f.c.messages.some(m=>m.includes('已关联材料，并在该原文块下插入引用')),'verified first drop result displayed');
     list=await f.materials.listMaterials(f.c.root);assert.equal(list.materials.length,1);assert.equal(f.c.counts().inserts,before+1);
     const record=(await f.materials.readMaterial(list.materials[0]!.id));assert.equal(record.id,list.materials[0]!.id);assert.equal(await readFile(path,'utf8'),body);
-    f.drop(paragraph,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:record.id,scope:f.c.scope})});await delay(100);assert.equal(f.c.counts().inserts,before+1);
-    f.drop(paragraph,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:record.id,scope:{...f.c.scope,graphId:'other'}})});await delay(60);assert.equal(f.c.counts().inserts,before+1);
-    row.classList.add('wb-review-history');f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await delay(60);assert.equal(f.c.counts().inserts,before+1);assert.match(f.c.messages.join(' '),/可靠原文映射/);
+    const successes=f.c.messages.filter(m=>m.includes('已关联材料，并在该原文块下插入引用')).length;
+    f.drop(paragraph,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:record.id,scope:f.c.scope})});await until(()=>f.c.messages.filter(m=>m.includes('已关联材料，并在该原文块下插入引用')).length>successes,'duplicate drop resolved without another child');assert.equal(f.c.counts().inserts,before+1);
+    f.drop(paragraph,{types:[MATERIAL_MIME],internal:JSON.stringify({schemaVersion:1,materialId:record.id,scope:{...f.c.scope,graphId:'other'}})});await until(()=>f.c.messages.some(m=>m.includes('材料拖动范围已变化')),'cross-Graph payload rejected');assert.equal(f.c.counts().inserts,before+1);
+    row.classList.add('wb-review-history');f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await until(()=>f.c.messages.some(m=>m.includes('可靠原文映射')),'history drop rejected');assert.equal(f.c.counts().inserts,before+1);assert.match(f.c.messages.join(' '),/可靠原文映射/);
   }finally{await f.cleanup();}
 });
 
