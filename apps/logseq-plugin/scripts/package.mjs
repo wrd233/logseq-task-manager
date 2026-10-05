@@ -9,7 +9,7 @@ const plugin=resolve(dirname(fileURLToPath(import.meta.url)),'..'),repo=resolve(
 const output=resolve(process.argv[2]??resolve(repo,'docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip'));
 const pkg=JSON.parse(await readFile(resolve(plugin,'package.json'),'utf8'));
 const files=[];
-async function collect(directory){for(const name of (await readdir(directory)).sort()){const path=resolve(directory,name),info=await stat(path);if(info.isDirectory())await collect(path);else files.push({name:relative(plugin,path).replaceAll('\\','/'),path});}}
+async function collect(directory){for(const name of (await readdir(directory)).sort()){const path=resolve(directory,name),info=await stat(path);if(info.isDirectory())await collect(path);else if(!name.endsWith('.d.ts') && !name.endsWith('.map'))files.push({name:relative(plugin,path).replaceAll('\\','/'),path});}}
 await collect(resolve(plugin,'dist'));
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const commit=execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
