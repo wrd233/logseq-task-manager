@@ -1,0 +1,65 @@
+TAP version 13
+# Subtest: long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+ok 1 - long fixture has 92 bodies, four levels, two affairs, a nested work, distinct aliases and at least 4000 Chinese characters
+  ---
+  duration_ms: 0.502083
+  ...
+# Subtest: ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+not ok 2 - ordinary explanatory trees keep exact child order; object subtrees remain contiguous and unknown siblings keep both neighbors
+  ---
+  duration_ms: 6.882209
+  location: '/Users/wangrundong/.codex/worktrees/report-fulltext-layout/任务管理中心-logseq插件/apps/logseq-plugin/tests/report-fulltext-layout.test.ts:2:1208'
+  failureType: 'testCodeFailure'
+  error: |-
+    这是一段需要完整阅读的长解释。现场记录先描述当时观察到的情况，后来整理的材料可能补上新的理解，两者的口吻和限制并不相同。报告可以把它们排得更容易阅读，却不能代替用户决定哪一句应该删除。尤其在资料还没有核对的时候，应保留‘可能适用于当前工作’这样的限定表达，也保留它后面关于其他情况未必成立的反例。阅读者需要看到前提、判断、反例和待确认问题如何连在一起，才能理解为什么这份说明没有直接给出肯定结论。原文在不同阶段出现的重复句也可能承担不同用途，一处提醒材料权限，另一处提醒来源范围，不能因为文字相同就只保留一个来源。这里要求完整显示整段，包括靠后的这些限制：名称不证明身份，相似内容不证明同一文件，已经登记材料不证明已经得到编辑许可，阶段认可也不证明正式工作完成。长句可以换行，报告密度可以提高，但正文最后这几句不能因三行显示偏好而消失。
+    + actual - expected
+
+    + '33333333-3333-4333-8333-000000000037'
+    - '33333333-3333-4333-8333-000000000017'
+                                         ^
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '33333333-3333-4333-8333-000000000017'
+  actual: '33333333-3333-4333-8333-000000000037'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/wangrundong/.codex/worktrees/report-fulltext-layout/任务管理中心-logseq插件/apps/logseq-plugin/tests/report-fulltext-layout.test.ts:40:14)
+    async Test.run (node:internal/test_runner/test:797:9)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+not ok 3 - each long-form source has complete visible Markdown, correct raw version and stable material alias targets
+  ---
+  duration_ms: 91.334416
+  location: '/Users/wangrundong/.codex/worktrees/report-fulltext-layout/任务管理中心-logseq插件/apps/logseq-plugin/tests/report-fulltext-layout.test.ts:2:2882'
+  failureType: 'testCodeFailure'
+  error: |-
+    ```js
+    const limit = '只核对当前工作';
+    id:: 这是一行代码中的原文，不是可删除的块属性
+    const marker = '[目标]';
+    console.log(limit, marker);
+    ```
+    + actual - expected
+
+    + "constlimit='只核对当前工作';constmarker='[目标]';console.log(limit,marker);"
+    - "constlimit='只核对当前工作';id::这是一行代码中的原文，不是可删除的块属性constmarker='[目标]';console.log(limit,marker);"
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: "constlimit='只核对当前工作';id::这是一行代码中的原文，不是可删除的块属性constmarker='[目标]';console.log(limit,marker);"
+  actual: "constlimit='只核对当前工作';constmarker='[目标]';console.log(limit,marker);"
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/wangrundong/.codex/worktrees/report-fulltext-layout/任务管理中心-logseq插件/apps/logseq-plugin/tests/report-fulltext-layout.test.ts:63:14)
+    async Test.run (node:internal/test_runner/test:797:9)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 1
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 521.883583
