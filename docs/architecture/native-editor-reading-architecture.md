@@ -1,5 +1,7 @@
 # 原生编辑与阅读的宿主和来源接口
 
+后续 main 整合：2026-10-05 按用户授权，与最新全文、材料及协作界面组合；冲突处理、685 项门禁和重新采集的 Desktop 证据见[整合记录](../integration/native-editor-reading-main-2026-10-05.md)。以下保留原功能分支交付时点和固定基线，“未推送”不代表后续整合状态。
+
 2026-10-05。基线为 `8529212296f0b65fb78ef7ccd2a2102474d9310a`。本分支沿用 [main 原生报告整合](../integration/native-editor-report-main-2026-10-04.md) 和 [书写兼容整合](../integration/writing-compatibility-main-2026-10-04.md) 已存在的入口与 owner。没有变更 SourceScope／Patch schema、来源 provider 所有权、Kernel／SQLite schema、agent 连接或材料 store。
 
 ## 端口与职责

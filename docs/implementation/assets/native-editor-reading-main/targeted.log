@@ -1,0 +1,390 @@
+TAP version 13
+# Subtest: native before preserves UUID, subtree, raw text, properties and idempotence
+ok 1 - native before preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 49.999833
+  ...
+# Subtest: native after preserves UUID, subtree, raw text, properties and idempotence
+ok 2 - native after preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 16.422542
+  ...
+# Subtest: native first-child preserves UUID, subtree, raw text, properties and idempotence
+ok 3 - native first-child preserves UUID, subtree, raw text, properties and idempotence
+  ---
+  duration_ms: 11.457
+  ...
+# Subtest: schema negotiation and trusted structure permission cannot be supplied by input
+ok 4 - schema negotiation and trusted structure permission cannot be supplied by input
+  ---
+  duration_ms: 20.241125
+  ...
+# Subtest: stale source refuses without moving
+ok 5 - stale source refuses without moving
+  ---
+  duration_ms: 6.693083
+  ...
+# Subtest: stale target refuses without moving
+ok 6 - stale target refuses without moving
+  ---
+  duration_ms: 19.100708
+  ...
+# Subtest: stale parent refuses without moving
+ok 7 - stale parent refuses without moving
+  ---
+  duration_ms: 13.74925
+  ...
+# Subtest: stale neighbor refuses without moving
+ok 8 - stale neighbor refuses without moving
+  ---
+  duration_ms: 11.153125
+  ...
+# Subtest: unrelated text is allowed; cycles, root, membership and forged graph are refused
+ok 9 - unrelated text is allowed; cycles, root, membership and forged graph are refused
+  ---
+  duration_ms: 57.119542
+  ...
+# Subtest: MiniProject ordinary notes and TODO move within ownership; formal/managed wrappers and another object cannot
+ok 10 - MiniProject ordinary notes and TODO move within ownership; formal/managed wrappers and another object cannot
+  ---
+  duration_ms: 64.455417
+  ...
+# Subtest: editing guard protects source
+ok 11 - editing guard protects source
+  ---
+  duration_ms: 9.874209
+  ...
+# Subtest: editing guard protects child
+ok 12 - editing guard protects child
+  ---
+  duration_ms: 22.987625
+  ...
+# Subtest: editing guard protects destination
+ok 13 - editing guard protects destination
+  ---
+  duration_ms: 11.620625
+  ...
+# Subtest: editing guard protects parent
+ok 14 - editing guard protects parent
+  ---
+  duration_ms: 14.368833
+  ...
+# Subtest: editing guard protects composition
+ok 15 - editing guard protects composition
+  ---
+  duration_ms: 9.72975
+  ...
+# Subtest: lost-reply is recoverable without repeating a move
+ok 16 - lost-reply is recoverable without repeating a move
+  ---
+  duration_ms: 21.444958
+  ...
+# Subtest: timeout is recoverable without repeating a move
+ok 17 - timeout is recoverable without repeating a move
+  ---
+  duration_ms: 45.204125
+  ...
+# Subtest: readback is recoverable without repeating a move
+ok 18 - readback is recoverable without repeating a move
+  ---
+  duration_ms: 19.618
+  ...
+# Subtest: journal-intent is recoverable without repeating a move
+ok 19 - journal-intent is recoverable without repeating a move
+  ---
+  duration_ms: 13.70925
+  ...
+# Subtest: journal-result is recoverable without repeating a move
+ok 20 - journal-result is recoverable without repeating a move
+  ---
+  duration_ms: 16.424792
+  ...
+# Subtest: graph is recoverable without repeating a move
+ok 21 - graph is recoverable without repeating a move
+  ---
+  duration_ms: 24.951083
+  ...
+# Subtest: mixed batch records one move and one stale text; dependent moves need new source structure
+ok 22 - mixed batch records one move and one stale text; dependent moves need new source structure
+  ---
+  duration_ms: 31.029625
+  ...
+# Subtest: pure moves create immutable stage revisions; later manual moves are never attributed to an old write
+ok 23 - pure moves create immutable stage revisions; later manual moves are never attributed to an old write
+  ---
+  duration_ms: 20.552416
+  ...
+# Subtest: queued moves stop after revoke; already dispatched move stays unknown until actual SDK settles
+ok 24 - queued moves stop after revoke; already dispatched move stays unknown until actual SDK settles
+  ---
+  duration_ms: 18.964042
+  ...
+# Subtest: unsupported SDK and properties readback mismatch fail closed; native id representation is recorded separately
+ok 25 - unsupported SDK and properties readback mismatch fail closed; native id representation is recorded separately
+  ---
+  duration_ms: 11.636875
+  ...
+# Subtest: empty/no-op move remains NO_CHANGE and unrelated request then advances normally
+ok 26 - empty/no-op move remains NO_CHANGE and unrelated request then advances normally
+  ---
+  duration_ms: 13.67225
+  ...
+# Subtest: first-child prepends to existing children; descendant changes between intent and dispatch stop SDK
+ok 27 - first-child prepends to existing children; descendant changes between intent and dispatch stop SDK
+  ---
+  duration_ms: 18.47925
+  ...
+# Subtest: old text and child journals remain queryable next to v2; corrupt movement facts never become success
+ok 28 - old text and child journals remain queryable next to v2; corrupt movement facts never become success
+  ---
+  duration_ms: 32.375167
+  ...
+# Subtest: registered conflict UI explains location, preserves proposal on close and retries only with new source
+ok 29 - registered conflict UI explains location, preserves proposal on close and retries only with new source
+  ---
+  duration_ms: 82.93075
+  ...
+# Subtest: stage review renders same UUID movement with old/new position; accepted history stays immutable
+ok 30 - stage review renders same UUID movement with old/new position; accepted history stays immutable
+  ---
+  duration_ms: 144.434
+  ...
+# Subtest: known formal MiniProject with unavailable managed index retains ambiguity protection
+ok 31 - known formal MiniProject with unavailable managed index retains ambiguity protection
+  ---
+  duration_ms: 10.420792
+  ...
+# Subtest: real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+ok 32 - real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+  ---
+  duration_ms: 233.487458
+  ...
+# Subtest: narrow window yields the panel, really invokes native editing and restores current report after host commit
+ok 33 - narrow window yields the panel, really invokes native editing and restores current report after host commit
+  ---
+  duration_ms: 64.3395
+  ...
+# Subtest: navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+ok 34 - navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+  ---
+  duration_ms: 90.006583
+  ...
+# Subtest: wide docked window retains the report and native input, while report reflects only committed source
+ok 35 - wide docked window retains the report and native input, while report reflects only committed source
+  ---
+  duration_ms: 105.479208
+  ...
+# Subtest: returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+ok 36 - returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+  ---
+  duration_ms: 93.361292
+  ...
+# Subtest: resizing beside native composition to a narrow window yields the report without saving or cancelling input
+ok 37 - resizing beside native composition to a narrow window yields the report without saving or cancelling input
+  ---
+  duration_ms: 52.193709
+  ...
+# Subtest: report folds, focus and explicit original layout survive reading toggles without source or layout writes
+ok 38 - report folds, focus and explicit original layout survive reading toggles without source or layout writes
+  ---
+  duration_ms: 27.69575
+  ...
+# Subtest: stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+ok 39 - stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+  ---
+  duration_ms: 135.388041
+  ...
+# Subtest: switching away while native navigation is pending preserves reading but cancels the old edit
+ok 40 - switching away while native navigation is pending preserves reading but cancels the old edit
+  ---
+  duration_ms: 18.520583
+  ...
+# Subtest: Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+ok 41 - Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+  ---
+  duration_ms: 46.63
+  ...
+# Subtest: committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+ok 42 - committed source updates defer grouping and mapping during host composition, then refresh without replacing unchanged bodies
+  ---
+  duration_ms: 82.167916
+  ...
+# Subtest: source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+ok 43 - source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+  ---
+  duration_ms: 27.042833
+  ...
+# Subtest: source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+ok 44 - source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+  ---
+  duration_ms: 50.77575
+  ...
+# Subtest: a commit racing after source resolution cancels native navigation before yielding the panel
+ok 45 - a commit racing after source resolution cancels native navigation before yielding the panel
+  ---
+  duration_ms: 55.106917
+  ...
+# Subtest: production default opens complete reading without inheriting old structure folds or truncation
+ok 46 - production default opens complete reading without inheriting old structure folds or truncation
+  ---
+  duration_ms: 138.46325
+  ...
+# Subtest: text selection and raw comparison never request native routing; comparison uses the captured source version
+ok 47 - text selection and raw comparison never request native routing; comparison uses the captured source version
+  ---
+  duration_ms: 75.679375
+  ...
+# Subtest: the visible continue-writing action reuses the live input and exact selection without refreshing the report
+ok 48 - the visible continue-writing action reuses the live input and exact selection without refreshing the report
+  ---
+  duration_ms: 200.31175
+  ...
+# Subtest: the work-menu native-page action preserves live input while yielding a narrow layout
+ok 49 - the work-menu native-page action preserves live input while yielding a narrow layout
+  ---
+  duration_ms: 212.931875
+  ...
+# Subtest: ordinary native input defers committed report changes, then publishes only changed bodies after input ends
+ok 50 - ordinary native input defers committed report changes, then publishes only changed bodies after input ends
+  ---
+  duration_ms: 178.703333
+  ...
+# Subtest: opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control
+ok 51 - opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control
+  ---
+  duration_ms: 140.302167
+  ...
+# Subtest: reading mode and explicit folds follow Graph/root identity across material switches and different works
+ok 52 - reading mode and explicit folds follow Graph/root identity across material switches and different works
+  ---
+  duration_ms: 70.315583
+  ...
+# Subtest: a void SDK route acknowledgement waits for the actual native block, and closing cancels late input
+ok 53 - a void SDK route acknowledgement waits for the actual native block, and closing cancels late input
+  ---
+  duration_ms: 424.317792
+  ...
+# Subtest: a hidden navigation lease revalidates membership from the installed provider after routing
+ok 54 - a hidden navigation lease revalidates membership from the installed provider after routing
+  ---
+  duration_ms: 45.86675
+  ...
+# Subtest: autosave changes may continue the same input lease, but a moved-out UUID cannot take focus
+ok 55 - autosave changes may continue the same input lease, but a moved-out UUID cannot take focus
+  ---
+  duration_ms: 81.175334
+  ...
+# Subtest: a deleted report source leaves no orphan paragraph; unchanged bodies and current scope survive
+ok 56 - a deleted report source leaves no orphan paragraph; unchanged bodies and current scope survive
+  ---
+  duration_ms: 40.381084
+  ...
+# Subtest: entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+ok 57 - entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources
+  ---
+  duration_ms: 615.456083
+  ...
+# Subtest: middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+ok 58 - middle source update retains unrelated nodes, selection, focus and material hooks; plain double-click never enters native editing
+  ---
+  duration_ms: 325.063667
+  ...
+# Subtest: long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+ok 59 - long historical overlay keeps saved source order and every original body while current report mappings and native actions are unavailable
+  ---
+  duration_ms: 239.701709
+  ...
+# Subtest: default body is a complete report even when the older personal structure was collapsed
+ok 60 - default body is a complete report even when the older personal structure was collapsed
+  ---
+  duration_ms: 187.803416
+  ...
+# Subtest: materials mount uses the entire scope and body return retains mode, lens, selection and bookmark
+ok 61 - materials mount uses the entire scope and body return retains mode, lens, selection and bookmark
+  ---
+  duration_ms: 54.155917
+  ...
+# Subtest: work menu retains focus on source updates and Escape closes locally without intercepting composition
+ok 62 - work menu retains focus on source updates and Escape closes locally without intercepting composition
+  ---
+  duration_ms: 91.516375
+  ...
+# Subtest: first use has an actionable empty state and an explicit current-block action opens its nearest work
+ok 63 - first use has an actionable empty state and an explicit current-block action opens its nearest work
+  ---
+  duration_ms: 39.356625
+  ...
+# Subtest: a late source read cannot restore the previous work identity or its material scope
+ok 64 - a late source read cannot restore the previous work identity or its material scope
+  ---
+  duration_ms: 12.078833
+  ...
+# Subtest: the keyboard entrance resolves a selected child to its real work, just like the work menu
+ok 65 - the keyboard entrance resolves a selected child to its real work, just like the work menu
+  ---
+  duration_ms: 11.358208
+  ...
+# Subtest: native material context retains the current work for a child, resolves another work explicitly and discards a late ancestry read
+ok 66 - native material context retains the current work for a child, resolves another work explicitly and discards a late ancestry read
+  ---
+  duration_ms: 23.802041
+  ...
+# Subtest: stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+ok 67 - stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+  ---
+  duration_ms: 399.35225
+  ...
+# Subtest: clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+ok 68 - clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+  ---
+  duration_ms: 110.876541
+  ...
+# Subtest: suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+ok 69 - suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+  ---
+  duration_ms: 121.467125
+  ...
+# Subtest: historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+ok 70 - historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+  ---
+  duration_ms: 126.222083
+  ...
+# Subtest: focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+ok 71 - focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+  ---
+  duration_ms: 62.918958
+  ...
+# Subtest: report preserves stage show-all, immutable history and return to the existing lens
+ok 72 - report preserves stage show-all, immutable history and return to the existing lens
+  ---
+  duration_ms: 54.406792
+  ...
+# Subtest: historical raw comparison shows saved text without carrying the current report version
+ok 73 - historical raw comparison shows saved text without carrying the current report version
+  ---
+  duration_ms: 41.961334
+  ...
+# Subtest: review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+ok 74 - review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+  ---
+  duration_ms: 133.114458
+  ...
+# Subtest: selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+ok 75 - selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+  ---
+  duration_ms: 74.618417
+  ...
+# Subtest: later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+ok 76 - later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+  ---
+  duration_ms: 78.501
+  ...
+1..76
+# tests 76
+# suites 0
+# pass 76
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3381.976208

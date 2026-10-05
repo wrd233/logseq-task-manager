@@ -2,6 +2,8 @@
 
 一个仓库、一个 Logseq 插件。当前工作以「正文／材料」切换为主要入口，原生写作和审阅就近打开；正式任务及插件设置从「工作台」菜单进入。本地 Kernel、CLI 与诊断 Console 继续作为独立运行组件。
 
+2026-10-05：原生编辑与长篇阅读往返整合到最新 main，继续沿用现有「正文／材料」界面，加入会话阅读恢复、当前输入复用和就地原文对照。“显示原生页面”在工作选项内；六处冲突处理、685 项门禁与本轮实机证据见[整合记录](native-editor-reading-main-2026-10-05.md)。原功能交接中的“未推送”为分支交付时点。
+
 2026-10-05：整体工作级界面整合到最新 main，同时保留完整报告、材料阅读与协作审阅的新版实现。共享导航、材料书签和审阅开闭的接线及回归结果见[整合记录](workbench-ui-shell-main-2026-10-05.md)，当前操作路径见[使用手册](../user-guide/workbench-usage.md)。实现分支旧交接中的“未推送”为功能交付时点。
 
 2026-10-04：[材料拖入与文件改名](../design/materials-drop-rename-design.md)整合到最新 main，增加列表原文件关联、报告块级引用、真实剪贴板复制、实际 basename 改名及有限物理身份定位。[架构](../architecture/materials-drop-rename-architecture.md)与[功能交接](../implementation/materials-drop-rename-handoff.md)区分实际支持范围、逐项恢复和未验的原生精确拖放；本次合并与验证见[整合记录](materials-drop-rename-main-2026-10-04.md)。原交接的“未推送”属于功能交付时点。

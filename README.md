@@ -6,6 +6,8 @@ Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext �
 
 材料模块本轮使用与保存规则见[独立产品设计](docs/design/materials-module-design.md)，接口与权威边界见[独立架构](docs/architecture/materials-module-architecture.md)。
 
+2026-10-05：原生编辑与长篇阅读往返已与最新全文、材料和协作界面整合；原生焦点保护、来源锚点恢复、685 项门禁及真正 Desktop 复验见[本轮整合记录](docs/integration/native-editor-reading-main-2026-10-05.md)。
+
 当前整合结构、启用方法与边界见 [整合说明](docs/integration/README.md)；[交互需求树](docs/integration/requirements.html)展示从核心需求到实现位置和默认启用情况。需求数据在 `docs/integration/requirements.json`，运行 `npm run docs:requirements` 更新 HTML。
 
 2026-10-01 的下一阶段设计讨论见 [工作区协作需求](docs/requirements/2026-10-01-project-workspace-collaboration.md)与[架构分析报告](docs/architecture/2026-10-01-workspace-architecture-review.md)（[PDF](docs/architecture/2026-10-01-workspace-architecture-review.pdf)）。这些是演进提案；代码瘦身按[渐进重构计划](docs/refactoring/README.md)分轮实施，四轮已实施，当前改动、验证和必要历史兼容见[第四轮结果](docs/refactoring/round-04-results.md)，前三轮记录保留各自阶段范围。

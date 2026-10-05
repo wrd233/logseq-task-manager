@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "codeMerge": "6f818cf0663d22405eda4f5250840e977f2eb7fa",
+  "remoteMainBefore": "dd081c9cc63fc91b4d62743141842c303128c4a2",
+  "featureHead": "d779bc54c5a3650a03a65eb5fdbe934af9444e86",
+  "environment": {
+    "os": "Darwin 24.1.0",
+    "arch": "arm64",
+    "node": "20.20.2",
+    "npm": "10.8.2",
+    "logseq": "0.10.15",
+    "sdk": "0.3.4"
+  },
+  "check": {
+    "command": "npm run check",
+    "exitCode": 0,
+    "workspaceTests": 668,
+    "pluginTests": 434,
+    "sandboxTests": 5,
+    "boundaryTests": 12,
+    "total": 685,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "targeted": {
+    "tests": 76,
+    "passed": 76,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "loaded": {
+    "bytes": 1017944,
+    "sha256": "b6a3cc98cf9657fe6b3e0e302f5ee9bfbc34d0acf1b6e64014245a9713362498"
+  },
+  "desktop": "desktop-evidence.json",
+  "hashes": {
+    "targeted.log": "91ee6682aab2524aeba025c61a59aabcad3790d85f598acde9ba5e7f63a6ffdd",
+    "desktop-evidence.json": "112db7eb3b8baf1a8098eae7fc4d566ef516c168257d66e9896367b80e883b37",
+    "reading-return.png": "b8668fdf886ff042bf069bae6d5eccf8ed261b78959cbebe9c56bafe2d98753b",
+    "wide-native-input.png": "2cc55c7f4e5cfa4ca0b2823036a0fda35cf40b220ad0bdde594f84ffd3595f19",
+    "check.log": "71958c9260693ca9aae3669d0705c97098992f9afa63c2cf01ecf5f78ae94495"
+  },
+  "unverified": [
+    "full physical Chinese IME",
+    "system file drag and drop",
+    "system Undo and cross-app clipboard were not repeated for this merge",
+    "physical narrow-window and multi-Graph journeys were not repeated for this merge"
+  ]
+}

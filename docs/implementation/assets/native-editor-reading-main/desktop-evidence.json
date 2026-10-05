@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "logseq": "0.10.15",
+  "sdk": "0.3.4",
+  "desktopPid": 27765,
+  "port": 19334,
+  "graph": "/Users/wangrundong/.codex/worktrees/merge-native-editor-reading-main/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+  "root": "b66f7f99-0e20-44c8-8bdf-def84ef47721",
+  "middle": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+  "fragmentCount": 97,
+  "wide": {
+    "viewport": 1440,
+    "native": 920,
+    "report": 520
+  },
+  "loaded": {
+    "bytes": 1017944,
+    "sha256": "b6a3cc98cf9657fe6b3e0e302f5ee9bfbc34d0acf1b6e64014245a9713362498"
+  },
+  "input": {
+    "uuid": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+    "content": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 MERGED_MAIN_PROBE",
+    "start": 68,
+    "end": 72,
+    "focus": true
+  },
+  "continued": {
+    "same": true,
+    "uuid": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+    "content": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 MERGED_MAIN_PROBE",
+    "start": 68,
+    "end": 72,
+    "focus": true
+  },
+  "menu": {
+    "focus": true,
+    "start": 68,
+    "end": 72,
+    "same": true
+  },
+  "nativePage": {
+    "focus": true,
+    "start": 68,
+    "end": 72,
+    "same": true,
+    "content": "第48段：写作先保留观察和完整原句，再检查证据与条件。材料可以帮助对照事实，阅读位置应随着真实来源身份恢复。 MERGED_MAIN_PROBE"
+  },
+  "reading": {
+    "before": {
+      "uuid": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+      "offset": -0.21875,
+      "scroll": 3672
+    },
+    "after": {
+      "uuid": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+      "offset": -0.21875,
+      "scroll": 3672
+    }
+  },
+  "finalReport": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/merge-native-editor-reading-main/任务管理中心-logseq插件/tmp/logseq-sandbox/graph",
+      "rootUuid": "b66f7f99-0e20-44c8-8bdf-def84ef47721"
+    },
+    "mode": "report",
+    "status": "current",
+    "fragments": 97,
+    "native": null
+  },
+  "hostReadback": {
+    "uuid": "1ea04c76-c1e2-48e6-8227-368a9c1b590d",
+    "containsProbe": true
+  },
+  "unverified": [
+    "full physical Chinese IME",
+    "system file drag and drop",
+    "system Undo and cross-app clipboard were not repeated for this merge",
+    "physical narrow-window and multi-Graph journeys were not repeated for this merge"
+  ]
+}
