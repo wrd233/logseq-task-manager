@@ -249,14 +249,14 @@ test('project A capture → another page reading → draft editing → project B
     assert.equal(captured.status, 'success'); assert.ok(captured.material.path.startsWith('/projects/A/'));
     const link = f.browser.document.createElement('a'); link.href = captured.material.reference.match(/\((.*)\)/)[1]; link.textContent = '旧标题';
     const block = f.browser.document.createElement('div'); block.className = 'ls-block'; block.setAttribute('blockid', 'elsewhere'); block.append(link); f.browser.document.body.append(block);
-    link.click(); await delay(30);
+    link.click(); await until(() => f.materials.panel.root.querySelector('.wb-reading')?.textContent.includes('A 工作稿'), 'linked captured material reading completed');
     assert.equal(f.materials.panel.root.querySelector('.wb-editor').hidden, true);
     assert.ok(f.materials.panel.root.querySelector('.wb-reading').textContent.includes('A 工作稿'));
     await click('编辑'); f.input('人工编辑工作稿'); await f.saveTimers();
     assert.equal(f.files.get(captured.material.path), '人工编辑工作稿');
     await f.materials.library('projectB');
     assert.ok(![...f.materials.panel.root.querySelectorAll('.wb-material')].some(row => row.textContent.includes('A 工作稿')));
-    link.click(); await delay(30); assert.ok(f.materials.panel.root.querySelector('.wb-reading').textContent.includes('人工编辑工作稿'));
+    link.click(); await until(() => f.materials.panel.root.querySelector('.wb-reading')?.textContent.includes('人工编辑工作稿'), 'updated linked material reading completed'); assert.ok(f.materials.panel.root.querySelector('.wb-reading').textContent.includes('人工编辑工作稿'));
     await click('编辑'); f.input('保留我的冲突草稿'); f.files.set(captured.material.path, '外部修改'); await f.tick(); await f.tick();
     assert.equal(f.materials.panel.root.querySelector('.wb-conflict').hidden, false);
     await f.materials.library('projectB'); await f.materials.openDoc(captured.material.id);
