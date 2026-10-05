@@ -165,6 +165,11 @@ test("registered conflict UI explains location, preserves proposal on close and 
     for(let i=0;i<100&&!document.body.textContent?.includes("按当前结构重新提交此移动");i++)await new Promise(r=>setTimeout(r,5));
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-content-writeback] button')).find(b=>b.textContent==="按当前结构重新提交此移动")!.click();
     for(let i=0;i<100&&f.counts().moves===0;i++)await new Promise(r=>setTimeout(r,5));assert.equal(f.counts().moves,1);
+    const deadline=Date.now()+5000;
+    while(!document.body.textContent?.includes("此范围没有需要恢复的正文提议")&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));
+    assert.match(document.body.textContent!,/此范围没有需要恢复的正文提议/);
+    const retries=(await content.api.history()).filter(result=>result.record.retryOf===input.requestId);
+    assert.equal(retries.length,1);assert.equal(retries[0]!.status,"complete");assert.equal(retries[0]!.record.items[0]!.status,"APPLIED_VERIFIED");
     assert.equal((await content.api.result(input.requestId))!.record.patch.requestId,input.requestId);
   }finally{content.dispose();await f.cleanup();}
 });
