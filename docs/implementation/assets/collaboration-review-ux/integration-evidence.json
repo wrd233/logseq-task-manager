@@ -1,0 +1,39 @@
+{
+  "codeCommit": "670076ead5c3c24ed95abbcd7cf2cf0cc9099b19",
+  "base": "c1e59b33f44eb089d800a1500fac761d7f710de4",
+  "runtimeHash": "c3dd9988c29a2b656e005cff52546bf723d79ed344a25e07a40be3339dd6ff77",
+  "fullCurrentReport": {
+    "rows": 88,
+    "visible": 88,
+    "coverage": "88",
+    "marks": 7,
+    "body": "[注] 目前表述稍显冗长，保留原来的口吻和全部条件。只有样本来自同一时期时才比较；反例是同内容的两份文件，不能仅凭名字断言同一来源。链接与 原始代码 不丢失。原生后来补充：这项判断仍有条件，认可不阻塞继续写作。\n",
+    "connected": false
+  },
+  "acceptedHistoryUnchanged": true,
+  "editing": false,
+  "tasksEnabled": false,
+  "kernelStarted": false,
+  "method": "Own merged build copied to own isolated Desktop plugin; Debugger runtime source hash matched build",
+  "material": "available",
+  "returnedMode": "current",
+  "historyRechecked": {
+    "acceptedRevision": "534d952b-941b-41e1-9390-914fea3d384f",
+    "readonly": true,
+    "nativeDisabled": true,
+    "returnedCurrentWithLaterWriting": true
+  },
+  "checks": {
+    "fullCommand": "npm run check",
+    "business": 637,
+    "plugin": 403,
+    "sandbox": 5,
+    "boundaries": 12,
+    "total": 654,
+    "failures": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "targeted": 67
+  },
+  "checkLogHash": "913a1055d925d3a386807f32923fac0ac33075b4565b5322f732ff364adc53c4"
+}

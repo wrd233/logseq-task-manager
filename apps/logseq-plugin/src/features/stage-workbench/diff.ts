@@ -14,8 +14,13 @@ export function inlineDiff(before:string,after:string):ReviewChange["inline"]{
 }
 export function attribution(block:BlockSnapshot,revision:StageRevision|null,structure=false):string{
   if(!revision)return "来源未知 / 间隔变化";
-  const matches=revision.facts.flatMap(result=>result.record.items.map(fact=>({result,fact}))).filter(({result,fact})=>
-    result.durable&&fact.status==="APPLIED_VERIFIED"&&fact.contentVerified&&(fact.childUuid??fact.target.blockUuid)===block.target.blockUuid&&fact.actualVersion===block.contentVersion);
+  const matches=revision.facts.flatMap(result=>result.record.items.map(fact=>({result,fact}))).filter(({result,fact})=>{
+    if(!result.durable||fact.status!=="APPLIED_VERIFIED"||!fact.contentVerified)return false;
+    if(fact.type==="move-block" && fact.move?.verified && Object.hasOwn(fact.move.propertiesBefore,block.target.blockUuid)){
+      return fact.move.after?.blocks.some(b=>b.sourceId===block.sourceId&&b.contentVersion===block.contentVersion);
+    }
+    return (fact.childUuid??fact.target.blockUuid)===block.target.blockUuid && fact.actualVersion===block.contentVersion;
+  });
   const valid=matches.filter(({fact})=>{
     if(!structure)return fact.type!=="move-block" || fact.move?.verified;
     if(fact.type!=="move-block" || !fact.move?.verified)return false;
@@ -64,5 +69,24 @@ export function observePositions(changes:Map<string,ReviewChange>,source:SourceS
     const location={before:{parentUuid:submitted.parentUuid,order:submitted.order,depth:submitted.depth},after:{parentUuid:parent,order,depth:row.depth}};
     const prior=changes.get(row.uuid);
     changes.set(row.uuid,{kind:prior?.kind??"structure",before:prior?.before??submitted.content,after:prior?.after??row.content,version:prior?.version??null,inline:prior?.inline??null,problem:prior?.problem??null,location,label:"原块已再次移动 · 来源未知 / 人工间隔变化"});
+  }
+}
+
+/** Unsaved-to-stage native observations carry no invented hash or authorship. */
+export function observeCurrentText(changes:Map<string,ReviewChange>,source:SourceSnapshot,rows:readonly {uuid:string;content:string;outside?:boolean;missing?:boolean}[],revisionId:string|null):void{
+  const submitted=new Map(source.blocks.map(b=>[b.target.blockUuid,b])), present=new Set<string>();
+  const body=(text:string|null)=>text?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??null;
+  for(const row of rows){
+    if(row.outside)continue;
+    const block=submitted.get(row.uuid);if(row.missing)continue;present.add(row.uuid);
+    if(block && body(block.content)===body(row.content))continue;
+    const previous=changes.get(row.uuid);
+    changes.set(row.uuid,{kind:block?"modified":"added",before:block?.content??null,after:row.content,version:null,
+      label:"当前原文变化 · 来源未知 / 间隔变化",problem:previous?.problem??null,inline:null,location:previous?.location??null,
+      submitted:{content:block?.content??null,revisionId}});
+  }
+  for(const block of source.blocks){
+    if(present.has(block.target.blockUuid)||block.availability!=="available")continue;
+    changes.set(block.target.blockUuid,{kind:"removed",before:block.content,after:null,version:null,label:"当前原块已缺失 · 来源未知",problem:null,inline:null,submitted:{content:block.content,revisionId}});
   }
 }

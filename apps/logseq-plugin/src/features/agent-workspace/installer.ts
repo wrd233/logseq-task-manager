@@ -207,7 +207,7 @@ export function installAgentWorkspace(options: {
         if (typeof off === "function")
             disposers.push(off);
     }
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable" }) }, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable" }) }, local: {connect:allow,stop:revoke}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;
