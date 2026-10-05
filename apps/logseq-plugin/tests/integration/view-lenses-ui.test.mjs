@@ -256,14 +256,15 @@ test('safe Markdown and block emphasis retain link semantics; reduced-motion sty
   const f = await chapters();
   try {
     // Happy DOM's NodeIterator differs for adjacent removals; the combined payload is a real-Chromium gate.
-    f.content('a', '[原文链接](https://example.com)\n<img src=x onerror=bad()>'); await delay(80);
+    const markdown='[原文链接](https://example.com)\n<img src=x onerror=bad()>';
+    f.content('a', markdown); await settle(()=>f.work.snapshot().blocks.find(block=>block.uuid==='a')?.content===markdown);
     const plan = await prepare(f, ['a']); plan.temporaryInference = '<b>临时文字</b>';
     await f.work.lensesAPI.apply(plan);
     assert.equal(node(f, 'a').querySelector('.wb-body a').getAttribute('href'), 'https://example.com');
     assert.equal(node(f, 'a').querySelector('img,script'), null);
     assert.equal(f.browser.document.querySelector('.wb-lens-inference b'), null);
     assert.ok(f.browser.document.querySelector('.wb-lens-inference').textContent.includes('<b>临时文字</b>'));
-    f.content('a', '[原文链接](https://example.com)\n<script>bad()</script>'); await delay(80);
+    f.content('a', '[原文链接](https://example.com)\n<script>bad()</script>'); await settle(()=>f.browser.document.querySelector('.wb-lens-inference').hidden);
     assert.equal(node(f, 'a').querySelector('img,script'), null);
     assert.equal(f.browser.document.querySelector('.wb-lens-inference').hidden, true);
     assert.ok([...f.browser.document.querySelectorAll('style')].some(style => style.textContent.includes('prefers-reduced-motion') && style.textContent.includes('transition:none')));
