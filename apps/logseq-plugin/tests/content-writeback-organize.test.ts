@@ -164,7 +164,10 @@ test("registered conflict UI explains location, preserves proposal on close and 
     await f.commands.get("content-recovery")!();document.querySelector<HTMLButtonElement>('[data-content-reason="STRUCTURE_VERSION_CONFLICT"]')!.click();
     for(let i=0;i<100&&!document.body.textContent?.includes("按当前结构重新提交此移动");i++)await new Promise(r=>setTimeout(r,5));
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-content-writeback] button')).find(b=>b.textContent==="按当前结构重新提交此移动")!.click();
-    for(let i=0;i<100&&f.counts().moves===0;i++)await new Promise(r=>setTimeout(r,5));assert.equal(f.counts().moves,1);
+    // The host move precedes durable retry settlement. Wait for its actual UI
+    // completion before removing the journal directory in cleanup.
+    for(let i=0;i<100&&!document.body.textContent?.includes("此范围没有需要恢复的正文提议");i++)await new Promise(r=>setTimeout(r,5));
+    assert.match(document.body.textContent!,/此范围没有需要恢复的正文提议/);assert.equal(f.counts().moves,1);
     assert.equal((await content.api.result(input.requestId))!.record.patch.requestId,input.requestId);
   }finally{content.dispose();await f.cleanup();}
 });
