@@ -12,7 +12,8 @@
 | --- | --- |
 | `54bcdcf0a1b2730af6c551101fb9ed4daf79b1dd` | 完整来源树、分组、正文 helper、样式和合成长篇 fixture |
 | `69927cbcabbc881d14e5d1fba172544836af25c8` | 最小 renderer/controller 接线与长篇真实组件/历史回归；功能 HEAD |
-| 后续独立文档提交 | 本文、设计、架构、截图和逐源证据；最终 SHA 见整合记录 |
+| `6ecbf8d1e75cba521debe8d68810dd3af1fa12f9` | 本文、设计、架构、截图和逐源证据；实现分支 HEAD |
+| `77d822c28f8bd33af8881687d746311d7292b8c8` | 与最新远端 main 的合并；完整门禁验证的代码 HEAD |
 
 使用 Node 20.20.2、npm 10.8.2；依赖与 dist 均位于自己的工作树。Graph、材料、Logseq home/profile/storage、companion 状态与 descriptor 分别位于本工作树的 `tmp/logseq-sandbox`。运行的是自己的 Logseq 0.10.15 副本，SDK 0.3.4，唯一 bundle ID `com.taskcopilot.logseq.fulltextlab`、端口 19341、进程 68381。Kernel 未启动、agent 未连接，合成工作使用 tasksEnabled=false。
 
@@ -57,7 +58,7 @@ Logseq 为编号 40 的枚举块分配了 `6ac29e3a-e576-4027-834b-4f0dabee1c63`
 
 覆盖逐源全文、完整子树与对象、普通子级顺序、未知项左右邻接、折叠/聚焦恢复、材料钩子、真实 WorkView 历史 overlay、raw 版本、稳定节点、无关选区/菜单焦点及既有导航/写回/阶段限制。普通双击的新行为有独立回归；原生版本保护用显式 Alt＋双击继续验证。
 
-最终集成树会运行 `npm run check` 与 `git diff --check`；实际退出码、测试总数和日志见 main 整合记录与 `verification.json`，不沿用历史修正前的完整检查结果。
+最终集成树的 `npm run check` 与 `git diff --check` 均通过。完整检查含 624 workspace、5 sandbox、12 boundary，共 641 项，0 失败/跳过/取消；类型、lint、需求图、build/binaries、依赖边界及 taste eval 均通过。实际退出码、分项计数和构建 hash 见 [verification.json](assets/report-fulltext-layout/verification.json) 与 [完整日志](assets/report-fulltext-layout/full-check-integrated.txt)，不是历史修正前的完整检查结果。
 
 ## 真实 Desktop 与截图
 

@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-05T03:00:53.816Z",
+  "base": "8529212296f0b65fb78ef7ccd2a2102474d9310a",
+  "featureHead": "6ecbf8d1e75cba521debe8d68810dd3af1fa12f9",
+  "integratedCodeHead": "77d822c28f8bd33af8881687d746311d7292b8c8",
+  "integratedTree": "a01043932ee4387de1edd558d943bb09501cfb04",
+  "toolchain": {
+    "node": "v20.20.2",
+    "npm": "10.8.2"
+  },
+  "gates": {
+    "targeted": {
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "skipped": 0,
+      "log": "targeted-tests.txt"
+    },
+    "fullCheck": {
+      "command": "npm run check",
+      "exitCode": 0,
+      "total": 641,
+      "workspaceTests": 624,
+      "sandboxTests": 5,
+      "boundaryTests": 12,
+      "suites": [
+        {
+          "package": "@task-copilot/kernel-console",
+          "command": "test",
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/kernel-service",
+          "command": "test",
+          "tests": 29,
+          "pass": 29,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/logseq-plugin",
+          "command": "test",
+          "tests": 390,
+          "pass": 390,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/cli",
+          "command": "test",
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/agent",
+          "command": "test",
+          "tests": 11,
+          "pass": 11,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/client",
+          "command": "test",
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/contracts",
+          "command": "test",
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/domain",
+          "command": "test",
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/kernel",
+          "command": "test",
+          "tests": 19,
+          "pass": 19,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/sqlite",
+          "command": "test",
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "@task-copilot/test-support",
+          "command": "test",
+          "tests": 105,
+          "pass": 105,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "task-copilot-vnext",
+          "command": "test:sandbox",
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "package": "task-copilot-vnext",
+          "command": "check:boundaries",
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "originalLogSha256": "cd855c299b37b92cdc3db9cb88472328b52b1900b5361d2cb3befc9e6bcece62",
+      "archivedLogSha256": "cd855c299b37b92cdc3db9cb88472328b52b1900b5361d2cb3befc9e6bcece62",
+      "archiveTrailingWhitespaceRemoved": true
+    },
+    "diffCheck": {
+      "command": "git diff --check origin/main..HEAD",
+      "exitCode": 0
+    }
+  },
+  "desktop": {
+    "logseq": "0.10.15",
+    "sdk": "0.3.4",
+    "port": 19341,
+    "ownedPid": 68381,
+    "stopped": true,
+    "agentConnected": false,
+    "kernelStarted": false,
+    "compiledBundleSha256": "ad235cc0b8feeaaa09dc48a58fc1b86085f59e40b8a9d0e70a091a437d0fdad2",
+    "initialFixtureSources": 93,
+    "currentSources": 94,
+    "currentMatchingSources": 94,
+    "historicalMatchingFixtureSources": 93,
+    "historicalEventHashesValid": true,
+    "nativeChangedUuid": "33333333-3333-4333-8333-000000000046",
+    "other93SourcesUnchanged": true,
+    "structureUnchanged": true,
+    "preservedRowNodes": 94,
+    "scrollBefore": 3866,
+    "scrollAfter": 3866,
+    "materialReturnedRange": "full",
+    "materialReturnedSources": 94,
+    "productionPreservation": {
+      "before": 3540,
+      "after": 3540,
+      "changed": 0,
+      "missing": 0,
+      "added": 0
+    },
+    "screenshots": [
+      {
+        "file": "compact-dark-host.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "5d614838895f58e75257cb8ecea6e588231c10f306c36149a5fd936e1109206a"
+      },
+      {
+        "file": "historical-readonly.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "8feebaae64d18bbf61fed60bea0c6fb79f3448f9b99fd9aa28fca1f00e8ad095"
+      },
+      {
+        "file": "material-open.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "1f0973b01ff561a02666b37ebefade9e332e2cd7e98b702e6496468ab0ef3658"
+      },
+      {
+        "file": "native-middle-input.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "66d238452be996d49b02f0b7e549d797dfa9b3be3d1a2a2ea760adb18a8d9ed3"
+      },
+      {
+        "file": "native-middle-return.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "f0ccb865fc01f4424507d8bd53623fd9d5d2a9b5577338247e234f565f3ea10b"
+      },
+      {
+        "file": "wide-code-table.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "b2ff66d348949484d35a8e42e4470b9824990a9e39501e30b959ef936c423431"
+      },
+      {
+        "file": "wide-dark-host.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "9871a41e28956516f13fd7856bee21662bf9aa0feade4b4495f4e1352f8027f2"
+      },
+      {
+        "file": "wide-light.png",
+        "pixels": {
+          "width": 4718592,
+          "height": 4292935744
+        },
+        "sha256": "f96c8f2a13f465009048403f730dd42f2936341ed5bd6c1b1ec4d045598ceea2"
+      }
+    ]
+  },
+  "unverified": [
+    "physical Chinese IME composition",
+    "system Undo",
+    "cross-application clipboard contents",
+    "real OS file drag/drop and rename",
+    "Desktop switching between multiple production Graphs"
+  ],
+  "knownDisplayLimit": "The report iframe retains a light background in the dark Logseq host."
+}
