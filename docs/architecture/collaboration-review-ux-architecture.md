@@ -61,7 +61,7 @@ Patch 仍使用已有 schemaVersion 1 文本／insert-child 与 2 move-block；S
 
 比较始终按 sourceId / UUID。实际 move 只有 Journal durable、APPLIED_VERIFIED、move.verified 且对应源正文／结构读回一致时才有程序事实归责；propertiesBefore 中的 UUID 集合识别被移动子树。因邻块移动而自然改变位置的其他兄弟块仍标来源未知。后来人工文字／结构变化同样来源未知；不会把调用方自报的 agent 名字当作者证据。
 
-高亮先按原规则 DOMPurify / safeMarkdownURI 渲染，再比较可见文本并包裹 Text 节点，保留链接、strong、code 与段落。差异计算上限为前后合计 60,000 UTF-16 单位、编辑距离 256；超限保留完整正文，提示展开旧文。只改格式／链接目标时也提示核对旧文。高亮范围没有写权限，也不反向解析 HTML 来生成补丁。
+整合最新 main 后，共用 reportMarkdown 的展示清理：只隐藏真正的宿主身份属性，代码／引用中的 id:: 示例完整保留。报告正文选择不会自动打开纠正框，纠正使用明确按钮。高亮先按原规则 DOMPurify / safeMarkdownURI 渲染，再比较可见文本并包裹 Text 节点，保留链接、strong、code 与段落。差异计算上限为前后合计 60,000 UTF-16 单位、编辑距离 256；超限保留完整正文，提示展开旧文。只改格式／链接目标时也提示核对旧文。高亮范围没有写权限，也不反向解析 HTML 来生成补丁。
 
 认可前检查当前已实际呈现的 revision；收起状态／尚未呈现的新版先打开审阅，不直接认可。当前来源比记录新时，先明确查看提交版本，认可只绑定该不可变 revision 及其完整 JSON SHA-256。原生／审阅草稿期间保持已展示 revision 和 frame；外部新记录不乘机换成所见版本。
 

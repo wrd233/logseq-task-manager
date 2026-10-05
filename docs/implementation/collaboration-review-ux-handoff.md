@@ -71,3 +71,5 @@ router 会将 caller requestId 命名空间化；查询必须使用原 caller re
 主体提交 `af2da08`，最小共享组合提交 `9b27a3c`；文档／证据另行提交，完整 HEAD 见交付回复和 `git log`，功能阶段未修改 main／推送分支；本轮后续发布按用户的明确授权推进。截图和精简事实为本轮生成；完整正文、Journal、private descriptor 留在隔离目录，不放公开资产。
 
 物理中文 IME / Undo、系统拖放和其他 OS 没有新增实机通过声明。已运行的生产 transport 不等于 UI 自动启动 agent；本轮不发送消息、不配置模型、不开外部认可权限，也不要求本地阅读持续在线。
+
+最新 main 整合使用远端 `c1e59b3`；renderer 冲突同时保留全正文报告和局部审阅，共用 reportMarkdown 保留代码中的身份示例。整合代码提交 `670076e`，67 项针对性、654 项完整门禁通过，最终构建在自己的隔离 Desktop 复验 88/88 来源、不可变认可和材料。详见 [整合记录](../integration/collaboration-review-ux-main-2026-10-05.md)。

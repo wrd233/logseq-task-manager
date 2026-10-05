@@ -10,6 +10,7 @@
 | partial-review.png | 当前修订保留写回问题，普通 TODO 不变 |
 | conflict-proposal.png | TODO 保护拒绝后保留当前文与提议，禁用旧请求保存，允许显式重新读取 |
 | evidence.json | 独立生产 CLI、移动 UUID、所见认可、原生输入、重载／离线的精简事实 |
+| integration-evidence.json | 合入 c1e59b3 后最终构建的真实 runtime hash、88/88 报告、历史／材料／离线复验及 654 项门禁 |
 | fixture.mjs | 80 条正文及四层子树定义；只在明确空的隔离 Graph 创建，不改已有页 |
 | production-cli.mjs | 独立进程调用现有生产 CLI，生成版本绑定请求、查询／recover、同 payload 重试 |
 
