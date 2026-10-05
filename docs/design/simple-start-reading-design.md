@@ -1,5 +1,7 @@
 # 装好即可用与一键阅读
 
+2026-10-05 后续已按用户指令整合到最新 main；当前安装包及组合验证见[main 整合记录](../integration/simple-start-reading-main-2026-10-05.md)。以下保留原分支构建与交付时点。
+
 实现身份：`e5eca0588aaa2d3a418049ff716505b3528a8da1`。使用路径见[简明说明](../user-guide/simple-start-reading.md)，验收与限制见[交接](../implementation/simple-start-reading-handoff.md)。
 
 ## 最短路径

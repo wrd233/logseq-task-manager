@@ -1,0 +1,39 @@
+{
+  "before": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+    },
+    "bookmark": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625
+    },
+    "width": "444",
+    "hidden": [
+      "31cf1c9f-2ef6-4768-b936-2c5ca72620c4",
+      "59502c2e-55ed-46f8-99c1-1ab4864b0d83",
+      "84d7e852-3b35-40e0-912f-41cecc7b880a"
+    ]
+  },
+  "after": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+      "rootUuid": "87e7c941-7aaa-465c-ba06-4856373c4cc7"
+    },
+    "status": "current",
+    "visible": true,
+    "bookmark": {
+      "uuid": "1da75c4a-92cb-4e4e-9bd4-80a73500da85",
+      "offset": -0.015625
+    },
+    "width": "444",
+    "hidden": [
+      "31cf1c9f-2ef6-4768-b936-2c5ca72620c4",
+      "59502c2e-55ed-46f8-99c1-1ab4864b0d83",
+      "84d7e852-3b35-40e0-912f-41cecc7b880a"
+    ],
+    "nativeRoute": "",
+    "toolbar": 1,
+    "dividers": 1
+  }
+}

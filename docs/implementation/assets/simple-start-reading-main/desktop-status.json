@@ -1,0 +1,19 @@
+{
+  "root": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox",
+  "app": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/Logseq Task Copilot Lab.app",
+  "graph": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/graph",
+  "home": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/home",
+  "profile": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/profile",
+  "state": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/kernel",
+  "evidence": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/tmp/logseq-sandbox/evidence",
+  "sourceApp": "/Applications/Logseq 2.app",
+  "logseqVersion": "0.10.9",
+  "plugin": "/Users/mac/.codex/worktrees/simple-start-reading/logseq-task-manager/apps/logseq-plugin",
+  "createdAt": "2026-10-05T06:18:24.499Z",
+  "desktop": {
+    "pid": 25798,
+    "running": true,
+    "owned": true
+  },
+  "kernel": null
+}

@@ -1,6 +1,6 @@
 # 装好后直接阅读
 
-[下载安装包](../implementation/assets/simple-start-reading/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
+[下载安装包](../implementation/assets/simple-start-reading-main/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
 
 ## 安装与更新
 
@@ -58,4 +58,4 @@ Project／Area 独立页面的页面标题旁也有「阅读」，读取整页�
 
 Logseq 0.10.9 没有允许插件任意启动本机进程的接口，因此本轮交付的是独立启动器加自动连接发现，尚未实现“插件一个按钮直接启动 companion”。已有自定义连接位置继续有效。
 
-完整验收、校验信息和截图见[证据索引](../implementation/assets/simple-start-reading/README.md)。
+完整验收、校验信息和截图见[证据索引](../implementation/assets/simple-start-reading-main/README.md)。

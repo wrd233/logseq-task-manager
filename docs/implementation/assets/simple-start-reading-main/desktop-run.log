@@ -1,0 +1,41 @@
+{
+  build: 'f39c4ee2ca31bca88e6a8d5d4e255172b6ef95c8',
+  completeReading: {
+    clicks: 1,
+    count: 98,
+    hanCharacters: 4100,
+    maxDepth: 4,
+    allUuidBodyParentDepthMatch: true,
+    sourceUnchanged: true
+  },
+  nativeInput: {
+    sameNode: true,
+    focused: true,
+    selection: [ 3, 7 ],
+    draftSha256: 'dae8616621712b5d61566335f95242e9b643005ee05fbe42410e96ccbcdddba4',
+    savedRefreshMatchesFragment: true,
+    continuedSameInput: true,
+    oldLeaseReadOnlyFocusAccepted: true,
+    bookmark: { before: [Object], after: [Object] }
+  },
+  narrow: { width: 680, nativeMenuAndReturnPreserveInput: true },
+  pages: [
+    {
+      sourceCoverage: [Array],
+      pageName: 'Project / 一键阅读验收',
+      pageUuid: '6ac3854a-ca84-4ac9-8526-7c4f0f8acad1',
+      count: 100,
+      allUuidBodyParentDepthMatch: true,
+      blockRoot: null
+    },
+    {
+      sourceCoverage: [Array],
+      pageName: 'Area / 阅读验收',
+      pageUuid: '6ac3854a-9f42-42de-ac6d-72655b765f2b',
+      count: 2,
+      allUuidBodyParentDepthMatch: true,
+      blockRoot: null
+    }
+  ],
+  width: '444'
+}

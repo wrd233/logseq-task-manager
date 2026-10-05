@@ -1,0 +1,29 @@
+{
+  "settings": {
+    "kernelDescriptorJson": "",
+    "agentWorkspaceDescriptor": "",
+    "workViewEnabled": true,
+    "materialsEnabled": true,
+    "tasksEnabled": false,
+    "materialsDirectory": "",
+    "materialsAutoCapture": false,
+    "materialsMinChars": 2000,
+    "materialsMinLines": 30,
+    "disabled": false
+  },
+  "snapshot": {
+    "root": null,
+    "scope": null
+  },
+  "agent": {
+    "connected": false,
+    "binding": null,
+    "formalWorkspace": "unavailable"
+  },
+  "contentAuthority": null,
+  "nativeRoute": "#/",
+  "pluginUrl": "file:///Users/mac/.codex/simple-start-reading-main-install-01a10a9e/task-copilot-workbench/dist/index.html?__v__=0.2.0",
+  "toolbar": 1,
+  "runtimeBundleSha256": "a5ad73efb8279054ccd79e83e04074bc727a2ae34d3ea03c935ff724911c7f33",
+  "requiredSettings": 0
+}

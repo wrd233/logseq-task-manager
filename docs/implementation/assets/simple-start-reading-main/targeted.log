@@ -1,0 +1,155 @@
+TAP version 13
+# Subtest: real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+ok 1 - real report entrance retains complete bodies and node identity while headers cannot resolve as source drop targets
+  ---
+  duration_ms: 544.103181
+  ...
+# Subtest: narrow window yields the panel, really invokes native editing and restores current report after host commit
+ok 2 - narrow window yields the panel, really invokes native editing and restores current report after host commit
+  ---
+  duration_ms: 184.918596
+  ...
+# Subtest: navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+ok 3 - navigation acknowledgement precedes the native route render; success requires the actual target input to survive
+  ---
+  duration_ms: 125.960379
+  ...
+# Subtest: wide docked window retains the report and native input, while report reflects only committed source
+ok 4 - wide docked window retains the report and native input, while report reflects only committed source
+  ---
+  duration_ms: 144.611904
+  ...
+# Subtest: returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+ok 5 - returning to the same native editor preserves its draft, input node and exact selection instead of reloading source
+  ---
+  duration_ms: 136.378976
+  ...
+# Subtest: resizing beside native composition to a narrow window yields the report without saving or cancelling input
+ok 6 - resizing beside native composition to a narrow window yields the report without saving or cancelling input
+  ---
+  duration_ms: 110.988716
+  ...
+# Subtest: report folds, focus and explicit original layout survive reading toggles without source or layout writes
+ok 7 - report folds, focus and explicit original layout survive reading toggles without source or layout writes
+  ---
+  duration_ms: 89.848423
+  ...
+# Subtest: stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+ok 8 - stale mapping, real host composition and existing native drafts refuse navigation before focus or visibility changes
+  ---
+  duration_ms: 155.533239
+  ...
+# Subtest: switching away while native navigation is pending preserves reading but cancels the old edit
+ok 9 - switching away while native navigation is pending preserves reading but cancels the old edit
+  ---
+  duration_ms: 41.586302
+  ...
+# Subtest: Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+ok 10 - Graph/root changes and dispose invalidate delayed source navigation and remove the owned return affordance
+  ---
+  duration_ms: 78.679786
+  ...
+# Subtest: committed source refreshes during native composition without replacing native input or unchanged report bodies
+ok 11 - committed source refreshes during native composition without replacing native input or unchanged report bodies
+  ---
+  duration_ms: 103.205859
+  ...
+# Subtest: source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+ok 12 - source changes arriving during a slow provider read are queued; a superseded snapshot cannot strand the report
+  ---
+  duration_ms: 55.82526
+  ...
+# Subtest: source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+ok 13 - source loss labels the retained report as unavailable and rejects navigation; recovery refreshes current facts
+  ---
+  duration_ms: 87.382056
+  ...
+# Subtest: a commit racing after source resolution cancels native navigation before yielding the panel
+ok 14 - a commit racing after source resolution cancels native navigation before yielding the panel
+  ---
+  duration_ms: 86.520377
+  ...
+# Subtest: production default opens complete reading without inheriting old structure folds or truncation
+ok 15 - production default opens complete reading without inheriting old structure folds or truncation
+  ---
+  duration_ms: 389.678408
+  ...
+# Subtest: text selection and raw comparison never request native routing; comparison uses the captured source version
+ok 16 - text selection and raw comparison never request native routing; comparison uses the captured source version
+  ---
+  duration_ms: 106.862576
+  ...
+# Subtest: the visible continue-writing action reuses the live input and exact selection without refreshing the report
+ok 17 - the visible continue-writing action reuses the live input and exact selection without refreshing the report
+  ---
+  duration_ms: 193.311508
+  ...
+# Subtest: the work-menu native-page action preserves live input while yielding a narrow layout
+ok 18 - the work-menu native-page action preserves live input while yielding a narrow layout
+  ---
+  duration_ms: 173.306168
+  ...
+# Subtest: ordinary native input retains its draft while saved report updates only changed bodies
+ok 19 - ordinary native input retains its draft while saved report updates only changed bodies
+  ---
+  duration_ms: 150.430413
+  ...
+# Subtest: opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control
+ok 20 - opening a host sidebar without a window resize yields native input and adds exactly one keyboard return control
+  ---
+  duration_ms: 105.633728
+  ...
+# Subtest: reading mode and explicit folds follow Graph/root identity across material switches and different works
+ok 21 - reading mode and explicit folds follow Graph/root identity across material switches and different works
+  ---
+  duration_ms: 125.841337
+  ...
+# Subtest: a void SDK route acknowledgement waits for the actual native block, and closing cancels late input
+ok 22 - a void SDK route acknowledgement waits for the actual native block, and closing cancels late input
+  ---
+  duration_ms: 443.374842
+  ...
+# Subtest: a hidden navigation lease revalidates membership from the installed provider after routing
+ok 23 - a hidden navigation lease revalidates membership from the installed provider after routing
+  ---
+  duration_ms: 78.801949
+  ...
+# Subtest: autosave changes may continue the same input lease, but a moved-out UUID cannot take focus
+ok 24 - autosave changes may continue the same input lease, but a moved-out UUID cannot take focus
+  ---
+  duration_ms: 80.190257
+  ...
+# Subtest: a deleted report source leaves no orphan paragraph; unchanged bodies and current scope survive
+ok 25 - a deleted report source leaves no orphan paragraph; unchanged bodies and current scope survive
+  ---
+  duration_ms: 63.314613
+  ...
+# Subtest: close/reopen and a new controller restore the same reading mode, UUID bookmark and explicit folds without routing native pages
+ok 26 - close/reopen and a new controller restore the same reading mode, UUID bookmark and explicit folds without routing native pages
+  ---
+  duration_ms: 569.704772
+  ...
+# Subtest: toolbar requires an explicit named continuation when the current native block has no work object
+ok 27 - toolbar requires an explicit named continuation when the current native block has no work object
+  ---
+  duration_ms: 155.647241
+  ...
+# Subtest: a restarted file Graph resolves the saved page name to its new real page UUID without adding a block root or routing native pages
+ok 28 - a restarted file Graph resolves the saved page name to its new real page UUID without adding a block root or routing native pages
+  ---
+  duration_ms: 53.460863
+  ...
+# Subtest: host divider persists the completed drag without disturbing native input and is removed on close and dispose
+ok 29 - host divider persists the completed drag without disturbing native input and is removed on close and dispose
+  ---
+  duration_ms: 45.957392
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4993.1138
