@@ -1,3 +1,4 @@
+import expectedReading from "./fixtures/visual-refresh-expected.json" with {type:"json"};
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -60,7 +61,7 @@ test("each long-form source has complete visible Markdown, correct raw version a
     for(const row of rows){
       const node=container.querySelector<HTMLElement>(`article[data-uuid="${row.uuid}"]`)!,body=node.querySelector<HTMLElement>(".wb-body")!;
       assert.equal(node.hidden,false,row.content);assert.ok(body.classList.contains("expanded"),row.content);
-      assert.equal(normalized(body.textContent!),normalized(row.expectedText),row.content);
+      assert.equal(normalized(body.textContent!),normalized(expectedReading.find(r=>r.uuid===row.uuid)!.text),row.content);
       const original=source.blocks.find(b=>b.target.blockUuid===row.uuid)!;
       assert.equal(node.dataset.reportSourceId,original.sourceId);
       assert.equal(node.dataset.reportContentVersion,createHash("sha256").update(original.content!).digest("hex"));

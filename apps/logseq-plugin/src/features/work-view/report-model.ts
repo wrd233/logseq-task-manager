@@ -1,12 +1,13 @@
+import { reportProjection } from "./report-body.ts";
 import type { BlockSnapshot, BlockTarget, SourceScope, SourceSnapshot } from "../../workspace/source-protocol.ts";
 import type { ViewPresentation } from "./operations.ts";
 import { workObject } from "./focus.mjs";
 import { composeWorkView, type ComposedView, type LensSelection } from "./view-composer.ts";
 import type { SourceRow } from "./model.mjs";
 
-export type ReportCategory = "goals" | "notes" | "ideas" | "todos" | "objects";
-const titles: Record<ReportCategory, string> = {goals:"目标", notes:"记录与说明", ideas:"想法", todos:"待办", objects:"工作事项"};
-const categories: ReportCategory[] = ["goals", "notes", "ideas", "todos", "objects"];
+export type ReportCategory = "goals" | "notes" | "ideas" | "todos" | "objects" | "questions";
+const titles: Record<ReportCategory, string> = {goals:"目标", notes:"记录与说明", ideas:"思考", todos:"待办", objects:"工作事项", questions:"问题"};
+const categories: ReportCategory[] = ["goals", "notes", "ideas", "questions", "todos", "objects"];
 export interface ReportFragment {
   scope: SourceScope; sourceId: string; target: BlockTarget; contentVersion: string;
   range: {unit: "block"}; parentUuid: string | null; objectKind: string | null;
@@ -21,11 +22,10 @@ export interface ReportComposition {
 
 /** Finite display vocabulary only; adjacency does not establish semantic ownership. */
 export function reportCategory(content: string): ReportCategory | null {
-  const first = content.split("\n").find(line => line.trim() && !/^\s*[\w-]+::/.test(line))?.trim() ?? "";
-  if (workObject(first)) return "objects";
-  if (/^TODO(?:\s|$)/.test(first)) return "todos";
-  const mark = /^(?:\*\*)?\[(目标|注|记录|说明|想法)\](?:\*\*)?(?=\s|$|[：:])/.exec(first)?.[1];
-  return mark === "目标" ? "goals" : mark === "想法" ? "ideas" : mark ? "notes" : null;
+  const projection = reportProjection(content);
+  if (projection.marker === "object" && workObject(content)) return "objects";
+  if (projection.task) return "todos";
+  return projection.marker === "goal" ? "goals" : projection.marker === "idea" ? "ideas" : projection.marker === "question" ? "questions" : projection.marker === "note" || projection.marker === "record" ? "notes" : null;
 }
 
 export function reportFragment(source: SourceSnapshot, sourceId: string): ReportFragment | null {

@@ -1,9 +1,9 @@
-import { button, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
+import { button, disclosureMenu, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
 import { desktopBridge, desktopFiles, pickMaterialDirectory } from "../../host/desktop-files.ts";
 import { MaterialDirectories, type MaterialWorkContext, type MaterialBindingCommands } from "../../workspace/material-context.ts";
 import { MaterialService, type CaptureRequest, type MaterialResult, type MaterialView } from "./service.ts";
 import { captureMarkdown } from "./conversion.ts";
-import { materialAction, materialPrompt, renderReading, roleLabel } from "./ui.ts";
+import { closeMaterialPrompts, materialAction, materialPrompt, renderReading, roleLabel } from "./ui.ts";
 import { fileDetails, installMaterialReadingStyle, materialDropArea, materialEntry, referenceNotice } from "./reading-ui.ts";
 import { fileName } from "./names.ts";
 import { renderMaterialFolders } from "./folder-ui.ts";
@@ -41,6 +41,8 @@ export class Materials {
   setDirectoryObserver(port:DirectoryObservationPort|null):void {this.directoryObserver=port;}
   readonly panel: FeaturePanel;
   readonly ui: MaterialReadingUI;
+  private folderCleanup: (() => void) | null = null;
+  private readerMenu: ReturnType<typeof disclosureMenu> | null = null;
   private refreshList: (() => Promise<void>) | null = null;
   private listPosition: {graph: string; root: string | null; query: string; scroll: number; selected: string | null} | null = null;
   private workChrome: ((surface: HTMLElement, scope: SourceScope | null) => boolean) | null = null;
@@ -117,7 +119,7 @@ export class Materials {
     const paste = (event: ClipboardEvent) => this.sources.onPaste(event);
     doc?.addEventListener("click", link, true); document.addEventListener("click", link, true); doc?.addEventListener("paste", paste, true);
     this.disposers.push(() => { doc?.removeEventListener("click", link, true); document.removeEventListener("click", link, true); doc?.removeEventListener("paste", paste, true); });
-    this.disposers.push(logseq.App.onCurrentGraphChanged(() => { this.sources.cancelPrompt(); this.preserveDraft(); this.cancelSave(); this.composing = false; this.epoch++; this.current = null; this.mode = "reading"; this.store = null; this.service = null; this.contextUuid = null; this.listPosition = null; void this.panel.close(); }));
+    this.disposers.push(logseq.App.onCurrentGraphChanged(() => { this.sources.cancelPrompt(); this.preserveDraft(); this.cancelSave(); this.composing = false; this.folderCleanup?.(); this.folderCleanup=null; this.readerMenu?.dispose(); this.readerMenu=null; this.transfers.resetScope(true); closeMaterialPrompts(this.body); this.epoch++; this.current = null; this.mode = "reading"; this.store = null; this.service = null; this.contextUuid = null; this.listPosition = null; void this.panel.close(); }));
     this.editorRoot.addEventListener("compositionstart", () => { this.composing = true; this.cancelSave(); });
     this.editorRoot.addEventListener("compositionend", () => { this.composing = false; this.scheduleSave(); });
     for (const type of ["beforeinput", "input", "paste"]) this.editorRoot.addEventListener(type, () => { this.inputUntil = Date.now() + 1500; }, true);
@@ -203,6 +205,7 @@ export class Materials {
     if (this.disposed) return;
     const navigation = panels.reserve();
     this.rememberList(); await this.leave(); if (this.disposed || !panels.isLatest(navigation)) return;
+    this.folderCleanup?.(); this.folderCleanup=null; this.readerMenu?.dispose(); this.readerMenu=null; this.transfers.resetScope(); closeMaterialPrompts(this.body);
     this.epoch++; this.current = null; this.mode = "reading"; this.contextUuid = rootUuid; this.conflict.hidden = true;
     this.message("");
     this.editorRoot.hidden = true; this.body.hidden = false;
@@ -223,7 +226,7 @@ export class Materials {
       if (!await this.panel.open(navigation)) return;
       this.mountWorkChrome();
       const service = await this.ensureService(), context = await this.workContext(rootUuid); this.assertScope(epoch);
-      await renderMaterialFolders(results, service, context, () => this.assertScope(epoch), () => this.library(rootUuid, content, "folders"));
+      this.folderCleanup=await renderMaterialFolders(results, service, context, () => this.assertScope(epoch), () => this.library(rootUuid, content, "folders"));
       return;
     }
     results.append(element("p", "正在加载材料…", "wb-material-loading"));
@@ -252,10 +255,10 @@ export class Materials {
       try {
         const service = await this.ensureService(), entries = await service.list();
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
-        results.replaceChildren();
         const visible = rootUuid ? entries.filter(item => associationsOf(item).some(association => association.graph === this.graph && association.sourceUuid === rootUuid) || related.has(item.id)) : entries;
         const views = await Promise.all(visible.map(item => service.read(item.id, false)));
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
+        const rendered: HTMLElement[]=[];
         for (const [index, item] of visible.entries()) {
           const view = views[index]!, entry = materialEntry(view, () => {
             this.rememberList(item.id); void (view.capabilities.read === "external" && view.availability === "available" ? this.openExternal(view.id) : this.openDoc(view.id)).catch(this.fail);
@@ -266,10 +269,14 @@ export class Materials {
             ...(view.availability === "unavailable" ? [{label: "重新定位", run: async () => { await this.openDoc(item.id); await this.relocate(); }}] : []),
             ...(referenceNotice(item) ? [{label: "核验引用与改名", run: () => this.recoverMaterial(item.id)}] : []),
           ]);
-          const notice = referenceNotice(item); if (notice) entry.append(element("small", notice, "wb-error")); results.append(row);
+          const notice = referenceNotice(item); if (notice) entry.append(element("small", notice, "wb-error")); rendered.push(row);
           if (item.references?.some(ref => ref.mode === "follow-filename")) void this.transfers.sync(item.id).catch(this.fail);
         }
-        if (!visible.length) results.append(element("p", "还没有材料，拖入文件或文件夹即可开始。"));
+        this.transfers.prune(new Set(visible.map(item=>item.id)));
+        if(!visible.length)rendered.push(element("p","还没有材料，拖入文件或文件夹即可开始。"));
+        const keep=new Set(rendered);for(const node of Array.from(results.children))if(!keep.has(node as HTMLElement))node.remove();
+        let cursor=results.firstElementChild;for(const row of rendered){if(row!==cursor)results.insertBefore(row,cursor);cursor=row.nextElementSibling;}
+        drop.classList.toggle("wb-material-drop-compact",visible.length>0);
         this.message(service.listProblems.length ? `${visible.length} 份材料 · 部分目录暂不可读，已有关联保留。` : "");
       } catch (error) { if (epoch === this.epoch) { results.replaceChildren(element("p", error instanceof Error ? error.message : String(error))); this.fail(error); } }
     };
@@ -293,6 +300,7 @@ export class Materials {
     this.rememberList(); await this.leave(); if (this.disposed || !panels.isLatest(navigation)) return;
     delete this.body.dataset.materialList;
     if (returnUuid !== undefined) this.contextUuid = returnUuid;
+    this.folderCleanup?.(); this.folderCleanup=null; this.readerMenu?.dispose(); this.readerMenu=null; this.transfers.resetScope(); closeMaterialPrompts(this.body);
     const epoch = ++this.epoch, service = await this.ensureService();
     let located: Awaited<ReturnType<MaterialService["locate"]>>;
     try { located = await service.locate(id); }
@@ -311,7 +319,7 @@ export class Materials {
     if (located.record.title !== record.title && record.references?.length) void this.transfers.sync(id).catch(this.fail);
     this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(this.contextUuid).catch(this.fail)), element("strong", record.summary || record.title), button("复制链接", () => void this.transfers.copy(id, this.contextUuid, this.body, view.reference).catch(this.fail)), this.closeButton());
     if (this.contextUuid && this.returnWork) this.heading.append(this.returnButton());
-    const more = element("details"), summary = element("summary", "更多"); more.append(summary); this.heading.append(more);
+    const moreMenu=disclosureMenu("更多","当前材料的更多操作"); this.readerMenu=moreMenu; const more=moreMenu.content; this.heading.append(moreMenu.root);
     more.append(button("改文件名", () => void this.transfers.rename(id, this.contextUuid).catch(this.fail)), button("写概述", () => void this.describe(id).catch(this.fail)), button("同步名称与引用", () => void this.recoverMaterial(id).catch(this.fail)), button("补关联", () => void this.linkExisting(id).catch(this.fail)), button("重新定位", () => void this.relocate().catch(this.fail)), button("来源", () => void this.locate().catch(this.fail)), element("small", `${record.imported ? "导入副本" : record.kind === "reference" ? "原文件" : "收纳创建"} · ${roleLabel(record.role)}`));
     if (record.kind === "capture" && record.sourceUuid) more.append(button("恢复收纳原文", () => void this.restore().catch(this.fail)));
     this.body.hidden = false; this.editorRoot.hidden = true;
@@ -612,7 +620,7 @@ export class Materials {
     return values;
   }
   dispose(): void {
-    this.transfers.dispose();
+    this.folderCleanup?.(); this.readerMenu?.dispose(); closeMaterialPrompts(this.body); this.transfers.dispose();
     if (this.disposed) return;
     this.disposed = true; this.epoch++; this.preserveDraft(); this.cancelSave(); window.clearInterval(this.timer);
     for (const off of this.disposers) off();

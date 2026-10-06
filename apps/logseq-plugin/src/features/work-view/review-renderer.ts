@@ -4,7 +4,7 @@ import { marked } from "./vendor/marked.js";
 import { button, element } from "../../host/panel-host.ts";
 import { reviewProblem, type ReviewChange } from "./review-port.ts";
 import { textHunks } from "./text-diff.ts";
-import { reportMarkdown } from "./report-body.ts";
+import { reportMarkdown, reportProjection } from "./report-body.ts";
 
 const displayText=reportMarkdown;
 export function renderMarkdown(content:string):string {
@@ -13,9 +13,9 @@ export function renderMarkdown(content:string):string {
 }
 
 /** Decorate safe rendered text nodes without replacing links, code or emphasis. */
-export function highlightReview(body:HTMLElement, change:ReviewChange | undefined, content:string):void {
+export function highlightReview(body:HTMLElement, change:ReviewChange | undefined, content:string, projected = false):void {
   if (!change || change.before===null || change.after!==content || change.kind!=="modified") return;
-  const previous=element("div"); previous.innerHTML=renderMarkdown(change.before);
+  const previous=element("div"); previous.innerHTML=renderMarkdown(projected ? reportProjection(change.before).markdown : change.before);
   const hunks=textHunks(previous.textContent??"",body.textContent??"");
   if (!hunks) return;
   const ranges=hunks.filter(h=>h.afterEnd>h.afterStart), walker=document.createTreeWalker(body,4);

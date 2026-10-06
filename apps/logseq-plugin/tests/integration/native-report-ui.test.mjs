@@ -41,7 +41,7 @@ test('real report entrance retains complete bodies and node identity while heade
   const f=await reportFixture();
   try {
     const before=JSON.stringify([...f.blocks]), nodes=[...f.work.panel.root.querySelectorAll('.wb-row')];
-    assert.deepEqual([...f.work.panel.root.querySelectorAll('.wb-report-section')].map(h=>h.textContent),['想法','待办']);
+    assert.deepEqual([...f.work.panel.root.querySelectorAll('.wb-report-section')].map(h=>h.textContent),['思考','待办']);
     assert.equal(f.work.panel.root.querySelectorAll('.wb-row').length,9);
     assert.ok(row(f,'b1').textContent.includes('同名条件不能丢失。'));assert.ok(row(f,'b7').textContent.includes('[风险]'));
     for(const heading of f.work.panel.root.querySelectorAll('.wb-report-section')){

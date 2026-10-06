@@ -117,8 +117,8 @@ test('directory plus opens the real host picker, permits cancel and multiple bin
   const f = await fixture(true); try {
     await f.materials!.library(f.c!.root,'','folders'); assert.equal(f.pickerCount(),0);
     assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,1);
-    f.choose(null); f.button('＋').click(); await until(()=>f.pickerCount()===1,'picker cancellation'); assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,1);
-    const extra = join(f.root,'选择目录'); await mkdir(extra); await writeFile(join(extra,'已有参考.md'),'# 已有参考'); f.choose(extra); f.button('＋').click();
+    f.choose(null); f.button('添加目录').click(); await until(()=>f.pickerCount()===1,'picker cancellation'); assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,1);
+    const extra = join(f.root,'选择目录'); await mkdir(extra); await writeFile(join(extra,'已有参考.md'),'# 已有参考'); f.choose(extra); f.button('添加目录').click();
     await until(()=>f.materials!.panel.root.querySelectorAll('input[type=radio]').length===2,'second folder rendered');
     const listed = await f.materials!.listMaterials(f.c!.root); assert.equal(listed.materials[0]!.path,join(extra,'已有参考.md')); assert.deepEqual(listed.materials[0]!.capabilities.edit,{user:false,agent:false});
     const radio = f.materials!.panel.root.querySelectorAll<HTMLInputElement>('input[type=radio]')[1]!; radio.checked=true; radio.dispatchEvent(new f.c!.browser.Event('change') as unknown as Event);
@@ -153,7 +153,7 @@ test('drop shows file name immediately, keeps a failed row retryable and copies 
     gate.reject(Error('copy permission'));await until(()=>f.materials!.panel.root.querySelector('[data-import-state=failed]')!==null,'failed row');
     f.copying(null);f.button('重试').click();await until(()=>!!f.materials!.panel.root.querySelector('.wb-material'),'retry produces actual row');assert.equal((await f.materials!.listMaterials(f.c!.root)).materials.length,1);
     let clipboard='';Object.defineProperty(f.c!.browser.document,'execCommand',{configurable:true,value:(command:string)=>{assert.equal(command,'copy');clipboard=f.c!.browser.document.querySelector('textarea')!.value;return true;}});
-    f.button('复制链接').click();assert.match(clipboard,/longdoc:\/\/[a-f0-9-]{36}/);await until(()=>f.materials!.panel.root.textContent!.includes('已复制材料链接'),'copy acknowledgment');assert.equal(f.materials!.panel.root.querySelector('textarea'),null);
+    f.button('复制链接').click();assert.match(clipboard,/longdoc:\/\/[a-f0-9-]{36}/);await until(()=>f.materials!.panel.root.textContent!.includes('已复制'),'copy acknowledgment');assert.equal(f.materials!.panel.root.querySelector('textarea'),null);
     assert.equal(await readFile(source,'utf8'),'# 等待');assert.equal(f.c!.counts().inserts,0);
   } finally {await f.cleanup();}
 });

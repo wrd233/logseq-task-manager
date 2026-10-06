@@ -1,3 +1,4 @@
+import { workbenchControls, workbenchTokens } from "../../host/visual-style.ts";
 import { hostDocument } from "../../host/panel-host.ts";
 import { copyMaterialLink } from "../../host/clipboard.ts";
 
@@ -9,26 +10,20 @@ export function capturePastePrompt(initial: string, save: (title: string) => Pro
   // Logseq treats a bubbled outside click as ending the native editor. Keep this
   // decision local so its confirmation can replace the original pasted range.
   for (const type of ["pointerdown", "mousedown", "click", "keydown", "keyup"]) dialog.addEventListener(type, event => event.stopPropagation());
-  const style = doc.createElement("style"); style.textContent = `
-    .wb-material-capture{box-sizing:border-box;width:min(420px,calc(100vw - 32px));border:1px solid var(--ls-border-color,#ddd);border-radius:8px;padding:20px;color:var(--ls-primary-text-color,#222);background:var(--ls-primary-background-color,#fff);font:14px/1.6 var(--ls-font-family,system-ui);box-shadow:0 12px 40px #0002}
-    .wb-material-capture::backdrop{background:#0003}.wb-material-capture h3{font-size:16px;margin:0 0 8px}.wb-material-capture p{margin:8px 0}
-    .wb-material-capture label{display:block;margin:14px 0}.wb-material-capture input{box-sizing:border-box;display:block;width:100%;font:inherit;padding:7px 9px;margin-top:5px;color:inherit;background:inherit;border:1px solid var(--ls-border-color,#ccc);border-radius:4px}
-    .wb-material-capture footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.wb-material-capture button{font:inherit;padding:5px 12px;border:1px solid var(--ls-border-color,#ccc);border-radius:4px;cursor:pointer;color:inherit;background:inherit}
-    .wb-material-capture [type=submit]{background:var(--ls-secondary-background-color,#f3f5f3)}.wb-material-capture [role=status]{overflow-wrap:anywhere;font-size:13px}
-  `;
+  const style = doc.createElement("style"); style.dataset.workbenchCaptureStyle="true"; style.textContent=workbenchTokens+workbenchControls;
   const title = doc.createElement("h3"); title.textContent = "收纳这段长文本？";
   const hint = doc.createElement("p"); hint.textContent = "保存为 Markdown 材料，并在粘贴位置留下链接。";
   const label = doc.createElement("label"); label.textContent = "文件名";
   const input = doc.createElement("input"); input.value = initial; input.setAttribute("aria-label", "收纳文件名"); label.append(input);
   const status = doc.createElement("p"); status.setAttribute("role", "status");
   const footer = doc.createElement("footer"), keep = doc.createElement("button"), submit = doc.createElement("button");
-  keep.type = "button"; keep.textContent = "保留原文"; submit.type = "submit"; submit.textContent = "收纳"; footer.append(keep, submit);
+  keep.type = "button"; keep.textContent = "保留原文"; submit.type = "submit"; submit.className="wb-primary"; submit.textContent = "收纳"; footer.append(keep, submit);
   form.append(title, hint, label, status, footer); dialog.append(style, form); doc.body.append(dialog);
   let resolve!: () => void, composing = false, complete = false;
   const finished = new Promise<void>(done => { resolve = done; });
   const close = () => { if (!complete) cancel(); dialog.remove(); resolve(); };
   keep.onclick = close;
-  dialog.oncancel = event => { event.preventDefault(); if (!submit.disabled) close(); };
+  dialog.oncancel = event => { event.preventDefault(); if (!submit.disabled && !composing) close(); };
   input.addEventListener("compositionstart", () => { composing = true; }); input.addEventListener("compositionend", () => { composing = false; });
   form.onsubmit = event => {
     event.preventDefault(); if (submit.disabled || composing || !input.value.trim()) return;

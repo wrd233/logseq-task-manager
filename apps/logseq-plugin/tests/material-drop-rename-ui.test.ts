@@ -46,7 +46,7 @@ test('real composition wiring: simulated list drop changes no source; report bod
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'list association and rendered row');
     let list=await f.materials.listMaterials(f.c.root);assert.equal(list.materials.length,1);assert.equal(f.c.counts().inserts,before);assert.equal(list.materials[0]!.path,path);assert.equal(list.materials[0]!.title,'有 空格资料');
     Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async () => {throw Error('denied');}}});
-    f.find('复制链接').click();await until(()=>f.materials.panel.root.textContent!.includes('复制未完成'),'clipboard failure feedback');assert.equal(f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'),null);
+    f.find('复制链接').click();await until(()=>f.materials.panel.root.textContent!.includes('复制失败'),'clipboard failure feedback');assert.equal(f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'),null);
     const row=document.createElement('article');row.className='wb-row';row.dataset.uuid=f.c.a;const paragraph=document.createElement('div');paragraph.className='wb-body';row.append(paragraph);document.body.append(row);
     f.drop(paragraph,{types:['Files'],files:[file as unknown as File]});await until(async () => JSON.parse(await readFile(join(f.work,'.longdoc',`${list.materials[0]!.id}.json`),'utf8')).references?.[0]?.status==='synced', 'report child verified');
     await until(()=>f.c.messages.some(m=>m.includes('已关联材料，并在该原文块下插入引用')),'verified first drop result displayed');
@@ -96,7 +96,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value='归档资料';f.find('保存').click();
     await until(()=>f.c.blocks.get(child)!.content.includes('归档资料](longdoc://'),'MiniProject generated reference follows verified filename');
-    await until(()=>f.materials.panel.root.querySelector('.wb-status')!.textContent!.includes('稳定链接保持可用'),'rename UI has finished returning to the list');
+    await until(()=>!!f.materials.panel.root.querySelector('.wb-material-feedback')?.textContent?.includes('已改名'),'rename UI has finished returning to the list');
     assert.equal((await f.materials.readMaterial(material.id)).path,join(f.work,'归档资料.md'));
     assert.equal(await readFile(join(f.work,'归档资料.md'),'utf8'),'原文件字节');
     assert.equal(JSON.stringify(await stages.api.history()),history);

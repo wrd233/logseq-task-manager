@@ -110,6 +110,7 @@ test('long MiniProject and four real files: list joining, trusted report inserti
     await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'selected rename');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '研究终稿'; f.find('保存').click();
     await until(() => f.c.blocks.get(child)!.content.includes('研究终稿](longdoc://'), 'generated label follows');
+    await until(() => !f.materials.panel.root.querySelector('.wb-material-rename') && !!f.materials.panel.root.querySelector(`[data-material-row="${material.id}"] .wb-material-feedback`)?.textContent?.includes('已改名'), 'rename UI completion before external rename');
     assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
     const path = join(f.workDirectory, '研究终稿.md'); assert.equal(await readFile(path, 'utf8'), '# 研究说明\n\n真实 Markdown 材料。');
     const version = (await f.materials.readMaterial(material.id)).version;

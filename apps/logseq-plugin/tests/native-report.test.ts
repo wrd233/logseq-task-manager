@@ -42,7 +42,7 @@ test("report grouping preserves ambiguous sibling adjacency, complete bodies, UU
   assert.deepEqual(report.view.items.map(i=>i.uuid),["root","note","condition","goal","idea","todo","note2","counter","unknown","task","code","link"]);
   assert.equal(new Set(report.view.items.map(i=>i.uuid)).size,source.blocks.length);
   assert.ok(report.view.items.every(i=>i.full&&!i.hidden));
-  assert.deepEqual(report.headings.map(h=>h.title),["想法","待办"]);
+  assert.deepEqual(report.headings.map(h=>h.title),["思考","待办"]);
   assert.equal(report.fragments.find(f=>f.target.blockUuid==="task")?.objectKind,"task");
   assert.equal(report.fragments.find(f=>f.target.blockUuid==="code")?.parentUuid,"task");
   assert.equal(report.fragments.length,source.blocks.length);assert.equal(JSON.stringify(source),before);

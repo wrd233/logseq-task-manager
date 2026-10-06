@@ -1,0 +1,144 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>工作台视觉稿 · 可交互参考</title><style>
+:root{color-scheme:light;--bg:#efeeea;--paper:#faf9f6;--muted:#656f6a;--ink:#29332f;--soft:#e9eee9;--edge:#d8dfd8;--accent:#376e60;--on:#fff;--error:#9d4938;--shadow:0 12px 38px #26352e24}
+:root.dark{color-scheme:dark;--bg:#202825;--paper:#27312d;--muted:#b0bcb5;--ink:#e3e8e3;--soft:#303f38;--edge:#43534a;--accent:#91c7b3;--on:#1e2d25;--error:#f0ad97;--shadow:0 12px 38px #0005}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 system-ui}button,input{font:inherit;color:inherit}button{cursor:pointer;padding:6px 12px;border:0;border-radius:7px;background:transparent}button:hover{background:var(--soft)}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.primary{background:var(--accent);color:var(--on)}small{color:var(--muted);font-size:13px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:16px;justify-content:center}.frame{width:min(920px,100%);margin:0 auto;background:var(--paper);min-height:80vh}.frame.narrow{width:360px}.global{display:flex;justify-content:space-between;padding:5px 18px;background:var(--soft);font-size:13px}.identity{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:18px 22px 8px}.identity strong{flex:1;min-width:180px;font-size:20px;line-height:1.5}.identity strong small{display:block;font-weight:400}.tabs{display:flex;gap:14px;padding:0 22px;background:var(--paper)}.tabs button[aria-current=true]{box-shadow:inset 0 -2px var(--accent);color:var(--accent);font-weight:600}.tabs .review{margin-left:auto;font-size:13px}.content{padding:20px 22px 36px;overflow-wrap:anywhere}.content article{margin-left:calc(min(var(--depth),4)*12px);padding:3px 0;line-height:1.8}.content p{margin:0 0 5px}h3{font-size:15px;color:var(--accent);margin:12px 0 5px}.note{padding:7px 12px!important;border-left:2px solid var(--edge);background:var(--soft);border-radius:0 6px 6px 0}.content pre{overflow:auto;background:var(--soft);padding:12px;white-space:pre}.content table{display:block;max-width:100%;overflow:auto;border-collapse:collapse}.content td,.content th{border:1px solid var(--edge);padding:5px 10px}a{color:var(--accent)}blockquote{border-left:2px solid var(--edge);padding-left:12px;margin:6px 0}.filetabs{display:flex;gap:6px;margin-bottom:12px}.filetabs button[aria-current=true]{background:var(--soft);color:var(--accent)}.drop{border-radius:8px;padding:8px 12px;background:var(--soft);margin-bottom:10px;font-size:13px}.drop.empty{border:1px dashed var(--edge);text-align:center;padding:32px}.file{position:relative;display:flex;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid var(--edge)}.filename{flex:1;min-width:0;text-align:left;overflow-wrap:anywhere}.filename small{display:block}.copyfeedback{font-size:12px;color:var(--accent);min-width:42px}.menu{position:absolute;right:0;top:calc(100% - 4px);z-index:4;width:230px;max-width:calc(100vw - 40px);padding:6px;border:1px solid var(--edge);border-radius:9px;background:var(--paper);box-shadow:var(--shadow)}.menu button{display:block;width:100%;text-align:left}.rename{display:flex;flex:1;min-width:0;gap:6px;align-items:center;flex-wrap:wrap}.rename input{width:100%;min-width:0;padding:7px 10px;border:1px solid var(--edge);border-radius:6px;background:var(--paper)}.rename label{flex:1;min-width:120px}.rename p{width:100%;color:var(--error);font-size:13px}.folder{display:flex;align-items:center;gap:12px;padding:14px 0}.folder>div{flex:1;min-width:0}.folder strong,.folder small{display:block}.badge{font-size:12px;color:var(--accent)}dialog{width:min(420px,calc(100vw - 32px));border:1px solid var(--edge);border-radius:12px;background:var(--paper);color:var(--ink);padding:24px;box-shadow:var(--shadow)}dialog::backdrop{background:#15241c55}dialog h2{margin:0;font-size:19px}dialog input{width:100%;padding:8px;margin-top:6px;border:1px solid var(--edge);background:var(--paper);border-radius:6px}dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}[hidden]{display:none!important}.banner{padding:8px 0;color:var(--muted);font-size:13px}@media(max-width:500px){.identity{padding:12px 16px 6px}.tabs{padding:0 16px;gap:9px}.content{padding:14px 16px}.identity strong{flex-basis:100%}.identity button:last-child{margin-left:auto}.review{font-size:12px!important}}
+</style><div class="toolbar"><small>可交互视觉参考 · 同一份 102 块原文 · 非 Desktop 截图</small><button id="theme">明／暗</button><button id="width">窄／宽</button><button id="capture">收纳确认</button><button id="empty">空态</button><button id="failure">失败／重试</button></div><main class="frame" id="frame"><div class="global"><span>工作台 ▾</span><button>关闭工作台</button></div><header><div class="identity"><strong><small>MiniProject</small>核对当前工作中的原句与材料关系</strong><button class="primary" id="native">在 Logseq 写作</button><button id="options">工作选项 ▾</button></div><nav class="tabs"><button id="bodytab" aria-current="true">正文</button><button id="materialtab">材料</button><button class="review" id="review">审阅与历史</button></nav></header><div class="content" id="body"><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000001" class=""><h3>思考</h3><p> 将阅读安排成可继续维护的长文，先把原句与对象关系保留下来，再讨论清晰的版面。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000002" class=""><p>这个判断下面有解释子树，子树内部的目标、待办和反例属于这里，不应被抽到整份报告开头。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000003" class=""><h3>思考</h3><p> 解释中的另一种可能是按版本核对材料，但它并不改变父段落暂缓整理的决定。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000004" class=""><h3>目标</h3><p> 这里的目标只是证明局部解释保持完整，不是整个项目新设的正式目标。</p>
+</article><article style="--depth:4" data-source="33333333-3333-4333-8333-000000000005" class=""><p>第四层限制：没有可靠的来源证据时，仍然保留不确定判断；不能用相似名称代替文件身份。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000006" class=""><p>TODO 对照这段解释里的日期；这是一条局部待办，展示与复制不应将其标记完成。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000007" class="note"><h3>说明</h3><p> 同一类别下的完整段落及其子树可以一起排列，正文不能因为分组而失去原来的限制。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000008" class=""><h3>目标</h3><p> 形成一份能够逐条回到来源的资料说明，范围内的原句都能被读到，而不是只显示结论。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000009" class=""><h3>思考</h3><p> 先区分全文阅读和明确聚焦，两者都可以退出，阅读偏好不能让新报告默认少掉半篇正文。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000010" class="note"><h3>说明</h3><p> 这一段先保留争议，并不要求用户为报告再写一套小标题；轻量标题只属于版式。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000011" class=""><p>没有标记的条件紧邻上一段：只在当前工作范围内核对引用，不能扫描其他项目来补齐答案。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000012" class=""><p>同名文件可能存在于不同目录，它们的权限和用途也不同；现在尚没有证据证明可以合并。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000013" class=""><p>这是一段需要完整阅读的长解释。现场记录先描述当时观察到的情况，后来整理的材料可能补上新的理解，两者的口吻和限制并不相同。报告可以把它们排得更容易阅读，却不能代替用户决定哪一句应该删除。尤其在资料还没有核对的时候，应保留‘可能适用于当前工作’这样的限定表达，也保留它后面关于其他情况未必成立的反例。阅读者需要看到前提、判断、反例和待确认问题如何连在一起，才能理解为什么这份说明没有直接给出肯定结论。原文在不同阶段出现的重复句也可能承担不同用途，一处提醒材料权限，另一处提醒来源范围，不能因为文字相同就只保留一个来源。这里要求完整显示整段，包括靠后的这些限制：名称不证明身份，相似内容不证明同一文件，已经登记材料不证明已经得到编辑许可，阶段认可也不证明正式工作完成。长句可以换行，报告密度可以提高，但正文最后这几句不能因三行显示偏好而消失。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000014" class=""><p>例如一份是现场记录，另一份是后来整理的对外说明，即使大小相同也不能自动替换。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000015" class=""><p>反例：两个文件复制自同一个起点，后来各自添加了限制条件，内容相似并不等于同一个材料。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000016" class="note"><h3>说明</h3><p> 这些例子属于同名判断的解释子树，原先的父子关系比标签分类更能说明它们的用途。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000017" class=""><h3>思考</h3><p> 先准备一条可以核对的路径，后续是否整理全部材料，应由阅读这些原句的人决定。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000018" class=""><p>这只是未成熟判断：如果材料缺少版本日期，不能因为报告排得更整齐就把它写成确定事实。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000019" class=""><p>另一段长记录保留实施中的不同意见。有人认为先按目标分组能更快进入主题，也有人担心标签分类会把局部解释拆开；目前采用的是有来源证据的局部排版，而不是给全部无标签段落猜一个主题。一个父段落下面的例子、日期限制、普通待办和未知标记共同解释这个父段落，应该作为子树留在它下面。事务和子工作也有自己的边界，其内部目标不应被提升成父工作的全局目标。对于同级的无标签记录，我们尚不能确定它是在补充上一句、开始新的话题，还是同时限制前后两句，因此保留原顺序和相邻关系。这样的选择仍然允许明确标记区域获得轻量标题，也允许代码、引文和表格使用合适格式；它要求版式尊重资料已有的表达结构。以后如果用户明确要求润色或移动原块，应走受控写回并重新核对版本，不能在刷新报告时悄悄完成。这里最后还保留一个待确认问题：实际使用者是否更愿意按来源顺序阅读，在没有观察证据以前不替他们作决定。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000020" class=""><p>疑问仍然保留：不同记录中的负责人是否指同一个人，需要先看当时语境，不能只按姓名推断。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000021" class=""><p>[风险] 这是未识别的个人标记，方括号和后面的原句必须保留；报告不能替用户修改词汇。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000022" class=""><p>同一条限制会在不同位置出现，重复本身可能帮助说明上下文，不能自动当作冗余删除。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000023" class=""><p>重复句：只核对当前工作，不扩大授权范围。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000024" class=""><h3>目标</h3><p> 阅读时能够看出哪些条件还没有确认，不能在去掉标签以后把疑问写成已经验收。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000025" class=""><p>无标签验收口径：完整正文包括这一句；即使没有强调、链接或关键词，也应计入来源核对。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000026" class=""><p>[验收] 用户原文明示的口径可以原样阅读，但这里没有新建另一种正式对象或状态权限。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000027" class=""><p>第一行是同一块的正文。<br>第二行补充限定条件，不能拆成新的来源身份。<br>第三行保留反例：表面一致的名称可能来自不同目录。<br>最后一行仍属于原块，版本必须绑定全部四行。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000028" class=""><p>TODO <strong>[事务]</strong> 核对第一份材料与引用位置</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000029" class=""><h3>目标</h3><p> 本事务只核对引用来源，不能因为报告把它放在目标旁边就扩大为整个项目的正式目标。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000030" class=""><p>事务内部的普通记录紧邻它自己的目标；引用没核对完之前，仍保持 TODO 和原对象归属。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000031" class="note"><h3>说明</h3><p> 需要逐条查看手写概述，不能因为显示名恰好等于文件名，就断言它跟随文件名更新。</p>
+</article><article style="--depth:4" data-source="33333333-3333-4333-8333-000000000032" class=""><p>第四层例子：简短别名用于快速识别，完整文件名用于登记位置，两个显示名可以指向同一材料。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000033" class=""><h3>思考</h3><p> 保留原来的概述，并在必要时明确查看原文件；这里的想法留在事务内部。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000034" class=""><p>TODO 只检查本事务中的一处页码；这条局部待办没有授权正式任务状态转换。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000035" class=""><p><a href="longdoc://77777777-7777-4777-8777-777777777777">原始依据</a> 与 <a href="longdoc://77777777-7777-4777-8777-777777777777">给同事看的简短别名</a> 指向同一文件，两个别名都应保留。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000036" class=""><p>材料只是当前解释的依据，登记引用不自动授权修改材料正文，也不搬动原文件或复制整篇内容。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000037" class=""><p>事务后面的无标签正文仍是父工作中的兄弟记录，不因恰好出现在事务后面就变成它的子块。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000038" class="note"><h3>说明</h3><p> 本地副本适合隔离验证，但原文件、历史快照与当前说明的身份必须分别保留。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000039" class=""><p>引文说明仍保留来源语境。</p>
+<blockquote>
+<p>只有核对当前工作中的条件，才能判断这条记录是否适用于本次整理。<br>条件没有确认时，保留疑问比补上确定结论更准确。</p>
+</blockquote>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000040" class=""><p>下列枚举仍属于一个原块。</p>
+<ol>
+<li>先看文件的真实位置与当前版本。</li>
+<li>再看引用处的原句及限定条件。</li>
+<li>最后记录已核对和待确认的区别。</li>
+</ol>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000041" class=""><p>这里保留 <strong>必要强调</strong> 与 <em>尚未确定的判断</em>；强调只帮助阅读，不能替代原文证据。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000042" class=""><pre><code class="language-js">const limit = &#39;只核对当前工作&#39;;
+id:: 这是一行代码中的原文，不是可删除的块属性
+const marker = &#39;[目标]&#39;;
+console.log(limit, marker);
+</code></pre>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000043" class=""><table>
+<thead>
+<tr>
+<th>内容</th>
+<th>核对范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>原句与反例</td>
+<td>当前工作全文</td>
+</tr>
+<tr>
+<td>手写别名</td>
+<td>保留用户措辞</td>
+</tr>
+<tr>
+<td>普通 TODO</td>
+<td>只读展示</td>
+</tr>
+</tbody></table>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000044" class=""><p><a href="longdoc://77777777-7777-4777-8777-777777777777">较长的文件名称用于说明链接换行仍不应遮挡其他正文-资料核对与版本日期记录.md</a> 的显示名是用户写的说明，不能自动替换。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000045" class=""><h3>思考</h3><p> 一个可靠的阅读层应允许普通选区和复制；用户挑选词语不应被当成申请进入编辑器。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000046" class=""><p>这段无标签说明还没有完成，语气里的“可能”和“暂时”都应保留，不能只摘出肯定的部分。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000047" class=""><p>必要前提：当前阅读只表示原句已经读入，不表示所有材料都已确认，也不表示正式工作已完成。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000048" class=""><h3>目标</h3><p> 这个深层目标解释如何核对前提，它仍然属于上一段说明，而不是全局小标题。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000049" class="note"><h3>说明</h3><p> 深层说明按原顺序保留，让读者能够沿缩进回到父段，不机械再拆为多个重复章节。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000050" class="note"><h3>说明</h3><p> 记录一处失败也有价值；如果文件暂不可用，应显示这个事实，而不是填入相似材料的正文。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000051" class=""><p>失败恢复时先查询已发生的结果，不能因为界面恢复成原样就重复写入同一条引用或移动原块。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000052" class=""><p>TODO <strong>[事务]</strong> 对照第二份材料中的版本日期</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000053" class="note"><h3>说明</h3><p> 第二个事务有独立对象边界，第一份材料里的解释不能被显示策略挪进这里。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000054" class=""><h3>目标</h3><p> 对照日期与原句，保留当前事务下的局部限制；还没有确认的日期不得写成完成事实。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000055" class=""><p>无标签条件：如果日期写在扫描图片中，当前阅读层不能假装已经读取全部图片文字。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000056" class=""><p>[风险] 这一层未知标记仍在原来的解释旁边，不能因未识别就删除或移动到报告末尾。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000057" class=""><h3>思考</h3><p> 先留下一条待确认说明，后续真正查到日期再通过受控原文修改继续补充。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000058" class=""><p>TODO 再看一次局部版本记录；普通读取与折叠不应执行这条待办，也不创建正式对象。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000059" class=""><p>这份事务记录在离线时仍应完整阅读，agent 断开并不取消已有原句和材料引用。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000060" class=""><p>两个事务之间的原有前后关系保留，没有证据时不能仅按“核对”这个词合并为同一个工作单元。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000061" class=""><p><strong>[MiniProject]</strong> 整理一份可继续核对的局部说明 #MiniProject</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000062" class=""><h3>目标</h3><p> 子 MiniProject 的目标留在这个对象里，不能被抽到父工作的通用目标组。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000063" class=""><p>子工作还需要说明适用范围，暂时只确认已登记的材料，不寻找范围外的其他文件。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000064" class=""><h3>思考</h3><p> 这里的解释提示一种可能做法；它不改变父对象，也不等于新增任务授权。</p>
+</article><article style="--depth:4" data-source="33333333-3333-4333-8333-000000000065" class=""><p>第四层反例：同内容双文件仍可能是两份独立记录，不能根据相同 hash 自动推导物理身份。</p>
+</article><article style="--depth:3" data-source="33333333-3333-4333-8333-000000000066" class=""><p>TODO 核对子工作中的一个别名；这条局部 TODO 必须留在原来的子树内。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000067" class="note"><h3>说明</h3><p> 子对象的说明完整保留；显示顺序和真实来源的父级、顺序、UUID 是不同的事实。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000068" class=""><p>[局部判断] 尚未成熟的观点可以保留原样；未知标记没有赋予报告自动润色的权限。</p>
+</article><article style="--depth:2" data-source="33333333-3333-4333-8333-000000000069" class=""><p>子工作最后的无标签条件依然可读，返回父工作不会把它吞进对象标题或压成三行。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000070" class=""><p>回到父工作的补充记录：前面的子对象仍是一整个工作单元，解释不能在刷新后散落到别处。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000071" class=""><p>重复句：只核对当前工作，不扩大授权范围。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000072" class=""><p>这句重复出现在另一个语境，来源身份不同；覆盖核对应分别记录它们，不只搜索到一次便通过。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000073" class=""><h3>思考</h3><p> 可以在确定的标记区域整理版面，但无标签同级段落不能因紧邻某个标签就被猜成从属。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000074" class=""><p>如果布局不能可靠判断同级段落属于谁，就保留原顺序和邻接，让读者自己理解原文联系。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000075" class="note"><h3>说明</h3><p> 原生页面负责输入，报告按已提交的当前来源更新；临时输入框的文字不冒充已保存版本。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000076" class=""><p>中间位置修改一个块后，其他段落节点应尽量保留，让阅读位置、选区和菜单焦点保持稳定。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000077" class=""><p>版本失效时不能把高亮或材料落点挂到相似句子上；没有确定目标时保留原文并拒绝猜测。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000078" class=""><p>切换 Graph 或工作范围后，上一份报告的晚到读取不能替换当前正文，原来源映射也不能继续写入。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000079" class=""><h3>目标</h3><p> 让长文中的代码、表格和多行说明完整出现，默认全文而不是沿用以前压缩的显示偏好。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000080" class=""><p>不同窗口下仍保留所属关系，缩进可以更浅，但三四层解释不能因为密度要求而全部压平。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000081" class=""><p>明暗界面只是可读性条件，不能拿一张静态截图代替真实的原生输入、材料返回或来源失效验证。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000082" class=""><p>引用打开后仍可以回到当前工作，已有材料的权限和手写别名继续保留，不因报告模式而改变。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000083" class=""><p>只读历史使用当时保存的原句，当前文件名称、来源正文或新的报告策略不追溯改写已认可版本。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000084" class="note"><h3>说明</h3><p> 明确认可属于用户行为，阶段认可不等于任务完成；报告中的目标也不增加正式状态权限。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000085" class=""><p>普通原文对照可以在条目菜单中打开，技术身份用于可靠定位，不要求读者在正文里填写 UUID。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000086" class=""><p>不会因为篇幅长就自动生成摘要；对现阶段问题不重要的句子，仍然属于全文阅读范围。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000087" class=""><p>未完成的判断、质疑和反证共同构成阅读上下文；只留下积极结论会改变用户原先的表达。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000088" class=""><p>最终核对要逐条比较来源身份、raw 版本和实际阅读正文，不能只比较条数或几个容易命中的词。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000089" class=""><p>最后的长段落记录验收方式及其范围。先读取当前工作范围中的完整来源，给每个真实块保留身份、父级、顺序和正文版本，再逐条查看报告中对应的可见正文。多行内容仍计作一个原块，重复句即使看起来相同也按各自来源记录；代码里的属性样式文字是代码内容，不能被展示清理误删。链接核对同时看显示名和稳定目标，长文件名要能换行，同一材料的两种手写别名都保留。然后从中间原块进入真正的原生输入，追加一句并正常结束，报告应读取新版本，其他原块不应无故换节点。再检查折叠、明确聚焦和返回全文，前后的 raw 版本与真实结构应相同；历史仍显示当时的原句，而不是当前报告策略生成的新排列。截图帮助核对可读性，逐条的正文与版本记录帮助证明覆盖；两者不能代替真实输入、宿主权限和失效保护。没有实测的中文输入法、系统撤销或跨应用剪贴板应明确留下未验说明，不能用模拟事件写成已经通过。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000090" class=""><p>临时折叠和明确聚焦都可以恢复，恢复全文时保留来源，不通过新增标题或移动真实块来整理。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000091" class=""><h3>思考</h3><p> 等完整阅读路径有了真实证据，再讨论其他布局；本轮不建立第二份可编辑的整理报告。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000092" class=""><p>最后一段仍要保留：范围内的普通正文与第一段同样重要，不能在长列表尾部被静默截断。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000093" class=""><h3>问题</h3><p> 异步改名期间切换工作，结果应该呈现在哪个范围？<br>没有标签的第二行同样完整保留。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000094" class=""><h3>思考</h3><p> 复制成功的反馈应留在当前文件行附近。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000095" class=""><p> 连续思考只表达一次局部标题，但每个来源和原句都保留。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000096" class="note"><h3>说明</h3><p> 失败后保留输入草稿，取消不会重新执行文件操作。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000097" class=""><blockquote>
+<p><strong>[想法]</strong> 这是引文中的字面示例，标记不能清除。</p>
+</blockquote>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000098" class=""><pre><code>[目标] 这是缩进代码里的标记，不是阅读标题。
+</code></pre>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000099" class=""><p><code>[注]</code> 是行内代码；句子中间的 [想法] 也保留。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000100" class=""><p>[未知类别] 不根据关键词猜测语义，也不删除 hashtag #原始记录。</p>
+</article><article style="--depth:1" data-source="33333333-3333-4333-8333-000000000101" class=""><pre><code class="language-text">**[目标]** 围栏内保留
+[想法] 也保留
+</code></pre>
+</article></div><div class="content" id="materials" hidden><nav class="filetabs"><button id="filesTab" aria-current="true">文件</button><button id="foldersTab">目录</button></nav><section id="files"><div class="drop" id="drop">拖入文件或文件夹 <small>· 复制到此工作的默认目录，保留原文件。</small></div><div id="filelist"><div class="file"><button class="filename" data-open="0">原始依据与手写别名核对.md<small>MD · 只读阅读</small></button><span class="copyfeedback" role="status"></span><button class="more" aria-label="原始依据与手写别名核对.md 的更多操作">更多</button><div class="menu" hidden><button data-copy>复制链接</button><button data-rename>改文件名</button><button data-describe>写概述</button><button data-path>查看位置</button></div></div><div class="file"><button class="filename" data-open="1">长文件名-材料阅读与往返位置-完整条件和反例保留.md<small>MD · 只读阅读</small></button><span class="copyfeedback" role="status"></span><button class="more" aria-label="长文件名-材料阅读与往返位置-完整条件和反例保留.md 的更多操作">更多</button><div class="menu" hidden><button data-copy>复制链接</button><button data-rename>改文件名</button><button data-describe>写概述</button><button data-path>查看位置</button></div></div><div class="file"><button class="filename" data-open="2">访谈记录.md<small>MD · 只读阅读</small></button><span class="copyfeedback" role="status"></span><button class="more" aria-label="访谈记录.md 的更多操作">更多</button><div class="menu" hidden><button data-copy>复制链接</button><button data-rename>改文件名</button><button data-describe>写概述</button><button data-path>查看位置</button></div></div><div class="file"><button class="filename" data-open="3">版本说明.pdf<small>PDF · 在默认应用打开</small></button><span class="copyfeedback" role="status"></span><button class="more" aria-label="版本说明.pdf 的更多操作">更多</button><div class="menu" hidden><button data-copy>复制链接</button><button data-rename>改文件名</button><button data-describe>写概述</button><button data-path>查看位置</button></div></div></div></section><section id="folders" hidden><div class="folder"><div><small>新材料保存到默认目录，已有文件保持原位置。</small></div><button id="addfolder">添加目录</button></div><div class="folder"><input type="radio" checked name="folder"><div><strong>工作专属目录</strong><span class="badge">默认保存位置</span><details><summary>查看完整路径</summary><small>/合成资料/默认材料/workspaces/本工作</small></details></div><button data-foldermore>更多</button></div><div class="folder"><input type="radio" name="folder"><div><strong>参考资料</strong><small>关联目录</small><details><summary>查看完整路径</summary><small>/合成资料/参考资料</small></details></div><button data-foldermore>更多</button></div></section><section id="reading" hidden><button id="backfiles">‹ 材料列表</button><small>只读阅读 · 手写别名保留</small><h3 id="readtitle"></h3><p>这份材料记录原句、条件和反例。返回正文保留阅读位置。</p><button id="backbody">返回正文</button></section><p class="banner" id="status" role="status"></p></div></main><dialog id="dialog"><form method="dialog"><h2>收纳这段长文本？</h2><p>保存为 Markdown 材料，并在粘贴位置留下链接。</p><label>文件名<input value="材料阅读与限定条件"></label><p id="dialogstatus" role="status"></p><footer><button value="cancel">保留原文</button><button class="primary" id="saveCapture" value="save">收纳</button></footer></form></dialog><script>
+const $=id=>document.getElementById(id);let fail=false,scroll=0;function body(){ $('body').hidden=false;$('materials').hidden=true;$('bodytab').setAttribute('aria-current','true');$('materialtab').setAttribute('aria-current','false');window.scrollTo(0,scroll)}function materials(){scroll=window.scrollY;$('body').hidden=true;$('materials').hidden=false;$('bodytab').setAttribute('aria-current','false');$('materialtab').setAttribute('aria-current','true')}$('bodytab').onclick=body;$('materialtab').onclick=materials;$('backbody').onclick=body;$('theme').onclick=()=>document.documentElement.classList.toggle('dark');$('width').onclick=()=>$('frame').classList.toggle('narrow');$('capture').onclick=()=>$('dialog').showModal();$('failure').onclick=()=>{fail=!fail;$('failure').textContent=fail?'失败状态已开启':'失败／重试'};$('empty').onclick=()=>{materials();$('filelist').hidden=!$('filelist').hidden;$('drop').classList.toggle('empty')};function tab(folder){$('folders').hidden=!folder;$('files').hidden=folder;$('reading').hidden=true;$('foldersTab').setAttribute('aria-current',String(folder));$('filesTab').setAttribute('aria-current',String(!folder))}$('filesTab').onclick=()=>tab(false);$('foldersTab').onclick=()=>tab(true);$('backfiles').onclick=()=>tab(false);document.querySelectorAll('.more').forEach(b=>b.onclick=()=>{const m=b.nextElementSibling;document.querySelectorAll('.menu').forEach(x=>{if(x!==m)x.hidden=true});m.hidden=!m.hidden});document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const row=b.closest('.file');row.querySelector('.copyfeedback').textContent=fail?'复制失败':'已复制';b.closest('.menu').hidden=true});document.querySelectorAll('[data-rename]').forEach(b=>b.onclick=()=>{const row=b.closest('.file'),n=row.querySelector('.filename');b.closest('.menu').hidden=true;const old=n.innerHTML;n.hidden=true;const f=document.createElement('form');f.className='rename';f.innerHTML='<label>文件名称<input value="'+n.firstChild.textContent+'"></label><button class="primary">保存</button><button type="button">取消</button><p hidden></p>';row.prepend(f);f.querySelector('input').focus();f.querySelector('button[type=button]').onclick=()=>{n.hidden=false;f.remove();row.querySelector('.more').focus()};f.onsubmit=e=>{e.preventDefault();if(fail){f.querySelector('p').hidden=false;f.querySelector('p').textContent='保存失败，草稿已保留。请检查权限后重试。';return}n.firstChild.textContent=f.querySelector('input').value;n.hidden=false;f.remove()}});document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{$('files').hidden=true;$('reading').hidden=false;$('readtitle').textContent=b.firstChild.textContent});document.querySelectorAll('[data-path],[data-describe]').forEach(b=>b.onclick=()=>{$('status').textContent=b.hasAttribute('data-path')?'位置：合成资料／工作专属目录':'写概述使用统一对话框';b.closest('.menu').hidden=true});document.querySelectorAll('[data-foldermore]').forEach(b=>b.onclick=()=>{let m=b.nextElementSibling;if(!m){m=document.createElement('div');m.className='menu';m.innerHTML='<button>打开目录</button><button>刷新文件</button><button>解除关联</button>';b.parentElement.style.position='relative';b.after(m)}else m.hidden=!m.hidden});$('addfolder').onclick=()=>$('status').textContent='最终插件将打开宿主目录选择器';$('options').onclick=()=>$('status').textContent='原结构、聚焦、连接和低频恢复保留在工作选项';$('native').onclick=()=>$('status').textContent='最终插件打开真实 Logseq 来源，正文继续由原生页面编辑';$('review').onclick=()=>$('status').textContent='按需展开审阅与只读历史，认可绑定看到的版本';$('saveCapture').onclick=e=>{if(fail){e.preventDefault();$('dialogstatus').textContent='保存失败，原文和文件名仍保留。'}};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.isComposing&&!e.target.closest('input,textarea'))document.querySelectorAll('.menu').forEach(x=>x.hidden=true)});document.addEventListener('click',e=>{if(!e.target.closest('.file,.folder'))document.querySelectorAll('.menu').forEach(x=>x.hidden=true)});
+</script></html>

@@ -1,4 +1,4 @@
-import { button, element, hostDocument } from "../../host/panel-host.ts";
+import { button, disclosureMenu, element, hostDocument } from "../../host/panel-host.ts";
 import type { MaterialWorkContext } from "../../workspace/material-context.ts";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import type { MaterialService } from "./service.ts";
@@ -7,7 +7,7 @@ import { makeLink, versionOf } from "./store.ts";
 import { MaterialReferences, type ReferenceFact } from "./references.ts";
 import { droppedPath, materialDrag, MATERIAL_MIME, supportsDrop, readDroppedFolder, type MaterialTransferPort } from "./drop.ts";
 import { fileTitle } from "./names.ts";
-import { materialAction } from "./ui.ts";
+import { materialAction, inlineMaterialRename } from "./ui.ts";
 import { copyMaterialLink } from "../../host/clipboard.ts";
 
 export interface MaterialTransferHost {
@@ -30,6 +30,14 @@ export class MaterialTransfers {
   private hint: HTMLElement | null = null;
   private hoverTicket = 0;
   private readonly links = new Map<string, string>();
+  private readonly rows = new Map<string, {row: HTMLElement; entry: HTMLElement; feedback: HTMLElement; menu: ReturnType<typeof disclosureMenu>; ticket: number; actionSignature: string; cancelRename?: (restore?: boolean) => void; timer?: ReturnType<typeof setTimeout>}>();
+  resetScope(discardCopied = false): void {
+    for (const value of this.rows.values()) { value.cancelRename?.(false); value.menu.dispose(); if(value.timer) clearTimeout(value.timer); }
+    this.rows.clear(); this.links.clear(); if(discardCopied)this.copied=null;
+  }
+  prune(ids: ReadonlySet<string>): void {
+    for(const [id,value] of this.rows) if(!ids.has(id)) { value.cancelRename?.(false); value.menu.dispose(); if(value.timer)clearTimeout(value.timer); value.row.remove(); this.rows.delete(id); }
+  }
   constructor(private readonly host: MaterialTransferHost, private readonly form: HTMLElement) {
     for (const doc of new Set([document, hostDocument()].filter((value): value is Document => !!value))) {
       const over = (event: DragEvent) => {
@@ -77,10 +85,6 @@ export class MaterialTransfers {
   addFiles(files: File[], root: string | null): Promise<void> { return this.drop(files, "", root, null); }
   decorate(entry: HTMLElement, record: MaterialRecord, root: string | null, actions: Array<{label: string; run: () => Promise<void>}> = []): HTMLElement {
     this.links.set(record.id, makeLink(record));
-    const row = element("div", "", "wb-material-entry"); row.append(entry);
-    const more = element("details"), summary = element("summary", "操作"); summary.setAttribute("aria-label", `${record.title} 的材料操作`);
-    more.append(summary, button("复制链接", () => void this.copy(record.id, root).catch(this.host.fail)), button("改文件名", () => void this.rename(record.id, root).catch(this.host.fail))); row.append(more);
-    for (const action of actions) more.append(button(action.label, () => void action.run().catch(this.host.fail)));
     entry.draggable = !!root;
     entry.addEventListener("dragstart", event => {
       const data = (event as DragEvent).dataTransfer;
@@ -95,6 +99,34 @@ export class MaterialTransfers {
       const ticket = this.host.ticket();
       void this.port.scope(root).then(scope => { this.host.assert(ticket); entry.dataset.materialScope = JSON.stringify(scope); }).catch(this.host.fail);
     }
+    const previous = this.rows.get(record.id);
+    if (previous && previous.ticket === this.host.ticket()) {
+      const focused=previous.entry===document.activeElement;
+      previous.entry.replaceWith(entry); previous.entry=entry;
+      previous.menu.trigger.setAttribute("aria-label",`${record.title} 的材料操作`);
+      if(focused)entry.focus({preventScroll:true});
+      entry.hidden = !!previous.cancelRename;
+      if(previous.actionSignature!==JSON.stringify(actions.map(action=>action.label))) {
+        const wanted=new Set(actions.map(action=>action.label));
+        for(const control of Array.from(previous.menu.content.querySelectorAll<HTMLButtonElement>("[data-material-extra]")))if(!wanted.has(control.textContent??""))control.remove();
+        for(const action of actions)if(!Array.from(previous.menu.content.querySelectorAll("[data-material-extra]")).some(control=>control.textContent===action.label)) {
+          const control=button(action.label,()=>{previous.menu.close(false);void action.run().catch(this.host.fail);});control.dataset.materialExtra="true";previous.menu.content.append(control);
+        }
+        previous.actionSignature=JSON.stringify(actions.map(action=>action.label));
+      }
+      return previous.row;
+    }
+    const row = element("div", "", "wb-material-entry"); row.dataset.materialRow=record.id; row.append(entry);
+    const feedback = element("span", "", "wb-material-feedback"); feedback.setAttribute("role", "status");
+    const menu = disclosureMenu("更多", `${record.title} 的材料操作`);
+    const run = (action: () => Promise<void>) => { menu.close(false); void action().catch(error => { try { this.host.assert(value.ticket); let problem=row.querySelector<HTMLElement>(".wb-material-problem");
+        if(!problem){problem=element("p","","wb-material-problem wb-error");problem.setAttribute("role","status");row.append(problem);}
+        problem.textContent=error instanceof Error ? error.message : String(error); } catch { /* A later scope owns the screen. */ } }); };
+    const value = {row, entry, feedback, menu, ticket:this.host.ticket(), actionSignature:JSON.stringify(actions.map(action=>action.label))} as NonNullable<typeof previous>;
+    this.rows.set(record.id,value);
+    menu.content.append(button("复制链接", () => run(() => this.copy(record.id,root,row))), button("改文件名", () => run(() => this.rename(record.id,root))));
+    for(const action of actions) { const control=button(action.label,()=>run(action.run));control.dataset.materialExtra="true";menu.content.append(control); }
+    row.append(feedback, menu.root);
     return row;
   }
   private async drop(files: File[], internal: string, listRoot: string | null, body: Element | null, folders = new Map<number, FileSystemDirectoryEntry>()): Promise<void> {
@@ -183,14 +215,21 @@ export class MaterialTransfers {
       if (copying ? !await copying : !await copyMaterialLink(text).then(() => true, () => false)) throw new Error("复制失败");
     } catch {
       this.host.assert(ticket);
-      if (_fallback !== this.form && _fallback.isConnected) _fallback.append(element("small", "复制未完成，请再次点击复制链接。"));
-      this.host.message("复制未完成，请再次点击复制链接。");
+      this.feedback(id, "复制失败", true, () => void this.copy(id,root,_fallback,reference).catch(this.host.fail));
+      if(!this.rows.has(id)) {
+        if(_fallback!==this.form&&_fallback.isConnected) {
+          let feedback=_fallback.querySelector<HTMLElement>(".wb-material-feedback");
+          if(!feedback){feedback=element("span","","wb-material-feedback wb-error");feedback.setAttribute("role","status");_fallback.append(feedback);}
+          feedback.replaceChildren(element("span","复制未完成，请重试。"),button("重试",()=>void this.copy(id,root,_fallback,reference).catch(this.host.fail)));
+        } else this.host.message("复制未完成，请再次点击复制链接。");
+      }
       return;
     }
     this.host.assert(ticket);
     const scope = root && this.port ? await this.port.scope(root).catch(() => null) : null; this.host.assert(ticket);
     this.copied = scope ? {id, text, scope, at: Date.now()} : null;
-    this.host.message("已复制材料链接，可粘贴到 Logseq 原文。");
+    this.feedback(id,"已复制",false);
+    if(!this.rows.has(id)) this.host.message("已复制材料链接，可粘贴到 Logseq 原文。");
   }
   private nativePaste(event: ClipboardEvent): void {
     const copied = this.copied, target = event.target as HTMLTextAreaElement | null;
@@ -215,18 +254,37 @@ export class MaterialTransfers {
     };
     void observe().catch(() => undefined); // No proven committed paste means a normal untracked/alias link.
   }
+  private feedback(id: string, text: string, failed: boolean, retry?: () => void): void {
+    const value=this.rows.get(id); if(!value || !value.row.isConnected) return;
+    this.host.assert(value.ticket); if(value.timer)clearTimeout(value.timer);
+    value.feedback.replaceChildren(element("span",text)); value.feedback.classList.toggle("wb-error",failed);
+    if(retry) value.feedback.append(button("重试",retry));
+    if(!failed) value.timer=setTimeout(()=>{if(this.rows.get(id)===value)value.feedback.textContent="";},2200);
+  }
   async rename(id: string, root: string | null): Promise<void> {
     const ticket = this.host.ticket(), service = await this.host.service(), material = await service.read(id); this.host.assert(ticket);
+    const row=this.rows.get(id);
+    if(row?.cancelRename) { row.row.querySelector<HTMLInputElement>("input")?.focus({preventScroll:true}); return; }
     if (this.host.busy(id) || this.renaming.has(id)) throw new Error("材料正在编辑或保存。请完成编辑后再改名，草稿仍保留。");
-    await materialAction(this.form, "文件名称（保留扩展名）", fileTitle(material.path), "会改原文件的名称；扩展名、正文和稳定链接保留。手写引用别名不会改动。", async name => {
+    const action=async(name:string) => {
       this.host.assert(ticket); if (this.host.busy(id)) throw new Error("材料正在编辑，改名已暂停。");
       this.renaming.add(id);
       try {
         const result = await service.renameLocal(id, name, crypto.randomUUID()); this.host.assert(ticket);
-        const sync = result.status === "success" ? await this.sync(id) : result;
-        await this.host.refresh(root); this.host.message(sync.problem ?? "文件已改名，稳定链接保持可用。");
+        const sync = result.status === "success" ? await this.sync(id) : result; this.host.assert(ticket);
+        await this.host.refresh(root); this.host.assert(ticket);
+        if(row) { row.cancelRename?.(); delete row.cancelRename; }
+        if(sync.problem) this.host.message(sync.problem); else this.feedback(id,"已改名",false);
       } finally { this.renaming.delete(id); }
-    });
+    };
+    const description="会改原文件名称；扩展名、稳定链接和手写引用别名保留。";
+    if(row?.row.isConnected) {
+      const editing=inlineMaterialRename(row.row,fileTitle(material.path),description,action,(restore)=>{
+        delete row.cancelRename; row.entry.hidden=false;
+        if(restore&&row.menu.trigger.isConnected)row.menu.trigger.focus({preventScroll:true});
+      });
+      row.entry.hidden=true; row.cancelRename=editing.cancel; await editing.finished;
+    } else await materialAction(this.form,"文件名称（保留扩展名）",fileTitle(material.path),description,action);
   }
   async sync(id: string, revalidate = false): Promise<{status: "success" | "partial"; problem?: string}> {
     const service = await this.host.service(), {store, record} = await service.locate(id);
@@ -239,5 +297,5 @@ export class MaterialTransfers {
     const sync = result.status === "success" ? await this.sync(id, true) : result;
     return sync;
   }
-  dispose(): void { this.disposed = true; this.clearHover(); this.copied = null; for (const off of this.off.splice(0)) off(); }
+  dispose(): void { this.disposed = true; this.clearHover(); this.resetScope(); this.copied = null; for (const off of this.off.splice(0)) off(); }
 }

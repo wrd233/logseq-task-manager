@@ -1,5 +1,6 @@
+import { reportProjection } from "./report-body.ts";
 import { highlightReview, renderMarkdown, renderReviewInfo } from "./review-renderer.ts";
-import { button, element } from "../../host/panel-host.ts";
+import { bindOverlayMenu, button, element } from "../../host/panel-host.ts";
 import { displayLevel, levels } from "./display.mjs";
 import { workObject } from "./focus.mjs";
 import { indent, type SourceRow } from "./model.mjs";
@@ -23,6 +24,7 @@ interface Entry {
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
   menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
   nativeEdit: HTMLButtonElement;
+  label: HTMLElement; disposeMenu(): void;
   compare: HTMLButtonElement;
   menuContext: HTMLElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
@@ -76,6 +78,8 @@ export class WorkViewRenderer {
     summary.setAttribute("aria-label", "条目操作"); summary.title = "条目操作";
     summary.onpointerdown=event => event.preventDefault();
     menu.append(summary, controls);
+    const overlay = bindOverlayMenu(menu, summary, controls);
+    const label = element("h3", "", "wb-local-heading"); label.hidden = true;
     menu.addEventListener("toggle", () => {
       if (menu.open) for (const entry of this.entries.values()) if (entry.menu !== menu && entry.menu.open) this.closeMenu(entry);
     });
@@ -93,7 +97,7 @@ export class WorkViewRenderer {
     const compare=button("查看 Markdown 原文", () => this.actions.raw(uuid));
     compare.onpointerdown=event => event.preventDefault();
     controls.append(menuContext, select, expand, nativeEdit, compare, range, indent, outdent);
-    node.append(grip, fold, body, menu);
+    node.append(grip, fold, label, body, menu);
     node.addEventListener("click", event => {
       if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical && (!this.reporting || document.getSelection()?.isCollapsed !== false)) this.actions.operation({ type: "focus", uuid });
     });
@@ -103,7 +107,7 @@ export class WorkViewRenderer {
       if (this.reporting && event.altKey && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
     });
     node.onkeydown = event => {
-      if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing) {
+      if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing && !(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]")) {
         event.preventDefault(); event.stopPropagation(); menu.open = false; summary.focus({ preventScroll: true }); return;
       }
       if (event.isComposing || this.composing || this.historical) return;
@@ -111,7 +115,7 @@ export class WorkViewRenderer {
       if (this.reporting) { if (event.key === "Enter") { event.preventDefault(); this.actions.locate(uuid); } return; }
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, compare };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, compare, label, disposeMenu: overlay.dispose };
   }
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}, report?: ReportComposition): void {
@@ -131,11 +135,12 @@ export class WorkViewRenderer {
     const anchorOffset = anchor ? anchor.getBoundingClientRect().top - top : 0;
     const source = new Map(rows.map(row => [row.uuid, row]));
     const keep = new Set(view.items.map(item => item.uuid));
-    for (const [id, entry] of this.entries) if (!keep.has(id)) { entry.node.remove(); this.entries.delete(id); }
+    for (const [id, entry] of this.entries) if (!keep.has(id)) { entry.disposeMenu(); entry.node.remove(); this.entries.delete(id); }
     const wantedHeadings=new Set(report?.headings.map(heading=>heading.key));
     for (const [key,node] of this.headings) if (!wantedHeadings.has(key)) { node.remove(); this.headings.delete(key); }
     const headings=new Map(report?.headings.map(heading=>[heading.beforeUuid,heading]));
     const fragments=new Map(report?.fragments.map(fragment=>[fragment.target.blockUuid,fragment]));
+    const lastMarkers = new Map<string | null, string | null>();
     let cursor = this.container.firstElementChild;
     view.items.forEach((item, index) => {
       const row = source.get(item.uuid); if (!row) return;
@@ -156,6 +161,16 @@ export class WorkViewRenderer {
       else { delete entry.node.dataset.reportSourceId; delete entry.node.dataset.reportContentVersion; delete entry.node.dataset.reportStructureVersion; }
       entry.node.toggleAttribute("data-report-root",!!report&&index===0);
       if (fragment?.objectKind) entry.node.dataset.objectKind=fragment.objectKind; else delete entry.node.dataset.objectKind;
+      const projection = report && !review?.historical ? reportProjection(row.content) : null;
+      const marker = projection?.marker ?? null, parent = row.sourceParent ?? null;
+      const sameGroup = marker !== null && marker !== "object" && lastMarkers.get(parent) === marker;
+      if (!hidden) lastMarkers.set(parent, marker);
+      const groupedHeading = report?.headings.some(section => section.depth===item.depth && section.sourceIds.includes(fragment?.sourceId ?? "") && section.title===({goal:"目标",idea:"思考",note:"记录与说明",record:"记录与说明"} as Record<string,string>)[marker ?? ""]);
+      const label = [!sameGroup && !groupedHeading ? projection?.label : null, projection?.task].filter(Boolean).join(" · ");
+      entry.label.hidden = !label; if(entry.label.textContent!==label) entry.label.textContent=label;
+      entry.body.style.gridRow = label ? "2" : "1";
+      if(marker) entry.node.dataset.reportMarker=marker; else delete entry.node.dataset.reportMarker;
+      entry.node.dataset.reportProjection = JSON.stringify(projection?.removed ?? []);
       const change=review?.changes.get(item.uuid);
       if (entry.node.hidden !== hidden) entry.node.hidden = hidden;
       entry.node.classList.toggle("selected", state.selected === item.uuid);
@@ -187,8 +202,8 @@ export class WorkViewRenderer {
           const range = selection.getRangeAt(0);
           if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) selection.removeAllRanges();
         }
-        entry.body.innerHTML = renderMarkdown(row.content);
-        highlightReview(entry.body,change,row.content);
+        entry.body.innerHTML = renderMarkdown(projection?.markdown ?? row.content);
+        highlightReview(entry.body,change,row.content,!!projection);
         entry.content = row.content;
         entry.bodySignature=bodySignature;
       }
@@ -280,5 +295,5 @@ export class WorkViewRenderer {
       const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
     }
   }
-  clear(): void { this.entries.clear(); this.headings.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
+  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
 }
