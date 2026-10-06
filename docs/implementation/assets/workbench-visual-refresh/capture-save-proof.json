@@ -1,0 +1,23 @@
+{
+  "textSha256": "13f66153b5fc776142c2ab3d403ff8ea88372e6731c029f6fed2f0d7d5fa8a61",
+  "characters": 2730,
+  "pasteMethod": "Lab IPC calls real Electron clipboard and webContents.paste, not simulated paste event or physical keyboard.",
+  "nativeBeforeConfirm": {
+    "pasted": false
+  },
+  "result": {
+    "closed": false,
+    "continuation": "材料已保存，粘贴位置已变化。原文没有替换，可复制链接继续。"
+  },
+  "saved": {
+    "id": "c0d6d4ed-067b-56e4-6e15-440876b97cb3",
+    "path": "/Users/mac/.codex/worktrees/workbench-visual-refresh/logseq-task-manager/tmp/logseq-sandbox/home/Documents/Task Copilot Materials/7c95c87b1bfd6268f49c/workspaces/33333333-3333-4333-8333-000000000000/完整长文本-实机收纳-1791267841996.md",
+    "contentExactlyMatches": true
+  },
+  "beforeLength": 43,
+  "afterLength": 43,
+  "preciseReplacement": false,
+  "retainedPaste": false,
+  "nativeCurrentPreserved": true,
+  "sourceRestored": true
+}

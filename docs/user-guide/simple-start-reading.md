@@ -37,7 +37,7 @@ Project／Area 独立页面的页面标题旁也有「阅读」，读取整页�
 
 「在 Logseq 写作」进入真实原块；长文中间可从段落的「⋯ → 编辑原文」进入。宽窗并排，拖动中间的分隔线调整宽度，也可用 Tab 到分隔线后按左右方向键。窄窗进入原生编辑后，点顶部「返回正文」一次返回；不用为了返回先结束输入。
 
-正文／材料往返和关闭再开保留位置与折叠。重启在同一 Graph 中核验来源并恢复上次开闭和现场，不会为恢复自动跳转原生页面。普通输入中的中文 IME、系统拖放、剪贴板和宿主 Undo 仍需要按[复验步骤](../implementation/simple-start-reading-handoff.md#尚未验收与最小复验)进行人工实机核验；现有证据没有把模拟事件当成这些操作的完整结论。
+正文／材料往返和关闭再开保留位置与折叠。重启在同一 Graph 中核验来源并恢复上次开闭和现场，不会为恢复自动跳转原生页面。普通输入中的中文 IME、系统拖放、剪贴板和宿主 Undo 仍需要按[本轮复验步骤](../implementation/workbench-visual-refresh-handoff.md#尚未完成的-desktop-项目与最小复验)进行人工实机核验；现有证据没有把模拟事件当成这些操作的完整结论。
 
 ## 真正需要时再加入材料
 
@@ -62,4 +62,4 @@ Project／Area 独立页面的页面标题旁也有「阅读」，读取整页�
 
 Logseq 0.10.9 没有允许插件任意启动本机进程的接口，因此本轮交付的是独立启动器加自动连接发现，尚未实现“插件一个按钮直接启动 companion”。已有自定义连接位置继续有效。
 
-完整验收、校验信息和截图见[证据索引](../implementation/assets/simple-start-reading-main/README.md)。
+本轮安装包、校验信息、截图与未验范围见[证据索引](../implementation/assets/workbench-visual-refresh/README.md)。旧版一键阅读的历史记录另见[原证据](../implementation/assets/simple-start-reading-main/README.md)。

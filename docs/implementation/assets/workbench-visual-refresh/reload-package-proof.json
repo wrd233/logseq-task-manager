@@ -1,0 +1,27 @@
+{
+  "before": {
+    "iframe": 1,
+    "styles": 1,
+    "hostStyles": 1
+  },
+  "after": {
+    "iframe": 1,
+    "styles": 1,
+    "hostStyles": 1,
+    "openMenus": 0,
+    "hostCapture": 0
+  },
+  "bundle": {
+    "src": "file:///Users/mac/.codex/workbench-labs/visual-refresh-01a10fad/package/task-copilot-workbench/dist/index.js",
+    "sha256": "914cbd6cf93f69afdebcd3bd37234b7a7e419ab4847911b1cad0d46ae7495ed9"
+  },
+  "all428ExtractedFilesMatch": true,
+  "finalSources": 102,
+  "sourceAuditPassed": true,
+  "narrow": {
+    "width": 680,
+    "scroll": 680,
+    "documentWidth": 680,
+    "documentScroll": 680
+  }
+}

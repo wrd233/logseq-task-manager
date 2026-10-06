@@ -1,0 +1,18 @@
+{
+  "dimensions": {
+    "hostWidth": 1440,
+    "panelWidth": 384,
+    "panelScrollWidth": 384,
+    "bodyWidth": 384,
+    "bodyScrollWidth": 384,
+    "theme": "dark"
+  },
+  "coverage": 102,
+  "rawIdentityAndProseMatched": true,
+  "rootRepresentedByMappedTitle": true,
+  "materialRoundTrip": {
+    "before": 480,
+    "after": 480
+  },
+  "packageLoadedOutsideRepository": true
+}

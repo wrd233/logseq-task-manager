@@ -1,0 +1,24 @@
+{
+  "inputMethod": "CDP Input.insertText in the real native textarea; not physical Chinese IME or Undo.",
+  "readingPreservesNative": {
+    "sameNode": true,
+    "focused": true,
+    "valueSame": true,
+    "selectionSame": true
+  },
+  "savedVisible": true,
+  "longTextCharacters": 2560,
+  "longTextSha256": "bddaef45221bf3caa0a78dc041110a60d72a2d7ab631e57457aa3da70fbae11f",
+  "pasteMethod": "Isolated lab IPC: electron.clipboard.writeText + real webContents.paste; not physical Meta+V.",
+  "nativeClipboard": {
+    "clipboardMatches": true
+  },
+  "captureOpened": true,
+  "captureTheme": {
+    "theme": "dark",
+    "bg": "rgb(39, 49, 45)"
+  },
+  "hostThemeChanges": true,
+  "cancelKeepsPaste": true,
+  "sourceRestored": true
+}

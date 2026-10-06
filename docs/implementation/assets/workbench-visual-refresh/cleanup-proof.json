@@ -1,0 +1,10 @@
+{
+  "pid": 72362,
+  "app": "/Users/mac/.codex/worktrees/workbench-visual-refresh/logseq-task-manager/tmp/logseq-sandbox/Logseq Task Copilot Lab.app/Contents/MacOS/Logseq",
+  "profile": "/Users/mac/.codex/worktrees/workbench-visual-refresh/logseq-task-manager/tmp/logseq-sandbox/profile",
+  "ownedProcessMatched": true,
+  "signal": "SIGTERM",
+  "productionOrOtherProcessesStopped": false,
+  "processStopped": true,
+  "debugPortClosed": true
+}

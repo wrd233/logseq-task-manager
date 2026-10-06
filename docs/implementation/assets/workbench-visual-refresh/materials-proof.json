@@ -1,0 +1,37 @@
+{
+  "escapeFocus": true,
+  "desktopClipboardMatches": true,
+  "shellClipboardProbeMatches": false,
+  "clipboardBoundary": "Trusted CDP mouse click + actual Electron clipboard read; separate shell clipboard probe did not match. Physical cross-application paste remains unverified.",
+  "copyFailureHasRetry": true,
+  "renameErrorDraft": "../不合法",
+  "rename": {
+    "oldPath": "/Users/mac/.codex/worktrees/workbench-visual-refresh/logseq-task-manager/tmp/logseq-sandbox/home/Documents/Task Copilot Materials/7c95c87b1bfd6268f49c/workspaces/33333333-3333-4333-8333-000000000000/访谈记录.md",
+    "newPath": "/Users/mac/.codex/worktrees/workbench-visual-refresh/logseq-task-manager/tmp/logseq-sandbox/home/Documents/Task Copilot Materials/7c95c87b1bfd6268f49c/workspaces/33333333-3333-4333-8333-000000000000/访谈记录-核对.md",
+    "idStable": true,
+    "contentSame": true
+  },
+  "directory": {
+    "defaultCount": 1,
+    "pathsHidden": true,
+    "addDirectory": true
+  },
+  "narrow": {
+    "hostWidth": 680,
+    "panelWidth": 680,
+    "scrollWidth": 680,
+    "left": 383,
+    "right": 647,
+    "frameWidth": 680
+  },
+  "menuGeometry": {
+    "left": 91,
+    "right": 355,
+    "top": 430.1171875,
+    "bottom": 556.453125,
+    "width": 1440,
+    "height": 717
+  },
+  "openMenuDoesNotMoveList": true,
+  "copyFeedbackDoesNotMoveList": true
+}
