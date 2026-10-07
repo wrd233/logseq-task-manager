@@ -106,3 +106,11 @@ test("closed units reject executable fields, accessors, duplicate keys, deep nes
   reject({...base,layout:[{kind:"html",key:"execute",html:"<script>run()</script>"}]},source,"unknown-field");
   assert.throws(()=>decodeReadingPlan({...base,layout:[{kind:"sequence",key:"many",sourceIds:Array(10_001).fill(source.blocks[0]!.sourceId)}]}),/input-too-large/u);
 });
+test("page scope, including an empty saved page, never manufactures a writable root block",async()=>{
+  const pageScope={...scope,kind:"page" as const,pageName:"Project 合成范围"};
+  const page=await snapshot(pageScope,[],undefined,{pageUuid:scope.rootUuid,pageName:pageScope.pageName,availability:"available"});
+  const value=plan(page,[]),verified=validateReadingPlan(value,page);
+  assert.deepEqual(verified.primarySourceIds,[]);assert.deepEqual(verified.headings,[]);
+  reject({...value,scope:{...pageScope,kind:undefined,pageName:undefined}},page,"scope-mismatch");
+  reject({...value,layout:[{kind:"sequence",key:"fake-root",sourceIds:[sourceId(scope.graphId,scope.rootUuid)]}]},page,"source-not-in-scope");
+});

@@ -73,10 +73,10 @@ export function decodeReadingPlan(input:unknown):ReadingPlan {
   };
   const plan:ReadingPlan={schemaVersion:1,requestId:text(raw.requestId,128),planId:text(raw.planId,128),name:text(raw.name,120),scope:scopeOf(rawScope),
     structureVersion:lensHash(raw.structureVersion),sourceSetVersion:lensHash(raw.sourceSetVersion),
-    sourceVersions:lensArray(raw.sourceVersions,MAX_SOURCES,1).map(value=>{
+    sourceVersions:lensArray(raw.sourceVersions,MAX_SOURCES).map(value=>{
       const version=lensRecord(value,["sourceId","contentVersion"]);
       return {sourceId:text(version.sourceId,4096),contentVersion:lensHash(version.contentVersion)};
-    }),layout:children(raw.layout,0)};
+    }),layout:lensArray(raw.layout,MAX_UNITS).map(value=>unit(value,0))};
   requireLens(new TextEncoder().encode(JSON.stringify(plan)).length<=1_048_576,"reading-plan-too-large");
   return plan;
 }
@@ -151,7 +151,7 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
   requireLens(sameLensScope(plan.scope,source.scope)&&plan.scope.kind===source.scope.kind&&plan.scope.pageName===source.scope.pageName,"scope-mismatch");
   requireLens(plan.structureVersion===source.structureVersion,"stale-structure");
   requireLens(plan.sourceSetVersion===source.sourceSetVersion,"stale-source-set");
-  requireLens(source.blocks.every(b=>b.availability==="available"&&b.contentVersion),"source-unavailable");
+  requireLens((source.page?source.page.availability==="available":source.blocks.length>0)&&source.blocks.every(b=>b.availability==="available"&&b.contentVersion),"source-unavailable");
   const byId=new Map(source.blocks.map(b=>[b.sourceId,b])),byUuid=new Map(source.blocks.map(b=>[b.target.blockUuid,b])),versions=new Set<string>();
   for(const version of plan.sourceVersions) {
     requireLens(!versions.has(version.sourceId),"duplicate-source-version");versions.add(version.sourceId);
