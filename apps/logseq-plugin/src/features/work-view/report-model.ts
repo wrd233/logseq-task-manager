@@ -4,6 +4,8 @@ import type { ViewPresentation } from "./operations.ts";
 import { workObject } from "./focus.mjs";
 import { composeWorkView, type ComposedView, type LensSelection } from "./view-composer.ts";
 import type { SourceRow } from "./model.mjs";
+import type { VerifiedReadingPlan } from "./reading-plan.ts";
+import type { ReadingMaterial } from "./reading-layout.ts";
 
 export type ReportCategory = "goals" | "notes" | "ideas" | "todos" | "objects" | "questions";
 const titles: Record<ReportCategory, string> = {goals:"目标", notes:"记录与说明", ideas:"思考", todos:"待办", objects:"工作事项", questions:"问题"};
@@ -18,6 +20,7 @@ export interface ReportComposition {
   structureVersion: string; sourceSetVersion: string;
   coverage: {total: number; available: number; shown: number; range: "full" | "limited" | "unavailable";
     hiddenSourceIds: string[]; unavailableSourceIds: string[]};
+  reading?:{verified:VerifiedReadingPlan; materials:ReadonlyMap<string,ReadingMaterial>};
 }
 
 /** Finite display vocabulary only; adjacency does not establish semantic ownership. */

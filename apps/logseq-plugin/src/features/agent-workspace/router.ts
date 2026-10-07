@@ -19,10 +19,13 @@ export interface WorkspaceSourcePort {
     refresh(scope: AgentWorkBinding["scope"]): Promise<ContextReading>;
 }
 type MaterialPort = Pick<Materials, "listMaterials" | "readMaterial" | "capture" | "associateMaterial" | "saveMaterial">;
-type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI">;
+type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI" | "readingAPI" | "reportAPI">;
 /** Routes capabilities, without implementing source algorithms, protections or Stage. */
 export class AgentWorkspaceRouter {
     private readonly questions = new Map<string, string>();
+    private readonly readingRequests=new Map<string,string>();
+    private readonly readingPlans=new Map<string,string>();
+    private generation=0;
     constructor(private readonly ports: {
         content: ContentInstallation;
         materials: MaterialPort;
@@ -31,7 +34,13 @@ export class AgentWorkspaceRouter {
         source?: WorkspaceSourcePort;
         stage?: OptionalStagePort;
     }) { }
-    clear(): void { this.questions.clear(); }
+    clear(): void {
+        this.generation++;this.questions.clear();
+        // Cancel the presentation controller's pending generation too: a select
+        // already awaiting a source read must not take effect after disconnect.
+        this.ports.work?.readingAPI.cancel();
+        this.readingRequests.clear();this.readingPlans.clear();this.ports.work?.reportAPI.clearHighlight();
+    }
     async assert(binding: AgentWorkBinding, lease: ScopeLease): Promise<void> {
         if (!this.ports.content.valid(lease) || !sameWorkScope(binding.scope, lease.scope) || !await this.ports.binding.valid(binding))
             throw new WorkspaceError("CONNECTION_REVOKED");
@@ -72,7 +81,7 @@ export class AgentWorkspaceRouter {
         const content = this.ports.content.api;
         const check = () => this.assert(binding, lease);
         if (command === "status")
-            return { channel: "online", binding, capabilities: { read: true, files: true, materials: true, focus: this.ports.work !== null, content: true, stage: this.ports.stage !== undefined }, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: false, contentProtocol: content.capabilities() };
+            return { channel: "online", binding, capabilities: { read: true, files: true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: true, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: false, contentProtocol: content.capabilities() };
         if ((command === "refresh" || command === "source.read") && this.ports.source) {
             const reading = await this.ports.source.refresh(binding.scope);
             await check();
@@ -144,6 +153,47 @@ export class AgentWorkspaceRouter {
             if (!path.startsWith(`${binding.directory}/`))
                 throw new WorkspaceError("PATH_OUTSIDE_SCOPE");
             return this.ports.materials.associateMaterial({ path, sourceUuid: binding.scope.rootUuid });
+        }
+        if(command.startsWith("reading.")) {
+            const work=this.ports.work;if(!work)throw new WorkspaceError("READING_UNAVAILABLE");
+            const state=work.readingAPI.read();
+            if(!state.scope||!sameWorkScope(state.scope,binding.scope))throw new WorkspaceError("VIEW_SCOPE_MISMATCH");
+            const generation=this.generation,owner=JSON.stringify([call.instanceId,call.connectionId,call.clientId]);
+            const checked=async()=>{await check();if(generation!==this.generation)throw new WorkspaceError("CONNECTION_REVOKED");};
+            if(command==="reading.read")return state;
+            if(command==="reading.request") {
+                const result=await work.readingAPI.request({schemaVersion:1,purpose:workText(payload.purpose,240)});
+                try {await checked();}catch(error){if(result.ok)work.readingAPI.cancel(result.value.requestId);throw error;}
+                if(result.ok) {
+                    this.readingRequests.set(result.value.requestId,owner);
+                    const active=new Set(work.readingAPI.read().pendingRequests);
+                    for(const id of this.readingRequests.keys())if(!active.has(id))this.readingRequests.delete(id);
+                }
+                return result;
+            }
+            if(command==="reading.submit") {
+                // These two fields are inspected without accessing a caller getter;
+                // the reading controller owns the complete closed schema validation.
+                const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"]);
+                if(this.readingRequests.get(workText(raw.requestId))!==owner)throw new WorkspaceError("READING_REQUEST_NOT_OWNED");
+                await checked();const result=await work.readingAPI.submit(payload.plan);await checked();
+                if(result.ok) {this.readingPlans.set(result.value.planId,owner);
+                    const active=new Set(work.readingAPI.read().plans.map(plan=>plan.planId));
+                    for(const id of this.readingPlans.keys())if(!active.has(id))this.readingPlans.delete(id);
+                }
+                return result;
+            }
+            if(command==="reading.cancel") {
+                const id=workText(payload.requestId);if(this.readingRequests.get(id)!==owner)throw new WorkspaceError("READING_REQUEST_NOT_OWNED");
+                const result=work.readingAPI.cancel(id);this.readingRequests.delete(id);return result;
+            }
+            if(command==="reading.select") {
+                const id=workText(payload.planId);if(this.readingPlans.get(id)!==owner)throw new WorkspaceError("READING_PLAN_NOT_OWNED");
+                const result=await work.readingAPI.select(id);await checked();return result;
+            }
+            if(command==="reading.original") {const result=await work.readingAPI.select(null);await checked();return result;}
+            if(command==="reading.highlight") {const result=await work.reportAPI.highlight(payload.input);await checked();return result;}
+            if(command==="reading.clear") {work.reportAPI.clearHighlight();return {ok:true,value:null};}
         }
         if (command.startsWith("focus.")) {
             const work = this.ports.work;

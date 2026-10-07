@@ -6,6 +6,7 @@ import { decodeReadingPlan, readingBasisChanged, validateReadingPlan, type Verif
 
 interface ReadingHost {
   scope():SourceScope|null;
+  version?():string;
   /** null means current live reading; a history or composition input is blocked. */
   unavailable():string|null;
   source():Promise<LensResult<SourceSnapshot>>;
@@ -17,14 +18,16 @@ const same=(a:SourceScope,b:SourceScope)=>sameLensScope(a,b)&&a.kind===b.kind&&a
 const failed=(error:unknown):LensResult<never>=>({ok:false,reason:error instanceof LensInputError?error.reason:"reading-unavailable"});
 
 /** Presentation state only. Scope is supplied by the owner, not by an Agent.
- * Transport additionally binds invitations to authenticated client identity. */
+ * Transport additionally binds invitations to a connection and client correlation label. */
 export class ReadingPlanController {
   private generation=0;
   private reads=0;
   private disposed=false;
   private bound:SourceScope|null=null;
+  private boundVersion="";
   private source:SourceSnapshot|null=null;
   private available=false;
+  private materialScope:ReadonlySet<string>|null=null;
   private readonly invitations=new Map<string,Invitation>();
   private readonly plans=new Map<string,VerifiedReadingPlan>();
   private selected:string|null=null;
@@ -36,8 +39,10 @@ export class ReadingPlanController {
   constructor(private readonly host:ReadingHost) {}
   private synchronize():void {
     const scope=this.disposed?null:this.host.scope();
-    if(!scope&&!this.bound||scope&&this.bound&&same(scope,this.bound))return;
-    this.generation++;this.bound=scope?{...scope}:null;this.source=null;this.available=false;
+    const version=scope?this.host.version?.()??"":"";
+    if(!scope&&!this.bound||scope&&this.bound&&same(scope,this.bound)&&version===this.boundVersion)return;
+    this.generation++;this.bound=scope?{...scope}:null;this.source=null;this.available=false;this.materialScope=null;
+    this.boundVersion=version;
     this.invitations.clear();this.plans.clear();this.selected=null;
   }
   private ready():SourceScope {
@@ -48,7 +53,7 @@ export class ReadingPlanController {
   private valid(scope:SourceScope,generation:number):void {
     requireLens(!this.disposed,"reading-disposed");
     const current=this.host.scope();
-    requireLens(this.generation===generation&&current&&same(scope,current),"reading-request-revoked");
+    requireLens(this.generation===generation&&current&&same(scope,current)&&(this.host.version?.()??"")===this.boundVersion,"reading-request-revoked");
     const reason=this.host.unavailable();requireLens(!reason,reason??"reading-unavailable");
   }
   private async fresh(scope:SourceScope,generation:number):Promise<SourceSnapshot> {
@@ -69,6 +74,11 @@ export class ReadingPlanController {
       const selected=this.selected;this.selected=null;if(selected)this.host.changed();
     }
   }
+  private noteMaterials(ids:ReadonlySet<string>):void {
+    this.materialScope=new Set(ids);
+    const active=this.selected?this.plans.get(this.selected):null;
+    if(active&&active.materialIds.some(id=>!ids.has(id))) {this.selected=null;this.host.changed();}
+  }
   active(source:SourceSnapshot):VerifiedReadingPlan|null {
     this.synchronize();const plan=this.selected?this.plans.get(this.selected):null;
     return this.available&&plan&&!readingBasisChanged(plan,source)?plan:null;
@@ -79,7 +89,7 @@ export class ReadingPlanController {
       activePlan:this.selected?structuredClone(this.plans.get(this.selected)!.plan):null,
       sourceAvailability:this.available?"available":this.source?"unavailable":"unverified",
       plans:[...this.plans.values()].map(value=>({planId:value.plan.planId,name:value.plan.name,
-        status:!this.available?"unverified":this.source?readingBasisChanged(value,this.source)?"stale":"current":"unverified",
+        status:!this.available?"unverified":this.source?readingBasisChanged(value,this.source)?"stale":value.materialIds.some(id=>!this.materialScope?.has(id))?"material-unavailable":"current":"unverified",
         structureVersion:value.plan.structureVersion,sourceSetVersion:value.plan.sourceSetVersion})),
       pendingRequests:[...this.invitations.keys()],sourceSetVersion:this.source?.sourceSetVersion??null,
       capabilities:{schemaVersion:1,units:["sequence","paragraphs","group","comparison","material"],fullSourceRequired:true,
@@ -90,6 +100,7 @@ export class ReadingPlanController {
       const raw=lensRecord(input,["schemaVersion","purpose"]);requireLens(raw.schemaVersion===1,"unsupported-reading-schema");
       const purpose=lensText(raw.purpose,240),scope=this.ready(),generation=this.generation;
       const source=await this.fresh(scope,generation),materialIds=await this.host.materials();this.valid(scope,generation);
+      this.noteMaterials(materialIds);
       requireLens(this.available,"source-unavailable");
       requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");
       const requestId=crypto.randomUUID();
@@ -105,6 +116,7 @@ export class ReadingPlanController {
       requireLens(same(invitation.scope,scope),"scope-mismatch");
       requireLens(invitation.structureVersion===plan.structureVersion&&invitation.sourceSetVersion===plan.sourceSetVersion,"reading-request-basis-mismatch");
       const source=await this.fresh(scope,generation),materials=await this.host.materials();this.valid(scope,generation);
+      this.noteMaterials(materials);
       requireLens(this.available,"source-unavailable");
       requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");
       requireLens(this.invitations.get(plan.requestId)===invitation,"reading-request-revoked");
@@ -122,6 +134,7 @@ export class ReadingPlanController {
       if(input===null) {this.selected=null;this.host.changed();return {ok:true,value:null};}
       const id=lensText(input,128),plan=this.plans.get(id);requireLens(plan,"reading-plan-not-found");
       const source=await this.fresh(scope,generation),materials=await this.host.materials();this.valid(scope,generation);
+      this.noteMaterials(materials);
       requireLens(this.available,"source-unavailable");
       requireLens(!readingBasisChanged(plan,source),"stale-reading-plan");
       requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");
@@ -139,6 +152,6 @@ export class ReadingPlanController {
     }
     this.generation++;this.invitations.clear();return {ok:true,value:null};
   }
-  reset():void {this.generation++;this.bound=null;this.source=null;this.available=false;this.plans.clear();this.invitations.clear();this.selected=null;}
+  reset():void {this.generation++;this.bound=null;this.boundVersion="";this.source=null;this.available=false;this.materialScope=null;this.plans.clear();this.invitations.clear();this.selected=null;}
   dispose():void {this.disposed=true;this.reset();}
 }

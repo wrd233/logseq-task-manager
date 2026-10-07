@@ -97,7 +97,7 @@ test('navigation acknowledgement precedes the native route render; success requi
 test('wide docked window retains the report and native input, while report reflects only committed source',async()=>{
   const f=await reportFixture(1400);
   try {
-    row(f,'b0').dispatchEvent(new f.browser.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+    edit(f,'b0');
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native.mode,'beside');
     f.editing('b0','[注] 尚未提交的原生草稿');await f.tick();

@@ -16,12 +16,13 @@ function plan(source:SourceSnapshot,requestId:string):ReadingPlan {
     sourceVersions:source.blocks.map(b=>({sourceId:b.sourceId,contentVersion:b.contentVersion!})),layout:[{kind:"paragraphs",key:"body",sourceIds:source.blocks.map(b=>b.sourceId)}]};
 }
 async function harness() {
-  let source=await sourceFixture(),current:SourceScope=scope,unavailable:string|null=null,changes=0;
+  let source=await sourceFixture(),current:SourceScope=scope,unavailable:string|null=null,changes=0,version="binding-one";
   let read=async():Promise<LensResult<SourceSnapshot>>=>({ok:true,value:source});
   let materials=async():Promise<ReadonlySet<string>>=>new Set();
-  const controller=new ReadingPlanController({scope:()=>current,unavailable:()=>unavailable,source:()=>read(),materials:()=>materials(),changed:()=>{changes++;}});
+  const controller=new ReadingPlanController({scope:()=>current,version:()=>version,unavailable:()=>unavailable,source:()=>read(),materials:()=>materials(),changed:()=>{changes++;}});
   return {controller,get source(){return source;},set source(value:SourceSnapshot){source=value;},
     set scope(value:SourceScope){current=value;},set unavailable(value:string|null){unavailable=value;},
+    set version(value:string){version=value;},
     set read(value:typeof read){read=value;},set materials(value:typeof materials){materials=value;},get changes(){return changes;}};
 }
 async function invitation(h:Awaited<ReturnType<typeof harness>>) {
@@ -37,6 +38,14 @@ test("controller owns real invitations, full plans, selection and identical retr
   assert.deepEqual(await h.controller.api.original(),{ok:true,value:null});assert.equal(h.controller.api.read().activePlanId,null);
   assert.equal((await h.controller.api.select("plan-one")).ok,true);assert.equal(h.changes,4);
   assert.deepEqual(await h.controller.api.submit({...input,name:"reuse an existing identity for another layout"}),{ok:false,reason:"reading-plan-id-conflict"});
+});
+test("same Graph and root rebinding invalidates plans and requests by the source provider lifetime",async()=>{
+  const h=await harness(),request=await invitation(h);await h.controller.api.submit(plan(h.source,request.requestId));
+  let release!:(value:LensResult<SourceSnapshot>)=>void;h.read=()=>new Promise(resolve=>{release=resolve;});
+  const pending=h.controller.api.request({schemaVersion:1,purpose:"before directory rebinding"});h.version="binding-two";
+  release({ok:true,value:h.source});assert.deepEqual(await pending,{ok:false,reason:"reading-request-revoked"});
+  assert.equal(h.controller.api.read().activePlan,null);assert.deepEqual(h.controller.api.read().plans,[]);
+  assert.deepEqual(await h.controller.api.submit(plan(h.source,request.requestId)),{ok:false,reason:"reading-request-not-found"});
 });
 test("unknown request IDs and source bases do not manufacture invitation ownership",async()=>{
   const h=await harness();
@@ -94,4 +103,10 @@ test("selecting a cached plan rechecks current material scope instead of trustin
   input.layout.push({kind:"material",key:"file",materialId:"synthetic-material"});assert.equal((await h.controller.api.submit(input)).ok,true);
   await h.controller.api.original();h.materials=async()=>new Set();
   assert.deepEqual(await h.controller.api.select("plan-one"),{ok:false,reason:"material-outside-scope"});assert.equal(h.controller.api.read().activePlan,null);
+});
+test("a newly observed material scope revokes an already displayed cached material plan",async()=>{
+  const h=await harness();h.materials=async()=>new Set(["synthetic-material"]);const request=await invitation(h),input=plan(h.source,request.requestId);
+  input.layout.push({kind:"material",key:"file",materialId:"synthetic-material"});await h.controller.api.submit(input);
+  h.materials=async()=>new Set();await invitation(h);
+  assert.equal(h.controller.api.read().activePlan,null);assert.equal(h.controller.api.read().plans[0]!.status,"material-unavailable");
 });

@@ -20,8 +20,18 @@ export function installReportStyle(): () => void {
     [data-workbench-feature=work] .wb-report-row[data-object-kind]{margin-top:14px;padding-top:5px}
     [data-workbench-feature=work] .wb-report-row[data-object-kind]>.wb-body>p:first-child{font-size:16px;font-weight:650}
     [data-workbench-feature=work] .wb-report-row[data-report-root]{margin-left:0;margin-top:0;padding-top:0}
-    [data-workbench-feature=work] .wb-report-row[data-report-root]>.wb-body>p:first-child{font-size:18px}
+    [data-workbench-feature=work] .wb-report-row[data-report-root]>.wb-body>p:first-child{font-size:15px;font-weight:400}
     [data-workbench-feature=work] .wb-report-section[hidden]{display:none}
+    [data-workbench-feature=work] .wb-reading-heading{font-size:15px;line-height:1.5;color:var(--wb-accent);margin:14px 0 8px;cursor:pointer}
+    [data-workbench-feature=work] .wb-reading-columns{display:grid;grid-template-columns:repeat(var(--reading-columns,2),minmax(0,1fr));gap:16px;align-items:start}
+    [data-workbench-feature=work] .wb-reading-column{min-width:0;padding:0 10px;border-left:2px solid var(--wb-edge)}
+    [data-workbench-feature=work] .wb-reading-paragraphs>.wb-report-row{margin:0 0 5px;border:0}
+    [data-workbench-feature=work] .wb-reading-context{margin:8px 0 12px;padding:7px 10px;border-left:2px solid var(--wb-edge);background:var(--wb-soft);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+    [data-workbench-feature=work] .wb-reading-context-label{font-size:11px;color:var(--wb-muted);margin-bottom:5px}
+    [data-workbench-feature=work] .wb-reading-context-body p{margin:4px 0}
+    [data-workbench-feature=work] .wb-reading-material{font:inherit;cursor:pointer;max-width:100%;white-space:normal;overflow-wrap:anywhere;color:var(--wb-accent);background:var(--wb-soft);border:1px solid var(--wb-edge);border-radius:5px;padding:7px 10px;margin:8px 0}
+    [data-workbench-feature=work] .wb-reading-heading:focus-visible,[data-workbench-feature=work] .wb-reading-context-body:focus-visible{outline:2px solid var(--wb-accent);outline-offset:3px}
+    @media(max-width:700px){[data-workbench-feature=work] .wb-reading-columns{grid-template-columns:minmax(0,1fr)}}
     @media(max-width:480px){[data-workbench-feature=work] .wb-report-row{margin-left:calc(min(var(--depth),12)*9px)}}
   `;
   document.head.append(style); return () => style.remove();

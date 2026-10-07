@@ -3,7 +3,7 @@ import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-i
 
 import { snapshot, sha256, sourceId, scopeOf, validateSnapshot, type SourceScope as LensScope, type BlockSnapshot as LensBlock, type SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
 export type { SourceScope as LensScope, BlockSnapshot as LensBlock, SourceSnapshot as LensSourceSnapshot } from "../../workspace/source-protocol.ts";
-export interface LensSourcePort { read(scope: LensScope): Promise<unknown> }
+export interface LensSourcePort { read(scope: LensScope): Promise<unknown>; version?(scope:LensScope):string }
 
 export const logseqSourceId = sourceId;
 export const sameLensScope = (a: LensScope, b: LensScope): boolean => a.graphId === b.graphId && a.rootUuid === b.rootUuid && a.kind === b.kind && a.pageName === b.pageName;

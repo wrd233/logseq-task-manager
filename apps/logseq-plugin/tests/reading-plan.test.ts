@@ -85,8 +85,15 @@ test("only complete explicit stable sibling categories can change their reading 
   const source=await fixture(),root=source.blocks[0]!,texts=["**[目标]** 保留原句","**[注]** 阅读说明","**[想法]** 读法甲","**[目标]** 另一个目标"];
   const blocks=[root,...await Promise.all(texts.map(async(content,index)=>({...source.blocks[index+1]!,content,contentVersion:await sha256(content),depth:1,parentUuid:root.target.blockUuid,order:index})))];
   const small=await snapshot(scope,blocks),ids=small.blocks.map(b=>b.sourceId);
-  assert.doesNotThrow(()=>validateReadingPlan(plan(small,[{kind:"sequence",key:"order",sourceIds:[ids[0]!,ids[2]!,ids[1]!,ids[4]!,ids[3]!]}]),small));
+  const arranged=validateReadingPlan(plan(small,[{kind:"sequence",key:"order",sourceIds:[ids[0]!,ids[2]!,ids[1]!,ids[4]!,ids[3]!]}]),small);
+  assert.deepEqual(arranged.contexts.get("order"),ids.slice(1),"the complete category run must also be presented in original order");
   reject(plan(small,[{kind:"sequence",key:"goal-order",sourceIds:[ids[0]!,ids[4]!,ids[1]!,ids[2]!,ids[3]!]}]),small,"reading-dependency-broken");
+});
+test("repeated context has a bounded rendered size even when the plan JSON is small",async()=>{
+  const source=await fixture(),blocks=source.blocks.map((b,index)=>index===0?{...b,content:"原句".repeat(100_000)}:b);
+  blocks[0]!.contentVersion=await sha256(blocks[0]!.content!);const large=await snapshot(scope,blocks);
+  const layout:ReadingUnit[]=large.blocks.map((block,index)=>({kind:"paragraphs",key:`fragment-${index}`,sourceIds:[block.sourceId]}));
+  reject(plan(large,layout),large,"reading-context-too-large");
 });
 test("materials remain explicitly scoped references and never grant file or body authority",async()=>{
   const source=await fixture(),base=plan(source),material={kind:"material" as const,key:"file",materialId:"synthetic-known-material"};

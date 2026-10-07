@@ -8,6 +8,7 @@ import type { ViewPresentation } from "./operations.ts";
 import { composeWorkView, type ComposedView } from "./view-composer.ts";
 import type { ReviewChange } from "./review-port.ts";
 import type { ReportComposition } from "./report-model.ts";
+import { ReadingLayoutRenderer } from "./reading-layout.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
@@ -18,6 +19,9 @@ interface Actions {
   range(uuid: string): void;
   repaint(): void;
   reviewEdit?(uuid: string, container: HTMLElement, suggest: boolean): void;
+  sources?(ids:readonly string[],context:boolean,contextIds?:readonly string[]):void;
+  clearSources?():void;
+  material?(id:string):void;
 }
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
@@ -32,6 +36,7 @@ interface Entry {
 export interface ReadingBookmark {
   uuid: string | null; offset: number; scrollTop: number; fallback: string[]; focused: HTMLElement | null;
   selection?: { range: Range; contents: Array<[string, string | undefined]> };
+  selectionAnchors?:{start:Node;startOffset:number;end:Node;endOffset:number};
 }
 
 /** The map belongs to one Graph/root, contains only current items, and owns stable UUID callbacks. */
@@ -42,8 +47,13 @@ export class WorkViewRenderer {
   private historical = false;
   private reporting = false;
   private readonly headings = new Map<string,HTMLElement>();
+  private readonly readingLayout:ReadingLayoutRenderer;
   get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {
+    this.readingLayout=new ReadingLayoutRenderer({sources:(ids,context,contextIds)=>this.actions.sources?.(ids,context,contextIds),material:id=>this.actions.material?.(id)});
+    container.addEventListener("keydown",event=>{
+      if(event.key==="Escape"&&!event.isComposing&&!this.composing&&!this.historical&&!(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]"))this.actions.clearSources?.();
+    });
     container.addEventListener("click", event => {
       for (const entry of this.entries.values()) if (entry.menu.open && !entry.menu.contains(event.target as Node)) this.closeMenu(entry);
     });
@@ -99,7 +109,12 @@ export class WorkViewRenderer {
     controls.append(menuContext, select, expand, nativeEdit, compare, range, indent, outdent);
     node.append(grip, fold, label, body, menu);
     node.addEventListener("click", event => {
-      if (!(event.target as HTMLElement).closest("button,select,a,input,textarea,details") && !this.composing && !this.historical && (!this.reporting || document.getSelection()?.isCollapsed !== false)) this.actions.operation({ type: "focus", uuid });
+      if(event.defaultPrevented||(event.target as HTMLElement).closest("button,select,a,input,textarea,details,[contenteditable=true]")||this.composing||this.historical||document.getSelection()?.isCollapsed===false)return;
+      if(this.reporting) {
+        if(node.dataset.reportSourceId&&!node.classList.contains("wb-review-change")) {
+          this.actions.operation({type:"focus",uuid});this.actions.sources?.([node.dataset.reportSourceId],false);
+        }
+      } else this.actions.operation({ type: "focus", uuid });
     });
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
@@ -112,7 +127,10 @@ export class WorkViewRenderer {
       }
       if (event.isComposing || this.composing || this.historical) return;
       if ((event.target as HTMLElement).closest("button,summary,select,a,input,textarea,[contenteditable=true]")) return;
-      if (this.reporting) { if (event.key === "Enter") { event.preventDefault(); this.actions.locate(uuid); } return; }
+      if (this.reporting) {
+        if((event.key==="Enter"||event.key===" ")&&node.dataset.reportSourceId&&!node.classList.contains("wb-review-change")) {event.preventDefault();this.actions.operation({type:"focus",uuid});this.actions.sources?.([node.dataset.reportSourceId],false);}
+        return;
+      }
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
     return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, compare, label, disposeMenu: overlay.dispose };
@@ -128,7 +146,7 @@ export class WorkViewRenderer {
     this.layout = view.items.map(item => ({uuid:item.uuid,depth:item.depth}));
     const focused = document.activeElement as HTMLElement | null;
     const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
-    const anchor = Array.from(this.container.children).find(element => {
+    const anchor = this.sourceNodes().find(element => {
       const node = element as HTMLElement, rect = node.getBoundingClientRect();
       return !!node.dataset.uuid && !node.hidden && rect.bottom > top && rect.top < bottom;
     }) as HTMLElement | undefined;
@@ -152,6 +170,9 @@ export class WorkViewRenderer {
         let node=this.headings.get(heading.key);
         if (!node) { node=element("h2","","wb-report-section"); node.dataset.reportSection=heading.key; this.headings.set(heading.key,node); }
         if (node.textContent!==heading.title) node.textContent=heading.title;
+        node.tabIndex=0;node.setAttribute("role","button");
+        node.onclick=event=>{if(!event.defaultPrevented&&document.getSelection()?.isCollapsed!==false)this.actions.sources?.(heading.sourceIds,true);};
+        node.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();this.actions.sources?.(heading.sourceIds,true);}};
         node.style.setProperty("--report-depth",String(heading.depth));node.setAttribute("aria-level",String(Math.min(6,heading.depth+1)));
         if (node!==cursor) this.container.insertBefore(node,cursor); cursor=node.nextElementSibling;
       }
@@ -241,6 +262,12 @@ export class WorkViewRenderer {
       if (entry.node !== cursor) this.container.insertBefore(entry.node, cursor);
       cursor = entry.node.nextElementSibling;
     });
+    if(report?.reading) {
+      this.readingLayout.render(this.container,report.reading.verified,new Map([...this.entries].map(([id,entry])=>[id,entry.node])),report.reading.materials);
+    } else {
+      // The loop above has already moved every primary node out of its old wrapper.
+      this.readingLayout.clear();delete this.container.dataset.readingPlanId;
+    }
     if (focused?.isConnected && this.container.contains(focused) && document.activeElement !== focused && !focused.closest("[hidden]")) focused.focus({ preventScroll: true });
     if (anchor?.isConnected && !anchor.hidden) {
       // Layout may already have applied the browser's scroll anchoring. Preserve that adjustment.
@@ -252,7 +279,7 @@ export class WorkViewRenderer {
 
   bookmark(): ReadingBookmark {
     const bounds = this.container.getBoundingClientRect();
-    const anchor = Array.from(this.container.children).find(value => {
+    const anchor = this.sourceNodes().find(value => {
       const node = value as HTMLElement, rect = node.getBoundingClientRect();
       return !!node.dataset.uuid && !node.hidden && rect.bottom > bounds.top && rect.top < bounds.bottom;
     }) as HTMLElement | undefined;
@@ -273,6 +300,7 @@ export class WorkViewRenderer {
         const contents: Array<[string, string | undefined]> = [];
         for (const [id, entry] of this.entries) if (range.intersectsNode(entry.body)) contents.push([id, entry.content]);
         bookmark.selection = { range: range.cloneRange(), contents };
+        bookmark.selectionAnchors={start:range.startContainer,startOffset:range.startOffset,end:range.endContainer,endOffset:range.endOffset};
       }
     }
     return bookmark;
@@ -291,9 +319,32 @@ export class WorkViewRenderer {
   }
   private restoreSelection(bookmark: ReadingBookmark): void {
     const selection=bookmark.selection;
-    if (selection && selection.range.startContainer.isConnected && selection.range.endContainer.isConnected && selection.contents.every(([id, content]) => this.entries.get(id)?.node.isConnected && !this.entries.get(id)?.node.hidden && this.entries.get(id)?.content === content)) {
-      const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
+    const anchors=bookmark.selectionAnchors;
+    const connected=anchors?anchors.start.isConnected&&anchors.end.isConnected:selection?.range.startContainer.isConnected&&selection.range.endContainer.isConnected;
+    if (selection && connected && selection.contents.every(([id, content]) => this.entries.get(id)?.node.isConnected && !this.entries.get(id)?.node.hidden && this.entries.get(id)?.content === content)) {
+      if(anchors?.start.isConnected&&anchors.end.isConnected) {
+        const range=document.createRange();
+        try {range.setStart(anchors.start,anchors.startOffset);range.setEnd(anchors.end,anchors.endOffset);}catch{return;}
+        const current=document.getSelection();current?.removeAllRanges();current?.addRange(range);
+      } else {
+        const current = document.getSelection(); current?.removeAllRanges(); current?.addRange(selection.range);
+      }
     }
   }
-  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
+  sourceRow(target:Element):HTMLElement|null {
+    let node:Element|null=target;
+    while(node&&node!==this.container) {
+      const uuid:string|undefined=(node as HTMLElement).dataset?.uuid;
+      if(uuid&&this.entries.get(uuid)?.node===node)return node as HTMLElement;
+      node=node.parentElement;
+    }
+    return null;
+  }
+  private sourceNodes():HTMLElement[] {
+    // DOM order follows both manual layouts and composed nested reading units.
+    // Only nodes owned by this renderer can supply a source bookmark.
+    return Array.from(this.container.querySelectorAll<HTMLElement>(".wb-row[data-uuid]"))
+      .filter(node=>this.entries.get(node.dataset.uuid!)?.node===node&&!node.closest("[hidden]"));
+  }
+  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear();this.readingLayout.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
 }

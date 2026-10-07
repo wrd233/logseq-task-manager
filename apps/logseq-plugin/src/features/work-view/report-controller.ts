@@ -2,7 +2,7 @@ import { NativeEditorHost } from "../../host/native-editor.ts";
 import type { FeaturePanel } from "../../host/panel-host.ts";
 import { sha256, type SourceScope, type SourceSnapshot } from "../../workspace/source-protocol.ts";
 import { logseqSourceId, sameLensScope } from "./lens-source.ts";
-import { lensRecord } from "./lens-input.ts";
+import { lensArray, lensRecord, lensText, requireLens } from "./lens-input.ts";
 import type { LensResult } from "./lens-controller.ts";
 import type { ReadingBookmark, WorkViewRenderer } from "./renderer.ts";
 import type { ViewPresentation } from "./operations.ts";
@@ -10,9 +10,14 @@ import type { ComposedView, LensSelection } from "./view-composer.ts";
 import type { SourceRow } from "./model.mjs";
 import { composeReport, defaultReportFolds, reportFragment, reportFragments } from "./report-model.ts";
 import { reportFailure, resolveBodyTarget, type BodyPosition, type BodyTarget } from "./report-target.ts";
+import { ReadingPlanController } from "./reading-controller.ts";
+import type { ReadingMaterial, ReadingMaterialPort } from "./reading-layout.ts";
+import { readingSourceSet } from "./reading-plan.ts";
+import { NativeSourceSetHost, type NativeSourceLocation } from "../../host/native-source-set.ts";
 
 interface ReportHost {
   scope(): SourceScope | null; revision(): number; currentGraph(): Promise<string>;
+  scopeVersion?():string;
   visible(): boolean; historical(): boolean; presentation(): ViewPresentation;
   source(fresh: boolean): Promise<LensResult<SourceSnapshot>>;
   navigationSource(): Promise<LensResult<SourceSnapshot>>;
@@ -39,6 +44,10 @@ export class WorkViewReport {
   private readonly sessions = new Map<string, {mode:"report" | "structure"; folds:string[]; bookmark:ReadingBookmark}>();
   private native: {scope:SourceScope; bookmark:ReadingBookmark; mode:"beside" | "switch"} | null = null;
   private notice: string | null = null;
+  private materialPort:ReadingMaterialPort|null=null;
+  private materialViews=new Map<string,ReadingMaterial>();
+  private readonly plans:ReadingPlanController;
+  private readonly sourceSet=new NativeSourceSetHost();
   private readonly editor = new NativeEditorHost(() => {
     void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`); });
   },() => this.sourceChanged());
@@ -47,8 +56,48 @@ export class WorkViewReport {
     refresh: () => this.capture(true), resolve: (input: unknown) => this.resolve(input),
     openNative: (input: unknown) => this.openNative(input), resume: () => this.resume(),
     compare: (input: unknown) => this.compare(input), showNative: () => this.showNative(),
+    highlight:(input:unknown)=>this.highlight(input),clearHighlight:()=>this.sourceSet.clear(),
   };
-  constructor(private readonly host: ReportHost, private readonly defaultMode: "report" | "structure" = "report") { this.mode=defaultMode; }
+  constructor(private readonly host: ReportHost, private readonly defaultMode: "report" | "structure" = "report") {
+    this.mode=defaultMode;
+    this.plans=new ReadingPlanController({scope:()=>this.disposed?null:this.host.scope(),version:()=>this.host.scopeVersion?.()??"",
+      unavailable:()=>this.host.historical()?"historical-view":this.host.renderer.composing||this.editor.isComposing?"editing-in-progress":null,
+      source:async()=>{
+        const scope=this.host.scope(),lifetime=this.lifetime;
+        if(!scope||this.disposed)return deny("scope-mismatch");
+        const source=await this.host.navigationSource();
+        if(!this.valid(scope,lifetime))return deny("scope-mismatch");
+        if(source.ok) {this.source=structuredClone(source.value);this.sourceRevision=this.host.revision();this.notice=null;this.plans.noteSource(this.source);this.host.changed();}
+        return source;
+      },materials:async()=>{
+        const scope=this.host.scope(),lifetime=this.lifetime,port=this.materialPort;
+        if(!scope||!port) {this.materialViews.clear();return new Set<string>();}
+        const views=await port.list(scope);
+        if(!this.valid(scope,lifetime)||port!==this.materialPort)throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+        requireLens(views.length<=2000&&new Set(views.map(view=>view.id)).size===views.length,"invalid-reading-material-list");
+        this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(this.materialViews.keys());
+      },changed:()=>this.host.changed()});
+  }
+  readonly readingAPI={
+    read:()=>this.plans.api.read(),request:(input:unknown)=>this.plans.api.request(input),
+    submit:async(input:unknown)=>{
+      const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.submit(input);
+      if(result.ok) {this.mode="report";this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      return result;
+    },select:async(id:unknown)=>{
+      const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.select(id);
+      if(result.ok) {this.mode="report";this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      return result;
+    },cancel:(requestId?:unknown)=>this.plans.api.cancel(requestId),
+  };
+  setReadingMaterials(port:ReadingMaterialPort|null):void {this.materialPort=port;this.materialViews.clear();this.plans.api.cancel();}
+  async openReadingMaterial(id:string):Promise<void> {
+    const scope=this.host.scope(),port=this.materialPort,lifetime=this.lifetime;
+    if(!scope||!port||this.host.historical()||!this.materialViews.has(id))throw new Error("READING_MATERIAL_UNAVAILABLE");
+    const materials=await port.list(scope);
+    if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+    await port.open(id,scope);
+  }
   private remember(): void {
     const scope=this.boundScope;
     if (!scope || this.host.historical()) return;
@@ -85,7 +134,7 @@ export class WorkViewReport {
       status:this.notice === "source-unavailable" ? "unavailable" : this.source ? !this.notice && this.sourceRevision === this.host.revision() ? "current" : "stale" : this.reading ? "loading" : "unavailable",
       structureVersion:this.source?.structureVersion ?? null, sourceSetVersion:this.source?.sourceSetVersion ?? null,
       fragments:this.source ? reportFragments(this.source) : [],
-      native:this.native ? {scope:{...this.native.scope}, mode:this.host.visible() ? this.native.mode : "switch"} : null, notice:this.notice};
+      native:this.native ? {scope:{...this.native.scope}, mode:this.host.visible() ? this.native.mode : "switch"} : null, sourceLocation:this.sourceSet.read(), notice:this.notice};
   }
   private valid(scope: SourceScope, lifetime: number): boolean {
     const current = this.host.scope();
@@ -106,7 +155,7 @@ export class WorkViewReport {
       if (!result.ok) { this.notice=result.reason; this.host.changed(); return result; }
       if (!sameLensScope(result.value.scope,scope)) return deny("scope-mismatch");
       if ((result.value.page?.availability ?? result.value.blocks[0]?.availability) !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
-      this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null; this.host.changed();
+      this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null;this.plans.noteSource(this.source); this.host.changed();
       return {ok:true,value:structuredClone(this.source)};
     })();
     this.reading=reading;
@@ -118,6 +167,7 @@ export class WorkViewReport {
     }
   }
   sourceChanged(): void {
+    if(this.sourceRevision!==this.host.revision())this.sourceSet.clear();
     if (this.active && this.host.visible() && !this.host.renderer.composing) {
       if (this.reading) this.refreshQueued=true;
       else { this.refreshQueued=false; void this.capture(false); }
@@ -137,8 +187,51 @@ export class WorkViewReport {
     }
     this.host.renderer.restore(bookmark); return {ok:true,value:null};
   }
+  highlightFromView(sourceIds:readonly string[],includeContext:boolean,contextSourceIds:readonly string[]=[]):Promise<LensResult<NativeSourceLocation>> {
+    if(!this.source)return Promise.resolve(deny("source-unavailable"));
+    return this.highlight({schemaVersion:1,sourceIds:[...sourceIds],includeContext,contextSourceIds:[...contextSourceIds],structureVersion:this.source.structureVersion,sourceSetVersion:this.source.sourceSetVersion});
+  }
+  async highlight(input:unknown):Promise<LensResult<NativeSourceLocation>> {
+    try {
+      const raw=lensRecord(input,["schemaVersion","sourceIds","contextSourceIds","includeContext","structureVersion","sourceSetVersion"]);
+      requireLens(raw.schemaVersion===1,"unsupported-reading-schema");requireLens(typeof raw.includeContext==="boolean","invalid-source-set");
+      const basis=this.source,scope=this.host.scope(),lifetime=this.lifetime,witness=this.host.scopeVersion?.()??"";
+      requireLens(basis&&scope&&!this.disposed,"source-unavailable");requireLens(!this.host.historical(),"historical-view");
+      requireLens(raw.structureVersion===basis.structureVersion&&raw.sourceSetVersion===basis.sourceSetVersion,"stale-source-set");
+      const ids=lensArray(raw.sourceIds,10_000,1).map(id=>lensText(id,4096));
+      const contextIds=raw.contextSourceIds===undefined?[]:lensArray(raw.contextSourceIds,10_000).map(id=>lensText(id,4096));
+      const byId=new Map(basis.blocks.map(block=>[block.sourceId,block]));
+      for(const id of contextIds)requireLens(byId.has(id),"source-not-in-scope");
+      // Context is an exact union, never an instruction to expand an ancestor's unrelated descendants.
+      const expanded=new Set([...readingSourceSet(basis,ids,raw.includeContext),...contextIds]);
+      const selected=basis.blocks.filter(block=>expanded.has(block.sourceId)).map(block=>block.sourceId);
+      const current=()=>this.valid(scope,lifetime)&&!this.host.historical()&&(this.host.scopeVersion?.()??"")===witness;
+      const verify=async()=>{
+        const fresh=await this.host.navigationSource();
+        return current()&&fresh.ok&&sameLensScope(fresh.value.scope,scope)&&fresh.value.structureVersion===basis.structureVersion&&fresh.value.sourceSetVersion===basis.sourceSetVersion&&await this.host.currentGraph()===scope.graphId&&current();
+      };
+      requireLens(await verify(),"stale-source-set");
+      const first=byId.get(ids[0]!)!,block=await logseq.Editor.getBlock(first.target.blockUuid);
+      requireLens(current()&&block,"source-unavailable");
+      requireLens(typeof block.content==="string"&&await sha256(block.content)===first.contentVersion,"stale-content");
+      const page=await logseq.Editor.getPage(block.page.id);requireLens(current()&&page,"source-unavailable");
+      // A draft or composition keeps its existing layout, focus and input node.
+      // Highlight already mounted bodies without invoking the native editing port.
+      if(!this.editor.isComposing&&!await this.editor.editing()) {
+        const exposed=await this.showNative();if(!exposed.ok)return exposed;
+      }
+      requireLens(current(),"scope-mismatch");
+      const location=await this.sourceSet.locate(selected.map(id=>({sourceId:id,uuid:byId.get(id)!.target.blockUuid,page:page.originalName??page.name})),current,verify,ids[0]);
+      requireLens(current(),"scope-mismatch");
+      return {ok:true,value:location};
+    } catch(error) {return reportFailure(error);}
+  }
   compose(personal: ViewPresentation, lens: LensSelection | null, overlay?: ComposedView) {
-    return this.active && this.source ? composeReport(this.source,personal,lens,this.folds,overlay) : null;
+    if(!this.active||!this.source)return null;
+    const report=composeReport(this.source,personal,lens,this.folds,overlay),reading=!overlay?this.plans.active(this.source):null;
+    if(!reading)return report;
+    const byUuid=new Map(report.view.items.map(item=>[item.uuid,item])),byId=new Map(this.source.blocks.map(block=>[block.sourceId,block]));
+    return {...report,headings:[],view:{...report.view,items:reading.primarySourceIds.map(id=>byUuid.get(byId.get(id)!.target.blockUuid)!)},reading:{verified:reading,materials:this.materialViews}};
   }
   toggleFold(uuid: string): void {
     if (this.folds.has(uuid)) this.folds.delete(uuid); else this.folds.add(uuid);
@@ -321,7 +414,7 @@ export class WorkViewReport {
   }
   reset(): void {
     this.remember(); this.boundScope=null; this.suspended=null;
-    this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;
+    this.lifetime++; this.navigation++; this.readTicket++; this.refreshQueued=false; this.native=null; this.editor.hideReturn(); this.source=null; this.sourceRevision=-1; this.reading=null; this.folds.clear(); this.notice=null;this.plans.reset();this.materialViews.clear();this.sourceSet.clear();
   }
   hide(reason: "switch" | "close"): void {
     if (!this.yielding) {
@@ -329,5 +422,5 @@ export class WorkViewReport {
     }
     if (reason === "close") this.native=null;
   }
-  dispose(): void { this.disposed=true; this.reset(); this.sessions.clear(); this.editor.dispose(); }
+  dispose(): void { this.disposed=true; this.reset(); this.sessions.clear(); this.editor.dispose();this.plans.dispose();this.sourceSet.dispose(); }
 }

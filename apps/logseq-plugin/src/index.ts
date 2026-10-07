@@ -13,6 +13,8 @@ import { installWorkspaceContext } from "./features/workspace-context/install.ts
 import { installContentWriteback, type ContentInstallation } from "./features/content-writeback/installer.ts";
 import { installAgentWorkspace, workspaceBindingPort } from "./features/agent-workspace/installer.ts";
 import { installStageWorkbench, type StageInstallation } from "./features/stage-workbench/installer.ts";
+import { fileName } from "./features/materials/names.ts";
+import { sameLensScope } from "./features/work-view/lens-source.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
@@ -86,6 +88,19 @@ async function main(): Promise<void> {
   if(work){const entries=installReadingEntries(uuid=>work!.open(uuid),()=>work!.openPage(),report);removeReadingEntries=entries.dispose;}
   const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
   const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
+  if(work&&materials)work.setReadingMaterials({
+    list:async scope=>{
+      const valid=workspace.service.observeScope(scope),module=requireMaterials();
+      const list=await module.listMaterials(scope.rootUuid,"");
+      const binding=scope.kind==="page"?null:await workspace.service.resolve(scope);
+      for(const association of binding?.manifest.associations??[])if(association.kind==="material"&&!list.materials.some(view=>view.id===association.id))list.materials.push(await module.readMaterial(association.id));
+      if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+      return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability}));
+    },open:async(id,scope)=>{
+      requireActive();const actual=work?.readingAPI.read().scope;if(actual&&sameLensScope(actual,scope))await requireMaterials().openDoc(id,scope.rootUuid);
+      else throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+    }
+  });
   content = installContentWriteback({adapter: new LogseqContentAdapter(null, workspace.sourceReader)});
   if (materials) installMaterialTransfers(materials, content, workspace.source, work);
   stages = installStageWorkbench({content,work,source:workspace.source,materials:{
@@ -147,6 +162,7 @@ async function main(): Promise<void> {
     readMaterials: async (content: string) => { requireActive(); return materials?.linkedContext(content) ?? []; },
     lenses: work?.lensesAPI ?? null,
     report: work?.reportAPI ?? null,
+    reading: work?.readingAPI ?? null,
   };
   publishedApi = api;
   host.taskCopilotWorkbench = api;

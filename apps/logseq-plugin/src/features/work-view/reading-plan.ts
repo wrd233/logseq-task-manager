@@ -25,6 +25,7 @@ export interface ReadingHeading {
 }
 export interface VerifiedReadingPlan {
   plan:ReadingPlan; basis:SourceSnapshot; primarySourceIds:string[];
+  materialIds:string[];
   headings:ReadingHeading[]; contexts:ReadonlyMap<string,readonly string[]>;
 }
 const MAX_UNITS=2000, MAX_DEPTH=16, MAX_SOURCES=10_000;
@@ -87,12 +88,19 @@ function childrenOf(source:SourceSnapshot):Map<string|null,BlockSnapshot[]> {
   }
   return children;
 }
-/** All uncertain/unknown adjacency stays in source order. Only complete explicit
- * category runs inside an object may be rearranged, preserving category order
- * and whole subtrees. This is conservative presentation, not semantic judgment. */
-function safeOrder(source:SourceSnapshot,ordered:string[]):void {
+/** Unknown adjacency stays fixed. Complete explicit category runs can move only
+ * with their complete original-order neighborhood repeated as source context.
+ * A label alone is never proof that two sentences are semantically independent. */
+function safeOrder(source:SourceSnapshot,ordered:string[]):ReadonlyMap<string,readonly string[]> {
   const byUuid=new Map(source.blocks.map(b=>[b.target.blockUuid,b])),byId=new Map(source.blocks.map(b=>[b.sourceId,b])),children=childrenOf(source);
   const positions=new Map(ordered.map((id,index)=>[id,index]));
+  const repairs=new Map<string,readonly string[]>();
+  const indices=new Map(source.blocks.map((block,index)=>[block.sourceId,index]));
+  const subtree=(block:BlockSnapshot):string[]=>{
+    const from=indices.get(block.sourceId)!,ids=[block.sourceId];
+    for(let at=from+1;at<source.blocks.length&&source.blocks[at]!.depth>block.depth;at++)ids.push(source.blocks[at]!.sourceId);
+    return ids;
+  };
   const ancestors:string[]=[];
   for(const id of ordered) {
     const block=byId.get(id)!;
@@ -125,24 +133,33 @@ function safeOrder(source:SourceSnapshot,ordered:string[]):void {
         const presented=actual.filter(b=>reportCategory(b.content??"")===category).map(b=>b.sourceId);
         requireLens(expected.every((id,i)=>presented[i]===id),"reading-dependency-broken");
       }
+      if(actual.some((block,index)=>block.sourceId!==original[index]!.sourceId)) {
+        const neighborhood=original.flatMap(subtree);
+        for(const id of neighborhood)repairs.set(id,neighborhood);
+      }
     }
   }
+  return repairs;
 }
 /** Source sets always expand real identity, never text equality or display keys. */
 export function readingSourceSet(source:SourceSnapshot,ids:readonly string[],includeContext=false):string[] {
   const byId=new Map(source.blocks.map(b=>[b.sourceId,b])),byUuid=new Map(source.blocks.map(b=>[b.target.blockUuid,b]));
-  const selected=new Set<string>();
+  const selected=new Set<string>(),roots=new Set(ids);
   for(const id of ids) {
     const block=byId.get(id);requireLens(block,"source-not-in-scope");
     selected.add(id);
-    const start=source.blocks.indexOf(block);
-    for(let index=start+1;index<source.blocks.length&&source.blocks[index]!.depth>block.depth;index++)selected.add(source.blocks[index]!.sourceId);
     if(includeContext) {
       let parent=block.parentUuid;
       while(parent&&byUuid.has(parent)) {
         const block=byUuid.get(parent)!;selected.add(block.sourceId);parent=block.parentUuid;
       }
     }
+  }
+  let expandedDepth:number|null=null;
+  for(const block of source.blocks) {
+    if(expandedDepth!==null&&block.depth<=expandedDepth)expandedDepth=null;
+    if(roots.has(block.sourceId))expandedDepth=expandedDepth===null?block.depth:Math.min(expandedDepth,block.depth);
+    if(expandedDepth!==null)selected.add(block.sourceId);
   }
   return source.blocks.filter(block=>selected.has(block.sourceId)).map(block=>block.sourceId);
 }
@@ -159,7 +176,7 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
     requireLens(version.contentVersion===block.contentVersion,"stale-content");
   }
   requireLens(versions.size===source.blocks.length,"reading-full-source-required");
-  const primary:string[]=[],seen=new Set<string>(),headings:ReadingHeading[]=[],contexts=new Map<string,readonly string[]>();
+  const primary:string[]=[],materials=new Set<string>(),seen=new Set<string>(),headings:ReadingHeading[]=[],contexts=new Map<string,readonly string[]>(),membership=new Map<string,readonly string[]>();
   const context=(ids:readonly string[]):string[]=>{
     const own=new Set(ids),needed=new Set<string>();
     for(const id of ids) {
@@ -176,13 +193,14 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
       ids=unit.sourceIds;
       for(const id of ids) {requireLens(byId.has(id),"source-not-in-scope");requireLens(!seen.has(id),"duplicate-reading-source");seen.add(id);primary.push(id);}
     } else if(unit.kind==="material") {
-      requireLens(materialIds.has(unit.materialId),"material-outside-scope");return [];
+      requireLens(materialIds.has(unit.materialId),"material-outside-scope");materials.add(unit.materialId);return [];
     } else if(unit.kind==="group") {
       ids=unit.children.flatMap(walk);heading(unit.key,unit.title,ids);
     } else {
-      ids=unit.columns.flatMap(column=>{const ids=column.children.flatMap(walk);heading(column.key,column.title,ids);contexts.set(column.key,context(ids));return ids;});heading(unit.key,unit.title,ids);
+      ids=unit.columns.flatMap(column=>{const ids=column.children.flatMap(walk);heading(column.key,column.title,ids);contexts.set(column.key,context(ids));membership.set(column.key,ids);return ids;});heading(unit.key,unit.title,ids);
     }
     contexts.set(unit.key,context(ids));
+    membership.set(unit.key,ids);
     return ids;
   };
   const heading=(key:string,title:string,ids:string[])=>{
@@ -191,8 +209,36 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
     headings.push({key,title,sourceIds:[...ids],contextSourceIds:context(ids)});
   };
   plan.layout.forEach(walk);
-  requireLens(seen.size===source.blocks.length,"reading-full-source-required");safeOrder(source,primary);
-  return {plan,basis:structuredClone(source),primarySourceIds:primary,headings,contexts};
+  requireLens(seen.size===source.blocks.length,"reading-full-source-required");
+  const repairs=safeOrder(source,primary);
+  for(const [key,ids] of membership) {
+    const needed=new Set([...contexts.get(key)??[],...ids.flatMap(id=>repairs.get(id)??[])]);
+    contexts.set(key,source.blocks.filter(block=>needed.has(block.sourceId)).map(block=>block.sourceId));
+  }
+  for(const item of headings) {
+    item.contextSourceIds=[...contexts.get(item.key)??[]];
+    requireLens(!certaintyClaim.test(item.title)||![...readingSourceSet(source,item.sourceIds,true),...item.contextSourceIds].some(id=>uncertain.test(byId.get(id)!.content??"")),"reading-title-overstates-source");
+  }
+  // Bound the actual rendered context, including inherited de-duplication. An
+  // adversarial plan cannot multiply a large root paragraph thousands of times.
+  const bytes=new Map(source.blocks.map(block=>[block.sourceId,new TextEncoder().encode(block.content??"").length]));
+  let presented=source.blocks.length,presentedBytes=[...bytes.values()].reduce((sum,size)=>sum+size,0);
+  const account=(key:string,inherited:ReadonlySet<string>):Set<string>=>{
+    const ids=contexts.get(key)??[];
+    for(const id of ids)if(!inherited.has(id)) {presented++;presentedBytes+=bytes.get(id)!;}
+    requireLens(presented<=20_000&&presentedBytes<=8_388_608,"reading-context-too-large");
+    return new Set([...inherited,...ids]);
+  };
+  const bound=(unit:ReadingUnit,inherited:ReadonlySet<string>):void=>{
+    const context=account(unit.key,inherited);
+    if(unit.kind==="group")unit.children.forEach(child=>bound(child,context));
+    else if(unit.kind==="comparison")for(const column of unit.columns) {
+      const columnContext=account(column.key,context);column.children.forEach(child=>bound(child,columnContext));
+    }
+  };
+  requireLens(presentedBytes<=8_388_608,"reading-context-too-large");
+  plan.layout.forEach(unit=>bound(unit,new Set()));
+  return {plan,basis:structuredClone(source),primarySourceIds:primary,materialIds:[...materials],headings,contexts};
 }
 export function readingBasisChanged(verified:VerifiedReadingPlan,source:SourceSnapshot):boolean {
   const {scope,structureVersion,sourceSetVersion}=verified.plan;

@@ -21,6 +21,7 @@ import { sameLensScope } from "./lens-source.ts";
 import type { ReadingBookmark } from "./renderer.ts";
 import type { BodyPosition } from "./report-target.ts";
 import { logseqSourceReader } from "../../workspace/logseq-source.ts";
+import type { ReadingMaterialPort } from "./reading-layout.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
 
@@ -88,6 +89,13 @@ export class WorkView {
     range: uuid => { void this.lenses.api.select(uuid); },
     repaint: () => { if (!this.disposed) { this.report.sourceChanged(); this.render(); } },
     reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
+    material:id=>{void this.report.openReadingMaterial(id).catch(this.fail);},
+    clearSources:()=>this.report.api.clearHighlight(),
+    sources:(ids,context,contextIds)=>{void this.report.highlightFromView(ids,context,contextIds).then(result=>{
+      if(!result.ok)throw new Error(result.reason);
+      const value=result.value,message=`已标记 ${value.highlightedSourceIds.length} 个原生来源，${value.mountedSourceIds.length} 个已挂载，当前屏幕可见 ${value.visibleSourceIds.length} 个${value.unavailableSourceIds.length?`；${value.unavailableSourceIds.length} 个尚未挂载或折叠`:""}${value.navigation==="blocked-by-input"?"；保留当前输入，暂不切换页面":""}。Esc 可取消。`;
+      void logseq.UI.showMsg(message,value.status==="highlighted"?"success":"warning");
+    }).catch(this.fail);},
   });
 
   constructor(private readonly onMaterials: (content: string, rootUuid: string) => void | Promise<void>, options: { source?: LensSourcePort; initialReadingMode?: "report" | "structure"; readingMode?: "report" | "structure" } = {}) {
@@ -105,6 +113,7 @@ export class WorkView {
     }, options.source);
     this.report = new WorkViewReport({
       scope: () => !this.disposed ? this.readingScope() : null,
+      scopeVersion:()=>{const scope=this.readingScope();return scope?this.source.version?.(scope)??"":"";},
       revision: () => this.sourceRevision, currentGraph: async () => graphIdentity(await logseq.App.getCurrentGraph()),
       visible: () => this.panel.visible && !this.disposed, historical: () => this.historical,
       presentation: () => copyPresentation(this.state), source: fresh => fresh ? this.lenses.source() : this.lenses.committedSource(),
@@ -316,8 +325,10 @@ export class WorkView {
   }
   get lensesAPI() { return this.lenses.api; }
   get reportAPI() { return this.report.api; }
+  get readingAPI() { return this.report.readingAPI; }
+  setReadingMaterials(port:ReadingMaterialPort|null):void {this.report.setReadingMaterials(port);}
   resolveBodyDrop(target: Element, position: BodyPosition) {
-    const body=target.closest(".wb-body"), row=body?.closest<HTMLElement>(".wb-row");
+    const body=target.closest(".wb-body"), row=this.renderer.sourceRow(target);
     return body && row?.dataset.uuid && this.content.contains(body) && position !== "block"
       ? this.report.forBlock(row.dataset.uuid,position) : Promise.resolve({ok:false as const,reason:"ambiguous-body-target"});
   }
@@ -480,6 +491,12 @@ export class WorkView {
         const result = await this.report.api.showNative(); if (!result.ok) throw new Error(result.reason);
       } },
     ];
+    const reading=this.report.readingAPI.read();
+    for(const plan of reading.plans)actions.push({group:"阅读方案",label:plan.name,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
+      disabled:!this.readingScope()||this.historical||this.renderer.composing||this.report.composing||plan.status!=="current",
+      run:async()=>{const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
+    if(reading.activePlanId)actions.push({group:"阅读方案",label:"返回默认全文读法",description:"保留来源，取消当前编排",disabled:this.historical||this.renderer.composing||this.report.composing,
+      run:async()=>{const result=await this.report.readingAPI.select(null);if(!result.ok)throw new Error(result.reason);}});
     for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid, "breadcrumb"), disabled: !this.rootUuid || this.historical });
     actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...(this.pageName ? [] : this.contextActions()));
     const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";

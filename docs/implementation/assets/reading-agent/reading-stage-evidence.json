@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "status": "reading-stage-only",
+  "observedAt": "2026-10-07T14:44:58.228Z",
+  "baseSha": "5b05d156cc03b37956d6f77de2d10213a6cb58e3",
+  "logseqVersion": "0.10.15",
+  "platform": "macOS ARM64",
+  "synthetic": true,
+  "capabilityInjection": false,
+  "ordinaryTodoAuthorized": false,
+  "corpus": {
+    "blocks": 101,
+    "layers": 4,
+    "chineseCharacters": 4041
+  },
+  "readingPlans": [
+    "desktop-continuous",
+    "desktop-comparison"
+  ],
+  "originalAndPlanRoundTrip": true,
+  "identicalRequestRetry": "already-selected",
+  "otherClientLabel": "READING_REQUEST_NOT_OWNED",
+  "primaryIdentityAndVersionCount": 101,
+  "headingWritableUuidCount": 0,
+  "native": {
+    "requested": 25,
+    "mounted": 25,
+    "marked": 25,
+    "visibleAtReceipt": 12,
+    "navigation": "unchanged",
+    "editingAtObservation": false
+  },
+  "pageHashBefore": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+  "pageHashAfter": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+  "pluginHash": "ad500039620f5e77c3b028ae2c9bf051ca26884f3afba720447d18b70762340c",
+  "companionHash": "ec299ee646ecbd044a7006caae9ac431f41ed94519c4b6e23ef603de94cc3b9c",
+  "fullCheck": {
+    "command": "npm run check",
+    "tests": 736,
+    "failures": 0,
+    "exitCode": 0,
+    "log": "tmp/reading-stage-check.log"
+  },
+  "rawEvidence": [
+    "tmp/reading-desktop/evidence/exercise.json",
+    "tmp/reading-desktop/evidence/stage-runtime.json",
+    "tmp/reading-desktop/evidence/title-click.json"
+  ],
+  "runner": [
+    "scripts/reading-desktop.mjs",
+    "scripts/reading-desktop-exercise.mjs",
+    "scripts/reading-desktop-probe.mjs"
+  ],
+  "notCompleted": [
+    "shared-guidance",
+    "collaboration-scene",
+    "authorized ordinary TODO",
+    "three real writing exercises",
+    "A final integration",
+    "five-format preview matrix",
+    "final outside-repository ZIP load"
+  ],
+  "notProven": [
+    "physical IME",
+    "all folded host navigation",
+    "clipboard/Finder preservation",
+    "all platforms and IO races"
+  ],
+  "realTitleClick": {
+    "members": 25,
+    "ancestorContext": 1,
+    "marked": 26,
+    "editing": false,
+    "graphFileUnchanged": true
+  },
+  "postFullCheck": {
+    "change": "scroll to primary heading member instead of context ancestor",
+    "typecheck": true,
+    "eslint": true,
+    "readingUiTests": 9,
+    "build": true,
+    "desktopRetestPending": true
+  }
+}

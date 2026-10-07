@@ -219,6 +219,36 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal((await cli(["content", "apply"], bodyPatch)).record.digest, recovered.record.digest);
         assert.equal(f.counts().writes, afterLostWrites);
         f.onWrite(null);
+        await api.open(f.root);
+        const readingRequest=await cli(["reading","request","--purpose","同一原文先连续读，再做对照"]);
+        assert.equal(readingRequest.ok,true);
+        const readingSource=readingRequest.value.source,readingIds=readingSource.blocks.map((item:{sourceId:string})=>item.sourceId);
+        const readingPlan={schemaVersion:1,requestId:readingRequest.value.requestId,planId:"cli-continuous",name:"CLI 连续读原句",scope:readingSource.scope,
+            structureVersion:readingSource.structureVersion,sourceSetVersion:readingSource.sourceSetVersion,
+            sourceVersions:readingSource.blocks.map((item:{sourceId:string;contentVersion:string})=>({sourceId:item.sourceId,contentVersion:item.contentVersion})),
+            layout:[{kind:"paragraphs",key:"all",sourceIds:readingIds}]};
+        const beforeReading=f.counts().writes;
+        await assert.rejects(cli(["reading","submit"],readingPlan,"two"),/READING_REQUEST_NOT_OWNED/);
+        assert.equal((await cli(["reading","submit"],readingPlan)).value.status,"selected");
+        assert.equal((await cli(["reading","submit"],readingPlan)).value.status,"already-selected");
+        assert.equal((await cli(["reading","read"])).capabilities.writesSource,false);
+        assert.equal((await cli(["reading","read"])).capabilities.authorizesTodo,false);
+        assert.equal(f.browser.document.querySelectorAll(".wb-reading-paragraphs").length,1);
+        const comparison={...readingPlan,planId:"cli-comparison",name:"CLI 分段对照",layout:[
+            {kind:"sequence",key:"root",sourceIds:readingIds.slice(0,1)},
+            {kind:"comparison",key:"compare",title:"两部分原句",columns:[
+                {key:"first",title:"先读",children:[{kind:"paragraphs",key:"first-body",sourceIds:readingIds.slice(1,2)}]},
+                {key:"rest",title:"再读",children:[{kind:"sequence",key:"rest-body",sourceIds:readingIds.slice(2)}]}
+            ]}]};
+        assert.equal((await cli(["reading","submit"],comparison)).ok,true);
+        assert.equal(f.browser.document.querySelectorAll(".wb-reading-column").length,2);
+        await assert.rejects(cli(["reading","select","cli-comparison"],undefined,"two"),/READING_PLAN_NOT_OWNED/);
+        assert.equal((await cli(["reading","original"])).ok,true);
+        assert.equal((await cli(["reading","read"])).activePlanId,null);
+        assert.equal((await cli(["reading","select","cli-continuous"])).ok,true);
+        assert.equal(f.counts().writes,beforeReading,"reading CLI calls must not invoke Graph writes");
+        assert.equal((await cli(["reading","cancel",readingRequest.value.requestId])).ok,true);
+        await assert.rejects(cli(["reading","submit"],comparison),/READING_REQUEST_NOT_OWNED/);
         const requested = await cli(["focus", "request", "--question", "保留条件与反证"]), source = await cli(["focus", "source"]);
         assert.equal(requested.ok, true);
         assert.equal(source.ok, true);
