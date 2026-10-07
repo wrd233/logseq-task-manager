@@ -1,0 +1,408 @@
+<div id="ls-agent-evolution" lang="zh-CN">
+  <div class="ae-tour-head">
+    <div><strong>让一个项目逐渐长出来</strong><span class="ae-sub">Logseq × 工作台 × Agent</span></div>
+    <span class="ae-simulation">情境模拟 · 合成内容</span>
+  </div>
+  <nav class="ae-scenes" aria-label="协作情境">
+    <button type="button" class="cursor-interaction" data-scene="execute" aria-pressed="true">① 做事，顺带记录</button>
+    <button type="button" class="cursor-interaction" data-scene="discuss" aria-pressed="false">② 讨论，留下想法</button>
+    <button type="button" class="cursor-interaction" data-scene="scratch" aria-pressed="false">③ 零散笔记，慢慢整理</button>
+  </nav>
+  <div class="ae-steps" id="ae-steps" aria-label="项目发展步骤"></div>
+  <div class="ae-step-bar">
+    <div><span id="ae-step-position" class="ae-small"></span><strong id="ae-step-title"></strong></div>
+    <div class="ae-step-actions"><button type="button" id="ae-prev" class="cursor-interaction" aria-label="上一步">← 上一步</button><button type="button" id="ae-next" class="ae-primary cursor-interaction">推进一步 →</button></div>
+  </div>
+  <div class="ae-app" aria-label="仿 Logseq 的协作演练界面">
+    <div class="ae-app-top">
+      <div class="ae-icon-group"><i data-lucide="menu" aria-hidden="true"></i><i data-lucide="search" aria-hidden="true"></i><span>独立演练 Graph</span></div>
+      <div class="ae-icon-group"><i data-lucide="house" aria-hidden="true"></i><i data-lucide="puzzle" aria-hidden="true"></i><i data-lucide="arrow-left" aria-hidden="true"></i><i data-lucide="arrow-right" aria-hidden="true"></i><i data-lucide="panel-right" aria-hidden="true"></i></div>
+    </div>
+    <div class="ae-work-layout">
+      <section class="ae-native" aria-label="Logseq 原生笔记区">
+        <div class="ae-native-caption"><span>Logseq 原结构</span><span id="ae-native-version"></span></div>
+        <h2>周末旅行 · 工作笔记</h2>
+        <div class="ae-root-row"><span class="ae-dot" aria-hidden="true"></span><strong>[MiniProject] 整理一次周末短途旅行</strong><span class="ae-link">#MiniProject</span><button type="button" id="ae-native-read" class="ae-read-button cursor-interaction">阅读</button></div>
+        <div id="ae-native-blocks" class="ae-native-blocks"></div>
+        <div class="ae-native-foot" id="ae-native-foot"></div>
+      </section>
+      <section class="ae-workbench" aria-label="工作台阅读区">
+        <div class="ae-workbench-top"><span>工作台 ▾</span><span class="ae-small">当前工作</span></div>
+        <div class="ae-workbench-heading">
+          <span class="ae-kind">MiniProject</span><h3>整理一次周末短途旅行</h3>
+          <div class="ae-work-actions"><button type="button" id="ae-native-focus" class="ae-primary cursor-interaction">在 Logseq 写作</button><details class="ae-options"><summary class="cursor-interaction">工作选项</summary><div class="ae-option-menu"><button type="button" class="cursor-interaction" data-option="structure">查看原结构</button><button type="button" class="cursor-interaction" data-option="context">查看 Agent 的工作现场</button><button type="button" class="cursor-interaction" data-option="rules">查看共享写作约定</button></div></details></div>
+          <nav class="ae-content-nav" aria-label="工作台内容"><button type="button" id="ae-tab-body" class="cursor-interaction" aria-pressed="true">正文</button><button type="button" id="ae-tab-material" class="cursor-interaction" aria-pressed="false">材料 <span id="ae-material-count">0</span></button><button type="button" id="ae-tab-history" class="ae-history-button cursor-interaction" aria-pressed="false">审阅与历史</button></nav>
+        </div>
+        <div id="ae-reading-controls" class="ae-reading-controls"><label for="ae-layout">阅读编排</label><select id="ae-layout" class="cursor-interaction"><option value="relations">按阅读关系</option><option value="structure">按原结构</option><option value="progress">按推进阶段</option></select><span class="ae-small">演示方案</span></div>
+        <div id="ae-workbench-content" class="ae-workbench-content"></div>
+        <div id="ae-reading-audit" class="ae-reading-audit"></div>
+      </section>
+    </div>
+    <div class="ae-app-foot"><span id="ae-status" aria-live="polite">切换步骤，观察同一份工作怎样发展。</span><span>本页操作仅改变演示</span></div>
+  </div>
+  <section class="ae-inspector" aria-label="这一步的协作说明">
+    <nav class="ae-inspector-nav" aria-label="说明视角"><button type="button" class="cursor-interaction" data-inspector="step" aria-pressed="true">这一步发生什么</button><button type="button" class="cursor-interaction" data-inspector="context" aria-pressed="false">Agent 得到的现场</button><button type="button" class="cursor-interaction" data-inspector="rules" aria-pressed="false">一处撰写，共同使用</button></nav>
+    <div id="ae-inspector-content"></div>
+  </section>
+  <div class="ae-scope-note">笔记区与工作台沿用当前体验；Agent 的自动落点、自由编排与共享约定交互是待讨论的设计。这里没有连接真实 Agent，也不会修改你的 Graph 或材料。</div>
+</div>
+<style>
+#ls-agent-evolution{--ae-native:light-dark(#fdfdfd,#182026);--ae-native-text:light-dark(#252525,#e4eaed);--ae-native-muted:light-dark(#737a7d,#a6b0b7);--ae-native-edge:light-dark(#e8e9e8,#39444c);--ae-native-link:light-dark(#5287a7,#89b9d1);--ae-native-dot:light-dark(#ced2d2,#68757d);--ae-bg:light-dark(#efeeea,#202825);--ae-paper:light-dark(#faf9f6,#27312d);--ae-soft:light-dark(#e9eee9,#303f38);--ae-ink:light-dark(#29332f,#e3e8e3);--ae-muted:light-dark(#656f6a,#b0bcb5);--ae-edge:light-dark(#d8dfd8,#43534a);--ae-accent:light-dark(#376e60,#91c7b3);--ae-on-accent:light-dark(#fff,#1e2d25);--ae-attention:light-dark(#805b24,#e1c18a);--ae-danger:light-dark(#9d4938,#f0ad97);--ae-added:light-dark(#eaf1ec,#30443a);--ae-shadow:light-dark(#26352e24,#0005);color:var(--ae-ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;width:100%;min-width:0;isolation:isolate}
+#ls-agent-evolution *{box-sizing:border-box}
+#ls-agent-evolution [hidden]{display:none!important}
+#ls-agent-evolution :is(h2,h3,h4,p){margin:0}
+#ls-agent-evolution strong{font-weight:650}
+#ls-agent-evolution button,#ls-agent-evolution select,#ls-agent-evolution textarea{font:inherit;color:inherit}
+#ls-agent-evolution button{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 9px;min-height:30px;overflow-wrap:anywhere;text-align:left}
+#ls-agent-evolution button:hover{background:var(--ae-soft)}
+#ls-agent-evolution button:disabled{opacity:.45;cursor:default}
+#ls-agent-evolution .ae-primary{background:var(--ae-accent);color:var(--ae-on-accent);font-weight:600}
+#ls-agent-evolution .ae-primary:hover{background:var(--ae-accent);filter:brightness(.96)}
+#ls-agent-evolution :is(select,textarea){background:var(--ae-paper);border:1px solid var(--ae-edge);border-radius:6px;padding:5px 8px;max-width:100%}
+#ls-agent-evolution select{min-width:0}
+#ls-agent-evolution textarea{width:100%;display:block;resize:vertical;min-height:92px;font-size:14px;margin-top:7px}
+#ls-agent-evolution code{font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;color:inherit;background:transparent}
+#ls-agent-evolution .ae-small{font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-link{color:var(--ae-native-link)}
+#ls-agent-evolution .ae-tour-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:4px 100px 10px 0}
+#ls-agent-evolution .ae-tour-head strong{font-size:19px;font-weight:600}
+#ls-agent-evolution .ae-sub{margin-left:12px;color:var(--ae-muted);font-size:12px}
+#ls-agent-evolution .ae-simulation{font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-scenes{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+#ls-agent-evolution .ae-scenes button{border-color:var(--ae-edge);padding:7px 11px}
+#ls-agent-evolution .ae-scenes button[aria-pressed=true]{background:var(--ae-accent);color:var(--ae-on-accent);border-color:transparent}
+#ls-agent-evolution .ae-steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+#ls-agent-evolution .ae-steps button{border-radius:0;border-bottom:2px solid var(--ae-edge);padding:6px 4px;font-size:12px;display:flex;gap:5px;align-items:center}
+#ls-agent-evolution .ae-steps button[aria-current=step]{border-bottom-color:var(--ae-accent);background:var(--ae-soft);font-weight:600}
+#ls-agent-evolution .ae-step-number{color:var(--ae-muted);font-variant-numeric:tabular-nums}
+#ls-agent-evolution .ae-step-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0 11px;flex-wrap:wrap}
+#ls-agent-evolution .ae-step-bar>div:first-child{display:flex;gap:9px;align-items:baseline;flex:1;min-width:190px}
+#ls-agent-evolution .ae-step-actions{display:flex;gap:4px}
+#ls-agent-evolution .ae-app{background:var(--ae-native);color:var(--ae-native-text);border:1px solid var(--ae-native-edge);border-radius:8px;overflow:clip}
+#ls-agent-evolution .ae-app-top{height:43px;display:flex;justify-content:space-between;gap:8px;align-items:center;padding:0 17px;color:var(--ae-native-muted);border-bottom:1px solid var(--ae-native-edge)}
+#ls-agent-evolution .ae-icon-group{display:flex;align-items:center;gap:15px;font-size:12px}
+#ls-agent-evolution .ae-icon-group svg{width:17px;height:17px}
+#ls-agent-evolution .ae-work-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:stretch}
+#ls-agent-evolution .ae-native{padding:18px 20px 24px;min-width:0}
+#ls-agent-evolution .ae-native-caption{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ae-native-muted)}
+#ls-agent-evolution .ae-native h2{font-size:27px;line-height:1.4;font-weight:650;margin:14px 0 20px}
+#ls-agent-evolution .ae-root-row{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;font-size:14px}
+#ls-agent-evolution .ae-root-row>.ae-dot{flex-shrink:0}
+#ls-agent-evolution .ae-read-button{font-size:12px;padding:0 6px;min-height:24px;border:1px solid var(--ae-native-edge);color:var(--ae-native-link);margin-left:auto}
+#ls-agent-evolution .ae-native-blocks{margin:7px 0 0 12px;border-left:1px solid var(--ae-native-edge);padding-left:5px}
+#ls-agent-evolution .ae-native-node{position:relative;margin-left:calc(var(--level,0)*14px);padding:3px 4px;display:grid;grid-template-columns:14px minmax(0,1fr);gap:5px;border-radius:3px}
+#ls-agent-evolution .ae-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ae-native-dot);margin-top:10px}
+#ls-agent-evolution .ae-dot-button{padding:0;width:14px;min-height:28px;display:flex;justify-content:center;border-radius:3px}
+#ls-agent-evolution .ae-node-text{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+#ls-agent-evolution .ae-node-children{margin-left:11px;border-left:1px solid var(--ae-native-edge);padding-left:4px}
+#ls-agent-evolution .ae-marker{font-weight:600}
+#ls-agent-evolution .ae-task-word{color:var(--ae-native-link);font-weight:650;margin-right:5px}
+#ls-agent-evolution .ae-task-box{display:inline-block;width:11px;height:11px;border:1px solid var(--ae-native-link);margin-right:5px;vertical-align:baseline}
+#ls-agent-evolution .ae-task-box.ae-done{background:var(--ae-native-link);color:var(--ae-native);font-size:10px;line-height:10px;text-align:center}
+#ls-agent-evolution .ae-new{background:var(--ae-added)}
+#ls-agent-evolution .ae-selected{box-shadow:inset 3px 0 0 var(--ae-accent);background:var(--ae-soft)}
+#ls-agent-evolution .ae-native-foot{padding:13px 0 0 16px;color:var(--ae-native-muted);font-size:12px}
+#ls-agent-evolution .ae-workbench{background:var(--ae-paper);color:var(--ae-ink);min-width:0;border-left:5px solid var(--ae-native-edge)}
+#ls-agent-evolution .ae-workbench-top{display:flex;align-items:center;justify-content:space-between;background:var(--ae-bg);padding:8px 15px;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-workbench-heading{padding:9px 16px 0;background:var(--ae-bg)}
+#ls-agent-evolution .ae-kind{display:block;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-workbench h3{font-size:18px;line-height:1.5;font-weight:650;margin:3px 0 7px}
+#ls-agent-evolution .ae-work-actions{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#ls-agent-evolution .ae-options{position:relative;font-size:12px}
+#ls-agent-evolution summary{list-style:none;padding:5px 0}
+#ls-agent-evolution summary::-webkit-details-marker{display:none}
+#ls-agent-evolution .ae-options>summary:after{content:' ▾';color:var(--ae-muted)}
+#ls-agent-evolution .ae-option-menu{position:absolute;right:0;top:100%;z-index:3;background:var(--ae-paper);border:1px solid var(--ae-edge);border-radius:8px;padding:5px;box-shadow:0 8px 25px var(--ae-shadow);width:204px;max-width:calc(100vw - 50px)}
+#ls-agent-evolution .ae-option-menu button{width:100%;font-size:12px}
+#ls-agent-evolution .ae-content-nav{display:flex;gap:13px;align-items:center;flex-wrap:wrap;margin-top:9px;min-height:36px}
+#ls-agent-evolution .ae-content-nav button{border-radius:0;border-bottom:2px solid transparent;padding:6px 0}
+#ls-agent-evolution .ae-content-nav button[aria-pressed=true]{border-bottom-color:var(--ae-accent);color:var(--ae-accent);font-weight:600}
+#ls-agent-evolution .ae-history-button{margin-left:auto;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-reading-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 17px 0;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-reading-controls select{font-size:12px;padding:2px 5px;color:var(--ae-ink)}
+#ls-agent-evolution .ae-reading-controls>.ae-small{margin-left:auto}
+#ls-agent-evolution .ae-workbench-content{padding:15px 17px 18px;min-height:320px}
+#ls-agent-evolution .ae-section{margin:0 0 15px}
+#ls-agent-evolution .ae-section:last-child{margin-bottom:0}
+#ls-agent-evolution .ae-section h4{font-size:14px;color:var(--ae-accent);font-weight:650;margin:0 0 7px}
+#ls-agent-evolution .ae-read-node{display:grid;grid-template-columns:minmax(0,1fr) 23px;gap:3px;padding:3px 3px;border-radius:3px;min-width:0}
+#ls-agent-evolution .ae-read-node>div{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+#ls-agent-evolution .ae-source-button{padding:0;min-height:25px;text-align:center;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-read-children{margin:4px 0 4px 10px;border-left:2px solid var(--ae-edge);padding-left:10px}
+#ls-agent-evolution .ae-read-status{display:inline-block;padding:0 5px;margin-right:5px;border-radius:3px;font-size:12px;background:var(--ae-soft);color:var(--ae-muted);white-space:nowrap}
+#ls-agent-evolution .ae-read-status[data-status=DONE]{color:var(--ae-accent)}
+#ls-agent-evolution .ae-reading-audit{display:flex;flex-wrap:wrap;gap:3px 13px;padding:8px 17px;border-top:1px solid var(--ae-edge);font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-app-foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:7px 14px;border-top:1px solid var(--ae-native-edge);font-size:12px;color:var(--ae-muted);background:var(--ae-bg)}
+#ls-agent-evolution .ae-app-foot>span:last-child{margin-left:auto}
+#ls-agent-evolution .ae-material-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:start;border-bottom:1px solid var(--ae-edge);padding:9px 0}
+#ls-agent-evolution .ae-material-row svg{width:16px;height:16px;margin-top:7px}
+#ls-agent-evolution .ae-material-row button{padding:2px 0;min-width:0}
+#ls-agent-evolution .ae-material-row small{display:block;font-size:12px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-material-empty{padding:22px 0 30px;color:var(--ae-muted)}
+#ls-agent-evolution .ae-material-empty strong{display:block;color:var(--ae-ink);margin-bottom:5px}
+#ls-agent-evolution .ae-file-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+#ls-agent-evolution .ae-file-content h4{font-size:16px;margin:12px 0 8px}
+#ls-agent-evolution .ae-file-content p{margin:8px 0}
+#ls-agent-evolution .ae-data-table{border-collapse:collapse;width:100%;font-size:12px;text-align:left}
+#ls-agent-evolution .ae-data-table :is(th,td){border-bottom:1px solid var(--ae-edge);vertical-align:top;padding:6px 6px 6px 0;overflow-wrap:anywhere}
+#ls-agent-evolution .ae-data-table th{font-weight:600;color:var(--ae-muted)}
+#ls-agent-evolution .ae-pending{margin-top:13px;border-left:3px solid var(--ae-attention);background:var(--ae-bg);padding:9px 11px;font-size:12px}
+#ls-agent-evolution .ae-pending strong{color:var(--ae-attention);display:block;margin-bottom:3px}
+#ls-agent-evolution .ae-history-row{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px;padding:9px 0;border-bottom:1px solid var(--ae-edge);font-size:12px}
+#ls-agent-evolution .ae-history-row button{min-width:0;padding:0}
+#ls-agent-evolution .ae-inspector{margin-top:12px;min-width:0}
+#ls-agent-evolution .ae-inspector-nav{display:flex;gap:13px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--ae-edge)}
+#ls-agent-evolution .ae-inspector-nav button{border-radius:0;border-bottom:2px solid transparent;padding:6px 0;font-size:13px}
+#ls-agent-evolution .ae-inspector-nav button[aria-pressed=true]{color:var(--ae-accent);border-bottom-color:var(--ae-accent);font-weight:600}
+#ls-agent-evolution .ae-explain-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px;padding:12px 0 5px}
+#ls-agent-evolution .ae-dialogue{display:grid;grid-template-columns:45px minmax(0,1fr);gap:8px 9px;align-content:start}
+#ls-agent-evolution .ae-dialogue-label{font-size:12px;color:var(--ae-muted);padding-top:2px}
+#ls-agent-evolution .ae-dialogue p{font-size:13px}
+#ls-agent-evolution .ae-principle{grid-column:1/-1;color:var(--ae-accent);font-size:12px;margin-top:4px!important}
+#ls-agent-evolution .ae-change-title{font-size:12px;color:var(--ae-muted);margin:0 0 4px}
+#ls-agent-evolution .ae-change-rows{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px 8px;font-size:12px}
+#ls-agent-evolution .ae-change-rows>span{color:var(--ae-muted)}
+#ls-agent-evolution .ae-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ae-muted);margin-top:10px}
+#ls-agent-evolution .ae-legend span:before{content:'';display:inline-block;width:7px;height:7px;background:var(--ae-accent);opacity:.3;margin-right:5px}
+#ls-agent-evolution .ae-context-file-nav{display:flex;gap:4px;flex-wrap:wrap;margin:11px 0}
+#ls-agent-evolution .ae-context-file-nav button{font-size:12px;border:1px solid var(--ae-edge)}
+#ls-agent-evolution .ae-context-file-nav button[aria-pressed=true]{background:var(--ae-soft);color:var(--ae-accent)}
+#ls-agent-evolution .ae-context-content{font-size:13px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+#ls-agent-evolution .ae-context-content h4{font-size:13px;margin:0 0 7px}
+#ls-agent-evolution .ae-context-content p{margin:6px 0}
+#ls-agent-evolution .ae-reference-list{margin:0;padding-left:17px}
+#ls-agent-evolution .ae-reference-list li{margin:3px 0}
+#ls-agent-evolution .ae-warning{color:var(--ae-attention)}
+#ls-agent-evolution .ae-version-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+#ls-agent-evolution .ae-version-actions button{font-size:12px;border:1px solid var(--ae-edge)}
+#ls-agent-evolution .ae-rules-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;padding-top:12px;font-size:13px}
+#ls-agent-evolution .ae-rules-grid h4{font-size:13px;margin-bottom:7px}
+#ls-agent-evolution .ae-rules-grid p{margin:5px 0}
+#ls-agent-evolution .ae-rule-save{display:flex;justify-content:space-between;gap:9px;align-items:center;flex-wrap:wrap;margin-top:7px}
+#ls-agent-evolution .ae-workspace-select{display:flex;gap:5px;margin:4px 0 9px;flex-wrap:wrap}
+#ls-agent-evolution .ae-workspace-select button{border:1px solid var(--ae-edge);font-size:12px}
+#ls-agent-evolution .ae-workspace-select button[aria-pressed=true]{background:var(--ae-soft);color:var(--ae-accent)}
+#ls-agent-evolution .ae-rule-preview{padding:9px 12px;background:var(--ae-bg);border-left:2px solid var(--ae-edge);white-space:pre-wrap;font-size:12px;margin:8px 0}
+#ls-agent-evolution .ae-scope-note{font-size:12px;color:var(--ae-muted);margin-top:12px;padding-top:8px;border-top:1px solid var(--ae-edge)}
+@media(max-width:760px){#ls-agent-evolution .ae-work-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#ls-agent-evolution .ae-native{padding:16px 12px}#ls-agent-evolution .ae-native h2{font-size:23px}#ls-agent-evolution .ae-workbench-heading{padding-left:12px;padding-right:12px}#ls-agent-evolution .ae-workbench-content{padding:13px 12px}#ls-agent-evolution .ae-workbench{border-left-width:3px}#ls-agent-evolution .ae-tour-head{padding-right:100px}#ls-agent-evolution .ae-sub{display:block;margin-left:0}#ls-agent-evolution .ae-steps button{display:block}#ls-agent-evolution .ae-step-number{margin-right:4px}}
+@media(max-width:590px){#ls-agent-evolution .ae-work-layout,#ls-agent-evolution .ae-explain-grid,#ls-agent-evolution .ae-context-content,#ls-agent-evolution .ae-rules-grid{grid-template-columns:minmax(0,1fr)}#ls-agent-evolution .ae-native{padding:15px 15px 19px}#ls-agent-evolution .ae-workbench{border-left:0;border-top:5px solid var(--ae-native-edge)}#ls-agent-evolution .ae-workbench-content{min-height:0;padding:14px 16px}#ls-agent-evolution .ae-workbench-heading{padding:11px 16px 0}#ls-agent-evolution .ae-steps{grid-template-columns:repeat(3,minmax(0,1fr))}#ls-agent-evolution .ae-scenes button{flex:1 1 170px}#ls-agent-evolution .ae-step-bar>div:first-child{flex-basis:100%}#ls-agent-evolution .ae-step-actions{margin-left:auto}#ls-agent-evolution .ae-app-top{padding:0 12px}#ls-agent-evolution .ae-icon-group{gap:9px}#ls-agent-evolution .ae-icon-group span{font-size:11px}#ls-agent-evolution .ae-explain-grid{gap:11px}#ls-agent-evolution .ae-context-content,#ls-agent-evolution .ae-rules-grid{gap:15px}#ls-agent-evolution .ae-tour-head strong{font-size:17px}#ls-agent-evolution .ae-tour-head{padding-right:94px}#ls-agent-evolution .ae-simulation{font-size:11px}#ls-agent-evolution .ae-native-blocks{margin-left:5px}#ls-agent-evolution .ae-root-row{gap:5px}#ls-agent-evolution .ae-native h2{margin-bottom:15px}}
+@media(pointer:coarse){#ls-agent-evolution button,#ls-agent-evolution summary{min-height:44px}#ls-agent-evolution .ae-dot-button{width:14px}#ls-agent-evolution .ae-source-button{min-width:28px}#ls-agent-evolution .ae-read-node{grid-template-columns:minmax(0,1fr) 28px}#ls-agent-evolution textarea{font-size:16px}}
+@media(prefers-reduced-motion:no-preference){#ls-agent-evolution .ae-new{animation:ae-arrive .28s ease-out}@keyframes ae-arrive{from{transform:translateY(4px)}to{transform:translateY(0)}}}
+</style>
+<script>
+(()=>{
+  const root=document.getElementById('ls-agent-evolution');
+  const q=s=>root.querySelector(s);
+  const qa=s=>Array.from(root.querySelectorAll(s));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const node=(id,text,role='plain',children=[])=>({id,text,role,children});
+  const clone=x=>JSON.parse(JSON.stringify(x));
+  const flatten=xs=>xs.flatMap(x=>[x,...flatten(x.children)]);
+  const find=(xs,id)=>flatten(xs).find(x=>x.id===id);
+  const base=[
+    node('B01','[目标] 选出一个交通方便、节奏轻松的目的地，留出自由散步的时间。','goal',[node('B02','费用上限是每人 800 元；如果天气不好，可以改为室内活动。')]),
+    node('B03','**[想法]** 先比较两处目的地，不急着把所有景点排满。','idea',[node('B04','可能湖边更合适，但现在还不确定。'),node('B05','[注] 同行的人容易疲劳，连续步行最好控制在半小时以内。','note')]),
+    node('B06','TODO [事务] 核对住宿与返程安排','task',[node('B07','[问题] “可取消”是不是等于全额退款？','question')]),
+    node('B08','[记录] 这次先做比较，目的地还没有决定。','record')
+  ];
+  const discussionBase=[
+    node('D01','[目标] 这次出门想轻松一点，不想把周末变成赶任务。','goal'),
+    node('D02','[想法] 我有点想去湖边，不过也可能只是最近太想换个环境。','idea',[node('D03','还没想清楚是想出去走走，还是想找一个安静的地方待着。')]),
+    node('D04','预算先按每人 800 元考虑，还没问同行的人。','note')
+  ];
+  const scratchBase=[
+    node('S01','周末？湖边可能不错，但天气还没看。'),
+    node('S02','别太满。想留一段空白时间。'),
+    node('S03','800 / 人？还得问一下。'),
+    node('S04','可取消不一定全退，这个要真的查一下。'),
+    node('S05','想留一段空白时间。'),
+    node('S06','同行的人容易累，别连续走太久。')
+  ];
+  const compareFile={id:'F01',name:'目的地比较.md',size:'完整比较 · Agent 撰写 · 演示材料',kind:'comparison'};
+  const conditionFile={id:'F02',name:'住宿与返程核对.md',size:'完成依据 · 条款与车次 · 演示材料',kind:'evidence'};
+  const planFile={id:'F03',name:'轻松出游的候选方向.md',size:'讨论材料 · 两个方向仍保留 · 演示材料',kind:'options'};
+  const scenes={
+    execute:{name:'边做边记录',foot:'一个事务承接目标、过程和结果；搜索操作不会逐条变成笔记。',steps:[
+      {label:'已有记录',title:'先有一个值得推进的工作',rev:1,user:'先把这个周末旅行放在这里。比较一下，但别急着决定目的地。',agent:'我会围绕“核对住宿与返程”推进，保留你对轻松节奏和天气的条件。',reading:'完整原文的当前读法；选择不同编排不会改左边。',notes:'原文 v1，8 个块；任务仍是 TODO。',files:'还没有新增材料。',principle:'内聚性：记录围绕同一个问题长出来，不按对话次数堆积。'},
+      {label:'带走现场',title:'从现在的工作跳到 Agent 能理解的现场',rev:1,user:'请比较两处的交通、住宿和取消条件；材料写在这个工作目录里。',agent:'我得到原文、任务范围、相关文件和写作约定。需要查的事实、还没决定的偏好分开处理。',reading:'可以给出新的阅读编排；原句和所属条件继续保留。',notes:'仍是 v1；带走现场没有自动写回笔记。',files:'明确产物目录：本工作的材料目录。',principle:'现场包含“我现在要做什么”，以及“哪些仍然不确定”。'},
+      {label:'产生材料',title:'Agent 先做事，结果成为可阅读的材料',rev:1,user:'把比较写成一份材料，我想直接看两处的差别。',agent:'已写出目的地比较。取消条款尚未核实，因此没有把事务标成完成。',reading:'点“材料”可以打开完整比较；正文仍可换编排。',notes:'原文仍是 v1；没有因为生成文件就新增一串 TODO。',files:'新增并关联“目的地比较.md”。',principle:'文件承载详细产物；笔记只需承接值得留下的进展。',filesList:[compareFile],suggestedTab:'material'},
+      {label:'回记进展',title:'顺带记录一次有意义的阶段变化',rev:2,user:'交通比较做完就记一下；不必把每次搜索都留下来。',agent:'我把进展接在原来的事务下，交通核对可以 DONE；住宿条款仍待核对。',reading:'同一事务下能读到已完成部分、材料和未解决问题。',notes:'原文 v1 → v2；原事务下增加一个 DONE 和一条阶段记录。',files:'“目的地比较.md”继续作为详细依据。',principle:'“一个子步骤完成”与“整个事务完成”是两个不同事实。',filesList:[compareFile]},
+      {label:'继续交流',title:'你的新想法接回原来的思考，而非另起一份总结',rev:3,user:'我还是比较喜欢湖边，不过下雨就改室内；而且不想起太早。',agent:'我保留“比较喜欢”和“不过”，把新的条件接回这条想法。不会替你写成“已决定去湖边”。',reading:'偏好、条件和待办可以靠近阅读，原有句子继续完整出现。',notes:'v2 → v3；补充到现有“想法”下面，未把偏好升级成决策。',files:'比较材料不因偏好变化而丢失另一处选项。',principle:'保留你的语气，也保留想法如何改变的过程。',filesList:[compareFile]},
+      {label:'有据完成',title:'完成一个事务，同时保留尚未决定的项目',rev:4,user:'条款和返程也核对清楚后，把这个事务完成；天气留到出发前再看。',agent:'核对事务已有完整依据，变为 DONE。新增出发前查天气的 TODO；项目和目的地仍未被自动宣布完成。',reading:'“已有进展 / 条件与权衡 / 后续行动”能读出当前状态。',notes:'v3 → v4；仅完成“核对住宿与返程”，天气任务仍是 TODO。',files:'新增“住宿与返程核对.md”，保留实际完成依据。',principle:'任务状态跟着完成条件走；项目完成不能由子任务数量推断。',filesList:[compareFile,conditionFile]}
+    ]},
+    discuss:{name:'讨论后沉淀',foot:'讨论可以很长；笔记只留下以后还需要继续使用的想法、条件和问题。',steps:[
+      {label:'模糊起点',title:'尚未成形的想法也有一个稳定的落点',rev:1,user:'我现在还说不太清楚，只觉得周末想出去一下。',agent:'先把你的原话当作起点。“想换环境”和“想轻松一点”可能是两件事，暂时不合成结论。',reading:'把目标和思考分开读，不给想法贴“已定方案”的标题。',notes:'原文 v1；“有点”“可能”“还没想清楚”全部保留。',files:'还不需要额外材料。',principle:'清楚的呈现可以容纳模糊的想法。'},
+      {label:'先聊清楚',title:'先展开对话，暂时不把每一句都写进笔记',rev:1,user:'可能更想安静待着。但如果一直在室内，我又怕觉得没出来过。',agent:'那我们保留两个方向：轻松散步，或找安静的地方。现在是讨论，笔记尚未被写回。',reading:'仍读取原文；对话中的新推断没有混进原文。',notes:'仍是 v1；这轮交流没有新增块。',files:'没有新增文件。',principle:'一段对话不必对应一条永久记录。'},
+      {label:'挑选落点',title:'Agent 提出少量沉淀候选，意义不清楚处继续交流',rev:1,user:'可以留一点，但别整理得像一个已经确定的计划。',agent:'建议把“散步”和“安静待着”的权衡放在现有想法下，把预算是否合适保留为问题。',reading:'候选有明确的落点，当前正文仍展示已保存原文。',notes:'候选尚未写回；正文还是 v1。',files:'暂不生成一份重复正文的“总结文件”。',principle:'先判断什么值得留下，再决定怎样写。',pending:'建议追加到“想法”下：可能更想安静待着，但又担心一直在室内会觉得没出来过。预算是否合适，仍需问同行的人。'},
+      {label:'少量沉淀',title:'把有后续价值的想法留在同一个主题中',rev:2,user:'这样放可以。保留我前面的原话，新想到的往下补。',agent:'已在现有想法下补充权衡，并新增一个预算问题。没有整篇重写，也没有复制整段聊天。',reading:'思考及其补充一起读；问题独立可见。',notes:'v1 → v2；新增两条有效记录，原来的思考过程继续在场。',files:'没有为了每轮交流新增材料。',principle:'同一问题持续发展，比每轮生成一份总结更容易接着想。'},
+      {label:'继续发展',title:'新材料帮助讨论；新的偏好仍然保留余地',rev:3,user:'把两个方向的差别写成一份短材料吧。我目前偏向散步，但还要问一下。',agent:'材料保留两个方向；“目前偏向”作为一条补充，不把它写成共同决定。',reading:'正文读思考过程，材料看详细比较。',notes:'v2 → v3；原主题下继续补充偏好及待确认条件。',files:'新增“轻松出游的候选方向.md”。',principle:'详细材料和思考笔记各有用途，通过关联保持同一现场。',filesList:[planFile]},
+      {label:'带着问题',title:'讨论暂告一段落，尚未决定的内容仍然可见',rev:4,user:'先聊到这里。问同行的人是不是也想散步，这个可以记成待办。',agent:'只把明确要做的询问记为 TODO。你对方向的倾向仍是想法，“预算是否合适”仍是问题。',reading:'目标、思考、问题和行动在同一主题里。',notes:'v3 → v4；增加询问同行人的 TODO，没有给每个问题都自动建任务。',files:'候选材料继续关联在这个项目下。',principle:'想法、问题、行动和决策具有不同含义，不必全部变成 TODO。',filesList:[planFile]}
+    ]},
+    scratch:{name:'零散记录再发展',foot:'按你的原有习惯随手记；Agent 的整理深度由你这次想做的事决定。',steps:[
+      {label:'先随手记',title:'零散原文是思考的入口，不需要先写得工整',rev:1,user:'我先零散记这些，暂时没有想好结构。',agent:'我先保留这些句子。两次出现的“空白时间”都在，不能只因为重复就删掉。',reading:'未指定整理含义时，保留原顺序和全部原句。',notes:'原文 v1，6 个块；没有添加标签或改任务状态。',files:'还没有材料。',principle:'输入可以零散，保存和来源必须可靠。'},
+      {label:'换个读法',title:'先让它好读：只改变阅读层',rev:1,user:'先排得好读一点，我的原文别动。',agent:'我用“方向 / 节奏与条件 / 待确认事项”来编排。正文直接取原块，保留“可能”“？”和两次重复。',reading:'右边已经按关系聚合；切回原结构可检查每一句。',notes:'仍是 v1；原文内容、顺序、任务状态全部没变。',files:'只产生阅读方案，没有新写材料。',principle:'编排可变，原文不变；条件必须跟着它所限定的想法。'},
+      {label:'整理建议',title:'你希望真正整理笔记时，先看含义与落点',rev:1,user:'接下来按我常用的想法、注意点、任务整理。可取消这件事确实要去查。',agent:'建议保留原话，用行首标记和父子关系整理；只有你明确要查的取消条款转成 TODO。',reading:'显示候选说明，原文正文仍是 v1。',notes:'还未写回；格式调整和新增任务都能提前看清。',files:'不额外创建一份“整理后原文”文件。',principle:'好读、格式整理和语义决定是三件可以分别处理的事。',pending:'保留原句；给想法与条件加已有标记；把同行人的疲劳条件放到节奏下；“可取消”这句成为 TODO；“800 / 人？”继续保持待确认。'},
+      {label:'写回结构',title:'真正改了笔记：标记、层级和一个明确任务',rev:2,user:'可以这样整理。那两次空白时间先保留，我确实是在不同时候想到的。',agent:'已调整标记与层级，明确的查条款任务新增 TODO。两条相同记录保留为两个不同来源。',reading:'右边使用新的原文 v2；同一段可用不同编排阅读。',notes:'v1 → v2；实际写回了标记与父子关系，仍保留原话。',files:'没有文件变更。',principle:'真正写回的变化要可回看；来源身份不能由重复句子合并掉。'},
+      {label:'保留声音',title:'共同写作通过补充推进，保留你的表达',rev:3,user:'我其实不是想把整个行程规划完，只是想先降低临时做决定的压力。',agent:'这句话放到当前想法下。它解释了为什么留空白时间，我不会把它改写成“高效旅行方案”。',reading:'想法、原因与限制一起呈现，语气和不确定性还在。',notes:'v2 → v3；补充一个原因，原来的零散句子全部保留。',files:'仍不需要新文件。',principle:'Agent 的建议帮助你把意思展开，不替换成另一种声音。'},
+      {label:'再次迭代',title:'记录可以再变零散，Agent 继续接回已有主题',rev:4,user:'补一条：如果同行的人这周很累，那就别安排必须打卡的地方。',agent:'新条件接到“同行的人容易累”下面；它没有被误写成取消整个旅行，也没有另起一份重复总结。',reading:'局部关系更新，已有思考、重复句和 TODO 都仍可读。',notes:'v3 → v4；在现有注意点下新增条件，任务还是 TODO。',files:'没有文件变更。',principle:'记录 → 编排 → 交流 → 写回 → 再记录，可以反复循环。'}
+    ]}
+  };
+  function snapshot(scene,step){
+    let blocks=clone(scene==='execute'?base:scene==='discuss'?discussionBase:scratchBase);
+    if(scene==='execute'){
+      if(step>=3){const t=find(blocks,'B06');t.children.push(node('B09','DONE 核对两处目的地的交通安排','task'),node('B10','[记录] 两处交通已比较，住宿取消条款仍需核对。详情见材料“目的地比较.md”。','record'));}
+      if(step>=4)find(blocks,'B03').children.push(node('B11','[想法] 我还是比较喜欢湖边，不过下雨就改室内；而且不想起太早。','idea'));
+      if(step>=5){find(blocks,'B06').text='DONE [事务] 核对住宿与返程安排';find(blocks,'B06').children.push(node('B12','[记录] 已核对条款：演示住宿可在约定期限前全退；两处均有傍晚返程。详见材料“住宿与返程核对.md”。','record'));blocks.push(node('B13','TODO 出发前再看天气预报','task',[node('B14','[注] 目的地还没最终决定；下雨就以室内活动为主。','note')]));}
+    }else if(scene==='discuss'){
+      if(step>=3){find(blocks,'D02').children.push(node('D05','[想法] 可能更想安静待着，但又担心一直在室内会觉得没出来过。','idea'));blocks.push(node('D06','[问题] 每人 800 元的预算，同行的人觉得合适吗？','question'));}
+      if(step>=4){find(blocks,'D02').children.push(node('D07','[想法] 我目前偏向散步，但还要问一下同行的人。','idea'));blocks.push(node('D08','[记录] 两个候选方向的差别见材料“轻松出游的候选方向.md”。','record'));}
+      if(step>=5)blocks.push(node('D09','TODO 问同行的人是不是也想轻松散步','task',[node('D10','[注] 询问之后再一起决定方向。','note')]));
+    }else if(step>=3){
+      blocks=[node('S01','[想法] 周末？湖边可能不错，但天气还没看。','idea',[node('S03','[注] 800 / 人？还得问一下。','note')]),node('S02','[想法] 别太满。想留一段空白时间。','idea',[node('S06','[注] 同行的人容易累，别连续走太久。','note')]),node('S04','TODO 可取消不一定全退，这个要真的查一下。','task'),node('S05','[记录] 想留一段空白时间。','record')];
+      if(step>=4)find(blocks,'S02').children.push(node('S07','[想法] 我其实不是想把整个行程规划完，只是想先降低临时做决定的压力。','idea'));
+      if(step>=5)find(blocks,'S06').children.push(node('S08','[注] 如果同行的人这周很累，那就别安排必须打卡的地方。','note'));
+    }
+    return {blocks,files:clone(scenes[scene].steps[step].filesList||[])};
+  }
+  const defaults={scene:'execute',step:0,layout:'relations',tab:'body',inspector:'step',contextTab:'overview',selected:null,selectedFile:null,history:null,manual:false,fresh:true,workspace:'travel',shared:'保留我的语气、思考过程和不确定判断。\n不把“可能”“暂时”“还没想清楚”写成确定结论。\n记录围绕原来的问题生长；详细产物放材料里。',sharedRev:1,loaded:{travel:1,plugin:1},loadedRules:{}};
+  let state=clone(defaults);
+  function restore(saved){
+    const p=saved&&saved.privateContent;if(!p||p.schema!==1)return;
+    if(scenes[p.scene])state.scene=p.scene;
+    if(Number.isInteger(p.step)&&p.step>=0&&p.step<6)state.step=p.step;
+    for(const k of ['layout','tab','inspector','contextTab','workspace'])if(typeof p[k]==='string')state[k]=p[k];
+    if(!['relations','structure','progress'].includes(state.layout))state.layout='relations';
+    if(!['body','material','history'].includes(state.tab))state.tab='body';
+    if(!['step','context','rules'].includes(state.inspector))state.inspector='step';
+    if(!['overview','references','boundary'].includes(state.contextTab))state.contextTab='overview';
+    if(!['travel','plugin'].includes(state.workspace))state.workspace='travel';
+    if(typeof p.shared==='string'&&p.shared.length<=900)state.shared=p.shared;
+    if(Number.isInteger(p.sharedRev)&&p.sharedRev>0&&p.sharedRev<1000)state.sharedRev=p.sharedRev;
+    for(const w of ['travel','plugin'])if(p.loaded&&Number.isInteger(p.loaded[w])&&p.loaded[w]>0&&p.loaded[w]<=state.sharedRev)state.loaded[w]=p.loaded[w];
+    if(p.loadedRules&&typeof p.loadedRules==='object')for(const w of ['travel','plugin'])if(typeof p.loadedRules[w]==='string'&&p.loadedRules[w].length<=900)state.loadedRules[w]=p.loadedRules[w];
+    state.manual=p.manual===true;state.fresh=p.fresh!==false;
+  }
+  try{restore(window.openai&&window.openai.widgetState);}catch(_e){}
+  for(const w of ['travel','plugin'])if(!state.loadedRules[w])state.loadedRules[w]=state.shared;
+  function save(){
+    if(!window.openai||typeof window.openai.setWidgetState!=='function')return;
+    const modelContent={scene:scenes[state.scene].name,step:scenes[state.scene].steps[state.step].label,readingLayout:state.layout,view:state.inspector,sharedGuidance:state.shared,sourceChangedAfterHandoff:state.manual&&!state.fresh};
+    const privateContent={schema:1,...state,selected:null,selectedFile:null,history:null};
+    try{const p=window.openai.setWidgetState({modelContent,privateContent});if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_e){}
+  }
+  function current(){const s=snapshot(state.scene,state.step);if(state.manual)s.blocks.push(node('U01','[注] 我刚补了一句：先别急着定下来，同行的人还没回复。','note'));return s;}
+  function revision(){return scenes[state.scene].steps[state.step].rev+(state.manual?1:0);}
+  function inline(text){return esc(text).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\[\[([^\]]+)\]\]/g,'<span class="ae-link">[[$1]]</span>');}
+  function projection(text){return text.replace(/^(TODO|DONE)\s+/,'').replace(/^(?:\*\*)?\[(目标|想法|注|说明|记录|问题|事务|任务)\](?:\*\*)?\s*/,'');}
+  function statusOf(text){const m=text.match(/^(TODO|DONE)\s/);return m?m[1]:null;}
+  function nativeText(n){let t=n.text;const status=statusOf(t);let lead='';if(status){t=t.replace(/^(TODO|DONE)\s+/,'');lead='<span class="ae-task-box '+(status==='DONE'?'ae-done':'')+'" aria-hidden="true">'+(status==='DONE'?'✓':'')+'</span><span class="ae-task-word">'+status+'</span>';}
+    return lead+inline(t);
+  }
+  function newIds(){if(state.step===0)return new Set();const before=snapshot(state.scene,state.step-1);const previous=new Map(flatten(before.blocks).map(x=>[x.id,{text:x.text,parent:parentOf(before.blocks,x.id)}]));return new Set(flatten(current().blocks).filter(x=>!previous.has(x.id)||previous.get(x.id).text!==x.text||previous.get(x.id).parent!==parentOf(current().blocks,x.id)).map(x=>x.id));}
+  function parentOf(xs,id,parent='root'){for(const n of xs){if(n.id===id)return parent;const r=parentOf(n.children,id,n.id);if(r)return r;}return null;}
+  function nativeNodes(xs,changed){return xs.map(n=>'<div><div class="ae-native-node '+(changed.has(n.id)?'ae-new ':'')+(state.selected===n.id?'ae-selected':'')+'" data-native-id="'+n.id+'"><button type="button" class="ae-dot-button cursor-interaction" data-source="'+n.id+'" aria-label="查看来源 '+n.id+'"><span class="ae-dot" aria-hidden="true"></span></button><div class="ae-node-text">'+nativeText(n)+'</div></div>'+(n.children.length?'<div class="ae-node-children">'+nativeNodes(n.children,changed)+'</div>':'')+'</div>').join('');}
+  function readNodes(xs,changed,seen){return xs.map(n=>{seen.push(n.id);const status=statusOf(n.text);return '<div><div class="ae-read-node '+(changed.has(n.id)?'ae-new ':'')+(state.selected===n.id?'ae-selected':'')+'" data-read-id="'+n.id+'"><div>'+(status?'<span class="ae-read-status" data-status="'+status+'">'+(status==='DONE'?'已完成':'待办')+'</span>':'')+inline(projection(n.text))+'</div><button type="button" class="ae-source-button cursor-interaction" data-source="'+n.id+'" aria-label="定位原文 '+n.id+'">↗</button></div>'+(n.children.length?'<div class="ae-read-children">'+readNodes(n.children,changed,seen)+'</div>':'')+'</div>';}).join('');}
+  function groupPlan(blocks){
+    if(state.layout==='structure')return [{title:'原结构 · 全文',nodes:blocks}];
+    if(state.scene==='scratch'&&state.step<3){
+      if(state.step===0)return [{title:'随手记录',nodes:blocks}];
+      const ids=state.layout==='progress'?[['已记录的方向',['S01']],['保留的节奏与条件',['S02','S05','S06']],['接下来仍需确认',['S03','S04']]]:[['方向',['S01']],['节奏与条件',['S02','S05','S06']],['待确认事项',['S03','S04']]];
+      return ids.map(([title,keys])=>({title,nodes:blocks.filter(n=>keys.includes(n.id))})).concat(blocks.some(n=>n.id==='U01')?[{title:'新补充',nodes:blocks.filter(n=>n.id==='U01')}]:[]);
+    }
+    const groups=state.layout==='progress'?[['出发点',['goal']],['保留的想法与条件',['idea','note','plain']],['推进与后续',['task','record','question']]]:[['目标',['goal']],['思考与条件',['idea','note','plain']],['问题与行动',['question','task']],['阶段记录',['record']]];
+    return groups.map(([title,roles])=>({title,nodes:blocks.filter(n=>roles.includes(n.role))})).filter(g=>g.nodes.length);
+  }
+  function fileContent(file){
+    if(file.kind==='comparison')return '<h4>两处目的地比较</h4><table class="ae-data-table"><thead><tr><th>维度</th><th>湖边</th><th>小城</th></tr></thead><tbody><tr><td>交通</td><td>上午出发，约 1 小时</td><td>上午出发，约 1.5 小时</td></tr><tr><td>人均估算</td><td>约 720 元</td><td>约 660 元</td></tr><tr><td>节奏</td><td>湖边散步，留空白时间</td><td>街区散步，室内去处更多</td></tr><tr><td>雨天条件</td><td>需确认室内备选</td><td>可转室内活动</td></tr><tr><td>取消条款</td><td>待核对具体期限</td><td>待核对退款比例</td></tr></tbody></table><p class="ae-small">这是演示用的合成资料，未查询真实价格或时刻。</p><p>两处均保留。当前偏好不是最终决定；预算、天气和同行人的体力继续作为条件。</p>';
+    if(file.kind==='evidence')return '<h4>核对依据</h4><p>演示住宿条款：在约定取消期限前可全额退款；超过期限有扣费。这里同时保留限制，不能只写“可取消”。</p><p>两处都有傍晚返程；出发前仍需确认当天班次和天气。</p><table class="ae-data-table"><thead><tr><th>完成条件</th><th>演示结果</th></tr></thead><tbody><tr><td>核对交通</td><td>已完成</td></tr><tr><td>核对住宿与取消限制</td><td>已完成，限制已记录</td></tr><tr><td>核对返程安排</td><td>已完成</td></tr><tr><td>决定目的地 / 查出发前天气</td><td>仍未完成，属于后续工作</td></tr></tbody></table><p class="ae-small">材料支持的是核对事务的完成，不代表整个项目完成。</p>';
+    return '<h4>轻松出游的两个候选方向</h4><table class="ae-data-table"><thead><tr><th>方向</th><th>能满足什么</th><th>仍需考虑</th></tr></thead><tbody><tr><td>轻松散步</td><td>换环境、能走走、保留空白</td><td>同行人的体力与天气</td></tr><tr><td>安静待着</td><td>休息、减少临时决定</td><td>会不会觉得没有出门</td></tr></tbody></table><p>你目前偏向散步，但还要问一下。这里保留两种方向，也保留“目前”的时效。</p>';
+  }
+  function renderWorkbench(data,changed){
+    const seen=[];q('#ae-reading-controls').hidden=state.tab!=='body';
+    q('#ae-layout').value=state.layout;
+    q('#ae-tab-body').setAttribute('aria-pressed',String(state.tab==='body'));q('#ae-tab-material').setAttribute('aria-pressed',String(state.tab==='material'));q('#ae-tab-history').setAttribute('aria-pressed',String(state.tab==='history'));
+    q('#ae-material-count').textContent=data.files.length;
+    let html='';
+    if(state.tab==='body'){
+      html=groupPlan(data.blocks).map(g=>'<section class="ae-section"><h4>'+esc(g.title)+'</h4>'+readNodes(g.nodes,changed,seen)+'</section>').join('');
+      const pending=scenes[state.scene].steps[state.step].pending;if(pending)html+='<div class="ae-pending"><strong>整理候选 · 尚未写回</strong>'+esc(pending)+'</div>';
+    }else if(state.tab==='material'){
+      const file=data.files.find(f=>f.id===state.selectedFile);
+      if(file)html='<div class="ae-file-head"><button type="button" class="cursor-interaction" data-file-back>← 返回材料</button><strong>'+esc(file.name)+'</strong><span class="ae-small">只读预览</span></div><div class="ae-file-content">'+fileContent(file)+'</div>';
+      else if(!data.files.length)html='<div class="ae-material-empty"><strong>此工作还没有材料</strong>后续推进会出现关联文件。<p class="ae-small">真实工作台中，拖入文件会复制到此工作的默认目录，保留原文件。</p></div>';
+      else html='<div class="ae-small">此工作的材料 · 名称是阅读入口</div>'+data.files.map(f=>'<div class="ae-material-row"><i data-lucide="file-text" aria-hidden="true"></i><button type="button" class="cursor-interaction" data-file="'+f.id+'">'+esc(f.name)+'<small>'+esc(f.size)+'</small></button><span class="ae-small">已关联</span></div>').join('');
+    }else{
+      if(state.history!==null){const old=snapshot(state.scene,state.history);html='<div class="ae-file-head"><button type="button" class="cursor-interaction" data-history-back>← 返回历史</button><strong>原文 v'+scenes[state.scene].steps[state.history].rev+'</strong><span class="ae-small">只读 · 演示快照</span></div><section class="ae-section"><h4>'+esc(scenes[state.scene].steps[state.history].label)+'</h4>'+readNodes(old.blocks,new Set(),[])+'</section>';}
+      else {const unique=[];for(let i=0;i<=state.step;i++)if(!unique.some(x=>x.rev===scenes[state.scene].steps[i].rev))unique.push({step:i,rev:scenes[state.scene].steps[i].rev,label:scenes[state.scene].steps[i].title});html='<div class="ae-small">查看原文的演示版本 · 阅读编排不生成正文版本</div>'+unique.reverse().map(x=>'<div class="ae-history-row"><span>v'+x.rev+'</span><button type="button" class="cursor-interaction" data-history="'+x.step+'">'+esc(x.label)+'</button></div>').join('');}
+    }
+    q('#ae-workbench-content').innerHTML=html;
+    const total=flatten(data.blocks).length;
+    const valid=seen.length===total&&new Set(seen).size===total;
+    q('#ae-reading-audit').innerHTML=state.tab==='body'?'<span>'+seen.length+'/'+total+' 个来源块'+(valid?' · 全部呈现':' · 请检查')+'</span><span>原句取自 v'+revision()+'</span><span>只换编排不产生写回</span>':'<span>当前正文 v'+revision()+'</span><span>材料 '+data.files.length+' 份</span><span>'+ (state.tab==='history'?'历史只读':'关联到同一个工作')+'</span>';
+    root.dataset.sourceCount=String(total);root.dataset.renderedSourceCount=String(seen.length);root.dataset.sourceRevision=String(revision());root.dataset.layout=state.layout;
+  }
+  function renderStep(meta){return '<div class="ae-explain-grid"><div class="ae-dialogue"><span class="ae-dialogue-label">你说</span><p>'+esc(meta.user)+'</p><span class="ae-dialogue-label">Agent</span><p>'+esc(meta.agent)+'</p><p class="ae-principle">'+esc(meta.principle)+'</p></div><div><div class="ae-change-title">这一步影响哪些地方</div><div class="ae-change-rows"><span>阅读层</span><div>'+esc(meta.reading)+'</div><span>笔记</span><div>'+esc(meta.notes)+'</div><span>文件</span><div>'+esc(meta.files)+'</div></div><div class="ae-legend"><span>浅绿：本步新增或改动</span><span>↗：定位同一来源</span></div></div></div>';}
+  function renderContext(meta,data){
+    const nav='<div class="ae-context-file-nav"><button type="button" class="cursor-interaction" data-context="overview" aria-pressed="'+(state.contextTab==='overview')+'">当前工作</button><button type="button" class="cursor-interaction" data-context="references" aria-pressed="'+(state.contextTab==='references')+'">参考文件</button><button type="button" class="cursor-interaction" data-context="boundary" aria-pressed="'+(state.contextTab==='boundary')+'">范围与版本</button></div>';
+    let content='';
+    if(state.contextTab==='overview')content='<div><h4>WORKSPACE.md · 工作入口示意</h4><p><strong>工作：</strong>整理一次周末短途旅行</p><p><strong>现在要做：</strong>'+esc(meta.user)+'</p><p><strong>已保存原文：</strong>v'+revision()+'，'+flatten(data.blocks).length+' 个有独立来源的块。</p><p><strong>当前阅读：</strong>'+({relations:'按阅读关系',structure:'按原结构',progress:'按推进阶段'}[state.layout])+'；它是读法，不能拿来替代原文。</p></div><div><h4>仍然需要保留的现场</h4><p>你的原话、父子关系、重复句和未确认判断；已有材料及其所属工作；当前问题与未完成任务。</p><p>只带你选中的交流目的及必要背景。未保存输入要标明是草稿，不能当作已保存原文。</p><p class="ae-small">从当前工作发起协作，Agent 有一个可继续的入口；换项目后要重新确定现场。</p></div>';
+    else if(state.contextTab==='references')content='<div><h4>此工作带给 Agent 的文件</h4><ul class="ae-reference-list"><li><code>WORKSPACE.md</code>：工作身份、当前目标、入口。</li><li><code>source/original.md</code>：完整原文，保留记录风格。</li><li><code>source/source.json</code>：来源块与层级映射。</li><li><code>source/version.json</code>：这次读取的版本。</li><li><code>materials/</code>：'+(data.files.length?data.files.map(f=>esc(f.name)).join('、'):'目前无材料')+'。</li></ul></div><div><h4>指导和参考</h4><ul class="ae-reference-list"><li>个人共享协作约定：保留声音、记录落点、编排边界。</li><li>项目约定：这次预算、步行条件和未决定的方向。</li><li>正反示例：保留“目前偏向”，不写成“已决定”。</li><li>本次要求：'+esc(meta.user)+'</li></ul><p class="ae-small">这些是现场包的示意；具体导出名称与入口以最终接入为准。</p></div>';
+    else content='<div><h4>本次授权的作用范围</h4><p><strong>阅读：</strong>给同一原文生成新的编排，正文取自来源。</p><p><strong>文件：</strong>在此工作允许的材料目录里写产物。</p><p><strong>笔记：</strong>按你的要求补充或整理相关块；明确任务有完成依据后才能改状态。</p><p>“在文件系统里能写”不等于“可随意改 Graph 文件”；笔记写回要保持来源与版本关系。</p></div><div><h4>现场变了，旧建议怎样处理</h4><p>Agent 读取：<strong>v'+(revision()-(state.manual&&!state.fresh?1:0))+'</strong>　当前原文：<strong>v'+revision()+'</strong></p><p class="'+(!state.fresh?'ae-warning':'')+'">'+(!state.fresh?'你在左边新加了一句。旧现场已经过时，后续写回先停住；这句不能被旧建议覆盖。':'读取版本与当前现场一致，可以在已约定的范围继续。')+'</p><div class="ae-version-actions"><button type="button" class="cursor-interaction" data-add-user '+(state.manual?'disabled':'')+'>模拟我又补了一句</button><button type="button" class="'+(!state.fresh?'ae-primary ':'')+'cursor-interaction" data-reread '+(state.fresh?'disabled':'')+'>重新读取现场</button></div><p class="ae-small">此处只演示版本原则，不进行任何真实写回。</p></div>';
+    return nav+'<div class="ae-context-content">'+content+'</div>';
+  }
+  function renderRules(){
+    const w=state.workspace;const specific=w==='travel'?'预算按每人 800 元；条件和偏好留在原来的想法下面。':'完成软件任务时，阶段进展接到当前事务；详细验证结果放材料。';
+    return '<div class="ae-rules-grid"><div><h4>一份共同约定 · 唯一维护位置</h4><p class="ae-small">示意文件：个人协作约定 / 协作.md</p><label for="ae-shared-rules">你希望 Agent 共同遵守的写作与记录习惯</label><textarea id="ae-shared-rules" maxlength="900">'+esc(state.shared)+'</textarea><div class="ae-rule-save"><span class="ae-small">共享文件 v'+state.sharedRev+'</span><button type="button" class="ae-primary cursor-interaction" data-save-rules>保存共同约定（演示）</button></div><p class="ae-small">只改这一份。各工作区入口指向它；跨机器时可以生成带版本的副本。</p></div><div><h4>不同工作区读到什么</h4><div class="ae-workspace-select"><button type="button" class="cursor-interaction" data-workspace="travel" aria-pressed="'+(w==='travel')+'">旅行工作区 · v'+state.loaded.travel+'</button><button type="button" class="cursor-interaction" data-workspace="plugin" aria-pressed="'+(w==='plugin')+'">插件工作区 · v'+state.loaded.plugin+'</button></div><p><strong>共同规则：</strong>由此工作区的 Agent 入口读取共享文件。</p><div class="ae-rule-preview">'+esc(state.loadedRules[w])+'</div><p><strong>项目补充：</strong>'+esc(specific)+'</p><div class="ae-rule-save"><span class="ae-small '+(state.loaded[w]<state.sharedRev?'ae-warning':'')+'">'+(state.loaded[w]<state.sharedRev?'此入口仍在用旧版；重新读取后采用新版。':'此入口已读取共享 v'+state.loaded[w]+'。')+'</span><button type="button" class="cursor-interaction" data-load-rules '+(state.loaded[w]===state.sharedRev?'disabled':'')+'>让此入口重新读取</button></div><p class="ae-small">不同 Agent 用各自的配置入口加载同一份约定。放好文件或链接，并不代表当前会话已经读到更新。</p></div></div>';
+  }
+  function renderInspector(){
+    qa('[data-inspector]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inspector===state.inspector)));
+    const meta=scenes[state.scene].steps[state.step];const data=current();
+    q('#ae-inspector-content').innerHTML=state.inspector==='step'?renderStep(meta):state.inspector==='context'?renderContext(meta,data):renderRules();
+  }
+  function render(){
+    const scene=scenes[state.scene],meta=scene.steps[state.step],data=current(),changed=newIds();
+    if(state.manual)changed.add('U01');
+    qa('[data-scene]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scene===state.scene)));
+    q('#ae-steps').innerHTML=scene.steps.map((s,i)=>'<button type="button" class="cursor-interaction" data-step="'+i+'" '+(i===state.step?'aria-current="step"':'')+' aria-label="第 '+(i+1)+' 步：'+esc(s.label)+'"><span class="ae-step-number">'+(i+1)+'</span>'+esc(s.label)+'</button>').join('');
+    q('#ae-step-position').textContent=(state.step+1)+'/6';q('#ae-step-title').textContent=meta.title;
+    q('#ae-prev').disabled=state.step===0;q('#ae-next').disabled=state.step===5;q('#ae-next').textContent=state.step===5?'本段演练到此':'推进一步 →';
+    q('#ae-native-version').textContent='原文 v'+revision()+' · '+flatten(data.blocks).length+' 块';
+    q('#ae-native-blocks').innerHTML=nativeNodes(data.blocks,changed);q('#ae-native-foot').textContent=scene.foot;
+    renderWorkbench(data,changed);renderInspector();
+    root.dataset.scene=state.scene;root.dataset.step=String(state.step);root.dataset.fresh=String(state.fresh);
+    if(window.lucide&&typeof window.lucide.createIcons==='function')window.lucide.createIcons({attrs:{width:16,height:16}});
+  }
+  function status(text){q('#ae-status').textContent=text;}
+  function move(step){
+    const target=Math.max(0,Math.min(5,step));
+    if(target>state.step&&!state.fresh){state.inspector='context';state.contextTab='boundary';renderInspector();status('现场已改变：先重新读取，保留你刚补充的句子，再继续。');save();return;}
+    state.step=target;state.selected=null;state.selectedFile=null;state.history=null;state.tab=scenes[state.scene].steps[target].suggestedTab||'body';render();status('当前：'+scenes[state.scene].steps[target].label+'。浅绿标出这一步的笔记变化。');save();
+  }
+  root.addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||!root.contains(b)||b.disabled)return;
+    if(b.dataset.scene){state.scene=b.dataset.scene;state.step=0;state.tab='body';state.inspector='step';state.manual=false;state.fresh=true;state.selected=null;state.selectedFile=null;state.history=null;render();status('切到“'+scenes[state.scene].name+'”；共享约定继续保留。');save();return;}
+    if(b.dataset.step!==undefined){move(Number(b.dataset.step));return;}
+    if(b.id==='ae-next'||b.id==='ae-prev'){move(state.step+(b.id==='ae-next'?1:-1));return;}
+    if(b.id==='ae-tab-body'||b.id==='ae-tab-material'||b.id==='ae-tab-history'){state.tab=b.id==='ae-tab-body'?'body':b.id==='ae-tab-material'?'material':'history';state.history=null;state.selectedFile=null;renderWorkbench(current(),newIds());save();return;}
+    if(b.id==='ae-native-focus'||b.id==='ae-native-read'){state.tab='body';state.selected=flatten(current().blocks)[0].id;render();status(b.id==='ae-native-focus'?'已在演示左侧定位原文。真实写作仍发生在 Logseq。':'阅读当前工作；右边的编排不会改变左边原文。');save();return;}
+    if(b.dataset.source){state.selected=b.dataset.source;qa('[data-native-id],[data-read-id]').forEach(el=>el.classList.toggle('ae-selected',el.dataset.nativeId===state.selected||el.dataset.readId===state.selected));const n=find(current().blocks,state.selected);status('来源 '+state.selected+' · 当前原文 v'+revision()+' · '+(n?n.text:'历史来源'));save();return;}
+    if(b.dataset.file){state.selectedFile=b.dataset.file;renderWorkbench(current(),newIds());if(window.lucide)window.lucide.createIcons({attrs:{width:16,height:16}});save();return;}
+    if(b.hasAttribute('data-file-back')){state.selectedFile=null;renderWorkbench(current(),newIds());if(window.lucide)window.lucide.createIcons({attrs:{width:16,height:16}});save();return;}
+    if(b.dataset.history!==undefined){state.history=Number(b.dataset.history);renderWorkbench(current(),newIds());return;}
+    if(b.hasAttribute('data-history-back')){state.history=null;renderWorkbench(current(),newIds());return;}
+    if(b.dataset.inspector){state.inspector=b.dataset.inspector;renderInspector();save();return;}
+    if(b.dataset.context){state.contextTab=b.dataset.context;renderInspector();save();return;}
+    if(b.dataset.option){q('.ae-options').open=false;if(b.dataset.option==='structure'){state.layout='structure';state.tab='body';renderWorkbench(current(),newIds());status('已切回原结构；原文版本不变。');}else {state.inspector=b.dataset.option==='rules'?'rules':'context';renderInspector();}save();return;}
+    if(b.hasAttribute('data-add-user')){state.manual=true;state.fresh=false;render();status('左边增加了你的一句补充；Agent 旧现场过时，等待重新读取。');save();return;}
+    if(b.hasAttribute('data-reread')){state.fresh=true;renderInspector();root.dataset.fresh='true';status('已重新读取当前原文；刚补充的句子继续保留，可以推进。');save();return;}
+    if(b.dataset.workspace){state.workspace=b.dataset.workspace;renderInspector();save();return;}
+    if(b.hasAttribute('data-save-rules')){const value=q('#ae-shared-rules').value.trim();if(!value){status('共同约定不能为空。');return;}if(value!==state.shared){state.shared=value;state.sharedRev++;}renderInspector();status('共同约定已更新。不同工作区要重新读取后采用新版。');save();return;}
+    if(b.hasAttribute('data-load-rules')){state.loaded[state.workspace]=state.sharedRev;state.loadedRules[state.workspace]=state.shared;renderInspector();status('此工作区已重新读取共享 v'+state.sharedRev+'；项目自己的补充继续保留。');save();return;}
+  });
+  q('#ae-layout').addEventListener('change',e=>{state.layout=e.target.value;state.selected=null;renderWorkbench(current(),newIds());status('读法变为“'+e.target.selectedOptions[0].textContent+'”；左侧原文 v'+revision()+' 完全不变。');save();});
+  root.addEventListener('keydown',e=>{if(e.key==='Escape'&&q('.ae-options').open){q('.ae-options').open=false;q('.ae-options summary').focus();}});
+  root.addEventListener('click',e=>{if(!e.target.closest('.ae-options'))q('.ae-options').open=false;});
+  window.addEventListener('openai:set_globals',e=>{if(e.detail&&e.detail.globals&&e.detail.globals.widgetState){restore(e.detail.globals.widgetState);render();}});
+  render();
+})();
+</script>
