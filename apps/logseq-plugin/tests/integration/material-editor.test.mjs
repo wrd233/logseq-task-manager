@@ -1,3 +1,4 @@
+import {installPreviewBytes} from '../fixtures/preview-bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
@@ -18,7 +19,7 @@ async function fixture() {
   const blocks = new Map(['source', 'projectA', 'projectB', 'elsewhere'].map(uuid => [uuid, {uuid, content: 'TODO 工作', properties: {id: uuid}, parent: {id: 99}, page: {id: 99}, children: []}]));
   let returned = null, rejectInsertion = false, workRoot = null;
   const commands = new Map();
-  const files = new Map(), writes = [], intervals = new Map(), timeouts = new Map(); let timer = 0;
+  const files = new Map(), restoreBytes = installPreviewBytes(path => {if (!files.has(path)) throw Error('ENOENT'); return files.get(path);}), writes = [], intervals = new Map(), timeouts = new Map(); let timer = 0;
   browser.setInterval = fn => { const id = ++timer; intervals.set(id, fn); return id; }; browser.clearInterval = id => intervals.delete(id);
   browser.setTimeout = fn => { const id = ++timer; timeouts.set(id, fn); return id; }; browser.clearTimeout = id => timeouts.delete(id);
   browser.apis = { doAction: async ([op, ...args]) => {
@@ -60,7 +61,7 @@ async function fixture() {
     saveTimers: async () => { const callbacks = [...timeouts.values()]; timeouts.clear(); for (const fn of callbacks) fn(); await delay(10); },
     switchGraph: name => { graph = `/${name}`; globalThis.logseq.settings.materialsDirectory = `/materials${name}`; changed?.(); },
     intercept: fn => { intercept = fn; },
-    close: async () => { materials.dispose(); await delay(10); await browser.happyDOM.abort(); delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location; delete globalThis.logseq; },
+    close: async () => { restoreBytes(); materials.dispose(); await delay(10); await browser.happyDOM.abort(); delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location; delete globalThis.logseq; },
   };
 }
 

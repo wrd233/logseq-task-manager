@@ -34,6 +34,7 @@ export class MaterialDirectoryBrowser {
     const roots = owner ? this.directories.folders(this.graph, owner).map(folder => folder.directory) : [];
     if (context.directory && !roots.includes(context.directory)) roots.push(context.directory);
     if (!owner && !roots.length && this.globalRoot) roots.push(this.globalRoot);
+    if (!owner && !roots.length) roots.push(...this.directories.roots(this.graph));
     return [...new Set(roots.map(root => normalizeRoot(root, this.graph)))];
   }
   async read(context: MaterialWorkContext, location: DirectoryLocation, signal?: AbortSignal, previous?: MaterialDirectoryPage, cursor?: string): Promise<MaterialDirectoryPage> {

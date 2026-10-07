@@ -1,7 +1,7 @@
 import type { FileIO } from "./file-io.ts";
 import { localReadLimit, readLocalBytes } from "./local-bytes.ts";
 
-export interface DesktopBridge { doAction(args: unknown[]): Promise<unknown>; openPath(path: string): Promise<unknown> }
+export interface DesktopBridge { doAction(args: unknown[]): Promise<unknown>; openPath(path: string): Promise<unknown>; getClipboardData?(format: string): Uint8Array | null }
 export function desktopBridge(): DesktopBridge {
   const host = window.top as Window & {apis?: DesktopBridge};
   if (!host?.apis?.doAction) throw new Error("当前环境没有桌面文件桥接。"); return host.apis;

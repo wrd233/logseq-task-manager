@@ -9,7 +9,17 @@ export function localAssetURL(path: string): string {
   return `assets://${path.split("/").map(encodeURIComponent).join("/")}`;
 }
 export function readLocalBytes(path: string, options: FileReadOptions = {}, createRequest: () => XMLHttpRequest = () => new XMLHttpRequest()): Promise<ArrayBuffer> {
-  const url = localAssetURL(path), limit = options.maxBytes ?? localReadLimit;
+  return readByteURL(localAssetURL(path), options, createRequest);
+}
+/** Only installation-relative resources from this running plugin, never a caller's
+ * arbitrary worker URL or CDN. Native windows use the opener's frozen resource base. */
+export function readPackagedBytes(relative: string, base: string, signal: AbortSignal): Promise<ArrayBuffer> {
+  const current = new URL(location.href), source = new URL(base);
+  if (!["file:", "lsp:", "assets:"].includes(current.protocol) || source.href !== current.href || relative.startsWith("/") || relative.split("/").some(part => part === "..")) throw new Error("预览资源不属于当前安装包。");
+  return readByteURL(new URL(relative, current).href, {signal, maxBytes: 8 * 1024 * 1024}, () => new XMLHttpRequest());
+}
+function readByteURL(url: string, options: FileReadOptions, createRequest: () => XMLHttpRequest): Promise<ArrayBuffer> {
+  const limit = options.maxBytes ?? localReadLimit;
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > localReadLimit) throw new Error("文件读取上限无效。");
   return new Promise((resolve, reject) => {
     const xhr = createRequest(); let settled = false;

@@ -3,6 +3,7 @@ import type { FileIO } from "../../host/file-io.ts";
 import type { MaterialResult, MaterialService } from "./service.ts";
 import { MaterialStore, markdownFile, normalizeRoot, versionOf, docIdPattern } from "./store.ts";
 import { extension, fileName } from "./names.ts";
+import {MaterialDirectoryBrowser} from "./directory.ts";
 
 export interface MaterialImport { name: string; path?: string; bytes?: ArrayBuffer }
 export interface FolderImportFile { relative: string; bytes: ArrayBuffer | (() => Promise<ArrayBuffer>) }
@@ -89,7 +90,7 @@ export async function importMaterial(service: MaterialService, input: MaterialIm
     const known = service.directories.hint(service.graph, `import:${token}`);
     const store = known ? new MaterialStore(io, normalizeRoot(known, service.graph)) : await service.destination(context, "reference");
     // A file already in the chosen directory is associated through its exact path.
-    if (!known && source?.startsWith(`${store.root}/`)) return service.associateFile(source, context);
+    if (!known && source && (source.startsWith(`${store.root}/`) || new MaterialDirectoryBrowser(io, service.directories, service.graph, service.globalRoot).roots(context).some(root => source.startsWith(`${root}/`)))) return service.associateFile(source, context);
     await io.mkdir(`${store.root}/.longdoc/imports`);
     const journalPath = `${store.root}/.longdoc/imports/${token}.json`;
     let journal: ImportJournal;

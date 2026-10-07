@@ -1,3 +1,4 @@
+import {installPreviewBytes} from './fixtures/preview-bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, readFile, writeFile, readdir, rename, stat, rm, copyFile} from 'node:fs/promises';
@@ -15,6 +16,7 @@ async function until(probe: () => boolean | Promise<boolean>, message: string): 
   const end = Date.now() + 6000; while (Date.now() < end) { if (await probe()) return; await delay(10); } assert.fail(message);
 }
 async function fixture(ui = false) {
+  const restoreBytes = installPreviewBytes(path => readFile(path));
   const c = ui ? await contentFixture() : null, root = await mkdtemp(join(tmpdir(), 'materials-drawer-')), globalRoot = join(root, 'default'); await mkdir(globalRoot);
   const io: FileIO = {read: path => readFile(path, 'utf8'), write: (path, text) => writeFile(path, text), mkdir: async path => {await mkdir(path, {recursive: true});}, rename, list: readdir, copy: (from, to) => copyFile(from, to, 1), writeBytes: (path, bytes) => writeFile(path, new Uint8Array(bytes)), stat: async path => {const s = await stat(path); return {type: s.isDirectory() ? 'directory' : 'file', size: s.size};}, identity: async path => {const s = await stat(path); return JSON.stringify([s.dev, s.ino, s.birthtimeMs]);}};
   const values = new Map<string,string>();
@@ -43,7 +45,7 @@ async function fixture(ui = false) {
   const file = async (path: string) => {const f = new c!.browser.File([await readFile(path)], path.split('/').at(-1)!); Object.defineProperty(f, 'path', {value: path}); return f as unknown as File;};
   const drop = (files: File[]) => {const event = new c!.browser.Event('drop', {bubbles: true, cancelable: true}); Object.defineProperty(event, 'dataTransfer', {value: {types: ['Files'], files, getData: () => ''}}); materials!.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(event as unknown as Event);};
   const button = (text: string) => Array.from(materials!.panel.root.querySelectorAll('button')).find(item => item.textContent === text)!;
-  return {root, globalRoot, io, storage, directories, graph, service, context, c, materials, file, drop, button, choose: (path: string | null) => {selected = path;}, pickerCount: () => pickerCount, copying: (hook: typeof copyHook) => {copyHook = hook;}, cleanup: async () => {materials?.dispose(); await c?.cleanup(); await rm(root, {recursive: true, force: true});}};
+  return {root, globalRoot, io, storage, directories, graph, service, context, c, materials, file, drop, button, choose: (path: string | null) => {selected = path;}, pickerCount: () => pickerCount, copying: (hook: typeof copyHook) => {copyHook = hook;}, cleanup: async () => {restoreBytes();materials?.dispose(); await c?.cleanup(); await rm(root, {recursive: true, force: true});}};
 }
 
 test('unbound works get exclusive lazy folders; multiple destinations persist separately from primary workspace identity and old links', async () => {
@@ -119,13 +121,13 @@ test('directory plus opens the real host picker, permits cancel and multiple bin
     assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,1);
     f.choose(null); f.button('添加目录').click(); await until(()=>f.pickerCount()===1,'picker cancellation'); assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,1);
     const extra = join(f.root,'选择目录'); await mkdir(extra); await writeFile(join(extra,'已有参考.md'),'# 已有参考'); f.choose(extra); f.button('添加目录').click();
-    await until(()=>f.materials!.panel.root.querySelectorAll('input[type=radio]').length===2,'second folder rendered');
-    const listed = await f.materials!.listMaterials(f.c!.root); assert.equal(listed.materials[0]!.path,join(extra,'已有参考.md')); assert.deepEqual(listed.materials[0]!.capabilities.edit,{user:false,agent:false});
+    await until(()=>f.materials!.panel.root.textContent!.includes('只读'), 'selected directory shown without recursive registration'); await f.materials!.library(f.c!.root,'','folders'); assert.equal(f.materials!.panel.root.querySelectorAll('input[type=radio]').length,2);
+    const listed = await f.materials!.listMaterials(f.c!.root); assert.equal(listed.materials.length,0,'adding a directory does not eagerly register its subtree'); const associated=await f.materials!.resolveDirectoryFile(join(extra,'已有参考.md'),f.c!.root); assert.deepEqual((await f.materials!.readMaterial(associated.materialId)).capabilities.edit,{user:false,agent:false});
     const radio = f.materials!.panel.root.querySelectorAll<HTMLInputElement>('input[type=radio]')[1]!; radio.checked=true; radio.dispatchEvent(new f.c!.browser.Event('change') as unknown as Event);
     await until(()=>!radio.isConnected && f.materials!.panel.root.querySelectorAll<HTMLInputElement>('input[type=radio]')[1]?.checked===true,'default choice');
     const saved = await f.materials!.capture({requestKey:'named',text:'生成的材料',sourceUuid:f.c!.root},'user'); assert.equal(saved.material.recordRoot,extra);
-    await f.materials!.library(f.c!.root); assert.equal(f.materials!.panel.root.querySelector('input[type=search]'),null); assert.equal(f.button('加入材料'),undefined); assert.equal(f.button('收纳文本'),undefined);
-    assert.equal((await f.materials!.readMaterial(listed.materials[0]!.id)).path,join(extra,'已有参考.md'));
+    await f.materials!.library(f.c!.root, "", "history"); assert.equal(f.materials!.panel.root.querySelector('input[type=search]'),null); assert.equal(f.button('加入材料'),undefined); assert.equal(f.button('收纳文本'),undefined);
+    assert.equal((await f.materials!.readMaterial(associated.materialId)).path,join(extra,'已有参考.md'));
   } finally {await f.cleanup();}
 });
 
@@ -146,7 +148,7 @@ test('host recursive file-only listings preserve nested imports and explicit dir
 
 test('drop shows file name immediately, keeps a failed row retryable and copies links synchronously in the user click', async () => {
   const f = await fixture(true); try {
-    const source=join(f.root,'等待.md');await writeFile(source,'# 等待');await f.materials!.library(f.c!.root);
+    const source=join(f.root,'等待.md');await writeFile(source,'# 等待');await f.materials!.library(f.c!.root, "", "history");
     const gate=deferred<void>(),entered=deferred<void>();f.copying(async()=>{entered.resolve();await gate.promise;});
     f.drop([await f.file(source)]); assert.match(f.materials!.panel.root.querySelector('.wb-material-import-row')!.textContent!,/等待.md.*等待加入/);
     await entered.promise; assert.match(f.materials!.panel.root.querySelector('.wb-material-import-row')!.textContent!,/正在加入/);
@@ -160,7 +162,7 @@ test('drop shows file name immediately, keeps a failed row retryable and copies 
 
 test('native long paste remains native until confirmed: cancel leaves text, naming stores the original and replaces only the pasted range', async () => {
   const f = await fixture(true); try {
-    await f.materials!.library(f.c!.root); logseq.settings!.materialsAutoCapture=true;
+    await f.materials!.library(f.c!.root, "", "history"); logseq.settings!.materialsAutoCapture=true;
     const block=document.createElement('div');block.className='ls-block';block.setAttribute('blockid',f.c!.root);
     const editor=document.createElement('div');editor.className='block-editor';const input=document.createElement('textarea');editor.append(input);block.append(editor);document.body.append(block); f.c!.blocks.get(f.c!.root)!.properties.id=f.c!.root;
     const plain='长文本原文。\n'.repeat(300);

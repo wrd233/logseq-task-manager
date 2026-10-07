@@ -1,3 +1,4 @@
+import {installPreviewBytes} from './fixtures/preview-bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,readFile,writeFile,readdir,rename,stat,rm,copyFile} from 'node:fs/promises';
@@ -17,6 +18,7 @@ async function until(probe: () => boolean | Promise<boolean>, description: strin
 }
 
 async function fixture(){
+  const restoreBytes = installPreviewBytes(path => readFile(path));
   const c=await contentFixture(),root=await mkdtemp(join(tmpdir(),'materials-drop-ui-')),work=join(root,'work');await mkdir(work);logseq.settings!.materialsDirectory=work;
   const {Materials}=await import('../src/features/materials/controller.ts');
   const apis={openPath:async()=>{},doAction:async(args:unknown[])=>{const[op,...p]=args as string[];if(op==='readFile')return readFile(p[0]!,'utf8');if(op==='writeFile')return writeFile(p[1]!,p[2]!);if(op==='mkdir-recur')return mkdir(p[0]!,{recursive:true});if(op==='copyDirectory')return copyFile(p[0]!,p[1]!,1);if(op==='rename')return rename(p[0]!,p[1]!);if(op==='listdir')return readdir(p[0]!);if(op==='stat'){const s=await stat(p[0]!);return{mode:s.mode,size:s.size,dev:s.dev,ino:s.ino,birthtimeMs:s.birthtimeMs};}throw Error('unsupported');}};
@@ -35,12 +37,12 @@ async function fixture(){
   const drop=(target:HTMLElement,data:{types:string[];files?:File[];internal?:string})=>{
     const event=new c.browser.Event('drop',{bubbles:true,cancelable:true});Object.defineProperty(event,'dataTransfer',{value:{types:data.types,files:data.files??[],getData:(type:string)=>type===MATERIAL_MIME?data.internal??'':''}});target.dispatchEvent(event as unknown as Event);
   };
-  return{c,content,materials,root,work,find,drop,setView:(next:typeof view)=>{view=next;},cleanup:async()=>{materials.dispose();content.dispose();await c.cleanup();await rm(root,{recursive:true,force:true});}};
+  return{c,content,materials,root,work,find,drop,setView:(next:typeof view)=>{view=next;},cleanup:async()=>{restoreBytes();materials.dispose();content.dispose();await c.cleanup();await rm(root,{recursive:true,force:true});}};
 }
 
 test('real composition wiring: simulated list drop changes no source; report body drop uses committed membership and Journal; copying failure reports a retry without a manual copy step',async()=>{
   const f=await fixture();try{
-    const path=join(f.work,'有 空格资料.md'),body='# 内文标题\n\n原始资料';await writeFile(path,body);await f.materials.library(f.c.root);
+    const path=join(f.work,'有 空格资料.md'),body='# 内文标题\n\n原始资料';await writeFile(path,body);await f.materials.library(f.c.root, "", "history");
     const file=new f.c.browser.File([body],'有 空格资料.md');Object.defineProperty(file,'path',{value:path});
     const before=f.c.counts().inserts;
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'list association and rendered row');
@@ -71,7 +73,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     await f.content.local.authorize(f.c.root,true);
     installMaterialTransfers(f.materials,f.content,{read:scope=>f.content.api.read(scope)},work);
     const path=join(f.work,'报告资料.md');await writeFile(path,'原文件字节');
-    await f.materials.library(f.c.root);
+    await f.materials.library(f.c.root, "", "history");
     const file=new f.c.browser.File(['原文件字节'],'报告资料.md');Object.defineProperty(file,'path',{value:path});
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});
     await until(async()=> (await f.materials.listMaterials(f.c.root)).materials.length===1,'report composition association');
@@ -92,7 +94,7 @@ test('published report body mapping, MiniProject reference renames and immutable
     await stages.api.checkpoint({stageId:stage.start.id,expectedRevision:stage.start.id,requestKey:crypto.randomUUID(),requestIds:[]});
     await work.setReviewOpen(true);
     await f.c.commands.get('stage-accept')!();const accepted=await stages.api.history();assert.equal(accepted.stages[0]!.acceptances.length,1);const history=JSON.stringify(accepted);
-    await f.materials.library(f.c.root);
+    await f.materials.library(f.c.root, "", "history");
     f.find('改文件名').click();await until(()=>!!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'),'report rename prompt');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value='归档资料';f.find('保存').click();
     await until(async()=>{const view=await f.materials.readMaterial(material.id);return view.path===join(f.work,'归档资料.md') && f.c.blocks.get(child)!.content.split('\n')[0]===view.reference;},'MiniProject generated reference follows verified full filename');
@@ -116,7 +118,7 @@ test('published report body mapping, MiniProject reference renames and immutable
 
 test('list rename uses actual file IO and returns compact success; pending native input and stale report pixels do not invent a write target',async()=>{
   const f=await fixture();try{
-    const path=join(f.work,'旧名称.md'),body='unchanged';await writeFile(path,body);await f.materials.library(f.c.root);
+    const path=join(f.work,'旧名称.md'),body='unchanged';await writeFile(path,body);await f.materials.library(f.c.root, "", "history");
     const file=new f.c.browser.File([body],'旧名称.md');Object.defineProperty(file,'path',{value:path});f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!,{types:['Files'],files:[file as unknown as File]});await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'rename fixture association');
     const first=(await f.materials.listMaterials(f.c.root)).materials[0]!;
     f.find('改文件名').click();await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename prompt ready');const input=f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!;input.value='新名称';f.find('保存').click();await until(async () => (await f.materials.readMaterial(first.id)).path === join(f.work,'新名称.md'), 'rename record verified');
@@ -132,7 +134,7 @@ test('list rename uses actual file IO and returns compact success; pending nativ
 test('a work switch during real file registration retains the association but inserts no late source reference', async () => {
   const f = await fixture(); try {
     const path = join(f.work, '晚到文件.md'), body = 'late original'; await writeFile(path, body);
-    await f.materials.library(f.c.root);
+    await f.materials.library(f.c.root, "", "history");
     const row = document.createElement('article'); row.className = 'wb-row'; row.dataset.uuid = f.c.a;
     const paragraph = document.createElement('div'); paragraph.className = 'wb-body'; row.append(paragraph); document.body.append(row);
     const apis = (f.c.browser as unknown as {apis: {doAction: (args: unknown[]) => Promise<unknown>}}).apis;
@@ -159,12 +161,12 @@ test('copied reference proof survives panel navigation, observes a simulated com
     let copied = '';
     Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async (text: string) => {copied = text;}}});
     Object.defineProperty(globalThis, 'navigator', {configurable: true, value: f.c.browser.navigator});
-    const path = join(f.work, '粘贴证据.md'); await writeFile(path, 'original'); await f.materials.library(f.c.root);
+    const path = join(f.work, '粘贴证据.md'); await writeFile(path, 'original'); await f.materials.library(f.c.root, "", "history");
     const file = new f.c.browser.File(['original'], '粘贴证据.md'); Object.defineProperty(file, 'path', {value: path});
     f.drop(f.materials.panel.root.querySelector('[data-material-drop-list]')!, {types: ['Files'], files: [file as unknown as File]}); await until(() => !!f.materials.panel.root.querySelector('.wb-material'), 'paste fixture association');
     const material = (await f.materials.listMaterials(f.c.root)).materials[0]!;
     f.find('复制链接').click(); await delay(30); assert.equal(copied, material.reference);
-    await f.materials.library(); // Navigation changes the panel epoch, not copied source proof.
+    await f.materials.library(null, "", "history"); // Navigation changes the panel epoch, not copied source proof.
     const block = document.createElement('div'); block.className = 'ls-block'; block.setAttribute('blockid', f.c.a);
     const editor = document.createElement('div'); editor.className = 'block-editor'; const input = document.createElement('textarea'); editor.append(input); block.append(editor); document.body.append(block);
     input.value = '前言 '; input.setSelectionRange(input.value.length, input.value.length);

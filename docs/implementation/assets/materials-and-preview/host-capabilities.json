@@ -22,7 +22,9 @@
         "matchesInstalled": true
       }
     },
-    "homeIsolationVerified": true
+    "homeIsolationVerified": true,
+    "electron": "38.4.0",
+    "chrome": "140.0.7339.240"
   },
   "bytes": {
     "expected": [
@@ -76,6 +78,14 @@
         }
       ],
       "absolutePathAvailable": false
+    },
+    "nativePaste": {
+      "verified": true,
+      "absolutePathProof": "same trusted paste + two identical NSFilenamesPboardType XML plist reads",
+      "legacyReadEntries": "true one-level including empty folders and special names",
+      "fsaResume": "read-only explicit user click succeeds after normal reload; always partial because host filters names",
+      "limit": 512,
+      "timeoutMs": 5000
     }
   },
   "window": {
@@ -84,17 +94,32 @@
     "outerWidth": 640,
     "outerHeight": 480,
     "separateCDPTargetObserved": true,
-    "moveResizeNotYetTested": true
+    "moveResizeNotYetTested": true,
+    "materialPreview": {
+      "nativePage": true,
+      "size": [
+        900,
+        720
+      ],
+      "targetMatchesMain": true,
+      "byteVersionMatchesMain": true,
+      "docxEmbeddedImage": [
+        720,
+        320
+      ],
+      "closeRetainsMain": true,
+      "moveResizeVerified": false
+    }
   },
   "scope": {
     "kernelStarted": false,
     "companionStarted": false,
-    "graphSelected": false,
+    "graphSelected": true,
     "remoteModelEnabled": false
   },
   "limitations": [
-    "Folder picker handle does not prove the configured absolute path.",
-    "Native folder drop handle and native File.path from the same item still need real installed UI acceptance.",
-    "This is a capability preflight, not format or final package acceptance."
+    "Stock stat lacks reliable physical file identity; no external rename/copy re-adoption by name/hash/size/mtime.",
+    "FSA omits some names; restored FSA observations are explicitly partial until a fresh native paste.",
+    "Final outside-repository package, native editing/IME and move/resize verification remain pending."
   ]
 }
