@@ -109,14 +109,14 @@ test('long MiniProject and four real files: list joining, trusted report inserti
     f.materials.panel.root.querySelector(`[data-material-id="${material.id}"]`)!.parentElement!.querySelectorAll<HTMLButtonElement>('details button')[1]!.click();
     await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'selected rename');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '研究终稿'; f.find('保存').click();
-    await until(() => f.c.blocks.get(child)!.content.includes('研究终稿](longdoc://'), 'generated label follows');
+    await until(async () => { const view=await f.materials.readMaterial(material.id);return view.path===join(f.workDirectory,'研究终稿.md') && f.c.blocks.get(child)!.content.split('\n')[0]===view.reference; }, 'generated label follows the full filename');
     await until(() => !f.materials.panel.root.querySelector('.wb-material-rename') && !!f.materials.panel.root.querySelector(`[data-material-row="${material.id}"] .wb-material-feedback`)?.textContent?.includes('已改名'), 'rename UI completion before external rename');
     assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
     const path = join(f.workDirectory, '研究终稿.md'); assert.equal(await readFile(path, 'utf8'), '# 研究说明\n\n真实 Markdown 材料。');
     const version = (await f.materials.readMaterial(material.id)).version;
     await rename(path, join(f.workDirectory, '外部研究.md'));
     await f.materials.ui.show(f.c.root); assert.equal((await f.materials.readMaterial(material.id)).path, join(f.workDirectory, '外部研究.md'));
-    await until(() => f.c.blocks.get(child)!.content.includes('外部研究](longdoc://'), 'external identity rename follows');
+    await until(async () => f.c.blocks.get(child)!.content.split('\n')[0] === (await f.materials.readMaterial(material.id)).reference, 'external identity rename follows the full filename');
     assert.equal((await f.materials.readMaterial(material.id)).version, version);
     const elsewhere = join(f.root, '另处研究.md'); await rename(join(f.workDirectory, '外部研究.md'), elsewhere);
     await f.materials.ui.open(material.id); assert.match(f.materials.panel.root.textContent!, /文件失联/);

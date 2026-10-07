@@ -1,7 +1,7 @@
 import { docIdPattern } from "./links.ts";
 export { docIdPattern, idFrom } from "./links.ts";
 import type { FileIO } from "../../host/file-io.ts";
-import { fileTitle } from "./names.ts";
+import { fileName, fileTitle } from "./names.ts";
 import type { RenameFact } from "./file-operations.ts";
 import type { ReferenceFact } from "./references.ts";
 
@@ -38,7 +38,7 @@ function cleanMetadata(metadata: CaptureMetadata): Partial<Omit<MaterialRecord, 
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
 }
 const writes = new Map<string, Promise<unknown>>();
-export const markdownFile = (path: string): boolean => /\.md$/i.test(path);
+export const markdownFile = (path: string): boolean => /\.(?:md|markdown)$/i.test(path);
 export function normalizeRoot(root: string, graph: string): string {
   const clean = (path: string) => path.replace(/\\/g, "/").replace(/\/+$/, "");
   const normalized = clean(root), graphPath = clean(graph);
@@ -52,10 +52,15 @@ export function titleOf(text: string): string {
 export function isLong(text: string, chars = 2000, lines = 30): boolean {
   return text.length >= Math.max(100, chars || 2000) || text.split(/\r?\n/).filter(line => line.trim()).length >= Math.max(5, lines || 30);
 }
-export function makeLink(record: Pick<MaterialRecord, "id" | "title">): string { return `[📄 ${record.title.replace(/[\r\n]/g, " ").replace(/[\\[\]]/g, "\\$&")}](longdoc://${record.id})`; }
+export function makeLink(record: Pick<MaterialRecord, "id" | "title"> & {path?: string}): string {
+  const name = (record.path ? fileName(record.path) : record.title).replace(/[\r\n]/g, " ");
+  // Escape Markdown punctuation, including table pipes and literal emphasis/code marks.
+  const label = name.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, "\\$&");
+  return `[📄 ${label}](longdoc://${record.id})`;
+}
 export function restoreCapture(content: string, record: MaterialRecord): string {
   if (record.kind !== "capture") throw new Error("关联文件没有收纳原文。");
-  const matches = [...content.matchAll(/\[[^\]\n]*\]\(longdoc:\/\/([0-9a-f-]{36})\)/gi)].filter(match => match[1]?.toLowerCase() === record.id.toLowerCase());
+  const matches = [...content.matchAll(/\[(?:\\.|[^\\\]\n])*\]\(longdoc:\/\/([0-9a-f-]{36})\)/gi)].filter(match => match[1]?.toLowerCase() === record.id.toLowerCase());
   if (matches.length !== 1) throw new Error("引用已变化或重复，原文未替换。");
   const match = matches[0]!;
   if (record.restoreMode === "block") {
