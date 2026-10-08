@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "status": "development-stage-verified-not-final-package",
+  "observedAt": "2026-10-08T14:22:54.743Z",
+  "runtime": {
+    "jsHash": "9d64397cc1d4733b930f9d081301990d36f0afb107d2465afec9c491946d3eea",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "scope": {
+    "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+    "rootUuid": "b7261007-0000-4000-8000-000000000001"
+  },
+  "sources": 105,
+  "menu": "允许 Agent 维护这里正文",
+  "permissions": {
+    "initial": {
+      "body": false,
+      "file": false,
+      "todo": false,
+      "structure": false
+    },
+    "afterIndependentFileGrant": {
+      "body": false,
+      "file": true,
+      "todo": false,
+      "structure": false
+    },
+    "afterExplicitBodyGrant": {
+      "body": true,
+      "file": false,
+      "todo": false,
+      "structure": false
+    }
+  },
+  "sourceUnchanged": true,
+  "graphUnchanged": true,
+  "graphHash": "8ce8b139acfcca123113daa92a7b73e2731c17eeb1eb9111e2030b2ac5e2f986",
+  "host": {
+    "renderedSources": 105,
+    "editing": false,
+    "errors": 0,
+    "capabilityInjection": false
+  },
+  "limits": [
+    "Development directory; final merged ZIP replay still required",
+    "Native temporary-selection range isolation additionally tested with fixture; no physical IME claim",
+    "Platforms, Finder, clipboard and ordinary IO races not proven"
+  ]
+}

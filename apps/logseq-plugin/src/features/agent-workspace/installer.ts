@@ -277,7 +277,7 @@ export function installAgentWorkspace(options: {
         },
         associate: async (path) => await localCall("files.associate", { path }) as MaterialResult,
     });
-    const menu = logseq.App.registerCommand("block-context-menu-item", { key: "agent-workspace-allow-block", label: "工作台：允许 agent 连接此工作" }, ({ uuid }: {
+    const menu = logseq.App.registerCommand("block-context-menu-item", { key: "agent-workspace-allow-block", label: "工作台：允许 Agent 维护此块范围正文" }, ({ uuid }: {
         uuid: string;
     }) => {
         if (!disposed)
@@ -288,7 +288,7 @@ export function installAgentWorkspace(options: {
     if(typeof organizeMenu==="function")disposers.push(organizeMenu);
     if (typeof menu === "function")
         disposers.push(menu);
-    for (const [key, label, action] of [["agent-workspace-collaboration","工作台：带当前工作去协作",async()=>ui.open()],["agent-workspace-guidance","工作台：编辑共同指导与项目差异",async()=>ui.open(undefined,true)],["agent-workspace-read","工作台：允许 agent 只读当前工作",async()=>allow(undefined,false,true)],["agent-workspace-files","工作台：允许 agent 写当前工作文件",allowFiles],["agent-workspace-organize", "工作台：允许 agent 润色并整理当前工作原块", async()=>allow(undefined,true)], ["agent-workspace-allow", "工作台：允许 agent 连接当前工作", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
+    for (const [key, label, action] of [["agent-workspace-collaboration","工作台：带当前工作去协作",async()=>ui.open()],["agent-workspace-guidance","工作台：编辑共同指导与项目差异",async()=>ui.open(undefined,true)],["agent-workspace-read","工作台：允许 agent 只读当前工作",async()=>allow(undefined,false,true)],["agent-workspace-files","工作台：允许 agent 写当前工作文件",allowFiles],["agent-workspace-organize", "工作台：允许 agent 润色并整理当前工作原块", async()=>allow(undefined,true)], ["agent-workspace-allow", "工作台：允许 Agent 维护当前块范围正文", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
         const off = logseq.App.registerCommandPalette({ key, label }, () => {
             if (!disposed)
                 return action().catch(report);

@@ -121,6 +121,15 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal(status.capabilities.stage, true);
         await f.commands.get("agent-workspace-read")!();
         const readStatus=await cli(["status"]);assert.equal(readStatus.capabilities.content,false);assert.equal(readStatus.capabilities.fileWrite,false);assert.equal(readStatus.contentProtocol.structureAuthorized,false);
+        // Upgrade from the actual work menu, tied to its real root even if the
+        // native selection changes. A new body connection cannot inherit files
+        // or TODO and must not grant structure maintenance.
+        await api.open(f.root);await f.commands.get("agent-workspace-files")!();assert.equal((await cli(["status"])).capabilities.fileWrite,true);
+        const beforeUpgrade=f.counts(),bodyGrant=document.querySelector<HTMLButtonElement>('[data-action-label="允许 Agent 维护这里正文"]')!;assert.ok(bodyGrant);
+        f.editing(f.a);bodyGrant.click();
+        for(let i=0;i<500&&!(await cli(["status"])).capabilities.content;i++)await delay(10);
+        const bodyStatus=await cli(["status"]);assert.equal(bodyStatus.binding.scope.rootUuid,f.root);assert.equal(bodyStatus.capabilities.content,true);assert.equal(bodyStatus.capabilities.fileWrite,false);assert.equal(bodyStatus.authorizesTodo,false);assert.equal(bodyStatus.contentProtocol.structureAuthorized,false);assert.deepEqual(f.counts().writes,beforeUpgrade.writes);
+        f.editing(false);await f.commands.get("agent-workspace-read")!();
         const readonlyCounts=f.counts(),deniedPatch=f.patch([await f.text(f.a,"Alpha","must remain saved")]);
         await assert.rejects(cli(["content","apply"],deniedPatch),/CONTENT_WRITE_AUTHORIZATION_REQUIRED/);
         await assert.rejects(cli(["materials","capture"],{requestKey:"read-must-not-capture",text:"must not become a file"}),/FILE_WRITE_AUTHORIZATION_REQUIRED/);

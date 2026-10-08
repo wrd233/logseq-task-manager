@@ -68,6 +68,18 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 页面阶段 `tmp/page-final-check.log` 全量通过 766 项、零失败；requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。真实 Page 演练为 Logseq 0.10.15/macOS ARM64 开发目录加载，具体 JS/CLI hash 记录在阶段摘要，仍需最终 ZIP 重验。物理 IME、Finder、剪贴板、其他平台和普通 IO 竞态未由本阶段证明。
 
-仍需实施并验证：三条完整真实协作过程（当前格式场景只证明其中格式/同时补充子路径）；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+随后完成多轮讨论的实际 CLI/Graph/文件/Journal 演练：从工作乙的真实本地请求建立只读现场，27 个来源；正文 apply、材料 capture 未获独立许可时拒绝。明确正文与文件许可后，真实材料保存两段退出条件，取得服务 reference；在原讨论 MiniProject 下只新增一条 **[想法]**/**[注]** 记录，第二轮把离线引用条件及详见链接续接到同一 UUID `96a18fb2-c612-5169-ab96-f9a474ba48c3`。两个写回均 complete/durable、实际身份已确认，原 27 来源逐项保持，未执行的询问仍 TODO，整体未被宣告完成。相同 requestId 返回相同日志，未新增第二条想法或每轮总结树。实际点击正文 reference 打开同一 MD 文件，前后原生来源标记均为空；断连实际 WORKSPACE_OFFLINE，重连 body/file/TODO=false 后 result/recover/相同 apply 仍返回原摘要，原文及 Graph 文件持久化核验通过。
+
+该阶段摘要为 [discussion-stage-evidence.json](assets/reading-agent/discussion-stage-evidence.json)，脚本 `scripts/discussion-desktop-exercise.mjs prepare/first/second/disconnected/reconnect`，原始事实 `tmp/reading-desktop/evidence/discussion-exercise.json` 及同名前缀 runtime。作者为真实私有通道/client/指导读取依据，仍不把 client 标签当个人或模型身份；reference 继续消费基线服务原样输出，完整文件名交接仍依赖 A。
+
+零散记录过程随后在完整 105 来源上实际提交连续和对照两读法。真实 DOM 核对每个主要 sourceId/版本一次出现；连续没有分组标题，对照实际显示四个标题，全部保存来源及 Graph SHA 保持。目标第 28 块本来已加粗，格式预览实际零差异；首次演练脚本误认为裸标记而停止，保留这次失败，不将零差异伪称写入。重新邀请读法时旧 planId 不能换请求复用，实际 ID 冲突拒绝后脚本给新邀请独立身份。原生 UI 给第 28 块追加“用户追加：不过离线引用还需要保留当时文件的版本，尚未验证能否做到。”，旧对照方案返回 stale-reading-plan；重读后继续两方案，旧补充和新限制全部在场。实际只这一处内容变化，其余来源及层级保持；本轮格式仍零差异，没有正文或 TODO 许可。
+
+摘要为 [scattered-stage-evidence.json](assets/reading-agent/scattered-stage-evidence.json)，脚本 `scripts/scattered-desktop-exercise.mjs prepare/comparison/original/stale/fresh/collect`。此前第 32 块的真实“格式旧提议冲突→保留当前→重读→单处加粗”仍使用独立 [format-stage-evidence.json](assets/reading-agent/format-stage-evidence.json) 及其构建 hash，不能混成当前同一构建的再次格式写入。边做边记录的实际材料→新子步骤→有据完成→父任务仍 TODO 已在 TODO 阶段记录；这些局部过程与最终包同一构建的三条回放仍区分。
+
+讨论实机也暴露了一处许可表达问题：旧“允许 agent 连接”实际授予正文，却未在动作名称中说明；只读连接后的正文升级也需要先断连再找这个入口。现改成明确“允许 Agent 维护这里正文”，只读当前工作的菜单直接可用，按已有受信正文连接路径更新范围。它不会继承原文件/TODO许可，也不授予结构。范围由当前真实工作根指定，不跟随临时原生子块；增加真实独立 CLI/界面接线回归，新构建的实机复验另记。
+
+这次修补及写作演练后 `tmp/writing-exercises-check.log` 全量通过 766 项、零失败，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。新构建正常重启隔离 Desktop 后，真实菜单从只读连接直接显示明确正文许可；先独立允许文件，再点正文许可，CLI 实际 body=true/file=false/TODO=false/structure=false，当前根为实际第 1 块，105 个来源及 Graph SHA 全保持。摘要 [body-grant-stage-evidence.json](assets/reading-agent/body-grant-stage-evidence.json) 单独记录新构建 hash；脚本 `scripts/body-grant-desktop-exercise.mjs readonly/files/body` 只读实际 CLI 和文件，许可来自真实 UI。临时原生子块的范围隔离另有受控夹具回归，不把该回归冒充物理 IME 或此实机临时选块验证。
+
+仍需实施并验证：最终同一安装包中的三条完整协作回放；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

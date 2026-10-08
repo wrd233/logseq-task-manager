@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "status": "development-stage-verified-not-final-package",
+  "runtime": {
+    "jsHash": "069dbe9ef2d726122db254bb024621e95da3658427c4dfa406f414b1fcea357a",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "scope": {
+    "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+    "rootUuid": "b7261007-0000-4000-8000-000000000001"
+  },
+  "sources": 105,
+  "reading": {
+    "continuous": "scattered-continuous-initial-c467cc6e",
+    "comparison": "scattered-comparison-initial-c467cc6e",
+    "graphUnchangedDuringBoth": true,
+    "continuousHeadings": [],
+    "comparisonHeadings": [
+      "原句的做事与讨论对照",
+      "边做边记录",
+      "保留讨论条件",
+      "零散片段与权限边界"
+    ],
+    "allPrimarySourceIdsAndVersionsVerified": true,
+    "oldPlan": {
+      "ok": false,
+      "reason": "stale-reading-plan"
+    },
+    "continued": "scattered-continuous-continued-7317eea4"
+  },
+  "formatting": {
+    "initialChanges": 0,
+    "freshChanges": 0,
+    "noOp": true,
+    "reason": "Selected source was already bold; no source write was requested or dispatched",
+    "earlierActualConflictAndPrefixWrite": "format-stage-evidence.json"
+  },
+  "userCondition": {
+    "uuid": "b7261007-0000-4000-8000-000000000028",
+    "text": "用户追加：不过离线引用还需要保留当时文件的版本，尚未验证能否做到。",
+    "retained": true,
+    "previousConditionRetained": true,
+    "onlyChangedSource": "b7261007-0000-4000-8000-000000000028"
+  },
+  "graphBytes": {
+    "before": "9af7a82cb7a04f02702e96daffe8dcc076c5f18e640aff6bf81806958120bae3",
+    "after": "8ce8b139acfcca123113daa92a7b73e2731c17eeb1eb9111e2030b2ac5e2f986"
+  },
+  "host": {
+    "editing": false,
+    "renderedSources": 105,
+    "errors": 0,
+    "capabilityInjection": false
+  },
+  "limits": [
+    "Development directory; final same merged ZIP replay still required",
+    "No formatting write in this run: selected prefix already canonical",
+    "Earlier actual prefix write/conflict has separate build identity and evidence",
+    "Physical IME, Finder, clipboard, platforms and ordinary IO races not proven"
+  ]
+}

@@ -18,7 +18,7 @@ import { sameLensScope } from "./features/work-view/lens-source.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
-  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。选择工作块后使用“允许 agent 连接当前工作”；停止连接不影响本地阅读。" },
+  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。通过“带当前工作去协作”建立只读连接；正文、文件与 TODO 分别允许。停止连接不影响本地阅读。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: false, title: "启用任务管理", description: "按需启用正式任务，需要本地 Kernel。已有配置继续保留。" },
@@ -147,9 +147,10 @@ async function main(): Promise<void> {
       { group: "外部连接与恢复", label: "带当前工作去协作", description: "准备已保存现场、本次请求与指导；新连接仅允许读取和编排", run: () => agentWorkspace!.local.collaborate(root) },
       { group: "外部连接与恢复", label: "共同指导与项目差异", description: "一份共同来源；本工作只补充差异", run: () => agentWorkspace!.local.guidance(root) },
       { group: "正文维护", label: "查看并整理行首格式", description: "选择范围，核对受限真实差异，再明确写入", run: () => agentWorkspace!.local.format(root) },
+      ...(connected&&!connection.permissions.bodyWrite?[{group:"外部连接与恢复",label:"允许 Agent 维护这里正文",description:"明确允许当前真实块范围的正文写作；新连接的文件与 TODO 许可另行选择",run:()=>agentWorkspace!.local.connect(root)}]:[]),
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅授权这次连接的材料写作；正文和 TODO 独立",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 维护普通 TODO",description:"选择范围、操作；本次连接有效，正式对象保持受保护",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
-      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "先运行随包协作启动器并关联工作目录", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
+      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 Agent 维护这里正文", description: connected ? "通道已连接；这不表示 agent 正在工作" : "明确允许当前真实块范围的正文写作；文件与 TODO 许可独立", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
       { group: "外部连接与恢复", label: "允许润色并整理原块", description: "明确授予此工作内的结构维护许可", run: () => agentWorkspace!.local.connect(root, true) },
       { group: "外部连接与恢复", label: "查看写回冲突与恢复", description: "核对未知结果和原请求；不盲目重放", run: () => content!.local.recovery(root) },
     ];
