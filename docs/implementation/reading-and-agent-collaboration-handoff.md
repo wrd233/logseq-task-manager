@@ -94,6 +94,12 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 私有恢复修补的稳定全量 `tmp/formal-private-check-final.log` 通过 770 项、零失败，包含 requirements/typecheck/lint/test/sandbox/build/boundaries/taste。中文提示修补后的 `tmp/formal-private-delivery-check.log` 同样全量 770 项、零失败；随后新增的证据/复验脚本另通过 ESLint。仍不以旧运行 hash 代替最终源码与安装包验证。
 
-仍需实施并验证：最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`npm run package:plugin -- tmp/reading-package-staging/task-copilot-workbench-c4fc087.zip` 成功，打包提交为干净 `c4fc08773aa3ecf8cfd14f8864acf50452a4d58c`，ZIP SHA 为 `81a980fc0367eba832a194cdcfee645f150f62cd79cb578a4c6b74a04cfa0fc7`，428 项中 425 个 dist 文件逐项与 build-identity 一致。`scripts/package-desktop.mjs` 在用户 Cache 下建立全新自有宿主/Graph/home/profile/channel/工作目录及安装目录，拒绝覆盖、Git checkout 和未核对包身份；实际 companion 的路径与工作目录均在仓库外。通过真实 UI 选定合成 Graph、打开完整原文、关联合成工作目录，保留已有用户 WORKSPACE.md，准备 101 来源的只读现场，读取/编排之外许可全部 false。
+
+第一次真实首启观察到未处理 LOGSEQ_GRAPH_SHAPE_UNSUPPORTED，来自还没有选择 Graph 时的 restoreReadingSession；后来的手动阅读可用不能冲销启动失败。失败摘要 [package-bootstrap-initial-evidence.json](assets/reading-agent/package-bootstrap-initial-evidence.json) 及原实例保留；仅停止经 PID/完整命令身份确认的自有包实例。修补缺图 null/undefined 时不恢复、不读旧来源，也不制造 Graph 身份；非空畸形数据仍拒绝。新增回归验证缺图、异常数据、随后真实 Graph 恢复及来源不变，针对 5 项和全量 `tmp/package-first-start-check.log` 771 项全部通过。新干净 ZIP 与新 profile 的首启必须另行实测；旧 ZIP 不变，不把源码修补说成已改变旧安装。
+
+可携带阶段脚本 `package-reading-exercise.mjs NAME` 已编写并通过 ESLint，尚未在修补后的 ZIP 上运行；用于通过包内真实 CLI和固定只读探针核验当前合成现场、独立权限拒绝、两方案/来源 DOM、幂等、实际来源定位及用户入口/原文保持。协议 original 指取消 Agent 方案回到默认原顺序；真实“查看原结构”的界面往返需另验，不混淆二者。探针的 bootstrap 模式只在已确认自有实例且当前 Graph 为缺图值时读取启动事实，不访问异图正文、不注入能力。
+
+仍需实施并验证：新 ZIP 首启复验；最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

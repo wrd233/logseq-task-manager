@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fixture} from '../fixtures/work-view.mjs';
 
+test('fresh installation without a current Graph skips restoration without reading old source and later restores the real Graph',async()=>{
+ const f=await fixture(null,3,{initialReadingMode:'report'});let restored;
+ try{
+  await f.work.open('root');const before=JSON.stringify([...f.blocks]);f.work.dispose();await delay(10);
+  const real=globalThis.logseq.App.getCurrentGraph,WorkView=f.work.constructor;restored=new WorkView(()=>{},{initialReadingMode:'report'});
+  for(const missing of [null,undefined]){
+   globalThis.logseq.App.getCurrentGraph=async()=>missing;f.resetCounts();await restored.restoreReadingSession();
+   assert.equal(restored.panel.visible,false);assert.equal(restored.snapshot().root,null);assert.equal(f.stats.tree,0);assert.equal(f.stats.retained,0);assert.equal(JSON.stringify([...f.blocks]),before);
+  }
+  globalThis.logseq.App.getCurrentGraph=async()=> 'malformed';await assert.rejects(restored.restoreReadingSession(),/LOGSEQ_GRAPH_SHAPE_UNSUPPORTED/u);assert.equal(restored.panel.visible,false);
+  globalThis.logseq.App.getCurrentGraph=real;await restored.restoreReadingSession();assert.equal(restored.panel.visible,true);assert.equal(restored.reportAPI.read().scope.rootUuid,'root');assert.equal(JSON.stringify([...f.blocks]),before);
+ }finally{restored?.dispose();await f.close();}
+});
+
 test('close/reopen and a new controller restore the same reading mode, UUID bookmark and explicit folds without routing native pages',async()=>{
  const f=await fixture(null,5,{initialReadingMode:'report'});let restored;
  try{

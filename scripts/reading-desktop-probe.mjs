@@ -3,10 +3,15 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {homedir} from 'node:os';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop');
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),defaultRoot=join(repo,'tmp/reading-desktop'),root=resolve(process.argv[3]??defaultRoot);
 const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));
+const bootstrap=process.argv[4]==='bootstrap';
+const packageRoot=join(homedir(),'Library/Caches/task-copilot-package-acceptance');
+if(root!==defaultRoot&&(!root.startsWith(packageRoot+'/')||root.slice(packageRoot.length+1).includes('/')||!manifest.ownerToken||manifest.plugin!==join(root,'installation/task-copilot-workbench')))throw Error('Owned package instance required');
+if(manifest.root!==root||manifest.graph!==join(root,'graph')||!manifest.app.startsWith(root+'/'))throw Error('Owned acceptance paths required');
 const targets=await globalThis.fetch(`http://127.0.0.1:${manifest.port}/json/list`).then(response=>response.json());
 const target=targets.find(target=>target.type==='page'&&decodeURIComponent(target.url).startsWith('file://'+manifest.app+'/'));
 if(!target)throw Error('Owned Desktop target unavailable');
@@ -28,7 +33,10 @@ for(const context of contexts) {
   if(!url.startsWith('file://'+manifest.app+'/')&&!url.startsWith('file://'+manifest.plugin+'/dist/'))continue;
   const expression=url.startsWith('file://'+manifest.plugin+'/dist/')?`(async()=>{
     const api=window.taskCopilotWorkbench,graph=await logseq.App.getCurrentGraph();
-    if(graph?.path!==${JSON.stringify(manifest.graph)})throw Error('Owned Graph identity required');
+    if(graph?.path!==${JSON.stringify(manifest.graph)}){
+      if(${bootstrap}&&graph==null)return {graph:null,pluginConnected:logseq.connected,apiPresent:!!api,bootstrapOnly:true,currentGraphAbsent:true,rawText:document.body.innerText};
+      throw Error('Owned Graph identity required');
+    }
     const block=await logseq.Editor.getBlock('b7261007-0000-4000-8000-000000000001',{includeChildren:true});
     const host=window.top.document,inputs=[...host.querySelectorAll('#main-content-container textarea')];
     return {graph,pluginConnected:logseq.connected,sdkKeys:Object.keys(logseq),sdkConnection:{id:logseq.baseInfo?.id,callerStatus:logseq._caller?._status,callerConnected:logseq._caller?._connected},apiPresent:!!api,settings:{tasksEnabled:logseq.settings?.tasksEnabled,agentWorkspaceDescriptor:logseq.settings?.agentWorkspaceDescriptor},

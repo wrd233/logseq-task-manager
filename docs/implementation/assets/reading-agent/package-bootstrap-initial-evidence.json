@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "stage": "B-only-package-first-start",
+  "status": "failed-bootstrap",
+  "zipHash": "81a980fc0367eba832a194cdcfee645f150f62cd79cb578a4c6b74a04cfa0fc7",
+  "commit": "c4fc08773aa3ecf8cfd14f8864acf50452a4d58c",
+  "outsideRepository": true,
+  "installedFilesVerified": 425,
+  "actualPluginUrl": "file:///Users/wangrundong/Library/Caches/task-copilot-package-acceptance/reading-c4fc087/installation/task-copilot-workbench/dist/index.html?__v__=0.2.0",
+  "capabilityInjection": false,
+  "failure": {
+    "code": "LOGSEQ_GRAPH_SHAPE_UNSUPPORTED",
+    "location": "WorkView.restoreReadingSession",
+    "unhandled": true,
+    "originalEvidence": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/reading-c4fc087/evidence/package-scene-runtime.json"
+  },
+  "laterManualReading": {
+    "sources": 101,
+    "sceneSaved": true,
+    "readOnly": true
+  },
+  "fixStatus": "implemented-and-regression-tested; new clean ZIP runtime still required",
+  "finalAcceptance": false
+}

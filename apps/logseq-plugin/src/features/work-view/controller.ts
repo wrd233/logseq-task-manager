@@ -447,7 +447,12 @@ export class WorkView {
     try{localStorage.setItem(`workbench:reading-session:${scope.graphId}`,JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,folds:this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback}}));}catch{ /* The live reading remains usable when storage is unavailable. */ }
   }
   async restoreReadingSession(requireOpen = true): Promise<void> {
-    const graph=graphIdentity(await logseq.App.getCurrentGraph()),ticket=++this.navigationEpoch;
+    if(this.disposed)return;
+    const ticket=++this.navigationEpoch,current=await logseq.App.getCurrentGraph();
+    // A fresh normal installation has no Graph until the user chooses one.
+    // This is absence, not an identity to restore or a malformed Graph to adopt.
+    if(this.disposed||ticket!==this.navigationEpoch||current===null||current===undefined)return;
+    const graph=graphIdentity(current);
     let saved;try{saved=JSON.parse(localStorage.getItem(`workbench:reading-session:${graph}`)??"null");}catch{return;}
     if(!saved || saved.schemaVersion!==1 || requireOpen && !saved.open || saved.scope?.graphId!==graph || typeof saved.scope.rootUuid!=="string" || ![undefined,"page"].includes(saved.scope.kind) || saved.scope.kind==="page" && typeof saved.scope.pageName!=="string" || !["report","structure"].includes(saved.mode))return;
     const scope=saved.scope as SourceScope;
