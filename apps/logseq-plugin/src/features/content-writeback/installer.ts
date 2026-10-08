@@ -22,7 +22,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const report=(error:unknown)=>{if(!disposed)void logseq.UI.showMsg(error instanceof Error?error.message:String(error),"warning");};
   const scope=():SourceScope=>{if(disposed)fail("CONTENT_DISPOSED");const current=authority.current();if(!current)fail("AUTHORIZATION_REQUIRED");return current;};
   const origin=(command:string):CallOrigin=>({kind:"local-user-command",command});
-  const establish=async(target?:string,structure=false):Promise<SourceScope>=>{
+  const establishScope=async(target:string|undefined,structure:boolean,write:boolean):Promise<SourceScope>=>{
     if(disposed)fail("CONTENT_DISPOSED");
     const nonce=++setup;authority.revoke();ui.close();
     const graph=await logseq.App.getCurrentGraph();if(disposed||nonce!==setup)fail("SCOPE_REVOKED");
@@ -31,15 +31,17 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     if(!current)fail("SOURCE_UNAVAILABLE");
     const selected={graphId:graphIdentity(graph),rootUuid:uuid(current.uuid)};
     await adapter.assertGraph(selected,()=>!disposed&&nonce===setup);
-    const lease=authority.bind(selected,structure);
+    const lease=write?authority.bind(selected,structure):authority.bindRead(selected);
     try{
       const read=await executor.read(selected);if(!read.snapshot.blocks.some(block=>block.availability==="available"))fail("SOURCE_UNAVAILABLE");authority.confirmRoot(lease,read.paths.get(selected.rootUuid)??[]);
-      if(await adapter.needsRootIdentity(selected,()=>authority.valid(lease))){const identified=await executor.persistScopeIdentity(selected,origin("content-authorize"));if(!identified.durable||identified.status!=="complete")fail(identified.journalProblem??identified.record.items[0]!.reason??"SCOPE_IDENTITY_UNCONFIRMED");}
+      if(write&&await adapter.needsRootIdentity(selected,()=>authority.valid(lease))){const identified=await executor.persistScopeIdentity(selected,origin("content-authorize"));if(!identified.durable||identified.status!=="complete")fail(identified.journalProblem??identified.record.items[0]!.reason??"SCOPE_IDENTITY_UNCONFIRMED");}
       if(!authority.valid(lease))fail("SCOPE_REVOKED");
     }
     catch(error){if(authority.valid(lease))authority.revoke();throw error;}
     return {...selected};
   };
+  const establish=(target?:string,structure=false)=>establishScope(target,structure,true);
+  const establishRead=(target?:string)=>establishScope(target,false,false);
   const ui=new ContentUI({
     executor,scope,origin,
     grantTodo:operation=>{const lease=authority.capture(scope());if(lease)authority.grantTodo(lease,operation);},
@@ -68,7 +70,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const remove=logseq.App.registerCommand("block-context-menu-item",{key:"content-authorize-block",label:"工作台：允许维护此处正文"},async({uuid:target}: {uuid:string})=>{if(!disposed)try{await establish(target);await logseq.UI.showMsg("已允许维护此处自然正文。","success");}catch(error){report(error);}});
   if(typeof remove==="function")disposers.push(remove);
   const api={
-    capabilities:()=>({patchSchemas:[1,2],operations:["replace-text","insert-text","insert-child",...(adapter.supportsMove()?["move-block"]:[])],structureAuthorized:!disposed && !!authority.current() && authority.allowsStructure(authority.capture(authority.current()!)!)}),
+    capabilities:()=>({patchSchemas:[1,2],operations:["replace-text","insert-text","insert-child",...(adapter.supportsMove()?["move-block"]:[])],bodyAuthorized:!disposed && !!authority.current() && authority.allowsSourceWrite(authority.capture(authority.current()!)!),structureAuthorized:!disposed && !!authority.current() && authority.allowsStructure(authority.capture(authority.current()!)!)}),
     scope:()=>disposed?null:authority.current(),
     read:async(input?:unknown)=>{
       const selected=input===undefined?scope():parseScope(input),read=await executor.read(selected);
@@ -97,6 +99,6 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   // Trusted installers retain the actual scope lease; local user UI keeps its
   // command origin. Neither port is part of the public content namespace.
   const local={recovery:async(root:string)=>{await establish(root);await ui.recovery();},authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
-  return {api,local,establish,capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  return {api,local,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "status": "partial-desktop-acceptance",
+  "environment": {
+    "platform": "macOS ARM64",
+    "logseq": "0.10.15",
+    "capabilityInjection": false,
+    "developmentDirectory": true,
+    "finalZipAcceptance": false
+  },
+  "commonSourceKey": "agent-collaboration-common-guidance-v1",
+  "versions": {
+    "old": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+    "new": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1"
+  },
+  "phases": [
+    {
+      "name": "collaboration-work-one-old",
+      "observedAt": "2026-10-07T15:30:34.407Z",
+      "workspaceId": "a2c76a43-00e0-4209-bf93-e6f260dffe60",
+      "rootUuid": "b7261007-0000-4000-8000-000000000001",
+      "sourceCount": 101,
+      "commonVersion": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "projectVersion": "f5d22b17d5a22f284d14529a103589de53294e098e6854debd6fc3d509eb0b63",
+      "permissions": {
+        "body": false,
+        "file": false,
+        "todo": false
+      },
+      "rejections": [
+        {
+          "command": "content.apply",
+          "code": "CONTENT_WRITE_AUTHORIZATION_REQUIRED"
+        },
+        {
+          "command": "materials.capture",
+          "code": "FILE_WRITE_AUTHORIZATION_REQUIRED"
+        }
+      ],
+      "sourcePageHash": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+      "pageUnchanged": true,
+      "sceneLoadedCommon": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "currentCommon": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "currentGuidanceMatches": false,
+      "runtime": {
+        "jsHash": "62296b6ccb9bca895c52370901164bcf473de5f2ff50c9988c187a97e5aa0b7a",
+        "cliHash": "6f0d5b95f4464cc2a0b944547f620c8d214ba359d8359028b5d3a1447580e688",
+        "node": "v20.20.2",
+        "developmentDirectory": true,
+        "capabilityInjection": false
+      }
+    },
+    {
+      "name": "collaboration-work-two-old",
+      "observedAt": "2026-10-08T00:23:47.221Z",
+      "workspaceId": "460524e6-87af-490b-b8a7-66ec5fc6db5e",
+      "rootUuid": "b7261007-0000-4000-8000-000000000027",
+      "sourceCount": 25,
+      "commonVersion": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "projectVersion": "0902bbb53a9c63b30d712e23ac0974173c7f50b6ac3d3903b3ac9a2f3d17bbef",
+      "permissions": {
+        "body": false,
+        "file": false,
+        "todo": false
+      },
+      "rejections": [
+        {
+          "command": "content.apply",
+          "code": "CONTENT_WRITE_AUTHORIZATION_REQUIRED"
+        },
+        {
+          "command": "materials.capture",
+          "code": "FILE_WRITE_AUTHORIZATION_REQUIRED"
+        }
+      ],
+      "sourcePageHash": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+      "pageUnchanged": true,
+      "sceneLoadedCommon": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "currentCommon": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "currentGuidanceMatches": false,
+      "runtime": {
+        "jsHash": "bb0222d49c6a7529c620480624eec3706deb2f81039960967e56f20a8f767f26",
+        "cliHash": "6f0d5b95f4464cc2a0b944547f620c8d214ba359d8359028b5d3a1447580e688",
+        "node": "v20.20.2",
+        "developmentDirectory": true,
+        "capabilityInjection": false
+      }
+    },
+    {
+      "name": "collaboration-work-two-new",
+      "observedAt": "2026-10-08T00:24:19.293Z",
+      "workspaceId": "460524e6-87af-490b-b8a7-66ec5fc6db5e",
+      "rootUuid": "b7261007-0000-4000-8000-000000000027",
+      "sourceCount": 25,
+      "commonVersion": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1",
+      "projectVersion": "0902bbb53a9c63b30d712e23ac0974173c7f50b6ac3d3903b3ac9a2f3d17bbef",
+      "permissions": {
+        "body": false,
+        "file": false,
+        "todo": false
+      },
+      "rejections": [
+        {
+          "command": "content.apply",
+          "code": "CONTENT_WRITE_AUTHORIZATION_REQUIRED"
+        },
+        {
+          "command": "materials.capture",
+          "code": "FILE_WRITE_AUTHORIZATION_REQUIRED"
+        }
+      ],
+      "sourcePageHash": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+      "pageUnchanged": true,
+      "sceneLoadedCommon": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+      "currentCommon": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1",
+      "currentGuidanceMatches": false,
+      "runtime": {
+        "jsHash": "bb0222d49c6a7529c620480624eec3706deb2f81039960967e56f20a8f767f26",
+        "cliHash": "6f0d5b95f4464cc2a0b944547f620c8d214ba359d8359028b5d3a1447580e688",
+        "node": "v20.20.2",
+        "developmentDirectory": true,
+        "capabilityInjection": false
+      }
+    },
+    {
+      "name": "collaboration-work-one-new",
+      "observedAt": "2026-10-08T00:25:54.649Z",
+      "workspaceId": "a2c76a43-00e0-4209-bf93-e6f260dffe60",
+      "rootUuid": "b7261007-0000-4000-8000-000000000001",
+      "sourceCount": 101,
+      "commonVersion": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1",
+      "projectVersion": "f5d22b17d5a22f284d14529a103589de53294e098e6854debd6fc3d509eb0b63",
+      "permissions": {
+        "body": false,
+        "file": false,
+        "todo": false
+      },
+      "rejections": [
+        {
+          "command": "content.apply",
+          "code": "CONTENT_WRITE_AUTHORIZATION_REQUIRED"
+        },
+        {
+          "command": "materials.capture",
+          "code": "FILE_WRITE_AUTHORIZATION_REQUIRED"
+        }
+      ],
+      "sourcePageHash": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+      "pageUnchanged": true,
+      "sceneLoadedCommon": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1",
+      "currentCommon": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1",
+      "currentGuidanceMatches": true,
+      "runtime": {
+        "jsHash": "bb0222d49c6a7529c620480624eec3706deb2f81039960967e56f20a8f767f26",
+        "cliHash": "6f0d5b95f4464cc2a0b944547f620c8d214ba359d8359028b5d3a1447580e688",
+        "node": "v20.20.2",
+        "developmentDirectory": true,
+        "capabilityInjection": false
+      }
+    }
+  ],
+  "workTwoOriginal": {
+    "entryFile": "WORKSPACE.task-copilot.md",
+    "userEntryPreserved": true,
+    "sha256": "59495dd163507a6b86f892d73ccf4640882124bd8fe7d67b5a322b55b0712c62"
+  },
+  "workSwitch": {
+    "observedAt": "2026-10-08T00:25:25.956Z",
+    "oldWork": "work-two",
+    "selectedWork": "work",
+    "rejection": {
+      "code": "WORKSPACE_OFFLINE",
+      "message": "WORKSPACE_OFFLINE"
+    },
+    "uiSwitch": true,
+    "capabilityInjection": false
+  },
+  "limits": [
+    "ordinary TODO new authority not implemented",
+    "three writing exercises pending",
+    "A integration and format matrix pending",
+    "outside-repository ZIP pending",
+    "physical IME/Finder/clipboard and ordinary IO races unverified"
+  ]
+}

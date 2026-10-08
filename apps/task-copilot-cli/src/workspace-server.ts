@@ -171,6 +171,18 @@ export async function startWorkspaceServer(options: {
         }
         const check = () => broker.assert(call.connectionId);
         const forward = async (command = call.command, payload = call.payload) => { const result = await broker.request({ ...call, command, payload }); check(); return result; };
+        if(["materials.capture","materials.associate","materials.save","files.associate"].includes(call.command)){
+            const status=await broker.request({...call,requestId:`file-permission:${digest([call.command,call.requestId])}`,command:"status",payload:{}});check();
+            if((status.value as {capabilities?:{fileWrite?:boolean}}).capabilities?.fileWrite!==true)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
+        }
+        if(call.command==="collaboration.read"||call.command==="collaboration.refresh"){
+            const reply=await forward(),packet=reply.value as {scene?:{materials:KnownMaterial[]};materials?:KnownMaterial[]};
+            const materials=packet.scene?.materials??packet.materials;
+            if(!Array.isArray(materials)||materials.length>2000||materials.some(m=>typeof m.id!=="string"||typeof m.path!=="string"))throw new WorkspaceError("COLLABORATION_MATERIALS_INVALID");
+            observations=await discoverFiles(root!,materials,observations);check();
+            const references=await sessionRecords(binding,"list",{});check();
+            return {...reply,value:{...packet,files:{binding,observation:observations},sessions:{binding,references}}};
+        }
         if (call.command === "read")
             return { freshness: "last-known", snapshot: cache, binding, sourceAvailable: false };
         if (call.command === "refresh") {

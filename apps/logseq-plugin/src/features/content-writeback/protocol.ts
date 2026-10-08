@@ -60,6 +60,8 @@ export interface SourceReader {
 }
 export interface ScopeLease { scope: SourceScope; epoch: number; signal: AbortSignal; rootPath: readonly string[] | null }
 export interface ScopeAuthority {
+  /** Trusted authority state; absent only for legacy embedded executors. Never a caller lease field. */
+  allowsSourceWrite?(lease: ScopeLease): boolean;
   capture(scope: SourceScope): ScopeLease | null;
   valid(lease: ScopeLease): boolean;
   allowsStructure?(lease: ScopeLease): boolean;

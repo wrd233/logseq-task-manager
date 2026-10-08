@@ -2,6 +2,8 @@
 
 [下载安装包](../implementation/assets/workbench-visual-refresh/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
 
+这里的链接仍是视觉刷新阶段包。下文新增的协作现场和共同指导正在本分支实施，最终包与完整验收尚未交付；请先看[当前实施记录](../implementation/reading-and-agent-collaboration-handoff.md)。
+
 ## 安装与更新
 
 1. 解压 ZIP，保留其中的 `task-copilot-workbench` 文件夹。
@@ -55,11 +57,19 @@ Project／Area 独立页面的页面标题旁也有「阅读」，读取整页�
 
 1. 在工作「工作选项 → 工作目录 → 关联工作目录」选择 Graph 外的实际目录。
 2. macOS 运行包内 `Start collaboration.command`，保留启动器窗口。这个可选能力需要 PATH 中可用的 Node 20.19 或更高版本；基础阅读没有这个条件。现有协作通道支持 POSIX。
-3. 回到这份工作「工作选项 → 外部连接与恢复 → 允许 agent 连接这份工作」。程序自动发现连接文件，不用抄连接正文或块 ID。
-4. 让 agent 从所选工作目录使用生产 CLI `workspace refresh`、`workspace read` 读取。CLI 为包内 `dist/workspace.mjs`；例如在工作目录执行 `node /实际安装位置/dist/workspace.mjs workspace read --json`。
+3. 回到这份工作「工作选项 → 外部连接与恢复 → 带当前工作去协作」，填写本次请求，选择必要背景，再点「连接并准备协作现场」。新连接仅允许读取和设计读法。程序自动发现连接文件，不用抄连接正文或块 ID。
+4. 把界面生成的启动语交给你选择的 Agent。它使用实际插件中的 `dist/workspace.mjs` 和当前通道位置，先读取 `workspace collaboration read` 与 `workspace guidance read`。已有可靠会话链接会显示；没有链接时，使用你原来的 Agent 入口继续，插件不会自动新建聊天或发送消息。
 
-连接就绪只表示本机通道可用，agent 尚未自动开始工作。正文维护、同一工作内的原块整理、TODO 文本、材料编辑和阶段认可继续分别按原有许可处理。结束时在工作选项选择「停止 agent 工作连接」，并在启动器窗口按 Ctrl+C。
+协作现场保存当时的完整原文、层级、版本、所选背景、实际材料引用、阅读状态、指导版本和本次许可。原生草稿不会作为正式原文导出。读取结果中的 `scene` 是保存的现场，`current` 单独说明现在核验的来源、材料、指导及权限是否一致；不一致时先用 `workspace collaboration refresh` 重读。`workspace read` 仍是最后已知副本，不是本次现场已核验的证明。
+
+共同指导在「共同指导与项目差异」维护。本插件实例只有一份共同来源，各工作只保存自己的差异。只有点击「明确保存共同指导」才改变长期来源；本次请求和项目差异不会改其他工作的规则。修改后让 Agent 再执行 `workspace guidance read`，记录返回的版本。旧现场保留当时加载的文本和版本，可以辨认后再重读；当前聊天不会因为来源变化自动更新。
+
+共同来源与项目差异使用 Logseq 的插件私有 FileStorage，不修改全局 Agent 配置，也不写入 Codex 记忆。共同指导第一次读取使用随插件的默认文本，不在读取时创建文件；明确保存后读取实际存储内容。界面中的启动语提示通过 CLI 读取同一来源，现场也记录这个共同来源的身份与版本；已有用户 `WORKSPACE.md` 保持。
+
+连接就绪只表示本机通道可用，Agent 尚未自动开始工作。需要写正文时，明确使用正文维护入口；需要调整原块位置时用「允许润色并整理原块」。文件写作需另外点「允许 Agent 写工作文件」，材料自身的编辑限制继续有效。读取和编排不会取得这些许可。普通 TODO 范围授权仍在实施，现有正文替换不能代替它，也不能改正式对象或代用户认可。
+
+切换工作、Graph、重绑定、停止连接或卸载后，旧连接不能继续调用；回到原工作需要重新允许。已发出写入若超时或断连，先重连并按原 requestId 查询结果，不盲目另发一份。结束时在工作选项选择「停止 agent 工作连接」，并在启动器窗口按 Ctrl+C。
 
 Logseq 0.10.9 没有允许插件任意启动本机进程的接口，因此本轮交付的是独立启动器加自动连接发现，尚未实现“插件一个按钮直接启动 companion”。已有自定义连接位置继续有效。
 
-本轮安装包、校验信息、截图与未验范围见[证据索引](../implementation/assets/workbench-visual-refresh/README.md)。旧版一键阅读的历史记录另见[原证据](../implementation/assets/simple-start-reading-main/README.md)。
+上方下载安装链接仍是视觉刷新阶段包。本分支新增的协作现场、共同指导和只读权限入口尚未交付最终安装包；实施与实测边界见[当前交接](../implementation/reading-and-agent-collaboration-handoff.md)。视觉刷新包的校验、截图与未验范围见[证据索引](../implementation/assets/workbench-visual-refresh/README.md)。旧版一键阅读的历史记录另见[原证据](../implementation/assets/simple-start-reading-main/README.md)。

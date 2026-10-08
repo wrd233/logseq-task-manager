@@ -66,6 +66,10 @@ export class ContentExecutor {
   }
   private valid(lease: ScopeLease): () => boolean { return ()=>this.ports.authority.valid(lease); }
   private assert(lease: ScopeLease): void { if (!this.ports.authority.valid(lease)) fail("SCOPE_REVOKED"); }
+  private assertWrite(lease: ScopeLease): void {
+    this.assert(lease);
+    if (this.ports.authority.allowsSourceWrite?.(lease) === false) fail("CONTENT_WRITE_AUTHORIZATION_REQUIRED");
+  }
   private assertRead(lease: ScopeLease, read: SourceRead): void {
     this.assert(lease);
     if (lease.rootPath && JSON.stringify(lease.rootPath) !== JSON.stringify(read.paths.get(lease.scope.rootUuid))) fail("SCOPE_ROOT_CHANGED");
@@ -86,6 +90,7 @@ export class ContentExecutor {
         if (previous.digest !== digest) fail("IDEMPOTENCY_KEY_REUSED");
         return result(previous);
       }
+      this.assertWrite(lease);
       const at=new Date().toISOString();
       const record:RequestRecord={schemaVersion:1,intentKind:"content-patch",sequence:0,digest,patch,origin:clone(origin),retryOf,createdAt:at,updatedAt:at,items:patch.operations.map(item),resolutions:{}};
       try { await this.ports.journal.save(clone(record)); }
@@ -111,7 +116,8 @@ export class ContentExecutor {
   async persistScopeIdentity(scope:SourceScope,origin:CallOrigin):Promise<ApplyResult>{
     const lease=this.lease(scope),valid=this.valid(lease),keys=[sourceKey(scope,"content-graph-writes"),sourceKey(scope,scope.rootUuid)].sort();
     return serialSources(keys,async()=>{
-      const read=await this.read(scope),base=block(read,scope.rootUuid);this.assert(lease);
+      this.assertWrite(lease);
+      const read=await this.read(scope),base=block(read,scope.rootUuid);this.assertWrite(lease);
       if(read.protections.get(scope.rootUuid)?.ranges.some(range=>range.reason==="managed"||range.reason==="ambiguous-formal-field"))fail("PROTECTED_SCOPE_ROOT");
       await this.ports.editing.assertSafe(scope,read.paths.get(scope.rootUuid)??[],valid);this.assert(lease);
       const op:TextOperation={operationId:"native-scope-identity",type:"replace-text",target:base.target,expectedContentVersion:base.contentVersion!,expectedParentUuid:base.parentUuid,range:{start:0,end:0},expectedText:"",text:"",context:{before:"",after:[...base.content!].slice(0,8).join("")}};
@@ -166,10 +172,10 @@ export class ContentExecutor {
     return {read,target,next,affected};
   }
   private async callHost(lease:ScopeLease, keys:readonly string[], action:()=>Promise<void>):Promise<void> {
-    this.assert(lease);
+    this.assertWrite(lease);
     if (keys.some(key=>inFlight.has(key))) fail("HOST_CALL_IN_FLIGHT");
     for (const key of keys) inFlight.add(key);
-    const operation=Promise.resolve().then(()=>{this.assert(lease);return action();});
+    const operation=Promise.resolve().then(()=>{this.assertWrite(lease);return action();});
     void operation.finally(()=>{for (const key of keys) inFlight.delete(key);}).catch(()=>undefined);
     let timer:ReturnType<typeof setTimeout>|null=null;
     let abort:()=>void=()=>undefined;
@@ -364,6 +370,7 @@ export class ContentExecutor {
       const scopeIdentity=record.intentKind==="scope-identity";
       if(!fact||!op||!fact.identity||(!scopeIdentity&&(op.type!=="insert-child"||!fact.childUuid||!fact.contentVerified)))fail("IDENTITY_RECOVERY_UNAVAILABLE");
       if(fact.identity.status==="VERIFIED")return result(record);
+      this.assertWrite(lease);
       const child=scopeIdentity?scope.rootUuid:fact.childUuid!,parent=scopeIdentity?fact.parentUuid:op.target.blockUuid;
       const body=scopeIdentity?fact.identity.before:(op as Extract<Operation,{type:"insert-child"}>).content;
       const keys=[...new Set([sourceKey(scope,"content-graph-writes"),sourceKey(scope,child),sourceKey(scope,op.target.blockUuid)])].sort();

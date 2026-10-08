@@ -1,4 +1,4 @@
-import { WorkspaceError, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { ScopeLease } from "../content-writeback/protocol.ts";
@@ -8,6 +8,9 @@ import type { WorkView } from "../work-view/controller.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { AgentWorkspaceRouter, type WorkspaceBindingPort, type OptionalStagePort, type WorkspaceSourcePort } from "./router.ts";
 import type { WorkspaceContextService } from "../../workspace/context-service.ts";
+import { GuidanceService } from "./guidance.ts";
+import { CollaborationService } from "./collaboration.ts";
+import { CollaborationUI } from "./collaboration-ui.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
     let witness: (() => boolean) | null = null;
     const read = async (rootUuid: string): Promise<AgentWorkBinding> => {
@@ -39,9 +42,14 @@ export function installAgentWorkspace(options: {
         binding: AgentWorkBinding;
         lease: ScopeLease;
         epoch: number;
+        fileWrite: boolean;
+        descriptorPath:string;
     } | null = null;
     const binding = options.binding;
-    const router = options.materials && binding ? new AgentWorkspaceRouter({ content: options.content, materials: options.materials, work: options.work, binding, ...(options.source ? { source: options.source } : {}), ...(options.stage ? { stage: options.stage } : {}) }) : null;
+    const guidance=new GuidanceService(logseq.FileStorage);
+    const permissions=()=>({read:connection!==null,bodyWrite:connection!==null&&options.content.api.capabilities().bodyAuthorized,structureWrite:connection!==null&&options.content.api.capabilities().structureAuthorized,fileWrite:connection?.fileWrite??false,ordinaryTodo:false as const,formalApproval:false as const});
+    const collaboration=options.source?new CollaborationService({storage:logseq.FileStorage,guidance,refresh:scope=>options.source!.refresh(scope),materials:async selected=>router!.sceneMaterials(selected),reading:()=>options.work?.readingAPI.read()??null,permissions,editing:async()=>!!await logseq.Editor.checkEditing()}):undefined;
+    const router:AgentWorkspaceRouter|null = options.materials && binding ? new AgentWorkspaceRouter({ content: options.content, materials: options.materials, work: options.work, binding, guidance,...(collaboration?{collaboration}:{}),allowsFileWrite:lease=>connection?.lease===lease&&connection.fileWrite, ...(options.source ? { source: options.source } : {}), ...(options.stage ? { stage: options.stage } : {}) }) : null;
     const report = (error: unknown) => {
         if (!disposed)
             void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
@@ -61,11 +69,13 @@ export function installAgentWorkspace(options: {
             throw new WorkspaceError(result.error?.code ?? "CHANNEL_FAILED", result.error?.message);
         return result;
     };
-    const revoke = () => {
+    const revoke = (closeUI=true) => {
         const previous = connection;
         connection = null;
         generation++;
         router?.clear();
+        if(closeUI)ui?.close();
+        if(previous&&options.content.valid(previous.lease))options.content.api.revoke();
         if (timer)
             clearTimeout(timer);
         timer = null;
@@ -123,10 +133,10 @@ export function installAgentWorkspace(options: {
         if (connection === value && !disposed)
             timer = setTimeout(() => void tick(value), options.intervalMs ?? 250);
     };
-    const allow = async (explicitTarget?: string, organize=false) => {
+    const allow = async (explicitTarget?: string, organize=false, readOnly=false, preserveUI=false) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
-        revoke();
+        revoke(!preserveUI);
         const epoch = generation;
         const target = explicitTarget ?? (await logseq.Editor.getCurrentBlock())?.uuid;
         if (!target)
@@ -146,23 +156,31 @@ export function installAgentWorkspace(options: {
         const descriptor = parseWorkspaceDescriptor(JSON.parse(descriptorText), true) as WorkspacePluginDescriptor;
         if (disposed || epoch !== generation)
             throw new WorkspaceError("CONNECTION_REVOKED");
-        await options.content.establish(target,organize);
+        if(readOnly)await options.content.establishRead(target);
+        else await options.content.establish(target,organize);
         const lease = options.content.capture(selected.scope);
         if (!lease)
             throw new WorkspaceError("SCOPE_MISMATCH");
-        const value = { descriptor, id: crypto.randomUUID(), binding: selected, lease, epoch };
-        await router.assert(selected, lease);
-        await post(descriptor, "/plugin/connect", { connectionId: value.id, binding: selected });
-        if (disposed || epoch !== generation || !options.content.valid(lease)) {
+        options.content.restrict(lease,()=>{
+            const scope=(options.work?.snapshot() as {readingScope?:AgentWorkBinding["scope"]&{kind?:string}}|undefined)?.readingScope;
+            return !scope||scope.kind!=="page"&&sameWorkScope(scope,selected.scope);
+        });
+        if(disposed||epoch!==generation){if(options.content.valid(lease))options.content.api.revoke();throw new WorkspaceError("CONNECTION_REVOKED");}
+        const value = { descriptor, descriptorPath:path, id: crypto.randomUUID(), binding: selected, lease, epoch, fileWrite:false };
+        try{
+            await router.assert(selected, lease);
+            await post(descriptor, "/plugin/connect", { connectionId: value.id, binding: selected });
+            if (disposed || epoch !== generation || !options.content.valid(lease)) throw new WorkspaceError("CONNECTION_REVOKED");
+        }catch(error){
             void post(descriptor, "/plugin/revoke", { connectionId: value.id }).catch(() => undefined);
-            throw new WorkspaceError("CONNECTION_REVOKED");
+            if(options.content.valid(lease))options.content.api.revoke();throw error;
         }
         connection = value;
         failures = 0;
         void tick(value);
-        await logseq.UI.showMsg(organize?"已连接，允许润色正文及同一对象内整理原块位置；TODO 文本及材料权限保持。":"已连接这份工作，允许维护此处正文。材料权限与 TODO 保护继续有效。", "success");
+        await logseq.UI.showMsg(readOnly?"已连接这份工作，可读取和设计读法。正文、文件写作及 TODO 需分别授权。":organize?"已连接，允许润色正文及同一对象内整理原块位置；TODO 文本及材料权限保持。":"已连接这份工作，允许维护此处正文。材料权限与 TODO 保护继续有效。", "success");
     };
-    const localCall = async (command: "files.list" | "files.read" | "files.associate", payload: Record<string, unknown>): Promise<unknown> => {
+    const localCall = async (command: "files.list" | "files.read" | "files.associate" | "collaboration.refresh", payload: Record<string, unknown>): Promise<unknown> => {
         const value = connection;
         if (!value)
             throw new WorkspaceError("CHANNEL_UNAVAILABLE");
@@ -171,6 +189,29 @@ export function installAgentWorkspace(options: {
         await valid(value);
         const result = response.value;
         return result && typeof result === "object" && "provenance" in result && "value" in result ? result.value : result;
+    };
+    const ui=new CollaborationUI({guidance,report,stateDirectory:()=>connection?.descriptorPath.slice(0,connection.descriptorPath.lastIndexOf("/"))??null,context:async explicitTarget=>{
+        const target=explicitTarget??(await logseq.Editor.getCurrentBlock())?.uuid;
+        if(!target||!options.source)throw new WorkspaceError("SOURCE_REQUIRED");
+        const selected=await binding.selected(target);
+        const check=async()=>{if(disposed||!await binding.valid(selected))throw new WorkspaceError("CONNECTION_REVOKED");};
+        const workspace=await options.source.refresh(selected.scope);await check();
+        if(workspace.freshness!=="checked"||!workspace.observed)throw new WorkspaceError("SOURCE_UNAVAILABLE");
+        const sources=[...workspace.observed.primary.blocks,...workspace.observed.sources.flatMap(s=>s.snapshot?.blocks??[])];
+        const backgroundSources=[...new Map(sources.map(b=>[b.sourceId,b])).values()];
+        return {binding:selected,source:workspace.observed.primary,backgroundSources,guidance:await guidance.read(selected,check),check};
+    },prepare:async(root,request,backgroundSourceIds)=>{
+        // Preserve an existing explicit grant for this same work. A fresh entry
+        // establishes only read/presentation authority.
+        if(!connection||connection.binding.scope.rootUuid!==root)await allow(root,false,true,true);
+        const value=connection;if(!value||!collaboration)throw new WorkspaceError("CHANNEL_UNAVAILABLE");
+        const check=()=>valid(value);await check();
+        await collaboration.prepare(value.binding,{request,backgroundSourceIds},check);
+        return localCall("collaboration.refresh",{});
+    }});
+    const allowFiles=async()=>{
+        const value=connection;if(!value)throw new WorkspaceError("CHANNEL_UNAVAILABLE","先连接这份工作，再明确允许它的文件写作。");
+        await valid(value);value.fileWrite=true;await logseq.UI.showMsg("已允许 Agent 在这份工作的目录中写材料；正文和普通 TODO 许可独立保持。","success");
     };
     options.materials?.setDirectoryObserver({
         stop: revoke,
@@ -207,7 +248,7 @@ export function installAgentWorkspace(options: {
     if(typeof organizeMenu==="function")disposers.push(organizeMenu);
     if (typeof menu === "function")
         disposers.push(menu);
-    for (const [key, label, action] of [["agent-workspace-organize", "工作台：允许 agent 润色并整理当前工作原块", async()=>allow(undefined,true)], ["agent-workspace-allow", "工作台：允许 agent 连接当前工作", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
+    for (const [key, label, action] of [["agent-workspace-collaboration","工作台：带当前工作去协作",async()=>ui.open()],["agent-workspace-guidance","工作台：编辑共同指导与项目差异",async()=>ui.open(undefined,true)],["agent-workspace-read","工作台：允许 agent 只读当前工作",async()=>allow(undefined,false,true)],["agent-workspace-files","工作台：允许 agent 写当前工作文件",allowFiles],["agent-workspace-organize", "工作台：允许 agent 润色并整理当前工作原块", async()=>allow(undefined,true)], ["agent-workspace-allow", "工作台：允许 agent 连接当前工作", allow], ["agent-workspace-stop", "工作台：停止 agent 工作连接", async () => { revoke(); }]] as const) {
         const off = logseq.App.registerCommandPalette({ key, label }, () => {
             if (!disposed)
                 return action().catch(report);
@@ -215,11 +256,13 @@ export function installAgentWorkspace(options: {
         if (typeof off === "function")
             disposers.push(off);
     }
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable" }) }, local: {connect:allow,stop:revoke}, dispose: () => {
+    const connectRead=(target?:string)=>allow(target,false,true);
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,collaborate:(root?:string)=>ui.open(root),guidance:(root?:string)=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;
             revoke();
+            ui.dispose();guidance.dispose();collaboration?.dispose();
             options.materials?.setDirectoryObserver(null);
             for (const off of disposers)
                 off();

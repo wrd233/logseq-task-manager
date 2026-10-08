@@ -12,6 +12,33 @@ async function until(predicate:()=>boolean):Promise<void>{for(let i=0;i<200;i++)
 function api():ContentInstallation["api"]{return (window as unknown as {taskCopilotWorkbench:{content:ContentInstallation["api"]}}).taskCopilotWorkbench.content;}
 const entry=new URL("../src/index.ts",import.meta.url).href;
 
+test("read-only scope never persists native identity or accepts writes; old durable results remain queryable",async()=>{
+  const f=await contentFixture(),installed=installContentWriteback({journal:f.journal,adapter:f.adapter});
+  try{
+    await installed.establishRead(f.root);assert.equal(installed.api.capabilities().bodyAuthorized,false);assert.equal(installed.api.capabilities().structureAuthorized,false);
+    const read=await installed.api.read();assert.equal(read.blocks.length,3);assert.equal(f.counts().identities,0);
+    const input=f.patch([await f.text(f.a,"Beta","read must not write")]);
+    await assert.rejects(installed.api.apply(input),/CONTENT_WRITE_AUTHORIZATION_REQUIRED/);assert.equal(await installed.api.result(input.requestId),null);assert.equal(f.counts().writes,0);
+    await installed.establish(f.root);const next=f.patch([await f.text(f.a,"Beta","explicit write")]);const written=await installed.api.apply(next);assert.equal(written.status,"complete");
+    const counts=f.counts();await installed.establishRead(f.root);
+    assert.equal((await installed.api.apply(next)).record.digest,written.record.digest);
+    assert.equal((await installed.api.recover(next.requestId)).record.digest,written.record.digest);
+    assert.deepEqual(f.counts(),counts);
+    installed.api.revoke();assert.equal(installed.api.capabilities().bodyAuthorized,false);await assert.rejects(installed.api.read(),/AUTHORIZATION_REQUIRED/);
+  }finally{installed.dispose();await f.cleanup();}
+});
+
+test("trusted work switch restriction fences an in-progress write and never revives when returning to the old work",async()=>{
+  const f=await contentFixture(),input=f.patch([await f.text(f.a,"Beta","must not arrive")]),entered=deferred<void>(),release=deferred<void>();let active=true;
+  try{
+    const lease=f.authority.capture(f.scope)!;f.authority.restrict(lease,()=>active);
+    f.onRead(async()=>{entered.resolve();await release.promise;});
+    const writing=f.executor.apply(input);await entered.promise;active=false;release.resolve();
+    const result=await writing;assert.equal(result.record.items[0]!.reason,"SCOPE_REVOKED");assert.equal(f.counts().writes,0);
+    active=true;assert.equal(f.authority.valid(lease),false);assert.equal(f.authority.capture(f.scope),null);assert.equal(lease.signal.aborted,true);
+  }finally{release.resolve();await f.cleanup();}
+});
+
 test("merged composition keeps lenses live after verified content writes and marks the old reading basis changed",async()=>{
   const f=await contentFixture(),fetch=globalThis.fetch;
   const database=new Set<Parameters<typeof logseq.DB.onChanged>[0]>();

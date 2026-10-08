@@ -10,6 +10,8 @@ export const workspaceHelp = `Task Copilot natural workspace CLI (local connecti
   workspace serve [--state-dir <private-directory>]  # foreground; stop with Ctrl+C
   workspace status | capabilities | refresh | read
   workspace source read <sourceId>
+  workspace guidance read | collaboration read | collaboration refresh
+  # Explicitly load the returned guidance versions. A saved scene can be stale; inspect current before writing.
   workspace files list | read <relative-path> | associate <relative-path>
   workspace materials list | read <id> | capture --input-file <path|->
   workspace materials associate --path <relative-path> | --id <materialId>
@@ -162,7 +164,7 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
         };
         if (commandWords.length === 1 && ["status", "refresh", "read"].includes(commandWords[0]!))
             command = commandWords[0] as WorkspaceCommand;
-        else if (["files.list", "materials.list", "focus.source", "focus.read", "focus.cancel", "focus.exit", "focus.back", "reading.read", "reading.original", "reading.clear", "content.read", "content.pending", "sessions.list"].includes(pair) && commandWords.length === 2)
+        else if (["guidance.read","collaboration.read","collaboration.refresh","files.list", "materials.list", "focus.source", "focus.read", "focus.cancel", "focus.exit", "focus.back", "reading.read", "reading.original", "reading.clear", "content.read", "content.pending", "sessions.list"].includes(pair) && commandWords.length === 2)
             command = pair as WorkspaceCommand;
         else if (["files.read", "files.associate", "materials.read", "source.read", "content.result", "content.recover"].includes(pair) && commandWords.length === 3) {
             command = pair as WorkspaceCommand;
