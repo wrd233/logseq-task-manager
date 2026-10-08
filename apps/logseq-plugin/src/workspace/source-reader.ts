@@ -13,22 +13,13 @@ export class SourceReader {
   constructor(private readonly host: SourceReadHost) {}
   async read(input: SourceScope, valid: () => boolean, pageName?: string): Promise<SourceSnapshot> {
     const scope = scopeOf(input);
+    if(pageName!==undefined)return this.readPage({...scope,kind:"page",pageName:identifier(pageName)},valid);
     if (scope.kind === "page") return this.readPage(scope, valid);
     const check = async () => { if (!valid() || await this.host.graphId() !== scope.graphId || !valid()) throw new ScopeExpired(); };
     await check();
     let tree: unknown;
     try {
-      if (pageName !== undefined) {
-        identifier(pageName);
-        if (!this.host.getPage || !this.host.getPageBlocksTree) throw new Error("WORKSPACE_PAGE_READ_UNAVAILABLE");
-        const page = await this.host.getPage(pageName); await check();
-        if (page === null) return this.absent(scope, "missing");
-        if (object(page).uuid !== scope.rootUuid) throw new Error("WORKSPACE_PAGE_ID_CHANGED");
-        const children = await this.host.getPageBlocksTree(pageName); await check();
-        if (!Array.isArray(children)) throw new Error("WORKSPACE_PAGE_READ_UNAVAILABLE");
-        // Page names are locators, not invented body text.
-        tree = {...object(page), content: typeof object(page).content === "string" ? object(page).content : "", children};
-      } else tree = await this.host.getBlock(scope.rootUuid, {includeChildren: true});
+      tree = await this.host.getBlock(scope.rootUuid, {includeChildren: true});
     } catch (error) {
       await check(); if (error instanceof ScopeExpired) throw error;
       return this.absent(scope, "unavailable");

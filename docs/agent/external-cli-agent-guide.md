@@ -6,6 +6,8 @@ For natural-work collaboration, use the actual CLI path, directory and private c
 
 Natural body/file/TODO permissions remain independent. New semantic line starts use `**[目标]**`, `**[想法]**`, `**[注]**`, `**[记录]**`; ordinary TODO/DONE are plain. Record meaningful changes at the existing topic/task, keep uncertainty, and place detailed outputs in actual materials. Formal operations use the separate governed interface below.
 
+A page connection returns the real `{kind:"page", pageName, graphId, rootUuid}` scope, a page descriptor and only real native blocks. `rootUuid` is the page identity, never a writable block target. `content read`, source refresh, reading plans, guidance, scenes and materials are available; directory file writing requires the independent local file grant. Body/TODO/formatting/focus/stage calls require a separately selected and connected real block scope. Empty pages remain readable without an invented root. Page/block switches revoke the old connection; reconnecting begins read-only. Do not infer a body grant from a file grant or manufacture a block scope from the page UUID.
+
 Set `TASK_COPILOT_DESCRIPTOR` to the private `kernel.json`, then begin with:
 
 ```sh

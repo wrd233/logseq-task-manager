@@ -15,7 +15,7 @@ export interface OptionalStagePort {
     submit(input: unknown, binding: AgentWorkBinding,origin?:CallOrigin): Promise<unknown>;
 }
 export interface WorkspaceBindingPort {
-    selected(rootUuid: string): Promise<AgentWorkBinding>;
+    selected(rootUuid: string,pageScope?:AgentWorkBinding["scope"]): Promise<AgentWorkBinding>;
     valid(binding: AgentWorkBinding): Promise<boolean>;
     materialIds?(binding: AgentWorkBinding): Promise<string[]>;
 }
@@ -105,6 +105,14 @@ export class AgentWorkspaceRouter {
             throw new WorkspaceError("SCOPE_MISMATCH");
         const content = this.ports.content.api;
         const check = () => this.assert(binding, lease);
+        const page=binding.scope.kind==="page";
+        if(page&&(["todo.","formatting.","focus.","stage."].some(prefix=>command.startsWith(prefix))||["content.apply","content.retry","content.result","content.recover","content.pending"].includes(command)))throw new WorkspaceError("BLOCK_SCOPE_REQUIRED","请先选择并连接真实块范围，再维护正文、普通 TODO 或阶段。");
+        const sourceRead=async()=>{
+            if(!page)return content.read(binding.scope);
+            if(!this.ports.source)throw new WorkspaceError("SOURCE_UNAVAILABLE");
+            const reading=await this.ports.source.refresh(binding.scope);await check();
+            if(reading.freshness!=="checked"||!reading.observed)throw new WorkspaceError("SOURCE_UNAVAILABLE");return reading.observed.primary;
+        };
         if(command.startsWith("formatting.")){
             const formatting=this.ports.formatting;if(!formatting)throw new WorkspaceError("FORMATTING_UNAVAILABLE");
             const id=await this.contentId(call,payload.requestId);await check();
@@ -132,8 +140,8 @@ export class AgentWorkspaceRouter {
             return packet;
         }
         if (command === "status")
-            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formattingProtocol:this.ports.formatting?{schemaVersion:1,preview:true,externalApply:false,application:"local-user-exact-diff",defaultLabels:[...naturalLabels],maxChanges:64,formalOperations:false}:null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: this.ports.todo?.status(lease).authorized??false, todoProtocol:this.ports.todo?.status(lease)??null, contentProtocol: content.capabilities() };
-        if ((command === "refresh" || command === "source.read") && this.ports.source) {
+            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: !page&&this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: !page&&this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formattingProtocol:!page&&this.ports.formatting?{schemaVersion:1,preview:true,externalApply:false,application:"local-user-exact-diff",defaultLabels:[...naturalLabels],maxChanges:64,formalOperations:false}:null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: !page&&(this.ports.todo?.status(lease).authorized??false), todoProtocol:page?null:this.ports.todo?.status(lease)??null, contentProtocol: {...content.capabilities(),requiresBlockScopeForWrite:page} };
+        if ((command === "refresh" || command === "source.read" || page&&command==="content.read") && this.ports.source) {
             const reading = await this.ports.source.refresh(binding.scope);
             await check();
             if (reading.freshness !== "checked" || !reading.observed)
@@ -145,6 +153,7 @@ export class AgentWorkspaceRouter {
                     throw new WorkspaceError("SOURCE_OUTSIDE_SCOPE");
                 return { freshness: source.availability === "available" ? "checked" : "unavailable", source };
             }
+            if(command==="content.read")return {...reading.observed.primary,readOnly:true,requiresBlockScopeForWrite:true};
             return { freshness: "checked", snapshot: reading.observed.primary, binding, workspace: reading };
         }
         if (command === "refresh" || command === "content.read" || command === "source.read") {
@@ -174,7 +183,7 @@ export class AgentWorkspaceRouter {
         }
         if (command === "materials.save") {
             if(this.ports.allowsFileWrite?.(lease)===false)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
-            await content.read(binding.scope);await check();
+            await sourceRead();await check();
             if (typeof payload.expectedContent !== "string" || typeof payload.next !== "string")
                 throw new WorkspaceError("INVALID_MATERIAL_SAVE");
             const material = await this.material(payload.id, binding);
@@ -186,7 +195,7 @@ export class AgentWorkspaceRouter {
         }
         if (command === "materials.capture") {
             if(this.ports.allowsFileWrite?.(lease)===false)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
-            await content.read(binding.scope);await check();
+            await sourceRead();await check();
             if (typeof payload.text !== "string" || payload.text.length > 262144 || payload.html !== undefined && typeof payload.html !== "string" || payload.title !== undefined && typeof payload.title !== "string")
                 throw new WorkspaceError("INVALID_CAPTURE");
             if (payload.role !== undefined && !["input", "reference", "draft", "output"].includes(String(payload.role)))
@@ -197,19 +206,19 @@ export class AgentWorkspaceRouter {
         }
         if (command === "materials.associate") {
             if(this.ports.allowsFileWrite?.(lease)===false)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
-            await content.read(binding.scope);await check();
+            await sourceRead();await check();
             if (payload.id !== undefined && payload.path !== undefined)
                 throw new WorkspaceError("AMBIGUOUS_MATERIAL");
             if (payload.id !== undefined) {
                 const material = await this.material(payload.id, binding);
                 await check();
-                return this.ports.materials.associateMaterial({ id: material.id, sourceUuid: binding.scope.rootUuid });
+                return this.ports.materials.associateMaterial({ id: material.id, sourceUuid: binding.scope.rootUuid },false);
             }
             // Absolute path is supplied only by the authenticated Node adapter after confinement.
             const path = workText(payload.path, 4096);
             if (!path.startsWith(`${binding.directory}/`))
                 throw new WorkspaceError("PATH_OUTSIDE_SCOPE");
-            return this.ports.materials.associateMaterial({ path, sourceUuid: binding.scope.rootUuid });
+            return this.ports.materials.associateMaterial({ path, sourceUuid: binding.scope.rootUuid },false);
         }
         if(command.startsWith("reading.")) {
             const work=this.ports.work;if(!work)throw new WorkspaceError("READING_UNAVAILABLE");

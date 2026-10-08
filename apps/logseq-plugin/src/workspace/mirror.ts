@@ -1,5 +1,5 @@
 import type { FileIO } from "../host/file-io.ts";
-import { object, sha256, validateSnapshot, MAX_TEXT, type SourceSnapshot } from "./source-protocol.ts";
+import { object, sha256, validateSnapshot, sourceAvailability, MAX_TEXT, type SourceSnapshot } from "./source-protocol.ts";
 import { associationOf, guard, managedRoot, optionalRead, replaceVerified, sameScope, uuidOf, verifiedWrite, type Association, type WorkspaceManifest } from "./workspace-record.ts";
 
 export interface MaterialReading {
@@ -50,7 +50,12 @@ async function associatedOf(value: unknown): Promise<AssociatedReading> {
   const s = object(value), association = associationOf(s.association);
   if (s.availability !== "available" && s.availability !== "missing" && s.availability !== "unavailable") throw new Error("WORKSPACE_INVALID_AVAILABILITY");
   const snapshot = s.snapshot ? await validateSnapshot(s.snapshot) : undefined;
-  if (snapshot && (association.kind === "material" || !sameScope(snapshot.scope, {graphId: association.graphId, rootUuid: association.kind === "logseq-block" ? association.blockUuid : association.pageUuid}) || snapshot.blocks[0]?.availability !== s.availability)) throw new Error("WORKSPACE_SOURCE_MISMATCH");
+  if(snapshot){
+    if(association.kind==="material"||snapshot.scope.graphId!==association.graphId||snapshot.scope.rootUuid!==(association.kind==="logseq-block"?association.blockUuid:association.pageUuid)||sourceAvailability(snapshot)!==s.availability)throw new Error("WORKSPACE_SOURCE_MISMATCH");
+    // Old associated-page mirrors remain readable history. Newly refreshed page
+    // snapshots use the real page descriptor and contain no invented root block.
+    if(association.kind==="logseq-block"&&snapshot.scope.kind!==undefined||association.kind==="logseq-page"&&snapshot.scope.kind==="page"&&snapshot.scope.pageName!==association.pageName)throw new Error("WORKSPACE_SOURCE_MISMATCH");
+  }
   const material = s.material && association.kind === "material" ? materialReading(s.material, association.id) : undefined;
   if (material && material.availability !== s.availability) throw new Error("WORKSPACE_SOURCE_MISMATCH");
   if (s.availability === "available" && (association.kind === "material" ? !material : !snapshot)) throw new Error("WORKSPACE_SOURCE_MISSING");

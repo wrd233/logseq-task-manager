@@ -1,5 +1,5 @@
 import type { Operation, ScopeAuthority, ScopeLease, SourceScope } from "./protocol.ts";
-import { parsePatch, sameScope } from "./validation.ts";
+import { fail, parsePatch, sameScope } from "./validation.ts";
 
 /** Owned by the trusted installer. The public namespace cannot bind arbitrary roots or grant TODO rights. */
 export class LocalScopeAuthority implements ScopeAuthority {
@@ -16,6 +16,7 @@ export class LocalScopeAuthority implements ScopeAuthority {
     return this.establish(scope, false, false);
   }
   private establish(scope: SourceScope, sourceWrite: boolean, structure: boolean): ScopeLease {
+    if(scope.kind==="page"&&(sourceWrite||structure))fail("BLOCK_SCOPE_REQUIRED");
     this.revoke();
     this.sourceWrite = sourceWrite;
     this.structure = structure;

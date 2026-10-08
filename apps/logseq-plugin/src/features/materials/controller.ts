@@ -483,10 +483,10 @@ export class Materials {
   async saveMaterial(id: string, expectedVersion: string, expectedContent: string, next: string): Promise<MaterialResult> {
     return (await this.ensureService()).save(id, expectedVersion, expectedContent, next, "agent");
   }
-  async associateMaterial(input: {id?: string; path?: string; sourceUuid: string}): Promise<MaterialResult> {
+  async associateMaterial(input: {id?: string; path?: string; sourceUuid: string}, insertReference = true): Promise<MaterialResult> {
     const epoch = this.epoch, service = await this.ensureService(), context = await this.workContext(input.sourceUuid);
     const result = input.id ? await service.associate(input.id, context) : input.path ? await service.associateFile(input.path, context) : (() => {throw new Error("请提供材料身份或文件路径。");})();
-    return this.sources.insertReference(result, input.sourceUuid, epoch, context.graph);
+    return insertReference?this.sources.insertReference(result, input.sourceUuid, epoch, context.graph):result;
   }
   private async linkExisting(id: string): Promise<void> {
     const block = this.contextUuid ? await logseq.Editor.getBlock(this.contextUuid) : await logseq.Editor.getCurrentBlock();

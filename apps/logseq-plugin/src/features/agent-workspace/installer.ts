@@ -16,14 +16,18 @@ import { OrdinaryTodoUI } from "../ordinary-todo/ui.ts";
 import { WritingFormatService } from "../writing-format/service.ts";
 import { WritingFormatUI } from "../writing-format/ui.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
-    let witness: (() => boolean) | null = null;
-    const read = async (rootUuid: string): Promise<AgentWorkBinding> => {
-        const graph = await logseq.App.getCurrentGraph(), scope = { graphId: graphIdentity(graph), rootUuid }, binding = await service.resolve(scope);
+    const witnesses=new WeakMap<AgentWorkBinding,()=>boolean>();
+    const read = async (rootUuid: string,pageScope?:ScopeLease["scope"]): Promise<AgentWorkBinding> => {
+        const graph = await logseq.App.getCurrentGraph(), scope = pageScope??{ graphId: graphIdentity(graph), rootUuid };
+        if(scope.graphId!==graphIdentity(graph)||scope.rootUuid!==rootUuid)throw new WorkspaceError("SCOPE_MISMATCH");
+        const binding = await service.resolve(scope);
         if (!binding)
             throw new WorkspaceError("WORKSPACE_BINDING_REQUIRED", "请先关联这份工作的目录，并选择它的工作入口块。");
         return { scope, directory: binding.directory, organization: binding.manifest.organization, workspaceId: binding.manifest.workspaceId, provider: "workspace" };
     };
-    return { selected: async (root) => { const value = await read(root); witness = service.observeScope(value.scope); return value; }, valid: async (binding) => !!witness && witness() && JSON.stringify(await read(binding.scope.rootUuid)) === JSON.stringify(binding) && witness(), materialIds: async (binding) => {
+    return { selected: async (root,page) => { const value = await read(root,page); witnesses.set(value,service.observeScope(value.scope)); return value; }, valid: async (binding) => {
+        const witness=witnesses.get(binding);return !!witness&&witness()&&JSON.stringify(await read(binding.scope.rootUuid,binding.scope.kind==="page"?binding.scope:undefined))===JSON.stringify(binding)&&witness();
+    }, materialIds: async (binding) => {
             const resolved = await service.resolve(binding.scope);
             if (!resolved || resolved.manifest.workspaceId !== binding.workspaceId || resolved.directory !== binding.directory)
                 throw new WorkspaceError("CONNECTION_REVOKED");
@@ -143,15 +147,23 @@ export function installAgentWorkspace(options: {
         if (connection === value && !disposed)
             timer = setTimeout(() => void tick(value), options.intervalMs ?? 250);
     };
-    const allow = async (explicitTarget?: string, organize=false, readOnly=false, preserveUI=false) => {
+    const targetFor=async(explicitTarget?:string|ScopeLease["scope"])=>{
+        const epoch=generation;
+        const scope=(options.work?.snapshot() as {readingScope?:ScopeLease["scope"]}|undefined)?.readingScope;
+        const target=explicitTarget??(scope?.kind==="page"?scope:(await logseq.Editor.getCurrentBlock())?.uuid);
+        if(disposed||epoch!==generation)throw new WorkspaceError("CONNECTION_REVOKED");return target;
+    };
+    const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
+        const targetValue=await targetFor(explicitTarget);
+        if(typeof targetValue!=="string"&&targetValue?.kind==="page"&&(!readOnly||organize))throw new WorkspaceError("BLOCK_SCOPE_REQUIRED","页面连接提供读取与读法；写作需另选真实块范围。");
         revoke(!preserveUI);
         const epoch = generation;
-        const target = explicitTarget ?? (await logseq.Editor.getCurrentBlock())?.uuid;
+        const target=typeof targetValue==="string"?targetValue:targetValue?.rootUuid;
         if (!target)
             throw new WorkspaceError("SOURCE_REQUIRED");
-        const selected = await binding.selected(target);
+        const selected = await binding.selected(target,typeof targetValue!=="string"?targetValue:undefined);
         let path = String(logseq.settings?.agentWorkspaceDescriptor ?? "").trim();
         if (!path) {
           const dot=await desktopBridge().doAction(["getLogseqDotDirRoot"]);
@@ -166,14 +178,15 @@ export function installAgentWorkspace(options: {
         const descriptor = parseWorkspaceDescriptor(JSON.parse(descriptorText), true) as WorkspacePluginDescriptor;
         if (disposed || epoch !== generation)
             throw new WorkspaceError("CONNECTION_REVOKED");
-        if(readOnly)await options.content.establishRead(target);
+        if(selected.scope.kind==="page")await options.content.establishPageRead(selected.scope);
+        else if(readOnly)await options.content.establishRead(target);
         else await options.content.establish(target,organize);
         const lease = options.content.capture(selected.scope);
         if (!lease)
             throw new WorkspaceError("SCOPE_MISMATCH");
         options.content.restrict(lease,()=>{
             const scope=(options.work?.snapshot() as {readingScope?:AgentWorkBinding["scope"]&{kind?:string}}|undefined)?.readingScope;
-            return !scope||scope.kind!=="page"&&sameWorkScope(scope,selected.scope);
+            return !scope||sameWorkScope(scope,selected.scope);
         });
         if(disposed||epoch!==generation){if(options.content.valid(lease))options.content.api.revoke();throw new WorkspaceError("CONNECTION_REVOKED");}
         const value = { descriptor, descriptorPath:path, id: crypto.randomUUID(), binding: selected, lease, epoch, fileWrite:false };
@@ -201,9 +214,9 @@ export function installAgentWorkspace(options: {
         return result && typeof result === "object" && "provenance" in result && "value" in result ? result.value : result;
     };
     const ui=new CollaborationUI({guidance,report,stateDirectory:()=>connection?.descriptorPath.slice(0,connection.descriptorPath.lastIndexOf("/"))??null,context:async explicitTarget=>{
-        const target=explicitTarget??(await logseq.Editor.getCurrentBlock())?.uuid;
+        const targetValue=await targetFor(explicitTarget),target=typeof targetValue==="string"?targetValue:targetValue?.rootUuid;
         if(!target||!options.source)throw new WorkspaceError("SOURCE_REQUIRED");
-        const selected=await binding.selected(target);
+        const selected=await binding.selected(target,typeof targetValue!=="string"?targetValue:undefined);
         const check=async()=>{if(disposed||!await binding.valid(selected))throw new WorkspaceError("CONNECTION_REVOKED");};
         const workspace=await options.source.refresh(selected.scope);await check();
         if(workspace.freshness!=="checked"||!workspace.observed)throw new WorkspaceError("SOURCE_UNAVAILABLE");
@@ -213,7 +226,7 @@ export function installAgentWorkspace(options: {
     },prepare:async(root,request,backgroundSourceIds)=>{
         // Preserve an existing explicit grant for this same work. A fresh entry
         // establishes only read/presentation authority.
-        if(!connection||connection.binding.scope.rootUuid!==root)await allow(root,false,true,true);
+        if(!connection||(typeof root==="string"?connection.binding.scope.rootUuid!==root||connection.binding.scope.kind!==undefined:!sameWorkScope(connection.binding.scope,root)))await allow(root,false,true,true);
         const value=connection;if(!value||!collaboration)throw new WorkspaceError("CHANNEL_UNAVAILABLE");
         const check=()=>valid(value);await check();
         await collaboration.prepare(value.binding,{request,backgroundSourceIds},check);
@@ -225,7 +238,7 @@ export function installAgentWorkspace(options: {
     };
     const todoUI=new OrdinaryTodoUI({service:todo,valid:options.content.valid,context:async()=>{
         const value=connection;if(!value)throw new WorkspaceError("CHANNEL_UNAVAILABLE","先连接这份工作，再选择普通 TODO 的范围和操作。");
-        await valid(value);const read=await options.content.trustedTodo.read(value.lease.scope);await valid(value);return {lease:value.lease,read};
+        await valid(value);if(value.lease.scope.kind==="page")throw new WorkspaceError("BLOCK_SCOPE_REQUIRED");const read=await options.content.trustedTodo.read(value.lease.scope);await valid(value);return {lease:value.lease,read};
     }});
     const formatUI=new WritingFormatUI({service:formatting,valid:options.content.valid,context:async root=>{
         const workScope=(options.work?.snapshot() as {readingScope?:AgentWorkBinding["scope"]&{kind?:string}}|undefined)?.readingScope;
@@ -283,12 +296,12 @@ export function installAgentWorkspace(options: {
         if (typeof off === "function")
             disposers.push(off);
     }
-    const connectRead=(target?:string)=>allow(target,false,true);
+    const connectRead=(target?:string|ScopeLease["scope"])=>allow(target,false,true);
     const todoCommand=logseq.App.registerCommandPalette({key:"agent-workspace-todo",label:"工作台：允许 agent 维护普通 TODO"},()=>{if(!disposed)return todoUI.open().catch(report);});
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string)=>ui.open(root),guidance:(root?:string)=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

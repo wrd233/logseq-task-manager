@@ -78,6 +78,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
                 };
                 stages: StageInstallation["api"];
                 open: (id: string) => Promise<void>;
+                openPage: (name:string) => Promise<void>;
                 openMaterial: (id: string) => Promise<void>;
                 materials: {
                     read: (id: string) => Promise<{
@@ -95,7 +96,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         await api.workspace.bind({ scope: f.scope, directory });
         await f.commands.get("agent-workspace-allow")!();
         assert.equal(api.agentWorkspace.status().connected, true, JSON.stringify(f.messages));
-        const cli = async (words: string[], input?: unknown, client = "one") => {
+        const cli = async (words: string[], input?: unknown, client = "one",workDirectory=directory) => {
             const inputArgs: string[] = [];
             if (input !== undefined) {
                 const path = join(root, `input-${crypto.randomUUID()}.json`);
@@ -103,7 +104,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
                 inputArgs.push("--input-file", path);
             }
             try {
-                const result = await exec(process.execPath, ["--import", "tsx", join(repo, "apps/task-copilot-cli/src/main.ts"), "workspace", ...words, ...inputArgs, "--directory", directory, "--state-dir", state, "--client", client, "--json"], { cwd: repo, timeout: 30000 });
+                const result = await exec(process.execPath, ["--import", "tsx", join(repo, "apps/task-copilot-cli/src/main.ts"), "workspace", ...words, ...inputArgs, "--directory", workDirectory, "--state-dir", state, "--client", client, "--json"], { cwd: repo, timeout: 30000 });
                 return JSON.parse(result.stdout);
             }
             catch (error) {
@@ -424,6 +425,24 @@ test("independent CLI processes use installed plugin data, real filesystem and p
             id: string;
         }) => item.id === externalMaterial.material.id));
         assert.equal((await cli(["materials", "read", externalMaterial.material.id])).content, "# 外部材料\n\n明确选取");
+        await f.commands.get("agent-workspace-stop")!();
+        const pageUuid=crypto.randomUUID(),pageName="Project · 合成页面协作",pageDirectory=join(root,"page-work");await mkdir(pageDirectory);await writeFile(join(pageDirectory,"WORKSPACE.md"),"用户页面入口，不能覆盖\n");
+        const serial=(id:string):unknown=>{const b=f.blocks.get(id)!;return {...b,children:b.children.map(serial)};};
+        logseq.Editor.getPage=(async()=>({id:1,uuid:pageUuid,name:pageName.toLowerCase(),originalName:pageName})) as unknown as typeof logseq.Editor.getPage;
+        logseq.Editor.getPageBlocksTree=(async()=>[serial(f.root)]) as unknown as typeof logseq.Editor.getPageBlocksTree;
+        const pageScope={...f.scope,rootUuid:pageUuid,kind:"page",pageName},beforePage=f.counts(),originalBlocks=JSON.stringify([...f.blocks]);
+        await api.workspace.bind({scope:pageScope,directory:pageDirectory});await api.openPage(pageName);await f.commands.get("agent-workspace-read")!();
+        const pageCli=(words:string[],input?:unknown)=>cli(words,input,"page-one",pageDirectory),pageStatus=await pageCli(["status"]);
+        assert.equal(pageStatus.binding.scope.kind,"page");assert.equal(pageStatus.binding.scope.pageName,pageName);assert.equal(pageStatus.capabilities.content,false);assert.equal(pageStatus.capabilities.stage,false);assert.equal(pageStatus.capabilities.focus,false);assert.equal(pageStatus.authorizesTodo,false);
+        const pageRead=await pageCli(["content","read"]);assert.equal(pageRead.readOnly,true);assert.equal(pageRead.page.pageUuid,pageUuid);assert.equal(pageRead.blocks.some((b:{target:{blockUuid:string}})=>b.target.blockUuid===pageUuid),false);assert.equal(pageRead.blocks[0].target.blockUuid,f.root);
+        await assert.rejects(pageCli(["content","apply"],patch),/BLOCK_SCOPE_REQUIRED/u);await assert.rejects(pageCli(["todo","read"]),/BLOCK_SCOPE_REQUIRED/u);await assert.rejects(pageCli(["formatting","preview"],{requestId:"page-format",sourceIds:[pageRead.blocks[0].sourceId]}),/BLOCK_SCOPE_REQUIRED/u);
+        await f.commands.get("agent-workspace-collaboration")!();const pageForm=document.querySelector<HTMLElement>('[data-collaboration="true"]')!,pageRequest=pageForm.querySelector<HTMLTextAreaElement>("textarea")!;pageRequest.value="保留整个页面的原句和层级，先阅读与讨论。";pageRequest.dispatchEvent(new f.browser.Event("input") as unknown as Event);
+        Array.from(pageForm.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="连接并准备协作现场")!.click();for(let i=0;i<500&&!pageForm.textContent!.includes("现场已核验并保存");i++)await delay(10);assert.match(pageForm.textContent!,/现场已核验并保存/u);
+        const pageScene=await pageCli(["collaboration","read"]);assert.equal(pageScene.scene.savedSource.scope.kind,"page");assert.equal(pageScene.scene.request,pageRequest.value);assert.equal(pageScene.current.sourceMatches,true);
+        const pageGuide=await pageCli(["guidance","read"]);assert.equal(pageGuide.common.version,writeGuide.common.version);
+        await f.commands.get("agent-workspace-files")!();const pageCapture=await pageCli(["materials","capture"],{requestKey:"page-material",title:"页面比较",text:"# 页面比较\n\n保留可能与问号。"});assert.equal(pageCapture.status,"success");assert.ok(pageCapture.material.path.startsWith(pageDirectory+"/"));
+        assert.equal(f.counts().writes,beforePage.writes);assert.equal(f.counts().inserts,beforePage.inserts);assert.equal(f.counts().identities,beforePage.identities);assert.equal(f.counts().moves,beforePage.moves);assert.equal(JSON.stringify([...f.blocks]),originalBlocks);assert.equal(await readFile(join(pageDirectory,"WORKSPACE.md"),"utf8"),"用户页面入口，不能覆盖\n");
+        await api.open(f.root);await assert.rejects(pageCli(["status"]),/WORKSPACE_OFFLINE|CONNECTION_REVOKED/u);await assert.rejects(cli(["status"]),/WORKSPACE_OFFLINE|CONNECTION_REVOKED/u);
         f.graph("B");
         await assert.rejects(cli(["refresh"]), /WORKSPACE_OFFLINE|CONNECTION_REVOKED/);
         assert.equal(api.agentWorkspace.status().connected, false);

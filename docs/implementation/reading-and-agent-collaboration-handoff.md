@@ -22,7 +22,7 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 - 普通 TODO 新服务、受信范围/操作/当前连接许可表单及真实 CLI `todo.read/apply/result/recover/retry/resumeIdentity` 已接线。有限动作编译到原 Journal 引擎，旧 content API 保持保护；完成核验真实 scoped 材料文本版本及指定原样片段，状态与简洁引用同一宿主调用，正式对象的源码边界仍拒绝。详见[契约与核验限制](../design/ordinary-todo-contract.md)及下方真实 Desktop 演练。
 - 外部正文、重试、TODO 和 stage.submit 的 Journal 已接实际通道/连接/client/运输请求/命令，以及该 client 最后显式读回的共同/项目指导版本。未读取为 null；标签不证明个人/模型身份，返回文本不证明遵循规则。
 
-接口及限制见 [阅读方案契约](../design/reading-plan-contract.md)。材料入口目前使用基线真实 list/read/reference/open 服务的窄适配，未复制 A 的目录/预览算法；不把 mock 当作跨支通过。页面型阅读方案使用真实 page scope，空页面不伪造块；外部页面协作连接尚待扩展现有块范围基线。
+接口及限制见 [阅读方案契约](../design/reading-plan-contract.md)。材料入口目前使用基线真实 list/read/reference/open 服务的窄适配，未复制 A 的目录/预览算法；不把 mock 当作跨支通过。页面型阅读及外部协作使用真实 page scope，空页面不伪造块；正文、TODO、格式及阶段维护仍需另选实际块范围。
 
 检查：`npm run check` 已通过，最新全量日志 `tmp/reading-stage-check.log`，各 TAP 测试合计 736 项、零失败，包含 requirements/typecheck/lint/test/sandbox/build/boundaries/taste。首次全量检查发现 DOM 书签顺序及材料往返展示焦点两处回归，修正后相关 27 项与全量重跑通过。随后把滚动锚点由祖先上下文改为点击组的主要成员，插件 typecheck/ESLint、9 项阅读 UI 回归及 build 通过；最终整项 check/package 仍将在全部 B/A 接线完成后重新执行。最终包尚未生成/验收。
 
@@ -62,6 +62,12 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 该权限修补后 `tmp/recovery-read-check.log` 全量通过 763 项、零失败，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。用户主工作树仍干净，main 为 `eb07013d119584dbd3c68012541f1355118d2b0b`。本轮只停止经实际 PID/命令身份核对的隔离 Desktop 与 companion，停止后两 PID 实际缺失。A 当前只读核对为 `98c0d4e6d5122ff8a763683e96e25dd511928e36`、工作树干净，但仍没有指定最终 handoff，因此不是已核对交付 SHA，没有合并它。
 
-仍需实施并验证：三条完整真实协作过程（当前格式场景只证明其中格式/同时补充子路径）；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+页面协作已完成局部真实 Desktop：实际页面 UUID `6ac623ce-78f3-4ca1-bbc0-d34ac9ed1c1a` 关联独立 page-work，保留已有用户 WORKSPACE.md，并生成真实 `?page=` 入口。只读场景和 CLI 读回 104 个原生块，没有页面 UUID 对应的伪根；work.read 的可写工作根仍为空。实际 content.apply、todo.read、formatting.preview、stage.read 均拒绝 BLOCK_SCOPE_REQUIRED。单独从本地允许文件写作后，保存两段退出条件原句到比较文件，重复 capture 返回同一 ID、材料实际字节与版本一致；页面正文和 Graph Markdown SHA 保持。实际页面材料页签及 MD 预览打开可读。一次同进程的页面→块工作切换立即使旧页面 CLI 返回 WORKSPACE_OFFLINE；回到页面从本地重连/准备现场后，body/file/TODO 均 false，保存材料及原文仍一致。
+
+阶段事实在 [page-stage-evidence.json](assets/reading-agent/page-stage-evidence.json)，可携带 `scripts/page-desktop-exercise.mjs prepare/capture/switched/reconnected` 只运行实际构建 CLI/文件核验，绑定/授权/切换由真实 UI 完成，不注入 SDK、IPC 或许可。旧块入口另返回 DESCRIPTOR_STALE，仅证明旧实例失效，与本次同实例的 Page→Block WORKSPACE_OFFLINE 分开记录。页面目录绑定不持久化原生块 id；受控回归另核对空页面、重启恢复、真实 page 来源身份、无 Graph SDK 写入，以及每个可信绑定独立校验，重新选择目录不会使旧绑定复活。外部 materials.associate 和 capture 的最小内部接线均显式关闭 Graph 自动引用，合入 A 时需保留。
+
+页面阶段 `tmp/page-final-check.log` 全量通过 766 项、零失败；requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。真实 Page 演练为 Logseq 0.10.15/macOS ARM64 开发目录加载，具体 JS/CLI hash 记录在阶段摘要，仍需最终 ZIP 重验。物理 IME、Finder、剪贴板、其他平台和普通 IO 竞态未由本阶段证明。
+
+仍需实施并验证：三条完整真实协作过程（当前格式场景只证明其中格式/同时补充子路径）；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

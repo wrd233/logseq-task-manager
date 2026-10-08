@@ -1,4 +1,4 @@
-import { WorkspaceError, parseWorkBinding, workRecord, type AgentWorkBinding } from "@task-copilot/contracts";
+import { WorkspaceError, parseWorkBinding, sameWorkScope, workRecord, type AgentWorkBinding } from "@task-copilot/contracts";
 import { readOptionalPrivateItem } from "../../private-storage.ts";
 import type { ContextReading } from "../../workspace/context-service.ts";
 import { validateSnapshot, type BlockSnapshot, type SourceSnapshot } from "../../workspace/source-protocol.ts";
@@ -67,7 +67,7 @@ export class CollaborationService {
     const current=await this.ports.refresh(binding.scope);await this.check(check);
     if(current.freshness!=="checked"||await bundleVersion(current)!==sourceBundleVersion||await materialVersions(await this.ports.materials(binding))!==materialsVersion)throw new WorkspaceError("COLLABORATION_SOURCE_CHANGED","来源在准备现场时改变，请保留请求并重新读取。");
     if(JSON.stringify(await this.request(binding,check))!==JSON.stringify(request))throw new WorkspaceError("COLLABORATION_REQUEST_CHANGED");await this.check(check);
-    const state=this.ports.reading(),reading=state?.scope&&state.scope.graphId===binding.scope.graphId&&state.scope.rootUuid===binding.scope.rootUuid?state:null;
+    const state=this.ports.reading(),reading=state?.scope&&sameWorkScope(state.scope,binding.scope)?state:null;
     const scene:CollaborationScene={schemaVersion:1,sceneId:crypto.randomUUID(),capturedAt:new Date().toISOString(),binding:parseWorkBinding(binding),request:request.request,requestedBackgroundSourceIds:request.backgroundSourceIds,selectedBackground,savedSource,sourceFreshness:"checked",sourceBundleVersion,materialsVersion,workspaceRevision:workspace.mirror?.pointer.revision??null,entryFile:workspace.binding.manifest.entryFile,
       materials:materials.map(m=>({id:m.id,filename:m.path.split("/").at(-1)??m.path,path:m.path,reference:m.reference,version:m.version,availability:m.availability})),reading,guidance,permissions:this.ports.permissions(),nativeDraft:{included:false,editing,reason:"saved-source-only"}};
     const raw=JSON.stringify(scene);if(new TextEncoder().encode(raw).length>16000000)throw new WorkspaceError("COLLABORATION_SCENE_TOO_LARGE");

@@ -1,4 +1,4 @@
-import { object, scopeOf, type SourceScope, type SourceSnapshot } from "./source-protocol.ts";
+import { object, scopeOf, sourceAvailability, type SourceScope, type SourceSnapshot } from "./source-protocol.ts";
 import { ScopeExpired, type SourceReader } from "./source-reader.ts";
 import type { WorkspaceRegistry, BindRequest, WorkspaceBinding } from "./registry.ts";
 import { associationOf, directoryOf, guard, managedRoot, optionalRead, replaceVerified } from "./workspace-record.ts";
@@ -57,37 +57,36 @@ export class WorkspaceContextService {
     return this.reader.read(scope, () => ownValid() && consumerValid());
   }
   async resolve(input: SourceScope): Promise<WorkspaceBinding | null> {
-    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), hint = this.registry.hint(scope);
     let graph = hint?.materialGraph;
     if (!graph) { const current = await this.host.current(); guard(valid); if (current.graphId === scope.graphId) graph = current.materialGraph; }
     const result = await this.registry.resolve(scope, graph); guard(valid); return result;
   }
   async bind(input: BindRequest): Promise<ContextReading> {
-    if (input.scope.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input.scope); input = {...input, scope}; this.bump(scope); const valid = this.valid(scope), current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId) throw new ScopeExpired();
     const directory = directoryOf(input.directory, current.materialGraph);
-    const binding = await serial(`workspace-directory:${directory}`, () => this.registry.bind({...input, directory}, current.materialGraph, () => this.host.persistRoot(scope, valid), valid)); guard(valid);
+    const binding = await serial(`workspace-directory:${directory}`, () => this.registry.bind({...input, directory}, current.materialGraph, async() => {
+      if(scope.kind==="page"){const page=await this.reader.read(scope,valid);guard(valid);if(sourceAvailability(page)!=="available")throw new Error("WORKSPACE_PAGE_IDENTITY_UNAVAILABLE");}
+      else await this.host.persistRoot(scope,valid);
+    }, valid)); guard(valid);
     this.known.set(scopeKey(scope), {scope, blocks: new Set([scope.rootUuid])});
     const result = await this.refresh(scope);
     return {...result, binding};
   }
   async unbind(input: SourceScope): Promise<void> {
-    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input); this.bump(scope); const valid = this.valid(scope), current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId) throw new ScopeExpired();
     this.registry.unbind(scope, current.materialGraph);
   }
   async associate(input: {scope: SourceScope; source: unknown}): Promise<ContextReading> {
-    if (input.scope.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input.scope), source = associationOf(input.source); this.bump(scope); const valid = this.valid(scope);
     const current = await this.host.current(); guard(valid);
     if (current.graphId !== scope.graphId || (source.kind !== "material" && source.graphId !== scope.graphId)) throw new Error("关联来源必须属于当前 Graph。");
     const binding = await this.requireBinding(scope); guard(valid);
     if (source.kind !== "material") {
-      const external = await this.reader.read({graphId: source.graphId, rootUuid: source.kind === "logseq-block" ? source.blockUuid : source.pageUuid}, valid, source.kind === "logseq-page" ? source.pageName : undefined);
-      if (external.blocks[0]?.availability !== "available") throw new Error("显式关联前无法核验该 Logseq 来源。");
+      const external = await this.reader.read({graphId: source.graphId, rootUuid: source.kind === "logseq-block" ? source.blockUuid : source.pageUuid,...(source.kind==="logseq-page"?{kind:"page" as const,pageName:source.pageName}:{})}, valid);
+      if (sourceAvailability(external) !== "available") throw new Error("显式关联前无法核验该 Logseq 来源。");
     } else {
       if (!this.host.readMaterial) throw new Error("材料读取模块未启用。");
       materialReading(await this.host.readMaterial(source.id), source.id); guard(valid);
@@ -99,7 +98,6 @@ export class WorkspaceContextService {
     const binding = await this.resolve(scope); if (!binding) throw new Error("该工作尚未建立便携记录，请显式关联目录。旧材料目录仍可使用。"); return binding;
   }
   async read(input: SourceScope): Promise<ContextReading> {
-    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), key = scopeKey(scope);
     try {
       const binding = await this.requireBinding(scope); guard(valid);
@@ -122,7 +120,6 @@ export class WorkspaceContextService {
     }
   }
   async refresh(input: SourceScope): Promise<ContextReading> {
-    if (input.kind === "page") throw new Error("WORKSPACE_PAGE_READ_ONLY");
     const scope = scopeOf(input), valid = this.valid(scope), key = scopeKey(scope);
     return serial(`workspace-refresh:${key}`, async () => {
       guard(valid);
@@ -146,9 +143,9 @@ export class WorkspaceContextService {
                 sources.push({association, material, availability: material.availability});
               } catch (error) { guard(currentRead); if (error instanceof ScopeExpired) throw error; sources.push({association, availability: "unavailable"}); }
             } else {
-              const sourceScope = {graphId: association.graphId, rootUuid: association.kind === "logseq-block" ? association.blockUuid : association.pageUuid};
-              const snapshot = await this.reader.read(sourceScope, currentRead, association.kind === "logseq-page" ? association.pageName : undefined);
-              sources.push({association, snapshot, availability: snapshot.blocks[0]?.availability ?? "unavailable"});
+              const sourceScope = {graphId: association.graphId, rootUuid: association.kind === "logseq-block" ? association.blockUuid : association.pageUuid,...(association.kind==="logseq-page"?{kind:"page" as const,pageName:association.pageName}:{})};
+              const snapshot = await this.reader.read(sourceScope, currentRead);
+              sources.push({association, snapshot, availability: sourceAvailability(snapshot)});
             }
           }
           const lastKnownSources: NonNullable<ReadingBundle["lastKnownSources"]> = [];
@@ -160,7 +157,7 @@ export class WorkspaceContextService {
             else if (retained) lastKnownSources.push(retained);
           }
           observed = {schemaVersion: 1, workspaceId: binding.manifest.workspaceId, primary, sources, ...(lastKnownSources.length ? {lastKnownSources} : {})}; guard(currentRead);
-          if (primary.blocks[0]?.availability === "available") {
+          if (sourceAvailability(primary) === "available") {
             if (!mirror || versions(mirror.bundle) !== versions(observed)) mirror = await this.publisher.publish(binding.directory, binding.manifest, observed, currentRead);
             guard(currentRead);
             this.watch(scope, observed);
@@ -179,7 +176,7 @@ export class WorkspaceContextService {
         }
       }
       guard(valid);
-      const availability = problem ? "unavailable" : observed?.primary.blocks[0]?.availability ?? "unavailable";
+      const availability = problem||!observed ? "unavailable" : sourceAvailability(observed.primary);
       const status: RefreshStatus = {schemaVersion: 1, workspaceId: binding.manifest.workspaceId, checkedAt: new Date().toISOString(), availability, publishedRevision: mirror?.pointer.revision ?? null, ...(problem ? {problem} : {})};
       try { await replaceVerified(this.registry.io, `${managedRoot(binding.directory)}/status.json`, JSON.stringify(status), valid); }
       catch (error) { guard(valid); problem = `刷新状态保存失败：${String(error)}`; }
@@ -206,8 +203,10 @@ export class WorkspaceContextService {
     if (this.stopped || epoch !== this.epoch) return [];
     const scopes: SourceScope[] = [];
     for (const binding of this.registry.directories.bindings(current.materialGraph)) {
-      const scope = {graphId: current.graphId, rootUuid: binding.sourceUuid!};
       try {
+        const manifest=await this.registry.manifest(binding.directory!);
+        if(!manifest||manifest.primarySource.graphId!==current.graphId||manifest.primarySource.rootUuid!==binding.sourceUuid)continue;
+        const scope=manifest.primarySource;
         const resolved = await this.registry.resolve(scope, current.materialGraph);
         if (this.stopped || epoch !== this.epoch) return [];
         if (resolved) { this.known.set(scopeKey(scope), {scope, blocks: new Set([scope.rootUuid])}); scopes.push(scope); }

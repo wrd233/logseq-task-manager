@@ -7,6 +7,7 @@ import { LogseqContentAdapter } from "./logseq-adapter.ts";
 import { ContentUI } from "./ui.ts";
 import type { CallOrigin, OperationJournal, SourceScope } from "./protocol.ts";
 import { fail, object, parseScope, uuid } from "./validation.ts";
+import { scopeOf, sourceAvailability } from "../../workspace/source-protocol.ts";
 
 function identifier(input:unknown):string {
   if(typeof input!=="string"||!input.length||input.length>128)fail("INVALID_IDENTIFIER");return input;
@@ -15,7 +16,7 @@ function fields(input:unknown,allowed:readonly string[]):Record<string,unknown>{
   const value=object(input);if(Object.keys(value).some(key=>!allowed.includes(key)))fail("UNSUPPORTED_FIELD");return value;
 }
 export function installContentWriteback(options:{journal?:OperationJournal;adapter?:LogseqContentAdapter;hostTimeoutMs?:number}={}) {
-  const authority=new LocalScopeAuthority(),adapter=options.adapter??new LogseqContentAdapter(null,logseqSourceReader());
+  const authority=new LocalScopeAuthority(),reader=logseqSourceReader(),adapter=options.adapter??new LogseqContentAdapter(null,reader);
   const executor=new ContentExecutor({reader:adapter,authority,editing:adapter,writer:adapter,journal:options.journal??new PrivateOperationJournal(logseq.FileStorage),...(options.hostTimeoutMs!==undefined?{hostTimeoutMs:options.hostTimeoutMs}:{})});
   let disposed=false,setup=0;
   const disposers:Array<()=>void>=[];
@@ -42,6 +43,14 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   };
   const establish=(target?:string,structure=false)=>establishScope(target,structure,true);
   const establishRead=(target?:string,preservePanel=false)=>establishScope(target,false,false,preservePanel);
+  const establishPageRead=async(input:SourceScope):Promise<SourceScope>=>{
+    if(disposed)fail("CONTENT_DISPOSED");const scope=scopeOf(input);if(scope.kind!=="page")fail("PAGE_SCOPE_REQUIRED");uuid(scope.rootUuid);
+    const nonce=++setup;authority.revoke();ui.close();
+    const valid=()=>!disposed&&nonce===setup;
+    await adapter.assertGraph(scope,valid);const source=await reader.read(scope,valid);
+    if(!valid())fail("SCOPE_REVOKED");if(sourceAvailability(source)!=="available")fail("SOURCE_UNAVAILABLE");
+    const lease=authority.bindRead(scope);authority.confirmRoot(lease,[scope.rootUuid]);return {...scope};
+  };
   const ui=new ContentUI({
     executor,scope,origin,
     grantTodo:operation=>{const lease=authority.capture(scope());if(lease)authority.grantTodo(lease,operation);},
@@ -110,6 +119,6 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const trustedTodo={read:executor.read.bind(executor),apply:executor.applyControlledTodo.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resumeIdentity:executor.resumeIdentity.bind(executor)};
   const trustedAgent={apply:executor.apply.bind(executor),retry:executor.retry.bind(executor)};
   const trustedFormatting={read:executor.read.bind(executor),apply:executor.applyControlledFormatting.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resolve:executor.resolve.bind(executor),pending:executor.pending.bind(executor)};
-  return {api,local,trustedTodo,trustedAgent,trustedFormatting,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  return {api,local,trustedTodo,trustedAgent,trustedFormatting,establish,establishRead,establishPageRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

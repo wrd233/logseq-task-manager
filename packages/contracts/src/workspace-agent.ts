@@ -2,6 +2,8 @@
 export type AgentWorkScope = {
     graphId: string;
     rootUuid: string;
+    kind?: "page";
+    pageName?: string;
 };
 export type AgentWorkBinding = {
     scope: AgentWorkScope;
@@ -81,7 +83,7 @@ export function workText(value: unknown, limit = 128): string {
         throw new WorkspaceError("INVALID_IDENTIFIER");
     return value;
 }
-export function sameWorkScope(a: AgentWorkScope, b: AgentWorkScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid; }
+export function sameWorkScope(a: AgentWorkScope, b: AgentWorkScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid && a.kind===b.kind && a.pageName===b.pageName; }
 export function parseWorkspaceCall(input: unknown): WorkspaceCall {
     const raw = workRecord(input, ["schemaVersion", "instanceId", "connectionId", "clientId", "requestId", "command", "payload"]);
     if (raw.schemaVersion !== 1)
@@ -95,12 +97,13 @@ export function parseWorkspaceCall(input: unknown): WorkspaceCall {
     return { schemaVersion: 1, instanceId: workText(raw.instanceId), connectionId: workText(raw.connectionId), clientId: workText(raw.clientId), requestId: workText(raw.requestId), command, payload };
 }
 export function parseWorkBinding(input: unknown): AgentWorkBinding {
-    const raw = workRecord(input, ["scope", "directory", "organization", "provider", "workspaceId"]), scope = workRecord(raw.scope, ["graphId", "rootUuid"]);
+    const raw = workRecord(input, ["scope", "directory", "organization", "provider", "workspaceId"]), scope = workRecord(raw.scope, ["graphId", "rootUuid", "kind", "pageName"]);
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(String(scope.rootUuid)))
         throw new WorkspaceError("INVALID_SCOPE");
+    if(scope.kind!==undefined&&scope.kind!=="page"||scope.kind!=="page"&&scope.pageName!==undefined)throw new WorkspaceError("INVALID_SCOPE");
     if (!["flat", "project"].includes(String(raw.organization)) || !["material-binding", "workspace"].includes(String(raw.provider)))
         throw new WorkspaceError("INVALID_BINDING");
-    return { scope: { graphId: workText(scope.graphId, 2048), rootUuid: scope.rootUuid as string }, directory: workText(raw.directory, 4096), organization: raw.organization as AgentWorkBinding["organization"], provider: raw.provider as AgentWorkBinding["provider"], workspaceId: raw.workspaceId === null ? null : workText(raw.workspaceId) };
+    return { scope: { graphId: workText(scope.graphId, 2048), rootUuid: scope.rootUuid as string, ...(scope.kind==="page"?{kind:"page" as const,pageName:workText(scope.pageName,2048)}:{}) }, directory: workText(raw.directory, 4096), organization: raw.organization as AgentWorkBinding["organization"], provider: raw.provider as AgentWorkBinding["provider"], workspaceId: raw.workspaceId === null ? null : workText(raw.workspaceId) };
 }
 export function parseWorkspaceDescriptor(input: unknown, plugin = false): WorkspaceDescriptor | WorkspacePluginDescriptor {
     const raw = workRecord(input, plugin ? ["schemaVersion", "instanceId", "baseUrl", "token", "pluginToken"] : ["schemaVersion", "instanceId", "baseUrl", "token"]);

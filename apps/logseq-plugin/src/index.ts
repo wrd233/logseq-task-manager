@@ -31,7 +31,7 @@ logseq.useSettingsSchema([
 async function main(): Promise<void> {
   installWorkbenchStyle();
   let materials: Materials | null = null, work: WorkView | null = null;
-  const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); });
+  const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); },()=>work?.readingAPI.read().scope??null);
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
   let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     list:async scope=>{
       const valid=workspace.service.observeScope(scope),module=requireMaterials();
       const list=await module.listMaterials(scope.rootUuid,"");
-      const binding=scope.kind==="page"?null:await workspace.service.resolve(scope);
+      const binding=await workspace.service.resolve(scope);
       for(const association of binding?.manifest.associations??[])if(association.kind==="material"&&!list.materials.some(view=>view.id===association.id))list.materials.push(await module.readMaterial(association.id));
       if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
       return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability}));
@@ -127,10 +127,19 @@ async function main(): Promise<void> {
   }});
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
   work?.setContextActions(() => {
-    const root = currentWorkRoot(), scope = root ? { graphId: (work!.snapshot() as {graph: string}).graph, rootUuid: root } : null;
+    const scope=work!.readingAPI.read().scope,root=scope?.rootUuid;
     if (!root || !scope) return [];
     const connection = agentWorkspace?.api.status();
     const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
+    if(scope.kind==="page")return [
+      {group:"工作目录",label:"关联页面工作目录",description:"保存真实页面原文与层级的读取副本",run:()=>workspace.local.bind(scope)},
+      {group:"工作目录",label:"打开工作读取入口",run:()=>workspace.local.open(scope)},
+      {group:"工作目录",label:"重新关联移动后的目录",run:()=>workspace.local.rebind(scope)},
+      {group:"外部连接与恢复",label:"带当前工作去协作",description:"页面原文、请求和指导；没有可写根块",run:()=>agentWorkspace!.local.collaborate(scope)},
+      {group:"外部连接与恢复",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
+      ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅允许目录内材料写作；页面正文保持只读",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
+      {group:"外部连接与恢复",label:connected?"停止 agent 工作连接":"允许 agent 只读连接此页面",run:()=>connected?agentWorkspace!.local.stop():agentWorkspace!.local.connectRead(scope)},
+    ];
     return [
       { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
       { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },

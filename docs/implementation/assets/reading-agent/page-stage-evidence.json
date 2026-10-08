@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "status": "development-stage-verified-not-final-package",
+  "observedAt": "2026-10-08T11:43:16.986Z",
+  "runtime": {
+    "jsHash": "069dbe9ef2d726122db254bb024621e95da3658427c4dfa406f414b1fcea357a",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "scope": {
+    "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+    "rootUuid": "6ac623ce-78f3-4ca1-bbc0-d34ac9ed1c1a",
+    "kind": "page",
+    "pageName": "合成阅读与协作"
+  },
+  "page": {
+    "pageUuid": "6ac623ce-78f3-4ca1-bbc0-d34ac9ed1c1a",
+    "pageName": "合成阅读与协作",
+    "availability": "available"
+  },
+  "sources": 104,
+  "noInventedRoot": true,
+  "initialPermissions": {
+    "body": false,
+    "file": false,
+    "todo": false
+  },
+  "fileGrantPermissions": {
+    "body": false,
+    "file": true,
+    "todo": false
+  },
+  "denied": [
+    "todo read",
+    "content apply",
+    "formatting preview",
+    "stage read"
+  ],
+  "manifest": {
+    "primarySource": {
+      "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+      "rootUuid": "6ac623ce-78f3-4ca1-bbc0-d34ac9ed1c1a",
+      "kind": "page",
+      "pageName": "合成阅读与协作"
+    },
+    "entryFile": "WORKSPACE.task-copilot.md",
+    "userEntryPreserved": true,
+    "realPageURI": true
+  },
+  "capture": {
+    "id": "09c6cfbb-e695-7bbb-9842-7b0851baad60",
+    "path": "/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/page-work/页面阅读比较.md",
+    "version": "0a338020ae572bcc63a5cabf456cdc03cfba5a70e76715af6d69e937786a0873",
+    "bytesHash": "0a338020ae572bcc63a5cabf456cdc03cfba5a70e76715af6d69e937786a0873",
+    "reference": "[📄 页面阅读比较](longdoc://09c6cfbb-e695-7bbb-9842-7b0851baad60)",
+    "retrySameId": true
+  },
+  "sourceUnchanged": true,
+  "graphBytes": {
+    "before": "de155fe67ba22421b419a7e74fedde983fc5c3acffde9579c97a516fb3df8ebe",
+    "after": "de155fe67ba22421b419a7e74fedde983fc5c3acffde9579c97a516fb3df8ebe"
+  },
+  "scopeSwitch": {
+    "actualPageToBlockRejection": "WORKSPACE_OFFLINE",
+    "reconnectedPermissions": {
+      "body": false,
+      "file": false,
+      "todo": false
+    },
+    "sameMaterialVersion": true
+  },
+  "host": {
+    "editing": false,
+    "readingScope": {
+      "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+      "rootUuid": "6ac623ce-78f3-4ca1-bbc0-d34ac9ed1c1a",
+      "kind": "page",
+      "pageName": "合成阅读与协作"
+    },
+    "writableWorkRoot": null,
+    "renderedSources": 104,
+    "errors": 0,
+    "capabilityInjection": false
+  },
+  "limits": [
+    "Development directory; final outside-repository ZIP still required",
+    "File-only capture reference is the baseline service label; A full filename contract still pending",
+    "Physical IME, Finder, clipboard, other hosts/platforms and ordinary IO races not proven"
+  ]
+}

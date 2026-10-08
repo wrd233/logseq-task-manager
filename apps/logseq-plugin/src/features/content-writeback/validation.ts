@@ -95,7 +95,7 @@ export function parsePatch(input: unknown): Patch {
   return patch;
 }
 export { sha256 } from "../../workspace/source-protocol.ts";
-export function sameScope(a: SourceScope, b: SourceScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid; }
+export function sameScope(a: SourceScope, b: SourceScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid && a.kind===b.kind && a.pageName===b.pageName; }
 export function utf16Boundary(text: string, index: number): boolean {
   if (index < 0 || index > text.length) return false;
   const left = text.charCodeAt(index - 1), right = text.charCodeAt(index);

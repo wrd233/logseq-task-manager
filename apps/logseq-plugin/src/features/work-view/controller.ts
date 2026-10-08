@@ -132,6 +132,8 @@ export class WorkView {
     logseq.App.registerCommandPalette({ key: "workbench-open-work", label: "工作台：从当前块打开工作视图", keybinding: { binding: "mod+alt+p" } }, () => {
       if (!this.disposed) void this.openCurrentWork().catch(this.fail);
     });
+    const pageCommand=logseq.App.registerCommandPalette({key:"workbench-open-page",label:"工作台：阅读当前页面"},()=>{if(!this.disposed)return this.openPage().catch(this.fail);});
+    if(typeof pageCommand==="function")this.disposers.push(pageCommand);
     const unregister = logseq.Editor.registerBlockContextMenuItem("工作台：从此块打开工作视图", ({ uuid }) => this.openCurrentWork(uuid));
     if (typeof unregister === "function") this.disposers.push(unregister);
     logseq.App.registerCommandPalette({ key: "workbench-focus-range", label: "工作台：只看当前块范围" }, () => {
@@ -366,16 +368,23 @@ export class WorkView {
     const valid = () => !this.disposed && epoch === this.epoch && root === this.rootUuid && graph === this.graph;
     const currentGraph = graphIdentity(await logseq.App.getCurrentGraph());
     if (!valid() || root && currentGraph !== graph) return null;
+    if(this.pageName&&root&&(uuid===root||this.sourceRows.some(row=>row.uuid===uuid)))return root;
     const trace = await this.readTrace(uuid, currentGraph, valid);
     if (!valid()) return null;
     return root && trace.path.includes(root) ? root : trace.objects.at(-1)?.uuid ?? uuid;
   }
   rememberMaterials(scope: SourceScope): void {
-    if (this.panel.visible && this.contentChoice === "body" && this.rootUuid && sameLensScope(scope, { graphId: this.graph, rootUuid: this.rootUuid })) this.materialBookmark = { scope: { ...scope }, bookmark: this.renderer.bookmark() };
+    const current=this.readingScope(),actual=this.materialScope(scope);
+    if (this.panel.visible && this.contentChoice === "body" && current && actual&&sameLensScope(actual,current)) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark() };
+  }
+  /** Legacy material associations carry a UUID only. Restore page metadata only
+   * from this already verified active page, never from an external caller. */
+  private materialScope(scope:SourceScope|null):SourceScope|null {
+    const current=this.readingScope();return scope&&current?.kind==="page"&&scope.kind===undefined&&scope.graphId===current.graphId&&scope.rootUuid===current.rootUuid?current:scope;
   }
   /** Shared chrome mount only; materials keep their own editor, permissions and lifecycle. */
   mountMaterialChrome(surface: HTMLElement, scope: SourceScope | null): boolean {
-    const current = this.rootUuid ? { graphId: this.graph, rootUuid: this.rootUuid } : null;
+    const current = this.readingScope();scope=this.materialScope(scope);
     if (!scope || !current || !sameLensScope(scope, current)) {
       surface.classList.remove("wb-materials-in-work"); this.shell.mount(this.panel.root); return false;
     }
@@ -386,7 +395,7 @@ export class WorkView {
     if (!uuid || this.disposed) return;
     const saved = this.materialBookmark;
     if (this.pageName && uuid === this.rootUuid) await this.openPage(this.pageName); else await this.open(uuid);
-    if (saved && this.rootUuid && sameLensScope(saved.scope, { graphId: this.graph, rootUuid: this.rootUuid }) && this.panel.visible) {
+    if (saved && this.readingScope() && sameLensScope(saved.scope, this.readingScope()!) && this.panel.visible) {
       this.renderer.restore(saved.bookmark); this.materialBookmark = null;
     }
   }
@@ -474,7 +483,7 @@ export class WorkView {
     const rows = this.report.active ? this.report.rows ?? this.sourceRows : this.rows;
     const root = rows.find(row => row.uuid === this.rootUuid);
     const identity = this.rootUuid ? lookupBlockIdentity(this.rootUuid, this.graph) : null;
-    const work = this.pageName && this.readingScope() ? {scope:this.readingScope()!,title:this.pageName,kind:/Area/iu.test(this.pageName)?"Area · 整页":"Project · 整页"} : this.rootUuid ? workIdentity({ graphId: this.graph, rootUuid: this.rootUuid }, root?.content ?? "正在读取工作…", identity?.kind === "FORMAL" ? identity : null) : null;
+    const work = this.pageName && this.readingScope() ? {scope:this.readingScope()!,title:this.pageName,kind:"整页"} : this.rootUuid ? workIdentity({ graphId: this.graph, rootUuid: this.rootUuid }, root?.content ?? "正在读取工作…", identity?.kind === "FORMAL" ? identity : null) : null;
     const report = this.report?.read();
     const fragment = report?.fragments.find(fragment => fragment.target.blockUuid === this.rootUuid);
     if (work && fragment) { work.sourceId = fragment.sourceId; work.contentVersion = fragment.contentVersion; }
@@ -498,15 +507,15 @@ export class WorkView {
     if(reading.activePlanId)actions.push({group:"阅读方案",label:"返回默认全文读法",description:"保留来源，取消当前编排",disabled:this.historical||this.renderer.composing||this.report.composing,
       run:async()=>{const result=await this.report.readingAPI.select(null);if(!result.ok)throw new Error(result.reason);}});
     for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid, "breadcrumb"), disabled: !this.rootUuid || this.historical });
-    actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...(this.pageName ? [] : this.contextActions()));
+    actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...this.contextActions());
     const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";
     this.shell.render({ parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid,"breadcrumb")} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
       review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), actions });
   }
   private async openMaterials(): Promise<void> {
     const root = this.rootUuid, epoch = this.epoch;
-    if (!root || this.pageName || this.disposed) return;
-    this.rememberMaterials({ graphId: this.graph, rootUuid: root });
+    if (!root || this.disposed) return;
+    this.rememberMaterials(this.readingScope()!);
     try { await this.onMaterials(this.rows.map(row => row.content).join("\n"), root); }
     catch (error) { if (this.valid(epoch)) this.fail(error); }
   }

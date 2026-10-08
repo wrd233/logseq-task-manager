@@ -6,8 +6,8 @@ import type { GuidanceReading, GuidanceService } from "./guidance.ts";
 
 interface Context {binding:AgentWorkBinding;source:SourceSnapshot;backgroundSources:readonly BlockSnapshot[];guidance:GuidanceReading;check():Promise<void>}
 interface Boundary {
-  guidance:GuidanceService;context(root?:string):Promise<Context>;
-  prepare(root:string,request:string,backgroundSourceIds:string[]):Promise<unknown>;
+  guidance:GuidanceService;context(root?:string|AgentWorkBinding["scope"]):Promise<Context>;
+  prepare(root:string|AgentWorkBinding["scope"],request:string,backgroundSourceIds:string[]):Promise<unknown>;
   stateDirectory():string|null;
   report(error:unknown):void;
 }
@@ -29,7 +29,7 @@ export class CollaborationUI {
   }
   close():void{this.revision++;panels.reserve();void this.panel.close(false,"close",false);}
   dispose():void{this.disposed=true;this.revision++;this.panel.dispose();}
-  async open(root?:string,guideOnly=false):Promise<void>{
+  async open(root?:string|AgentWorkBinding["scope"],guideOnly=false):Promise<void>{
     const revision=++this.revision,panelRevision=panels.reserve(),context=await this.boundary.context(root);
     if(this.disposed||revision!==this.revision)return;
     const {binding,guidance}=context,body=element("div","","wb-scroll"),header=element("div","","wb-heading");
@@ -59,7 +59,7 @@ export class CollaborationUI {
       const save=()=>{try{localStorage.setItem(draftKey,JSON.stringify({request:request.value,background:[...selected]}));}catch(error){status.textContent=String(error);}};
       request.addEventListener("input",save);
       const output=element("div");body.append(action("连接并准备协作现场",async()=>{
-        save();const result=await this.boundary.prepare(binding.scope.rootUuid,request.value,[...selected]);await check();
+        save();const result=await this.boundary.prepare(binding.scope.kind==="page"?binding.scope:binding.scope.rootUuid,request.value,[...selected]);await check();
         const packet=result as {scene?:{savedSource:{blocks:unknown[]};guidance:GuidanceReading;permissions:{bodyWrite:boolean;fileWrite:boolean;ordinaryTodo:boolean}};savedSource?:{blocks:unknown[]};guidance?:GuidanceReading;permissions?:{bodyWrite:boolean;fileWrite:boolean;ordinaryTodo:boolean};sessions?:{references:Array<{url:string|null;description:string|null;platform:string}>}};
         const scene=packet.scene??packet;
         output.replaceChildren(element("p",`现场已核验并保存：${scene.savedSource?.blocks.length??0} 个来源。正文维护${scene.permissions?.bodyWrite?"已授权":"未授权"}；文件写作${scene.permissions?.fileWrite?"已授权":"未授权"}；普通 TODO${scene.permissions?.ordinaryTodo?"已授权":"未授权"}。`));

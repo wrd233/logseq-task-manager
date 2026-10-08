@@ -12,6 +12,7 @@ import { WorkspaceRegistry } from "../src/workspace/registry.ts";
 import { WorkspaceContextService } from "../src/workspace/context-service.ts";
 import { MirrorPublisher, renderMirror } from "../src/workspace/mirror.ts";
 import { optionalRead } from "../src/workspace/workspace-record.ts";
+import { workspaceBindingPort } from "../src/features/agent-workspace/installer.ts";
 
 class Storage implements KeyStorage {
   readonly values = new Map<string, string>();
@@ -30,16 +31,37 @@ async function fixture() {
   let graphId = "synthetic:/graph", materialGraph = "/graph", available = true, persist = 0;
   const scope = {graphId, rootUuid: "root"};
   const tree = {uuid: "root", content: "TODO 同名工作\n属性:: 保留\r\nemoji 🐈", children: [{uuid: "child", content: "自然段\n\n[注] 未确定\nTODO 只读", children: []}]};
-  let gate: Promise<void> | null = null;
-  const reader = new SourceReader({graphId: async () => graphId, getBlock: async uuid => {if (gate) await gate; if (!available) throw new Error("offline"); return uuid === "root" ? structuredClone(tree) : uuid === "other" ? {...tree, uuid: "other"} : null;}, getPage: async () => ({uuid: "page"}), getPageBlocksTree: async () => [{uuid: "page-child", content: "page body"}]});
+  let gate: Promise<void> | null = null,pageChildren=[{uuid:"page-child",content:"page body"}];
+  const reader = new SourceReader({graphId: async () => graphId, getBlock: async uuid => {if (gate) await gate; if (!available) throw new Error("offline"); return uuid === "root" ? structuredClone(tree) : uuid === "other" ? {...tree, uuid: "other"} : null;}, getPage: async () => ({uuid: "page"}), getPageBlocksTree: async () => structuredClone(pageChildren)});
   const materials = new MaterialService(io, directories, "/graph", global, text => text);
   const host = {current: async () => ({graphId, materialGraph}), persistRoot: async () => {persist++;}, readMaterial: (id: string) => materials.read(id)};
   const registry = new WorkspaceRegistry(io, directories, storage), service = new WorkspaceContextService(registry, reader, host);
   return {root, a, b, global, io, storage, directories, reader, registry, service, materials, host, scope, tree,
     setGraph: (id: string) => {graphId = id; materialGraph = id === scope.graphId ? "/graph" : `/graph-${id.split(":")[0]}`; service.invalidate();}, offline: (value: boolean) => {available = !value;},
-    setGate: (p: Promise<void> | null) => {gate = p;}, persisted: () => persist,
+    setGate: (p: Promise<void> | null) => {gate = p;}, emptyPage:()=>{pageChildren=[];},persisted: () => persist,
     cleanup: async () => {service.dispose(); await rm(root, {recursive: true, force: true});}};
 }
+test("a real page scope publishes only its blocks, preserves user entry and survives empty-page refresh without native writes",async()=>{
+  const f=await fixture(),scope={graphId:f.scope.graphId,rootUuid:"page",kind:"page" as const,pageName:"known page"};try{
+    await writeFile(join(f.a,"WORKSPACE.md"),"用户自己的页面入口\n");
+    const bound=await f.service.bind({scope,directory:f.a});assert.equal(bound.freshness,"checked");assert.equal(f.persisted(),0);assert.equal(bound.observed!.primary.scope.kind,"page");assert.equal(bound.observed!.primary.blocks.some(b=>b.target.blockUuid===scope.rootUuid),false);assert.equal(bound.observed!.primary.blocks[0]!.parentUuid,"page");assert.equal(await readFile(join(f.a,"WORKSPACE.md"),"utf8"),"用户自己的页面入口\n");
+    const legacyCall=await f.reader.read({graphId:scope.graphId,rootUuid:scope.rootUuid},()=>true,scope.pageName);assert.equal(legacyCall.scope.kind,"page");assert.equal(legacyCall.blocks.some(b=>b.target.blockUuid===scope.rootUuid),false);
+    const entry=await readFile(bound.binding.entryPath,"utf8");assert.match(entry,/\?page=known%20page/u);assert.doesNotMatch(entry,/\?block-id=page/u);
+    assert.equal((await f.service.read(scope)).freshness,"last-known");assert.deepEqual(await f.service.restoreKnown(),[scope]);
+    f.emptyPage();const empty=await f.service.refresh(scope);assert.equal(empty.freshness,"checked");assert.equal(empty.observed!.primary.page!.availability,"available");assert.equal(empty.observed!.primary.blocks.length,0);assert.notEqual(empty.mirror!.pointer.revision,bound.mirror!.pointer.revision);
+    await assert.rejects(f.service.resolve({graphId:scope.graphId,rootUuid:scope.rootUuid}),/身份或 Graph/u);
+    await f.service.unbind(scope);assert.equal(await f.service.resolve(scope),null);assert.equal(f.persisted(),0);
+  }finally{await f.cleanup();}
+});
+test("binding witnesses remain specific and revoked even after selecting another work or the same rebound identity",async()=>{
+  const f=await fixture(),previous=globalThis.logseq;try{
+    globalThis.logseq={App:{getCurrentGraph:async()=>({name:"synthetic",url:"/graph"})}} as unknown as typeof logseq;
+    await f.service.bind({scope:f.scope,directory:f.a});const port=workspaceBindingPort(f.service),old=await port.selected(f.scope.rootUuid);
+    const otherScope={...f.scope,rootUuid:"other"};await f.service.bind({scope:otherScope,directory:f.b});const other=await port.selected("other");assert.equal(await port.valid(old),true);
+    await f.service.bind({scope:f.scope,directory:f.a,rebind:true});assert.equal(await port.valid(old),false);assert.equal(await port.valid(other),true);
+    const current=await port.selected(f.scope.rootUuid);assert.equal(await port.valid(current),true);assert.equal(await port.valid(old),false);assert.equal(await port.valid(structuredClone(current)),false);
+  }finally{globalThis.logseq=previous;await f.cleanup();}
+});
 test("source contract hashes full UTF-8 body, preserves preorder/order, maps every UTF-16 span and never persists IDs on read", async () => {
   const f = await fixture();
   try {

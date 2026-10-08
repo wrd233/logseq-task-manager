@@ -55,8 +55,8 @@ export class WorkViewShell {
     this.root.dataset.workRoot = state.identity?.scope.rootUuid ?? "";
     this.title.dataset.sourceId = state.identity?.sourceId ?? "";
     this.title.dataset.contentVersion = state.identity?.contentVersion ?? "";
-    this.body.disabled = !state.identity; this.materials.disabled = !state.identity || state.identity.scope.kind === "page";
-    this.materials.title=state.identity?.scope.kind === "page" ? "整页只读；从实际工作块管理材料" : "当前工作的材料";
+    this.body.disabled = !state.identity; this.materials.disabled = !state.identity;
+    this.materials.title=state.identity?.scope.kind === "page" ? "当前页面的材料" : "当前工作的材料";
     this.parent.hidden=!state.parent;set(this.parent,state.parent ? `返回：${state.parent.title}` : "");
     this.parent.onclick=()=>{if(state.parent)void state.parent.run().catch(this.fail);};
     this.body.setAttribute("aria-current", String(state.content === "body"));

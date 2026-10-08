@@ -11,7 +11,7 @@ import { ScopeExpired } from "../../workspace/source-reader.ts";
 import { identifier, object, scopeOf, type SourceScope } from "../../workspace/source-protocol.ts";
 
 /** Always installed, including tasksEnabled=false. Owns only local commands and known-source observation. */
-export function installWorkspaceContext(readMaterial: (id: string) => Promise<unknown>) {
+export function installWorkspaceContext(readMaterial: (id: string) => Promise<unknown>,activeWork:()=>SourceScope|null=()=>null) {
   let disposed = false, graphPath = "", uiEpoch = 0;
   const directories = new MaterialDirectories(localStorage), off: Array<() => void> = [];
   const current = async () => {
@@ -68,10 +68,17 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
   }));
   const poll = setInterval(() => { if (!disposed) schedule(service.registeredScopes()); }, 5000);
   void restore().catch(report);
-  const activeScope = async (uuid?: string): Promise<SourceScope> => {
+  const activeScope = async (target?: string|SourceScope): Promise<SourceScope> => {
+    if(target&&typeof target!=="string"){
+      const scope=scopeOf(target),graph=await current();if(disposed||graph.graphId!==scope.graphId)throw new ScopeExpired();return scope;
+    }
+    const uuid=target;
     const ticket = uiEpoch, graph = await current(), block = uuid ? await logseq.Editor.getBlock(identifier(uuid)) : await logseq.Editor.getCurrentBlock();
     if (disposed || ticket !== uiEpoch) throw new ScopeExpired();
-    if (!block) throw new Error("请先选择工作块。"); return {graphId: graph.graphId, rootUuid: block.uuid};
+    if (!block) {
+      const selected=activeWork();if(!uuid&&selected?.kind==="page"&&selected.graphId===graph.graphId)return scopeOf(selected);
+      throw new Error("请先选择工作块或打开页面工作。");
+    } return {graphId: graph.graphId, rootUuid: block.uuid};
   };
   const showResult = (result: ContextReading) => {
     const text = result.freshness === "checked" ? "工作记录已刷新。" : "关联已保存；当前读取为最后已知副本，请检查 Logseq 或目录。";
@@ -81,16 +88,16 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     const binding = await service.resolve(scope); if (!binding) throw new Error("请先关联工作目录。");
     await desktopBridge().openPath(binding.entryPath);
   };
-  const promptBinding = async (uuid?: string, rebind = false, create = false) => {
+  const promptBinding = async (uuid?: string|SourceScope, rebind = false, create = false) => {
     const scope = await activeScope(uuid), ticket = ++uiEpoch, navigation = panels.reserve();
     let binding = null, recoveryProblem = "";
     try { binding = await service.resolve(scope); }
     catch (error) { if (!rebind) throw error; recoveryProblem = "原目录暂不可用，请选择移动后的工作目录。"; }
     if (disposed || ticket !== uiEpoch) return;
-    const block = await logseq.Editor.getBlock(scope.rootUuid); if (disposed || ticket !== uiEpoch) return;
+    const block = scope.kind==="page"?null:await logseq.Editor.getBlock(scope.rootUuid); if (disposed || ticket !== uiEpoch) return;
     const graph = await current(); if (disposed || ticket !== uiEpoch) return;
     const path = element("input"); path.value = binding?.directory ?? directories.binding(graph.materialGraph, scope.rootUuid)?.directory ?? ""; path.placeholder = "Graph 外的绝对目录"; path.setAttribute("aria-label", "工作目录路径");
-    const project = /\*\*\[(MiniProject|Project|项目|小项目)\]\*\*/iu.test(block?.content ?? "");
+    const project = scope.kind==="page"||/\*\*\[(MiniProject|Project|项目|小项目)\]\*\*/iu.test(block?.content ?? "");
     const organization = element("select"); organization.setAttribute("aria-label", "目录组织");
     for (const [value, label] of [["flat", "平铺"], ["project", "按需使用材料、工作记录、成果目录"]]) { const option = element("option", label); option.value = value!; organization.append(option); }
     organization.value = binding?.manifest.organization ?? (project ? "project" : "flat");
@@ -110,7 +117,7 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     path.style.display = "block"; path.style.width = "100%"; organization.style.display = "block";
     pathLabel.append(path); organizationLabel.append(organization);
     const actions = element("div"); actions.append(save, button("关闭", () => void panel.close())); form.append(pathLabel, organizationLabel, actions);
-    body.replaceChildren(element("strong", create ? "新建工作目录" : rebind ? "重新关联工作目录" : "关联工作目录"), element("p", (block?.content ?? "").split("\n")[0]!.slice(0, 120)), element("p", "正文继续在 Logseq 编辑。目录保存读取副本和可恢复身份；已有文件不会搬动。"), form, status);
+    body.replaceChildren(element("strong", create ? "新建工作目录" : rebind ? "重新关联工作目录" : "关联工作目录"), element("p", scope.kind==="page"?scope.pageName!:(block?.content ?? "").split("\n")[0]!.slice(0, 120)), element("p", scope.kind==="page"?"页面提供已保存原文与层级的读取副本，没有可写根块。目录中的已有文件不会搬动。":"正文继续在 Logseq 编辑。目录保存读取副本和可恢复身份；已有文件不会搬动。"), form, status);
     if (await panel.open(navigation)) path.focus();
   };
   const commands: Array<[string, string, (uuid?: string) => Promise<unknown>]> = [
@@ -129,7 +136,7 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
   const materialBindings: MaterialBindingCommands = {directories, bind: async context => {
     const graph = await current();
     if (graph.materialGraph !== context.graph || !context.sourceUuid) throw new ScopeExpired();
-    const scope = {graphId: graph.graphId, rootUuid: context.sourceUuid};
+    const selected=activeWork(),scope=selected?.kind==="page"&&selected.graphId===graph.graphId&&selected.rootUuid===context.sourceUuid?selected:{graphId: graph.graphId, rootUuid: context.sourceUuid};
     if (context.directory === null) await service.unbind(scope);
     else { const result = await service.bind({scope, directory: context.directory, organization: context.organization, rebind: true}); if (result.freshness !== "checked") report(new Error(result.problem ?? "目录已关联，原文刷新暂未完成。")); }
   }};
@@ -152,7 +159,7 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     },
     version: (scope: SourceScope) => service.sourceVersion(scope),
   };
-  return {local: { bind: (root: string) => promptBinding(root), rebind: (root: string) => promptBinding(root, true), open: (scope: SourceScope) => openEntry(scope) }, api, source, sourceReader, materialBindings, service, dispose: () => {
+  return {local: { bind: (root: string|SourceScope) => promptBinding(root), rebind: (root: string|SourceScope) => promptBinding(root, true), open: (scope: SourceScope) => openEntry(scope) }, api, source, sourceReader, materialBindings, service, dispose: () => {
     if (disposed) return; disposed = true; uiEpoch++; service.dispose(); pending.clear();
     if (timer) clearTimeout(timer); clearInterval(poll); for (const remove of off) remove(); void panel.close(); panel.root.remove();
   }};

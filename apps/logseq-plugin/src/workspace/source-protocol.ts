@@ -12,6 +12,7 @@ export type SourceSnapshot = {
   structureVersion: string; sourceSetVersion: string; capturedAt: string;
   page?: PageSource;
 };
+export function sourceAvailability(source:SourceSnapshot):BlockSnapshot["availability"] {return source.scope.kind==="page"?source.page?.availability??"unavailable":source.blocks[0]?.availability??"unavailable";}
 export const MAX_BLOCKS = 10_000, MAX_TEXT = 8_000_000;
 export function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("WORKSPACE_INVALID_OBJECT");
