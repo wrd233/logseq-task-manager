@@ -11,6 +11,8 @@ import type { WorkspaceContextService } from "../../workspace/context-service.ts
 import { GuidanceService } from "./guidance.ts";
 import { CollaborationService } from "./collaboration.ts";
 import { CollaborationUI } from "./collaboration-ui.ts";
+import { OrdinaryTodoService } from "../ordinary-todo/service.ts";
+import { OrdinaryTodoUI } from "../ordinary-todo/ui.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
     let witness: (() => boolean) | null = null;
     const read = async (rootUuid: string): Promise<AgentWorkBinding> => {
@@ -46,10 +48,11 @@ export function installAgentWorkspace(options: {
         descriptorPath:string;
     } | null = null;
     const binding = options.binding;
+    const todo=new OrdinaryTodoService({...options.content.trustedTodo,valid:options.content.valid});
     const guidance=new GuidanceService(logseq.FileStorage);
-    const permissions=()=>({read:connection!==null,bodyWrite:connection!==null&&options.content.api.capabilities().bodyAuthorized,structureWrite:connection!==null&&options.content.api.capabilities().structureAuthorized,fileWrite:connection?.fileWrite??false,ordinaryTodo:false as const,formalApproval:false as const});
+    const permissions=()=>({read:connection!==null,bodyWrite:connection!==null&&options.content.api.capabilities().bodyAuthorized,structureWrite:connection!==null&&options.content.api.capabilities().structureAuthorized,fileWrite:connection?.fileWrite??false,ordinaryTodo:connection!==null&&todo.status(connection.lease).authorized,formalApproval:false as const});
     const collaboration=options.source?new CollaborationService({storage:logseq.FileStorage,guidance,refresh:scope=>options.source!.refresh(scope),materials:async selected=>router!.sceneMaterials(selected),reading:()=>options.work?.readingAPI.read()??null,permissions,editing:async()=>!!await logseq.Editor.checkEditing()}):undefined;
-    const router:AgentWorkspaceRouter|null = options.materials && binding ? new AgentWorkspaceRouter({ content: options.content, materials: options.materials, work: options.work, binding, guidance,...(collaboration?{collaboration}:{}),allowsFileWrite:lease=>connection?.lease===lease&&connection.fileWrite, ...(options.source ? { source: options.source } : {}), ...(options.stage ? { stage: options.stage } : {}) }) : null;
+    const router:AgentWorkspaceRouter|null = options.materials && binding ? new AgentWorkspaceRouter({ content: options.content, materials: options.materials, work: options.work, binding, guidance,todo,...(collaboration?{collaboration}:{}),allowsFileWrite:lease=>connection?.lease===lease&&connection.fileWrite, ...(options.source ? { source: options.source } : {}), ...(options.stage ? { stage: options.stage } : {}) }) : null;
     const report = (error: unknown) => {
         if (!disposed)
             void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
@@ -74,6 +77,7 @@ export function installAgentWorkspace(options: {
         connection = null;
         generation++;
         router?.clear();
+        todo.revoke();todoUI?.close();
         if(closeUI)ui?.close();
         if(previous&&options.content.valid(previous.lease))options.content.api.revoke();
         if (timer)
@@ -101,9 +105,11 @@ export function installAgentWorkspace(options: {
             returned = true;
             await valid(value);
             await post(value.descriptor, "/plugin/complete", { connectionId: value.id, clientId: parsed.clientId, requestId: parsed.requestId, value: result });
+            await valid(value);
+            router!.delivered({...parsed,scope:value.binding.scope,binding:value.binding},result);
         }
         catch (error) {
-            const uncertain = returned && ["content.apply", "content.retry", "content.recover", "stage.submit", "materials.capture", "materials.associate", "materials.save"].includes(delivery.command);
+            const uncertain = returned && ["content.apply", "content.retry", "content.recover", "todo.apply", "todo.retry", "todo.resumeIdentity", "stage.submit", "materials.capture", "materials.associate", "materials.save"].includes(delivery.command);
             const code = uncertain ? "TRANSPORT_OUTCOME_UNKNOWN" : error instanceof WorkspaceError ? error.code : error instanceof Error ? error.message.split(":")[0]! : "CAPABILITY_FAILED";
             await post(value.descriptor, "/plugin/complete", { connectionId: value.id, clientId: delivery.clientId, requestId: delivery.requestId, error: { code: code.slice(0, 128), message: uncertain ? "Local operation returned, but delivery/lifetime confirmation failed; query the original Journal request or material version before retrying." : error instanceof Error ? error.message.slice(0, 500) : code } }).catch(() => undefined);
         }
@@ -213,6 +219,10 @@ export function installAgentWorkspace(options: {
         const value=connection;if(!value)throw new WorkspaceError("CHANNEL_UNAVAILABLE","先连接这份工作，再明确允许它的文件写作。");
         await valid(value);value.fileWrite=true;await logseq.UI.showMsg("已允许 Agent 在这份工作的目录中写材料；正文和普通 TODO 许可独立保持。","success");
     };
+    const todoUI=new OrdinaryTodoUI({service:todo,valid:options.content.valid,context:async()=>{
+        const value=connection;if(!value)throw new WorkspaceError("CHANNEL_UNAVAILABLE","先连接这份工作，再选择普通 TODO 的范围和操作。");
+        await valid(value);const read=await options.content.trustedTodo.read(value.lease.scope);await valid(value);return {lease:value.lease,read};
+    }});
     options.materials?.setDirectoryObserver({
         stop: revoke,
         available: context => !!connection && context.directory === connection.binding.directory && context.sourceUuid === connection.binding.scope.rootUuid,
@@ -257,12 +267,15 @@ export function installAgentWorkspace(options: {
             disposers.push(off);
     }
     const connectRead=(target?:string)=>allow(target,false,true);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,collaborate:(root?:string)=>ui.open(root),guidance:(root?:string)=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    const todoCommand=logseq.App.registerCommandPalette({key:"agent-workspace-todo",label:"工作台：允许 agent 维护普通 TODO"},()=>{if(!disposed)return todoUI.open().catch(report);});
+    if(typeof todoCommand==="function")disposers.push(todoCommand);
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),collaborate:(root?:string)=>ui.open(root),guidance:(root?:string)=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;
             revoke();
             ui.dispose();guidance.dispose();collaboration?.dispose();
+            todoUI.dispose();
             options.materials?.setDirectoryObserver(null);
             for (const off of disposers)
                 off();

@@ -18,7 +18,9 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 - 重排后重复展示完整原序邻域，不能把类别标签当作语义独立证明；上下文展示有总量边界，材料列表/同范围重绑定会重新核验或撤销方案。
 - 本地“带当前工作去协作”保存本次请求、必要背景与祖先、真实保存原文/版本、原有 manifest/发布 revision、实际材料引用、读法状态、共同指导版本和本次许可；Node 继续使用既有 files/session 观察。外部只读 `collaboration.read/refresh`，不能自选本次请求或权限。scene 与 current 分开，旧现场不冒充当前 checked 来源；草稿不导出、未知结果仍查询原 Journal。
 - 一份共同指导使用插件全局 FileStorage 源，各工作只存差异；本地明确保存有版本与读回校验，读取失败不静默覆盖。`guidance.read` 返回实际文本/hash/key/loadedAt，不承诺任意 Agent 或现有聊天自动重读。实际启动语使用当前加载插件的 CLI 文件及私有通道位置，没有可靠链接不编造。
-- 新协作入口只建立 read lease，不补写原生 id。正文/结构与文件写作有独立本地入口，Node/插件双重检查材料写入；普通 TODO 新授权仍未实施。工作切换对 lease 附加即时限制，永久撤销，返回原工作不能复活；停止连接撤销该内容 lease，已可靠写入的旧请求仍可在重连后查询。
+- 新协作入口只建立 read lease，不补写原生 id。正文/结构与文件写作有独立本地入口，Node/插件双重检查材料写入。工作切换对 lease 附加即时限制，永久撤销，返回原工作不能复活；停止连接撤销该内容 lease，已可靠写入的旧请求仍可在重连后查询。
+- 普通 TODO 新服务、受信范围/操作/当前连接许可表单及真实 CLI `todo.read/apply/result/recover/retry/resumeIdentity` 已接线。有限动作编译到原 Journal 引擎，旧 content API 保持保护；完成核验真实 scoped 材料文本版本及指定原样片段，状态与简洁引用同一宿主调用，正式对象的源码边界仍拒绝。详见[契约与核验限制](../design/ordinary-todo-contract.md)及下方真实 Desktop 演练。
+- 外部正文、重试、TODO 和 stage.submit 的 Journal 已接实际通道/连接/client/运输请求/命令，以及该 client 最后显式读回的共同/项目指导版本。未读取为 null；标签不证明个人/模型身份，返回文本不证明遵循规则。
 
 接口及限制见 [阅读方案契约](../design/reading-plan-contract.md)。材料入口目前使用基线真实 list/read/reference/open 服务的窄适配，未复制 A 的目录/预览算法；不把 mock 当作跨支通过。页面型阅读方案使用真实 page scope，空页面不伪造块；外部页面协作连接尚待扩展现有块范围基线。
 
@@ -38,6 +40,16 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 阶段摘要为 [collaboration-stage-evidence.json](assets/reading-agent/collaboration-stage-evidence.json)，各阶段实际 JS/CLI hash 单独记录，首阶段在租约修补之前，不能混成同一构建。原始数据在 `tmp/reading-desktop/evidence/collaboration-work-*.json`、`collaboration-final-runtime.json`。`scripts/collaboration-desktop-exercise.mjs` 只运行真实 CLI 与拒绝写入检查；UI 由实际 Desktop 操作，未补造 IPC/SDK 能力。仍不是最终包，也不是三条写作与普通 TODO/A 联调通过。
 
-仍需实施并验证：格式整理与三条真实协作过程；普通 TODO 范围授权/依据及恢复；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。现场/指导的新模块还须在最终包联调中再次验收，写作 Journal 的实际指导/调用作者关联仍需接线。具体要求仍以两支 prompt 和共同契约为准。A 工作树仍在修改，尚无最终 handoff/SHA，不合入其未提交内容。
+普通 TODO 阶段全量 `tmp/todo-check-final.log`：751 项、零失败，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 通过。新增 10 项受信 TODO 回归，加真实独立 CLI 接线回归，覆盖独立许可、范围/操作/生命周期、正式/受管/代码边界、材料/原文变化、撤销再授权不复活旧调用、终端属性、宿主原生 id 规范化、幂等、部分身份、日志未确认和未知不重试。外部收纳的最小接线显式关闭自动 Graph 引用；文件许可不会自动取得正文能力。
+
+真实 Desktop 演练从本地表单允许一个实际普通任务子树的 create/complete，再单独允许文件写作；body=false。实际构建 CLI 读取现场/指导、保存两段原样来源到工作目录的比较文件、核验材料版本/字节、取得真实引用、在原任务下新建明确测试子步骤、完成并读回 Journal。103 个此前来源的正文/父级/顺序/深度保持，只有新增子步骤成为 DONE，父任务仍为 TODO，实际 Graph Markdown 文件也已保存这个子步骤。点击其正文实际只读高亮 1 个原生来源，editing=false，阅读层有 104 个来源；不同挂载数量仍按实际结果表达。
+
+本次实机先发现两处基线/新接线边界：终端 id 属性无换行使依据追加被属性保护拒绝；宿主把 id 属性移至首行后导致严格读回未知。旧拒绝/未知日志保留，后者 recover 观察到预期内容但仍是归属未知，未盲目重放。修正后另外明确新建的“原生属性读回复验”完成，Journal 同时保留提议和实际内容及规范化标识，旧 content 保护与读回不放宽。此前基线材料 capture 自动插入的一条引用也保留在合成数据中，没有删除来隐藏问题；随后新材料 capture 的前后真实来源集合相同，证明 file-only 接线。它是 A controller 的最小内部参数，合入 A 时需保留。
+
+实际停止连接后 CLI 为 WORKSPACE_OFFLINE。只读重连后 body/file/TODO 都未授权，原已确认请求查询/相同 apply 只返回原日志，来源集合没有再次变化。证据摘要为 [todo-stage-evidence.json](assets/reading-agent/todo-stage-evidence.json)，原始记录为 `tmp/reading-desktop/evidence/todo-native-id-exercise.json`、`todo-normalized-runtime.json`、`todo-final-runtime.json` 与旧失败/恢复文件；可重用脚本 `scripts/todo-desktop-exercise.mjs` 不注入许可、SDK 或 IPC。各阶段运行文件 hash 单独记录，不能把旧失败构建与新复验混成同一安装结果。
+
+仍是开发目录加载，尚未在最终 ZIP 或真正 Kernel 注册的正式对象上完成这组 Desktop 验收。基线 reference 标签仍消费真实服务返回值，完整当前文件名标签由 A 最终接线验证；不自行猜材料 UUID/路径。物理 IME、Finder、系统剪贴板完整保留、跨平台和普通 IO 竞态仍未由这些结果证明。
+
+仍需实施并验证：格式整理与三条完整真实协作过程；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

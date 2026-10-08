@@ -8,7 +8,7 @@ import type { GuidanceCheck, GuidanceReading, GuidanceService } from "./guidance
 
 interface Storage {getItem(key:string):Promise<unknown>;setItem(key:string,text:string):Promise<void>}
 interface Material {id:string;path:string;reference:string;version:string|null;availability:string}
-export interface CollaborationPermissions {read:boolean;bodyWrite:boolean;structureWrite:boolean;fileWrite:boolean;ordinaryTodo:false;formalApproval:false}
+export interface CollaborationPermissions {read:boolean;bodyWrite:boolean;structureWrite:boolean;fileWrite:boolean;ordinaryTodo:boolean;formalApproval:false}
 export interface CollaborationScene {
   schemaVersion:1;sceneId:string;capturedAt:string;binding:AgentWorkBinding;
   request:string;requestedBackgroundSourceIds:string[];selectedBackground:BlockSnapshot[];
@@ -74,7 +74,7 @@ export class CollaborationService {
     const key=await this.key(binding,"scene"),record=JSON.stringify({schemaVersion:1,digest:await sourceHash(raw),scene});await this.check(check);
     await this.ports.storage.setItem(key,record);await this.check(check);if(await this.ports.storage.getItem(key)!==record)throw new WorkspaceError("COLLABORATION_SCENE_UNCONFIRMED");await this.check(check);return scene;
   }
-  async read(binding:AgentWorkBinding,check:GuidanceCheck):Promise<unknown>{
+  async read(binding:AgentWorkBinding,check:GuidanceCheck){
     await this.check(check);const raw=await readOptionalPrivateItem(this.ports.storage,await this.key(binding,"scene"));await this.check(check);
     if(typeof raw!=="string"||raw.length>20000000)throw new WorkspaceError("COLLABORATION_SCENE_UNAVAILABLE");
     const record=workRecord(JSON.parse(raw),["schemaVersion","digest","scene"]),scene=record.scene as CollaborationScene;

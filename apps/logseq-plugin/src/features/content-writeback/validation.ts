@@ -126,3 +126,19 @@ export async function childIdentity(patch: Patch, op: Operation): Promise<string
   const hash = await sha256(JSON.stringify(["content-child", patch.scope, patch.requestId, op.operationId]));
   return `${hash.slice(0,8)}-${hash.slice(8,12)}-5${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
 }
+/** The observed Desktop canonicalizes one native id line after the first line.
+ * All other bytes and properties must match. Legacy content readback stays exact. */
+export function nativeIdentityReadbackMatches(actual:string|null,expected:string,id:string):boolean {
+  if(actual===expected)return true;
+  if(actual===null||!uuidPattern.test(id)||actual.split(/\r?\n/u)[1]!==`id:: ${id}`)return false;
+  const remove=(text:string):string|null=>{
+    const line=`id:: ${id}`,matches=[...text.matchAll(new RegExp(`(?:^|\\n)${line}(?=\\r?\\n|$)`,"gu"))];
+    if(matches.length!==1)return null;
+    const m=matches[0]!,start=m.index!+(m[0].startsWith("\n")?1:0),end=start+line.length;
+    const after=text.slice(end).startsWith("\r\n")?2:text[end]==="\n"?1:0;
+    if(after)return text.slice(0,start)+text.slice(end+after);
+    if(start>0)return text.slice(0,start-(text.slice(0,start).endsWith("\r\n")?2:1))+text.slice(end);
+    return null;
+  };
+  const before=remove(expected),after=remove(actual);return before!==null&&after!==null&&before===after;
+}

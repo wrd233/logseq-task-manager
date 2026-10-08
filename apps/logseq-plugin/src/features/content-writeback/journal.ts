@@ -1,11 +1,13 @@
 import { readOptionalPrivateItem } from "../../private-storage.ts";
 import type { OperationJournal, RequestRecord, SourceScope } from "./protocol.ts";
-import { fail, parsePatch, sameScope, sha256 } from "./validation.ts";
+import { fail, nativeIdentityReadbackMatches, parsePatch, sameScope, sha256 } from "./validation.ts";
 
 export interface JournalStorage {
   getItem(key: string): Promise<unknown>; setItem(key: string, text: string): Promise<void>; allKeys(): Promise<unknown>;
 }
 import { validateMoveFact } from "./structure.ts";
+import { workRecord, workText } from "@task-copilot/contracts";
+import { parseTodoRequest } from "../ordinary-todo/service.ts";
 
 const prefix = "content-writeback-v1-";
 const maxRecordLength = 16_777_216;
@@ -37,12 +39,34 @@ export class PrivateOperationJournal implements OperationJournal {
     const raw = await readOptionalPrivateItem(this.storage, key);
     if (typeof raw !== "string" || raw.length > maxRecordLength) fail("JOURNAL_UNREADABLE");
     const record = JSON.parse(raw) as RequestRecord;
-    if (record.schemaVersion !== 1 || !["content-patch","scope-identity"].includes(record.intentKind) || !Number.isSafeInteger(record.sequence) || record.sequence < 0 || !Array.isArray(record.items)) fail("JOURNAL_CORRUPT");
+    if (record.schemaVersion !== 1 || !["content-patch","scope-identity","ordinary-todo"].includes(record.intentKind) || !Number.isSafeInteger(record.sequence) || record.sequence < 0 || !Array.isArray(record.items)) fail("JOURNAL_CORRUPT");
+    if(record.origin?.kind==="verified-local-agent"){
+      workRecord(record.origin,["kind","instanceId","connectionId","clientLabel","transportRequestId","command","guidance"]);
+      for(const value of [record.origin.instanceId,record.origin.connectionId,record.origin.clientLabel,record.origin.transportRequestId,record.origin.command])workText(value);
+      const guide=record.origin.guidance;
+      if(guide){
+        workRecord(guide,["loading","sourceLoadedAt","returnedAt","common","project"]);
+        if(guide.loading!=="explicit-read"||!Number.isFinite(Date.parse(guide.sourceLoadedAt))||!Number.isFinite(Date.parse(guide.returnedAt)))fail("JOURNAL_GUIDANCE_INVALID");
+        for(const source of [guide.common,guide.project]){workRecord(source,["key","version"]);workText(source.key,256);if(!/^[0-9a-f]{64}$/u.test(source.version))fail("JOURNAL_GUIDANCE_INVALID");}
+      }else if(guide!==null)fail("JOURNAL_GUIDANCE_INVALID");
+    }else if(record.origin?.kind!=="local-capability"&&record.origin?.kind!=="local-user-command")fail("JOURNAL_ORIGIN_INVALID");
+    if(record.intentKind==="ordinary-todo"){
+      const fact=record.ordinaryTodo;
+      if(!fact||fact.schemaVersion!==1||!["create","complete","reopen"].includes(fact.action)||typeof fact.requestJson!=="string"||fact.requestJson.length>1048576||fact.requestDigest!==await sha256(fact.requestJson))fail("JOURNAL_TODO_FACT_INVALID");
+      workRecord(fact,["schemaVersion","action","requestJson","requestDigest","evidence"]);
+      const request=parseTodoRequest(JSON.parse(fact.requestJson));
+      if(request.action!==fact.action||request.requestId!==record.patch.requestId||!sameScope(request.scope,record.patch.scope))fail("JOURNAL_TODO_FACT_INVALID");
+      if(fact.action==="complete"){
+        if(!fact.evidence||fact.evidence.kind!=="material-version"||fact.evidence.version!==request.evidence!.expectedVersion||fact.evidence.materialId!==request.evidence!.materialId||fact.evidence.verifiedText!==request.evidence!.verifiedText||typeof fact.evidence.reference!=="string"||fact.evidence.reference.length>8192||typeof fact.evidence.filename!=="string"||fact.evidence.filename.length>4096||!Number.isFinite(Date.parse(fact.evidence.observedAt)))fail("JOURNAL_TODO_EVIDENCE_INVALID");
+        workRecord(fact.evidence,["kind","materialId","filename","reference","version","observedAt","verifiedText"]);
+      }else if(fact.evidence!==null)fail("JOURNAL_TODO_EVIDENCE_INVALID");
+    }else if(record.ordinaryTodo!==undefined)fail("JOURNAL_TODO_FACT_INVALID");
     const patch = parsePatch(record.patch);
     if (await sha256(JSON.stringify(patch)) !== record.digest || key!==`${await requestKey(patch.scope, patch.requestId)}-${String(record.sequence).padStart(6,"0")}`) fail("JOURNAL_DIGEST_MISMATCH");
     if (record.items.length !== patch.operations.length || record.items.some((item, i) => item.operationId !== patch.operations[i]?.operationId || !["PENDING", "EXECUTING", "ACKNOWLEDGED", "SETTLED"].includes(item.phase) || !["NOT_APPLIED", "APPLIED_VERIFIED", "CONFLICT", "BLOCKED", "OUTCOME_UNKNOWN", "NO_CHANGE"].includes(item.status))) fail("JOURNAL_CORRUPT");
     for(const [i,item] of record.items.entries()){
       const op=patch.operations[i]!;
+      if(item.readbackNormalization!==undefined&&(record.intentKind!=="ordinary-todo"||item.readbackNormalization!=="native-id-after-first-line"||item.proposedContent===null||item.actualContent===item.proposedContent||!item.contentVerified||!nativeIdentityReadbackMatches(item.actualContent,item.proposedContent,op.target.blockUuid)))fail("JOURNAL_TODO_NORMALIZATION_INVALID");
       if(op.type==="move-block"){
         if(item.move)await validateMoveFact(op,item.move);
         if(item.status==="APPLIED_VERIFIED" && (!item.move?.verified || !item.contentVerified))fail("JOURNAL_MOVE_FACT_INVALID");

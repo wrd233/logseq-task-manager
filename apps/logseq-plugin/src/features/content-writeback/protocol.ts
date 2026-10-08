@@ -28,7 +28,12 @@ export type Patch = {
 };
 export type ItemStatus = "NOT_APPLIED" | "APPLIED_VERIFIED" | "CONFLICT" | "BLOCKED" | "OUTCOME_UNKNOWN" | "NO_CHANGE";
 export type ExecutionPhase = "PENDING" | "EXECUTING" | "ACKNOWLEDGED" | "SETTLED";
-export type CallOrigin = { kind: "local-user-command"; command: string } | { kind: "local-capability" };
+export type LoadedGuidanceBasis={loading:"explicit-read";sourceLoadedAt:string;returnedAt:string;common:{key:string;version:string};project:{key:string;version:string}};
+export type CallOrigin = { kind: "local-user-command"; command: string } | { kind: "local-capability" } | {
+  kind:"verified-local-agent";instanceId:string;connectionId:string;clientLabel:string;transportRequestId:string;command:string;
+  /** Transport label identifies a caller in this connection, not a verified person/model. */
+  guidance:LoadedGuidanceBasis|null;
+};
 export type IdentityFact = {
   status: "PENDING" | "VERIFIED" | "OUTCOME_UNKNOWN"; before: string; after: string | null;
   beforeVersion: string; afterVersion: string | null; problem: string | null;
@@ -40,12 +45,26 @@ export type ItemFact = {
   currentContent: string | null; currentVersion: string | null; parentUuid: string | null; childUuid: string | null;
   identity: IdentityFact | null; move?: MoveFact; contentVerified: boolean; expectationObserved: boolean;
   dispatchedAt: string | null; acknowledgedAt: string | null; verifiedAt: string | null;
+  readbackNormalization?:"native-id-after-first-line";
 };
 export type RequestRecord = {
-  schemaVersion: 1; intentKind: "content-patch" | "scope-identity"; sequence: number; digest: string; patch: Patch; origin: CallOrigin;
+  schemaVersion: 1; intentKind: "content-patch" | "scope-identity" | "ordinary-todo"; sequence: number; digest: string; patch: Patch; origin: CallOrigin;
+  ordinaryTodo?:OrdinaryTodoFact;
   retryOf: string | null; createdAt: string; updatedAt: string; items: ItemFact[];
   resolutions: Record<string, "keep-current" | "copied" | "retry-verified">;
 };
+export type OrdinaryTodoFact={
+  schemaVersion:1;action:"create"|"complete"|"reopen";requestJson:string;requestDigest:string;
+  evidence:null|{kind:"material-version";materialId:string;filename:string;reference:string;version:string;observedAt:string;verifiedText:string};
+};
+/** Installer-owned execution of a closed TODO action. Never part of public content.apply. */
+export interface ControlledTodoExecution {
+  fact:OrdinaryTodoFact;
+  assert(lease:ScopeLease):void;
+  authorize(lease:ScopeLease,read:SourceRead,operations:readonly Operation[]):void;
+  beforeDispatch():Promise<void>;
+  matchesReadback(actual:string|null,expected:string,uuid:string):boolean;
+}
 export type ApplyResult = { status: "complete" | "partial" | "not-applied" | "outcome-unknown"; record: RequestRecord; durable: boolean; journalProblem: string | null };
 export type ProtectedRange = TextRange & { reason: "property" | "formal-title" | "managed" | "todo" | "ambiguous-formal-field" };
 export type Protection = { ranges: readonly ProtectedRange[]; insertAllowed: boolean };

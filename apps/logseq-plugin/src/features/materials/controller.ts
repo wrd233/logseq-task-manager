@@ -459,12 +459,14 @@ export class Materials {
     if (reading) await this.openDoc(id); else await this.library(root);
     this.message(result.problem ?? "已核验改名与引用结果。");
   }
-  async capture(request: CaptureRequest, actor: "user" | "agent" = "agent"): Promise<MaterialResult> {
+  async capture(request: CaptureRequest, actor: "user" | "agent" = "agent", insertReference = true): Promise<MaterialResult> {
     const epoch = this.epoch, service = await this.ensureService();
     const context = await this.workContext(request.sourceUuid ?? this.contextUuid);
     const result = await service.capture(request, context, actor);
     if (result.status === "partial") return result;
-    if (context.sourceUuid) return this.sources.insertReference(result, context.sourceUuid, epoch, context.graph);
+    // The Agent router explicitly requests file-only capture. A reference in
+    // Graph must go through independently authorized content/TODO execution.
+    if (context.sourceUuid && insertReference) return this.sources.insertReference(result, context.sourceUuid, epoch, context.graph);
     return result;
   }
   async importMaterial(input: {path: string; requestKey: string; sourceUuid: string}): Promise<MaterialResult> {

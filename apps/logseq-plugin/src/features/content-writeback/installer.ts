@@ -99,6 +99,8 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   // Trusted installers retain the actual scope lease; local user UI keeps its
   // command origin. Neither port is part of the public content namespace.
   const local={recovery:async(root:string)=>{await establish(root);await ui.recovery();},authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
-  return {api,local,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  const trustedTodo={read:executor.read.bind(executor),apply:executor.applyControlledTodo.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resumeIdentity:executor.resumeIdentity.bind(executor)};
+  const trustedAgent={apply:executor.apply.bind(executor),retry:executor.retry.bind(executor)};
+  return {api,local,trustedTodo,trustedAgent,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

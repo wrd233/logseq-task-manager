@@ -26,6 +26,7 @@ export const workspaceCommands = {
     "reading.highlight": ["input"], "reading.clear": [],
     "content.read": [], "content.apply": ["patch"], "content.result": ["requestId"],
     "content.pending": [], "content.recover": ["requestId"], "content.retry": ["previousRequestId", "patch"],
+    "todo.read": [], "todo.apply": ["request"], "todo.result": ["requestId"], "todo.recover": ["requestId"], "todo.resumeIdentity": ["requestId"], "todo.retry": ["previousRequestId", "request"],
     "stage.read": ["input"], "stage.submit": ["input"],
 } as const;
 export type WorkspaceCommand = keyof typeof workspaceCommands;

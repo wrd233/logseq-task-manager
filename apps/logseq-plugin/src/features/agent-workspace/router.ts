@@ -1,16 +1,17 @@
 import { WorkspaceError, workRecord, workText, sameWorkScope, type AgentWorkBinding, type WorkspaceDelivery } from "@task-copilot/contracts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
-import type { ScopeLease } from "../content-writeback/protocol.ts";
+import type { ScopeLease, CallOrigin, LoadedGuidanceBasis } from "../content-writeback/protocol.ts";
 import { parsePatch } from "../content-writeback/validation.ts";
 import type { Materials } from "../materials/controller.ts";
 import type { WorkView } from "../work-view/controller.ts";
 import { sourceHash } from "../work-view/lens-source.ts";
 import type { ContextReading } from "../../workspace/context-service.ts";
-import type { GuidanceService } from "./guidance.ts";
+import type { GuidanceReading, GuidanceService } from "./guidance.ts";
 import type { CollaborationService } from "./collaboration.ts";
+import { parseTodoRequest, type OrdinaryTodoService } from "../ordinary-todo/service.ts";
 export interface OptionalStagePort {
     read(input: unknown, binding: AgentWorkBinding): Promise<unknown>;
-    submit(input: unknown, binding: AgentWorkBinding): Promise<unknown>;
+    submit(input: unknown, binding: AgentWorkBinding,origin?:CallOrigin): Promise<unknown>;
 }
 export interface WorkspaceBindingPort {
     selected(rootUuid: string): Promise<AgentWorkBinding>;
@@ -28,6 +29,7 @@ export class AgentWorkspaceRouter {
     private readonly readingRequests=new Map<string,string>();
     private readonly readingPlans=new Map<string,string>();
     private generation=0;
+    private readonly loadedGuidance=new Map<string,LoadedGuidanceBasis>();
     constructor(private readonly ports: {
         content: ContentInstallation;
         materials: MaterialPort;
@@ -38,9 +40,11 @@ export class AgentWorkspaceRouter {
         allowsFileWrite?(lease:ScopeLease):boolean;
         guidance?:GuidanceService;
         collaboration?:CollaborationService;
+        todo?:OrdinaryTodoService;
     }) { }
     clear(): void {
         this.generation++;this.questions.clear();
+        this.loadedGuidance.clear();
         // Cancel the presentation controller's pending generation too: a select
         // already awaiting a source read must not take effect after disconnect.
         this.ports.work?.readingAPI.cancel();
@@ -70,6 +74,19 @@ export class AgentWorkspaceRouter {
         return this.ports.materials.readMaterial(selected);
     }
     async sceneMaterials(binding:AgentWorkBinding){return (await this.materialList(binding)).materials;}
+    private owner(call:WorkspaceDelivery):string{return JSON.stringify([call.instanceId,call.connectionId,call.clientId]);}
+    private rememberGuide(call:WorkspaceDelivery,reading:GuidanceReading):void{
+        this.loadedGuidance.set(this.owner(call),{loading:"explicit-read",sourceLoadedAt:reading.loadedAt,returnedAt:new Date().toISOString(),common:{key:reading.common.source.key,version:reading.common.version},project:{key:reading.project.source.key,version:reading.project.version}});
+        if(this.loadedGuidance.size>128)this.loadedGuidance.delete(this.loadedGuidance.keys().next().value!);
+    }
+    /** Called only after the companion acknowledges the actual reply. A failed
+     * delivery must not become a claimed loaded basis for the next write. */
+    delivered(call:WorkspaceDelivery,value:unknown):void{
+        if(call.command==="guidance.read")this.rememberGuide(call,value as GuidanceReading);
+        else if(call.command==="collaboration.read")this.rememberGuide(call,(value as {scene:{guidance:GuidanceReading}}).scene.guidance);
+        else if(call.command==="collaboration.refresh")this.rememberGuide(call,(value as {guidance:GuidanceReading}).guidance);
+    }
+    private origin(call:WorkspaceDelivery):CallOrigin{return {kind:"verified-local-agent",instanceId:call.instanceId,connectionId:call.connectionId,clientLabel:call.clientId,transportRequestId:call.requestId,command:call.command,guidance:this.loadedGuidance.get(this.owner(call))??null};}
     private async contentId(call: WorkspaceDelivery, id: unknown): Promise<string> {
         return `external-${await sourceHash(JSON.stringify(["agent-workspace", call.scope, call.clientId, workText(id)]))}`;
     }
@@ -86,16 +103,28 @@ export class AgentWorkspaceRouter {
             throw new WorkspaceError("SCOPE_MISMATCH");
         const content = this.ports.content.api;
         const check = () => this.assert(binding, lease);
+        if(command.startsWith("todo.")){
+            const todo=this.ports.todo;if(!todo)throw new WorkspaceError("TODO_UNAVAILABLE");
+            const material=async(id:string)=>{const value=await this.material(id,binding);await check();return value;};
+            if(command==="todo.read")return {permission:todo.status(lease),source:await content.read(binding.scope),capabilities:{schemaVersion:1,actions:["create","complete","reopen"],completionEvidence:"current-material-version-and-exact-text",formalOperations:false}};
+            if(command==="todo.result"||command==="todo.recover")return todo.result(lease,await this.contentId(call,payload.requestId),command==="todo.recover");
+            if(command==="todo.resumeIdentity")return todo.resumeIdentity(lease,await this.contentId(call,payload.requestId),material);
+            const request=parseTodoRequest(payload.request);if(!sameWorkScope(request.scope,binding.scope))throw new WorkspaceError("SCOPE_MISMATCH");
+            const normalized={...request,requestId:await this.contentId(call,request.requestId)};await check();
+            if(command==="todo.apply")return todo.apply(lease,normalized,material,this.origin(call));
+            if(command==="todo.retry")return todo.retry(lease,await this.contentId(call,payload.previousRequestId),normalized,material,this.origin(call));
+        }
         if(command==="guidance.read"){
             if(!this.ports.guidance)throw new WorkspaceError("GUIDANCE_UNAVAILABLE");
-            return this.ports.guidance.read(binding,check);
+            const reading=await this.ports.guidance.read(binding,check);await check();return reading;
         }
         if(command==="collaboration.read"||command==="collaboration.refresh"){
             if(!this.ports.collaboration)throw new WorkspaceError("COLLABORATION_UNAVAILABLE");
-            return this.ports.collaboration[command==="collaboration.read"?"read":"refresh"](binding,check);
+            const packet=await this.ports.collaboration[command==="collaboration.read"?"read":"refresh"](binding,check);await check();
+            return packet;
         }
         if (command === "status")
-            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: false, contentProtocol: content.capabilities() };
+            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: this.ports.todo?.status(lease).authorized??false, todoProtocol:this.ports.todo?.status(lease)??null, contentProtocol: content.capabilities() };
         if ((command === "refresh" || command === "source.read") && this.ports.source) {
             const reading = await this.ports.source.refresh(binding.scope);
             await check();
@@ -156,7 +185,7 @@ export class AgentWorkspaceRouter {
                 throw new WorkspaceError("INVALID_CAPTURE_ROLE");
             const requestKey = await this.contentId(call, payload.requestKey);
             await check();
-            return this.ports.materials.capture({ requestKey, text: payload.text, sourceUuid: binding.scope.rootUuid, ...(payload.html !== undefined ? { html: payload.html as string } : {}), ...(payload.title !== undefined ? { title: payload.title as string } : {}), ...(payload.role !== undefined ? { role: payload.role as "input" | "reference" | "draft" | "output" } : {}) }, "agent");
+            return this.ports.materials.capture({ requestKey, text: payload.text, sourceUuid: binding.scope.rootUuid, ...(payload.html !== undefined ? { html: payload.html as string } : {}), ...(payload.title !== undefined ? { title: payload.title as string } : {}), ...(payload.role !== undefined ? { role: payload.role as "input" | "reference" | "draft" | "output" } : {}) }, "agent",false);
         }
         if (command === "materials.associate") {
             if(this.ports.allowsFileWrite?.(lease)===false)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
@@ -257,7 +286,7 @@ export class AgentWorkspaceRouter {
         if (command === "content.apply") {
             const patch = await this.patch(call, payload.patch);
             await check();
-            return content.apply(patch);
+            return this.ports.content.trustedAgent.apply(patch,this.origin(call));
         }
         if (command === "content.result")
             return content.result(await this.contentId(call, payload.requestId));
@@ -268,7 +297,7 @@ export class AgentWorkspaceRouter {
         if (command === "content.retry") {
             const input = { previousRequestId: await this.contentId(call, payload.previousRequestId), patch: await this.patch(call, payload.patch) };
             await check();
-            return content.retry(input);
+            return this.ports.content.trustedAgent.retry(binding.scope,input.previousRequestId,input.patch,this.origin(call));
         }
         if (command === "stage.read" || command === "stage.submit") {
             if (!this.ports.stage)
@@ -280,7 +309,7 @@ export class AgentWorkspaceRouter {
             }
             await check();
             try {
-                const result = await this.ports.stage[command === "stage.read" ? "read" : "submit"](input, binding);
+                const result = command==="stage.read"?await this.ports.stage.read(input,binding):await this.ports.stage.submit(input,binding,this.origin(call));
                 await check();
                 return result;
             }

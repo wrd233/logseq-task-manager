@@ -1,0 +1,117 @@
+{
+  "scope": "owned-synthetic-Graph-only",
+  "host": {
+    "logseq": "0.10.15",
+    "platform": "macOS ARM64",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "runtime": {
+    "jsHash": "f1b1681767880ffac0b01d9579be73a10ca48dda0d04a5fb176e1c1c2844606c",
+    "cliHash": "71f16abf9a8fc8ded72f556510ac03f87ba54a050fbea9f41b8caf9e7a798edc",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "earlierDenialRuntime": {
+    "jsHash": "f1b1681767880ffac0b01d9579be73a10ca48dda0d04a5fb176e1c1c2844606c",
+    "cliHash": "71f16abf9a8fc8ded72f556510ac03f87ba54a050fbea9f41b8caf9e7a798edc",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "task": {
+    "uuid": "c3e2d8a2-b589-5e71-a8e1-12f8147fd062",
+    "title": "原生属性读回复验：保存两段退出条件原句到材料并核验",
+    "created": "complete",
+    "completed": "complete",
+    "durable": true,
+    "normalization": "native-id-after-first-line",
+    "reference": "[📄 退出条件原句比较-7915cee4](longdoc://7915cee4-4d91-6ecc-2f7e-66d30a18661c)",
+    "materialId": "7915cee4-4d91-6ecc-2f7e-66d30a18661c",
+    "filename": "退出条件原句比较-7915cee4.md",
+    "materialVersion": "5ab39a92e5de425b52dcbbd823fbf518aae50d4847cf6b520c89229e152013bb",
+    "actualFileHash": "5ab39a92e5de425b52dcbbd823fbf518aae50d4847cf6b520c89229e152013bb"
+  },
+  "author": {
+    "kind": "verified-local-agent",
+    "instanceId": "a7f87cc6-832c-4055-a521-ea2b56c79863",
+    "connectionId": "42fe6ddf-e001-4552-afa2-18ffdea4d7f8",
+    "clientLabel": "todo-desktop",
+    "transportRequestId": "465a0f86-4b94-4eaf-9656-40641ae4a6f3",
+    "command": "todo.apply",
+    "guidance": {
+      "loading": "explicit-read",
+      "sourceLoadedAt": "2026-10-08T05:45:41.924Z",
+      "returnedAt": "2026-10-08T05:45:41.927Z",
+      "common": {
+        "key": "agent-collaboration-common-guidance-v1",
+        "version": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1"
+      },
+      "project": {
+        "key": "agent-collaboration-project-guidance-v1-2cc097783cf26c36dcec86ed3db5344999c7490daf244a94d79989eba3d75fc5",
+        "version": "f5d22b17d5a22f284d14529a103589de53294e098e6854debd6fc3d509eb0b63"
+      }
+    }
+  },
+  "grant": {
+    "body": false,
+    "file": true,
+    "todo": {
+      "authorized": true,
+      "roots": [
+        "b7261007-0000-4000-8000-000000000048"
+      ],
+      "actions": [
+        "create",
+        "complete"
+      ],
+      "grantedAt": "2026-10-08T05:45:23.221Z",
+      "lifetime": "current-work-connection"
+    }
+  },
+  "rejected": "TODO_AUTHORIZATION_REQUIRED",
+  "originalSources": {
+    "before": 103,
+    "after": 104,
+    "contentParentOrderDepthUnchanged": true,
+    "parentRemainsTodo": true
+  },
+  "fileOnlyCapture": {
+    "GraphSourcesUnchanged": true
+  },
+  "idempotence": {
+    "duplicateChildren": 0,
+    "reconnectedReadOnly": true,
+    "sameRequestReturned": true,
+    "sourceUnchanged": true
+  },
+  "native": {
+    "marked": [
+      "c3e2d8a2-b589-5e71-a8e1-12f8147fd062"
+    ],
+    "editing": false,
+    "primarySources": 104
+  },
+  "GraphFile": {
+    "persisted": true,
+    "hash": "36c472ddab46b9a78daa613a76ac7c2a5658c0a18dc900500dae8704ec405fa5"
+  },
+  "earlierFailure": {
+    "firstAttempt": "PROTECTED_PROPERTY; no state change",
+    "secondAttempt": "READBACK_MISMATCH after SDK id canonicalization",
+    "extraReference": "baseline materials.capture inserted one source block; preserved in owned data; Agent capture now file-only",
+    "unknownQuery": "outcome-unknown",
+    "expectationObserved": true,
+    "replayed": false
+  },
+  "unverified": [
+    "registered Kernel formal object on Desktop",
+    "physical IME and OS clipboard retention",
+    "Finder",
+    "A integration and five-format preview",
+    "final ZIP outside-repository installation",
+    "ordinary IO races"
+  ]
+}

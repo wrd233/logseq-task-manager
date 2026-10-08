@@ -1,7 +1,7 @@
-import type { ApplyResult, BlockSnapshot, CallOrigin, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation, MoveOperation } from "./protocol.ts";
+import type { ApplyResult, BlockSnapshot, CallOrigin, ControlledTodoExecution, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation, MoveOperation } from "./protocol.ts";
 import { clone, result } from "./journal.ts";
 import { assertChildContent, assertProtected } from "./protection.ts";
-import { childIdentity, combineText, ContentError, fail, parsePatch, sameScope, sha256 } from "./validation.ts";
+import { childIdentity, combineText, ContentError, fail, nativeIdentityReadbackMatches, parsePatch, sameScope, sha256 } from "./validation.ts";
 
 import { inspectMove, verifyMove } from "./structure.ts";
 
@@ -60,6 +60,7 @@ export interface ExecutorPorts {
   hostTimeoutMs?: number;
 }
 export class ContentExecutor {
+  private readonly todoExecutions=new WeakMap<RequestRecord,ControlledTodoExecution>();
   constructor(private readonly ports: ExecutorPorts) {}
   private lease(scope: SourceScope): ScopeLease {
     const lease = this.ports.authority.capture(scope); if (!lease || !this.ports.authority.valid(lease)) fail("AUTHORIZATION_REQUIRED"); return lease;
@@ -83,16 +84,28 @@ export class ContentExecutor {
     catch (error) { throw new JournalFailure(message(error)); }
   }
   async apply(input: unknown, origin: CallOrigin = {kind:"local-capability"}, retryOf: string | null = null): Promise<ApplyResult> {
+    return this.applyInternal(input,origin,retryOf);
+  }
+  /** A typed, independently authorized TODO service retains this port. The
+   * legacy content API never accepts a callback, grant, or this intent kind. */
+  async applyControlledTodo(input:unknown,control:ControlledTodoExecution,origin:CallOrigin,retryOf:string|null=null):Promise<ApplyResult>{
+    const patch=parsePatch(input);
+    if(patch.schemaVersion!==1||!(patch.operations.length===1&&patch.operations[0]!.type==="insert-child"||patch.operations.length<=2&&patch.operations.every(op=>op.type==="replace-text"||op.type==="insert-text")))fail("INVALID_CONTROLLED_TODO_PATCH");
+    return this.applyInternal(patch,origin,retryOf,control);
+  }
+  private async applyInternal(input:unknown,origin:CallOrigin,retryOf:string|null,control?:ControlledTodoExecution):Promise<ApplyResult>{
     const patch=parsePatch(input), digest=await sha256(JSON.stringify(patch)), lease=this.lease(patch.scope);
     return serial(requestQueueKey(patch.scope,patch.requestId),async()=>{
       const previous=await this.ports.journal.load(patch.scope,patch.requestId);this.assert(lease);
       if (previous) {
         if (previous.digest !== digest) fail("IDEMPOTENCY_KEY_REUSED");
+        if(control&&(previous.intentKind!=="ordinary-todo"||previous.ordinaryTodo?.requestDigest!==control.fact.requestDigest))fail("IDEMPOTENCY_KEY_REUSED");
         return result(previous);
       }
-      this.assertWrite(lease);
+      if(control){this.assert(lease);control.assert(lease);}else this.assertWrite(lease);
       const at=new Date().toISOString();
-      const record:RequestRecord={schemaVersion:1,intentKind:"content-patch",sequence:0,digest,patch,origin:clone(origin),retryOf,createdAt:at,updatedAt:at,items:patch.operations.map(item),resolutions:{}};
+      const record:RequestRecord={schemaVersion:1,intentKind:control?"ordinary-todo":"content-patch",...(control?{ordinaryTodo:clone(control.fact)}:{}),sequence:0,digest,patch,origin:clone(origin),retryOf,createdAt:at,updatedAt:at,items:patch.operations.map(item),resolutions:{}};
+      if(control)this.todoExecutions.set(record,control);
       try { await this.ports.journal.save(clone(record)); }
       catch (error) {settle(record.items,"NOT_APPLIED","JOURNAL_INTENT_FAILED");return result(record,false,message(error));}
       let journalProblem:string|null=null;
@@ -149,7 +162,7 @@ export class ContentExecutor {
       }
     });
   }
-  private async inspect(ops: readonly Operation[], lease: ScopeLease): Promise<{read:SourceRead;target:BlockSnapshot;next:string;affected:readonly string[]}> {
+  private async inspect(ops: readonly Operation[], lease: ScopeLease,control?:ControlledTodoExecution): Promise<{read:SourceRead;target:BlockSnapshot;next:string;affected:readonly string[]}> {
     this.assert(lease);
     const scope=lease.scope, valid=this.valid(lease), read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
     const first=ops[0]!, target=block(read,first.target.blockUuid);
@@ -157,7 +170,8 @@ export class ContentExecutor {
     if (target.contentVersion!==first.expectedContentVersion) fail("CONTENT_VERSION_CONFLICT");
     if (target.parentUuid!==first.expectedParentUuid) fail("PARENT_CONFLICT");
     const protection=read.protections.get(first.target.blockUuid);if (!protection) fail("PROTECTION_UNAVAILABLE");
-    const todoAllowed=(op:Operation)=>this.ports.authority.allowsTodo(lease,op);
+    control?.authorize(lease,read,ops);
+    const todoAllowed=(op:Operation)=>control!==undefined||this.ports.authority.allowsTodo(lease,op);
     let next:string;
     if(first.type==="move-block")fail("MOVE_REQUIRES_STRUCTURE_PATH");
     if (first.type==="insert-child") {
@@ -171,11 +185,11 @@ export class ContentExecutor {
     await this.ports.editing.assertSafe(scope,affected,valid);this.assert(lease);
     return {read,target,next,affected};
   }
-  private async callHost(lease:ScopeLease, keys:readonly string[], action:()=>Promise<void>):Promise<void> {
-    this.assertWrite(lease);
+  private async callHost(lease:ScopeLease, keys:readonly string[], action:()=>Promise<void>,control?:ControlledTodoExecution):Promise<void> {
+    const authorized=()=>{if(control){this.assert(lease);control.assert(lease);}else this.assertWrite(lease);};authorized();
     if (keys.some(key=>inFlight.has(key))) fail("HOST_CALL_IN_FLIGHT");
     for (const key of keys) inFlight.add(key);
-    const operation=Promise.resolve().then(()=>{this.assertWrite(lease);return action();});
+    const operation=Promise.resolve().then(()=>{authorized();return action();});
     void operation.finally(()=>{for (const key of keys) inFlight.delete(key);}).catch(()=>undefined);
     let timer:ReturnType<typeof setTimeout>|null=null;
     let abort:()=>void=()=>undefined;
@@ -224,11 +238,12 @@ export class ContentExecutor {
     }
   }
   private async executeGroup(record:RequestRecord, ops:Operation[], childUuid:string|null, lease:ScopeLease, keys:readonly string[]):Promise<void> {
-    const facts=ops.map(op=>record.items.find(item=>item.operationId===op.operationId)!), first=ops[0]!, valid=this.valid(lease), scope=lease.scope;
+    const facts=ops.map(op=>record.items.find(item=>item.operationId===op.operationId)!), first=ops[0]!, scope=lease.scope,control=this.todoExecutions.get(record);
+    const valid=()=>{if(!this.ports.authority.valid(lease))return false;try{control?.assert(lease);return true;}catch{return false;}};
     let dispatched=false;
     try {
       if(keys.some(key=>inFlight.has(key)))fail("HOST_CALL_IN_FLIGHT");
-      const plan=await this.inspect(ops,lease);
+      const plan=await this.inspect(ops,lease,control);
       for(const fact of facts){fact.baseContent=plan.target.content;fact.baseVersion=plan.target.contentVersion;fact.proposedContent=plan.next;fact.parentUuid=plan.target.parentUuid;fact.childUuid=childUuid;}
       if(childUuid){const existing=await this.ports.reader.block(scope,childUuid,valid);this.assert(lease);if(existing)fail("CHILD_UUID_ALREADY_EXISTS");}
       if(first.type!=="insert-child" && plan.next===plan.target.content){settle(facts,"NO_CHANGE",null);await this.persist(record);return;}
@@ -236,7 +251,8 @@ export class ContentExecutor {
       // in the following interval is unknown, never an invitation to replay.
       for(const fact of facts){fact.phase="EXECUTING";fact.status="OUTCOME_UNKNOWN";fact.dispatchedAt=new Date().toISOString();}
       await this.persist(record);this.assert(lease);
-      const fresh=await this.inspect(ops,lease);
+      if(control){await control.beforeDispatch();this.assert(lease);control.assert(lease);}
+      const fresh=await this.inspect(ops,lease,control);
       if(JSON.stringify(fresh.read.paths.get(first.target.blockUuid))!==JSON.stringify(plan.read.paths.get(first.target.blockUuid)) || JSON.stringify(fresh.read.protections.get(first.target.blockUuid))!==JSON.stringify(plan.read.protections.get(first.target.blockUuid)))fail("SOURCE_STRUCTURE_CONFLICT");
       if(childUuid){
         if(JSON.stringify(fresh.read.children.get(first.target.blockUuid))!==JSON.stringify(plan.read.children.get(first.target.blockUuid)))fail("CHILDREN_CONFLICT");
@@ -246,23 +262,23 @@ export class ContentExecutor {
       dispatched=true;
       await this.callHost(lease,keys,()=>childUuid
         ? this.ports.writer.insert(scope,first.target.blockUuid,fresh.read.children.get(first.target.blockUuid)?.at(-1)??null,childUuid,plan.next,valid)
-        : this.ports.writer.update(scope,first.target.blockUuid,plan.next,valid));
+        : this.ports.writer.update(scope,first.target.blockUuid,plan.next,valid),control);
       for(const fact of facts){fact.phase="ACKNOWLEDGED";fact.acknowledgedAt=new Date().toISOString();}
       await this.persist(record);this.assert(lease);
       const after=await this.ports.reader.read(scope,valid);this.assertRead(lease,after);
       const actual=block(after,childUuid??first.target.blockUuid);
-      const matches=childUuid?actual.parentUuid===first.target.blockUuid && insertedContentMatches(actual.content,plan.next,childUuid):actual.content===plan.next && actual.parentUuid===plan.target.parentUuid;
+      const matches=childUuid?actual.parentUuid===first.target.blockUuid && insertedContentMatches(actual.content,plan.next,childUuid):(actual.content===plan.next||control?.matchesReadback(actual.content,plan.next,first.target.blockUuid)) && actual.parentUuid===plan.target.parentUuid;
       for(const fact of facts){fact.currentContent=actual.content;fact.currentVersion=actual.contentVersion;}
       if(!matches)fail("READBACK_MISMATCH");
       if(JSON.stringify(after.paths.get(first.target.blockUuid))!==JSON.stringify(plan.read.paths.get(first.target.blockUuid)))fail("SOURCE_STRUCTURE_CONFLICT");
-      for(const fact of facts){fact.actualContent=actual.content;fact.actualVersion=actual.contentVersion;fact.contentVerified=true;fact.verifiedAt=new Date().toISOString();}
+      for(const fact of facts){fact.actualContent=actual.content;fact.actualVersion=actual.contentVersion;fact.contentVerified=true;fact.verifiedAt=new Date().toISOString();if(!childUuid&&actual.content!==plan.next)fact.readbackNormalization="native-id-after-first-line";}
       if(childUuid){
         const fact=facts[0]!;
         fact.identity={status:"PENDING",before:actual.content!,beforeVersion:actual.contentVersion!,after:null,afterVersion:null,problem:null};
         if(after.protections.get(childUuid)?.ranges.some(range=>range.reason==="managed"||range.reason==="formal-title"))fail("IDENTITY_PROTECTION_CHANGED");
         await this.persist(record);this.assert(lease);
         await this.ports.editing.assertSafe(scope,[...fresh.affected,childUuid],valid);this.assert(lease);
-        await this.callHost(lease,keys,()=>this.ports.writer.persistIdentity(scope,childUuid,actual.content!,valid));
+        await this.callHost(lease,keys,()=>this.ports.writer.persistIdentity(scope,childUuid,actual.content!,valid),control);
         const identified=await this.ports.reader.read(scope,valid);this.assertRead(lease,identified);
         const current=block(identified,childUuid);
         if(current.parentUuid!==first.target.blockUuid || !insertedContentMatches(current.content,plan.next,childUuid))fail("IDENTITY_READBACK_MISMATCH");
@@ -335,7 +351,7 @@ export class ContentExecutor {
           }
           fact.expectationObserved=record.intentKind==="scope-identity"
             ? current.parentUuid===fact.parentUuid && insertedContentMatches(current.content,fact.identity!.before,scope.rootUuid)
-            : op.type==="insert-child"?current.parentUuid===op.target.blockUuid && insertedContentMatches(current.content,op.content,fact.childUuid!):current.content===fact.proposedContent && current.parentUuid===fact.parentUuid;
+            : op.type==="insert-child"?current.parentUuid===op.target.blockUuid && insertedContentMatches(current.content,op.content,fact.childUuid!):(current.content===fact.proposedContent||record.intentKind==="ordinary-todo"&&fact.proposedContent!==null&&nativeIdentityReadbackMatches(current.content,fact.proposedContent,op.target.blockUuid)) && current.parentUuid===fact.parentUuid;
         }catch(error){this.assert(lease);fact.reason=message(error);}
         changed=true;
       }
@@ -362,7 +378,7 @@ export class ContentExecutor {
     }
     return this.apply(next,origin,previousRequestId);
   }
-  async resumeIdentity(scope:SourceScope,requestId:string,operationId:string):Promise<ApplyResult>{
+  async resumeIdentity(scope:SourceScope,requestId:string,operationId:string,control?:ControlledTodoExecution):Promise<ApplyResult>{
     const lease=this.lease(scope);
     return serial(requestQueueKey(scope,requestId),async()=>{
       const record=await this.ports.journal.load(scope,requestId);this.assert(lease);if(!record)fail("REQUEST_NOT_FOUND");
@@ -370,19 +386,23 @@ export class ContentExecutor {
       const scopeIdentity=record.intentKind==="scope-identity";
       if(!fact||!op||!fact.identity||(!scopeIdentity&&(op.type!=="insert-child"||!fact.childUuid||!fact.contentVerified)))fail("IDENTITY_RECOVERY_UNAVAILABLE");
       if(fact.identity.status==="VERIFIED")return result(record);
-      this.assertWrite(lease);
+      if(record.intentKind==="ordinary-todo"){
+        if(!control||record.ordinaryTodo?.requestDigest!==control.fact.requestDigest)fail("TODO_AUTHORIZATION_REQUIRED");
+        control.assert(lease);
+      }else{if(control)fail("INVALID_CONTROLLED_TODO_PATCH");this.assertWrite(lease);}
       const child=scopeIdentity?scope.rootUuid:fact.childUuid!,parent=scopeIdentity?fact.parentUuid:op.target.blockUuid;
       const body=scopeIdentity?fact.identity.before:(op as Extract<Operation,{type:"insert-child"}>).content;
       const keys=[...new Set([sourceKey(scope,"content-graph-writes"),sourceKey(scope,child),sourceKey(scope,op.target.blockUuid)])].sort();
       return serialSources(keys,async()=>{
-        const valid=this.valid(lease),read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
+        const valid=()=>{if(!this.ports.authority.valid(lease))return false;try{control?.assert(lease);return true;}catch{return false;}},read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
+        control?.authorize(lease,read,record.patch.operations);
         const current=block(read,child);
         if(read.protections.get(child)?.ranges.some(range=>range.reason==="managed"||range.reason==="ambiguous-formal-field"||(!scopeIdentity&&range.reason==="formal-title")))fail("IDENTITY_PROTECTION_CHANGED");
         if(current.parentUuid!==parent||!insertedContentMatches(current.content,body,child))fail("IDENTITY_RECOVERY_CONFLICT");
         await this.ports.editing.assertSafe(scope,read.paths.get(child)??[child],valid);this.assert(lease);
         fact.identity!.status="PENDING";await this.persist(record);this.assert(lease);
         try{
-          await this.callHost(lease,keys,()=>this.ports.writer.persistIdentity(scope,child,current.content!,valid));
+          await this.callHost(lease,keys,()=>this.ports.writer.persistIdentity(scope,child,current.content!,valid),control);
           const after=await this.ports.reader.block(scope,child,valid);this.assert(lease);
           if(!after||after.parentUuid!==parent||!insertedContentMatches(after.content,body,child))fail("IDENTITY_READBACK_MISMATCH");
           fact.identity!.status="VERIFIED";fact.identity!.after=after.content;fact.identity!.afterVersion=after.contentVersion;fact.identity!.problem=null;

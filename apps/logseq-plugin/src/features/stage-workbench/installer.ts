@@ -1,7 +1,7 @@
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { parsePatch, sameScope, sha256, uuid } from "../content-writeback/validation.ts";
-import type { Patch } from "../content-writeback/protocol.ts";
+import type { Patch, CallOrigin } from "../content-writeback/protocol.ts";
 import type { MaterialView } from "../materials/service.ts";
 import { desktopFiles } from "../../host/desktop-files.ts";
 import type { WorkView } from "../work-view/controller.ts";
@@ -57,7 +57,7 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
     if(!content.api.scope()||!sameScope(content.api.scope()!,selected))await content.local.authorize(selected.rootUuid);
     if(!sameScope(scope(),selected))throw Error("STAGE_SCOPE_REVOKED");
   };
-  const submit=async(input:unknown,local=false)=>{
+  const submit=async(input:unknown,local=false,origin?:CallOrigin)=>{
     const value=fields(input,["stageId","expectedRevision","patch","correctionOf"]),id=uuid(value.stageId),expected=uuid(value.expectedRevision),patch=parsePatch(value.patch),selected=scope();
     if(!sameScope(patch.scope,selected)||patch.metadata?.stageId!==id)throw Error("STAGE_PATCH_SCOPE");
     const ticket=lifetime();
@@ -77,7 +77,7 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
       if(!previous){
         const observed=await recorder.checkpoint({stageId:id,expectedRevision:base,requestKey:`observe:${patch.requestId}`,requestIds:[]});valid();base=observed.id;
       }
-      const actual=previous??await (local?content.local.apply(patch,"stage-review-edit"):content.api.apply(patch));valid();
+      const actual=previous??await (local?content.local.apply(patch,"stage-review-edit"):origin?content.trustedAgent.apply(patch,origin):content.api.apply(patch));valid();
       try{
         const revision=await recorder.checkpoint({stageId:id,expectedRevision:base,requestKey:`result:${patch.requestId}:${actual.record.sequence}`,requestIds:[patch.requestId],correctionOf:value.correctionOf??null});valid();
         await review?.reload();valid();await options.work?.refresh();
@@ -122,6 +122,6 @@ export function installStageWorkbench(options:{content:ContentInstallation;work?
     scope:()=>disposed?null:content.api.scope(),
   };
   // No actor, accept, authorization, or caller-provided source/file facts in this namespace.
-  return {api,setCollaboration:(port:CollaborationPort|null)=>{if(!disposed)review?.setCollaboration(port);},dispose:()=>{if(disposed)return;disposed=true;review?.setCollaboration(null);recorder.dispose();review?.dispose();for(const remove of disposers)remove();}};
+  return {api,trustedSubmit:(input:unknown,origin:CallOrigin)=>submit(input,false,origin),setCollaboration:(port:CollaborationPort|null)=>{if(!disposed)review?.setCollaboration(port);},dispose:()=>{if(disposed)return;disposed=true;review?.setCollaboration(null);recorder.dispose();review?.dispose();for(const remove of disposers)remove();}};
 }
 export type StageInstallation=ReturnType<typeof installStageWorkbench>;

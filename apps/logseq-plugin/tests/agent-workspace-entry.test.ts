@@ -186,7 +186,9 @@ test("independent CLI processes use installed plugin data, real filesystem and p
             path: string;
         }) => item.path === "added.txt").materialId, associated.material.id);
         await assert.rejects(cli(["materials", "save"], { id: associated.material.id, expectedVersion: "0".repeat(64), expectedContent: "直接加入的文本", next: "agent change" }), /MATERIAL_AGENT_WRITE_FORBIDDEN/);
+        const captureCounts=f.counts(),captureSource=await cli(["content","read"]);
         const captured = await cli(["materials", "capture"], { requestKey: "output-1", text: "# 草稿\n\n可修订" });
+        assert.equal(f.counts().inserts,captureCounts.inserts);assert.equal(f.counts().identities,captureCounts.identities);assert.deepEqual((await cli(["content","read"])).blocks,captureSource.blocks);
         assert.equal(captured.material.capabilities.edit.agent, true);
         const saved = await cli(["materials", "save"], { id: captured.material.id, expectedVersion: captured.material.version, expectedContent: captured.material.content, next: "# 草稿\n\n真实修订" });
         assert.equal(saved.status, "success");
@@ -200,9 +202,11 @@ test("independent CLI processes use installed plugin data, real filesystem and p
             return { schemaVersion: 1, requestId, scope: snapshot.scope, operations: [{ operationId: "replace", type: "replace-text", target: a.target, expectedContentVersion: a.contentVersion, expectedParentUuid: a.parentUuid, range: { start, end: start + 5 }, expectedText: "Alpha", text }] };
         };
         const before = await cli(["content", "read"]), patch = makePatch(before, "patch-1", "Omega"), writes = f.counts().writes;
+        const writeGuide=await cli(["guidance","read"]);
         const applied = await cli(["content", "apply"], patch);
         assert.equal(applied.status, "complete");
         assert.equal(applied.durable, true);
+        assert.equal(applied.record.origin.kind,"verified-local-agent");assert.equal(applied.record.origin.clientLabel,"one");assert.equal(applied.record.origin.command,"content.apply");assert.equal(applied.record.origin.guidance.common.version,writeGuide.common.version);
         assert.ok(f.blocks.get(f.a)!.content.startsWith("Omega"));
         assert.equal((await cli(["content", "result", "patch-1"])).record.digest, applied.record.digest);
         assert.equal((await cli(["content", "apply"], patch)).status, "complete");
@@ -222,6 +226,24 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const blocked = await cli(["content", "apply"], { schemaVersion: 1, requestId: "todo", scope: todoSource.scope, operations: [{ operationId: "todo", type: "replace-text", target: todoBlock.target, expectedContentVersion: todoBlock.contentVersion, expectedParentUuid: todoBlock.parentUuid, range: { start: 0, end: 4 }, expectedText: "TODO", text: "DONE" }] });
         assert.equal(blocked.record.items[0].status, "BLOCKED");
         assert.equal(todo.content, "TODO 局部事项");
+        const todoRequest={schemaVersion:1,requestId:"ordinary-complete",scope:todoSource.scope,action:"complete",target:{blockUuid:todo.uuid,expectedContentVersion:todoBlock.contentVersion,expectedParentUuid:todoBlock.parentUuid},evidence:{materialId:captured.material.id,expectedVersion:saved.material.version,verifiedText:"真实修订"}};
+        await assert.rejects(cli(["todo","apply"],todoRequest),/TODO_AUTHORIZATION_REQUIRED/u);
+        await f.commands.get("agent-workspace-todo")!();
+        const todoForm=document.querySelector<HTMLElement>('[data-ordinary-todo="true"]')!;
+        for(const label of Array.from(todoForm.querySelectorAll<HTMLLabelElement>("label"))){
+            if(label.textContent?.trim().startsWith("工作现场")||["依据材料核验后完成","重新打开普通任务","新建明确要做的普通任务"].includes(label.textContent!.trim())){
+                const checkbox=label.querySelector<HTMLInputElement>("input")!;checkbox.checked=true;checkbox.dispatchEvent(new f.browser.Event("change") as unknown as Event);
+            }
+        }
+        Array.from(todoForm.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="明确允许所选范围和操作")!.click();
+        for(let i=0;i<100&&!todoForm.textContent!.includes("已允许。");i++)await delay(10);assert.match(todoForm.textContent!,/已允许。/u);
+        assert.equal((await cli(["status"])).authorizesTodo,true);
+        const completed=await cli(["todo","apply"],todoRequest);assert.equal(completed.status,"complete");assert.match(todo.content,/^DONE 局部事项\n\*\*\[记录\]\*\*/u);
+        assert.equal(completed.record.origin.guidance.common.version,writeGuide.common.version);assert.equal(completed.record.ordinaryTodo.evidence.reference,saved.material.reference);
+        assert.equal((await cli(["todo","apply"],todoRequest)).record.digest,completed.record.digest);
+        assert.equal((await cli(["todo","result","ordinary-complete"])).record.digest,completed.record.digest);
+        const reopeningSource=await cli(["content","read"]),reopeningBlock=reopeningSource.blocks.find((b:{target:{blockUuid:string}})=>b.target.blockUuid===todo.uuid);
+        const reopened=await cli(["todo","apply"],{schemaVersion:1,requestId:"ordinary-reopen",scope:todoSource.scope,action:"reopen",target:{blockUuid:todo.uuid,expectedContentVersion:reopeningBlock.contentVersion,expectedParentUuid:reopeningBlock.parentUuid}});assert.equal(reopened.status,"complete");assert.match(todo.content,/^TODO 局部事项/u);
         const guardSource = await cli(["content", "read"]), guardBlock = guardSource.blocks.find((item: {
             target: {
                 blockUuid: string;
@@ -329,7 +351,8 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const stageRead = await cli(["stage", "read"], { stageId: stage.start.id });
         assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.digest, stageResult.record.digest);
         assert.equal(stageRead.acceptances.length, 0);
-        assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.origin.kind, "local-capability");
+        assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.origin.kind, "verified-local-agent");
+        assert.equal(stageRead.revisions.at(-1).facts.at(-1).record.origin.command,"stage.submit");
         assert.equal(await cli(["content", "result", "stage-patch"], undefined, "two"), null);
         await assert.rejects(cli(["stage", "submit"], { ...stageInput, actor: "user", accepted: true }), /UNSUPPORTED_FIELD/);
         await assert.rejects(cli(["stage", "submit"], { ...stageInput, patch: { ...stagePatch, scope: { ...stageSnapshot.scope, rootUuid: f.b } } }), /SCOPE_MISMATCH/);

@@ -123,7 +123,7 @@ async function main(): Promise<void> {
       requireStageScope(binding.scope);
       return history.current ? stageApi.read({stageId:history.current}) : {status:"unavailable",reason:"STAGE_CURRENT_UNAVAILABLE"};
     },
-    submit:async (input,binding)=>{requireStageScope(binding.scope);return stageApi.submit(input);},
+    submit:async (input,binding,origin)=>{requireStageScope(binding.scope);return origin?stages.trustedSubmit(input,origin):stageApi.submit(input);},
   }});
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
   work?.setContextActions(() => {
@@ -138,6 +138,7 @@ async function main(): Promise<void> {
       { group: "外部连接与恢复", label: "带当前工作去协作", description: "准备已保存现场、本次请求与指导；新连接仅允许读取和编排", run: () => agentWorkspace!.local.collaborate(root) },
       { group: "外部连接与恢复", label: "共同指导与项目差异", description: "一份共同来源；本工作只补充差异", run: () => agentWorkspace!.local.guidance(root) },
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅授权这次连接的材料写作；正文和 TODO 独立",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
+      ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 维护普通 TODO",description:"选择范围、操作；本次连接有效，正式对象保持受保护",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
       { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "先运行随包协作启动器并关联工作目录", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
       { group: "外部连接与恢复", label: "允许润色并整理原块", description: "明确授予此工作内的结构维护许可", run: () => agentWorkspace!.local.connect(root, true) },
       { group: "外部连接与恢复", label: "查看写回冲突与恢复", description: "核对未知结果和原请求；不盲目重放", run: () => content!.local.recovery(root) },

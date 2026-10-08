@@ -21,6 +21,8 @@ export const workspaceHelp = `Task Copilot natural workspace CLI (local connecti
   workspace reading cancel <requestId> | highlight --input-file <path|-> | clear
   # Reading plans carry source IDs/versions and finite layouts; never replacement text or writing/TODO grants.
   workspace content read | pending | apply --input-file <path|-> | result <requestId> | recover <requestId> | retry --input-file <path|->
+  workspace todo read | apply --input-file <path|-> | result <requestId> | recover <requestId> | resumeIdentity <requestId> | retry --input-file <path|->
+  # Independent local range/action grant; complete requires current material version and exact evidence text. Formal operations remain forbidden.
   # move-block uses content.apply or stage.submit, patch schemaVersion:2; inspect capabilities first.
   # Requires local "允许 agent 润色并整理当前工作原块"; text-only permission never grants moves.
   workspace sessions list | add --platform <name> --session-id <id> [--url <real-link>] [--description <text>] | remove --platform <name> --session-id <id>
@@ -164,11 +166,11 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
         };
         if (commandWords.length === 1 && ["status", "refresh", "read"].includes(commandWords[0]!))
             command = commandWords[0] as WorkspaceCommand;
-        else if (["guidance.read","collaboration.read","collaboration.refresh","files.list", "materials.list", "focus.source", "focus.read", "focus.cancel", "focus.exit", "focus.back", "reading.read", "reading.original", "reading.clear", "content.read", "content.pending", "sessions.list"].includes(pair) && commandWords.length === 2)
+        else if (["todo.read","guidance.read","collaboration.read","collaboration.refresh","files.list", "materials.list", "focus.source", "focus.read", "focus.cancel", "focus.exit", "focus.back", "reading.read", "reading.original", "reading.clear", "content.read", "content.pending", "sessions.list"].includes(pair) && commandWords.length === 2)
             command = pair as WorkspaceCommand;
-        else if (["files.read", "files.associate", "materials.read", "source.read", "content.result", "content.recover"].includes(pair) && commandWords.length === 3) {
+        else if (["todo.result","todo.recover","todo.resumeIdentity","files.read", "files.associate", "materials.read", "source.read", "content.result", "content.recover"].includes(pair) && commandWords.length === 3) {
             command = pair as WorkspaceCommand;
-            payload = { [pair.startsWith("files") ? "path" : pair === "source.read" ? "sourceId" : pair.startsWith("content") ? "requestId" : "id"]: commandWords[2] };
+            payload = { [pair.startsWith("files") ? "path" : pair === "source.read" ? "sourceId" : pair.startsWith("content")||pair.startsWith("todo") ? "requestId" : "id"]: commandWords[2] };
         }
         else if (pair === "focus.request" && commandWords.length === 2) {
             command = pair;
@@ -182,10 +184,10 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
             command = pair;
             payload = option(args, "--id") ? { id: required(args, "--id") } : { path: required(args, "--path") };
         }
-        else if (["focus.apply", "reading.submit", "reading.highlight", "content.apply", "content.retry", "materials.capture", "materials.save", "stage.read", "stage.submit"].includes(pair) && commandWords.length === 2) {
+        else if (["todo.apply","todo.retry","focus.apply", "reading.submit", "reading.highlight", "content.apply", "content.retry", "materials.capture", "materials.save", "stage.read", "stage.submit"].includes(pair) && commandWords.length === 2) {
             command = pair as WorkspaceCommand;
             const raw = await input();
-            payload = pair === "focus.apply"||pair==="reading.submit" ? { plan: raw } : pair === "content.apply" ? { patch: raw } : pair.startsWith("stage")||pair==="reading.highlight" ? { input: raw } : workRecord(raw, pair === "content.retry" ? ["previousRequestId", "patch"] : pair === "materials.save" ? ["id", "expectedVersion", "expectedContent", "next"] : ["requestKey", "text", "html", "title", "role"]);
+            payload = pair==="todo.apply"?{request:raw}:pair==="todo.retry"?workRecord(raw,["previousRequestId","request"]):pair === "focus.apply"||pair==="reading.submit" ? { plan: raw } : pair === "content.apply" ? { patch: raw } : pair.startsWith("stage")||pair==="reading.highlight" ? { input: raw } : workRecord(raw, pair === "content.retry" ? ["previousRequestId", "patch"] : pair === "materials.save" ? ["id", "expectedVersion", "expectedContent", "next"] : ["requestKey", "text", "html", "title", "role"]);
         }
         else if (["sessions.add", "sessions.remove"].includes(pair) && commandWords.length === 2) {
             command = pair as WorkspaceCommand;
