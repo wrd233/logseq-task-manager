@@ -93,6 +93,19 @@ test('native material pointer down is claimed before Logseq can blur its draft, 
   } finally {await f.cleanup();}
 });
 
+test('native block hover cannot remount the live editor before a file click; unrelated blocks and finished editing retain host hover behavior', async () => {
+  const f = await fixture();try {
+    const main=document.createElement('main');main.id='main-content-container';
+    const block=document.createElement('div'),other=document.createElement('div'),editor=document.createElement('div'),input=document.createElement('textarea');block.className=other.className='ls-block';editor.className='block-editor';input.value='**[注]** 中文草稿与选区。';editor.append(input);block.append(editor);main.append(block,other);document.body.append(main);input.focus();input.setSelectionRange(7,11);
+    let remounts=0,otherHover=0;block.addEventListener('mouseout',()=>{remounts++;editor.replaceChildren(document.createElement('textarea'));});other.addEventListener('mouseout',()=>{otherHover++;});
+    const out=()=>new f.c.browser.MouseEvent('mouseout',{bubbles:true}) as unknown as Event;
+    input.dispatchEvent(out());assert.equal(remounts,0);assert.equal(input.isConnected,true);assert.equal(document.activeElement,input);assert.equal(input.selectionStart,7);assert.equal(input.selectionEnd,11);
+    other.dispatchEvent(out());assert.equal(otherHover,1);
+    input.blur();input.dispatchEvent(out());assert.equal(remounts,1,'host hover resumes when the live native editor is no longer focused');
+    editor.replaceChildren(input);input.focus();f.materials.dispose();input.dispatchEvent(out());assert.equal(remounts,2,'disposal removes the native hover guard');
+  } finally {await f.cleanup();}
+});
+
 test('long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation', async () => {
   const f = await fixture(); try {
     const sample = JSON.parse(await readFile(new URL('./fixtures/materials-reading-source.json', import.meta.url), 'utf8')) as {blocks: Array<{exampleId: string; depth: number; text: string}>};

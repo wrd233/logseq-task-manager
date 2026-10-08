@@ -125,6 +125,17 @@ export class Materials {
     };
     doc?.addEventListener("pointerdown", preserveNativeInput, true); doc?.addEventListener("mousedown", preserveNativeInput, true);
     this.disposers.push(() => {doc?.removeEventListener("pointerdown", preserveNativeInput, true); doc?.removeEventListener("mousedown", preserveNativeInput, true);});
+    // Stock Logseq's block hover re-renders its native editor when the pointer
+    // leaves for a file link. Retain that exact live editor, including composition;
+    // ordinary blocks and hover after editing keep their normal host behavior.
+    const preserveNativeHover = (event: MouseEvent) => {
+      const input = doc?.activeElement;
+      if (!input?.matches("#main-content-container .block-editor textarea")) return;
+      const target = event.target as Element | null, block = target?.closest?.(".ls-block");
+      if (block?.contains(input)) event.stopImmediatePropagation();
+    };
+    doc?.addEventListener("mouseover", preserveNativeHover, true); doc?.addEventListener("mouseout", preserveNativeHover, true);
+    this.disposers.push(() => {doc?.removeEventListener("mouseover", preserveNativeHover, true); doc?.removeEventListener("mouseout", preserveNativeHover, true);});
     const compositionStart = () => this.sources.composition(true), compositionEnd = () => this.sources.composition(false);
     doc?.addEventListener("compositionstart", compositionStart, true); doc?.addEventListener("compositionend", compositionEnd, true);
     this.disposers.push(() => { this.sources.cancelPrompt(); doc?.removeEventListener("compositionstart", compositionStart, true); doc?.removeEventListener("compositionend", compositionEnd, true); });
