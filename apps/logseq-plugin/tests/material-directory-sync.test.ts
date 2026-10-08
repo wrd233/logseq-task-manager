@@ -86,6 +86,7 @@ test("native directory batches preserve special names and empty folders without 
   let batchReads = 0, descendants = 0;
   const directory = {createReader: () => ({readEntries: (done: (entries: FileSystemEntry[]) => void) => {batchReads++; done((batchReads === 1 ? [{name: "文件 #_*.md", isFile: true, isDirectory: false}, {name: "空文件夹", isFile: false, isDirectory: true}] : []) as FileSystemEntry[]);}}), getDirectory: () => {descendants++; throw Error("No subtree scan");}} as unknown as FileSystemDirectoryEntry;
   const complete = await readNativeDirectoryEntry(directory, [], {limit: 512}); assert.equal(complete.complete, true); assert.deepEqual(complete.entries.map(entry => entry.name), ["文件 #_*.md", "空文件夹"]); assert.equal(descendants, 0); assert.equal(batchReads, 2);
+  await assert.rejects(readNativeDirectoryEntry(directory, [], {limit: Infinity}), /边界/u); await assert.rejects(readNativeDirectoryEntry(directory, [], {limit: 0}), /边界/u);
   batchReads = 0; const partial = await readNativeDirectoryEntry(directory, [], {limit: 1}); assert.equal(partial.complete, false); assert.equal(partial.entries.length, 1); assert.equal(batchReads, 1);
   let finish!: (entries: FileSystemEntry[]) => void;
   const slow = {createReader: () => ({readEntries: (done: (entries: FileSystemEntry[]) => void) => {finish = done;}})} as unknown as FileSystemDirectoryEntry;

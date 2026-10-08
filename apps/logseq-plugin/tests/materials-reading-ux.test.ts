@@ -64,6 +64,26 @@ async function fixture() {
   };
 }
 
+test('native preview retains the same byte version and theme while returning to the same work, then closes after the trusted work scope changes without altering the material', async () => {
+  const f = await fixture(), {Window} = await import('happy-dom'), child = new Window({url:'about:blank'}), originalOpen = f.c.browser.open;
+  let closed = false;
+  Object.defineProperty(child,'closed',{get:()=>closed,configurable:true});
+  child.close = () => {closed=true;child.dispatchEvent(new child.Event('pagehide'));};
+  f.c.browser.open = (() => child) as unknown as typeof f.c.browser.open;
+  try {
+    const path=join(f.workDirectory,'窗口参考.md'), text='**[注]** 同一原件，同一读取版本。';await writeFile(path,text);
+    const [material]=await f.joinFiles([path]);await f.work.open(f.c.root);await f.materials.openDoc(material!.id,f.c.root);
+    const mainVersion=f.materials.panel.root.querySelector<HTMLElement>('[data-preview-version]')!.dataset.previewVersion;
+    f.find('独立窗口').click();await until(()=>!!child.document.querySelector('[data-preview-version]'),'native view rendered');
+    assert.equal((child.document.querySelector('[data-preview-version]') as unknown as HTMLElement).dataset.previewVersion,mainVersion);
+    document.documentElement.style.setProperty('--ls-primary-text-color','rgb(12, 34, 56)');
+    await until(()=>child.document.documentElement.style.getPropertyValue('--ls-primary-text-color').includes('12'),'native theme tracks workbench');
+    await f.materials.panel.close();assert.equal(closed,false,'same work can continue with retained preview');
+    await f.work.open(f.c.a);await until(()=>closed,'retained native view closes after explicit work change');
+    assert.equal(await readFile(path,'utf8'),text);assert.equal((await f.materials.readMaterial(material!.id)).id,material!.id);
+  } finally {f.c.browser.open=originalOpen;await child.happyDOM.abort();await f.cleanup();}
+});
+
 test('long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation', async () => {
   const f = await fixture(); try {
     const sample = JSON.parse(await readFile(new URL('./fixtures/materials-reading-source.json', import.meta.url), 'utf8')) as {blocks: Array<{exampleId: string; depth: number; text: string}>};

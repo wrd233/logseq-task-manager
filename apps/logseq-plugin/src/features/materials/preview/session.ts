@@ -68,8 +68,16 @@ export class MaterialPreviews {
     native.document.title = snapshot.target.fileName;
     const style = native.document.createElement("style"); style.textContent = previewCSS;
     native.document.head.append(style); native.document.body.className = "wb-preview-window";
+    const syncTheme = () => {
+      if (native.closed) return;
+      const theme = window.getComputedStyle(document.documentElement);
+      for (const property of ["--ls-primary-background-color", "--ls-primary-text-color", "--ls-secondary-text-color", "--ls-link-text-color"]) native.document.documentElement.style.setProperty(property, theme.getPropertyValue(property));
+      native.document.documentElement.style.colorScheme = theme.colorScheme;
+    };
+    const themeObserver = new window.MutationObserver(syncTheme); themeObserver.observe(document.documentElement, {attributes: true, attributeFilter: ["style", "data-wb-theme", "class"]}); syncTheme();
     const loading = native.document.createElement("p"); loading.textContent = "正在打开只读预览…"; native.document.body.append(loading);
-    const closed = () => {resources.dispose(); this.windows.get(native)?.view?.dispose(); this.windows.delete(native);};
+    const closed = () => {themeObserver.disconnect(); resources.dispose(); this.windows.get(native)?.view?.dispose(); this.windows.delete(native);};
+    resources.abort.signal.addEventListener("abort", () => themeObserver.disconnect(), {once: true});
     native.addEventListener("pagehide", closed, {once: true});
     void this.view(snapshot, reader, resources, native.document, native).then(view => {
       if (native.closed || resources.abort.signal.aborted || this.scope !== scope || scope?.graph !== snapshot.target.scope.graph) {view.dispose(); if (!native.closed) native.close(); return;}
@@ -114,6 +122,7 @@ export class MaterialPreviews {
   }
   close(): void {this.clearMain(); for (const [native, entry] of this.windows) {entry.resources.dispose(); entry.view?.dispose(); if (!native.closed) native.close();} this.windows.clear(); this.scope = null;}
   get independentWindows(): number {return this.windows.size;}
+  get hasViews(): boolean {return !!this.main || !!this.loading || this.windows.size > 0;}
 }
 export const previewCSS = `
 .wb-material-preview{min-width:0;max-width:100%;color:var(--ls-primary-text-color,#30323b);font:15px/1.6 system-ui,sans-serif}

@@ -72,6 +72,7 @@ function boundedDirectoryRead<T>(signal: AbortSignal | undefined, start: (done: 
   });
 }
 export async function readNativeDirectoryEntry(root: FileSystemDirectoryEntry, parts: string[], options: DirectoryReadOptions): Promise<DirectorySnapshot> {
+  if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 512 || options.cursor) throw new Error("此次一级目录读取的边界无效。");
   if (parts.some(part => !part || part === "." || part === ".." || /[/\\]/u.test(part) || hasControlCharacters(part))) throw new Error("目录读取位置无效。");
   let directory = root;
   for (const part of parts) {options.signal?.throwIfAborted(); directory = await boundedDirectoryRead<FileSystemDirectoryEntry>(options.signal, (done, failed) => directory.getDirectory(part, {create: false}, value => {if (value.isDirectory) done(value as FileSystemDirectoryEntry); else failed(new Error("请选择目录本身。"));}, failed));}

@@ -46,6 +46,7 @@ export class Materials {
   private readonly directoryReads = new MaterialDirectoryHandles();
   private readonly directoryPositions = new Map<string, DirectoryLocation>();
   private readonly previews = new MaterialPreviews((href, target) => this.openPreviewLink(href, target.scope.ownerUuid, target.path), error => this.fail(error));
+  private previewWorkRoot: string | null | undefined;
   setTransferPort(port: MaterialTransferPort | null): void { this.transfers.setPort(port); }
   private directoryObserver:DirectoryObservationPort|null=null;
   setDirectoryObserver(port:DirectoryObservationPort|null):void {this.directoryObserver=port;}
@@ -230,6 +231,7 @@ export class Materials {
     this.heading.append(tabs);
     const epoch = this.epoch, service = await this.ensureService(), context = await this.workContext(rootUuid); this.assertScope(epoch);
     this.previews.setScope({graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid});
+    this.previewWorkRoot = this.currentWorkRoot?.() ?? null;
     const results = element("div"), recovery = element("details", "", "wb-material-recovery"), drop = materialDropArea(rootUuid);
     recovery.append(element("summary", "收纳恢复")); recovery.hidden = true;
     results.dataset.materialDropList = rootUuid ?? ""; this.body.dataset.materialList = String(tab !== "folders");
@@ -365,7 +367,7 @@ export class Materials {
     if (rootUuid && this.returnWork) this.heading.append(this.returnButton());
     this.body.replaceChildren(); this.body.hidden = false; this.editorRoot.hidden = true; this.conflict.hidden = true; delete this.body.dataset.materialList;
     this.message(""); if (rootUuid) this.beforeWorkMaterials?.({graphId: this.graphId, rootUuid});
-    if (!await this.panel.open(navigation)) return; this.mountWorkChrome(); await this.previews.show(target, reader, this.body);
+    if (!await this.panel.open(navigation)) return; this.mountWorkChrome(); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body);
   }
   async openDoc(id: string, returnUuid?: string | null): Promise<void> {
     if (this.disposed) return;
@@ -413,7 +415,7 @@ export class Materials {
     if (view.availability === "available") {
       const context = await this.workContext(this.contextUuid); this.assertScope(epoch);
       const reader = new MaterialPreviewReader(service);
-      try {const target = await reader.material(id, {graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid}); this.assertScope(epoch); await this.previews.show(target, reader, this.body);}
+      try {const target = await reader.material(id, {graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid}); this.assertScope(epoch); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body);}
       catch (error) {this.assertScope(epoch); this.body.append(element("p", error instanceof Error ? error.message : String(error), "wb-preview-notice"));}
     }
     const draft = localStorage.getItem(this.key());
@@ -484,6 +486,9 @@ export class Materials {
     })(); return this.saving;
   }
   private async poll(): Promise<void> {
+    // The work view can change after the material panel has closed. Its trusted
+    // current root is the authority; a retained native window must then close.
+    if (this.previews.hasViews && this.previewWorkRoot !== undefined && (this.currentWorkRoot?.() ?? null) !== this.previewWorkRoot) {this.previews.close(); this.previewWorkRoot = undefined;}
     if (this.mode === "reading") return; // The byte preview owns its own version checks.
     if (!this.panel.visible || !this.current || !this.store || this.pollBusy || this.saving || this.disposed) return;
     this.pollBusy = true; const epoch = this.epoch;
