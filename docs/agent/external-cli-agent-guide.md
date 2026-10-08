@@ -1,5 +1,11 @@
 # Task Copilot External CLI Agent Guide
 
+For natural-work collaboration, use the actual CLI path, directory and private channel supplied by Logseq's “带当前工作去协作”. Read `workspace collaboration read` and `workspace guidance read`; report the returned loaded versions and inspect freshness and independent grants before writing. These explicit reads do not automatically reload an existing conversation or edit global Agent configuration.
+
+`workspace formatting preview --input-file <path>` accepts `{requestId, sourceIds, labels?}` from freshly read saved sources. It returns exact original/formatted lines and source/structure versions. The default labels are 目标、想法、注、说明、记录、问题; explicit extra natural labels are possible, formal/managed labels are forbidden. It does not write. The user selects this proposal in Logseq's “查看并整理行首格式”, reviews it, and explicitly applies the immutable prefix diff. There is no external apply or approved flag. Query `workspace formatting result <original-requestId>` or `recover` after local application; namespaces are chosen by the trusted connection. Conflicts, partial success and unknown attribution remain truthful Journal facts. Keep existing wording, properties, identity, structure, status, code, quotes and inline literals.
+
+Natural body/file/TODO permissions remain independent. New semantic line starts use `**[目标]**`, `**[想法]**`, `**[注]**`, `**[记录]**`; ordinary TODO/DONE are plain. Record meaningful changes at the existing topic/task, keep uncertainty, and place detailed outputs in actual materials. Formal operations use the separate governed interface below.
+
 Set `TASK_COPILOT_DESCRIPTOR` to the private `kernel.json`, then begin with:
 
 ```sh

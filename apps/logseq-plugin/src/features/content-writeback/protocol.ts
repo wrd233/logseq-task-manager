@@ -48,8 +48,9 @@ export type ItemFact = {
   readbackNormalization?:"native-id-after-first-line";
 };
 export type RequestRecord = {
-  schemaVersion: 1; intentKind: "content-patch" | "scope-identity" | "ordinary-todo"; sequence: number; digest: string; patch: Patch; origin: CallOrigin;
+  schemaVersion: 1; intentKind: "content-patch" | "scope-identity" | "ordinary-todo" | "formatting"; sequence: number; digest: string; patch: Patch; origin: CallOrigin;
   ordinaryTodo?:OrdinaryTodoFact;
+  formatting?:FormattingFact;
   retryOf: string | null; createdAt: string; updatedAt: string; items: ItemFact[];
   resolutions: Record<string, "keep-current" | "copied" | "retry-verified">;
 };
@@ -59,12 +60,23 @@ export type OrdinaryTodoFact={
 };
 /** Installer-owned execution of a closed TODO action. Never part of public content.apply. */
 export interface ControlledTodoExecution {
+  intentKind:"ordinary-todo";
   fact:OrdinaryTodoFact;
   assert(lease:ScopeLease):void;
   authorize(lease:ScopeLease,read:SourceRead,operations:readonly Operation[]):void;
   beforeDispatch():Promise<void>;
   matchesReadback(actual:string|null,expected:string,uuid:string):boolean;
 }
+export type FormattingFact={schemaVersion:1;proposalId:string;requestDigest:string;sourceSetVersion:string;structureVersion:string;sourceIds:string[];proposedBy:CallOrigin};
+export interface ControlledFormattingExecution {
+  intentKind:"formatting";fact:FormattingFact;
+  assert(lease:ScopeLease):void;
+  authorize(lease:ScopeLease,read:SourceRead,operations:readonly Operation[]):void;
+  beforeDispatch():Promise<void>;
+  matchesReadback(actual:string|null,expected:string,uuid:string):boolean;
+  afterVerified(read:SourceRead,operations:readonly Operation[]):void;
+}
+export type ControlledExecution=ControlledTodoExecution|ControlledFormattingExecution;
 export type ApplyResult = { status: "complete" | "partial" | "not-applied" | "outcome-unknown"; record: RequestRecord; durable: boolean; journalProblem: string | null };
 export type ProtectedRange = TextRange & { reason: "property" | "formal-title" | "managed" | "todo" | "ambiguous-formal-field" };
 export type Protection = { ranges: readonly ProtectedRange[]; insertAllowed: boolean };

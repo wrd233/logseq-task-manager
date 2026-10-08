@@ -137,6 +137,7 @@ async function main(): Promise<void> {
       { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },
       { group: "外部连接与恢复", label: "带当前工作去协作", description: "准备已保存现场、本次请求与指导；新连接仅允许读取和编排", run: () => agentWorkspace!.local.collaborate(root) },
       { group: "外部连接与恢复", label: "共同指导与项目差异", description: "一份共同来源；本工作只补充差异", run: () => agentWorkspace!.local.guidance(root) },
+      { group: "正文维护", label: "查看并整理行首格式", description: "选择范围，核对受限真实差异，再明确写入", run: () => agentWorkspace!.local.format(root) },
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅授权这次连接的材料写作；正文和 TODO 独立",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 维护普通 TODO",description:"选择范围、操作；本次连接有效，正式对象保持受保护",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
       { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 agent 连接这份工作", description: connected ? "通道已连接；这不表示 agent 正在工作" : "先运行随包协作启动器并关联工作目录", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },

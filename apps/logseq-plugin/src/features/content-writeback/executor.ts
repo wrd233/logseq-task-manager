@@ -1,4 +1,4 @@
-import type { ApplyResult, BlockSnapshot, CallOrigin, ControlledTodoExecution, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation, MoveOperation } from "./protocol.ts";
+import type { ApplyResult, BlockSnapshot, CallOrigin, ControlledExecution, ControlledFormattingExecution, ControlledTodoExecution, EditingGuard, ItemFact, Operation, OperationJournal, Patch, RequestRecord, ScopeAuthority, ScopeLease, SourceRead, SourceReader, SourceScope, SourceWriter, TextOperation, MoveOperation } from "./protocol.ts";
 import { clone, result } from "./journal.ts";
 import { assertChildContent, assertProtected } from "./protection.ts";
 import { childIdentity, combineText, ContentError, fail, nativeIdentityReadbackMatches, parsePatch, sameScope, sha256 } from "./validation.ts";
@@ -60,7 +60,7 @@ export interface ExecutorPorts {
   hostTimeoutMs?: number;
 }
 export class ContentExecutor {
-  private readonly todoExecutions=new WeakMap<RequestRecord,ControlledTodoExecution>();
+  private readonly controlledExecutions=new WeakMap<RequestRecord,ControlledExecution>();
   constructor(private readonly ports: ExecutorPorts) {}
   private lease(scope: SourceScope): ScopeLease {
     const lease = this.ports.authority.capture(scope); if (!lease || !this.ports.authority.valid(lease)) fail("AUTHORIZATION_REQUIRED"); return lease;
@@ -93,19 +93,24 @@ export class ContentExecutor {
     if(patch.schemaVersion!==1||!(patch.operations.length===1&&patch.operations[0]!.type==="insert-child"||patch.operations.length<=2&&patch.operations.every(op=>op.type==="replace-text"||op.type==="insert-text")))fail("INVALID_CONTROLLED_TODO_PATCH");
     return this.applyInternal(patch,origin,retryOf,control);
   }
-  private async applyInternal(input:unknown,origin:CallOrigin,retryOf:string|null,control?:ControlledTodoExecution):Promise<ApplyResult>{
+  async applyControlledFormatting(input:unknown,control:ControlledFormattingExecution,origin:CallOrigin):Promise<ApplyResult>{
+    const patch=parsePatch(input);
+    if(patch.schemaVersion!==1||patch.operations.some(op=>op.type!=="replace-text"||!/^\[[^\]\r\n]{1,40}\]$/u.test(op.expectedText)||op.text!==`**${op.expectedText}**`))fail("INVALID_FORMATTING_PATCH");
+    return this.applyInternal(patch,origin,null,control);
+  }
+  private async applyInternal(input:unknown,origin:CallOrigin,retryOf:string|null,control?:ControlledExecution):Promise<ApplyResult>{
     const patch=parsePatch(input), digest=await sha256(JSON.stringify(patch)), lease=this.lease(patch.scope);
     return serial(requestQueueKey(patch.scope,patch.requestId),async()=>{
       const previous=await this.ports.journal.load(patch.scope,patch.requestId);this.assert(lease);
       if (previous) {
         if (previous.digest !== digest) fail("IDEMPOTENCY_KEY_REUSED");
-        if(control&&(previous.intentKind!=="ordinary-todo"||previous.ordinaryTodo?.requestDigest!==control.fact.requestDigest))fail("IDEMPOTENCY_KEY_REUSED");
+        if(control&&(previous.intentKind!==control.intentKind||(control.intentKind==="ordinary-todo"?previous.ordinaryTodo:previous.formatting)?.requestDigest!==control.fact.requestDigest))fail("IDEMPOTENCY_KEY_REUSED");
         return result(previous);
       }
       if(control){this.assert(lease);control.assert(lease);}else this.assertWrite(lease);
       const at=new Date().toISOString();
-      const record:RequestRecord={schemaVersion:1,intentKind:control?"ordinary-todo":"content-patch",...(control?{ordinaryTodo:clone(control.fact)}:{}),sequence:0,digest,patch,origin:clone(origin),retryOf,createdAt:at,updatedAt:at,items:patch.operations.map(item),resolutions:{}};
-      if(control)this.todoExecutions.set(record,control);
+      const record:RequestRecord={schemaVersion:1,intentKind:control?.intentKind??"content-patch",...(control?.intentKind==="ordinary-todo"?{ordinaryTodo:clone(control.fact)}:control?{formatting:clone(control.fact)}:{}),sequence:0,digest,patch,origin:clone(origin),retryOf,createdAt:at,updatedAt:at,items:patch.operations.map(item),resolutions:{}};
+      if(control)this.controlledExecutions.set(record,control);
       try { await this.ports.journal.save(clone(record)); }
       catch (error) {settle(record.items,"NOT_APPLIED","JOURNAL_INTENT_FAILED");return result(record,false,message(error));}
       let journalProblem:string|null=null;
@@ -162,7 +167,7 @@ export class ContentExecutor {
       }
     });
   }
-  private async inspect(ops: readonly Operation[], lease: ScopeLease,control?:ControlledTodoExecution): Promise<{read:SourceRead;target:BlockSnapshot;next:string;affected:readonly string[]}> {
+  private async inspect(ops: readonly Operation[], lease: ScopeLease,control?:ControlledExecution): Promise<{read:SourceRead;target:BlockSnapshot;next:string;affected:readonly string[]}> {
     this.assert(lease);
     const scope=lease.scope, valid=this.valid(lease), read=await this.ports.reader.read(scope,valid);this.assertRead(lease,read);
     const first=ops[0]!, target=block(read,first.target.blockUuid);
@@ -171,7 +176,7 @@ export class ContentExecutor {
     if (target.parentUuid!==first.expectedParentUuid) fail("PARENT_CONFLICT");
     const protection=read.protections.get(first.target.blockUuid);if (!protection) fail("PROTECTION_UNAVAILABLE");
     control?.authorize(lease,read,ops);
-    const todoAllowed=(op:Operation)=>control!==undefined||this.ports.authority.allowsTodo(lease,op);
+    const todoAllowed=(op:Operation)=>control?.intentKind==="ordinary-todo"||this.ports.authority.allowsTodo(lease,op);
     let next:string;
     if(first.type==="move-block")fail("MOVE_REQUIRES_STRUCTURE_PATH");
     if (first.type==="insert-child") {
@@ -185,7 +190,7 @@ export class ContentExecutor {
     await this.ports.editing.assertSafe(scope,affected,valid);this.assert(lease);
     return {read,target,next,affected};
   }
-  private async callHost(lease:ScopeLease, keys:readonly string[], action:()=>Promise<void>,control?:ControlledTodoExecution):Promise<void> {
+  private async callHost(lease:ScopeLease, keys:readonly string[], action:()=>Promise<void>,control?:ControlledExecution):Promise<void> {
     const authorized=()=>{if(control){this.assert(lease);control.assert(lease);}else this.assertWrite(lease);};authorized();
     if (keys.some(key=>inFlight.has(key))) fail("HOST_CALL_IN_FLIGHT");
     for (const key of keys) inFlight.add(key);
@@ -238,7 +243,7 @@ export class ContentExecutor {
     }
   }
   private async executeGroup(record:RequestRecord, ops:Operation[], childUuid:string|null, lease:ScopeLease, keys:readonly string[]):Promise<void> {
-    const facts=ops.map(op=>record.items.find(item=>item.operationId===op.operationId)!), first=ops[0]!, scope=lease.scope,control=this.todoExecutions.get(record);
+    const facts=ops.map(op=>record.items.find(item=>item.operationId===op.operationId)!), first=ops[0]!, scope=lease.scope,control=this.controlledExecutions.get(record);
     const valid=()=>{if(!this.ports.authority.valid(lease))return false;try{control?.assert(lease);return true;}catch{return false;}};
     let dispatched=false;
     try {
@@ -286,6 +291,7 @@ export class ContentExecutor {
         fact.actualContent=current.content;fact.actualVersion=current.contentVersion;fact.currentContent=current.content;fact.currentVersion=current.contentVersion;
       }
       settle(facts,"APPLIED_VERIFIED",null);await this.persist(record);
+      if(control?.intentKind==="formatting")control.afterVerified(after,ops);
     } catch(error){
       if(error instanceof JournalFailure){
         if(!dispatched)settle(facts,"NOT_APPLIED","JOURNAL_INTENT_FAILED");
@@ -295,7 +301,7 @@ export class ContentExecutor {
       }
       const reason=message(error);
       if(!dispatched){
-        const conflict=/CONFLICT|MISMATCH|ALREADY_EXISTS/u.test(reason);
+        const conflict=/CONFLICT|MISMATCH|ALREADY_EXISTS/u.test(reason)||reason==="FORMAT_SOURCE_CHANGED";
         settle(facts,conflict?"CONFLICT":"BLOCKED",reason);
       }else{
         settle(facts,"OUTCOME_UNKNOWN",reason);
@@ -351,7 +357,7 @@ export class ContentExecutor {
           }
           fact.expectationObserved=record.intentKind==="scope-identity"
             ? current.parentUuid===fact.parentUuid && insertedContentMatches(current.content,fact.identity!.before,scope.rootUuid)
-            : op.type==="insert-child"?current.parentUuid===op.target.blockUuid && insertedContentMatches(current.content,op.content,fact.childUuid!):(current.content===fact.proposedContent||record.intentKind==="ordinary-todo"&&fact.proposedContent!==null&&nativeIdentityReadbackMatches(current.content,fact.proposedContent,op.target.blockUuid)) && current.parentUuid===fact.parentUuid;
+            : op.type==="insert-child"?current.parentUuid===op.target.blockUuid && insertedContentMatches(current.content,op.content,fact.childUuid!):(current.content===fact.proposedContent||["ordinary-todo","formatting"].includes(record.intentKind)&&fact.proposedContent!==null&&nativeIdentityReadbackMatches(current.content,fact.proposedContent,op.target.blockUuid)) && current.parentUuid===fact.parentUuid;
         }catch(error){this.assert(lease);fact.reason=message(error);}
         changed=true;
       }

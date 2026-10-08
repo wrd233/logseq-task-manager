@@ -87,7 +87,7 @@ export class OrdinaryTodoService {
   private control(lease:ScopeLease,request:TodoRequest,patch:Patch,fact:OrdinaryTodoFact,readMaterial:(id:string)=>Promise<TodoMaterial>):ControlledTodoExecution {
     const operations=JSON.stringify(patch.operations),grant=this.grant;
     const assert=(actual:ScopeLease)=>{if(actual!==lease||grant!==this.grant)fail("TODO_AUTHORIZATION_REQUIRED");this.assert(lease,request.action);};
-    return {fact,assert,matchesReadback:(actual,expected,id)=>id===request.target.blockUuid&&nativeIdentityReadbackMatches(actual,expected,id),authorize:(actual,read,ops)=>{
+    return {intentKind:"ordinary-todo",fact,assert,matchesReadback:(actual,expected,id)=>id===request.target.blockUuid&&nativeIdentityReadbackMatches(actual,expected,id),authorize:(actual,read,ops)=>{
       assert(actual);if(JSON.stringify(ops)!==operations)fail("INVALID_CONTROLLED_TODO_PATCH");this.authorize(lease,read,request);
     },beforeDispatch:async()=>{
       assert(lease);if(fact.evidence){const current=await this.proof(request,readMaterial);assert(lease);if(current.reference!==fact.evidence.reference||current.filename!==fact.evidence.filename)fail("TODO_EVIDENCE_CONFLICT");}

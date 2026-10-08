@@ -50,6 +50,14 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 仍是开发目录加载，尚未在最终 ZIP 或真正 Kernel 注册的正式对象上完成这组 Desktop 验收。基线 reference 标签仍消费真实服务返回值，完整当前文件名标签由 A 最终接线验证；不自行猜材料 UUID/路径。物理 IME、Finder、系统剪贴板完整保留、跨平台和普通 IO 竞态仍未由这些结果证明。
 
-仍需实施并验证：格式整理与三条完整真实协作过程；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+格式整理已接通独立 CLI `formatting.preview/result/recover` 和本地“查看并整理行首格式”。Agent 只提出来源绑定的真实差异；本地明确写入的是这一份不可变行首补丁，body/file/TODO 许可不会因此开启。默认自然标记及显式额外自然标记可选择，正式/受管标记禁止。64 处有界操作复用原 executor 和 Journal，记录本地确认作者、实际提议来源及已返回指导版本。旧 content 语法与 TODO 保护不放宽。全部范围版本逐组核对，只有本次已确认写入的版本可推进；其他来源的新条件会阻止旧提议。代码栅栏、缩进代码、HTML/Org/公式字面段、引文及延续行、字面祖先、属性、正式对象和任务保持；无法确认的范围保留。未知和部分结果先查询，明确 keep-current 后再产生新写入，不升级丢失的归属。
+
+格式阶段 `tmp/format-check-final.log` 全量通过 761 项、零失败；随后 `tmp/format-check-delivery.log` 通过 762 项、零失败，全部 requirements/typecheck/lint/test/sandbox/build/boundaries/taste 通过。新增 11 项回归和真实独立 CLI 接线演练；覆盖受限差异、原句/CRLF/UTF-16、字面及受管边界、独立只读许可、多块自身版本推进、其他来源同时补充、部分/未知/日志失败、原生 id 读回、作用域与输入保护。实际差异总量超过 1 MiB 时要求缩小范围，不缓存或写入超限预览。CLI 测试使用真实独立进程/文件/Journal，但其 SDK 夹具仍不算 Desktop。
+
+真实 Desktop 从本地保存明确的合成格式请求，read-only 连接的 body/file/TODO 都为 false。构建 CLI 对原有第 32 块 `[问一下]` 提出仅一个标记加粗的差异；原生编辑器在第 28 块保存“用户补充：不过离线阅读时也要保留问号与限定句。”，再从本地确认旧差异，实际 0/1、CONFLICT/FORMAT_SOURCE_CHANGED、日志已确认。原句/旧差异仍在。用户明确保留当前原文后，CLI 重读并提出新差异，本地再次查看/确认，实际 1/1 APPLIED_VERIFIED、durable=true。前后 104 来源的 UUID、父级、顺序、深度及数量保持；新鲜基础上只第 32 块的行首从 `[问一下]` 变成 `**[问一下]**`，全部其余内容及新增条件保持，Graph 文件持久化核对通过。原 requestId 的 recover 返回同一确认摘要，未发第二次写入。
+
+证据为 [format-stage-evidence.json](assets/reading-agent/format-stage-evidence.json)，原始 `tmp/reading-desktop/evidence/format-exercise.json` 和 `format-final-runtime.json`；可携带脚本 `scripts/format-desktop-exercise.mjs` 只发真实 CLI 预览/查询，编辑和确认由实际 UI 完成，没有许可/SDK/IPC 注入。只读探针观测 104 阅读来源、100 个原生挂载、editing=false、零异常。仍是开发目录加载；随后源码新增能力说明、并发提议归属复核与保留当前提示措辞，不将它们混记成此运行 hash。新构建及最终包需按原矩阵重验。
+
+仍需实施并验证：三条完整真实协作过程（当前格式场景只证明其中格式/同时补充子路径）；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

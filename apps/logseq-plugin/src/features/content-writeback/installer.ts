@@ -22,9 +22,9 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const report=(error:unknown)=>{if(!disposed)void logseq.UI.showMsg(error instanceof Error?error.message:String(error),"warning");};
   const scope=():SourceScope=>{if(disposed)fail("CONTENT_DISPOSED");const current=authority.current();if(!current)fail("AUTHORIZATION_REQUIRED");return current;};
   const origin=(command:string):CallOrigin=>({kind:"local-user-command",command});
-  const establishScope=async(target:string|undefined,structure:boolean,write:boolean):Promise<SourceScope>=>{
+  const establishScope=async(target:string|undefined,structure:boolean,write:boolean,preservePanel=false):Promise<SourceScope>=>{
     if(disposed)fail("CONTENT_DISPOSED");
-    const nonce=++setup;authority.revoke();ui.close();
+    const nonce=++setup;authority.revoke();if(!preservePanel)ui.close();
     const graph=await logseq.App.getCurrentGraph();if(disposed||nonce!==setup)fail("SCOPE_REVOKED");
     const current=target===undefined?await logseq.Editor.getCurrentBlock():await logseq.Editor.getBlock(uuid(target));
     if(disposed||nonce!==setup)fail("SCOPE_REVOKED");
@@ -41,7 +41,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     return {...selected};
   };
   const establish=(target?:string,structure=false)=>establishScope(target,structure,true);
-  const establishRead=(target?:string)=>establishScope(target,false,false);
+  const establishRead=(target?:string,preservePanel=false)=>establishScope(target,false,false,preservePanel);
   const ui=new ContentUI({
     executor,scope,origin,
     grantTodo:operation=>{const lease=authority.capture(scope());if(lease)authority.grantTodo(lease,operation);},
@@ -101,6 +101,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   const local={recovery:async(root:string)=>{await establish(root);await ui.recovery();},authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
   const trustedTodo={read:executor.read.bind(executor),apply:executor.applyControlledTodo.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resumeIdentity:executor.resumeIdentity.bind(executor)};
   const trustedAgent={apply:executor.apply.bind(executor),retry:executor.retry.bind(executor)};
-  return {api,local,trustedTodo,trustedAgent,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
+  const trustedFormatting={read:executor.read.bind(executor),apply:executor.applyControlledFormatting.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resolve:executor.resolve.bind(executor),pending:executor.pending.bind(executor)};
+  return {api,local,trustedTodo,trustedAgent,trustedFormatting,establish,establishRead,restrict:authority.restrict.bind(authority),capture:authority.capture.bind(authority),valid:authority.valid.bind(authority),dispose:()=>{if(disposed)return;disposed=true;setup++;authority.revoke();ui.dispose();adapter.dispose();for(const off of disposers.splice(0))off();}};
 }
 export type ContentInstallation=ReturnType<typeof installContentWriteback>;

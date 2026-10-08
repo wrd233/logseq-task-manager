@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "status": "development-stage-verified-not-final-package",
+  "observedAt": "2026-10-08T10:50:51.474Z",
+  "runtime": {
+    "jsHash": "ce14b273fbc71327a534c93d90da9447e89122f13c4475069fe4301ad6e69956",
+    "cliHash": "356e27a203dd2fad6be899b387e00a226aaee7e1b0209478d8b42a2c84d1cd67",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "scope": {
+    "graphId": "graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph",
+    "rootUuid": "b7261007-0000-4000-8000-000000000001"
+  },
+  "permissions": {
+    "body": false,
+    "file": false,
+    "todo": false
+  },
+  "sources": 104,
+  "formatting": {
+    "target": "b7261007-0000-4000-8000-000000000032",
+    "originalLine": "[问一下] 讨论到什么程度才值得保存？不想把每一轮聊天都变成新笔记，也不想丢掉重要转折。",
+    "formattedLine": "**[问一下]** 讨论到什么程度才值得保存？不想把每一轮聊天都变成新笔记，也不想丢掉重要转折。",
+    "stale": {
+      "status": "not-applied",
+      "durable": true,
+      "items": [
+        {
+          "status": "CONFLICT",
+          "reason": "FORMAT_SOURCE_CHANGED",
+          "contentVerified": false
+        }
+      ],
+      "resolution": {
+        "format-1": "keep-current"
+      }
+    },
+    "fresh": {
+      "status": "complete",
+      "durable": true,
+      "digest": "2bb04fca43674361f89d9eac8a83dfaf400b840b658f91298536a9b88e09e5d5",
+      "origin": {
+        "kind": "local-user-command",
+        "command": "formatting-apply"
+      },
+      "proposedBy": {
+        "kind": "verified-local-agent",
+        "instanceId": "f19f94c9-0e4e-4986-b0b3-30cfcbe9febc",
+        "connectionId": "1fe13bbc-417f-417d-abc2-9efc662ef337",
+        "clientLabel": "format-desktop",
+        "transportRequestId": "2532ca3a-54b3-47c5-8880-1d59be368f4a",
+        "command": "formatting.preview",
+        "guidance": {
+          "loading": "explicit-read",
+          "sourceLoadedAt": "2026-10-08T10:46:15.946Z",
+          "returnedAt": "2026-10-08T10:47:23.367Z",
+          "common": {
+            "key": "agent-collaboration-common-guidance-v1",
+            "version": "ec7c83ec964c1ce41139594e9728cbba809d3d6c680b1c408e9d3253236de5b1"
+          },
+          "project": {
+            "key": "agent-collaboration-project-guidance-v1-2cc097783cf26c36dcec86ed3db5344999c7490daf244a94d79989eba3d75fc5",
+            "version": "f5d22b17d5a22f284d14529a103589de53294e098e6854debd6fc3d509eb0b63"
+          }
+        }
+      },
+      "items": [
+        {
+          "status": "APPLIED_VERIFIED",
+          "reason": null,
+          "baseVersion": "56ec252c5093cd231c2b1b7bfcfe7ac129a3e971a7d42827d5bc70a62e80f2be",
+          "actualVersion": "e9be24a96229da81a3cf0a33b4e9647052251899245367aa66dacda0d239ab2b",
+          "contentVerified": true
+        }
+      ],
+      "sameRecoveryDigest": true
+    },
+    "changedSourceIds": [
+      "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/reading-and-agent-collaboration/任务管理中心-logseq插件/tmp/reading-desktop/graph\",\"b7261007-0000-4000-8000-000000000032\"]"
+    ],
+    "structureUnchanged": true
+  },
+  "userCondition": {
+    "target": "b7261007-0000-4000-8000-000000000028",
+    "text": "用户补充：不过离线阅读时也要保留问号与限定句。",
+    "retained": true
+  },
+  "graphBytes": {
+    "before": "36c472ddab46b9a78daa613a76ac7c2a5658c0a18dc900500dae8704ec405fa5",
+    "after": "de155fe67ba22421b419a7e74fedde983fc5c3acffde9579c97a516fb3df8ebe"
+  },
+  "host": {
+    "editing": false,
+    "renderedSources": 104,
+    "nativeMounted": 100,
+    "errors": 0,
+    "capabilityInjection": false
+  },
+  "limits": [
+    "Development directory, not outside-repository ZIP",
+    "Formal anchors remain synthetic, no real Kernel object acceptance in this stage",
+    "Physical IME, Finder, clipboard, other hosts/platforms and ordinary IO races not proven",
+    "Subsequent capability advertisement, concurrent-owner guard and resolution wording changes are not this runtime hash"
+  ]
+}

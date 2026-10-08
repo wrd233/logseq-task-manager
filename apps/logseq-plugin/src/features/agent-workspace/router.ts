@@ -9,6 +9,7 @@ import type { ContextReading } from "../../workspace/context-service.ts";
 import type { GuidanceReading, GuidanceService } from "./guidance.ts";
 import type { CollaborationService } from "./collaboration.ts";
 import { parseTodoRequest, type OrdinaryTodoService } from "../ordinary-todo/service.ts";
+import { naturalLabels, type WritingFormatService } from "../writing-format/service.ts";
 export interface OptionalStagePort {
     read(input: unknown, binding: AgentWorkBinding): Promise<unknown>;
     submit(input: unknown, binding: AgentWorkBinding,origin?:CallOrigin): Promise<unknown>;
@@ -41,6 +42,7 @@ export class AgentWorkspaceRouter {
         guidance?:GuidanceService;
         collaboration?:CollaborationService;
         todo?:OrdinaryTodoService;
+        formatting?:WritingFormatService;
     }) { }
     clear(): void {
         this.generation++;this.questions.clear();
@@ -103,6 +105,12 @@ export class AgentWorkspaceRouter {
             throw new WorkspaceError("SCOPE_MISMATCH");
         const content = this.ports.content.api;
         const check = () => this.assert(binding, lease);
+        if(command.startsWith("formatting.")){
+            const formatting=this.ports.formatting;if(!formatting)throw new WorkspaceError("FORMATTING_UNAVAILABLE");
+            const id=await this.contentId(call,payload.requestId);await check();
+            if(command==="formatting.preview")return formatting.preview(lease,{requestId:id,sourceIds:payload.sourceIds,...(payload.labels!==undefined?{labels:payload.labels}:{})},this.origin(call));
+            if(command==="formatting.result"||command==="formatting.recover")return formatting.result(lease,id,command==="formatting.recover");
+        }
         if(command.startsWith("todo.")){
             const todo=this.ports.todo;if(!todo)throw new WorkspaceError("TODO_UNAVAILABLE");
             const material=async(id:string)=>{const value=await this.material(id,binding);await check();return value;};
@@ -124,7 +132,7 @@ export class AgentWorkspaceRouter {
             return packet;
         }
         if (command === "status")
-            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: this.ports.todo?.status(lease).authorized??false, todoProtocol:this.ports.todo?.status(lease)??null, contentProtocol: content.capabilities() };
+            return { channel: "online", binding, capabilities: { read: true, files: true, fileWrite:this.ports.allowsFileWrite?.(lease)??true, materials: true, focus: this.ports.work !== null, reading: this.ports.work !== null, content: content.capabilities().bodyAuthorized, stage: this.ports.stage !== undefined }, readingProtocol:this.ports.work?.readingAPI.read().capabilities??null, formattingProtocol:this.ports.formatting?{schemaVersion:1,preview:true,externalApply:false,application:"local-user-exact-diff",defaultLabels:[...naturalLabels],maxChanges:64,formalOperations:false}:null, formalWorkspace: binding.provider === "workspace" ? "connected" : "unavailable", formalKernelRequired: false, authorizesTodo: this.ports.todo?.status(lease).authorized??false, todoProtocol:this.ports.todo?.status(lease)??null, contentProtocol: content.capabilities() };
         if ((command === "refresh" || command === "source.read") && this.ports.source) {
             const reading = await this.ports.source.refresh(binding.scope);
             await check();
