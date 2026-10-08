@@ -48,7 +48,7 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 实际停止连接后 CLI 为 WORKSPACE_OFFLINE。只读重连后 body/file/TODO 都未授权，原已确认请求查询/相同 apply 只返回原日志，来源集合没有再次变化。证据摘要为 [todo-stage-evidence.json](assets/reading-agent/todo-stage-evidence.json)，原始记录为 `tmp/reading-desktop/evidence/todo-native-id-exercise.json`、`todo-normalized-runtime.json`、`todo-final-runtime.json` 与旧失败/恢复文件；可重用脚本 `scripts/todo-desktop-exercise.mjs` 不注入许可、SDK 或 IPC。各阶段运行文件 hash 单独记录，不能把旧失败构建与新复验混成同一安装结果。
 
-仍是开发目录加载，尚未在最终 ZIP 或真正 Kernel 注册的正式对象上完成这组 Desktop 验收。基线 reference 标签仍消费真实服务返回值，完整当前文件名标签由 A 最终接线验证；不自行猜材料 UUID/路径。物理 IME、Finder、系统剪贴板完整保留、跨平台和普通 IO 竞态仍未由这些结果证明。
+该 TODO 阶段仍是开发目录加载，当时尚未在最终 ZIP 或真正 Kernel 注册的正式对象上完成这组 Desktop 验收；后续真实注册的局部正式边界见下文。基线 reference 标签仍消费真实服务返回值，完整当前文件名标签由 A 最终接线验证；不自行猜材料 UUID/路径。物理 IME、Finder、系统剪贴板完整保留、跨平台和普通 IO 竞态仍未由这些结果证明。
 
 格式整理已接通独立 CLI `formatting.preview/result/recover` 和本地“查看并整理行首格式”。Agent 只提出来源绑定的真实差异；本地明确写入的是这一份不可变行首补丁，body/file/TODO 许可不会因此开启。默认自然标记及显式额外自然标记可选择，正式/受管标记禁止。64 处有界操作复用原 executor 和 Journal，记录本地确认作者、实际提议来源及已返回指导版本。旧 content 语法与 TODO 保护不放宽。全部范围版本逐组核对，只有本次已确认写入的版本可推进；其他来源的新条件会阻止旧提议。代码栅栏、缩进代码、HTML/Org/公式字面段、引文及延续行、字面祖先、属性、正式对象和任务保持；无法确认的范围保留。未知和部分结果先查询，明确 keep-current 后再产生新写入，不升级丢失的归属。
 
@@ -80,6 +80,20 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 这次修补及写作演练后 `tmp/writing-exercises-check.log` 全量通过 766 项、零失败，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。新构建正常重启隔离 Desktop 后，真实菜单从只读连接直接显示明确正文许可；先独立允许文件，再点正文许可，CLI 实际 body=true/file=false/TODO=false/structure=false，当前根为实际第 1 块，105 个来源及 Graph SHA 全保持。摘要 [body-grant-stage-evidence.json](assets/reading-agent/body-grant-stage-evidence.json) 单独记录新构建 hash；脚本 `scripts/body-grant-desktop-exercise.mjs readonly/files/body` 只读实际 CLI 和文件，许可来自真实 UI。临时原生子块的范围隔离另有受控夹具回归，不把该回归冒充物理 IME 或此实机临时选块验证。
 
-仍需实施并验证：最终同一安装包中的三条完整协作回放；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+正式对象的局部 Desktop 验收已使用正常 Kernel 服务、独立 SQLite/描述文件及真实本地注册入口，无 Lab、SDK/IPC 能力注入或外部模型提供方。两个既有合成锚点分别注册为 OPEN Task；首次注册暴露基线私有记录文件名包含完整中文 Graph 路径，导致 ENAMETOOLONG，SDK 保存调用还可能仅通知失败而返回成功。该首次 Kernel 注册实际成功，私有恢复记录未可靠保存，失败证据和已注册对象保留，未盲目重放。
+
+修补使用范围身份散列形成固定 87 字节文件名，在记录内保留并严格核对逻辑键和 Graph 身份；每次保存后实际读回确认，未确认的意图不向 Kernel 发送。因这种已证明未发送的失败，只在原文仍等于本次规范化文本时恢复原内容，保留更新的人工文字。已接受的正式回执不因随后清理私有记录失败而改成未提交。真实新构建再次注册第二个既有锚点，三个实际私有文件分别保存已清空的待处理请求、当前事项、最近提交，范围和正式回执一致。正常重启后，“查看当前 Task Closure”可读回持久化事项；旧工作连接及正文、文件、结构、TODO、认可许可全部为 false。
+
+升级兼容通过受控真实临时文件回归：旧的短范围记录仍可读取，旧文件不删除；新的空记录阻止旧 pending 再次出现。旧版本不识别新的散列记录，可能读取旧的当前事项、最近提交或 pending 指针，**没有安全降级验收**；不能由这些兼容读取测试宣称来回换版本没有副作用。私有 IO 失败、静默丢失、读回不符及范围切换均有回归；实际断电和普通 IO 竞态仍未实测。
+
+为建立真正存在的受管字段，正常外部 AGENT CLI 读取真实来源、冻结依据、启动批准的 current-focus-maintenance Skill，以封闭结果生成提议并走正式 apply；并未改用 USER 身份。实际 SET_CURRENT_FOCUS Commit 为 `ef34470b-50dd-464b-85e1-c49ef17de0dd`，投影 VERIFIED，Task 保持 OPEN，仅增加当前推进和未询问限制。按同一提议再次 apply 返回同一 Commit，正式状态和 Graph 字节保持。随后正文/TODO 独立许可来自真实本地界面：body=true，结构/文件=false，普通 TODO 仅允许第 48 块及后代的 complete。实际普通正文替换两个已注册根标题和真实受管推进字段，均返回 durable/not-applied/BLOCKED，分别 PROTECTED_FORMAL_TITLE、PROTECTED_FORMAL_TITLE、PROTECTED_MANAGED；原请求查询摘要相同。针对两个正式根的普通 TODO complete 均拒绝 TODO_OUTSIDE_GRANTED_RANGE。这证明该实机范围外拒绝，不能将它改述为“已授权正式根内 TODO 执行后再由正式校验拒绝”。拒绝前后保存来源、正式状态和 Graph Markdown SHA 均保持。
+
+摘要为 [formal-stage-evidence.json](assets/reading-agent/formal-stage-evidence.json)，原始证据为 `tmp/reading-desktop/evidence/formal-storage-exercise.json`、`formal-focus-exercise.json`、`formal-boundary-exercise.json`、`formal-restart-runtime.json` 及保留的首次失败。`scripts/reading-kernel.mjs` 只配置自有合成 profile 的正常 Kernel 描述文件，不改写既有私有凭据；实际本地连接负责刷新。`scripts/formal-focus-desktop-exercise.mjs first/replay`、`formal-boundary-desktop-exercise.mjs` 使用正常真实 CLI；`formal-stage-evidence.mjs` 从原始事实校验并提取摘要，不提交 bootstrap/描述文件凭据。该组运行的实际主 JS 为 `be30996b36c15346de5367898b4a4f6200a2931fd0ecd2bd755332384fe6bd61`，CLI 为 `55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a`，仍是开发目录加载。其后仅改了私有保存未确认的中文界面提示，后续构建和最终包需记录新 hash，不混成同一实机结果。
+
+原生输入局部验收另记 [native-input-stage-evidence.json](assets/reading-agent/native-input-stage-evidence.json)：第 28 块真实原生编辑中追加合成测试句，选区 106–112；点击阅读标题后同一编辑块、输入文字和选区保持，准确标记 4 个真实来源，导航 unchanged。焦点转到阅读面板，未声称保持原生焦点。宿主在定位前已经把输入同步到保存来源，所以**不计未保存草稿验收**；textarea 对象身份和物理 IME 未测。通过原生界面撤回测试句后，原内容及 Graph SHA `99008558edbbbd7b607d3cbf976e10b499b17c959c744b4f3cb5c7c1f0f4ca81` 恢复，编辑结束、高亮取消。正式投影新增之前的旧 SHA 与本次基准不同，不混淆。
+
+私有恢复修补的稳定全量 `tmp/formal-private-check-final.log` 通过 770 项、零失败，包含 requirements/typecheck/lint/test/sandbox/build/boundaries/taste。中文提示修补后的 `tmp/formal-private-delivery-check.log` 同样全量 770 项、零失败；随后新增的证据/复验脚本另通过 ESLint。仍不以旧运行 hash 代替最终源码与安装包验证。
+
+仍需实施并验证：最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

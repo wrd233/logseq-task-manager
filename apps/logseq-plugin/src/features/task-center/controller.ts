@@ -15,6 +15,7 @@ import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-i
 import { clampSidebarWidth, parseSidebarWidth, sidebarLayoutSpec, SIDEBAR_DEFAULT_WIDTH, type SidebarLayoutSpec } from "../../sidebar-layout.ts";
 import { requestTextPrompt } from "../../text-prompt.ts";
 import { readOptionalPrivateItem } from "../../private-storage.ts";
+import { readScopedPrivateItem,writeScopedPrivateItem,PrivateWriteUnconfirmedError } from "../../scoped-private-storage.ts";
 
 const recentCommitKey = "task-copilot-vnext-recent-commit";
 const currentWorkObjectKey = "task-copilot-vnext-current-work-object";
@@ -42,10 +43,12 @@ const commandSession = crypto.randomUUID();
 function assertCommandScope(scope: GraphScope): void {
   if (!taskUiActive || !blockIdentityCache.isCurrent(scope)) throw new Error("GRAPH_SCOPE_CHANGED");
 }
-function scopedKey(key: string, scope: GraphScope): string { return `${key}:${encodeURIComponent(scope.graphId ?? "")}`; }
+function scopedKey(key: string, scope: GraphScope): string { return JSON.stringify([key,scope.graphId]); }
+const readScoped=(key:string,scope:GraphScope)=>pluginRuntime.inGraph(scope,()=>readScopedPrivateItem(logseq.FileStorage,key,scope.graphId,()=>assertCommandScope(scope)));
+const writeScoped=(key:string,text:string,scope:GraphScope)=>pluginRuntime.inGraph(scope,()=>writeScopedPrivateItem(logseq.FileStorage,key,scope.graphId,text,()=>assertCommandScope(scope)));
 async function readCommandState(key: string, scope = blockIdentityCache.scope()): Promise<string | null> {
   assertCommandScope(scope);
-  const raw = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, scopedKey(key, scope)));
+  const raw = await readScoped(key,scope);
   if (typeof raw === "string" && raw) {
     const state = JSON.parse(raw) as { value: string; session: string; generation: number };
     if (typeof state.value !== "string" || typeof state.session !== "string" || !Number.isSafeInteger(state.generation)) throw new Error("COMMAND_STATE_SHAPE_UNSUPPORTED");
@@ -60,7 +63,7 @@ async function writeCommandState(key: string, value: string, scope = blockIdenti
   const path = scopedKey(key, scope), previous = stateWrites.get(path) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
     assertCommandScope(scope);
-    await logseq.FileStorage.setItem(path, JSON.stringify({ value, session: commandSession, generation: scope.generation }));
+    await writeScoped(key,JSON.stringify({ value, session: commandSession, generation: scope.generation }),scope);
     assertCommandScope(scope);
   });
   stateWrites.set(path, next);
@@ -84,36 +87,36 @@ function submitFormal(api: KernelClient, scope: GraphScope, intent: string, subm
   return promise;
 }
 async function submitCapturedFormal(api: KernelClient, scope: GraphScope, intent: string, submission: FormalSubmission): Promise<FormalCommitResult> {
-  const key = scopedKey(`task-copilot-vnext-pending:${intent}`, scope);
-  const prior = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, key));
+  const key = `task-copilot-vnext-pending:${intent}`;
+  const prior = await readScoped(key,scope);
   const request = typeof prior === "string" && prior ? JSON.parse(prior) as FormalSubmission : submission;
   const operationId = request.kind === "COMMIT" ? request.operation.operationId : request.operationId;
   if (prior) {
     const found = await api.formalReceipt(operationId);
     if (found.receipt) {
       if (blockIdentityCache.isCurrent(scope)) {
-        try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-formal-receipt-storage", found.receipt.commit.id, error); }
+        try { await writeScoped(key,"",scope); } catch (error) { console.error("accepted-formal-receipt-storage", found.receipt.commit.id, error); }
       }
       return found.receipt;
     }
     assertCommandScope(scope);
-  } else await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, JSON.stringify(request)));
+  } else await writeScoped(key,JSON.stringify(request),scope);
   assertCommandScope(scope);
   try {
     const result = request.kind === "COMMIT" ? await api.commitFormal(request.operation, request.snapshot)
       : request.kind === "PROPOSAL" ? await api.applyProposalFormal(request.proposalId, request)
       : await api.undoFormal(request.commitId, { operationId, actor: { type: "USER", id: "local-user" }, snapshot: request.snapshot });
     if (blockIdentityCache.isCurrent(scope)) {
-      try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-formal-receipt-storage", result.commit.id, error); }
+      try { await writeScoped(key,"",scope); } catch (error) { console.error("accepted-formal-receipt-storage", result.commit.id, error); }
     }
     return result;
   } catch (error) {
-    if (error instanceof ClientError && error.status > 0 && error.status < 500 && blockIdentityCache.isCurrent(scope)) await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, ""));
+    if (error instanceof ClientError && error.status > 0 && error.status < 500 && blockIdentityCache.isCurrent(scope)) await writeScoped(key,"",scope);
     throw error;
   }
 }
 async function resumePendingFormal(api: KernelClient, scope: GraphScope, intent: string): Promise<FormalCommitResult | null> {
-  const raw = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, scopedKey(`task-copilot-vnext-pending:${intent}`, scope)));
+  const raw = await readScoped(`task-copilot-vnext-pending:${intent}`,scope);
   return typeof raw === "string" && raw ? submitFormal(api, scope, intent, JSON.parse(raw) as FormalSubmission) : null;
 }
 function projectionMessage(obligation: ProjectionObligation): string {
@@ -210,7 +213,7 @@ async function formalizeCurrentRecord(kind: "TASK" | "MINI_PROJECT" = "TASK", bl
     submitted = true;
     formal = await submitFormal(api, scope, `create:${stable.uuid}`, { kind: "COMMIT", operation, snapshot });
   } catch (error) {
-    if ((!submitted || (error instanceof ClientError && error.status > 0 && error.status < 500)) && !(error instanceof FormalOutcomeUnknownError) && originalContent !== canonicalSource) {
+    if ((!submitted || error instanceof PrivateWriteUnconfirmedError || (error instanceof ClientError && error.status > 0 && error.status < 500)) && !(error instanceof FormalOutcomeUnknownError) && originalContent !== canonicalSource) {
       try {
         const latest = logseqBlock(await pluginRuntime.inGraph(scope, () => logseq.Editor.getBlock(stable.uuid)));
         if (latest && latest.rawContent === canonicalSource) await pluginRuntime.updateSource(graphId, stable.uuid, originalContent, scope);
@@ -306,15 +309,15 @@ async function organizeTodayCommand(): Promise<void> {
 }
 
 async function executeCapturedDecision(api: KernelClient, scope: GraphScope, decisionId?: string): Promise<Awaited<ReturnType<KernelClient["executeUserDecision"]>> | null> {
-  const key = scopedKey("task-copilot-vnext-pending-decision", scope);
-  const prior = await pluginRuntime.inGraph(scope, () => readOptionalPrivateItem(logseq.FileStorage, key));
+  const key = "task-copilot-vnext-pending-decision";
+  const prior = await readScoped(key,scope);
   const id = typeof prior === "string" && prior ? prior : decisionId;
   if (!id) return null;
-  if (!prior) await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, id));
+  if (!prior) await writeScoped(key,id,scope);
   assertCommandScope(scope);
   const result = await api.executeUserDecision(id);
   if (blockIdentityCache.isCurrent(scope)) {
-    try { await pluginRuntime.inGraph(scope, () => logseq.FileStorage.setItem(key, "")); } catch (error) { console.error("accepted-decision-receipt-storage", result.commit.id, error); }
+    try { await writeScoped(key,"",scope); } catch (error) { console.error("accepted-decision-receipt-storage", result.commit.id, error); }
   }
   return result;
 }
@@ -1113,7 +1116,13 @@ async function rerenderCurrentFormalItem(): Promise<void> {
 
 async function guarded(label: string, action: () => Promise<void>): Promise<void> {
   if (!taskUiActive) return;
-  try { await action(); } catch (error) { console.error(label, error); await logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "error"); }
+  try { await action(); } catch (error) {
+    console.error(label, error);
+    const message = error instanceof PrivateWriteUnconfirmedError
+      ? "未能确认本机恢复记录已保存。请保留当前笔记，检查本机存储后再查看提交结果。"
+      : error instanceof Error ? error.message : String(error);
+    await logseq.UI.showMsg(message, "error");
+  }
 }
 
 export async function startTaskCenter(): Promise<() => Promise<void>> {

@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "stage": "real-kernel-formal-boundary",
+  "status": "passed-development-installation",
+  "at": "2026-10-08T15:02:38.730Z",
+  "host": {
+    "logseq": "0.10.15",
+    "platform": "macOS ARM64",
+    "node": "v20.20.2"
+  },
+  "runtime": {
+    "jsHash": "be30996b36c15346de5367898b4a4f6200a2931fd0ecd2bd755332384fe6bd61",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "initialFailure": {
+    "code": "ENAMETOOLONG",
+    "rawEvidence": "kernel-formal-first-runtime.json",
+    "kept": true,
+    "firstFormalObjectLeftValid": true,
+    "failedPrivateWriteNotClaimedDurable": true
+  },
+  "privateStorage": {
+    "graphIdentityHash": "dcc3d365e0a864e69c1127bd68aacbb2105160d54b42f0134a66c24bb52840ea",
+    "boundedFilenameBytes": 87,
+    "actualFiles": [
+      {
+        "name": "task-copilot-scoped-v1-67f2d164e2bcf581210bcdfe50c92aa7e6aee8879725275a28e779134c518a19",
+        "key": "task-copilot-vnext-pending:create:b7261007-0000-4000-8000-000000000002",
+        "bytes": 87,
+        "empty": true,
+        "value": null
+      },
+      {
+        "name": "task-copilot-scoped-v1-db9c770a241a7c3fd057b0d9e6c894297e3dd51833e8d4974eba6f2c1f393442",
+        "key": "task-copilot-vnext-recent-commit",
+        "bytes": 87,
+        "empty": false,
+        "value": "c7b7f425-b4a7-424a-814f-8710431324b9"
+      },
+      {
+        "name": "task-copilot-scoped-v1-ecb2e90e345d10ffc69372f0f4a345ebf1215cb93ade37a94f0e6c4bc954cf1e",
+        "key": "task-copilot-vnext-current-work-object",
+        "bytes": 87,
+        "empty": false,
+        "value": "839ab0ce-90ae-430f-8a21-b287f83f2422"
+      }
+    ],
+    "verifiedBoundedFiles": true,
+    "legacyShortScopedCompatibility": "controlled-regression",
+    "legacyFilesPreserved": true,
+    "downgradeVerified": false
+  },
+  "formalObjects": [
+    {
+      "id": "4a855c70-19a4-4335-8cef-cf32a742fdc9",
+      "kind": "TASK",
+      "version": 1,
+      "lifecycle": "OPEN",
+      "engagement": "ACTIONABLE"
+    },
+    {
+      "id": "839ab0ce-90ae-430f-8a21-b287f83f2422",
+      "kind": "TASK",
+      "version": 2,
+      "lifecycle": "OPEN",
+      "engagement": "ACTIONABLE"
+    }
+  ],
+  "governedFocus": {
+    "objectId": "839ab0ce-90ae-430f-8a21-b287f83f2422",
+    "actor": {
+      "type": "AGENT",
+      "id": "codex"
+    },
+    "commitId": "ef34470b-50dd-464b-85e1-c49ef17de0dd",
+    "operation": "SET_CURRENT_FOCUS",
+    "skill": {
+      "id": "current-focus-maintenance",
+      "version": "0.1.0",
+      "contentHash": "ae5fec61a120cfe294f191e1ae37a61f008ac7868be232e6d814189211788813"
+    },
+    "projectionStatus": "VERIFIED",
+    "fieldUuid": "92ced285-488a-4807-8951-45312585c431",
+    "sameCommitOnReplay": true,
+    "graphUnchangedOnReplay": true
+  },
+  "negativeBody": [
+    {
+      "uuid": "b7261007-0000-4000-8000-000000000077",
+      "status": "not-applied",
+      "durable": true,
+      "reason": "PROTECTED_FORMAL_TITLE",
+      "sameQueryDigest": true
+    },
+    {
+      "uuid": "b7261007-0000-4000-8000-000000000002",
+      "status": "not-applied",
+      "durable": true,
+      "reason": "PROTECTED_FORMAL_TITLE",
+      "sameQueryDigest": true
+    },
+    {
+      "uuid": "92ced285-488a-4807-8951-45312585c431",
+      "status": "not-applied",
+      "durable": true,
+      "reason": "PROTECTED_MANAGED",
+      "sameQueryDigest": true
+    }
+  ],
+  "negativeTodo": [
+    {
+      "uuid": "b7261007-0000-4000-8000-000000000077",
+      "code": "TODO_OUTSIDE_GRANTED_RANGE"
+    },
+    {
+      "uuid": "b7261007-0000-4000-8000-000000000002",
+      "code": "TODO_OUTSIDE_GRANTED_RANGE"
+    }
+  ],
+  "scopeGrant": {
+    "body": true,
+    "file": false,
+    "structure": false,
+    "todo": true,
+    "todoRoot": "b7261007-0000-4000-8000-000000000048",
+    "actions": [
+      "complete"
+    ]
+  },
+  "sourceUnchanged": true,
+  "formalStateUnchanged": true,
+  "graphUnchanged": true,
+  "graphHash": "99008558edbbbd7b607d3cbf976e10b499b17c959c744b4f3cb5c7c1f0f4ca81",
+  "restart": {
+    "currentTaskClosureRead": true,
+    "connection": false,
+    "allOldPermissionsRevoked": true
+  },
+  "limitations": [
+    "development directory, not final ZIP",
+    "TODO rejection was outside the granted range",
+    "no production Graph or external provider used",
+    "no downgrade acceptance"
+  ]
+}

@@ -9,6 +9,7 @@ import { loadCurrentFocusSkill, loadEngagementReconciliationSkill } from '@task-
 import { parseSemanticOperation } from '@task-copilot/contracts';
 import { FakeGraphAdapter } from '../../../../packages/test-support/src/index.ts';
 import { deferred } from '../fixtures/work-view.mjs';
+import { readScopedPrivateItem,writeScopedPrivateItem } from '../../src/scoped-private-storage.ts';
 
 const currentKey = 'task-copilot-vnext-current-work-object', recentKey = 'task-copilot-vnext-recent-commit';
 async function until(condition) { for (let i = 0; i < 150; i++) { if (condition()) return; await delay(4); } assert.fail('command did not settle'); }
@@ -56,7 +57,7 @@ async function fixture() {
   const dispose = await startTaskCenter();
   const command = async suffix => { const before = messages.length; commands.get(`task-copilot-vnext-${suffix}`)(); await until(() => messages.length > before); return messages.at(-1); };
   const prompt = async value => { await until(() => globalThis.document.querySelector('[data-task-copilot-text-prompt] form')); globalThis.document.querySelector('input').value = value; globalThis.document.querySelector('form').dispatchEvent(new browser.Event('submit', { bubbles: true, cancelable: true })); await delay(0); };
-  const select = id => memory.set(`${currentKey}:A%3A%2FA`, JSON.stringify({ value: id, session: 'fixture', generation: pluginRuntime.identities.scope().generation }));
+  const select = id => writeScopedPrivateItem(globalThis.logseq.FileStorage,currentKey,'A:/A',JSON.stringify({ value: id, session: 'fixture', generation: pluginRuntime.identities.scope().generation }));
   return { kernel, store, graph, objects, memory, messages, commands, listeners, command, prompt, select, setRead: fn => { sdkRead = fn; }, switchGraph: async name => { graphName = name; changed(); await until(() => pluginRuntime.identities.scope().graphId === `${name}:/${name}`); },
     cleanup: async () => { await dispose(); pluginRuntime.stop(); pluginRuntime.adapterForCurrentGraph = originalAdapter; for (const [key, value] of originals) KernelClient.prototype[key] = value; globalThis.fetch = originalFetch; store.close(); await browser.happyDOM.abort(); for (const key of ['logseq', 'window', 'document', 'MutationObserver']) delete globalThis[key]; } };
 }
@@ -76,7 +77,7 @@ test('registered TASK closures, compensation, Focus, Engagement and Online DONE 
     assert.equal(f.store.getWorkObject(f.objects[0]).currentFocus, '继续处理'); assert.equal(f.store.getWorkObject(f.objects[0]).engagement, 'WAITING');
     assert.equal(f.store.listFeedback().filter(x => x.type === 'ACCEPTED').length, 2); assert.ok(f.store.listFeedback().every(x => f.store.getProposal(x.proposalId)?.proposal.status === 'APPLIED'));
     // Marker intent targets the changed block, even while another object is selected.
-    f.select(f.objects[1]); f.graph.editMarker('A:/A', 'source-A', 'DONE'); const before = f.messages.length;
+    await f.select(f.objects[1]); f.graph.editMarker('A:/A', 'source-A', 'DONE'); const before = f.messages.length;
     for (const fn of f.listeners) fn({ blocks: [{ uuid: 'source-A', content: 'DONE source-A' }] });
     await until(() => f.messages.length > before); assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle, 'COMPLETED'); assert.equal(f.store.getWorkObject(f.objects[1]).lifecycle, 'OPEN');
     assert.ok(f.store.listCommits().every(x => x.status === 'COMMITTED')); assert.ok(f.store.listProjectionObligations().every(x => x.status === 'VERIFIED'));
@@ -87,12 +88,12 @@ test('registered TASK closures, compensation, Focus, Engagement and Online DONE 
 test('registered commands pin targets across prompts and reject A to B to A generations before Agent SDK or writes', async () => {
   const f = await fixture();
   try {
-    let work = f.command('cancel-task'); await until(() => globalThis.document.querySelector('form')); f.select(f.objects[1]); await f.prompt('取消原对象'); await work;
+    let work = f.command('cancel-task'); await until(() => globalThis.document.querySelector('form')); await f.select(f.objects[1]); await f.prompt('取消原对象'); await work;
     assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle, 'CANCELLED'); assert.equal(f.store.getWorkObject(f.objects[1]).lifecycle, 'OPEN');
     const before = f.store.listCommits().length;
     work = f.command('cancel-task'); await until(() => globalThis.document.querySelector('form')); await f.switchGraph('B'); await f.switchGraph('A'); await f.prompt('旧作用域');
     assert.match((await work).message, /GRAPH_SCOPE_CHANGED/u); assert.equal(f.store.listCommits().length, before);
-    f.select(f.objects[1]); const gate = deferred(), started = deferred(); f.setRead(async () => { started.resolve(); return gate.promise; });
+    await f.select(f.objects[1]); const gate = deferred(), started = deferred(); f.setRead(async () => { started.resolve(); return gate.promise; });
     work = f.command('agent-focus'); await started.promise; await f.switchGraph('B'); await f.switchGraph('A'); gate.resolve({ uuid: 'source-other', content: 'evidence', children: [], properties: {} });
     assert.match((await work).message, /GRAPH_SCOPE_CHANGED/u); assert.equal(f.store.listEvidence().length, 0); assert.equal(f.store.listCommits().length, before);
   } finally { await f.cleanup(); }
@@ -106,10 +107,10 @@ test('registered completion retries an uncertain result under the same operation
     assert.match((await f.command('complete-task')).message, /尚未确定/u); const count = f.store.listCommits().length;
     KernelClient.prototype.commitFormal = real;
     assert.equal((await f.command('complete-task')).type, 'success'); assert.equal(f.store.listCommits().length, count); assert.equal(f.kernel.formalReceipt(operationId).commit.status, 'COMMITTED');
-    f.select(f.objects[1]); const gate = deferred(), accepted = deferred(); let commitId;
+    await f.select(f.objects[1]); const gate = deferred(), accepted = deferred(); let commitId;
     KernelClient.prototype.commitFormal = async (operation, snapshot) => { const formal = f.kernel.commitFormal(operation, snapshot); commitId = formal.commit.id; accepted.resolve(); await gate.promise; return formal; };
-    const work = f.command('complete-task'); await accepted.promise; const oldRecent = f.memory.get(`${recentKey}:A%3A%2FA`); await f.switchGraph('B'); await f.switchGraph('A'); gate.resolve();
-    assert.match((await work).message, new RegExp(`正式提交已成功.*${commitId}`, 'u')); assert.equal(f.memory.get(`${recentKey}:A%3A%2FA`), oldRecent);
+    const work = f.command('complete-task'); await accepted.promise; const oldRecent = await readScopedPrivateItem(globalThis.logseq.FileStorage,recentKey,'A:/A'); await f.switchGraph('B'); await f.switchGraph('A'); gate.resolve();
+    assert.match((await work).message, new RegExp(`正式提交已成功.*${commitId}`, 'u')); assert.equal(await readScopedPrivateItem(globalThis.logseq.FileStorage,recentKey,'A:/A'), oldRecent);
     assert.equal(f.store.getCommit(commitId).status, 'COMMITTED'); assert.equal(f.store.getProjectionObligationForCommit(commitId).status, 'PENDING');
   } finally { await f.cleanup(); }
 });
@@ -137,6 +138,14 @@ test('registered formal command reports unexpected private-storage IO and does n
     assert.equal(f.store.listCommits().length, count);
     assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle, 'OPEN');
   } finally { await f.cleanup(); }
+});
+
+test('silent private SDK write loss prevents the registered formal command from dispatching a new commit',async()=>{
+  const f=await fixture();
+  try{
+    const count=f.store.listCommits().length,save=globalThis.logseq.FileStorage.setItem;globalThis.logseq.FileStorage.setItem=async(key,value)=>{if(!key.startsWith('task-copilot-scoped-v1-'))await save(key,value);};
+    assert.match((await f.command('complete-task')).message,/未能确认本机恢复记录已保存/u);assert.equal(f.store.listCommits().length,count);assert.equal(f.store.getWorkObject(f.objects[0]).lifecycle,'OPEN');
+  }finally{await f.cleanup();}
 });
 
 test('registered evidence display rejects late A to B to A results and foreign legacy evidence', async () => {

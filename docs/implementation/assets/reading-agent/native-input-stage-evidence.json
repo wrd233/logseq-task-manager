@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "stage": "real-native-input-source-highlight",
+  "status": "passed-development-installation",
+  "runtime": {
+    "jsHash": "be30996b36c15346de5367898b4a4f6200a2931fd0ecd2bd755332384fe6bd61",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "developmentDirectory": true,
+    "capabilityInjection": false
+  },
+  "sourceUuid": "b7261007-0000-4000-8000-000000000028",
+  "hostAlreadySynchronizedBeforeHighlight": true,
+  "unsavedDraftAcceptance": false,
+  "inputValueHash": "afbd71289499967a09192f892ecf8d3ff4a9df116e6203fb1558451641e76c10",
+  "editingBlockPreserved": true,
+  "selectionBefore": {
+    "start": 106,
+    "end": 112
+  },
+  "selectionAfter": {
+    "start": 106,
+    "end": 112
+  },
+  "focusBefore": true,
+  "focusAfter": false,
+  "sourceUnchangedDuringHighlight": true,
+  "highlighted": 4,
+  "mounted": 4,
+  "visible": 4,
+  "navigation": "unchanged",
+  "cleanup": {
+    "throughNativeUi": true,
+    "originalContentRestored": true,
+    "graphHashRestored": "99008558edbbbd7b607d3cbf976e10b499b17c959c744b4f3cb5c7c1f0f4ca81",
+    "editing": false,
+    "highlightCleared": true
+  },
+  "limitations": [
+    "physical IME not tested",
+    "textarea object identity not measured",
+    "host had already synchronized input into the source",
+    "focus moved to the reading panel while selection and editor remained"
+  ]
+}

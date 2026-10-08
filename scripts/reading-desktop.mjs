@@ -74,7 +74,8 @@ require(${JSON.stringify('./'+original)});
     const server=createServer();await new Promise((yes,no)=>{server.once('error',no);server.listen(port,'127.0.0.1',yes);});await new Promise(yes=>server.close(yes));
   }
   const desktop=start('desktop',join(paths.app,'Contents/MacOS/Logseq'),[`--user-data-dir=${paths.profile}`,`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1']);
-  console.log(JSON.stringify({companion,desktop,graph:paths.graph,cdp:`http://127.0.0.1:${port}`,tasksEnabled:false,capabilityInjection:false}));
+  const settings=JSON.parse(readFileSync(join(paths.home,'.logseq/settings/task-copilot-vnext.json'),'utf8'));
+  console.log(JSON.stringify({companion,desktop,graph:paths.graph,cdp:`http://127.0.0.1:${port}`,configuredTasksEnabled:settings.tasksEnabled===true,capabilityInjection:false}));
 } else if(command==='stop') {
   for(const kind of ['desktop','companion']){const value=record(kind);if(value?.running){if(!value.owned)throw Error(`Refusing unrelated PID ${value.pid}`);process.kill(value.pid,'SIGTERM');}}
   console.log('Stopped only identity-checked acceptance processes.');
