@@ -38,12 +38,16 @@ export class MaterialService {
     if (globalRoot) directories.register(graph, globalRoot);
   }
   private stores(): MaterialStore[] { return this.directories.roots(this.graph).map(root => new MaterialStore(this.io, normalizeRoot(root, this.graph))); }
+  private observe(store: MaterialStore, record: MaterialRecord): void {
+    const snapshot = this.observedRecords.get(store.root) ?? new Map<string, MaterialRecord>();
+    snapshot.set(record.id, structuredClone(record)); this.observedRecords.set(store.root, snapshot);
+  }
   async locate(id: string): Promise<{store: MaterialStore; record: MaterialRecord}> {
     const hint = this.directories.hint(this.graph, id);
     if (hint) {
       const store = new MaterialStore(this.io, normalizeRoot(hint, this.graph));
       // A known unavailable location is never silently replaced by another copy.
-      return {store, record: await store.record(id)};
+      const record = await store.record(id); this.observe(store, record); return {store, record};
     }
     const matches: Array<{store: MaterialStore; record: MaterialRecord}> = [];
     const errors: string[] = [];
@@ -52,12 +56,13 @@ export class MaterialService {
       if (entries.some(path => path.split("/").at(-1) === `${id}.json`)) matches.push({store, record: await store.record(id)});
     }
     if (matches.length !== 1) throw new Error(matches.length > 1 ? "多个目录存在相同材料身份，请核对目录备份。" : `材料记录暂不可用。可登记原材料目录后重试。${errors.length ? "部分已知目录不可读。" : ""}`);
-    const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); return match;
+    const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); this.observe(match.store, match.record); return match;
   }
   async read(id: string, includeContent = true): Promise<MaterialView> {
     const located = await this.locate(id), store = located.store;
     let record = located.record;
     try { if (this.canRename(id)) record = await discoverExternalRename(store, record); } catch { /* Preserve unavailable records; discovery must not block reading history. */ }
+    this.observe(store, record);
     const path = await store.path(id);
     const view: MaterialView = {id, title: record.title, kind: record.kind, origin: record.imported ? "import" : record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
     if (record.summary) view.summary = record.summary;

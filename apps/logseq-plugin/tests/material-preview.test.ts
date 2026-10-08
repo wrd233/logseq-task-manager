@@ -98,15 +98,15 @@ test("native clipboard path proofs reject multiple paths, browser-forged events,
   } finally {globalThis.DOMParser = previousParser; globalThis.location = previousLocation; globalThis.window = previousWindow; await browser.happyDOM.abort();}
 });
 
-test("a second material root keeps its own identity metadata and remains usable when the first root is offline", async () => {
+test("a second material root stays usable and newly resolved material history survives an offline root without an earlier list", async () => {
   const f = await fixture(); try {
     const path = join(f.b, "第二根.md"); await writeFile(path, "**[注]** 独立材料根。");
     const before = await f.service.resolveDirectoryFile(path, f.context); assert.equal((await f.service.locate(before.materialId)).store.root, f.b);
     const imported = await f.service.importFile({name: "第二根.md", path}, f.context, "root-B-import"); assert.equal(imported.material.id, before.materialId);
-    const firstPath = join(f.a, "第一根.md"); await writeFile(firstPath, "**[注]** 保留失联前身份。"); const first = await f.service.resolveDirectoryFile(firstPath, f.context); await f.service.list();
+    const firstPath = join(f.a, "第一根.md"); await writeFile(firstPath, "**[注]** 保留失联前身份。"); const first = await f.service.resolveDirectoryFile(firstPath, f.context);
     await rename(f.a, `${f.a}-offline`);
     const target = await f.reader.material(before.materialId, f.scope), snapshot = await f.reader.read(target, new AbortController().signal); assert.equal(decodePreviewText(snapshot.bytes), "**[注]** 独立材料根。");
     assert.equal((await f.service.resolveDirectoryFile(path, f.context)).materialId, before.materialId); assert.equal((await f.service.locate(before.materialId)).store.root, f.b);
-    assert.equal((await f.service.list()).some(record => record.id === first.materialId), true); assert.ok(f.service.listProblems.length > 0);
+    const retained = (await f.service.list()).find(record => record.id === first.materialId); assert.equal(retained?.path, firstPath); assert.ok(f.service.listProblems.length > 0);
   } finally {await f.cleanup();}
 });
