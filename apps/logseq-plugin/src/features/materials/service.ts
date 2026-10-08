@@ -29,6 +29,16 @@ export interface DirectoryFileResolution {
 }
 const associating = new Map<string, Promise<MaterialResult>>();
 
+/** Last-known metadata keeps a real reference discoverable. It supplies neither
+ * file content nor an editing grant when the original record cannot be read. */
+export function unavailableMaterialView(record: MaterialRecord, recordRoot: string, problem: unknown): MaterialView {
+  return {id: record.id, title: record.title, ...(record.summary ? {summary: record.summary} : {}), kind: record.kind, role: record.role ?? "legacy",
+    path: record.path ?? (record.kind === "capture" && recordRoot ? `${recordRoot}/${record.id}.md` : ""), recordRoot, sourceUuid: record.sourceUuid ?? null,
+    associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready",
+    availability: "unavailable", content: null, version: null, capabilities: {read: "external", edit: {user: false, agent: false}, open: true},
+    problem: String(problem), origin: record.imported ? "import" : record.kind};
+}
+
 /** Human and Agent adapters share this service. DOM and Logseq writes stay at the edge. */
 export class MaterialService {
   readonly listProblems: string[] = [];
@@ -231,6 +241,15 @@ export class MaterialService {
       }
     }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  async listViews(query = "", sourceUuid: string | null = null): Promise<{status: "success" | "partial"; materials: MaterialView[]; problems: string[]}> {
+    const records = await this.list(query, sourceUuid), problems = [...this.listProblems];
+    const materials = await Promise.all(records.map(async record => {
+      const view = await this.read(record.id).catch(error => unavailableMaterialView(record, this.directories.hint(this.graph, record.id) ?? "", error));
+      if (view.availability === "unavailable") problems.push(`${record.id}: ${view.problem ?? "材料暂不可读，原关联与历史保留。"}`);
+      return view;
+    }));
+    return {status: problems.length ? "partial" : "success", materials, problems};
   }
   /** Explicit folder addition/refresh registers existing files without copying bodies. */
   async refreshFolder(directory: string, context: MaterialWorkContext): Promise<string[]> {

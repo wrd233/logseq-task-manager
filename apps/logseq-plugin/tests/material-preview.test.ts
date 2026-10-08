@@ -108,5 +108,8 @@ test("a second material root stays usable and newly resolved material history su
     const target = await f.reader.material(before.materialId, f.scope), snapshot = await f.reader.read(target, new AbortController().signal); assert.equal(decodePreviewText(snapshot.bytes), "**[注]** 独立材料根。");
     assert.equal((await f.service.resolveDirectoryFile(path, f.context)).materialId, before.materialId); assert.equal((await f.service.locate(before.materialId)).store.root, f.b);
     const retained = (await f.service.list()).find(record => record.id === first.materialId); assert.equal(retained?.path, firstPath); assert.ok(f.service.listProblems.length > 0);
+    const views = await f.service.listViews(); assert.equal(views.status, "partial");
+    const unavailable = views.materials.find(view => view.id === first.materialId)!; assert.equal(unavailable.availability, "unavailable"); assert.equal(unavailable.reference, first.reference); assert.equal(unavailable.content, null); assert.equal(unavailable.version, null); assert.deepEqual(unavailable.capabilities.edit, {user: false, agent: false});
+    assert.equal(views.materials.find(view => view.id === before.materialId)?.availability, "available");
   } finally {await f.cleanup();}
 });

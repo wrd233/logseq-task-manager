@@ -1,7 +1,7 @@
 import { button, disclosureMenu, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
 import { desktopBridge, desktopFiles, pickMaterialDirectory } from "../../host/desktop-files.ts";
 import { MaterialDirectories, type MaterialWorkContext, type MaterialBindingCommands } from "../../workspace/material-context.ts";
-import { MaterialService, type CaptureRequest, type MaterialResult, type MaterialView, type DirectoryFileResolution } from "./service.ts";
+import { MaterialService, unavailableMaterialView, type CaptureRequest, type MaterialResult, type MaterialView, type DirectoryFileResolution } from "./service.ts";
 import { captureMarkdown } from "./conversion.ts";
 import { closeMaterialPrompts, materialAction, materialPrompt, renderReading, roleLabel } from "./ui.ts";
 import { fileDetails, installMaterialReadingStyle, materialDropArea, materialEntry, referenceNotice } from "./reading-ui.ts";
@@ -15,7 +15,7 @@ import { graphIdentity } from "../../graph-adapter.ts";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { panels } from "../../workspace/context.ts";
 import { prepareDefaultMaterialDirectory } from "./default-directory.ts";
-import { MaterialStore, ConflictError, normalizeRoot, idFrom, restoreCapture, titleOf, associationsOf, makeLink, type MaterialRecord } from "./store.ts";
+import { MaterialStore, ConflictError, normalizeRoot, idFrom, restoreCapture, titleOf, associationsOf, type MaterialRecord } from "./store.ts";
 import {MaterialDirectoryHandles, directoryGrantFromPaste} from "../../host/directory-handles.ts";
 import {renderMaterialDirectory} from "./directory-ui.ts";
 import type {DirectoryLocation} from "./directory.ts";
@@ -311,7 +311,7 @@ export class Materials {
         const service = await this.ensureService(), entries = await service.list();
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
         const visible = rootUuid ? entries.filter(item => associationsOf(item).some(association => association.graph === this.graph && association.sourceUuid === rootUuid) || related.has(item.id)) : entries;
-        const views = await Promise.all(visible.map(item => service.read(item.id, false).catch(error => ({id: item.id, title: item.title, kind: item.kind, role: item.role ?? "legacy", path: item.path ?? `${this.directories.hint(this.graph, item.id)}/${item.id}.md`, recordRoot: this.directories.hint(this.graph, item.id) ?? "", sourceUuid: item.sourceUuid ?? null, associations: associationsOf(item), reference: makeLink(item), writeState: item.creation === "pending" ? "pending" : "ready", availability: "unavailable", content: null, version: null, capabilities: {read: "external", edit: {user: false, agent: false}, open: true}, problem: String(error), origin: item.imported ? "import" : item.kind} satisfies MaterialView))));
+        const views = await Promise.all(visible.map(item => service.read(item.id, false).catch(error => unavailableMaterialView(item, this.directories.hint(this.graph, item.id) ?? "", error))));
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
         const rendered: HTMLElement[]=[];
         for (const [index, item] of visible.entries()) {
@@ -577,10 +577,8 @@ export class Materials {
     return service.importFile({name: fileName(input.path), path: input.path}, context, input.requestKey);
   }
   async listMaterials(sourceUuid: string | null = this.contextUuid, query = ""): Promise<{status: "success" | "partial"; materials: MaterialView[]; problems: string[]}> {
-    const service = await this.ensureService(), records = await service.list(query, sourceUuid);
-    const problems = [...service.listProblems];
-    const materials = await Promise.all(records.map(record => service.read(record.id)));
-    return {status: problems.length ? "partial" : "success", materials, problems};
+    const epoch = this.epoch, service = await this.ensureService(), result = await service.listViews(query, sourceUuid);
+    this.assertScope(epoch); return result;
   }
   async readMaterial(id: string): Promise<Awaited<ReturnType<MaterialService["read"]>>> { return (await this.ensureService()).read(id); }
   async saveMaterial(id: string, expectedVersion: string, expectedContent: string, next: string): Promise<MaterialResult> {

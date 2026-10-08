@@ -48,6 +48,20 @@ async function fixture(ui = false) {
   return {root, globalRoot, io, storage, directories, graph, service, context, c, materials, file, drop, button, choose: (path: string | null) => {selected = path;}, pickerCount: () => pickerCount, copying: (hook: typeof copyHook) => {copyHook = hook;}, cleanup: async () => {restoreBytes();materials?.dispose(); await c?.cleanup(); await rm(root, {recursive: true, force: true});}};
 }
 
+test('public material listing returns live files and read-only offline history together without prior listing or Graph writes', async () => {
+  const f = await fixture(true);try {
+    const b=join(f.root,'root-B');await mkdir(b);
+    for(const directory of [f.globalRoot,b])f.directories.addFolder(f.graph,f.c!.root,{directory,organization:'flat'});
+    const aPath=join(f.globalRoot,'同名.md'),bPath=join(b,'同名.md');await writeFile(aPath,'**[注]** A 原件。');await writeFile(bPath,'**[注]** B 原件。');
+    const before=f.c!.counts(),a=await f.materials!.resolveDirectoryFile(aPath,f.c!.root),live=await f.materials!.resolveDirectoryFile(bPath,f.c!.root);
+    assert.notEqual(a.materialId,live.materialId);await rename(f.globalRoot,`${f.globalRoot}-offline`);
+    const result=await f.materials!.listMaterials(f.c!.root);assert.equal(result.status,'partial');
+    const lost=result.materials.find(v=>v.id===a.materialId)!;assert.equal(lost.path,aPath);assert.equal(lost.reference,a.reference);assert.equal(lost.availability,'unavailable');assert.equal(lost.content,null);assert.equal(lost.version,null);assert.deepEqual(lost.capabilities.edit,{user:false,agent:false});
+    const available=result.materials.find(v=>v.id===live.materialId)!;assert.equal(available.content,'**[注]** B 原件。');assert.equal(available.availability,'available');assert.deepEqual(available.capabilities.edit,{user:false,agent:false});assert.ok(result.problems.length);
+    assert.equal(f.c!.counts().writes,before.writes);assert.equal(f.c!.counts().inserts,before.inserts);assert.equal(await readFile(bPath,'utf8'),'**[注]** B 原件。');
+  }finally{await f.cleanup();}
+});
+
 test('unbound works get exclusive lazy folders; multiple destinations persist separately from primary workspace identity and old links', async () => {
   const f = await fixture(); try {
     assert.deepEqual(await readdir(f.globalRoot), []);
