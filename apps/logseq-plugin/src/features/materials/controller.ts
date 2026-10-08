@@ -113,6 +113,18 @@ export class Materials {
     });
 
     const doc = hostDocument();
+    // A native anchor's default pointer/mouse down blurs Logseq's textarea
+    // before its click reaches us. Keep the real editor and selection in place;
+    // the later trusted click still opens the read-only preview.
+    const preserveNativeInput = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      const anchor = (event.target as Element | null)?.closest?.("a,[data-href]");
+      const href = anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href") ?? "";
+      if (!this.isPreviewCandidate(href)) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+    };
+    doc?.addEventListener("pointerdown", preserveNativeInput, true); doc?.addEventListener("mousedown", preserveNativeInput, true);
+    this.disposers.push(() => {doc?.removeEventListener("pointerdown", preserveNativeInput, true); doc?.removeEventListener("mousedown", preserveNativeInput, true);});
     const compositionStart = () => this.sources.composition(true), compositionEnd = () => this.sources.composition(false);
     doc?.addEventListener("compositionstart", compositionStart, true); doc?.addEventListener("compositionend", compositionEnd, true);
     this.disposers.push(() => { this.sources.cancelPrompt(); doc?.removeEventListener("compositionstart", compositionStart, true); doc?.removeEventListener("compositionend", compositionEnd, true); });

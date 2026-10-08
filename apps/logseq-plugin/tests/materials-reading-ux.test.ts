@@ -84,6 +84,15 @@ test('native preview retains the same byte version and theme while returning to 
   } finally {f.c.browser.open=originalOpen;await child.happyDOM.abort();await f.cleanup();}
 });
 
+test('native material pointer down is claimed before Logseq can blur its draft, while web links keep normal pointer behavior and disposal removes the capture', async () => {
+  const f = await fixture();try {
+    const input=document.createElement('textarea'), anchor=document.createElement('a');input.value='**[注]** 中文草稿与选区。';anchor.href='longdoc://00000000-0000-4000-8000-000000000000';document.body.append(input,anchor);input.focus();input.setSelectionRange(7,11);
+    for(const type of ['pointerdown','mousedown']) {const event=new f.c.browser.MouseEvent(type,{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(event as unknown as Event);assert.equal(event.defaultPrevented,true);assert.equal(document.activeElement,input);assert.equal(input.selectionStart,7);assert.equal(input.selectionEnd,11);}
+    anchor.href='https://example.com/';const web=new f.c.browser.MouseEvent('pointerdown',{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(web as unknown as Event);assert.equal(web.defaultPrevented,false);
+    f.materials.dispose();anchor.href='longdoc://00000000-0000-4000-8000-000000000000';const unloaded=new f.c.browser.MouseEvent('pointerdown',{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(unloaded as unknown as Event);assert.equal(unloaded.defaultPrevented,false);assert.equal(input.value,'**[注]** 中文草稿与选区。');
+  } finally {await f.cleanup();}
+});
+
 test('long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation', async () => {
   const f = await fixture(); try {
     const sample = JSON.parse(await readFile(new URL('./fixtures/materials-reading-source.json', import.meta.url), 'utf8')) as {blocks: Array<{exampleId: string; depth: number; text: string}>};
