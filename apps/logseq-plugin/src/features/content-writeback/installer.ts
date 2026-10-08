@@ -58,13 +58,21 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
     const nonce=setup,selected=await logseq.Editor.getCurrentBlock();if(disposed)fail("CONTENT_DISPOSED");if(nonce!==setup)fail("SCOPE_REVOKED");if(!selected){const active=authority.current();if(active)return active.rootUuid;fail("SOURCE_UNAVAILABLE");}
     const id=uuid(selected.uuid);if(!authority.current())await establish(id);return id;
   };
+  const recovery=async(root?:string)=>{
+    if(disposed)fail("CONTENT_DISPOSED");
+    const active=authority.current();
+    // Looking at a result is not a writing grant. Reuse a valid same-root
+    // explicit grant; establish only read authority for a new recovery scope.
+    if(!active||root!==undefined&&active.rootUuid!==uuid(root)||!authority.valid(authority.capture(active)!))await establishRead(root);
+    await ui.recovery();
+  };
   command("content-authorize","工作台：允许维护当前块的正文子树",async()=>{await establish();await logseq.UI.showMsg("已允许维护此处自然正文。正式字段和 TODO 继续受保护。","success");});
   command("content-authorize-organize","工作台：允许整理当前工作正文及原块位置",async()=>{await establish(undefined,true);await logseq.UI.showMsg("已允许维护自然正文及同一对象内的普通块位置。正式对象与 TODO 文本仍受保护。","success");});
   command("content-revoke","工作台：停止正文维护",async()=>{setup++;authority.revoke();ui.close();});
   command("content-replace","工作台：局部修改当前块正文",async()=>ui.edit(await selectedTarget(),false));
   command("content-edit-todo","工作台：明确修改当前 TODO 文本",async()=>ui.edit(await selectedTarget(),true));
   command("content-insert-child","工作台：在当前块补充正文记录",async()=>ui.append(await selectedTarget()));
-  command("content-recovery","工作台：查看正文写回冲突与恢复",async()=>{if(!authority.current())await establish();await ui.recovery();});
+  command("content-recovery","工作台：查看正文写回冲突与恢复",async()=>recovery());
   // Keep the hook key ASCII. Desktop 0.10.x does not consistently route a
   // generated Unicode context-menu hook, although the menu label is visible.
   const remove=logseq.App.registerCommand("block-context-menu-item",{key:"content-authorize-block",label:"工作台：允许维护此处正文"},async({uuid:target}: {uuid:string})=>{if(!disposed)try{await establish(target);await logseq.UI.showMsg("已允许维护此处自然正文。","success");}catch(error){report(error);}});
@@ -98,7 +106,7 @@ export function installContentWriteback(options:{journal?:OperationJournal;adapt
   };
   // Trusted installers retain the actual scope lease; local user UI keeps its
   // command origin. Neither port is part of the public content namespace.
-  const local={recovery:async(root:string)=>{await establish(root);await ui.recovery();},authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
+  const local={recovery,authorize:establish,lifetime:()=>{const selected=authority.current();return selected?authority.capture(selected):null;},apply:(input:unknown,command:string)=>executor.apply(input,origin(command))};
   const trustedTodo={read:executor.read.bind(executor),apply:executor.applyControlledTodo.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resumeIdentity:executor.resumeIdentity.bind(executor)};
   const trustedAgent={apply:executor.apply.bind(executor),retry:executor.retry.bind(executor)};
   const trustedFormatting={read:executor.read.bind(executor),apply:executor.applyControlledFormatting.bind(executor),query:executor.query.bind(executor),recover:executor.recover.bind(executor),resolve:executor.resolve.bind(executor),pending:executor.pending.bind(executor)};

@@ -27,6 +27,15 @@ test("read-only scope never persists native identity or accepts writes; old dura
     installed.api.revoke();assert.equal(installed.api.capabilities().bodyAuthorized,false);await assert.rejects(installed.api.read(),/AUTHORIZATION_REQUIRED/);
   }finally{installed.dispose();await f.cleanup();}
 });
+test("opening recovery cannot grant body rights or persist identity; same-scope explicit grants survive lookup",async()=>{
+  const f=await contentFixture(),installed=installContentWriteback({journal:f.journal,adapter:f.adapter});
+  try{
+    await f.commands.get("content-recovery")!();assert.equal(installed.api.capabilities().bodyAuthorized,false);assert.equal(installed.api.capabilities().structureAuthorized,false);assert.equal(f.counts().identities,0);assert.equal(f.counts().writes,0);
+    const readonly=installed.local.lifetime();await installed.local.recovery(f.root);assert.equal(installed.local.lifetime(),readonly);assert.equal(installed.api.capabilities().bodyAuthorized,false);
+    await installed.establish(f.root,true);const explicit=installed.local.lifetime(),counts=f.counts();await installed.local.recovery(f.root);assert.equal(installed.local.lifetime(),explicit);assert.equal(installed.api.capabilities().bodyAuthorized,true);assert.equal(installed.api.capabilities().structureAuthorized,true);assert.equal(f.counts().identities,counts.identities);assert.equal(f.counts().writes,counts.writes);
+    await installed.local.recovery(f.a);assert.equal(installed.api.capabilities().bodyAuthorized,false);assert.equal(installed.api.capabilities().structureAuthorized,false);assert.equal(installed.valid(explicit!),false);assert.equal(f.counts().identities,counts.identities);assert.equal(f.counts().writes,counts.writes);
+  }finally{installed.dispose();await f.cleanup();}
+});
 
 test("trusted work switch restriction fences an in-progress write and never revives when returning to the old work",async()=>{
   const f=await contentFixture(),input=f.patch([await f.text(f.a,"Beta","must not arrive")]),entered=deferred<void>(),release=deferred<void>();let active=true;

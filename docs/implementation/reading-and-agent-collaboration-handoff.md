@@ -58,6 +58,10 @@ A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，�
 
 证据为 [format-stage-evidence.json](assets/reading-agent/format-stage-evidence.json)，原始 `tmp/reading-desktop/evidence/format-exercise.json` 和 `format-final-runtime.json`；可携带脚本 `scripts/format-desktop-exercise.mjs` 只发真实 CLI 预览/查询，编辑和确认由实际 UI 完成，没有许可/SDK/IPC 注入。只读探针观测 104 阅读来源、100 个原生挂载、editing=false、零异常。仍是开发目录加载；随后源码新增能力说明、并发提议归属复核与保留当前提示措辞，不将它们混记成此运行 hash。新构建及最终包需按原矩阵重验。
 
+格式实现本地提交为 `5aeda96`。继续审查发现既有本地正文恢复入口会调用写权限建立函数；已改为缺少范围或切换范围时仅建立只读范围，同范围已明确授予的正文/结构权限及原 lease 保留。查看恢复不持久化原生 id；重新提交仍检查独立写权限。受控回归核对首次/只读/已有明确许可/切换范围四种情况和 SDK 写入计数；真实最终包的恢复入口仍须复验，不能以此回归代替 Desktop。
+
+该权限修补后 `tmp/recovery-read-check.log` 全量通过 763 项、零失败，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 全部通过。用户主工作树仍干净，main 为 `eb07013d119584dbd3c68012541f1355118d2b0b`。本轮只停止经实际 PID/命令身份核对的隔离 Desktop 与 companion，停止后两 PID 实际缺失。A 当前只读核对为 `98c0d4e6d5122ff8a763683e96e25dd511928e36`、工作树干净，但仍没有指定最终 handoff，因此不是已核对交付 SHA，没有合并它。
+
 仍需实施并验证：三条完整真实协作过程（当前格式场景只证明其中格式/同时补充子路径）；真正 Kernel 正式对象的 Desktop 边界及最终包 TODO/恢复复验；页面型外部协作入口；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。
