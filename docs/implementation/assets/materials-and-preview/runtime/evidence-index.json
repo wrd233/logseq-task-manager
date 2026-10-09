@@ -163,6 +163,121 @@
       "group": "implementation-or-final-install-runtime"
     },
     {
+      "name": "final-graph-asset.json",
+      "sha256": "a12fdb48e7bd89e2585bd4885f8d96f6451ed6e0ebae0b15a55250d5f101150d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-graph-asset-window.json",
+      "sha256": "9985e01793b258fad08d77aeb7f3640da001706cffb0faccc08aa5908dd83bdc",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-main-resources.json",
+      "sha256": "0e4403f32cc9f3654e096df04a7adeff916a73d809aad74759ed4bf1e279ab68",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-child-resources.json",
+      "sha256": "c6ea2d3c6b1e006cd8b5f17c5d00c52e899ccd44c7d50965fa93a97254331130",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-after-native-close.json",
+      "sha256": "0e4403f32cc9f3654e096df04a7adeff916a73d809aad74759ed4bf1e279ab68",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-before-graph-switch.json",
+      "sha256": "760118ee491da21b013de9590f718275d880d46f13e55bb94afe48dcc4a77b2d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-graph-switch.json",
+      "sha256": "90ee8e009746d845600420b1d87367d864964810a8e2e28fbeb763c4f0f7a173",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-graph-switch-view.json",
+      "sha256": "a8e4431c07c4d8496b093dbe4d68585594d664adf29e3a1cfdf524594a0eca99",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-before-unload-resources.json",
+      "sha256": "0398aec1ae06bf996c7e64c6d7466b45a48d1915e105fbf4a5308c6a1ba3f2d5",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-unload-resources.json",
+      "sha256": "a9d3a15e4867929f2834cdff17006958495f6a876a1c6d4b4540c85b4a8a15b7",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-listeners-before-unload.json",
+      "sha256": "18b92709edc090e2cb9dbc2417f37dacfce25d866fa353e2290276879061c1f1",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-listeners-after-unload.json",
+      "sha256": "d4ad7b598e2151289be8261915abd2a18ac1b79a752c55851fb641bb61068a8a",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-observer-before-offline.json",
+      "sha256": "45222fa4a66d9e4f803d19a25396ea01a339e08080a56251c6eecbdb332d9420",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-observer-during-offline.json",
+      "sha256": "c55a81a16adba08680a66ecf77fc888e0aba1665f34ced87a898b8e7af8c231b",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-rename-draft-before.json",
+      "sha256": "fec7080401172a45a7953185a11aab7b86364690e1954c7c6dce0802da7695b2",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-rename-draft-after.json",
+      "sha256": "d309fab9ad6fc30589df88521a5a62ca937347b658c739739b6ff3f67e76c8e1",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-malicious-preview.json",
+      "sha256": "9f08a3d297216a88d194f217917f55fc9247758725529c418b7a505d4f2c3a15",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-malicious-network.json",
+      "sha256": "fbea150bcd0c0626ef0d23e2b6f5fc2abbcb95786e2e1704b486a0a172585ae4",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-md.json",
+      "sha256": "26d8184d305057cd50cae28b84e9090662d6156ad0aa2a201135d16fd6de4ad7",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-docx.json",
+      "sha256": "8b9e71cccb3d3e6c722ec0c4ce69f34b2062c70b97a58833fadc261f8b03b78f",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-pdf.json",
+      "sha256": "a92291a6f875b2fa8c0559e38c80b92728c738419f6546b25726d1b0b7960ceb",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-xlsx.json",
+      "sha256": "6ec245cd2c107d26a58ec8409646e8f5b855273d00813f4558572c2ca5859aa6",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-image.json",
+      "sha256": "57d92aa877ddff9501fc056bb731cdfb0c5ffd576a27b4a802f932cf5e37caa5",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
       "name": "host-home.json",
       "sha256": "91576223039d8a1bce88db44f21dad26e01cc75d8bc0e9b203c313dc8efaa3ba",
       "group": "earlier-capability-or-regression"

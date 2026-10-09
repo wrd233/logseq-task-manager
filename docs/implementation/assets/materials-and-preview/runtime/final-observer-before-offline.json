@@ -1,0 +1,169 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "selectedRoot": "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+      "roots": [
+        {
+          "text": "1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials"
+        },
+        {
+          "text": "2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B"
+        }
+      ],
+      "breadcrumbs": "materials",
+      "complete": "false",
+      "rows": [
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/空目录",
+          "current": "true",
+          "text": "▸ 空目录"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/一级",
+          "current": "true",
+          "text": "▸ 一级"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/nested",
+          "current": "true",
+          "text": "▸ nested"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/workspaces",
+          "current": "true",
+          "text": "▸ workspaces"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/安全清洗.md",
+          "current": "true",
+          "text": "安全清洗.md"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.docx",
+          "current": "true",
+          "text": "加密 中文.docx"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.pdf",
+          "current": "true",
+          "text": "加密 中文.pdf"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.xlsx",
+          "current": "true",
+          "text": "加密 中文.xlsx"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/旧格式.doc",
+          "current": "true",
+          "text": "旧格式.doc"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/路线.md",
+          "current": "true",
+          "text": "路线.md"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/生命周期 验收.md",
+          "current": "true",
+          "text": "生命周期 验收.md\n更多"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/损坏.pdf",
+          "current": "true",
+          "text": "损坏.pdf"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+          "current": "true",
+          "text": "同名.md\n更多"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+          "current": "true",
+          "text": "外部加入 验收.docx\n更多"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.md",
+          "current": "true",
+          "text": "外部加入 验收.md"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.pdf",
+          "current": "true",
+          "text": "外部加入 验收.pdf"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.png",
+          "current": "true",
+          "text": "外部加入 验收.png"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.xlsx",
+          "current": "true",
+          "text": "外部加入 验收.xlsx"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/正文.markdown",
+          "current": "true",
+          "text": "正文.markdown"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 表格.csv",
+          "current": "true",
+          "text": "中文 表格.csv"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多工作表.xlsx",
+          "current": "true",
+          "text": "中文 多工作表.xlsx"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多页扫描.pdf",
+          "current": "true",
+          "text": "中文 多页扫描.pdf"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 方案.docx",
+          "current": "true",
+          "text": "中文 方案.docx"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 旧表.xls",
+          "current": "true",
+          "text": "中文 旧表.xls"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.jpg",
+          "current": "true",
+          "text": "中文 图像.jpg"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.png",
+          "current": "true",
+          "text": "中文 图像.png"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.webp",
+          "current": "true",
+          "text": "中文 图像.webp"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/状态动画.gif",
+          "current": "true",
+          "text": "状态动画.gif"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/byte-probe.bin",
+          "current": "true",
+          "text": "byte-probe.bin"
+        }
+      ],
+      "text": "工作台\n关闭工作台\n材料\n关闭\n文件\n目录\n已关联\n\n拖入文件或文件夹\n\n复制到此工作的默认目录，保留原文件。\n1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials\n2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B\n刷新\n已关联与历史材料\nmaterials\n\n目录授权已恢复；此宿主接口会过滤部分特殊文件名。再次原生粘贴该目录可读取这些名称；旧观察和关联保留。\n\n首次读取：在访达复制当前目录，点击这里并粘贴，启用只读自动同步。继续只读同步\n▸ 空目录\n▸ 一级\n▸ nested\n▸ workspaces\n安全清洗.md\n加密 中文.docx\n加密 中文.pdf\n加密 中文.xlsx\n旧格式.doc\n路线.md\n生命周期 验收.md\n更多\n损坏.pdf\n同名.md\n更多\n外部加入 验收.docx\n更多\n外部加入 验收.md\n外部加入 验收.pdf\n外部加入 验收.png\n外部加入 验收.xlsx\n正文.markdown\n中文 表格.csv\n中文 多工作表.xlsx\n中文 多页扫描.pdf\n中文 方案.docx\n中文 旧表.xls\n中文 图像.jpg\n中文 图像.png\n中文 图像.webp\n状态动画.gif\nbyte-probe.bin"
+    }
+  }
+}

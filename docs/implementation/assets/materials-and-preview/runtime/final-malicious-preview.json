@@ -1,0 +1,33 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "flag": null,
+      "preview": {
+        "dataset": {
+          "previewTarget": "material:5a0f581f-ff79-4d72-b57a-1a541cfbd4bc",
+          "previewVersion": "bb4f46ac879d5daa075d89da5ee0f6f33adb0a18fd211f2104ee60d7ac6dd8d3",
+          "previewFormat": "markdown",
+          "previewComplete": "false"
+        },
+        "text": "安全清洗.md\n独立窗口\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n远程图片未自动请求。\n\n清洗核验\n 危险链接 合法材料",
+        "scripts": 0,
+        "eventAttributes": [],
+        "links": [
+          {
+            "text": "危险链接",
+            "href": null
+          },
+          {
+            "text": "合法材料",
+            "href": "longdoc://ddcedfbf-93a2-44e3-aab4-6541cb592282"
+          }
+        ],
+        "imageSources": [
+          null
+        ]
+      },
+      "remoteResourceEntries": []
+    }
+  }
+}

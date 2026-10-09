@@ -6,7 +6,7 @@
 
 `package-install-public-offline.json` 的完整实现提交为 `98c0d4e6d5122ff8a763683e96e25dd511928e36`。`final-*` 是该版本在仓库外、未改动 stock Logseq 的实际运行观察；`lifecycle-*` 使用同一安装包和另建可变合成 MD 验证外部更新、原路径缺失、工作范围切换与资源释放。
 
-`full-check-98c0d4e.log/exit` 为源码完整检查输出；716 business +5 sandbox +12 boundaries =733 tests，其中插件 482，退出 0。文档/证据提交之后没有修改实现源码。
+`full-check-98c0d4e.txt/exit` 为源码完整检查输出；716 business +5 sandbox +12 boundaries =733 tests，其中插件 482，退出 0。文档/证据提交之后没有修改实现源码。
 
 `original-bytes-final.json` 在生命周期验证之后重新核对 24 份原合成材料的完整哈希，全部未变；生命周期可变 MD、外部新加入的五个文件、另一范围页面是另建 fixture，不混入该原件集合。
 
@@ -24,4 +24,8 @@
 
 物理中文 IME、自由手动拖动/边缘 resize、Windows/Linux/其他 Logseq 版本、长时间运行/断电未实测。系统菜单移动与调整大小的实际位置/尺寸变化已经证明。B 的 Agent CLI 运输与最终跨模块联合验收归 B，尚未完成。
 
-A 最终 Graph 切换、卸载 worker/窗口清理以及目录 observer 失联/改名现场的后续记录应追加归档；上述已通过矩阵不代替这些剩余要求。
+`final-before/after-graph-switch` 与 `final-before/after-unload-resources` 记录了正常 UI 的实际 Graph 切换和插件停用：各自新增的主/子 PDF worker 和 child 清除，仅保留同一个宿主基线 worker。`final-listeners-before/after-unload` 证明 7 类材料监听全部移除。
+
+`final-observer-before/during-offline` 证明失联后的 29 项保留为 current=false；`final-rename-draft-before/after` 证明外部新增文件引发刷新时改名草稿/选区/焦点不变。`final-list-*` 补齐最终包的五类当前层列表进入。`final-malicious-network` 的只读网络观察在 native 打开之前已 ready，期间发生本地材料 bytes 请求且没有该 fixture 的远程图片请求。
+
+完整要求核对在 [completion-audit.md](completion-audit.md)。可移植的合成源文件与物化入口见 [desktop-acceptance](../../../../../apps/logseq-plugin/tests/fixtures/material-preview/desktop-acceptance/README.md)。

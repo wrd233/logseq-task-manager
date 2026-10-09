@@ -1,0 +1,169 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "selectedRoot": "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+      "roots": [
+        {
+          "text": "1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials"
+        },
+        {
+          "text": "2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B"
+        }
+      ],
+      "breadcrumbs": "materials",
+      "complete": "false",
+      "rows": [
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/空目录",
+          "current": "false",
+          "text": "▸ 空目录\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/一级",
+          "current": "false",
+          "text": "▸ 一级\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/nested",
+          "current": "false",
+          "text": "▸ nested\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/workspaces",
+          "current": "false",
+          "text": "▸ workspaces\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/安全清洗.md",
+          "current": "false",
+          "text": "安全清洗.md\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.docx",
+          "current": "false",
+          "text": "加密 中文.docx\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.pdf",
+          "current": "false",
+          "text": "加密 中文.pdf\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.xlsx",
+          "current": "false",
+          "text": "加密 中文.xlsx\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/旧格式.doc",
+          "current": "false",
+          "text": "旧格式.doc\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/路线.md",
+          "current": "false",
+          "text": "路线.md\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/生命周期 验收.md",
+          "current": "false",
+          "text": "生命周期 验收.md\n更多\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/损坏.pdf",
+          "current": "false",
+          "text": "损坏.pdf\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+          "current": "false",
+          "text": "同名.md\n更多\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+          "current": "false",
+          "text": "外部加入 验收.docx\n更多\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.md",
+          "current": "false",
+          "text": "外部加入 验收.md\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.pdf",
+          "current": "false",
+          "text": "外部加入 验收.pdf\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.png",
+          "current": "false",
+          "text": "外部加入 验收.png\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.xlsx",
+          "current": "false",
+          "text": "外部加入 验收.xlsx\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/正文.markdown",
+          "current": "false",
+          "text": "正文.markdown\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 表格.csv",
+          "current": "false",
+          "text": "中文 表格.csv\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多工作表.xlsx",
+          "current": "false",
+          "text": "中文 多工作表.xlsx\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多页扫描.pdf",
+          "current": "false",
+          "text": "中文 多页扫描.pdf\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 方案.docx",
+          "current": "false",
+          "text": "中文 方案.docx\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 旧表.xls",
+          "current": "false",
+          "text": "中文 旧表.xls\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.jpg",
+          "current": "false",
+          "text": "中文 图像.jpg\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.png",
+          "current": "false",
+          "text": "中文 图像.png\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.webp",
+          "current": "false",
+          "text": "中文 图像.webp\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/状态动画.gif",
+          "current": "false",
+          "text": "状态动画.gif\n上次可见 · 当前未核验"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/byte-probe.bin",
+          "current": "false",
+          "text": "byte-probe.bin\n上次可见 · 当前未核验"
+        }
+      ],
+      "text": "工作台\n关闭工作台\n材料\n关闭\n文件\n目录\n已关联\n\n拖入文件或文件夹\n\n复制到此工作的默认目录，保留原文件。\n1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials\n2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B\n刷新\n已关联与历史材料\nmaterials\n\nA requested file or directory could not be found at the time an operation was processed.\n\n首次读取：在访达复制当前目录，点击这里并粘贴，启用只读自动同步。继续只读同步\n▸ 空目录\n上次可见 · 当前未核验\n▸ 一级\n上次可见 · 当前未核验\n▸ nested\n上次可见 · 当前未核验\n▸ workspaces\n上次可见 · 当前未核验\n安全清洗.md\n上次可见 · 当前未核验\n加密 中文.docx\n上次可见 · 当前未核验\n加密 中文.pdf\n上次可见 · 当前未核验\n加密 中文.xlsx\n上次可见 · 当前未核验\n旧格式.doc\n上次可见 · 当前未核验\n路线.md\n上次可见 · 当前未核验\n生命周期 验收.md\n更多\n上次可见 · 当前未核验\n损坏.pdf\n上次可见 · 当前未核验\n同名.md\n更多\n上次可见 · 当前未核验\n外部加入 验收.docx\n更多\n上次可见 · 当前未核验\n外部加入 验收.md\n上次可见 · 当前未核验\n外部加入 验收.pdf\n上次可见 · 当前未核验\n外部加入 验收.png\n上次可见 · 当前未核验\n外部加入 验收.xlsx\n上次可见 · 当前未核验\n正文.markdown\n上次可见 · 当前未核验\n中文 表格.csv\n上次可见 · 当前未核验\n中文 多工作表.xlsx\n上次可见 · 当前未核验\n中文 多页扫描.pdf\n上次可见 · 当前未核验\n中文 方案.docx\n上次可见 · 当前未核验\n中文 旧表.xls\n上次可见 · 当前未核验\n中文 图像.jpg\n上次可见 · 当前未核验\n中文 图像.png\n上次可见 · 当前未核验\n中文 图像.webp\n上次可见 · 当前未核验\n状态动画.gif\n上次可见 · 当前未核验\nbyte-probe.bin\n上次可见 · 当前未核验"
+    }
+  }
+}

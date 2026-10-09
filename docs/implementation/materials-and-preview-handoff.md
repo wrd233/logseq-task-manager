@@ -32,7 +32,7 @@
 
 ### 公开组合
 
-`apps/logseq-plugin/src/index.ts` 发布 `window.taskCopilotWorkbench.materials`；宿主运行时也将组合 API 放在既有 host 上。B 应在既有受信本地通道中适配此服务，不复制元数据扫描/UUID 算法，不向外部 payload 开放任意 actor 或权限。
+`apps/logseq-plugin/src/index.ts` 在插件 iframe 的 `window` 上发布 `taskCopilotWorkbench.materials`。它不是 native parent window 的全局变量。B 应在既有受信本地通道中适配此服务，不复制元数据扫描/UUID 算法，不向外部 payload 开放任意 actor 或权限。
 
 ```ts
 materials.resolveFile({path: absoluteFilePath, sourceUuid: workRootUuid})
@@ -130,7 +130,13 @@ B 的 Agent 目录命令可以调用 `MaterialDirectoryBrowser` 核心并提供�
 | 明暗主题 | 最终安装包深色模式传入窗口，Word 表格文字和背景实际变化、图片仍显示；`final-window-dark.json/png`、`final-window-dark-colors.json`、`final-sheet-dark-colors.json` |
 | 外部变化/失联 | 合成 MD 外部更新后旧 version 不变、显示“原文件已变化”；移走原路径显示 ENOENT 并保留旧快照；重新打开为新 version；`lifecycle-before-change.json`、`lifecycle-after-change.json`、`lifecycle-original-missing.json`、`lifecycle-current-window.json` |
 | 工作切换清理 | 真实 UI 切到另一工作，旧 child target 消失；已知图片 blob 从 live/17207 bytes 变成 Failed to fetch；`lifecycle-targets-after-work-switch.json`、`lifecycle-resource-live.json`、`lifecycle-resource-after-work-switch.json` |
-| 原件保持 | 24 份原合成材料 SHA-256 无变化；`original-bytes-after-native-and-directory.json`。生命周期可变文件为另建合成 fixture，不属于这些原件 |
+| Graph 切换清理 | 原生菜单添加并切到另一个自有 Graph，主/子 PDF worker 从 3 个总 worker 回到同一个宿主基线 worker；child 消失、preview 为空；`final-before-graph-switch.json`、`final-after-graph-switch.json`、`final-after-graph-switch-view.json` |
+| 正常停用/卸载 | 正常插件管理页开关从 1 到 0；主/子 PDF worker 与 child 消失，材料 click/pointer/mouse/hover/composition 共 7 类监听从每类 1 个变为 0，插件 iframe 移除；`final-before-unload-resources.json`、`final-after-unload-resources.json`、`final-listeners-before/after-unload.json` |
+| Graph assets | 原生 `graph/assets/只读扫描.pdf` 以 asset target 阅读，SHA 等于原 PDF；不创建替代材料正文；`final-graph-asset.json`、`final-graph-asset-window.json` |
+| 目录失联与草稿 | 实际移走 A 根后 29 项全部保留为 current=false，显示失联原因；恢复原目录。外部新增文件引发刷新后改名草稿 value/selection/active/connected 不变；`final-observer-before/during-offline.json`、`final-rename-draft-before/after.json` |
+| 最终包从列表打开 | 同一真实当前层列表分别打开 MD/Word/PDF/Excel/图片；Word/PDF/Excel/PNG 的 UUID 和 SHA 与原生引用进入一致；`final-list-md/docx/pdf/xlsx/image.json` |
+| 不可信内容 | 实际安全 MD 的 script=0、事件属性为空、javascript href 移除、合法材料 href 保留，XSS flag 未设置；先开启只读网络观察再由 native UI 打开，16 秒内无 preview.invalid 请求；`final-malicious-preview.json`、`final-malicious-network.json` |
+| 原件保持 | 24 份原合成材料 SHA-256 无变化；`original-bytes-final.json`。生命周期可变文件为另建合成 fixture，不属于这些原件 |
 
 窗口最多 4 个，同材料同版本再次放大聚焦既有窗口。主面板在同工作内切材料不会给独立窗口换目标。文件改变/消失时显示已打开旧快照与问题；窗口仍在阅读时其资源有明确所有者，关闭/范围失效后释放。window.open 由同步可信点击调用。
 
@@ -152,9 +158,11 @@ FileIO 新能力可选，缺能力显式失败，原 text 调用兼容。已有 
 
 这是 A 的材料功能验收，不能推出整插件已成熟或可放心写入生产。此前生产审计发现的 Kernel/CLI schema/backup、自动状态写入、路径与外部写入竞态等基线风险不由本分支修复。stock Desktop 不提供物理身份，路径边界为现有词法校验；不能宣称获得 realpath/symlink 级隔离。
 
-## 尚需完成的验收与 B 联调
+## 可移植复验与 B 联调
 
-A 当前仍需补齐最终安装版实际 Graph 切换/卸载的 worker 与窗口清理、最新 Graph asset 路径、目录 observer 的失联状态与行内改名刷新现场，并将结果追加到证据归档。此文档建立不代表 goal 完成。
+A 的上述材料实施与隔离运行验收已经完成。完整矩阵还区分了实际 Desktop、真实文件 IO 回归和未实测项，见 [completion-audit.md](assets/materials-and-preview/runtime/completion-audit.md)。不能把 A 的完成扩大为整个插件生产成熟度或 B 联调完成。
+
+24 份合成原样本随仓库交付在 [desktop-acceptance](../../apps/logseq-plugin/tests/fixtures/material-preview/desktop-acceptance/README.md)，以可跨平台 checkout 的数字文件名存储，manifest 保留真实验收名和 SHA。`materialize.mjs` 只接受新建目的目录，按原始字节还原 A/B 根。已经实际物化并核对 24 份 SHA，脚本 lint 通过；它不是实际 Desktop 验收的替代品。新电脑应从本机 `resolveFile` 获取 UUID，不复用此处 A 的运行 UUID；无需原电脑的绝对路径、Lab 或聊天。
 
 B 合入完整 A 提交后必须：
 

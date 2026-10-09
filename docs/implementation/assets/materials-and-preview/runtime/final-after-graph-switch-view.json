@@ -1,0 +1,161 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "title": "",
+      "preview": [],
+      "buttons": [
+        {
+          "text": "阅读当前工作或继续阅读",
+          "disabled": false
+        },
+        {
+          "text": "打开当前块的工作",
+          "disabled": false
+        },
+        {
+          "text": "查找全部材料",
+          "disabled": false
+        },
+        {
+          "text": "正式任务",
+          "disabled": false
+        },
+        {
+          "text": "插件设置",
+          "disabled": false
+        },
+        {
+          "text": "关闭工作台",
+          "disabled": false
+        },
+        {
+          "text": "‹ 材料列表",
+          "disabled": false
+        },
+        {
+          "text": "关闭",
+          "disabled": false
+        },
+        {
+          "text": "返回正文",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿并继续",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿后加载外部版本",
+          "disabled": false
+        },
+        {
+          "text": "在 Logseq 写作",
+          "disabled": true
+        },
+        {
+          "text": "查看原结构查看并调整展示排列；原文结构保持",
+          "disabled": true
+        },
+        {
+          "text": "只看选定范围保留完整来源块；随时返回全文",
+          "disabled": true
+        },
+        {
+          "text": "重新读取正文从当前来源核对，保留安全保护",
+          "disabled": true
+        },
+        {
+          "text": "显示原生页面继续当前原生输入，保留阅读位置",
+          "disabled": true
+        },
+        {
+          "text": "跟随工作对象点击默认固定当前工作；选中普通子块不会切换",
+          "disabled": true
+        },
+        {
+          "text": "正文",
+          "disabled": true
+        },
+        {
+          "text": "材料",
+          "disabled": true
+        },
+        {
+          "text": "",
+          "disabled": false
+        },
+        {
+          "text": "审阅与历史",
+          "disabled": true
+        },
+        {
+          "text": "上一问题",
+          "disabled": false
+        },
+        {
+          "text": "取消等待",
+          "disabled": false
+        },
+        {
+          "text": "完整内容",
+          "disabled": false
+        },
+        {
+          "text": "协作",
+          "disabled": false
+        },
+        {
+          "text": "开始阶段",
+          "disabled": false
+        },
+        {
+          "text": "取消",
+          "disabled": false
+        },
+        {
+          "text": "记录当前版本",
+          "disabled": false
+        },
+        {
+          "text": "认可这个版本",
+          "disabled": false
+        },
+        {
+          "text": "查看待认可版本",
+          "disabled": false
+        },
+        {
+          "text": "看本阶段全部变化",
+          "disabled": false
+        },
+        {
+          "text": "返回原位置",
+          "disabled": false
+        },
+        {
+          "text": "连接正文维护",
+          "disabled": true
+        },
+        {
+          "text": "允许润色与原块整理",
+          "disabled": true
+        },
+        {
+          "text": "断开工作连接",
+          "disabled": false
+        }
+      ],
+      "text": "工作台阅读当前工作或继续阅读打开当前块的工作查找全部材料正式任务插件设置关闭工作台\n‹ 材料列表只读扫描.pdf关闭返回正文检测到外部版本变化，当前草稿已保留。另存草稿并继续另存草稿后加载外部版本工作台选择一份工作在 Logseq 写作工作选项查看原结构查看并调整展示排列；原文结构保持只看选定范围保留完整来源块；随时返回全文重新读取正文从当前来源核对，保留安全保护显示原生页面继续当前原生输入，保留阅读位置跟随工作对象点击默认固定当前工作；选中普通子块不会切换正文材料审阅与历史上一问题取消等待完整内容阶段记录协作按有意义的结果开始阶段。记录当前版本只保存在本机，不发送或发布。开始阶段取消记录当前版本认可这个版本查看待认可版本看本阶段全部变化返回原位置历史、比较与阶段成果阶段历史成果文件当前所见版本详情还没有记录修订版本。连接与原文维护说明当前工作尚未连接；本地正文、材料和历史可独立使用。先关联这份工作的目录，在终端启动 workspace serve，并在插件设置填写它的私有 descriptor 路径。连接只准备受限通道，不会启动模型或发送消息。task-copilot workspace serve --state-dir <私有状态目录>连接正文维护允许润色与原块整理断开工作连接给 agent 的开始工作提示先从正式工作连接识别当前目录，refresh 并 read 当前 scope、来源正文、能力及 contentVersion／structureVersion。镜像、报告小标题和展示顺序不是写入依据。\n只有用户要求维护原文时才润色或移动。完整保留无标记正文、疑问、未知标记、重复记录、普通 TODO、条件和反例，保留 [注]／[想法]／[目标] 的行首风格与语气，不把未确定记录写成确定结论，不批量加报告标题，不修改正式／受管理字段或执行 TODO。\n文本授权不包含结构授权。真实移动只用现有 schemaVersion 2 move-block／SDK adapter，核对真实 BlockTarget、父级、正文和结构版本，保留 UUID、子树、引用和对象归属；禁止复制／删除再建模拟移动。过期、越界、原生输入或正式保护应按现有规则拒绝。\n查看逐项结果；部分成功保持部分，未知结果先用原 requestId 查询／恢复，不盲目重放。下一步先重新读取当前来源。在本地已开始的同一阶段用 stage.submit 记录真实文本与结构事实；外部 agent 不能开始阶段或代用户认可。参考／输入材料权限不扩大。\n      .wb-stage-bar{padding:6px 14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--ls-border-color,#ddd)}\n      .wb-stage-bar>span{flex:1;min-width:180px}.wb-stage-bar input{max-width:260px}.wb-stage-bar details[open]{width:100%}\n      .wb-stage-bar [hidden]{display:none!important}.wb-collaboration-controls{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center}\n      .wb-stage-bar .wb-notice{color:inherit;opacity:.75}\n      .wb-stage-bar>small:not(.wb-error){width:100%;opacity:.75}.wb-collaboration-controls>details{font-size:12px}\n      .wb-stage-bar details pre,.wb-review-info pre{white-space:pre-wrap;max-height:280px;overflow:auto}\n      .wb-stage-bar .wb-stage-entry{display:block;text-align:left;width:100%;border:0;margin:3px 0}\n      .wb-review-change{border-left:2px solid var(--ls-link-text-color,#79978b)}\n      .wb-review-info,.wb-review-editor{grid-column:3 / 5;font-size:12px}.wb-review-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}\n      .wb-review-info>span{border-bottom:1px dotted currentColor;opacity:.75}.wb-review-info details[open],.wb-review-info small{width:100%}\n      .wb-review-old{max-height:300px;overflow:auto}.wb-review-old p{margin:4px 0}\n      .wb-review-insert{color:inherit;background:rgba(121,151,139,.2);border-bottom:2px solid currentColor}.wb-review-info del{text-decoration-thickness:2px}\n      .wb-review-editor textarea{width:100%;min-height:130px;resize:vertical;white-space:pre-wrap}\n      .wb-review-history .wb-grip{visibility:hidden}\n      .wb-review-history .wb-body{grid-column:3;min-width:0}\n      @media(prefers-reduced-motion:reduce){.wb-review-change,.wb-review-insert{transition:none!important;animation:none!important}}\n    ",
+      "windows": {
+        "outerWidth": 980,
+        "outerHeight": 700,
+        "innerWidth": 384,
+        "innerHeight": 652,
+        "screenX": 230,
+        "screenY": 44
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "about:blank",
+      "title": "只读扫描.pdf",
+      "preview": [
+        {
+          "dataset": {
+            "previewTarget": "asset:<A_WORKTREE>/tmp/materials-preview-desktop/graph/assets/只读扫描.pdf",
+            "previewVersion": "e046b7b383c12d9ba2e869d3f006224f5e9528f14e9f8ba32db4ad71b8a45130",
+            "previewFormat": "pdf",
+            "previewComplete": "true"
+          },
+          "text": "只读扫描.pdf\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n上一页\n下一页\n适配宽度\n−\n+\n1 / 2 页 · 100%",
+          "images": [],
+          "tables": [],
+          "canvases": [
+            {
+              "width": 1190,
+              "height": 1684,
+              "sample": [
+                255,
+                255,
+                255,
+                255
+              ]
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "text": "上一页",
+          "disabled": true
+        },
+        {
+          "text": "下一页",
+          "disabled": false
+        },
+        {
+          "text": "适配宽度",
+          "disabled": false
+        },
+        {
+          "text": "−",
+          "disabled": false
+        },
+        {
+          "text": "+",
+          "disabled": false
+        }
+      ],
+      "text": "只读扫描.pdf\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n上一页\n下一页\n适配宽度\n−\n+\n1 / 2 页 · 100%",
+      "windows": {
+        "outerWidth": 900,
+        "outerHeight": 720,
+        "innerWidth": 900,
+        "innerHeight": 692,
+        "screenX": 270,
+        "screenY": 90
+      }
+    }
+  }
+}

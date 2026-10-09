@@ -1,0 +1,18 @@
+{
+  "pid": 4115,
+  "port": 19447,
+  "resources": [
+    {
+      "id": "DB9FCAD875497EAF16E1A7FC2EA1EE24",
+      "type": "page",
+      "title": "Logseq",
+      "url": "file://<A_WORKTREE>/tmp/materials-preview-desktop/Logseq.app/Contents/Resources/app/electron.html#/"
+    },
+    {
+      "id": "85CB2FC2514D5DE4EB6278AB3C6FEA05",
+      "type": "worker",
+      "title": "",
+      "url": ""
+    }
+  ]
+}
