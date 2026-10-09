@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-09T15:56:48.345Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "status": "saved native input node/text/selection preserved through title and file actions",
+  "nativeInput": {
+    "uuid": "b7261007-0000-4000-8000-000000000028",
+    "backendNodeId": 71635,
+    "selection": {
+      "start": 9,
+      "end": 21
+    },
+    "valuePreserved": true,
+    "nodePreserved": true,
+    "selectionPreserved": true,
+    "focus": {
+      "before": true,
+      "afterTitle": false,
+      "afterMaterial": true
+    }
+  },
+  "titleSources": {
+    "requested": 6,
+    "marked": 6,
+    "visible": 0
+  },
+  "preview": {
+    "target": "material:b8ae401d-0818-4eb7-a958-2b4ac8ad262d",
+    "version": "34d5d0d525f75147a43fc4df64e5ea7d048b4c3737f940d470c407115d65fa94"
+  },
+  "sourceUnchanged": true,
+  "graphUnchanged": true,
+  "fileClickSourceSetsPreserved": true,
+  "physicalIme": false,
+  "unsavedDraftEstablished": false,
+  "limits": [
+    "The selected input contained saved text; unsaved draft was not established",
+    "Focus moved to the deliberately chosen reading control",
+    "No physical IME, clipboard, platform or ordinary IO-race acceptance"
+  ],
+  "rawEvidence": [
+    "input-before-title-runtime.json",
+    "input-after-title-runtime.json",
+    "input-after-material-runtime.json"
+  ]
+}
