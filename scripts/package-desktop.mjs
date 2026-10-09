@@ -12,7 +12,10 @@ import process from 'node:process';
 import console from 'node:console';
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),base=join(homedir(),'Library/Caches/task-copilot-package-acceptance'),command=process.argv[2],name=process.argv[3];
 if(process.platform!=='darwin'||!name||!/^[a-z][a-z0-9-]{3,70}$/u.test(name))throw Error('macOS and an explicit owned instance name required');
-const root=join(base,name),paths={root,app:join(root,'Logseq Package Acceptance.app'),home:join(root,'home'),profile:join(root,'profile'),graph:join(root,'graph'),evidence:join(root,'evidence'),channel:join(root,'channel'),work:join(root,'work'),workTwo:join(root,'work-two')},plugin=join(root,'installation/task-copilot-workbench'),manifestPath=join(root,'manifest.json'),port=19349;
+const root=join(base,name),manifestPath=join(root,'manifest.json'),saved=existsSync(manifestPath)?JSON.parse(readFileSync(manifestPath,'utf8')):null;
+const app=saved?.app??join(root,'Logseq '+name+'.app');
+if(![join(root,'Logseq Package Acceptance.app'),join(root,'Logseq '+name+'.app')].includes(app))throw Error('Unknown owned application path');
+const paths={root,app,home:join(root,'home'),profile:join(root,'profile'),graph:join(root,'graph'),evidence:join(root,'evidence'),channel:join(root,'channel'),work:join(root,'work'),workTwo:join(root,'work-two')},plugin=join(root,'installation/task-copilot-workbench'),port=19349;
 const sha=value=>createHash('sha256').update(value).digest('hex'),run=(executable,args)=>{const result=spawnSync(executable,args,{encoding:'utf8'});if(result.status!==0)throw Error(result.stderr||String(result.error));return result.stdout;};
 const owned=()=>{const m=JSON.parse(readFileSync(manifestPath,'utf8'));if(m.root!==root||m.plugin!==plugin||m.port!==port||!m.ownerToken||Object.entries(paths).some(([key,value])=>m[key]!==value)||realpathSync(root)!==root)throw Error('Owned package instance identity changed');return m;};
 const record=kind=>{
@@ -70,7 +73,7 @@ electron.autoUpdater.checkForUpdates=()=>{};electron.autoUpdater.setFeedURL=()=>
 fs.writeFileSync(paths.evidence+'/isolation-runtime.json',JSON.stringify({pid:process.pid,home:electron.app.getPath('home'),osHome:os.homedir(),userData:electron.app.getPath('userData'),appData:electron.app.getPath('appData'),capabilityInjection:false},null,2),{mode:0o600});
 require(${JSON.stringify('./'+original)});
 `);
-  run('/usr/libexec/PlistBuddy',['-c','Set :CFBundleIdentifier com.taskcopilot.logseq.package-acceptance',join(paths.app,'Contents/Info.plist')]);
+  run('/usr/libexec/PlistBuddy',['-c','Set :CFBundleIdentifier com.taskcopilot.logseq.package-acceptance.'+name,join(paths.app,'Contents/Info.plist')]);
   run('/usr/bin/codesign',['--force','--deep','--sign','-','--entitlements',join(resources,'entitlements.plist'),paths.app]);
   writeFileSync(manifestPath,JSON.stringify({...paths,plugin,port,ownerToken:randomUUID(),logseqVersion:pkg.version,sourceApp:source,prepared:new Date().toISOString(),zipHash:sha(readFileSync(join(root,'installation.zip'))),identity,stage:'package-preflight',capabilityInjection:false},null,2)+'\n',{mode:0o600,flag:'wx'});
   console.log(JSON.stringify({prepared:true,root,plugin,zipHash:sha(readFileSync(zip)),commit:identity.commit,files:Object.keys(identity.files).length,outsideRepository:true,capabilityInjection:false}));

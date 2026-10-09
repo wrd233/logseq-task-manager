@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "status": "listed integration paths verified; final matrix incomplete",
+  "at": "2026-10-09T05:17:51.468Z",
+  "aDelivery": "d0c38706b79c63f6f5b15e16286e1c49d28736ff",
+  "mergeCommit": "a5e0888c9d512045bf6805437517f4db67b44b67",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "installedResources": 615,
+  "root": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first",
+  "capabilityInjection": false,
+  "bootstrap": {
+    "missingGraphSafe": true,
+    "apiPublished": true,
+    "unhandledExceptions": 0
+  },
+  "reading": {
+    "sources": 101,
+    "layouts": 2,
+    "comparisonHeadings": 4,
+    "realStructureRows": 101,
+    "fullChineseSequenceChecks": 101,
+    "sourceVersionsOrderAndDepthPreserved": true,
+    "graphBytesUnchanged": true,
+    "permissionsDenied": [
+      "CONTENT_WRITE_AUTHORIZATION_REQUIRED",
+      "FILE_WRITE_AUTHORIZATION_REQUIRED",
+      "TODO_AUTHORIZATION_REQUIRED"
+    ],
+    "sourceHighlight": 25,
+    "userWorkspacePreserved": true
+  },
+  "doing": {
+    "originalSourcesPreserved": true,
+    "createdChild": "b3b225ad-143d-56cc-a8a1-e5d8ae7ae168",
+    "childCompleteVerified": true,
+    "parentStillTodo": true,
+    "duplicateChildren": 0,
+    "fileOnlyCaptureNoGraphWrite": true,
+    "materialId": "b69b406e-d078-4a86-98fa-9187c06b475b",
+    "fileName": "退出条件原句比较.md",
+    "reference": "[📄 退出条件原句比较\\.md](longdoc://b69b406e-d078-4a86-98fa-9187c06b475b)",
+    "version": "5ab39a92e5de425b52dcbbd823fbf518aae50d4847cf6b520c89229e152013bb",
+    "physicalIdentity": "unverified",
+    "resolutionStatus": "needs-verification",
+    "journalOrigin": {
+      "kind": "verified-local-agent",
+      "instanceId": "27c88293-ff77-464d-b979-de595aaf78a4",
+      "connectionId": "cce1cca1-7681-4122-865d-65e2e47135a7",
+      "clientLabel": "todo-desktop",
+      "transportRequestId": "394b9d54-6f0d-4814-9511-5f11635f2ef2",
+      "command": "todo.apply",
+      "guidance": {
+        "loading": "explicit-read",
+        "sourceLoadedAt": "2026-10-09T01:10:18.760Z",
+        "returnedAt": "2026-10-09T01:10:18.763Z",
+        "common": {
+          "key": "agent-collaboration-common-guidance-v1",
+          "version": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee"
+        },
+        "project": {
+          "key": "agent-collaboration-project-guidance-v1-3ce690628a86830e83a45a2477438cfaf6a4b1104a525145afea22758c1ed6d0",
+          "version": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  },
+  "preview": {
+    "actualNativeReference": true,
+    "sameMaterialAndVersion": true,
+    "savedNativeSourceUnchanged": true,
+    "noNewSourceHighlights": true,
+    "visibleSourceCountChanged": {
+      "before": 9,
+      "after": 0
+    },
+    "independentWindow": true,
+    "nativeResize": {
+      "before": {
+        "innerWidth": 900,
+        "innerHeight": 692,
+        "outerWidth": 900,
+        "outerHeight": 720,
+        "screenX": 270,
+        "screenY": 90
+      },
+      "after": {
+        "innerWidth": 1440,
+        "innerHeight": 785,
+        "outerWidth": 1440,
+        "outerHeight": 813,
+        "screenX": 0,
+        "screenY": 25
+      }
+    },
+    "sameTargetVersionAfterResize": true,
+    "moveAttempt": {
+      "actualPositionChanged": false,
+      "firstAndSecondDragDidNotMove": true
+    },
+    "earlierStrictLocationEquality": "failed: actual visible source counts changed when materials replaced the reading panel; requested and highlighted sets did not change"
+  },
+  "restart": {
+    "sources": 102,
+    "allConnectionPermissionsRevoked": true,
+    "oldPlansInactive": true,
+    "previewAbsent": true
+  },
+  "remaining": [
+    "two further writing exercises and formatting stale proposal replay",
+    "common guidance two-workspace version refresh",
+    "five-format/two-root/nested-directory and lifecycle final matrix",
+    "actual Kernel formal objects and readonly Journal reconnect",
+    "physical IME, clipboard/Finder preservation, other platforms and ordinary IO races"
+  ],
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence"
+}

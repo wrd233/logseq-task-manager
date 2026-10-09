@@ -104,8 +104,28 @@ B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`
 
 摘要 [package-stage-evidence.json](assets/reading-agent/package-stage-evidence.json) 由 `scripts/package-stage-evidence.mjs NAME` 从实际原始记录核对生成；原始记录位于该自有 Cache 实例的 evidence 目录。探针已改为观测 SDK 的真实 collapsed? 字段，DOM class 不能证明折叠状态。两次阶段包均保留，各自进程已核对停止。这些是 B 单支预检，不能代替 A+B 最终包三条写作/五类预览/独立窗口矩阵。
 
-仍需实施并验证：A 明确交付提交合入和接口适配；最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；跨工作导航、物理 IME 及晚到调用的更多宿主验证；五类预览/目录/独立窗口；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。
+仍需实施并验证：最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；跨工作导航、物理 IME 及晚到调用的更多宿主验证；五类预览/目录/独立窗口；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。
 
 合入后针对材料解析、文件许可、符号链接拒绝、无 Graph 写入、来源高亮优先委托及失联方案失效的 10 项回归通过，日志 `tmp/integration-adapter-tests.log`；全仓类型检查通过。独立依赖安装仍报告 3 high / 4 moderate，不宣称依赖无漏洞。日常材料预览/窗口/目录及实际 Agent resolve 指南已更新。`scripts/acceptance-context.mjs` 与原演练脚本新增明确 `--package NAME`，核对实际 clean ZIP、全部资源、限定自有 Cache 路径并运行包内 CLI；不会复用旧开发现场或注入许可。包验收解压器保留命令启动器执行权限，最终实际启动器仍需验收。合并后的 `tmp/a-b-integration-check.log` 全量通过 798 项，零失败/跳过/取消，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 均通过。新仓库外完整矩阵待执行，不把这次函数/CLI 夹具检查记为最终 Desktop 通过。
+
+最终组合包已从干净实施提交 `31b1a751a0df5c582da776fc2e271ee8bd4ec119` 生成，`tmp/reading-package-staging/task-copilot-workbench-integrated.zip` 的 SHA 为 `d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae`，618 项、615 个实际运行资源逐项一致。全新仓库外实例为用户 Cache 下 `integrated-final-first`；24 个可携带 A 合成样本逐字节还原到独立 preview-corpus，未使用生产资料。隔离宿主共用应用标识影响真实键盘目标，已仅调整自有宿主名称/标识及系统登记，不改 SDK/IPC/FileIO。实际插件/companion/工作目录一直在仓库外，插件资源保持该 ZIP 原始字节。首启缺图无异常；真实 UI 选定本次 Graph、关联实际工作目录、保留用户 WORKSPACE.md，建立 101 来源只读现场。
+
+同包实际通过连续/对照读法（0/4 标题）、同方案重试、25 个真实来源定位及三个独立未授权写入拒绝。真实 UI 的原结构往返核对 101 行原序/深度/内容，返回对照后逐来源中文原句序列和保存版本核验通过；这段操作来源与 Graph 字节均保持。随后明确本次“保存两段退出条件原句”请求，本地独立文件许可和仅第 48 块及后代的新建/完成 TODO 许可；正文未授权。包内实际 CLI 保存比较文件，新增一个真实子任务、有据完成、按相同请求返回同一 Journal，原 101 来源保持、原父询问仍 TODO，未新增重复子项或总结树。真实 A materials.resolve 返回同一材料 ID/完整文件名/reference；Stock Desktop 不能确认物理身份，结果如实为 unverified/needs-verification，不称已核验 inode 或可自动跟随外部改名。
+
+实际点击原生 DONE 子项中的 reference，打开同一 ID/文件 SHA 的 Markdown 内置预览，完整原句与核验依据可读。预览前后实际 SDK 原来源深比较保持，已请求/已标记来源集合保持；可见数量从 9 变 0，因为材料替换阅读面板，先前严格整份定位对象相等断言失败保留。不能把可见数量变化说成文件点击新建高亮，也不能把整份定位状态说成完全不变。通过真实“独立窗口”点击创建 about:blank 原生窗，独立只读 probe 核对其实际 opener 为此包插件且 Graph 相同，目标/版本一致；实际原生缩放由 900×720 变 1440×813，目标/版本保持。两次标题栏拖动尝试实际位置未变，移动不计通过，系统“移动与调整大小”后续待验。
+
+后续进入一轮时原 PID/完整命令核对均实际缺失，才在同一包/Graph/profile 上正常重启；102 来源恢复，旧阅读计划不活动、预览不存在，连接和读/正文/结构/文件/TODO/认可均 false。用户手动解锁后，已通过真实入口只读重连，原 TODO 请求返回同一可靠 Journal，来源不变、不重复创建，正文/文件/TODO 均未授权。组合安装预检摘要为 [package-integration-stage-evidence.json](assets/reading-agent/package-integration-stage-evidence.json)，前述 B-only 包证据继续分开保留。正式对象及资源生命周期等剩余项不记为整项完成。
+
+同一组合包的三条协作流程、共同指导和核心格式路径已继续实际完成，摘要为 [package-collaboration-stage-evidence.json](assets/reading-agent/package-collaboration-stage-evidence.json)，由 `scripts/package-collaboration-evidence.mjs --package integrated-final-first` 核对原始记录生成；没有修改包内插件/CLI 或补造宿主能力。第二工作通过真实目录关联使用 `work-two`、讨论块真实 UUID 范围，保留已有用户 WORKSPACE.md。先拒绝未授权正文和文件，再从本地入口分别授予正文/文件许可，TODO 未授予。两轮只新增同一条想法 `be05fc96-bfeb-58e9-af46-bfc1caf75446` 并续写第二轮，保留目前偏向、可能、尚未询问和实际服务 reference；原 26 来源不变、询问 TODO 未完成。停止后实际 WORKSPACE_OFFLINE；只读重连的 result/recover/同请求 apply 返回同一日志，落盘来源不变。
+
+共同指导只在真实 UI 的明确保存入口补充一次，两个入口实际重读同一新版 `ee07ef4d1d54982ad5bc70c1a69b34dae6abf582517e1e5b54da5f717a5f2939`。旧现场仍识别旧版 `b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee` 且 guidanceMatches=false；重准备后为 true。项目甲、乙分别保存且保留不同差异版本，两份用户 WORKSPACE.md 原样保留。
+
+零散流程在实际 103 来源上生成连续段落和四标题局部对照，实际 DOM 每个来源恰好出现一次且版本一致。用户通过原生编辑器在第 28 来源补充两条离线条件后，旧阅读方案 stale-reading-plan；旧格式请求在本地确认时 0/1、FORMAT_SOURCE_CHANGED、Journal 已确认。明确保留当前后重新生成第 32 来源 `[问一下]` 单处加粗提议，经真实本地确认 1/1 APPLIED_VERIFIED；仅此行首差异，身份、层级、顺序、属性、TODO 和用户新条件保留。格式表单重开默认仍选旧提议；第一次再次确认只返回旧冲突日志，未写入。实际切到第 3 个新版提议后才通过，不把错误选择记为新版冲突。
+
+核心格式已在同一 ZIP 中从材料列表/原生引用/阅读正文引用分别打开 MD、DOCX、中文多页 PDF、XLSX 和 PNG，主面板与独立原生窗口的目标/文件 SHA 相同。MD 有实际中文图片、表格、代码及相对文件链接；DOCX 有标题、段落、列表、3 行表格和真实图片；PDF 文字页与扫描页实际可见，包内 worker/字体资源生效；XLSX 有合并区域、351 行第二表的 101–200 分页，缺公式保存值明确提示，故其 complete=false 是部分预览事实；不计算公式、不冒充全部工作簿完整。五类正文点击前后已保存来源及 requested/highlighted 集合不变，未误触来源定位。合成引用块由真实原生编辑器附加服务返回 reference，原槽位文字仍保留；这一步为验收资料准备，不能冒充 Agent 写回。
+
+实际访达新窗口复制本次两个合成目录，向真实材料只读入口粘贴后当前层可读；没有伪造 Clipboard/FSA/IPC。第一根外部新增合成 MD 自动出现，一级/二级及逐层返回真实可用；两个根的同名 MD 的实际 ID、SHA 和正文分别独立。24 原样本 SHA 全部保持。独立窗口自由拖动仍未证明；系统“Window→移动与调整大小→左侧”实际改变位置/尺寸且同版本。只读 DOM/SDK 观察脚本需要 Node 24 的原生 WebSocket；Node 20 仍是实际插件 CLI/companion/Kernel 与构建运行时，前次用 Node 20 跑观察器的 constructor 错误不记为插件异常。
+
+剩余组合包验收：真正 Kernel 注册对象与正式端口/普通 TODO 边界；原生输入、选区与折叠来源的最终复验；改名/失联/范围及 Graph 切换/正常停用的窗口、worker、监听和资源释放；Page 范围与升级恢复复验。物理 IME、完整剪贴板保留、跨平台、普通 IO 竞态和长时间浸泡仍未实测。基线生产风险仍存在，798 自动检查和上述路径通过不能推出整个插件已生产成熟。

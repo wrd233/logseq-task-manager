@@ -7,14 +7,17 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile);
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile);
 const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));
-const directory=resolve(process.argv[2]??manifest.work),name=process.argv[3]??'collaboration-first';
+acceptancePlugin(manifest,repo);
+const positional=process.argv.slice(2).filter((value,index,args)=>value!=='--package'&&args[index-1]!=='--package');
+const directory=resolve(positional[0]??manifest.work),name=positional[1]??'collaboration-first';
 if(!directory.startsWith(root+'/')||!/^collaboration-[a-z0-9-]+$/u.test(name))throw Error('Owned workspace/evidence required');
 const cli=async(words,input)=>{
   const args=[];
   if(input!==undefined){const path=join(root,'evidence',`${name}-patch.json`);await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const result=await exec(process.execPath,[join(manifest.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',directory,'--state-dir',manifest.channel,'--client','collaboration-desktop','--json'],{timeout:30000});return JSON.parse(result.stdout);
+  const result=await exec(process.execPath,[join(manifest.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',directory,'--state-dir',manifest.channel,'--client','collaboration-desktop','--json'],{cwd:root,timeout:30000});return JSON.parse(result.stdout);
 };
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const graphFile=join(manifest.graph,'pages/合成阅读与协作.md'),before=sha(await readFile(graphFile));
@@ -29,5 +32,5 @@ for(const [words,input,expected] of [[['content','apply'],patch,'CONTENT_WRITE_A
   catch(error){const stderr=error.stderr??String(error);if(!stderr.includes(expected))throw error;rejected.push({command:words.join('.'),code:expected});}
 }
 const after=sha(await readFile(graphFile));if(before!==after)throw Error('Read-only exercise changed Graph Markdown');
-const evidence={observedAt:new Date().toISOString(),scope:status.binding.scope,workspaceId:status.binding.workspaceId,directory,common:{key:guidance.common.source.key,version:guidance.common.version,origin:guidance.common.source.origin,text:guidance.common.text},project:{key:guidance.project.source.key,version:guidance.project.version,text:guidance.project.text},scene:{id:packet.scene.sceneId,blocks:packet.scene.savedSource.blocks.length,request:packet.scene.request,guidanceVersions:{common:packet.scene.guidance.common.version,project:packet.scene.guidance.project.version},nativeDraft:packet.scene.nativeDraft,current:packet.current},permissions:{body:status.capabilities.content,file:status.capabilities.fileWrite,todo:status.authorizesTodo},rejected,graph:{before,after,unchanged:before===after},runtime:{jsHash:sha(await readFile(join(manifest.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(manifest.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+const evidence={observedAt:new Date().toISOString(),scope:status.binding.scope,workspaceId:status.binding.workspaceId,directory,common:{key:guidance.common.source.key,version:guidance.common.version,origin:guidance.common.source.origin,text:guidance.common.text},project:{key:guidance.project.source.key,version:guidance.project.version,text:guidance.project.text},scene:{id:packet.scene.sceneId,blocks:packet.scene.savedSource.blocks.length,request:packet.scene.request,guidanceVersions:{common:packet.scene.guidance.common.version,project:packet.scene.guidance.project.version},nativeDraft:packet.scene.nativeDraft,current:packet.current},permissions:{body:status.capabilities.content,file:status.capabilities.fileWrite,todo:status.authorizesTodo},rejected,graph:{before,after,unchanged:before===after},runtime:{jsHash:sha(await readFile(join(manifest.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(manifest.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(manifest),capabilityInjection:false}};
 const destination=join(root,'evidence',`${name}.json`);await writeFile(destination,JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify({destination,common:evidence.common.version,project:evidence.project.version,blocks:evidence.scene.blocks,permissions:evidence.permissions,rejected,graphUnchanged:true}));

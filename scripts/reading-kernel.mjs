@@ -7,8 +7,9 @@ import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),m=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8')),state=join(root,'kernel'),recordPath=join(root,'kernel-process.json'),main=join(repo,'apps/kernel-service/src/main.ts'),command=process.argv[2]??'status';
-if(m.root!==root||m.home!==join(root,'home')||m.graph!==join(root,'graph')||m.plugin!==join(repo,'apps/logseq-plugin'))throw Error('Owned acceptance identity required');
+import {acceptanceRoot,acceptancePlugin} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),m=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8')),state=join(root,'kernel'),recordPath=join(root,'kernel-process.json'),main=join(repo,'apps/kernel-service/src/main.ts'),command=process.argv[2]??'status';
+if(m.root!==root||m.home!==join(root,'home')||m.graph!==join(root,'graph')||!acceptancePlugin(m,repo))throw Error('Owned acceptance identity required');
 const record=path=>{
   if(!existsSync(path))return null;const value=JSON.parse(readFileSync(path,'utf8'));if(!Number.isSafeInteger(value.pid)||value.pid<1)throw Error('Invalid owned PID');
   const actual=spawnSync('/bin/ps',['-ww','-p',String(value.pid),'-o','command='],{encoding:'utf8',env:{...process.env,LC_ALL:'en_US.UTF-8',LANG:'en_US.UTF-8'}}).stdout.trim();return {...value,running:!!actual,owned:!!actual&&actual===value.command.join(' ')};
