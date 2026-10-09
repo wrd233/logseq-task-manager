@@ -1,0 +1,9 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "live": false,
+      "error": "TypeError: Failed to fetch"
+    }
+  }
+}

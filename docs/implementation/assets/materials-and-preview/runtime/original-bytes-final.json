@@ -1,0 +1,151 @@
+{
+  "checkedOriginals": 24,
+  "changedOriginals": [],
+  "allOriginalBytesUnchanged": true,
+  "hashes": [
+    {
+      "path": "materials/中文 方案.docx",
+      "expected": "df4552ef186b03f53b795dbc9d2f5425f13fceaa30452a9fa571623f579a5928",
+      "actual": "df4552ef186b03f53b795dbc9d2f5425f13fceaa30452a9fa571623f579a5928",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 多页扫描.pdf",
+      "expected": "e046b7b383c12d9ba2e869d3f006224f5e9528f14e9f8ba32db4ad71b8a45130",
+      "actual": "e046b7b383c12d9ba2e869d3f006224f5e9528f14e9f8ba32db4ad71b8a45130",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 图像.webp",
+      "expected": "0ae34a627faa3cb32c985b9457999b4285cf5d3d54d2206a07df3254948415c6",
+      "actual": "0ae34a627faa3cb32c985b9457999b4285cf5d3d54d2206a07df3254948415c6",
+      "unchanged": true
+    },
+    {
+      "path": "materials/阅读 [中文] (副本) #_*.md",
+      "expected": "0558428384525c01f81c973cff8325673f2ed76777038e5cddd8ede08421bbb1",
+      "actual": "0558428384525c01f81c973cff8325673f2ed76777038e5cddd8ede08421bbb1",
+      "unchanged": true
+    },
+    {
+      "path": "materials/byte-probe.bin",
+      "expected": "207d4e9e8d0f6623ee537432656d3cc2a06db6fbeca9c538d34e4fe4f0df1288",
+      "actual": "207d4e9e8d0f6623ee537432656d3cc2a06db6fbeca9c538d34e4fe4f0df1288",
+      "unchanged": true
+    },
+    {
+      "path": "materials/同名.md",
+      "expected": "052291fd8b8e8f5a35378452e5b1e00fa51763eb64aaaa20920ad3a5a5de68b3",
+      "actual": "052291fd8b8e8f5a35378452e5b1e00fa51763eb64aaaa20920ad3a5a5de68b3",
+      "unchanged": true
+    },
+    {
+      "path": "materials/状态动画.gif",
+      "expected": "c2153b462ec470d58d0c3a547bd45307f43e9dab09c50d1e9d683301afbe8c4b",
+      "actual": "c2153b462ec470d58d0c3a547bd45307f43e9dab09c50d1e9d683301afbe8c4b",
+      "unchanged": true
+    },
+    {
+      "path": "materials/路线.md",
+      "expected": "5ba5373798115086fdac1536b590c6b4dd2a7122797dfb9bd665cd3bca0dc80b",
+      "actual": "5ba5373798115086fdac1536b590c6b4dd2a7122797dfb9bd665cd3bca0dc80b",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 多工作表.xlsx",
+      "expected": "f36cbe93cced227c43807ee5d1f5021915aa087834b441e04233c46977bbbe2e",
+      "actual": "f36cbe93cced227c43807ee5d1f5021915aa087834b441e04233c46977bbbe2e",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 表格.csv",
+      "expected": "d0822c10e00ba0620378e081a80a7cc8927f39fe059c9c0099a5134534b7a1b5",
+      "actual": "d0822c10e00ba0620378e081a80a7cc8927f39fe059c9c0099a5134534b7a1b5",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 图像.jpg",
+      "expected": "502e69eb212259ebb1c72c7e86d6443d7a8e9487c029e6ecd399f66ae99347a7",
+      "actual": "502e69eb212259ebb1c72c7e86d6443d7a8e9487c029e6ecd399f66ae99347a7",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 图像.png",
+      "expected": "34d5d0d525f75147a43fc4df64e5ea7d048b4c3737f940d470c407115d65fa94",
+      "actual": "34d5d0d525f75147a43fc4df64e5ea7d048b4c3737f940d470c407115d65fa94",
+      "unchanged": true
+    },
+    {
+      "path": "materials/一级/二级/深入.md",
+      "expected": "5f026177510414328b32bcb8bd8ee27d434af22a0540ae564dff5d75cdf0b351",
+      "actual": "5f026177510414328b32bcb8bd8ee27d434af22a0540ae564dff5d75cdf0b351",
+      "unchanged": true
+    },
+    {
+      "path": "materials/nested/deeper/内部.md",
+      "expected": "8325a11272ea0a6c21ed12d64258abe885d2f79713878d0c0411891c6d7ce976",
+      "actual": "8325a11272ea0a6c21ed12d64258abe885d2f79713878d0c0411891c6d7ce976",
+      "unchanged": true
+    },
+    {
+      "path": "materials-B/同名.md",
+      "expected": "042a6b9544e064281f7e53f1de440dc3dc6371fa4c478fed07c32ae3ff946d30",
+      "actual": "042a6b9544e064281f7e53f1de440dc3dc6371fa4c478fed07c32ae3ff946d30",
+      "unchanged": true
+    },
+    {
+      "path": "materials-B/一级/二级/深入.md",
+      "expected": "5f026177510414328b32bcb8bd8ee27d434af22a0540ae564dff5d75cdf0b351",
+      "actual": "5f026177510414328b32bcb8bd8ee27d434af22a0540ae564dff5d75cdf0b351",
+      "unchanged": true
+    },
+    {
+      "path": "materials/加密 中文.docx",
+      "expected": "d294d2a2cf5134160c403d19bf137c971774629574110acaa819b5fc00374450",
+      "actual": "d294d2a2cf5134160c403d19bf137c971774629574110acaa819b5fc00374450",
+      "unchanged": true
+    },
+    {
+      "path": "materials/加密 中文.xlsx",
+      "expected": "d6b5cc643abb3bcb6f8b8d9d883927a44582fd203dc388bd1e1661628f824034",
+      "actual": "d6b5cc643abb3bcb6f8b8d9d883927a44582fd203dc388bd1e1661628f824034",
+      "unchanged": true
+    },
+    {
+      "path": "materials/加密 中文.pdf",
+      "expected": "104a9e4c5ad5929970eb5c97db54dab1e67b4ba24bd42f6b4e16012acec3e91b",
+      "actual": "104a9e4c5ad5929970eb5c97db54dab1e67b4ba24bd42f6b4e16012acec3e91b",
+      "unchanged": true
+    },
+    {
+      "path": "materials/正文.markdown",
+      "expected": "afb15e368396583a54d698ac820ce861d6ca0e368b87128afa1534ba359c51b2",
+      "actual": "afb15e368396583a54d698ac820ce861d6ca0e368b87128afa1534ba359c51b2",
+      "unchanged": true
+    },
+    {
+      "path": "materials/中文 旧表.xls",
+      "expected": "8ec6c19eed9edcf8794d0686680ffbd5d785d35ca730b787960e38184825e994",
+      "actual": "8ec6c19eed9edcf8794d0686680ffbd5d785d35ca730b787960e38184825e994",
+      "unchanged": true
+    },
+    {
+      "path": "materials/旧格式.doc",
+      "expected": "8ec6c19eed9edcf8794d0686680ffbd5d785d35ca730b787960e38184825e994",
+      "actual": "8ec6c19eed9edcf8794d0686680ffbd5d785d35ca730b787960e38184825e994",
+      "unchanged": true
+    },
+    {
+      "path": "materials/损坏.pdf",
+      "expected": "3ce978566f5162e026abf554be3cbc43114309ea9df7c25c31b6c0283b1dcc6a",
+      "actual": "3ce978566f5162e026abf554be3cbc43114309ea9df7c25c31b6c0283b1dcc6a",
+      "unchanged": true
+    },
+    {
+      "path": "materials/安全清洗.md",
+      "expected": "bb4f46ac879d5daa075d89da5ee0f6f33adb0a18fd211f2104ee60d7ac6dd8d3",
+      "actual": "bb4f46ac879d5daa075d89da5ee0f6f33adb0a18fd211f2104ee60d7ac6dd8d3",
+      "unchanged": true
+    }
+  ]
+}

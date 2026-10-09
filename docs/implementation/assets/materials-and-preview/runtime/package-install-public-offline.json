@@ -1,0 +1,9 @@
+{
+  "outsideRepository": "<OUTSIDE_PACKAGE>",
+  "zip": "<A_WORKTREE>/tmp/material-preview-package/task-copilot-workbench.zip",
+  "zipSHA256": "f8485786f3bec910d00efa2d21cdcbfed73969341498f21499bb96a6d5efbfd2",
+  "commit": "98c0d4e6d5122ff8a763683e96e25dd511928e36",
+  "previousCommit": "3955f51017c00046121f6eee17bdcbba5316ee8d",
+  "fileHashesVerified": 615,
+  "persistentDirectory": true
+}

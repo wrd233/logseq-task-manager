@@ -1,0 +1,205 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+      "result": [
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+          "first": {
+            "status": "needs-verification",
+            "materialId": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://fca38694-0906-487d-b9ec-d9d7d0fb8953)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "retry": {
+            "status": "needs-verification",
+            "materialId": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://fca38694-0906-487d-b9ec-d9d7d0fb8953)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "importedId": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+          "importStatus": "partial",
+          "importProblem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。",
+          "again": {
+            "status": "needs-verification",
+            "materialId": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://fca38694-0906-487d-b9ec-d9d7d0fb8953)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "read": {
+            "id": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+            "content": "**[目标]** materials 原件独立。\n",
+            "editing": {
+              "user": false,
+              "agent": false
+            },
+            "reference": "[📄 同名\\.md](longdoc://fca38694-0906-487d-b9ec-d9d7d0fb8953)",
+            "availability": "available"
+          }
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+          "first": {
+            "status": "needs-verification",
+            "materialId": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "retry": {
+            "status": "needs-verification",
+            "materialId": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "importedId": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+          "importStatus": "partial",
+          "importProblem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。",
+          "again": {
+            "status": "needs-verification",
+            "materialId": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+            "fileName": "同名.md",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+            "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "read": {
+            "id": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+            "content": "**[目标]** materials-B 原件独立。\n",
+            "editing": {
+              "user": false,
+              "agent": false
+            },
+            "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+            "availability": "available"
+          }
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+          "first": {
+            "status": "needs-verification",
+            "materialId": "f3bdec17-1808-47f3-82a2-a392f592623f",
+            "fileName": "外部加入 验收.docx",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+            "reference": "[📄 外部加入 验收\\.docx](longdoc://f3bdec17-1808-47f3-82a2-a392f592623f)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "retry": {
+            "status": "needs-verification",
+            "materialId": "f3bdec17-1808-47f3-82a2-a392f592623f",
+            "fileName": "外部加入 验收.docx",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+            "reference": "[📄 外部加入 验收\\.docx](longdoc://f3bdec17-1808-47f3-82a2-a392f592623f)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "importedId": "f3bdec17-1808-47f3-82a2-a392f592623f",
+          "importStatus": "partial",
+          "importProblem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。",
+          "again": {
+            "status": "needs-verification",
+            "materialId": "f3bdec17-1808-47f3-82a2-a392f592623f",
+            "fileName": "外部加入 验收.docx",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+            "reference": "[📄 外部加入 验收\\.docx](longdoc://f3bdec17-1808-47f3-82a2-a392f592623f)",
+            "associations": [
+              {
+                "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+                "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+              }
+            ],
+            "availability": "available",
+            "identity": "unverified",
+            "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+          },
+          "read": {
+            "id": "f3bdec17-1808-47f3-82a2-a392f592623f",
+            "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+            "content": null,
+            "editing": {
+              "user": false,
+              "agent": false
+            },
+            "reference": "[📄 外部加入 验收\\.docx](longdoc://f3bdec17-1808-47f3-82a2-a392f592623f)",
+            "availability": "available"
+          }
+        }
+      ]
+    }
+  }
+}

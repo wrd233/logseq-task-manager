@@ -1,0 +1,22 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "app": {
+        "isFullScreen": false,
+        "isMaximized": false
+      },
+      "filePathDescriptor": null,
+      "filePrototype": [
+        "name",
+        "lastModified",
+        "lastModifiedDate",
+        "webkitRelativePath",
+        "constructor"
+      ],
+      "entryResolver": "function",
+      "worker": "function",
+      "resourceScheme": "file:"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "available": false,
+      "problem": "TypeError: Failed to fetch"
+    }
+  }
+}

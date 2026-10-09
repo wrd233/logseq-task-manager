@@ -1,0 +1,39 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "selectedRoot": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B",
+      "roots": [
+        {
+          "text": "1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials"
+        },
+        {
+          "text": "2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B",
+          "value": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B"
+        }
+      ],
+      "breadcrumbs": "materials-B",
+      "complete": "true",
+      "rows": [
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/空目录",
+          "current": "true",
+          "text": "▸ 空目录"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/一级",
+          "current": "true",
+          "text": "▸ 一级"
+        },
+        {
+          "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+          "current": "true",
+          "text": "同名.md"
+        }
+      ],
+      "text": "工作台\n关闭工作台\n工作\n[目标] 核对隔离材料预览。\n在 Logseq 写作\n工作选项\n正文\n材料\n审阅与历史\n文件\n目录\n已关联\n\n拖入文件或文件夹\n\n复制到此工作的默认目录，保留原文件。\n1. materials · <A_WORKTREE>/tmp/materials-preview-desktop/materials\n2. materials-B · <A_WORKTREE>/tmp/materials-preview-desktop/materials-B\n刷新\n已关联与历史材料\nmaterials-B\n\n▸ 空目录\n▸ 一级\n同名.md"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "rootB": {
+    "status": "needs-verification",
+    "materialId": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+    "fileName": "同名.md",
+    "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+    "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+    "associations": [
+      {
+        "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+        "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+      }
+    ],
+    "availability": "available",
+    "identity": "unverified",
+    "problem": "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"
+  },
+  "rootBRead": {
+    "id": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+    "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+    "content": "**[目标]** materials-B 原件独立。\n",
+    "availability": "available",
+    "editing": {
+      "user": false,
+      "agent": false
+    }
+  },
+  "rootA": {
+    "problem": "Error: 文件读取失败。"
+  },
+  "listStatus": "partial",
+  "listProblems": [
+    "<A_WORKTREE>/tmp/materials-preview-desktop/materials: 部分历史材料记录当前不可核验，上次已知身份仍保留。",
+    "f3bdec17-1808-47f3-82a2-a392f592623f: Error: 文件读取失败。",
+    "fca38694-0906-487d-b9ec-d9d7d0fb8953: Error: 文件读取失败。"
+  ],
+  "history": [
+    {
+      "id": "f3bdec17-1808-47f3-82a2-a392f592623f",
+      "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+      "availability": "unavailable",
+      "reference": "[📄 外部加入 验收\\.docx](longdoc://f3bdec17-1808-47f3-82a2-a392f592623f)",
+      "content": null,
+      "version": null,
+      "editing": {
+        "user": false,
+        "agent": false
+      },
+      "problem": "Error: 文件读取失败。"
+    },
+    {
+      "id": "bf6a5109-894d-4c74-bc49-95b61411c87a",
+      "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B/同名.md",
+      "availability": "available",
+      "reference": "[📄 同名\\.md](longdoc://bf6a5109-894d-4c74-bc49-95b61411c87a)",
+      "content": "**[目标]** materials-B 原件独立。\n",
+      "version": "042a6b9544e064281f7e53f1de440dc3dc6371fa4c478fed07c32ae3ff946d30",
+      "editing": {
+        "user": false,
+        "agent": false
+      }
+    },
+    {
+      "id": "fca38694-0906-487d-b9ec-d9d7d0fb8953",
+      "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+      "availability": "unavailable",
+      "reference": "[📄 同名\\.md](longdoc://fca38694-0906-487d-b9ec-d9d7d0fb8953)",
+      "content": null,
+      "version": null,
+      "editing": {
+        "user": false,
+        "agent": false
+      },
+      "problem": "Error: 文件读取失败。"
+    }
+  ],
+  "rootARestored": true,
+  "rootBStableIdentity": true,
+  "rootBOriginalContent": true
+}

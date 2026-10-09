@@ -1,0 +1,13 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "home": "<A_WORKTREE>/tmp/materials-preview-desktop/home/.logseq",
+      "plugin": [
+        "https://www.youtube.com/embed/BhHfF0P9A80?enablejsapi=1",
+        "file://<A_WORKTREE>/apps/logseq-plugin/dist/index.html?__v__=0.2.0"
+      ],
+      "location": "file://<A_WORKTREE>/tmp/materials-preview-desktop/Logseq.app/Contents/Resources/app/electron.html"
+    }
+  }
+}

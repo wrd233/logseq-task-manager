@@ -1,0 +1,24 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+      "result": {
+        "status": "needs-verification",
+        "materialId": "04337349-158a-4d44-af28-2516759d0d76",
+        "fileName": "生命周期 验收.md",
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/生命周期 验收.md",
+        "reference": "[📄 生命周期 验收\\.md](longdoc://04337349-158a-4d44-af28-2516759d0d76)",
+        "associations": [
+          {
+            "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+            "sourceUuid": "68ed2a29-0d62-46a1-91e1-aa652c613409"
+          }
+        ],
+        "availability": "available",
+        "identity": "unverified",
+        "problem": "此宿主不能确认物理文件身份；返回路径关联及现有引用，外部改名或同名替换需核验。"
+      }
+    }
+  }
+}
