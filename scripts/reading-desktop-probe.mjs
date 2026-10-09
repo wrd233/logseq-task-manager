@@ -44,6 +44,7 @@ for(const context of contexts) {
       work:api?.read(),report:api?.report?.read(),reading:api?.reading?.read(),connection:api?.agentWorkspace?.status(),source:block,editing:await logseq.Editor.checkEditing(),
       materialRecords:await api?.materials?.list({sourceUuid:'b7261007-0000-4000-8000-000000000001',query:''}),
       collaborationUI:(()=>{const panel=document.querySelector('[data-collaboration="true"]');return panel?{visible:!panel.hidden,text:panel.innerText,inputs:[...panel.querySelectorAll('textarea')].map(input=>({value:input.value,readOnly:input.readOnly}))}:null;})(),
+      ordinaryTodoUI:(()=>{const panel=document.querySelector('[data-ordinary-todo="true"]');return panel?{visible:!panel.hidden,text:panel.innerText,choices:[...panel.querySelectorAll('input[type=checkbox]')].map(input=>({label:input.parentElement?.textContent,checked:input.checked}))}:null;})(),
       readingStyle:(()=>{const node=document.querySelector('.wb-report-row[data-report-root]>.wb-body>p:first-child');if(!node)return null;const style=window.getComputedStyle(node);return {fontSize:style.fontSize,fontWeight:style.fontWeight};})(),
       primary:[...document.querySelectorAll('.wb-row[data-report-source-id]')].map(node=>({uuid:node.dataset.uuid,sourceId:node.dataset.reportSourceId,version:node.dataset.reportContentVersion,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
       structureRows:[...document.querySelectorAll('.wb-row[data-uuid]:not([data-report-source-id])')].map(node=>({uuid:node.dataset.uuid,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
@@ -57,7 +58,13 @@ for(const context of contexts) {
   const value=await call('Runtime.evaluate',{contextId:context.id,expression,returnByValue:true,awaitPromise:true});
   values.push({contextId:context.id,url,value:value.result?.value??null,exception:value.exceptionDetails??null});
 }
+const nativeInputNodes=[];
+if(values.some(v=>v.value?.pluginConnected)){
+  const tree=await call('DOM.getDocument',{depth:0});
+  const ids=await call('DOM.querySelectorAll',{nodeId:tree.root.nodeId,selector:'#main-content-container textarea'});
+  for(const nodeId of ids.nodeIds){const result=await call('DOM.describeNode',{nodeId});nativeInputNodes.push({backendNodeId:result.node.backendNodeId,attributes:result.node.attributes});}
+}
 socket.close();const destination=resolve(process.argv[2]??join(root,'evidence/runtime.json'));
 if(!destination.startsWith(root+'/evidence/'))throw Error('Evidence must stay in this owned directory');
-await writeFile(destination,JSON.stringify({observedAt:new Date().toISOString(),manifest,values,errors,consoleErrors},null,2)+'\n');
+await writeFile(destination,JSON.stringify({observedAt:new Date().toISOString(),manifest,values,nativeInputNodes,errors,consoleErrors},null,2)+'\n');
 console.log(JSON.stringify({destination,contexts:values.map(value=>({url:value.url,exception:value.exception?.text??null,plugin:!!value.value?.pluginConnected,blocks:value.value?.primary?.length??value.value?.nativeBlocks??0})),errors:errors.length}));

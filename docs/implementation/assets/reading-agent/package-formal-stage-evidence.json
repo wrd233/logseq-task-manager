@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "status": "listed actual formal/restart/input paths verified; remaining lifecycle and Page matrix",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "observedAt": "2026-10-09T06:14:49.246Z",
+  "capabilityInjection": false,
+  "normalKernel": {
+    "objects": [
+      {
+        "id": "19faebbd-636b-4243-82dc-7191a4d0b54a",
+        "kind": "TASK",
+        "anchor": "b7261007-0000-4000-8000-000000000077",
+        "lifecycle": "OPEN"
+      },
+      {
+        "id": "416fa57e-c5ae-4e37-8bc8-bfdbd442dd16",
+        "kind": "TASK",
+        "anchor": "b7261007-0000-4000-8000-000000000002",
+        "lifecycle": "OPEN"
+      }
+    ],
+    "isolatedDatabase": true,
+    "externalServiceFromRepository": true,
+    "remoteProvider": false,
+    "pluginAndCompanionOutsideRepository": true
+  },
+  "privateStorage": {
+    "files": [
+      {
+        "name": "task-copilot-scoped-v1-073bc3d3f01031db22cc781d4580ef8b96d359ed9e8904a980869bcecc66bf4a",
+        "key": "task-copilot-vnext-current-work-object",
+        "filenameBytes": 87,
+        "empty": false
+      },
+      {
+        "name": "task-copilot-scoped-v1-348c8755fcbfb31387cbc903bc0ec3c4c8b17367383ae9afdfbb87effefa0b40",
+        "key": "task-copilot-vnext-pending:create:b7261007-0000-4000-8000-000000000077",
+        "filenameBytes": 87,
+        "empty": true
+      },
+      {
+        "name": "task-copilot-scoped-v1-430450187277a6b2e5de6ad5f79005c2d1447517c47989c6ea1783c05c147a43",
+        "key": "task-copilot-vnext-pending:create:b7261007-0000-4000-8000-000000000002",
+        "filenameBytes": 87,
+        "empty": true
+      },
+      {
+        "name": "task-copilot-scoped-v1-762e91caf3d2079dc5235092cde9ecafb86550cf01f280ee1e8b87e392c7ee65",
+        "key": "task-copilot-vnext-recent-commit",
+        "filenameBytes": 87,
+        "empty": false
+      }
+    ],
+    "verifiedBoundedEnvelopes": true,
+    "createRequestsCleared": true,
+    "downgradeVerified": false
+  },
+  "governedFocus": {
+    "objectId": "416fa57e-c5ae-4e37-8bc8-bfdbd442dd16",
+    "actorType": "AGENT",
+    "commit": "ef34470b-50dd-464b-85e1-c49ef17de0dd",
+    "projectionStatus": "VERIFIED",
+    "field": "9d54697d-cb11-4d9b-87fa-883516375ce9",
+    "lifecycle": "OPEN",
+    "replaySameCommit": true,
+    "graphUnchangedOnReplay": true
+  },
+  "ordinaryBoundary": {
+    "body": [
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000077",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true
+      },
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000002",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true
+      },
+      {
+        "uuid": "9d54697d-cb11-4d9b-87fa-883516375ce9",
+        "reason": "PROTECTED_MANAGED",
+        "status": "not-applied",
+        "durable": true
+      }
+    ],
+    "todo": [
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000077",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      },
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000002",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      }
+    ],
+    "localFormalRootsNotSelectable": [
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000077",
+        "selectable": false
+      },
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000002",
+        "selectable": false
+      }
+    ],
+    "sourceAndFormalStateAndGraphUnchanged": true,
+    "inRangeFormalTodoRuntimeAttempt": false
+  },
+  "restart": {
+    "connected": false,
+    "allPermissionsRevoked": true,
+    "sourceUnchanged": true,
+    "currentFormalClosureReadonlyQuery": true,
+    "sources": 104
+  },
+  "readonlyJournalReconnect": {
+    "queries": [
+      {
+        "requestId": "formal-boundary-body-0",
+        "status": "not-applied",
+        "durable": true,
+        "sameDigest": true,
+        "reason": "PROTECTED_FORMAL_TITLE"
+      },
+      {
+        "requestId": "formal-boundary-body-1",
+        "status": "not-applied",
+        "durable": true,
+        "sameDigest": true,
+        "reason": "PROTECTED_FORMAL_TITLE"
+      },
+      {
+        "requestId": "formal-boundary-body-2",
+        "status": "not-applied",
+        "durable": true,
+        "sameDigest": true,
+        "reason": "PROTECTED_MANAGED"
+      }
+    ],
+    "sourceUnchanged": true,
+    "allWritePermissionsFalse": true
+  },
+  "nativeInput": {
+    "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+    "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+    "selection": {
+      "start": 41,
+      "end": 46
+    },
+    "backendNodeId": 61414,
+    "nodeValueSelectionAndSavedSourcePreserved": true,
+    "title": {
+      "requested": 28,
+      "marked": 28,
+      "visible": 7,
+      "unavailable": 0
+    },
+    "materialClick": {
+      "target": "material:9b92438f-adb3-44bb-a0de-aa8e5ea4e408",
+      "format": "docx",
+      "sameNonemptyHighlightSet": true
+    },
+    "focusMovedToReadingControl": true,
+    "physicalIME": false,
+    "unsavedDraftNotEstablished": true
+  },
+  "limitations": [
+    "formal TODO refusal was outside the actual selected grant; registered roots cannot be granted by this trusted UI",
+    "Kernel is an ordinary external service from repository source, not a bundled standalone Kernel release",
+    "physical IME and unsaved draft not established; focus moved to reading control",
+    "stock Desktop unmounted source first returned native-input-unavailable; manual native scroll mounted it",
+    "backup/restore and safe downgrade not established; baseline schema/fake executor/path/race risks remain",
+    "resource cleanup and Page final-package acceptance still pending"
+  ]
+}

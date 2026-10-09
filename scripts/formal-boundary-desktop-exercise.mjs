@@ -28,10 +28,13 @@ for(const [index,b]of [...roots,managed].entries()){
   const result=await cli(['content','apply'],request),query=await cli(['content','result',request.requestId]);record.bodyResults.push({uuid:b.target.blockUuid,result,sameQueryDigest:query.record.digest===result.record.digest});await writeFile(path,JSON.stringify(record,null,2));
   if(result.status!=='not-applied'||!result.durable||result.record.items.length!==1||result.record.items.some(i=>i.contentVerified||i.status!=='BLOCKED'||!['PROTECTED_FORMAL_TITLE','PROTECTED_MANAGED'].includes(i.reason))||query.record.digest!==result.record.digest)throw Error('Formal root/managed content was not reliably blocked');
 }
-const material=await cli(['materials','read','7915cee4-4d91-6ecc-2f7e-66d30a18661c']);
+const completedTodo=JSON.parse(await readFile(join(m.evidence,m.ownerToken?'todo-native-id-exercise.json':'todo-exercise.json'),'utf8'));
+if(completedTodo.completed?.status!=='complete'||completedTodo.scope.rootUuid!==source.scope.rootUuid||completedTodo.scope.graphId!==source.scope.graphId)throw Error('Actual completed ordinary TODO evidence in this scope required');
+const material=await cli(['materials','read',completedTodo.material.id]);
+const expectedTodoRejection='TODO_OUTSIDE_GRANTED_RANGE';
 for(const [index,b]of roots.entries()){
   const request={schemaVersion:1,requestId:'formal-boundary-todo-'+index,scope:source.scope,action:'complete',target:{blockUuid:b.target.blockUuid,expectedContentVersion:b.contentVersion,expectedParentUuid:b.parentUuid},evidence:{materialId:material.id,expectedVersion:material.version,verifiedText:'核验：两段原样来源均已保留，询问尚未执行。'}};
-  try{await cli(['todo','apply'],request);throw Error('Ordinary TODO modified a formal object');}catch(error){if(!error.stderr?.includes('TODO_OUTSIDE_GRANTED_RANGE'))throw error;record.todoRejected.push({uuid:b.target.blockUuid,code:'TODO_OUTSIDE_GRANTED_RANGE'});}
+  try{await cli(['todo','apply'],request);throw Error('Ordinary TODO modified a formal object');}catch(error){if(!error.stderr?.includes(expectedTodoRejection))throw error;record.todoRejected.push({uuid:b.target.blockUuid,code:expectedTodoRejection});}
 }
 const after=await cli(['content','read']),afterObjects=await kernel(['object','list']),afterHash=sha(await readFile(join(m.graph,'pages/合成阅读与协作.md')));
 if(JSON.stringify(after.blocks)!==JSON.stringify(source.blocks)||JSON.stringify(afterObjects.objects)!==JSON.stringify(objects.objects)||afterHash!==beforeHash)throw Error('Rejected calls changed source, formal business state or Graph bytes');

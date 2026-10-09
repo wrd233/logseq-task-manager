@@ -37,7 +37,12 @@ if(phase==='prepare'){
   await writeFile(evidencePath,JSON.stringify(e,null,2));console.log(JSON.stringify({phase,sources:source.blocks.length,readingUnchanged:true,formatChanges:proposal.changes.length}));
 }else{
   const e=JSON.parse(await readFile(evidencePath,'utf8'));if(sha(await readFile(join(m.plugin,'dist/index.js')))!==e.runtime.jsHash)throw Error('Different runtime build');
-  if(phase==='comparison'){
+  if(phase==='replan-final'){
+    e.finalPlans={at:new Date().toISOString(),...await plansFor('final')};
+  }else if(phase==='comparison-final'){
+    if(!e.finalPlans||!(await cli(['reading','select',e.finalPlans.comparison.planId])).ok)throw Error('Actual final comparison selection failed');
+    if(JSON.stringify(source.blocks)!==JSON.stringify(e.finalPlans.source.blocks)||sha(await readFile(graphFile))!==e.finalPlans.graphHash)throw Error('Final read layout changed Graph');e.finalComparisonSelectedAt=new Date().toISOString();
+  }else if(phase==='comparison'){
     if(!(await cli(['reading','select',e.plans.comparison.planId])).ok)throw Error('Actual comparison selection failed');
     if(JSON.stringify(source.blocks)!==JSON.stringify(e.source.blocks)||sha(await readFile(graphFile))!==e.beforeGraphHash)throw Error('Changing read layout changed Graph');e.comparisonSelectedAt=new Date().toISOString();
   }else if(phase==='original'){
@@ -53,6 +58,6 @@ if(phase==='prepare'){
     if(JSON.stringify(source.blocks)!==JSON.stringify(e.fresh.source.blocks)||e.fresh.proposal.changes.length!==0)throw Error('No-op format altered the actual source');
     const bytes=await readFile(graphFile);if(!bytes.toString().includes(condition)||!bytes.toString().includes('**[想法]** 先把阅读和写作分开说清楚'))throw Error('Actual new condition persistence required');
     e.completed={at:new Date().toISOString(),source,formatNoOp:true,formatChanges:0,afterGraphHash:sha(bytes),structureUnchanged:true,userConditionsRetained:true};e.continued=await plansFor('continued');
-  }else throw Error('Usage: prepare | comparison | original | stale | fresh | collect');
+  }else throw Error('Usage: prepare | comparison | original | stale | fresh | collect | replan-final | comparison-final');
   await writeFile(evidencePath,JSON.stringify(e,null,2));console.log(JSON.stringify({phase,staleRejected:!!e.stale,complete:!!e.completed,sources:source.blocks.length}));
 }

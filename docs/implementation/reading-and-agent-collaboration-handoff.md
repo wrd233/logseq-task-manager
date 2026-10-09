@@ -129,3 +129,9 @@ B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`
 实际访达新窗口复制本次两个合成目录，向真实材料只读入口粘贴后当前层可读；没有伪造 Clipboard/FSA/IPC。第一根外部新增合成 MD 自动出现，一级/二级及逐层返回真实可用；两个根的同名 MD 的实际 ID、SHA 和正文分别独立。24 原样本 SHA 全部保持。独立窗口自由拖动仍未证明；系统“Window→移动与调整大小→左侧”实际改变位置/尺寸且同版本。只读 DOM/SDK 观察脚本需要 Node 24 的原生 WebSocket；Node 20 仍是实际插件 CLI/companion/Kernel 与构建运行时，前次用 Node 20 跑观察器的 constructor 错误不记为插件异常。
 
 剩余组合包验收：真正 Kernel 注册对象与正式端口/普通 TODO 边界；原生输入、选区与折叠来源的最终复验；改名/失联/范围及 Graph 切换/正常停用的窗口、worker、监听和资源释放；Page 范围与升级恢复复验。物理 IME、完整剪贴板保留、跨平台、普通 IO 竞态和长时间浸泡仍未实测。基线生产风险仍存在，798 自动检查和上述路径通过不能推出整个插件已生产成熟。
+
+上述剩余项中的原生输入和正式边界已继续复验，见 [package-input-stage-evidence.json](assets/reading-agent/package-input-stage-evidence.json)、[package-formal-stage-evidence.json](assets/reading-agent/package-formal-stage-evidence.json)。用户新条件和五类服务引用保存后重新编排，真实原生第 28 块的 textarea 后端节点 61414、value 和选区 41–46 在标题集合高亮及正文材料点击后保持；已保存来源不变。标题请求/标记 28 来源、视口实际 7 个，材料点击保留非空集合。焦点转到阅读控件；不宣称已证明物理 IME 或未保存草稿。
+
+正常 Kernel 使用独立合成 SQLite/描述文件、无外部 provider；插件和 companion 仍来自仓库外同一 ZIP，Kernel 本身从仓库源运行，不宣称是包内独立 Kernel 发行版。已有第 77/2 锚点通过真实正式化命令分别注册 `19faebbd-636b-4243-82dc-7191a4d0b54a`、`416fa57e-c5ae-4e37-8bc8-bfdbd442dd16`。实际四份 FileStorage scoped envelope 的文件名均 87 字节，两个创建 pending 是空 tombstone，current-object/recent-commit 均保存；最初证据脚本误假设三份记录，已按真实必需键核对，未改产品数据。正常受治理 AGENT 程序维护第二对象当前推进，projection VERIFIED、lifecycle OPEN；真实重复 apply 返回同一 commit，业务状态和 Graph 字节不变。
+
+独立普通正文许可下，两正式标题分别 PROTECTED_FORMAL_TITLE、实际投影字段 PROTECTED_MANAGED，均 BLOCKED/not-applied/durable；所选第 48 普通任务范围之外，两正式根 TODO_OUTSIDE_GRANTED_RANGE，来源/正式业务状态/图文件保持。真实本地 TODO 表单排除正式根，未通过注入许可构造范围内正式 TODO 调用；该路径只记为范围外拒绝与本地不可授权，不扩大成范围内 Desktop 拒绝证明。正常重启后 104 来源保持，所有旧 Agent 许可失效，直接只读 Closure 查询仍能读取恢复的当前事项；真实只读重连的三个 result/recover 返回同一可靠阻止日志，来源不变。安全降级、整套备份还原、目录/窗口/worker/监听生命周期和 Page 最终复验仍待后续完成。

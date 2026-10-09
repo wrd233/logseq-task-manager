@@ -1,0 +1,24 @@
+{
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "selection": {
+    "start": 41,
+    "end": 46
+  },
+  "backendNodeId": 61414,
+  "nodeValueSelectionAndSavedSourcePreserved": true,
+  "title": {
+    "requested": 28,
+    "marked": 28,
+    "visible": 7,
+    "unavailable": 0
+  },
+  "materialClick": {
+    "target": "material:9b92438f-adb3-44bb-a0de-aa8e5ea4e408",
+    "format": "docx",
+    "sameNonemptyHighlightSet": true
+  },
+  "focusMovedToReadingControl": true,
+  "physicalIME": false,
+  "unsavedDraftNotEstablished": true
+}
