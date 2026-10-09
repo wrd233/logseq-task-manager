@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-09T15:47:45.475Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "desktop": {
+    "pid": 3226,
+    "command": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/Logseq integrated-layout-final.app/Contents/MacOS/Logseq --user-data-dir=/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/profile --remote-debugging-port=19349 --remote-debugging-address=127.0.0.1"
+  },
+  "hostTarget": "23AAB966CF7676087488BA87D584D57F",
+  "status": "work-scope cleanup verified on same live process; graph-switch/unload checks remain",
+  "before": {
+    "previewPages": 2,
+    "workers": 1,
+    "documentListeners": [
+      {
+        "surface": "preview-document",
+        "count": 0
+      },
+      {
+        "surface": "plugin-document",
+        "count": 223
+      },
+      {
+        "surface": "host-document-from-plugin",
+        "count": 0
+      },
+      {
+        "surface": "native-document",
+        "count": 46
+      }
+    ]
+  },
+  "after": {
+    "previewPages": 0,
+    "workers": 1,
+    "documentListeners": [
+      {
+        "surface": "plugin-document",
+        "count": 71
+      },
+      {
+        "surface": "host-document-from-plugin",
+        "count": 0
+      },
+      {
+        "surface": "native-document",
+        "count": 44
+      }
+    ]
+  },
+  "observedOldBlobsRevoked": true,
+  "oldStatusAndLatePlanRejected": true,
+  "scope": "only the two actually opened PNG preview pages and observed blobs; no all-worker/all-listener or soak claim",
+  "remaining": [
+    "Graph switch",
+    "normal plugin disable with image and PDF",
+    "Page identity",
+    "formal Kernel objects",
+    "native input acceptance on this ZIP"
+  ]
+}
