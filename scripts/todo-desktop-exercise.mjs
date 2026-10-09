@@ -7,14 +7,15 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex');
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex');
 const m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),phase=process.argv[2]??'prepare',trial=process.argv[3]??'first';
 if(!['first','native-id'].includes(trial))throw Error('Unknown isolated trial');
 const evidencePath=join(m.evidence,trial==='first'?'todo-exercise.json':'todo-native-id-exercise.json'),prefix=trial==='first'?'todo-desktop':'todo-native-id';
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.work.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!m.work.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input)=>{
   const args=[];if(input!==undefined){const path=join(m.evidence,'todo-input.json');await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','todo-desktop','--json'],{timeout:30000});return JSON.parse(r.stdout);
+  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','todo-desktop','--json'],{cwd:root,timeout:30000});return JSON.parse(r.stdout);
 };
 const status=await cli(['status']);if(!status.binding.scope.graphId.includes(m.graph)||status.binding.directory!==m.work)throw Error('Wrong live Graph/work scope');
 const source=await cli(['content','read']),parent=source.blocks.find(b=>b.target.blockUuid==='b7261007-0000-4000-8000-000000000048');
@@ -25,12 +26,12 @@ if(phase==='prepare'){
   if(status.authorizesTodo||status.capabilities.content||status.capabilities.fileWrite)throw Error('Preparation requires actual read-only connection');
   let rejected=false;try{await cli(['todo','apply'],request);}catch(error){if(!error.stderr?.includes('TODO_AUTHORIZATION_REQUIRED'))throw error;rejected=true;}
   if(!rejected)throw Error('Unauthorized TODO returned');
-  const record={preparedAt:new Date().toISOString(),scope:source.scope,request,source,guidance:await cli(['guidance','read']),beforeGraphHash:sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),rejected:'TODO_AUTHORIZATION_REQUIRED',runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+  const record={preparedAt:new Date().toISOString(),scope:source.scope,request,source,guidance:await cli(['guidance','read']),beforeGraphHash:sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),rejected:'TODO_AUTHORIZATION_REQUIRED',runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
   await writeFile(evidencePath,JSON.stringify(record,null,2));console.log(JSON.stringify({phase,rejected:record.rejected,parent:parent.content.split('\n')[0]}));
 }else if(phase==='execute'){
   const evidence=JSON.parse(await readFile(evidencePath,'utf8'));
   if(!status.authorizesTodo||!status.capabilities.fileWrite||status.capabilities.content)throw Error('Requires independent actual TODO/file grants and no body grant');
-  const executionRuntime={jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false};
+  const executionRuntime={jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false};
   const packet=await cli(['collaboration','read']),guide=await cli(['guidance','read']);
   if(packet.scene.binding.scope.rootUuid!==source.scope.rootUuid||!packet.scene.request.includes('保存两段关于退出材料的原句'))throw Error('Actual local collaboration intent required');
   const created=await cli(['todo','apply'],evidence.request);

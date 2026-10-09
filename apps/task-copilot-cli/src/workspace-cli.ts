@@ -15,6 +15,7 @@ export const workspaceHelp = `Task Copilot natural workspace CLI (local connecti
   workspace files list | read <relative-path> | associate <relative-path>
   workspace materials list | read <id> | capture --input-file <path|->
   workspace materials associate --path <relative-path> | --id <materialId>
+  workspace materials resolve --path <relative-path>
   workspace materials save --input-file <path|->
   workspace focus request --question <text> | source | read | apply --input-file <path|-> | cancel | exit | back
   workspace reading request --purpose <text> | read | submit --input-file <path|-> | select <planId> | original
@@ -185,6 +186,9 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
         else if (pair === "materials.associate" && commandWords.length === 2) {
             command = pair;
             payload = option(args, "--id") ? { id: required(args, "--id") } : { path: required(args, "--path") };
+        }
+        else if (pair === "materials.resolve" && commandWords.length === 2) {
+            command = pair; payload = {path: required(args, "--path")};
         }
         else if (pair==="formatting.preview"&&commandWords.length===2){command=pair;payload=workRecord(await input(),["requestId","sourceIds","labels"]);}
         else if (["todo.apply","todo.retry","focus.apply", "reading.submit", "reading.highlight", "content.apply", "content.retry", "materials.capture", "materials.save", "stage.read", "stage.submit"].includes(pair) && commandWords.length === 2) {

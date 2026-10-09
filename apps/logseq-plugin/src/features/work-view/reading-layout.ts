@@ -9,6 +9,7 @@ export interface ReadingMaterial {
 export interface ReadingMaterialPort {
   list(scope:VerifiedReadingPlan["plan"]["scope"]):Promise<readonly ReadingMaterial[]>;
   open(id:string,scope:VerifiedReadingPlan["plan"]["scope"]):Promise<void>;
+  delegateFileClick?(event:MouseEvent,scope:VerifiedReadingPlan["plan"]["scope"]):boolean;
 }
 interface LayoutActions {
   sources(ids:readonly string[],context:boolean,contextIds?:readonly string[]):void;

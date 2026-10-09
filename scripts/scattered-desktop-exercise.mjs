@@ -8,12 +8,13 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
 const m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),evidencePath=join(m.evidence,'scattered-exercise.json'),graphFile=join(m.graph,'pages/合成阅读与协作.md'),condition='用户追加：不过离线引用还需要保留当时文件的版本，尚未验证能否做到。';
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input)=>{
   const args=[];if(input!==undefined){const path=join(m.evidence,'scattered-input.json');await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const result=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','scattered-desktop','--json'],{timeout:30000,maxBuffer:4_194_304});return JSON.parse(result.stdout);
+  const result=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','scattered-desktop','--json'],{cwd:root,timeout:30000,maxBuffer:4_194_304});return JSON.parse(result.stdout);
 };
 const status=await cli(['status']);if(status.binding.scope.rootUuid!=='b7261007-0000-4000-8000-000000000001'||!status.binding.scope.graphId.includes(m.graph)||status.capabilities.content||status.capabilities.fileWrite||status.authorizesTodo)throw Error('Actual complete read-only work required');
 const source=await cli(['content','read']),selected=source.blocks.find(b=>b.target.blockUuid==='b7261007-0000-4000-8000-000000000028');if(!selected)throw Error('Actual natural thought source required');
@@ -32,7 +33,7 @@ const plansFor=async suffix=>{
 if(phase==='prepare'){
   const guide=await cli(['guidance','read']),scene=await cli(['collaboration','read']);if(!scene.scene.request.includes('合成零散记录再协作验收'))throw Error('Actual saved third exercise request required');
   const plans=await plansFor('initial'),proposal=await cli(['formatting','preview'],{requestId:'scattered-format-old',sourceIds:[selected.sourceId],labels:['想法']});if(proposal.changes.length!==0||!selected.content.startsWith('**[想法]**'))throw Error('Already canonical prefix must remain a no-op');
-  const e={preparedAt:new Date().toISOString(),scope:source.scope,source,guide,scene,plans,proposal,condition,conditionId:selected.target.blockUuid,beforeGraphHash:sha(await readFile(graphFile)),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+  const e={preparedAt:new Date().toISOString(),scope:source.scope,source,guide,scene,plans,proposal,condition,conditionId:selected.target.blockUuid,beforeGraphHash:sha(await readFile(graphFile)),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
   await writeFile(evidencePath,JSON.stringify(e,null,2));console.log(JSON.stringify({phase,sources:source.blocks.length,readingUnchanged:true,formatChanges:proposal.changes.length}));
 }else{
   const e=JSON.parse(await readFile(evidencePath,'utf8'));if(sha(await readFile(join(m.plugin,'dist/index.js')))!==e.runtime.jsHash)throw Error('Different runtime build');

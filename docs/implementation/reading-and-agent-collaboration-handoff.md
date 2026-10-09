@@ -4,7 +4,7 @@
 
 共同 BASE_SHA：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。按 REMOTE-START 明确 fetch `codex/workbench-visual-refresh` 后解析并固定；它包含视觉刷新 `eb07013d119584dbd3c68012541f1355118d2b0b` 和配套资料。B 分支为 `codex/reading-and-agent-collaboration`，使用独立管理工作树；用户主工作树 main 不变。Node 20.20.2 / npm 10.8.2，依赖独立安装。真实本机 Logseq 0.10.15/macOS ARM64 已开始隔离局部验收，完整最终安装验收仍待完成。
 
-A 完整 SHA：用户于 2026-10-09 明确交付 `d0c38706b79c63f6f5b15e16286e1c49d28736ff`，其中 handoff 位于 `docs/implementation/materials-and-preview-handoff.md`。共同 merge-base 核对为上述 BASE_SHA；A 实施提交 `98c0d4e6d5122ff8a763683e96e25dd511928e36` 是该交付的祖先，之后两次提交仅增加可携带样本、交接及证据。目前准备在 B 本分支合入这一明确提交；不新建整合分支，不推送、PR、main 合并、发布或联系其他聊天。
+A 完整 SHA：用户于 2026-10-09 明确交付 `d0c38706b79c63f6f5b15e16286e1c49d28736ff`，其中 handoff 位于 `docs/implementation/materials-and-preview-handoff.md`。共同 merge-base 核对为上述 BASE_SHA；A 实施提交 `98c0d4e6d5122ff8a763683e96e25dd511928e36` 是该交付的祖先，之后两次提交仅增加可携带样本、交接及证据。已在 B 本分支合入这一明确提交，合并提交 `a5e0888c9d512045bf6805437517f4db67b44b67`，controller/index 自动合并、没有文本冲突；组合行为仍须验收。不新建整合分支，不推送、PR、main 合并、发布或联系其他聊天。
 
 已实施：
 
@@ -22,7 +22,7 @@ A 完整 SHA：用户于 2026-10-09 明确交付 `d0c38706b79c63f6f5b15e16286e1c
 - 普通 TODO 新服务、受信范围/操作/当前连接许可表单及真实 CLI `todo.read/apply/result/recover/retry/resumeIdentity` 已接线。有限动作编译到原 Journal 引擎，旧 content API 保持保护；完成核验真实 scoped 材料文本版本及指定原样片段，状态与简洁引用同一宿主调用，正式对象的源码边界仍拒绝。详见[契约与核验限制](../design/ordinary-todo-contract.md)及下方真实 Desktop 演练。
 - 外部正文、重试、TODO 和 stage.submit 的 Journal 已接实际通道/连接/client/运输请求/命令，以及该 client 最后显式读回的共同/项目指导版本。未读取为 null；标签不证明个人/模型身份，返回文本不证明遵循规则。
 
-接口及限制见 [阅读方案契约](../design/reading-plan-contract.md)。材料入口目前使用基线真实 list/read/reference/open 服务的窄适配，未复制 A 的目录/预览算法；不把 mock 当作跨支通过。页面型阅读及外部协作使用真实 page scope，空页面不伪造块；正文、TODO、格式及阶段维护仍需另选实际块范围。
+接口及限制见 [阅读方案契约](../design/reading-plan-contract.md)。材料入口已使用 A 的真实 list/read/reference/open 服务窄适配；Agent 新增 materials.resolve 经真实 Node 路径约束后调用 A resolveDirectoryFile，返回实际 ID、完整文件名/reference、身份核验状态。它需要本次独立文件许可，只登记材料元数据、不写原文件或 Graph。materials.associate 的路径入口也消费同一解析结果并保持旧 material 结果形状；capture/已知 ID 关联仍明确关闭 Graph 自动引用。正文与上下文文件点击先同步委托 A 的统一预览；失联材料从当前阅读许可集合排除，旧计划保留为 material-unavailable。未复制 A 的目录/预览算法；不把 mock 当作跨支 Desktop 通过。页面型阅读及外部协作使用真实 page scope，空页面不伪造块；正文、TODO、格式及阶段维护仍需另选实际块范围。
 
 检查：`npm run check` 已通过，最新全量日志 `tmp/reading-stage-check.log`，各 TAP 测试合计 736 项、零失败，包含 requirements/typecheck/lint/test/sandbox/build/boundaries/taste。首次全量检查发现 DOM 书签顺序及材料往返展示焦点两处回归，修正后相关 27 项与全量重跑通过。随后把滚动锚点由祖先上下文改为点击组的主要成员，插件 typecheck/ESLint、9 项阅读 UI 回归及 build 通过；最终整项 check/package 仍将在全部 B/A 接线完成后重新执行。最终包尚未生成/验收。
 
@@ -107,3 +107,5 @@ B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`
 仍需实施并验证：A 明确交付提交合入和接口适配；最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；跨工作导航、物理 IME 及晚到调用的更多宿主验证；五类预览/目录/独立窗口；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。
+
+合入后针对材料解析、文件许可、符号链接拒绝、无 Graph 写入、来源高亮优先委托及失联方案失效的 10 项回归通过，日志 `tmp/integration-adapter-tests.log`；全仓类型检查通过。独立依赖安装仍报告 3 high / 4 moderate，不宣称依赖无漏洞。日常材料预览/窗口/目录及实际 Agent resolve 指南已更新。`scripts/acceptance-context.mjs` 与原演练脚本新增明确 `--package NAME`，核对实际 clean ZIP、全部资源、限定自有 Cache 路径并运行包内 CLI；不会复用旧开发现场或注入许可。包验收解压器保留命令启动器执行权限，最终实际启动器仍需验收。合并后的 `tmp/a-b-integration-check.log` 全量通过 798 项，零失败/跳过/取消，requirements/typecheck/lint/test/sandbox/build/boundaries/taste 均通过。新仓库外完整矩阵待执行，不把这次函数/CLI 夹具检查记为最终 Desktop 通过。

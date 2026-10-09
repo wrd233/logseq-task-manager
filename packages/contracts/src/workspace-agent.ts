@@ -18,6 +18,7 @@ export const workspaceCommands = {
     "materials.list": [], "materials.read": ["id"],
     "materials.capture": ["requestKey", "text", "html", "title", "role"],
     "materials.associate": ["id", "path"],
+    "materials.resolve": ["path"],
     "materials.save": ["id", "expectedVersion", "expectedContent", "next"],
     "files.list": [], "files.read": ["path"], "files.associate": ["path"],
     "sessions.list": [], "sessions.add": ["platform", "externalId", "url", "description"], "sessions.remove": ["platform", "externalId"],

@@ -133,6 +133,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const readonlyCounts=f.counts(),deniedPatch=f.patch([await f.text(f.a,"Alpha","must remain saved")]);
         await assert.rejects(cli(["content","apply"],deniedPatch),/CONTENT_WRITE_AUTHORIZATION_REQUIRED/);
         await assert.rejects(cli(["materials","capture"],{requestKey:"read-must-not-capture",text:"must not become a file"}),/FILE_WRITE_AUTHORIZATION_REQUIRED/);
+        await assert.rejects(cli(["materials","resolve","--path","added.txt"]),/FILE_WRITE_AUTHORIZATION_REQUIRED/);
         const firstGuide=await cli(["guidance","read"]);assert.equal(firstGuide.automaticAgentReload,false);
         await assert.rejects(cli(["collaboration","refresh"]),/COLLABORATION_CONTEXT_REQUIRED/);
         f.editing(f.a);await f.commands.get("agent-workspace-collaboration")!();
@@ -206,6 +207,9 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         await assert.rejects(cli(["files", "read", "link/input.json"]), /SYMLINK_RESTRICTED/);
         await assert.rejects(cli(["files", "read", "../escape"]), /PATH_OUTSIDE_SCOPE/);
         const associated = await cli(["files", "associate", "added.txt"]);
+        const resolved=await cli(["materials","resolve","--path","added.txt"]);
+        assert.equal(resolved.materialId,associated.material.id);assert.equal(resolved.reference,associated.material.reference);assert.equal(resolved.fileName,"added.txt");
+        await assert.rejects(cli(["materials","resolve","--path","link/input.json"]),/SYMLINK_RESTRICTED/);
         assert.equal(await readFile(join(directory, "added.txt"), "utf8"), "直接加入的文本");
         assert.equal((await cli(["files", "list"])).observation.files.find((item: {
             path: string;
@@ -215,6 +219,9 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const captured = await cli(["materials", "capture"], { requestKey: "output-1", text: "# 草稿\n\n可修订" });
         assert.equal(f.counts().inserts,captureCounts.inserts);assert.equal(f.counts().identities,captureCounts.identities);assert.deepEqual((await cli(["content","read"])).blocks,captureSource.blocks);
         assert.equal(captured.material.capabilities.edit.agent, true);
+        const capturedResolution=await cli(["materials","resolve","--path",captured.material.path.slice(directory.length+1)]);
+        assert.equal(capturedResolution.materialId,captured.material.id);assert.equal(capturedResolution.reference,captured.material.reference);
+        assert.equal(f.counts().inserts,captureCounts.inserts);assert.equal(f.counts().identities,captureCounts.identities);assert.deepEqual((await cli(["content","read"])).blocks,captureSource.blocks);
         const saved = await cli(["materials", "save"], { id: captured.material.id, expectedVersion: captured.material.version, expectedContent: captured.material.content, next: "# 草稿\n\n真实修订" });
         assert.equal(saved.status, "success");
         assert.equal((await api.materials.read(captured.material.id)).content, "# 草稿\n\n真实修订");

@@ -90,6 +90,7 @@ export class WorkView {
     repaint: () => { if (!this.disposed) { this.report.sourceChanged(); this.render(); } },
     reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
     material:id=>{void this.report.openReadingMaterial(id).catch(this.fail);},
+    fileClick:event=>this.report.delegateFileClick(event),
     clearSources:()=>this.report.api.clearHighlight(),
     sources:(ids,context,contextIds)=>{void this.report.highlightFromView(ids,context,contextIds).then(result=>{
       if(!result.ok)throw new Error(result.reason);

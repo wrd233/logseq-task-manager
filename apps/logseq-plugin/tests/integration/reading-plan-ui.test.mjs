@@ -127,6 +127,21 @@ test('active native draft and composition retain the exact input, selection and 
     f.work.reportAPI.clearHighlight();assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'还没保存的中文草稿');
   } finally {await f.close();}
 });
+test('material delegation precedes row location and offline material plans retire without losing original sources',async()=>{
+  const f=await readingFixture();try {
+    let available=true,delegated=0;const material={id:'actual-adapter-id',filename:'退出条件比较.md',reference:'[退出条件比较.md](real-reference)',availability:'available'};
+    f.work.setReadingMaterials({list:async()=>[{...material,availability:available?'available':'unavailable'}],open:async()=>assert.fail('file clicks use the unified delegate'),delegateFileClick:(event,scope)=>{
+      const anchor=event.target.closest('a');if(anchor?.getAttribute('href')!=='file-preview')return false;
+      assert.deepEqual(scope,f.request.source.scope);delegated++;event.preventDefault();event.stopImmediatePropagation();return true;
+    }});
+    const requested=await f.work.readingAPI.request({schemaVersion:1,purpose:'真实材料入口'});f.request=requested.value;
+    const input=plan(f);input.layout.push({kind:'material',key:'file',materialId:material.id});assert.equal((await f.work.readingAPI.submit(input)).ok,true);
+    const body=row(f,corpus[14].uuid).querySelector('.wb-body'),link=f.browser.document.createElement('a');link.setAttribute('href','file-preview');link.textContent=material.filename;body.append(link);link.click();
+    assert.equal(delegated,1);assert.equal(f.work.reportAPI.read().sourceLocation.requestedSourceIds.length,0);assert.equal(f.nativeCalls.length,0);
+    available=false;assert.equal((await f.work.readingAPI.select(input.planId)).ok,false);assert.equal(f.work.readingAPI.read().activePlanId,null);assert.equal(f.work.readingAPI.read().plans[0].status,'material-unavailable');
+    assert.equal(f.work.panel.root.querySelectorAll('.wb-row[data-report-source-id]').length,101);assert.equal(JSON.stringify([...f.blocks].map(([id,block])=>[id,block.content,block.parent,block.children.map(child=>child.uuid)])),f.original);
+  } finally {await f.close();}
+});
 test('source changes and scope switches revoke stale layout and native marks, preserving concurrent new source text',async()=>{
   const f=await readingFixture();try {
     const input=plan(f);await f.work.readingAPI.submit(input);

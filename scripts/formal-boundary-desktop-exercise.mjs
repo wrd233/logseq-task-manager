@@ -8,17 +8,18 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),path=join(m.evidence,'formal-boundary-exercise.json');
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),path=join(m.evidence,'formal-boundary-exercise.json');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input)=>{
   const args=[];if(input!==undefined){const file=join(m.evidence,'formal-boundary-input.json');await writeFile(file,JSON.stringify(input));args.push('--input-file',file);}
-  return JSON.parse((await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','formal-boundary-desktop','--json'],{timeout:30000,maxBuffer:4_194_304})).stdout);
+  return JSON.parse((await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','formal-boundary-desktop','--json'],{cwd:root,timeout:30000,maxBuffer:4_194_304})).stdout);
 };
 const kernel=async words=>JSON.parse((await exec(process.execPath,['--import','tsx',join(repo,'apps/task-copilot-cli/src/main.ts'),...words,'--json'],{cwd:repo,env:{...process.env,TASK_COPILOT_DESCRIPTOR:join(root,'kernel/kernel.json')}})).stdout);
 const status=await cli(['status']),source=await cli(['content','read']),guide=await cli(['guidance','read']),objects=await kernel(['object','list']),views=[];
 for(const o of objects.objects)views.push(await kernel(['object','show',o.id]));
 if(!status.capabilities.content||!status.authorizesTodo||status.capabilities.fileWrite||status.contentProtocol.structureAuthorized||source.scope.rootUuid!=='b7261007-0000-4000-8000-000000000001'||views.length!==2||views.some(v=>v.anchor.graphId!==source.scope.graphId))throw Error('Real independent body/ordinary TODO grants and two owned formal registrations required');
-const beforeHash=sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),record={at:new Date().toISOString(),status,source,guide,objects,views,beforeHash,bodyResults:[],todoRejected:[],runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+const beforeHash=sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),record={at:new Date().toISOString(),status,source,guide,objects,views,beforeHash,bodyResults:[],todoRejected:[],runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
 await writeFile(path,JSON.stringify(record,null,2));
 const roots=views.map(v=>source.blocks.find(b=>b.target.blockUuid===v.anchor.externalId));if(roots.some(b=>!b))throw Error('Actual registered roots unavailable');
 const managed=source.blocks.find(b=>views.some(v=>[v.anchor.projectionStateUuid,v.anchor.projectionFocusUuid,v.anchor.projectionWaitingUuid,v.anchor.projectionOutcomeUuid,v.anchor.projectionCompletionUuid].includes(b.target.blockUuid)));if(!managed)throw Error('Actual registered rendered managed field unavailable');

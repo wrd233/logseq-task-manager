@@ -22,7 +22,7 @@ export interface WorkspaceBindingPort {
 export interface WorkspaceSourcePort {
     refresh(scope: AgentWorkBinding["scope"]): Promise<ContextReading>;
 }
-type MaterialPort = Pick<Materials, "listMaterials" | "readMaterial" | "capture" | "associateMaterial" | "saveMaterial">;
+type MaterialPort = Pick<Materials, "listMaterials" | "readMaterial" | "capture" | "associateMaterial" | "resolveDirectoryFile" | "saveMaterial">;
 type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI" | "readingAPI" | "reportAPI">;
 /** Routes capabilities, without implementing source algorithms, protections or Stage. */
 export class AgentWorkspaceRouter {
@@ -204,12 +204,12 @@ export class AgentWorkspaceRouter {
             await check();
             return this.ports.materials.capture({ requestKey, text: payload.text, sourceUuid: binding.scope.rootUuid, ...(payload.html !== undefined ? { html: payload.html as string } : {}), ...(payload.title !== undefined ? { title: payload.title as string } : {}), ...(payload.role !== undefined ? { role: payload.role as "input" | "reference" | "draft" | "output" } : {}) }, "agent",false);
         }
-        if (command === "materials.associate") {
+        if (command === "materials.associate" || command === "materials.resolve") {
             if(this.ports.allowsFileWrite?.(lease)===false)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
             await sourceRead();await check();
             if (payload.id !== undefined && payload.path !== undefined)
                 throw new WorkspaceError("AMBIGUOUS_MATERIAL");
-            if (payload.id !== undefined) {
+            if (command === "materials.associate" && payload.id !== undefined) {
                 const material = await this.material(payload.id, binding);
                 await check();
                 return this.ports.materials.associateMaterial({ id: material.id, sourceUuid: binding.scope.rootUuid },false);
@@ -218,7 +218,10 @@ export class AgentWorkspaceRouter {
             const path = workText(payload.path, 4096);
             if (!path.startsWith(`${binding.directory}/`))
                 throw new WorkspaceError("PATH_OUTSIDE_SCOPE");
-            return this.ports.materials.associateMaterial({ path, sourceUuid: binding.scope.rootUuid },false);
+            const resolution=await this.ports.materials.resolveDirectoryFile(path,binding.scope.rootUuid);await check();
+            if(command==="materials.resolve")return resolution;
+            const material=await this.ports.materials.readMaterial(resolution.materialId);await check();
+            return {status:resolution.status==="success"?"success":"partial",material,resolution,...(resolution.problem?{problem:resolution.problem}:{})};
         }
         if(command.startsWith("reading.")) {
             const work=this.ports.work;if(!work)throw new WorkspaceError("READING_UNAVAILABLE");

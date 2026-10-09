@@ -22,6 +22,7 @@ interface Actions {
   sources?(ids:readonly string[],context:boolean,contextIds?:readonly string[]):void;
   clearSources?():void;
   material?(id:string):void;
+  fileClick?(event:MouseEvent):boolean;
 }
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
@@ -55,6 +56,7 @@ export class WorkViewRenderer {
       if(event.key==="Escape"&&!event.isComposing&&!this.composing&&!this.historical&&!(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]"))this.actions.clearSources?.();
     });
     container.addEventListener("click", event => {
+      if(!event.defaultPrevented&&!this.historical)this.actions.fileClick?.(event);
       for (const entry of this.entries.values()) if (entry.menu.open && !entry.menu.contains(event.target as Node)) this.closeMenu(entry);
     });
   }
@@ -109,6 +111,7 @@ export class WorkViewRenderer {
     controls.append(menuContext, select, expand, nativeEdit, compare, range, indent, outdent);
     node.append(grip, fold, label, body, menu);
     node.addEventListener("click", event => {
+      if(!event.defaultPrevented&&!this.historical&&this.actions.fileClick?.(event))return;
       if(event.defaultPrevented||(event.target as HTMLElement).closest("button,select,a,input,textarea,details,[contenteditable=true]")||this.composing||this.historical||document.getSelection()?.isCollapsed===false)return;
       if(this.reporting) {
         if(node.dataset.reportSourceId&&!node.classList.contains("wb-review-change")) {

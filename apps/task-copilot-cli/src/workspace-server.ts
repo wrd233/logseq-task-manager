@@ -171,7 +171,7 @@ export async function startWorkspaceServer(options: {
         }
         const check = () => broker.assert(call.connectionId);
         const forward = async (command = call.command, payload = call.payload) => { const result = await broker.request({ ...call, command, payload }); check(); return result; };
-        if(["materials.capture","materials.associate","materials.save","files.associate"].includes(call.command)){
+        if(["materials.capture","materials.associate","materials.resolve","materials.save","files.associate"].includes(call.command)){
             const status=await broker.request({...call,requestId:`file-permission:${digest([call.command,call.requestId])}`,command:"status",payload:{}});check();
             if((status.value as {capabilities?:{fileWrite?:boolean}}).capabilities?.fileWrite!==true)throw new WorkspaceError("FILE_WRITE_AUTHORIZATION_REQUIRED");
         }
@@ -221,7 +221,7 @@ export async function startWorkspaceServer(options: {
             check();
             return { binding, references };
         }
-        if (call.command === "materials.capture" || call.command === "files.associate" || call.command === "materials.associate") {
+        if (call.command === "materials.capture" || call.command === "files.associate" || call.command === "materials.associate" || call.command === "materials.resolve") {
             await materialWritePaths(root!, [join(root!, ".longdoc/history")]);
             check();
             if (call.command === "materials.capture" && binding.organization === "project") {
@@ -249,10 +249,10 @@ export async function startWorkspaceServer(options: {
             await materialWritePaths(bodyRoot, [material.path]);
             check();
         }
-        if (call.command === "materials.associate" && call.payload.path !== undefined) {
+        if (["materials.associate", "materials.resolve"].includes(call.command) && call.payload.path !== undefined) {
             const path = await scopedPath(root!, call.payload.path);
             check();
-            return forward("materials.associate", { path });
+            return forward(call.command, { path });
         }
         return forward();
     };

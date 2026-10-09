@@ -35,3 +35,9 @@ For one Formal MiniProject, switch to [`miniproject-governance-guide.md`](minipr
 Bootstrap prompt:
 
 > 使用本机 Task Copilot CLI 帮我整理今天的 Logseq。先读取 external CLI agent guide 和 `agent bootstrap`。已有正式事项中，能明确更新 current focus 或 ACTIONABLE 与 WAITING 的直接处理；不确定的不要强行改。不要冒充 USER，不要完成、取消、Reopen、PARKED，也不要直接修改 SQLite 或 Formal Projection。
+
+## 自然工作材料的稳定引用
+
+本次明确授予文件写作后，可使用 `workspace materials capture` 保存产物，再用 `workspace materials resolve --path <工作目录内的相对路径>` 读取材料模块的实际解析结果。结果含 `materialId`、完整 `fileName`、`reference`、可用性及物理身份核验状态。直接使用服务返回的 reference，不猜 UUID 或路径。此解析可以登记关联元数据，但不改原文件、不自动插入 Graph 引用，也不授予正文权限；需要续接笔记时另用已授权的 content/Journal。
+
+同路径文件身份不可靠时结果是 needs-verification，不能把同名或相同字节当成可靠身份；`materials list` 的 partial、problems 和 unavailable 仍需处理，不能提前宣称当前材料已完整核验。Node 通道拒绝工作目录外的路径及符号链接；平台文件竞态仍需核对实际结果。

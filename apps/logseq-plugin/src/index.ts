@@ -96,7 +96,7 @@ async function main(): Promise<void> {
       for(const association of binding?.manifest.associations??[])if(association.kind==="material"&&!list.materials.some(view=>view.id===association.id))list.materials.push(await module.readMaterial(association.id));
       if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
       return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability}));
-    },open:async(id,scope)=>{
+    },delegateFileClick:(event,scope)=>requireMaterials().delegateFileClick(event,scope.rootUuid),open:async(id,scope)=>{
       requireActive();const actual=work?.readingAPI.read().scope;if(actual&&sameLensScope(actual,scope))await requireMaterials().openDoc(id,scope.rootUuid);
       else throw new Error("READING_MATERIAL_SCOPE_CHANGED");
     }

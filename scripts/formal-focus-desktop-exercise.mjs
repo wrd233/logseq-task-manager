@@ -8,7 +8,8 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),exec=promisify(execFile),path=join(m.evidence,'formal-focus-exercise.json');
+import {acceptanceRoot} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),exec=promisify(execFile),path=join(m.evidence,'formal-focus-exercise.json');
 if(m.root!==root||!m.graph.startsWith(root+'/'))throw Error('Owned acceptance identity required');
 const cli=async words=>JSON.parse((await exec(process.execPath,['--import','tsx',join(repo,'apps/task-copilot-cli/src/main.ts'),...words,'--json'],{cwd:repo,env:{...process.env,TASK_COPILOT_DESCRIPTOR:join(root,'kernel/kernel.json')},timeout:30000})).stdout);
 if(process.argv[2]==='replay'){

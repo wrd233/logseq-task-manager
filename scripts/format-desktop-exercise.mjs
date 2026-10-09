@@ -8,12 +8,13 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile),sha=value=>createHash('sha256').update(value).digest('hex');
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile),sha=value=>createHash('sha256').update(value).digest('hex');
 const m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),phase=process.argv[2]??'prepare',path=join(m.evidence,'format-exercise.json');
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.work.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!m.work.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input)=>{
   const args=[];if(input!==undefined){const path=join(m.evidence,'format-input.json');await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','format-desktop','--json'],{timeout:30000});return JSON.parse(r.stdout);
+  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',m.work,'--state-dir',m.channel,'--client','format-desktop','--json'],{cwd:root,timeout:30000});return JSON.parse(r.stdout);
 };
 const status=await cli(['status']);if(!status.binding.scope.graphId.includes(m.graph)||status.binding.directory!==m.work)throw Error('Wrong live Graph/work scope');
 if(status.capabilities.content||status.capabilities.fileWrite||status.authorizesTodo)throw Error('Format exercise requires independent read-only authority');
@@ -23,7 +24,7 @@ if(phase==='prepare'){
   const guide=await cli(['guidance','read']),scene=await cli(['collaboration','read']);if(!scene.scene.request.includes('合成格式演练'))throw Error('Actual user intent required');
   const proposal=await cli(['formatting','preview'],{requestId:'format-desktop-1',sourceIds:[selected.sourceId],labels:['问一下']});
   if(proposal.changes.length!==1||proposal.changes[0].blockUuid!==selected.target.blockUuid)throw Error('One actual prefix diff required');
-  const record={preparedAt:new Date().toISOString(),status,source,guide,scene,proposal,conditionId,condition,beforeGraphHash:sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+  const record={preparedAt:new Date().toISOString(),status,source,guide,scene,proposal,conditionId,condition,beforeGraphHash:sha(await readFile(join(m.graph,'pages/合成阅读与协作.md'))),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
   await writeFile(path,JSON.stringify(record,null,2));console.log(JSON.stringify({phase,changes:proposal.changes,bodyWrite:false}));
 }else{
   const record=JSON.parse(await readFile(path,'utf8'));if(sha(await readFile(join(m.plugin,'dist/index.js')))!==record.runtime.jsHash)throw Error('Different runtime build');

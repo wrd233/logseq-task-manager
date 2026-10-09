@@ -8,12 +8,13 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
 const m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),directory=join(root,'page-work'),evidencePath=join(m.evidence,'page-exercise.json');
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input,workDirectory=directory)=>{
   const args=[];if(input!==undefined){const path=join(m.evidence,'page-input.json');await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',workDirectory,'--state-dir',m.channel,'--client','page-desktop','--json'],{timeout:30000});return JSON.parse(r.stdout);
+  const r=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',workDirectory,'--state-dir',m.channel,'--client','page-desktop','--json'],{cwd:root,timeout:30000});return JSON.parse(r.stdout);
 };
 if(phase==='switched'){
   const record=JSON.parse(await readFile(evidencePath,'utf8'));
@@ -37,7 +38,7 @@ if(phase==='prepare'){
   let oldBlockRejection;try{await cli(['status'],undefined,m.work);throw Error('Old block connection still online');}catch(error){if(!/WORKSPACE_OFFLINE|DESCRIPTOR_STALE/u.test(error.stderr??''))throw error;oldBlockRejection=JSON.parse(error.stderr).error.code;}
   const manifest=JSON.parse(await readFile(join(directory,'.task-workspace/manifest.json'),'utf8')),generated=await readFile(join(directory,manifest.entryFile),'utf8');
   if(manifest.primarySource.kind!=='page'||manifest.primarySource.rootUuid!==source.scope.rootUuid||manifest.entryFile==='WORKSPACE.md'||!generated.includes('?page=')||generated.includes('?block-id='+source.scope.rootUuid))throw Error('Actual page manifest/entry required');
-  const record={preparedAt:new Date().toISOString(),status,source,guide,scene,denied,manifest,generatedEntry:generated,entryHash:sha(entryBytes),beforeGraphHash:graphHash,oldBlockRejection,runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+  const record={preparedAt:new Date().toISOString(),status,source,guide,scene,denied,manifest,generatedEntry:generated,entryHash:sha(entryBytes),beforeGraphHash:graphHash,oldBlockRejection,runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
   await writeFile(evidencePath,JSON.stringify(record,null,2));console.log(JSON.stringify({phase,pageUuid:source.scope.rootUuid,sources:source.blocks.length,denied,oldBlockOffline:true}));
 }else if(phase==='capture'){
   const record=JSON.parse(await readFile(evidencePath,'utf8'));if(sha(await readFile(join(m.plugin,'dist/index.js')))!==record.runtime.jsHash||status.capabilities.content||status.authorizesTodo||!status.capabilities.fileWrite)throw Error('Actual independent file grant and same runtime required');

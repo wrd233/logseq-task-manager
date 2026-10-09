@@ -75,7 +75,7 @@ export class WorkViewReport {
         const views=await port.list(scope);
         if(!this.valid(scope,lifetime)||port!==this.materialPort)throw new Error("READING_MATERIAL_SCOPE_CHANGED");
         requireLens(views.length<=2000&&new Set(views.map(view=>view.id)).size===views.length,"invalid-reading-material-list");
-        this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(this.materialViews.keys());
+        this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(views.filter(view=>view.availability==="available").map(view=>view.id));
       },changed:()=>this.host.changed()});
   }
   readonly readingAPI={
@@ -91,11 +91,15 @@ export class WorkViewReport {
     },cancel:(requestId?:unknown)=>this.plans.api.cancel(requestId),
   };
   setReadingMaterials(port:ReadingMaterialPort|null):void {this.materialPort=port;this.materialViews.clear();this.plans.api.cancel();}
+  delegateFileClick(event:MouseEvent):boolean {
+    const scope=this.host.scope();
+    return !!scope&&!this.disposed&&!this.host.historical()&&(this.materialPort?.delegateFileClick?.(event,scope)??false);
+  }
   async openReadingMaterial(id:string):Promise<void> {
     const scope=this.host.scope(),port=this.materialPort,lifetime=this.lifetime;
     if(!scope||!port||this.host.historical()||!this.materialViews.has(id))throw new Error("READING_MATERIAL_UNAVAILABLE");
     const materials=await port.list(scope);
-    if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+    if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id&&view.availability==="available"))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
     await port.open(id,scope);
   }
   private remember(): void {

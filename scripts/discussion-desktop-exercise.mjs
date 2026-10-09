@@ -8,12 +8,13 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
-const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=join(repo,'tmp/reading-desktop'),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
+import {acceptanceRoot,acceptancePlugin,acceptanceRuntime} from './acceptance-context.mjs';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),exec=promisify(execFile),sha=v=>createHash('sha256').update(v).digest('hex'),phase=process.argv[2]??'prepare';
 const m=JSON.parse(await readFile(join(root,'manifest.json'),'utf8')),directory=join(root,'work-two'),evidencePath=join(m.evidence,'discussion-exercise.json'),graphFile=join(m.graph,'pages/合成阅读与协作.md');
-if(m.root!==root||!m.graph.startsWith(root+'/')||!m.plugin.startsWith(repo+'/apps/'))throw Error('Owned acceptance paths required');
+if(m.root!==root||!m.graph.startsWith(root+'/')||!acceptancePlugin(m,repo))throw Error('Owned acceptance paths required');
 const cli=async(words,input)=>{
   const args=[];if(input!==undefined){const path=join(m.evidence,'discussion-input.json');await writeFile(path,JSON.stringify(input));args.push('--input-file',path);}
-  const result=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',directory,'--state-dir',m.channel,'--client','discussion-desktop','--json'],{timeout:30000});return JSON.parse(result.stdout);
+  const result=await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace',...words,...args,'--directory',directory,'--state-dir',m.channel,'--client','discussion-desktop','--json'],{cwd:root,timeout:30000});return JSON.parse(result.stdout);
 };
 if(phase==='disconnected'){
   const evidence=JSON.parse(await readFile(evidencePath,'utf8'));
@@ -33,7 +34,7 @@ if(phase==='prepare'){
   const denied=[];for(const [words,input,code] of [[['content','apply'],{...request,requestId:'discussion-desktop-denied'},'CONTENT_WRITE_AUTHORIZATION_REQUIRED'],[['materials','capture'],{requestKey:'discussion-desktop-denied',text:'不得保存'},'FILE_WRITE_AUTHORIZATION_REQUIRED']]){
     try{await cli(words,input);throw Error('Unpermitted operation returned');}catch(error){if(!error.stderr?.includes(code))throw error;denied.push(code);}
   }
-  const evidence={preparedAt:new Date().toISOString(),scope:source.scope,source,request,guide,scene,permissions:permissions(status),denied,beforeGraphHash:sha(await readFile(graphFile)),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,developmentDirectory:true,capabilityInjection:false}};
+  const evidence={preparedAt:new Date().toISOString(),scope:source.scope,source,request,guide,scene,permissions:permissions(status),denied,beforeGraphHash:sha(await readFile(graphFile)),runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
   await writeFile(evidencePath,JSON.stringify(evidence,null,2));console.log(JSON.stringify({phase,sources:source.blocks.length,permissions:evidence.permissions,denied}));
 }else if(phase==='first'){
   const evidence=JSON.parse(await readFile(evidencePath,'utf8'));if(!status.capabilities.content||!status.capabilities.fileWrite||status.authorizesTodo)throw Error('Independent actual body/file grants with no TODO grant required');
