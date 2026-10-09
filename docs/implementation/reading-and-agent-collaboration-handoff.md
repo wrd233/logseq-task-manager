@@ -2,6 +2,22 @@
 
 状态：**实施中，未完成交付**。不作为生产安装建议，也不把函数测试记为 Desktop 通过。
 
+## 当前安装包与已核验闭环（2026-10-09）
+
+当前可加载 ZIP 为 `docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip`，SHA-256 `c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688`。实际应用源码提交为 `cda68037f82dfb5496d3a9427e4d2a4562d5580c`；后续证据与交接提交不改变包内应用身份。旧包 `d564a87c…` 的记录仅证明旧版本，不能混入本包结论。
+
+在仓库外的 `integrated-layout-final` 实例逐项核对了 615 个包内资源，使用自己的 Graph、profile、材料与通道。当前[同包核心证据](assets/reading-agent/package-layout-final-core-evidence.json)实际通过：101 来源的两种读法、未授权正文/文件/TODO 拒绝；三条真实 CLI/Graph/文件/Journal 协作演练；共同指导一处更新、两工作重读同版并保留不同项目要求；并发新增条件使旧方案与旧格式提议失效，明确保留当前原文后仅批准一处标记；103 来源及已完成子项重启仍在，全部连接权限撤销。
+
+五类中文 MD、DOCX、PDF、XLSX、PNG 均从目录、原生稳定链接、阅读正文链接进入真实预览，独立窗口与面板 ID/SHA 一致，24 份原件字节保持。实际可读内容包括 Markdown 表格/代码/本地图片、Word 标题/列表/表格/图片、PDF 中文文本与扫描页、Excel 合并区域及第二张表 101–200 / 351 行、720×320 PNG。公式缺少保存值明确报告为部分呈现，不计算公式。两个根的同名文件 ID/正文/SHA 不同；两层目录与外部新增文件在无 Agent 连接时可用。系统窗口菜单实际移动并调整尺寸；自由拖动仍未证明。
+
+旧包的原结构文字被放入 18px 控制列，真实画面不可读。已修复网格文字列，回归先失败再通过，新包实机 101 行最窄文字列 223px，正文列位置为 3。`tmp/structure-layout-check.log` 的全量检查为 **799 项通过、零失败/跳过/取消**，`tmp/structure-layout-package.log` 保留生成结果。测试数量不能代替上述 Desktop 核验。
+
+保留一次换行 PDF 链接的 AX 自动点击误点：DOM 外接矩形中心落在来源行的空白区域，两段链接文字都不包含中心。实际可见文字点击打开同一 PDF，清除这次误点产生的定位后重验五类链接，来源与高亮集合均保持；原失败快照未删除。期间原 Desktop/companion PID 已不存在，保留 Graph/profile 后重新启动同包；未把跨重启快照组合成资源释放证据。
+
+本包还需完成最终范围/资源释放、页面身份、实际 Kernel 正式对象与原生输入边界复验，再做逐条完成审计与最终交付。旧包对应路径有实测记录，但本段不把它们当作新版通过。物理 IME、未提交草稿、原剪贴板恢复、其他平台/宿主版本、普通 IO 竞态、整套升级/降级/恢复仍未证明。原生产审计的自动 Fake 正式化、schema 23/CLI 22 恢复不匹配、生产路径与写入竞态等风险没有因此修复；本包仍不建议直接用于重要生产 Graph。
+
+## 以下为历史阶段记录
+
 共同 BASE_SHA：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。按 REMOTE-START 明确 fetch `codex/workbench-visual-refresh` 后解析并固定；它包含视觉刷新 `eb07013d119584dbd3c68012541f1355118d2b0b` 和配套资料。B 分支为 `codex/reading-and-agent-collaboration`，使用独立管理工作树；用户主工作树 main 不变。Node 20.20.2 / npm 10.8.2，依赖独立安装。真实本机 Logseq 0.10.15/macOS ARM64 已开始隔离局部验收，完整最终安装验收仍待完成。
 
 A 完整 SHA：用户于 2026-10-09 明确交付 `d0c38706b79c63f6f5b15e16286e1c49d28736ff`，其中 handoff 位于 `docs/implementation/materials-and-preview-handoff.md`。共同 merge-base 核对为上述 BASE_SHA；A 实施提交 `98c0d4e6d5122ff8a763683e96e25dd511928e36` 是该交付的祖先，之后两次提交仅增加可携带样本、交接及证据。已在 B 本分支合入这一明确提交，合并提交 `a5e0888c9d512045bf6805437517f4db67b44b67`，controller/index 自动合并、没有文本冲突；组合行为仍须验收。不新建整合分支，不推送、PR、main 合并、发布或联系其他聊天。
