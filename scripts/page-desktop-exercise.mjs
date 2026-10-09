@@ -19,7 +19,7 @@ const cli=async(words,input,workDirectory=directory)=>{
 if(phase==='switched'){
   const record=JSON.parse(await readFile(evidencePath,'utf8'));
   try{await cli(['status']);throw Error('Old page connection remained online after the real block switch');}catch(error){
-    if(!/WORKSPACE_OFFLINE|CONNECTION_REVOKED/u.test(error.stderr??''))throw error;
+    if(!/WORKSPACE_OFFLINE|CONNECTION_REVOKED|CONNECTION_STALE/u.test(error.stderr??''))throw error;
     record.pageSwitchRejection=JSON.parse(error.stderr).error.code;
   }
   if(sha(await readFile(join(m.graph,'pages/合成阅读与协作.md')))!==record.beforeGraphHash)throw Error('Scope switch changed Graph bytes');
@@ -35,7 +35,7 @@ if(phase==='prepare'){
   const denied=[];for(const [words,input] of [[['todo','read']], [['content','apply'],{schemaVersion:1,requestId:'page-denied',scope:source.scope,operations:[]}], [['formatting','preview'],{requestId:'page-format-denied',sourceIds:[source.blocks[0].sourceId]}], [['stage','read'],{}]]){
     try{await cli(words,input);throw Error('Unexpected page writing capability');}catch(error){if(!error.stderr?.includes('BLOCK_SCOPE_REQUIRED'))throw error;denied.push(words.join(' '));}
   }
-  let oldBlockRejection;try{await cli(['status'],undefined,m.work);throw Error('Old block connection still online');}catch(error){if(!/WORKSPACE_OFFLINE|DESCRIPTOR_STALE/u.test(error.stderr??''))throw error;oldBlockRejection=JSON.parse(error.stderr).error.code;}
+  let oldBlockRejection;try{await cli(['status'],undefined,m.work);throw Error('Old block connection still online');}catch(error){if(!/WORKSPACE_OFFLINE|DESCRIPTOR_STALE|CONNECTION_STALE|CONNECTION_REVOKED/u.test(error.stderr??''))throw error;oldBlockRejection=JSON.parse(error.stderr).error.code;}
   const manifest=JSON.parse(await readFile(join(directory,'.task-workspace/manifest.json'),'utf8')),generated=await readFile(join(directory,manifest.entryFile),'utf8');
   if(manifest.primarySource.kind!=='page'||manifest.primarySource.rootUuid!==source.scope.rootUuid||manifest.entryFile==='WORKSPACE.md'||!generated.includes('?page=')||generated.includes('?block-id='+source.scope.rootUuid))throw Error('Actual page manifest/entry required');
   const record={preparedAt:new Date().toISOString(),status,source,guide,scene,denied,manifest,generatedEntry:generated,entryHash:sha(entryBytes),beforeGraphHash:graphHash,oldBlockRejection,runtime:{jsHash:sha(await readFile(join(m.plugin,'dist/index.js'))),cliHash:sha(await readFile(join(m.plugin,'dist/workspace.mjs'))),node:process.version,...acceptanceRuntime(m),capabilityInjection:false}};
