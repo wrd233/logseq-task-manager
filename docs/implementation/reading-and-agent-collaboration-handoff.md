@@ -4,7 +4,7 @@
 
 共同 BASE_SHA：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。按 REMOTE-START 明确 fetch `codex/workbench-visual-refresh` 后解析并固定；它包含视觉刷新 `eb07013d119584dbd3c68012541f1355118d2b0b` 和配套资料。B 分支为 `codex/reading-and-agent-collaboration`，使用独立管理工作树；用户主工作树 main 不变。Node 20.20.2 / npm 10.8.2，依赖独立安装。真实本机 Logseq 0.10.15/macOS ARM64 已开始隔离局部验收，完整最终安装验收仍待完成。
 
-A 完整 SHA：**尚未交付/取得**。未合入 A，不新建整合分支，不推送、PR、main 合并、发布或联系其他聊天。
+A 完整 SHA：用户于 2026-10-09 明确交付 `d0c38706b79c63f6f5b15e16286e1c49d28736ff`，其中 handoff 位于 `docs/implementation/materials-and-preview-handoff.md`。共同 merge-base 核对为上述 BASE_SHA；A 实施提交 `98c0d4e6d5122ff8a763683e96e25dd511928e36` 是该交付的祖先，之后两次提交仅增加可携带样本、交接及证据。目前准备在 B 本分支合入这一明确提交；不新建整合分支，不推送、PR、main 合并、发布或联系其他聊天。
 
 已实施：
 
@@ -98,8 +98,12 @@ B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`
 
 第一次真实首启观察到未处理 LOGSEQ_GRAPH_SHAPE_UNSUPPORTED，来自还没有选择 Graph 时的 restoreReadingSession；后来的手动阅读可用不能冲销启动失败。失败摘要 [package-bootstrap-initial-evidence.json](assets/reading-agent/package-bootstrap-initial-evidence.json) 及原实例保留；仅停止经 PID/完整命令身份确认的自有包实例。修补缺图 null/undefined 时不恢复、不读旧来源，也不制造 Graph 身份；非空畸形数据仍拒绝。新增回归验证缺图、异常数据、随后真实 Graph 恢复及来源不变，针对 5 项和全量 `tmp/package-first-start-check.log` 771 项全部通过。新干净 ZIP 与新 profile 的首启必须另行实测；旧 ZIP 不变，不把源码修补说成已改变旧安装。
 
-可携带阶段脚本 `package-reading-exercise.mjs NAME` 已编写并通过 ESLint，尚未在修补后的 ZIP 上运行；用于通过包内真实 CLI和固定只读探针核验当前合成现场、独立权限拒绝、两方案/来源 DOM、幂等、实际来源定位及用户入口/原文保持。协议 original 指取消 Agent 方案回到默认原顺序；真实“查看原结构”的界面往返需另验，不混淆二者。探针的 bootstrap 模式只在已确认自有实例且当前 Graph 为缺图值时读取启动事实，不访问异图正文、不注入能力。
+修补后的阶段 ZIP 来自干净 `2aa342ca5868d759128a1ff8122f45c3824cd919`，SHA 为 `3bc7bcf3f1531ca669c8a85cd51dc3a7a0ee8a87a9f2976c90bb145640b88ab2`，428 项、425 个 dist 文件身份逐项一致。在全新仓库外实例 `reading-package-second` 的缺图首启中，真实 API 已发布、connected=true，未处理异常及控制台错误为零。真实 UI 选择 Graph、关联目录并准备只读现场后，`package-reading-exercise.mjs NAME` 通过包内实际 CLI 和固定只读探针完成 101 来源、三种独立权限拒绝、连续/对照方案、相同方案重试、25 个实际原生来源定位及用户 WORKSPACE.md 保持。两读法分别 0/4 个标题，每个主要来源 ID/版本一次出现。全部实际来源及 Graph SHA 保持。协议 original 是取消 Agent 方案；另从真实 UI 切换“查看原结构”核对 101 个真实行、原序及深度，再返回 101 主要来源/4 标题对照方案，逐个核对中文原句序列及版本。
 
-仍需实施并验证：新 ZIP 首启复验；最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；真实折叠/跨工作导航、物理 IME 及晚到调用的更多宿主验证；A 适配与五类预览/目录；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。A 尚无最终 handoff/SHA，不合入其未提交或未经交付的内容。
+本次另由真实原生界面折叠第 28 块，再点击阅读来源：原生折叠保持，4 个请求来源中实际标记 1 个、3 个不可挂载，editing=false；实际宿主 URL 路由到第 29 块锚点，不能把稍后只读状态中的 navigation=unchanged 当成未曾路由。定位前后实际 SDK 来源与折叠后 Graph SHA 保持。手动展开后原生内容、身份及层级恢复，collapsed 属性移除，但宿主把整页缩进由空格改成 tab，并移除文件尾换行，原始字节 SHA 没有恢复。保留最初严格字节恢复断言失败及后续逐来源/规范化文本核对，不把用户主动折叠/展开的序列化作用归给只读定位，也不把整个往返说成 Graph 字节不变。
+
+摘要 [package-stage-evidence.json](assets/reading-agent/package-stage-evidence.json) 由 `scripts/package-stage-evidence.mjs NAME` 从实际原始记录核对生成；原始记录位于该自有 Cache 实例的 evidence 目录。探针已改为观测 SDK 的真实 collapsed? 字段，DOM class 不能证明折叠状态。两次阶段包均保留，各自进程已核对停止。这些是 B 单支预检，不能代替 A+B 最终包三条写作/五类预览/独立窗口矩阵。
+
+仍需实施并验证：A 明确交付提交合入和接口适配；最终同一安装包中的三条完整协作回放；最终包真正 Kernel 正式对象/TODO/恢复复验；跨工作导航、物理 IME 及晚到调用的更多宿主验证；五类预览/目录/独立窗口；最终安装包仓库外加载及完整矩阵。具体要求仍以两支 prompt 和共同契约为准。
 
 最终 SHA、A 合入事实、ZIP/hash、三条演练、Desktop 格式矩阵、物理 IME/Finder/剪贴板及平台限制待实际执行后补齐；不能由这份阶段记录代替最终验收。

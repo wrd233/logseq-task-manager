@@ -38,14 +38,16 @@ for(const context of contexts) {
       throw Error('Owned Graph identity required');
     }
     const block=await logseq.Editor.getBlock('b7261007-0000-4000-8000-000000000001',{includeChildren:true});
+    const collapsed=new Map();(function visit(value){if(value?.uuid)collapsed.set(value.uuid,value['collapsed?']??null);for(const child of value?.children??[])visit(child);})(block);
     const host=window.top.document,inputs=[...host.querySelectorAll('#main-content-container textarea')];
     return {graph,pluginConnected:logseq.connected,sdkKeys:Object.keys(logseq),sdkConnection:{id:logseq.baseInfo?.id,callerStatus:logseq._caller?._status,callerConnected:logseq._caller?._connected},apiPresent:!!api,settings:{tasksEnabled:logseq.settings?.tasksEnabled,agentWorkspaceDescriptor:logseq.settings?.agentWorkspaceDescriptor},
       work:api?.read(),report:api?.report?.read(),reading:api?.reading?.read(),connection:api?.agentWorkspace?.status(),source:block,editing:await logseq.Editor.checkEditing(),
       collaborationUI:(()=>{const panel=document.querySelector('[data-collaboration="true"]');return panel?{visible:!panel.hidden,text:panel.innerText,inputs:[...panel.querySelectorAll('textarea')].map(input=>({value:input.value,readOnly:input.readOnly}))}:null;})(),
       readingStyle:(()=>{const node=document.querySelector('.wb-report-row[data-report-root]>.wb-body>p:first-child');if(!node)return null;const style=window.getComputedStyle(node);return {fontSize:style.fontSize,fontWeight:style.fontWeight};})(),
       primary:[...document.querySelectorAll('.wb-row[data-report-source-id]')].map(node=>({uuid:node.dataset.uuid,sourceId:node.dataset.reportSourceId,version:node.dataset.reportContentVersion,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
+      structureRows:[...document.querySelectorAll('.wb-row[data-uuid]:not([data-report-source-id])')].map(node=>({uuid:node.dataset.uuid,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
       headings:[...document.querySelectorAll('.wb-reading-heading')].map(node=>({key:node.dataset.readingHeading,text:node.textContent,uuid:node.dataset.uuid??null})),
-      native:[...host.querySelectorAll('#main-content-container .ls-block[blockid]')].filter(node=>!node.closest('.block-content,.block-editor')).map(node=>({uuid:node.getAttribute('blockid'),collapsed:node.classList.contains('collapsed'),marked:[...node.querySelectorAll('[data-task-copilot-source-set]')].some(body=>body.closest('.ls-block')===node)})),
+      native:[...host.querySelectorAll('#main-content-container .ls-block[blockid]')].filter(node=>!node.closest('.block-content,.block-editor')).map(node=>({uuid:node.getAttribute('blockid'),collapsed:collapsed.get(node.getAttribute('blockid'))??null,marked:[...node.querySelectorAll('[data-task-copilot-source-set]')].some(body=>body.closest('.ls-block')===node)})),
       inputs:inputs.map(node=>({uuid:node.closest('.ls-block')?.getAttribute('blockid'),value:node.value,start:node.selectionStart,end:node.selectionEnd,focused:host.activeElement===node})),selection:document.getSelection()?.toString(),
       rawText:document.body.innerText};})()`:
     `({url:location.href,pluginFrames:[...document.querySelectorAll('iframe')].map(node=>node.src),nativeBlocks:document.querySelectorAll('#main-content-container .ls-block[blockid]').length,rawText:document.body.innerText})`;

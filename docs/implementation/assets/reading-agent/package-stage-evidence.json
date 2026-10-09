@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "stage": "B-only-outside-repository-package-preflight",
+  "status": "passed-listed-paths; final integration incomplete",
+  "at": "2026-10-08T15:48:52.971Z",
+  "commit": "2aa342ca5868d759128a1ff8122f45c3824cd919",
+  "zipHash": "3bc7bcf3f1531ca669c8a85cd51dc3a7a0ee8a87a9f2976c90bb145640b88ab2",
+  "installedFilesVerified": 425,
+  "runtime": {
+    "commit": "2aa342ca5868d759128a1ff8122f45c3824cd919",
+    "zipHash": "3bc7bcf3f1531ca669c8a85cd51dc3a7a0ee8a87a9f2976c90bb145640b88ab2",
+    "jsHash": "806ce0e487696eb4b10fe4261c18979c5edf79bb42e52d588f9bc4d92dd34da2",
+    "cliHash": "55a6383c8be69fbc464fa1543c4269edede979d1a2865b10fb6c56a297d9db1a",
+    "node": "v20.20.2",
+    "outsideRepository": true,
+    "capabilityInjection": false
+  },
+  "host": {
+    "logseq": "0.10.15",
+    "platform": "macOS ARM64"
+  },
+  "bootstrap": {
+    "currentGraph": null,
+    "apiPublished": true,
+    "unhandledExceptions": 0
+  },
+  "connection": {
+    "sourceBlocks": 101,
+    "readOnly": true,
+    "denied": [
+      "CONTENT_WRITE_AUTHORIZATION_REQUIRED",
+      "FILE_WRITE_AUTHORIZATION_REQUIRED",
+      "TODO_AUTHORIZATION_REQUIRED"
+    ],
+    "userWorkspacePreserved": true
+  },
+  "reading": {
+    "layouts": [
+      {
+        "name": "continuous",
+        "primarySources": 101,
+        "headings": 0
+      },
+      {
+        "name": "comparison",
+        "primarySources": 101,
+        "headings": 4
+      }
+    ],
+    "samePlanReplay": true,
+    "fullChineseBodySequenceChecks": 101,
+    "originalSourceVersionsPreserved": true,
+    "realStructureRows": 101,
+    "structureOrderAndDepthPreserved": true,
+    "comparisonRestored": true,
+    "defaultPlanResetDistinctFromStructure": true,
+    "graphBefore": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+    "graphAfter": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea"
+  },
+  "highlight": {
+    "requested": 25,
+    "mounted": 25,
+    "highlighted": 25,
+    "visible": 4,
+    "sourceUnchanged": true,
+    "graphUnchanged": true
+  },
+  "fold": {
+    "sourceUuid": "b7261007-0000-4000-8000-000000000028",
+    "actualNativeCollapsedKept": true,
+    "requested": 4,
+    "highlighted": 1,
+    "unavailable": 3,
+    "editing": false,
+    "foldedGraphBefore": "0a2926577744e892216056ce6c2722bf2454a0840c0752f0af1fa9014bc470ae",
+    "foldedGraphAfter": "0a2926577744e892216056ce6c2722bf2454a0840c0752f0af1fa9014bc470ae",
+    "actualHostRouteAnchor": "block-content-b7261007-0000-4000-8000-000000000029",
+    "readonlyNavigationField": "later read reports unchanged; actual route URL is recorded separately",
+    "cleanup": {
+      "at": "2026-10-08T15:48:52.966Z",
+      "native": {
+        "uuid": "b7261007-0000-4000-8000-000000000028",
+        "collapsed": false,
+        "marked": true
+      },
+      "hash": "6260b635e9c3835ba9a98509dc07a5e112b226d7e5b3e352b65cc081b9727416",
+      "originalGraphBytesRestored": false,
+      "sourceContentAndIdentityUnchanged": true,
+      "manualUnfolded": true,
+      "hostSerialization": {
+        "collapsedProperty": "removed",
+        "indentation": "spaces converted to tabs",
+        "finalNewline": "removed"
+      },
+      "earlierStrictByteRestorationCheck": "failed; native unfold restored content but normalized whole-file indentation and final newline"
+    }
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/reading-package-second/evidence",
+  "limits": [
+    "B-only staged ZIP; A final handoff and merge missing",
+    "five-format/independent-window/three-writing final matrix incomplete",
+    "physical IME, Finder, clipboard and ordinary IO races not established",
+    "manual native fold/unfold rewrites serialized Graph metadata; not a read-only locator write",
+    "one property-first synthetic block had a host-generated UUID; use actual source identities"
+  ]
+}
