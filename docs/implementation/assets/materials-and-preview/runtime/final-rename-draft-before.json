@@ -1,0 +1,45 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "input": {
+        "value": "中文文件名草稿验证",
+        "active": true,
+        "connected": true,
+        "start": 9,
+        "end": 9
+      },
+      "rows": [
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/空目录",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/一级",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/nested",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/workspaces",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/安全清洗.md",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.docx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.pdf",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.xlsx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/旧格式.doc",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/路线.md",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/生命周期 验收.md",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/损坏.pdf",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.md",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.pdf",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.png",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.xlsx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/正文.markdown",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 表格.csv",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多工作表.xlsx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多页扫描.pdf",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 方案.docx",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 旧表.xls",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.jpg",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.png",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.webp",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/状态动画.gif",
+        "<A_WORKTREE>/tmp/materials-preview-desktop/materials/byte-probe.bin"
+      ]
+    }
+  }
+}

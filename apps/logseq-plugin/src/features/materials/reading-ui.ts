@@ -2,13 +2,15 @@ import { button, element } from "../../host/panel-host.ts";
 import { extension, fileName, fileTitle } from "./names.ts";
 import type { MaterialRecord } from "./store.ts";
 import type { MaterialView } from "./service.ts";
+import {previewFormat} from "./preview/paths.ts";
 
 export function fileDetails(view: Pick<MaterialView, "path" | "capabilities" | "availability">): string {
   const type = extension(view.path).slice(1).toUpperCase() || "文件";
-  return `${type} · ${view.availability === "unavailable" ? "文件失联" : view.capabilities.read === "markdown" ? "只读阅读" : "在默认应用打开"}`;
+  return `${type} · ${view.availability === "unavailable" ? "文件失联" : ["legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? "外部阅读" : "只读阅读"}`;
 }
 export function materialEntry(view: MaterialView, open: () => void, draft: boolean): HTMLButtonElement {
-  const entry = button(view.summary || view.title, open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
+  const entry = button(fileName(view.path), open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
+  if (view.summary) entry.append(element("small", view.summary));
   entry.append(element("small", `${fileDetails(view)}${draft ? " · 有保留草稿" : ""}`, "wb-material-meta"));
   if (view.summary || view.title !== fileTitle(view.path)) entry.append(element("small", fileName(view.path), "wb-material-filename"));
   entry.title = view.path;

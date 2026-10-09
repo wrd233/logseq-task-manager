@@ -5,7 +5,7 @@ import type { MaterialService } from "./service.ts";
 import { normalizeRoot } from "./store.ts";
 import { fileName } from "./names.ts";
 
-export async function renderMaterialFolders(parent: HTMLElement, service: MaterialService, context: MaterialWorkContext, valid: () => void, changed: () => Promise<void>): Promise<() => void> {
+export async function renderMaterialFolders(parent: HTMLElement, service: MaterialService, context: MaterialWorkContext, valid: () => void, changed: (directory?: string) => Promise<void>): Promise<() => void> {
   const menus: ReturnType<typeof disclosureMenu>[]=[];
   const owner = context.ownerUuid ?? context.sourceUuid;
   if (!owner) { parent.append(element("p", "先打开一个工作，再管理它的材料目录。")); return () => {}; }
@@ -28,7 +28,7 @@ export async function renderMaterialFolders(parent: HTMLElement, service: Materi
     const unlink=button("解除关联",()=>run(()=>{valid();service.directories.removeFolder(context.graph,owner,folder.directory);void changed().catch(showError);}));unlink.className="wb-danger";
     menu.content.append(
       button("打开目录",()=>run(()=>void desktopBridge().openPath(folder.directory).then(result=>{valid();if(typeof result==="string"&&result)throw Error(result);}).catch(showError))),
-      button("刷新文件",()=>run(()=>{valid();problem.textContent="正在读取目录…";void service.refreshFolder(folder.directory,context).then(problems=>{valid();problem.textContent=problems.length?problems.join("；"):"目录文件已更新。";}).catch(showError);})),unlink);
+      button("查看目录文件",()=>run(()=>void changed(folder.directory).catch(showError))),unlink);
     row.append(radio, label, menu.root); parent.append(row);
   }
   parent.append(element("small", "切换默认目录只影响新文件。解除关联会保留文件和已有材料链接。", "wb-material-facts"));
@@ -39,11 +39,9 @@ export async function renderMaterialFolders(parent: HTMLElement, service: Materi
       const path = await pickMaterialDirectory(); valid(); if (!path) return;
       const directory = normalizeRoot(path, context.graph);
       if ((await service.io.stat?.(directory))?.type !== "directory") throw new Error("请选择已有目录。");
-      await service.io.list(directory); valid();
+      valid();
       service.directories.addFolder(context.graph, owner!, {directory, organization: "flat"});
-      const problems = await service.refreshFolder(directory, context); valid();
-      if (problems.length) throw new Error(`目录已添加，部分文件暂不可读：${problems.join("；")}`);
-      await changed();
+      await changed(directory);
     } finally { add.disabled = false; }
   }
   function showError(error: unknown): void { try { valid(); problem.textContent = error instanceof Error ? error.message : String(error); } catch { /* A later work owns the screen. */ } }

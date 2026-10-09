@@ -1,0 +1,371 @@
+{
+  "implementation": "98c0d4e6d5122ff8a763683e96e25dd511928e36",
+  "normalization": "Only owned absolute directory prefixes replaced; IDs, bytes versions and result semantics unchanged.",
+  "archived": [
+    {
+      "name": "directory-external-five.json",
+      "sha256": "42646f3b19e43a1415ae7040756197aa36473a5904832b697fbfc536d61ad170",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "directory-layer2.json",
+      "sha256": "f070fc270a93e7b842e7a95deecce5ab0f93f3d8fdd988fdd5cbebef1daced0d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "directory-rootB-complete.json",
+      "sha256": "8dad25f3f60cead37688b5fff272940d5e82647aa9fe6626c57b69946423c82c",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "real-directory-identities.json",
+      "sha256": "e87eb1332fc3795f49702e2411336be8a813f307380de83fc2da2432f55ebd6d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "single-root-offline-pass.json",
+      "sha256": "9dc0c483ebb667fdf791b35b95422fee1c816a13908ea70e8ac6d3abc3c7a082",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "offline-rootB-result.json",
+      "sha256": "2c5951ede2ef3d00a385cec6d4adb65b596d53e1a9f65af1bad2a817918a55be",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "package-install-public-offline.json",
+      "sha256": "3d2d8833a4da0d37e09e7011a4b2656e0052f97eb723d5d72fb253b01a5b0a27",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-md.json",
+      "sha256": "90aba76b715d63b22769068c336e5ca332ea1252b7cee701dad66d97962cb7d9",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-docx.json",
+      "sha256": "81a535869f66c56428406b4a3691040fc709beda407b79b41dc73ed7ad49e038",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-pdf-page1.json",
+      "sha256": "a8f9d0f9625154a53c4fbc488c721586d99829da344b4d09792bbc332f98b75c",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-pdf-scan.json",
+      "sha256": "359e0058b0227911e022633e05713449a12256a768d7220e57471f03b7fb6479",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-xlsx-plan.json",
+      "sha256": "5cecc0362cb35c54aa02b611f8fba5dc16c14dea14bcfd173f88440208a2a986",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-native-xlsx-page2.json",
+      "sha256": "fb701e0e20c6aca2ffb9579e39739930b24046471de763c0a55e06f5317260a3",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-relative-image-125.json",
+      "sha256": "164bc2fc6fb3ef307330a42871ee57d7821e8fe2f367f41c1c2aec1682f63060",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-draft-before.json",
+      "sha256": "e41e7b0428c5bd934eed01ba0d66737c5e275ee470a730d88c41d0a4bd845aab",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-draft-after-md.json",
+      "sha256": "1d5c3ea111d0cc60af5ab80c924477ba44b3363e6da16e074b006fb8f7c4a665",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-before-move.json",
+      "sha256": "12d02662b7a5bfac0ad12cdce22cbdbd74cf7fee5059b850e8e3fe90b55c423f",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-after-move.json",
+      "sha256": "12d02662b7a5bfac0ad12cdce22cbdbd74cf7fee5059b850e8e3fe90b55c423f",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-system-left.json",
+      "sha256": "7445bc396f4b7c93ff047e3e08f03dbbd29477ea8a6d3d5b51451c6ac9225706",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-during-writing.json",
+      "sha256": "7445bc396f4b7c93ff047e3e08f03dbbd29477ea8a6d3d5b51451c6ac9225706",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-dark.json",
+      "sha256": "7445bc396f4b7c93ff047e3e08f03dbbd29477ea8a6d3d5b51451c6ac9225706",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-window-dark-colors.json",
+      "sha256": "d8ea1ac258975d45a4adbe2c2d178272b020865bf57a50666d54fb668c03c4f3",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-sheet-dark-colors.json",
+      "sha256": "7d4a327af44970aabb43d9ae7d2798fac53102373a16e26d33b154573420e951",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-before-change.json",
+      "sha256": "e977b1095192118fbffd4644e278527e3b122088b1e6114652d8d0c080dae200",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-after-change.json",
+      "sha256": "b4e6ff89e46163c800f34a93a9515e09954335fa287e8c8f42adf73fd320b3df",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-original-missing.json",
+      "sha256": "5c1bb7414c621ffae25a722ea1908bbbcf12004b06fd1a2ffcbbc5db2ff6e9dc",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-current-window.json",
+      "sha256": "7488e9d25bc9c3b3fae1e8dd576efe024d1d96ff6985a09249ddb7d7cbf3bcca",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-material.json",
+      "sha256": "894a5d5854e8aaf8a11740d2bedc74b29414c8f9085942fbd1507cfdc0a5a039",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-resource-live.json",
+      "sha256": "7ea412419fa51a3687a2b9f0f39f9588fcb7b4883741c571e6dd9121cdabb066",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-resource-after-work-switch.json",
+      "sha256": "15f95a6d075901b0b5b781e519abbbd3e4ba39790f75a8bd9409f73736904aaa",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "lifecycle-targets-after-work-switch.json",
+      "sha256": "9239b873c64fe201d45fe997570c735e1726f1da93cfd4d8eb1910923ce7ea98",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "original-bytes-final.json",
+      "sha256": "302bf0617d6ed08126a366c081288f057de8a0b7e29480604a57e4024fedb174",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-graph-asset.json",
+      "sha256": "a12fdb48e7bd89e2585bd4885f8d96f6451ed6e0ebae0b15a55250d5f101150d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-graph-asset-window.json",
+      "sha256": "9985e01793b258fad08d77aeb7f3640da001706cffb0faccc08aa5908dd83bdc",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-main-resources.json",
+      "sha256": "0e4403f32cc9f3654e096df04a7adeff916a73d809aad74759ed4bf1e279ab68",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-child-resources.json",
+      "sha256": "c6ea2d3c6b1e006cd8b5f17c5d00c52e899ccd44c7d50965fa93a97254331130",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-pdf-after-native-close.json",
+      "sha256": "0e4403f32cc9f3654e096df04a7adeff916a73d809aad74759ed4bf1e279ab68",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-before-graph-switch.json",
+      "sha256": "760118ee491da21b013de9590f718275d880d46f13e55bb94afe48dcc4a77b2d",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-graph-switch.json",
+      "sha256": "90ee8e009746d845600420b1d87367d864964810a8e2e28fbeb763c4f0f7a173",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-graph-switch-view.json",
+      "sha256": "a8e4431c07c4d8496b093dbe4d68585594d664adf29e3a1cfdf524594a0eca99",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-before-unload-resources.json",
+      "sha256": "0398aec1ae06bf996c7e64c6d7466b45a48d1915e105fbf4a5308c6a1ba3f2d5",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-after-unload-resources.json",
+      "sha256": "a9d3a15e4867929f2834cdff17006958495f6a876a1c6d4b4540c85b4a8a15b7",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-listeners-before-unload.json",
+      "sha256": "18b92709edc090e2cb9dbc2417f37dacfce25d866fa353e2290276879061c1f1",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-listeners-after-unload.json",
+      "sha256": "d4ad7b598e2151289be8261915abd2a18ac1b79a752c55851fb641bb61068a8a",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-observer-before-offline.json",
+      "sha256": "45222fa4a66d9e4f803d19a25396ea01a339e08080a56251c6eecbdb332d9420",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-observer-during-offline.json",
+      "sha256": "c55a81a16adba08680a66ecf77fc888e0aba1665f34ced87a898b8e7af8c231b",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-rename-draft-before.json",
+      "sha256": "fec7080401172a45a7953185a11aab7b86364690e1954c7c6dce0802da7695b2",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-rename-draft-after.json",
+      "sha256": "d309fab9ad6fc30589df88521a5a62ca937347b658c739739b6ff3f67e76c8e1",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-malicious-preview.json",
+      "sha256": "9f08a3d297216a88d194f217917f55fc9247758725529c418b7a505d4f2c3a15",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-malicious-network.json",
+      "sha256": "fbea150bcd0c0626ef0d23e2b6f5fc2abbcb95786e2e1704b486a0a172585ae4",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-md.json",
+      "sha256": "26d8184d305057cd50cae28b84e9090662d6156ad0aa2a201135d16fd6de4ad7",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-docx.json",
+      "sha256": "8b9e71cccb3d3e6c722ec0c4ce69f34b2062c70b97a58833fadc261f8b03b78f",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-pdf.json",
+      "sha256": "a92291a6f875b2fa8c0559e38c80b92728c738419f6546b25726d1b0b7960ceb",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-xlsx.json",
+      "sha256": "6ec245cd2c107d26a58ec8409646e8f5b855273d00813f4558572c2ca5859aa6",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "final-list-image.json",
+      "sha256": "57d92aa877ddff9501fc056bb731cdfb0c5ffd576a27b4a802f932cf5e37caa5",
+      "group": "implementation-or-final-install-runtime"
+    },
+    {
+      "name": "host-home.json",
+      "sha256": "91576223039d8a1bce88db44f21dad26e01cc75d8bc0e9b203c313dc8efaa3ba",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "runtime-file-capabilities.json",
+      "sha256": "ae7a9700d2c69cfe1eeeeefd81eec01564a5aafae844424a1c3f15415ff025b3",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "docx-image-fixed.json",
+      "sha256": "cd9541b63ba284baaae7754889912291f37da7abb3a6e8c3cc69a793be444014",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "docx-encrypted.json",
+      "sha256": "d5ef4e75b0e740b8f2f00bcce25cce9b281fbcb24cad2ccf2446ab70905b6351",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "xlsx-encrypted.json",
+      "sha256": "706f4f0e0e8d520923bd1c1e898e4bfad26b22ed6e86f04305241626ddd71ab5",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "pdf-encrypted.json",
+      "sha256": "9d0e310a280ab0e0dc20b7a382b608ce80b4ae46fc4bb777da7fcd87f2501439",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "xlsx-plan.json",
+      "sha256": "43389a5e8b3aab1a4d460a1bd98a7e0cf1534ed2f4dd5f444d5249394a9fc4b0",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "xlsx-long-page-2.json",
+      "sha256": "acfe63abeb3385d6aca02b8e2a8a94418fc0cd7c9839a0b3d0100c0ca2194a5c",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "markdown-core.json",
+      "sha256": "0b5e9bc4f102c5a80c452274b3dad03c2cf0b12f395536149a9be8b5a5dd9154",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "gif-visible-frames.json",
+      "sha256": "806c3d73ac4544099c41069ff90bccd7d2b23b3208e5ed60a0bd80eb26bdac03",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "jpeg-zoom.json",
+      "sha256": "9cfef22996d1ce91b20b09e90ebc118aee203413720f21071764a361abbe5a7a",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "window-resource-live.json",
+      "sha256": "5b4f65dcb34aa86766da4c22878e61a5ffa890c78739cf61da96f92a844c46ff",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "window-resource-closed.json",
+      "sha256": "e3f4d1c97d760e11c7e3be3cc6b7ca029128a52955fffec37044f7249dfab583",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "native-draft-preservation-pass.json",
+      "sha256": "9e9f6b135c68f0cf6549db6cb889543fe6362f91fa8d2f19d5c221f016ca921f",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "draft-pdf-after-controls.json",
+      "sha256": "e8cffbba561216cdc222c28889883e250005d6ff1e6c186237d030859fa60182",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "draft-pointer-before.json",
+      "sha256": "fbbb4ec076fcf1a0fc22da5157a5fb7b57dcc7979fbc197deb13f38f33df650e",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "draft-pointer-after-ax.json",
+      "sha256": "cc381c1948ece16c28ac395d706b797b3fae736ccbac31184d38a6455144f9a8",
+      "group": "earlier-capability-or-regression"
+    },
+    {
+      "name": "docx-success.json",
+      "sha256": "c0104ab86003b524fb424a0da236ee0e170f95ae83bfdc181f0dc2b656dad9cb",
+      "group": "earlier-capability-or-regression"
+    }
+  ]
+}

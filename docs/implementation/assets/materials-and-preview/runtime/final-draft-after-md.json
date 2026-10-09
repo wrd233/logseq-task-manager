@@ -1,0 +1,38 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "graph": "<A_WORKTREE>/tmp/materials-preview-desktop/graph",
+      "editing": "18e69e53-2a1d-485b-8923-7f5963f0a01c",
+      "editingContent": "原生编辑保留现场。 **[注]** 中文草稿验证。",
+      "fields": [
+        {
+          "id": "edit-block-2-18e69e53-2a1d-485b-8923-7f5963f0a01c",
+          "value": "原生编辑保留现场。 **[注]** 中文草稿验证。",
+          "selectionStart": 18,
+          "selectionEnd": 22,
+          "active": true,
+          "connected": true
+        },
+        {
+          "id": "",
+          "value": "x",
+          "selectionStart": 1,
+          "selectionEnd": 1,
+          "active": false,
+          "connected": true
+        }
+      ],
+      "block": "原生编辑保留现场。 **[注]** 中文草稿验证。\nid:: 18e69e53-2a1d-485b-8923-7f5963f0a01c",
+      "preview": [
+        {
+          "previewTarget": "material:6f450348-6d25-4559-85ce-d135ed518a0b",
+          "previewVersion": "0558428384525c01f81c973cff8325673f2ed76777038e5cddd8ede08421bbb1",
+          "previewFormat": "markdown",
+          "previewComplete": "true"
+        }
+      ],
+      "nativeText": "跳转到主内容\ngraph\n日志\n白板\n记忆卡片\n图谱视角\n全部页面\n收藏页面\n最近使用\nMaterials Preview Acceptance\n新建\nMaterials Preview Acceptance\n[目标] 核对隔离材料预览。\n[注] 原生材料链接验收\n📄 阅读 [中文] (副本) #_*.md\n📄 中文 方案.docx\n📄 中文 多页扫描.pdf\n📄 中文 多工作表.xlsx\n📄 中文 图像.png\nGraph 扫描 PDF\nUnlinked References"
+    }
+  }
+}

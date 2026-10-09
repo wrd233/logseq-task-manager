@@ -1,0 +1,40 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "about:blank",
+      "title": "生命周期 验收.md",
+      "preview": [
+        {
+          "dataset": {
+            "previewTarget": "material:04337349-158a-4d44-af28-2516759d0d76",
+            "previewVersion": "7e60d0a8c93a8edf89830a6369eff09db66186892b31771c5755b09b0ceaf939",
+            "previewFormat": "markdown",
+            "previewComplete": "true"
+          },
+          "text": "生命周期 验收.md\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n[记录] 外部更新版本\n\n更新只发生在合成验收文件。",
+          "images": [
+            {
+              "src": "blob:file:///4bfb7616-073d-4208-b8f6-2d55353d1729",
+              "width": 720,
+              "height": 320,
+              "complete": true
+            }
+          ],
+          "tables": [],
+          "canvases": []
+        }
+      ],
+      "buttons": [],
+      "text": "生命周期 验收.md\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n[记录] 外部更新版本\n\n更新只发生在合成验收文件。",
+      "windows": {
+        "outerWidth": 900,
+        "outerHeight": 720,
+        "innerWidth": 900,
+        "innerHeight": 692,
+        "screenX": 270,
+        "screenY": 90
+      }
+    }
+  }
+}

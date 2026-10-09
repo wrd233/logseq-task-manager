@@ -1,0 +1,246 @@
+{
+  "commit": "9d7cf615739de9bc8fd3c2da371934d76bfe895a",
+  "before": {
+    "root": "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+    "roots": [
+      "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+      "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B"
+    ],
+    "complete": "true",
+    "rows": [
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/空目录",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/一级",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/nested",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/workspaces",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/安全清洗.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.docx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.xlsx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/旧格式.doc",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/路线.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/损坏.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/阅读 [中文] (副本) #_*.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/正文.markdown",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 表格.csv",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多工作表.xlsx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多页扫描.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 方案.docx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 旧表.xls",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.jpg",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.png",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.webp",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/状态动画.gif",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/byte-probe.bin",
+        "current": "true"
+      }
+    ]
+  },
+  "current": {
+    "root": "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+    "roots": [
+      "<A_WORKTREE>/tmp/materials-preview-desktop/materials",
+      "<A_WORKTREE>/tmp/materials-preview-desktop/materials-B"
+    ],
+    "complete": "true",
+    "rows": [
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/空目录",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/一级",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/nested",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/workspaces",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/安全清洗.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.docx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/加密 中文.xlsx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/旧格式.doc",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/路线.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/损坏.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/同名.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.docx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.png",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/外部加入 验收.xlsx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/阅读 [中文] (副本) #_*.md",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/正文.markdown",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 表格.csv",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多工作表.xlsx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 多页扫描.pdf",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 方案.docx",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 旧表.xls",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.jpg",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.png",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/中文 图像.webp",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/状态动画.gif",
+        "current": "true"
+      },
+      {
+        "path": "<A_WORKTREE>/tmp/materials-preview-desktop/materials/byte-probe.bin",
+        "current": "true"
+      }
+    ]
+  },
+  "firstSeenMsAfterCopy": {
+    "外部加入 验收.md": 954,
+    "外部加入 验收.docx": 954,
+    "外部加入 验收.png": 954,
+    "外部加入 验收.pdf": 954,
+    "外部加入 验收.xlsx": 955
+  },
+  "allFiveVisible": true,
+  "metadataUnchanged": true,
+  "newRowsUnregistered": true,
+  "maxLatencyMs": 955
+}

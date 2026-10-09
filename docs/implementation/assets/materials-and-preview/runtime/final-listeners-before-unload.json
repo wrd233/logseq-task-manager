@@ -1,0 +1,76 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<A_WORKTREE>/tmp/materials-preview-desktop/Logseq.app/Contents/Resources/app/electron.html#/page/Materials%20Preview%20Acceptance",
+      "materialListeners": [
+        {
+          "type": "click",
+          "material": [
+            {
+              "capture": true,
+              "source": "(event) => {\n        if (event.button !== 0) return;\n        const anchor = event.target?.closest?.(\"a,[data-href]\");\n        const href = anchor?.getAttribute(\"href\") ?? anchor?.getAttribute(\"data-href\") ?? \"\";\n        if (!this.isPreviewCandidate(href)) return;\n        event.preventDefault();\n        event.stopImmediatePropagation();\n        const native = event.target?.closest(\".ls-block\")?.getAttribute(\"blockid\"), epoch = this.epoch, ticket = ++this.linkEpoch;\n        void (async () => {\n          const root3 = native ? this.nativeWorkContext ? await this.nativeWorkContext(native) : native : this.currentWorkRoot?.() ?? this.contextUuid;\n          if (epoch !== this.epoch || ticket !== this.linkEpoch || this.disposed || native && root3 === null) return;\n          this.contextUuid = root3;\n          await this.openPreviewLink(href, root3);\n        })().catch(this.fail);\n      }"
+            }
+          ]
+        },
+        {
+          "type": "pointerdown",
+          "material": [
+            {
+              "capture": true,
+              "source": "(event) => {\n        if (event.button !== 0) return;\n        const anchor = event.target?.closest?.(\"a,[data-href]\");\n        const href = anchor?.getAttribute(\"href\") ?? anchor?.getAttribute(\"data-href\") ?? \"\";\n        if (!this.isPreviewCandidate(href)) return;\n        event.preventDefault();\n        event.stopImmediatePropagation();\n      }"
+            }
+          ]
+        },
+        {
+          "type": "compositionstart",
+          "material": [
+            {
+              "capture": true,
+              "source": "() => this.sources.composition(true)"
+            }
+          ]
+        },
+        {
+          "type": "compositionend",
+          "material": [
+            {
+              "capture": true,
+              "source": "() => this.sources.composition(false)"
+            }
+          ]
+        },
+        {
+          "type": "mousedown",
+          "material": [
+            {
+              "capture": true,
+              "source": "(event) => {\n        if (event.button !== 0) return;\n        const anchor = event.target?.closest?.(\"a,[data-href]\");\n        const href = anchor?.getAttribute(\"href\") ?? anchor?.getAttribute(\"data-href\") ?? \"\";\n        if (!this.isPreviewCandidate(href)) return;\n        event.preventDefault();\n        event.stopImmediatePropagation();\n      }"
+            }
+          ]
+        },
+        {
+          "type": "mouseover",
+          "material": [
+            {
+              "capture": true,
+              "source": "(event) => {\n        const input = doc?.activeElement;\n        if (!input?.matches(\"#main-content-container .block-editor textarea\")) return;\n        const target = event.target, block4 = target?.closest?.(\".ls-block\");\n        if (block4?.contains(input)) event.stopImmediatePropagation();\n      }"
+            }
+          ]
+        },
+        {
+          "type": "mouseout",
+          "material": [
+            {
+              "capture": true,
+              "source": "(event) => {\n        const input = doc?.activeElement;\n        if (!input?.matches(\"#main-content-container .block-editor textarea\")) return;\n        const target = event.target, block4 = target?.closest?.(\".ls-block\");\n        if (block4?.contains(input)) event.stopImmediatePropagation();\n      }"
+            }
+          ]
+        }
+      ],
+      "pluginFrames": [
+        "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0"
+      ]
+    }
+  }
+}

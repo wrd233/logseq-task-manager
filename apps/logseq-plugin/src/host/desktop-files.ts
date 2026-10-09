@@ -1,6 +1,7 @@
 import type { FileIO } from "./file-io.ts";
+import { localReadLimit, readLocalBytes } from "./local-bytes.ts";
 
-export interface DesktopBridge { doAction(args: unknown[]): Promise<unknown>; openPath(path: string): Promise<unknown> }
+export interface DesktopBridge { doAction(args: unknown[]): Promise<unknown>; openPath(path: string): Promise<unknown>; getClipboardData?(format: string): Uint8Array | null }
 export function desktopBridge(): DesktopBridge {
   const host = window.top as Window & {apis?: DesktopBridge};
   if (!host?.apis?.doAction) throw new Error("当前环境没有桌面文件桥接。"); return host.apis;
@@ -11,6 +12,13 @@ export function desktopFiles(graphPath: () => string): FileIO {
     catch (error) { if (error instanceof Error) throw error; throw new Error(error && typeof error === "object" && "message" in error ? String(error.message) : String(error), {cause: error}); }
   };
   return {
+    readBytes: async (path, options = {}) => {
+      const value = await call("stat", path) as {size?: number} | null;
+      const limit = options.maxBytes ?? localReadLimit;
+      if (!value || !Number.isSafeInteger(value.size) || value.size! < 0) throw new Error("文件状态暂不可核验。");
+      if (value.size! > limit) throw new Error("文件超过本次预览读取上限。");
+      return readLocalBytes(path, options);
+    },
     identity: async path => {
       const value = await call("stat", path) as {dev?: number; ino?: number; birthtimeMs?: number} | null;
       return value && Number.isSafeInteger(value.dev) && Number.isSafeInteger(value.ino) && value.ino! > 0 && typeof value.birthtimeMs === "number" && Number.isFinite(value.birthtimeMs) && value.birthtimeMs > 0

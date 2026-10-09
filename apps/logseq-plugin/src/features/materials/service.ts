@@ -3,6 +3,9 @@ import { captureDirectory, materialAssociations, type MaterialDirectories, type 
 import { MaterialStore, MaterialWriteError, ConflictError, associationsOf, editingOf, markdownFile, makeLink, normalizeRoot, versionOf, type MaterialRecord, type MaterialRole } from "./store.ts";
 import { discoverExternalRename, renameMaterialFile, recoverMaterialRename, type RenameResult } from "./file-operations.ts";
 import { importMaterial, importMaterialDirectory, importMaterialFolderBytes, type MaterialImport, type FolderImportFile } from "./imports.ts";
+import {MaterialDirectoryBrowser} from "./directory.ts";
+import {localAssetURL} from "../../host/local-bytes.ts";
+import {fileName} from "./names.ts";
 
 export interface MaterialView {
   id: string; title: string; summary?: string; kind: MaterialRecord["kind"]; role: MaterialRole | "legacy";
@@ -18,22 +21,43 @@ export interface CaptureRequest {
   requestKey: string; text: string; html?: string; title?: string; role?: MaterialRole; sourceUuid?: string;
 }
 export type MaterialResult = { status: "success" | "partial"; material: MaterialView; problem?: string } | { status: "conflict"; material: MaterialView; proposed: string; current: string };
+export interface DirectoryFileResolution {
+  status: "success" | "needs-verification";
+  materialId: string; fileName: string; path: string; reference: string;
+  associations: MaterialView["associations"]; availability: MaterialView["availability"];
+  identity: "verified" | "unverified" | "changed"; problem?: string;
+}
 const associating = new Map<string, Promise<MaterialResult>>();
+
+/** Last-known metadata keeps a real reference discoverable. It supplies neither
+ * file content nor an editing grant when the original record cannot be read. */
+export function unavailableMaterialView(record: MaterialRecord, recordRoot: string, problem: unknown): MaterialView {
+  return {id: record.id, title: record.title, ...(record.summary ? {summary: record.summary} : {}), kind: record.kind, role: record.role ?? "legacy",
+    path: record.path ?? (record.kind === "capture" && recordRoot ? `${recordRoot}/${record.id}.md` : ""), recordRoot, sourceUuid: record.sourceUuid ?? null,
+    associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready",
+    availability: "unavailable", content: null, version: null, capabilities: {read: "external", edit: {user: false, agent: false}, open: true},
+    problem: String(problem), origin: record.imported ? "import" : record.kind};
+}
 
 /** Human and Agent adapters share this service. DOM and Logseq writes stay at the edge. */
 export class MaterialService {
   readonly listProblems: string[] = [];
   private readonly pending = new Map<string, Promise<MaterialRecord>>();
+  private readonly observedRecords = new Map<string, Map<string, MaterialRecord>>();
   constructor(readonly io: FileIO, readonly directories: MaterialDirectories, readonly graph: string, readonly globalRoot: string | null, private readonly convert: (text: string, html: string) => string, private readonly canRename: (id: string) => boolean = () => true, private readonly prepareDefault?: () => Promise<string>) {
     if (globalRoot) directories.register(graph, globalRoot);
   }
   private stores(): MaterialStore[] { return this.directories.roots(this.graph).map(root => new MaterialStore(this.io, normalizeRoot(root, this.graph))); }
+  private observe(store: MaterialStore, record: MaterialRecord): void {
+    const snapshot = this.observedRecords.get(store.root) ?? new Map<string, MaterialRecord>();
+    snapshot.set(record.id, structuredClone(record)); this.observedRecords.set(store.root, snapshot);
+  }
   async locate(id: string): Promise<{store: MaterialStore; record: MaterialRecord}> {
     const hint = this.directories.hint(this.graph, id);
     if (hint) {
       const store = new MaterialStore(this.io, normalizeRoot(hint, this.graph));
       // A known unavailable location is never silently replaced by another copy.
-      return {store, record: await store.record(id)};
+      const record = await store.record(id); this.observe(store, record); return {store, record};
     }
     const matches: Array<{store: MaterialStore; record: MaterialRecord}> = [];
     const errors: string[] = [];
@@ -42,12 +66,13 @@ export class MaterialService {
       if (entries.some(path => path.split("/").at(-1) === `${id}.json`)) matches.push({store, record: await store.record(id)});
     }
     if (matches.length !== 1) throw new Error(matches.length > 1 ? "多个目录存在相同材料身份，请核对目录备份。" : `材料记录暂不可用。可登记原材料目录后重试。${errors.length ? "部分已知目录不可读。" : ""}`);
-    const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); return match;
+    const match = matches[0]!; this.directories.remember(this.graph, id, match.store.root); this.observe(match.store, match.record); return match;
   }
   async read(id: string, includeContent = true): Promise<MaterialView> {
     const located = await this.locate(id), store = located.store;
     let record = located.record;
     try { if (this.canRename(id)) record = await discoverExternalRename(store, record); } catch { /* Preserve unavailable records; discovery must not block reading history. */ }
+    this.observe(store, record);
     const path = await store.path(id);
     const view: MaterialView = {id, title: record.title, kind: record.kind, origin: record.imported ? "import" : record.kind, role: record.role ?? "legacy", path, recordRoot: store.root, sourceUuid: record.sourceUuid ?? null, associations: associationsOf(record), reference: makeLink(record), writeState: record.creation === "pending" ? "pending" : "ready", availability: "available", content: null, version: null, capabilities: {read: markdownFile(path) ? "markdown" : "external", edit: record.creation === "pending" ? {user: false, agent: false} : editingOf(record), open: true}};
     if (record.summary) view.summary = record.summary;
@@ -110,13 +135,30 @@ export class MaterialService {
   importFile(input: MaterialImport, context: MaterialWorkContext, requestKey: string): Promise<MaterialResult> { return importMaterial(this, input, context, requestKey); }
   importDirectory(path: string, context: MaterialWorkContext, requestKey: string): Promise<{materials: MaterialResult[]; problems: string[]}> { return importMaterialDirectory(this, path, context, requestKey); }
   importFolderBytes(name: string, files: FolderImportFile[], context: MaterialWorkContext, requestKey: string): Promise<{materials: MaterialResult[]; problems: string[]}> { return importMaterialFolderBytes(this, name, files, context, requestKey); }
+  /** Shared UI/Agent entry: CURRENT work roots, real file facts, existing UUID and
+   * reference generator. Missing identity is explicit; a copied/replaced file is
+   * never re-adopted by basename, bytes, size or mtime. No body or editing write. */
+  async resolveDirectoryFile(path: string, context: MaterialWorkContext, signal?: AbortSignal): Promise<DirectoryFileResolution> {
+    signal?.throwIfAborted(); localAssetURL(path);
+    path = normalizeRoot(path, this.graph);
+    const roots = new MaterialDirectoryBrowser(this.io, this.directories, this.graph, this.globalRoot).roots(context);
+    if (!roots.some(root => path.startsWith(`${root}/`))) throw new Error("该文件不在当前工作的关联材料目录内。");
+    if (!this.io.stat || (await this.io.stat(path)).type !== "file") throw new Error("目录文件暂不可核验，原关联与历史保留。");
+    signal?.throwIfAborted();
+    const result = await this.associateFile(path, context); signal?.throwIfAborted();
+    const {record} = await this.locate(result.material.id), observed = await this.io.identity?.(path) ?? null;
+    signal?.throwIfAborted();
+    const identity = record.fileIdentity ? observed === record.fileIdentity ? "verified" : "changed" : "unverified";
+    const problem = result.status === "partial" ? result.problem : identity === "changed" ? "同路径文件身份变化，原材料记录与历史保留。" : identity === "unverified" ? "此宿主不能确认物理文件身份；返回路径关联及现有引用，外部改名或同名替换需核验。" : undefined;
+    return {status: identity === "verified" && result.status === "success" ? "success" : "needs-verification", materialId: result.material.id, fileName: fileName(path), path, reference: result.material.reference, associations: result.material.associations, availability: result.material.availability, identity, ...(problem ? {problem} : {})};
+  }
   async associateFile(path: string, context: MaterialWorkContext): Promise<MaterialResult> {
     path = normalizeRoot(path, this.graph);
     const key = JSON.stringify([this.graph, path]), active = associating.get(key);
     if (active) {
       const result = await active;
       this.directories.register(this.graph, result.material.recordRoot); this.directories.remember(this.graph, result.material.id, result.material.recordRoot);
-      return context.sourceUuid ? this.associate(result.material.id, context) : result;
+      return this.associateFileOnce(path, context);
     }
     const running = this.associateFileOnce(path, context); associating.set(key, running);
     try { return await running; } finally { if (associating.get(key) === running) associating.delete(key); }
@@ -124,14 +166,27 @@ export class MaterialService {
   private async associateFileOnce(path: string, context: MaterialWorkContext): Promise<MaterialResult> {
     if (context.graph !== this.graph) throw new Error("材料 Graph 范围已变化。");
     path = normalizeRoot(path, this.graph);
+    const unreadable: string[] = [];
     for (const store of this.stores()) {
-      const records = await store.catalog();
+      let records: MaterialRecord[];
+      try {records = await store.catalog();}
+      catch {unreadable.push(store.root); continue;}
       for (let i = 0; i < records.length; i++) if (this.canRename(records[i]!.id)) records[i] = await discoverExternalRename(store, records[i]!).catch(() => records[i]!);
       const record = records.find(item => item.path === path);
-      if (record) return this.associate(record.id, context);
+      if (record) {
+        const observed = await this.io.identity?.(path) ?? null;
+        if (!record.fileIdentity || observed !== record.fileIdentity) return {status: "partial", material: await this.read(record.id, false), problem: record.fileIdentity ? "同路径文件身份变化或暂不可核验，原记录与关联保留。" : "物理文件身份暂不可核验，未自动添加新的工作关联。原记录与引用保留。"};
+        return context.sourceUuid ? this.associate(record.id, context) : {status: "success", material: await this.read(record.id, false)};
+      }
     }
+    // A different unavailable root must not stop retries for a known live file.
+    // When no existing record was found, its unreadable catalogue could hold an
+    // external reference to this path: do not mint a substitute UUID.
+    if (unreadable.length || [...this.observedRecords.values()].some(records => [...records.values()].some(record => record.path === path))) throw new Error("部分历史目录当前不可核验，暂不创建替代材料身份。原文件、关联与引用保留。");
     // Associations use the work root, never create a role directory for an existing file.
-    const root = (await this.destination({...context, organization: "flat"}, "reference")).root;
+    const currentRoots = new MaterialDirectoryBrowser(this.io, this.directories, this.graph, this.globalRoot).roots(context);
+    const root = currentRoots.filter(root => path.startsWith(`${root}/`)).sort((a, b) => b.length - a.length)[0]
+      ?? (await this.destination({...context, organization: "flat"}, "reference")).root;
     this.directories.register(this.graph, root);
     const store = new MaterialStore(this.io, root), record = await store.reference(path, {graph: this.graph, sourceUuid: context.sourceUuid ?? undefined, associations: materialAssociations(context)});
     this.directories.remember(this.graph, record.id, root);
@@ -167,10 +222,17 @@ export class MaterialService {
     const results: Array<MaterialRecord & {snippet: string}> = [];
     const seen = new Set<string>();
     for (const store of this.stores()) {
-      for (const record of await store.catalog().catch(() => [])) {
+      const snapshot = this.observedRecords.get(store.root) ?? new Map<string, MaterialRecord>(); this.observedRecords.set(store.root, snapshot);
+      let observed: MaterialRecord[] = [];
+      try {observed = await store.catalog(); for (const record of observed) snapshot.set(record.id, structuredClone(record));}
+      catch (error) {this.listProblems.push(`${store.root}: ${String(error)}`);}
+      if ([...snapshot.keys()].some(id => !observed.some(record => record.id === id))) this.listProblems.push(`${store.root}: 部分历史材料记录当前不可核验，上次已知身份仍保留。`);
+      for (const record of observed) {
         if (this.canRename(record.id)) await discoverExternalRename(store, record).catch(() => undefined);
       }
-      const entries = await (query ? store.search(query, this.graph) : store.catalog().then(records => records.filter(record => !record.graph || record.graph === this.graph).map(record => ({...record, snippet: ""})))).catch(error => { this.listProblems.push(`${store.root}: ${String(error)}`); return []; });
+      const entries: Array<MaterialRecord & {snippet: string}> = await (query ? store.search(query, this.graph) : store.catalog().then(records => records.filter(record => !record.graph || record.graph === this.graph).map(record => ({...record, snippet: ""})))).catch(error => { this.listProblems.push(`${store.root}: ${String(error)}`); return []; });
+      for (const record of entries) snapshot.set(record.id, structuredClone(record));
+      for (const cached of snapshot.values()) if ((!cached.graph || cached.graph === this.graph) && !entries.some(record => record.id === cached.id) && (!query || `${cached.title} ${cached.summary ?? ""} ${cached.path ?? ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))) entries.push({...structuredClone(cached), snippet: "历史记录当前不可核验"});
       for (const record of entries) {
         if (seen.has(record.id)) throw new Error("多个已知目录包含同一材料身份，请核对备份目录。");
         seen.add(record.id);
@@ -179,6 +241,15 @@ export class MaterialService {
       }
     }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  async listViews(query = "", sourceUuid: string | null = null): Promise<{status: "success" | "partial"; materials: MaterialView[]; problems: string[]}> {
+    const records = await this.list(query, sourceUuid), problems = [...this.listProblems];
+    const materials = await Promise.all(records.map(async record => {
+      const view = await this.read(record.id).catch(error => unavailableMaterialView(record, this.directories.hint(this.graph, record.id) ?? "", error));
+      if (view.availability === "unavailable") problems.push(`${record.id}: ${view.problem ?? "材料暂不可读，原关联与历史保留。"}`);
+      return view;
+    }));
+    return {status: problems.length ? "partial" : "success", materials, problems};
   }
   /** Explicit folder addition/refresh registers existing files without copying bodies. */
   async refreshFolder(directory: string, context: MaterialWorkContext): Promise<string[]> {

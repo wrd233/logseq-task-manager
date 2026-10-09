@@ -1,0 +1,17 @@
+[ {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@97585ce78a1f93211e39f4db22ce5c9e9bb4e42e/inspector.html?ws=127.0.0.1:19447/devtools/page/2F559FBE1C69332E0F88501533A0A33E",
+   "id": "2F559FBE1C69332E0F88501533A0A33E",
+   "title": "Materials Scope Other",
+   "type": "page",
+   "url": "file://<A_WORKTREE>/tmp/materials-preview-desktop/Logseq.app/Contents/Resources/app/electron.html#/page/Materials%20Scope%20Other",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:19447/devtools/page/2F559FBE1C69332E0F88501533A0A33E"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@97585ce78a1f93211e39f4db22ce5c9e9bb4e42e/inspector.html?ws=127.0.0.1:19447/devtools/page/58CC945EE82823F5D816BB16AE1C1746",
+   "id": "58CC945EE82823F5D816BB16AE1C1746",
+   "title": "",
+   "type": "worker",
+   "url": "",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:19447/devtools/page/58CC945EE82823F5D816BB16AE1C1746"
+} ]

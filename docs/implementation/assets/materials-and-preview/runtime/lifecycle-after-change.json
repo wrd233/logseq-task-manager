@@ -1,0 +1,33 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "about:blank",
+      "title": "生命周期 验收.md",
+      "preview": [
+        {
+          "dataset": {
+            "previewTarget": "material:04337349-158a-4d44-af28-2516759d0d76",
+            "previewVersion": "f597947ea45f563ec68c21d777db6890ee1ed3c0be94ca3c9ccab420d0b0e70e",
+            "previewFormat": "markdown",
+            "previewComplete": "true"
+          },
+          "text": "生命周期 验收.md\n\n原文件已变化；这里保留打开时版本，请重新打开核对。\n\n[记录] 打开时版本\n\n保留旧快照与本地图片。\n\n![只读图](中文 图像.png)",
+          "images": [],
+          "tables": [],
+          "canvases": []
+        }
+      ],
+      "buttons": [],
+      "text": "生命周期 验收.md\n\n原文件已变化；这里保留打开时版本，请重新打开核对。\n\n[记录] 打开时版本\n\n保留旧快照与本地图片。\n\n![只读图](中文 图像.png)",
+      "windows": {
+        "outerWidth": 900,
+        "outerHeight": 720,
+        "innerWidth": 900,
+        "innerHeight": 692,
+        "screenX": 270,
+        "screenY": 90
+      }
+    }
+  }
+}

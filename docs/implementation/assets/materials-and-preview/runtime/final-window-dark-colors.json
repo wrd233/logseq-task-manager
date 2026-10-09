@@ -1,0 +1,44 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "about:blank",
+      "scheme": "dark",
+      "body": {
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(0, 43, 54)"
+      },
+      "root": {
+        "color": "rgb(164, 181, 182)",
+        "background": "rgba(0, 0, 0, 0)"
+      },
+      "cells": [
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(164, 181, 182)",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ],
+      "styles": "--ls-primary-background-color: #002b36; --ls-primary-text-color: #a4b5b6; --ls-secondary-text-color: #dfdfdf; --ls-link-text-color: #8abbbb; color-scheme: dark;"
+    }
+  }
+}

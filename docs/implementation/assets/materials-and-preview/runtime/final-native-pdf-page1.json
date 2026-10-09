@@ -1,0 +1,329 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "title": "",
+      "preview": [
+        {
+          "dataset": {
+            "previewTarget": "material:3aa8b8dc-4bf4-4c8e-a56d-197793c5ef05",
+            "previewVersion": "e046b7b383c12d9ba2e869d3f006224f5e9528f14e9f8ba32db4ad71b8a45130",
+            "previewFormat": "pdf",
+            "previewComplete": "true"
+          },
+          "text": "中文 多页扫描.pdf\n独立窗口\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n上一页\n下一页\n适配宽度\n−\n+\n1 / 2 页 · 55%",
+          "images": [],
+          "tables": [],
+          "canvases": [
+            {
+              "width": 650,
+              "height": 920,
+              "sample": [
+                255,
+                255,
+                255,
+                255
+              ]
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "text": "阅读当前工作或继续阅读",
+          "disabled": false
+        },
+        {
+          "text": "打开当前块的工作",
+          "disabled": false
+        },
+        {
+          "text": "查找全部材料",
+          "disabled": false
+        },
+        {
+          "text": "正式任务",
+          "disabled": false
+        },
+        {
+          "text": "插件设置",
+          "disabled": false
+        },
+        {
+          "text": "关闭工作台",
+          "disabled": false
+        },
+        {
+          "text": "在 Logseq 写作",
+          "disabled": true
+        },
+        {
+          "text": "查看原结构查看并调整展示排列；原文结构保持",
+          "disabled": true
+        },
+        {
+          "text": "只看选定范围保留完整来源块；随时返回全文",
+          "disabled": true
+        },
+        {
+          "text": "重新读取正文从当前来源核对，保留安全保护",
+          "disabled": true
+        },
+        {
+          "text": "显示原生页面继续当前原生输入，保留阅读位置",
+          "disabled": true
+        },
+        {
+          "text": "跟随工作对象点击默认固定当前工作；选中普通子块不会切换",
+          "disabled": true
+        },
+        {
+          "text": "关联工作目录复用已有目录；正文仍在 Logseq",
+          "disabled": false
+        },
+        {
+          "text": "打开工作读取入口打开目录中已有的读取入口",
+          "disabled": false
+        },
+        {
+          "text": "重新关联移动后的目录",
+          "disabled": false
+        },
+        {
+          "text": "允许 agent 连接这份工作先运行随包协作启动器并关联工作目录",
+          "disabled": false
+        },
+        {
+          "text": "允许润色并整理原块明确授予此工作内的结构维护许可",
+          "disabled": false
+        },
+        {
+          "text": "查看写回冲突与恢复核对未知结果和原请求；不盲目重放",
+          "disabled": false
+        },
+        {
+          "text": "正文",
+          "disabled": false
+        },
+        {
+          "text": "材料",
+          "disabled": false
+        },
+        {
+          "text": "",
+          "disabled": false
+        },
+        {
+          "text": "审阅与历史",
+          "disabled": false
+        },
+        {
+          "text": "‹ 材料列表",
+          "disabled": false
+        },
+        {
+          "text": "复制链接",
+          "disabled": false
+        },
+        {
+          "text": "关闭",
+          "disabled": false
+        },
+        {
+          "text": "返回正文",
+          "disabled": false
+        },
+        {
+          "text": "改文件名",
+          "disabled": false
+        },
+        {
+          "text": "写概述",
+          "disabled": false
+        },
+        {
+          "text": "同步名称与引用",
+          "disabled": false
+        },
+        {
+          "text": "补关联",
+          "disabled": false
+        },
+        {
+          "text": "重新定位",
+          "disabled": false
+        },
+        {
+          "text": "来源",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿并继续",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿后加载外部版本",
+          "disabled": false
+        },
+        {
+          "text": "外部打开",
+          "disabled": false
+        },
+        {
+          "text": "独立窗口",
+          "disabled": false
+        },
+        {
+          "text": "上一页",
+          "disabled": true
+        },
+        {
+          "text": "下一页",
+          "disabled": false
+        },
+        {
+          "text": "适配宽度",
+          "disabled": false
+        },
+        {
+          "text": "−",
+          "disabled": false
+        },
+        {
+          "text": "+",
+          "disabled": false
+        },
+        {
+          "text": "上一问题",
+          "disabled": false
+        },
+        {
+          "text": "取消等待",
+          "disabled": false
+        },
+        {
+          "text": "完整内容",
+          "disabled": false
+        },
+        {
+          "text": "协作",
+          "disabled": false
+        },
+        {
+          "text": "开始阶段",
+          "disabled": false
+        },
+        {
+          "text": "取消",
+          "disabled": false
+        },
+        {
+          "text": "记录当前版本",
+          "disabled": false
+        },
+        {
+          "text": "认可这个版本",
+          "disabled": false
+        },
+        {
+          "text": "查看待认可版本",
+          "disabled": false
+        },
+        {
+          "text": "看本阶段全部变化",
+          "disabled": false
+        },
+        {
+          "text": "返回原位置",
+          "disabled": false
+        },
+        {
+          "text": "连接正文维护",
+          "disabled": true
+        },
+        {
+          "text": "允许润色与原块整理",
+          "disabled": true
+        },
+        {
+          "text": "断开工作连接",
+          "disabled": false
+        },
+        {
+          "text": "⠿",
+          "disabled": true
+        },
+        {
+          "text": "▾",
+          "disabled": false
+        },
+        {
+          "text": "全文 / 收起",
+          "disabled": true
+        },
+        {
+          "text": "编辑原文",
+          "disabled": false
+        },
+        {
+          "text": "对照原文",
+          "disabled": false
+        },
+        {
+          "text": "只看此处",
+          "disabled": false
+        },
+        {
+          "text": "增加视图缩进",
+          "disabled": true
+        },
+        {
+          "text": "减少视图缩进",
+          "disabled": true
+        },
+        {
+          "text": "⠿",
+          "disabled": true
+        },
+        {
+          "text": "",
+          "disabled": true
+        },
+        {
+          "text": "全文 / 收起",
+          "disabled": true
+        },
+        {
+          "text": "编辑原文",
+          "disabled": false
+        },
+        {
+          "text": "对照原文",
+          "disabled": false
+        },
+        {
+          "text": "只看此处",
+          "disabled": false
+        },
+        {
+          "text": "增加视图缩进",
+          "disabled": true
+        },
+        {
+          "text": "减少视图缩进",
+          "disabled": true
+        }
+      ],
+      "text": "工作台\n关闭工作台\n工作\n[目标] 核对隔离材料预览。\n在 Logseq 写作\n工作选项\n正文\n材料\n审阅与历史\n‹ 材料列表\n复制链接\n更多\nPDF · 只读阅读\n中文 多页扫描.pdf\n中文 多页扫描.pdf\n独立窗口\n\n当前宿主无法核验文件身份。这里只读打开时版本；外部改名或替换后需核对，旧链接与历史保留。\n\n上一页\n下一页\n适配宽度\n−\n+\n1 / 2 页 · 55%",
+      "windows": {
+        "outerWidth": 980,
+        "outerHeight": 700,
+        "innerWidth": 384,
+        "innerHeight": 652,
+        "screenX": 230,
+        "screenY": 44
+      }
+    }
+  }
+}

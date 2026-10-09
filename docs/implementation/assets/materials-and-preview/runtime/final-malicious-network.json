@@ -1,0 +1,10 @@
+{
+  "observedMs": 16000,
+  "requests": [
+    "assets://<A_WORKTREE>/tmp/materials-preview-desktop/materials/%E5%AE%89%E5%85%A8%E6%B8%85%E6%B4%97.md",
+    "assets://<A_WORKTREE>/tmp/materials-preview-desktop/materials/%E5%AE%89%E5%85%A8%E6%B8%85%E6%B4%97.md",
+    "assets://<A_WORKTREE>/tmp/materials-preview-desktop/materials/%E5%AE%89%E5%85%A8%E6%B8%85%E6%B4%97.md",
+    "assets://<A_WORKTREE>/tmp/materials-preview-desktop/materials/%E5%AE%89%E5%85%A8%E6%B8%85%E6%B4%97.md"
+  ],
+  "unexpectedRemoteImageRequests": []
+}

@@ -1,0 +1,131 @@
+{
+  "frames": [
+    {
+      "file": "gif-frame-0.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "3705f552f3021dc1154febd95e3a33d5d97d9ffe09b0bca403988efa9f2abcc3"
+    },
+    {
+      "file": "gif-frame-1.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "760ab6edb5a19c52ad261986f53baaf4c7cdac4b2dc3499ab76d2621c26febc9"
+    },
+    {
+      "file": "gif-frame-2.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "760ab6edb5a19c52ad261986f53baaf4c7cdac4b2dc3499ab76d2621c26febc9"
+    },
+    {
+      "file": "gif-frame-3.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "3705f552f3021dc1154febd95e3a33d5d97d9ffe09b0bca403988efa9f2abcc3"
+    },
+    {
+      "file": "gif-frame-4.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "3705f552f3021dc1154febd95e3a33d5d97d9ffe09b0bca403988efa9f2abcc3"
+    },
+    {
+      "file": "gif-frame-5.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "760ab6edb5a19c52ad261986f53baaf4c7cdac4b2dc3499ab76d2621c26febc9"
+    },
+    {
+      "file": "gif-frame-6.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "760ab6edb5a19c52ad261986f53baaf4c7cdac4b2dc3499ab76d2621c26febc9"
+    },
+    {
+      "file": "gif-frame-7.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "3705f552f3021dc1154febd95e3a33d5d97d9ffe09b0bca403988efa9f2abcc3"
+    },
+    {
+      "file": "gif-frame-8.png",
+      "size": [
+        1960,
+        1400
+      ],
+      "crop": [
+        1225,
+        868,
+        1842,
+        1092
+      ],
+      "hash": "3705f552f3021dc1154febd95e3a33d5d97d9ffe09b0bca403988efa9f2abcc3"
+    }
+  ],
+  "unique": 2
+}

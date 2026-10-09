@@ -1,3 +1,4 @@
+import {installPreviewBytes} from '../fixtures/preview-bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
@@ -47,7 +48,7 @@ test('combined panels preserve source text, load linked material and retain conf
   globalThis.window = browser; globalThis.document = browser.document;
   globalThis.localStorage = browser.localStorage;
   globalThis.location = browser.location;
-  const files = new Map();
+  const files = new Map(), restoreBytes = installPreviewBytes(path => {if (!files.has(path)) throw Error('ENOENT'); return files.get(path);});
   const blocks = new Map([
     ['root', {uuid:'root', content:'TODO **[任务]** 整合工作', parent:{id:'page'}, page:{id:'page'}, children:[{uuid:'a',content:'【注】 资料',parent:{id:'root'},page:{id:'page'}},{uuid:'b',content:'TODO 阅读材料',parent:{id:'root'},page:{id:'page'}}]}],
     ['a', {uuid:'a',content:'【注】 资料',parent:{id:'root'},page:{id:'page'}}],
@@ -136,7 +137,7 @@ test('combined panels preserve source text, load linked material and retain conf
     assert.equal(event.defaultPrevented,false); assert.equal(fallback,0); assert.equal(target.value,plain);
     assert.equal([...Array(browser.localStorage.length)].map((_,i)=>browser.localStorage.key(i)).some(key=>key.startsWith('workbench:pending:')),true); // recovery remains when disk work failed
   } finally {
-    work.dispose(); materials.dispose(); await browser.happyDOM.abort();
+    restoreBytes(); work.dispose(); materials.dispose(); await browser.happyDOM.abort();
     delete globalThis.logseq; delete globalThis.window; delete globalThis.document; delete globalThis.localStorage; delete globalThis.location;
   }
 });

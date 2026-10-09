@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-07",
+  "base": "5b05d156cc03b37956d6f77de2d10213a6cb58e3",
+  "host": {
+    "platform": "macOS 15.1 arm64",
+    "logseq": "0.10.15",
+    "sdk": "0.3.4",
+    "node": "20.20.2",
+    "npm": "10.8.2",
+    "copiedWithoutCodeChanges": true,
+    "sourceHashes": {
+      "electron.js": {
+        "sha256": "0643077e46be824f578a6a03df53b309cf6e8d26d010f04bb313636594a4eb6b",
+        "matchesInstalled": true
+      },
+      "js/preload.js": {
+        "sha256": "76d9d2a2ebc503e203b723d5db095103c2ec77ba82806d6a7a5c875d51fa4f0c",
+        "matchesInstalled": true
+      },
+      "package.json": {
+        "sha256": "3de2102b53f3d54fb1060252120efc6882e61ca85e952a9c374d049d16df23d1",
+        "matchesInstalled": true
+      }
+    },
+    "homeIsolationVerified": true,
+    "electron": "38.4.0",
+    "chrome": "140.0.7339.240"
+  },
+  "bytes": {
+    "expected": [
+      0,
+      255,
+      128,
+      13,
+      10,
+      195,
+      40,
+      254
+    ],
+    "xhr": [
+      0,
+      255,
+      128,
+      13,
+      10,
+      195,
+      40,
+      254
+    ],
+    "fetch": "TypeError: Failed to fetch"
+  },
+  "directory": {
+    "stockReaddir": "recursive file-only list",
+    "stockListdirFalse": "nested arrays of recursively read files; directory names and empty folders absent",
+    "stat": {
+      "size": 8,
+      "mtime": {},
+      "ctime": {}
+    },
+    "physicalIdentityAvailable": false,
+    "standardDirectoryPicker": {
+      "state": "success",
+      "name": "materials",
+      "entries": [
+        {
+          "name": "nested",
+          "kind": "directory"
+        },
+        {
+          "name": "byte-probe.bin",
+          "kind": "file",
+          "size": 8
+        },
+        {
+          "name": "路线.md",
+          "kind": "file",
+          "size": 89
+        }
+      ],
+      "absolutePathAvailable": false
+    },
+    "nativePaste": {
+      "verified": true,
+      "absolutePathProof": "same trusted paste + two identical NSFilenamesPboardType XML plist reads",
+      "legacyReadEntries": "true one-level including empty folders and special names",
+      "fsaResume": "read-only explicit user click succeeds after normal reload; always partial because host filters names",
+      "limit": 512,
+      "timeoutMs": 5000
+    }
+  },
+  "window": {
+    "closed": false,
+    "document": "about:blank",
+    "outerWidth": 640,
+    "outerHeight": 480,
+    "separateCDPTargetObserved": true,
+    "moveResizeNotYetTested": true,
+    "materialPreview": {
+      "nativePage": true,
+      "size": [
+        900,
+        720
+      ],
+      "targetMatchesMain": true,
+      "byteVersionMatchesMain": true,
+      "docxEmbeddedImage": [
+        720,
+        320
+      ],
+      "closeRetainsMain": true,
+      "moveResizeVerified": false
+    }
+  },
+  "scope": {
+    "kernelStarted": false,
+    "companionStarted": false,
+    "graphSelected": true,
+    "remoteModelEnabled": false
+  },
+  "limitations": [
+    "Stock stat lacks reliable physical file identity; no external rename/copy re-adoption by name/hash/size/mtime.",
+    "FSA omits some names; restored FSA observations are explicitly partial until a fresh native paste.",
+    "Final outside-repository package, native editing/IME and move/resize verification remain pending."
+  ]
+}

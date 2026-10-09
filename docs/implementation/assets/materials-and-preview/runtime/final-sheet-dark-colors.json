@@ -1,0 +1,45 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<OUTSIDE_PACKAGE>/dist/index.html?__v__=0.2.0",
+      "theme": "dark",
+      "scheme": "dark",
+      "body": {
+        "color": "rgb(255, 255, 255)",
+        "background": "rgba(0, 0, 0, 0)"
+      },
+      "root": {
+        "color": "rgb(227, 232, 227)",
+        "background": "rgba(0, 0, 0, 0)"
+      },
+      "cells": [
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "color": "rgb(227, 232, 227)",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ],
+      "styles": "--ls-primary-background-color: #002b36; --ls-secondary-background-color: #023643; --ls-primary-text-color: #a4b5b6; --ls-secondary-text-color: #dfdfdf; --ls-border-color: #0e5263; --ls-link-text-color: #8abbbb; --ls-selection-background-color: #338fff; color-scheme: dark;"
+    }
+  }
+}

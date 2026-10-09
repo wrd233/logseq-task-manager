@@ -1,3 +1,4 @@
+import {installPreviewBytes} from './fixtures/preview-bytes.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, readFile, writeFile, readdir, rename, stat, rm, copyFile} from 'node:fs/promises';
@@ -15,6 +16,7 @@ async function until(probe: () => boolean | Promise<boolean>, label: string): Pr
   assert.fail(label);
 }
 async function fixture() {
+  const restoreBytes = installPreviewBytes(path => readFile(path));
   const c = await contentFixture(), root = await mkdtemp(join(tmpdir(), 'materials-reading-'));
   const workDirectory = join(root, 'work'); await mkdir(workDirectory);
   logseq.settings!.materialsDirectory = workDirectory;
@@ -51,16 +53,58 @@ async function fixture() {
     return result as unknown as Event;
   };
   const joinFiles = async (paths: string[]) => {
-    await materials.ui.show(c.root);
+    await materials.library(c.root, "", "history");
     const files = await Promise.all(paths.map(file));
     materials.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(event('drop', files));
     await until(() => materials.panel.root.textContent!.includes(`已加入 ${paths.length} 份材料`), 'file batch rendered');
     return (await materials.listMaterials(c.root)).materials;
   };
   return {c, root, workDirectory, apis, opened, content, work, materials, find, file, event, joinFiles,
-    cleanup: async () => { materials.ui.dispose(); work.dispose(); content.dispose(); await delay(20); await c.cleanup(); await rm(root, {recursive: true, force: true}); },
+    cleanup: async () => { restoreBytes(); materials.ui.dispose(); work.dispose(); content.dispose(); await delay(20); await c.cleanup(); await rm(root, {recursive: true, force: true}); },
   };
 }
+
+test('native preview retains the same byte version and theme while returning to the same work, then closes after the trusted work scope changes without altering the material', async () => {
+  const f = await fixture(), {Window} = await import('happy-dom'), child = new Window({url:'about:blank'}), originalOpen = f.c.browser.open;
+  let closed = false;
+  Object.defineProperty(child,'closed',{get:()=>closed,configurable:true});
+  child.close = () => {closed=true;child.dispatchEvent(new child.Event('pagehide'));};
+  f.c.browser.open = (() => child) as unknown as typeof f.c.browser.open;
+  try {
+    const path=join(f.workDirectory,'窗口参考.md'), text='**[注]** 同一原件，同一读取版本。';await writeFile(path,text);
+    const [material]=await f.joinFiles([path]);await f.work.open(f.c.root);await f.materials.openDoc(material!.id,f.c.root);
+    const mainVersion=f.materials.panel.root.querySelector<HTMLElement>('[data-preview-version]')!.dataset.previewVersion;
+    f.find('独立窗口').click();await until(()=>!!child.document.querySelector('[data-preview-version]'),'native view rendered');
+    assert.equal((child.document.querySelector('[data-preview-version]') as unknown as HTMLElement).dataset.previewVersion,mainVersion);
+    document.documentElement.style.setProperty('--ls-primary-text-color','rgb(12, 34, 56)');
+    await until(()=>child.document.documentElement.style.getPropertyValue('--ls-primary-text-color').includes('12'),'native theme tracks workbench');
+    await f.materials.panel.close();assert.equal(closed,false,'same work can continue with retained preview');
+    await f.work.open(f.c.a);await until(()=>closed,'retained native view closes after explicit work change');
+    assert.equal(await readFile(path,'utf8'),text);assert.equal((await f.materials.readMaterial(material!.id)).id,material!.id);
+  } finally {f.c.browser.open=originalOpen;await child.happyDOM.abort();await f.cleanup();}
+});
+
+test('native material pointer down is claimed before Logseq can blur its draft, while web links keep normal pointer behavior and disposal removes the capture', async () => {
+  const f = await fixture();try {
+    const input=document.createElement('textarea'), anchor=document.createElement('a');input.value='**[注]** 中文草稿与选区。';anchor.href='longdoc://00000000-0000-4000-8000-000000000000';document.body.append(input,anchor);input.focus();input.setSelectionRange(7,11);
+    for(const type of ['pointerdown','mousedown']) {const event=new f.c.browser.MouseEvent(type,{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(event as unknown as Event);assert.equal(event.defaultPrevented,true);assert.equal(document.activeElement,input);assert.equal(input.selectionStart,7);assert.equal(input.selectionEnd,11);}
+    anchor.href='https://example.com/';const web=new f.c.browser.MouseEvent('pointerdown',{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(web as unknown as Event);assert.equal(web.defaultPrevented,false);
+    f.materials.dispose();anchor.href='longdoc://00000000-0000-4000-8000-000000000000';const unloaded=new f.c.browser.MouseEvent('pointerdown',{bubbles:true,cancelable:true,button:0});anchor.dispatchEvent(unloaded as unknown as Event);assert.equal(unloaded.defaultPrevented,false);assert.equal(input.value,'**[注]** 中文草稿与选区。');
+  } finally {await f.cleanup();}
+});
+
+test('native block hover cannot remount the live editor before a file click; unrelated blocks and finished editing retain host hover behavior', async () => {
+  const f = await fixture();try {
+    const main=document.createElement('main');main.id='main-content-container';
+    const block=document.createElement('div'),other=document.createElement('div'),editor=document.createElement('div'),input=document.createElement('textarea');block.className=other.className='ls-block';editor.className='block-editor';input.value='**[注]** 中文草稿与选区。';editor.append(input);block.append(editor);main.append(block,other);document.body.append(main);input.focus();input.setSelectionRange(7,11);
+    let remounts=0,otherHover=0;block.addEventListener('mouseout',()=>{remounts++;editor.replaceChildren(document.createElement('textarea'));});other.addEventListener('mouseout',()=>{otherHover++;});
+    const out=()=>new f.c.browser.MouseEvent('mouseout',{bubbles:true}) as unknown as Event;
+    input.dispatchEvent(out());assert.equal(remounts,0);assert.equal(input.isConnected,true);assert.equal(document.activeElement,input);assert.equal(input.selectionStart,7);assert.equal(input.selectionEnd,11);
+    other.dispatchEvent(out());assert.equal(otherHover,1);
+    input.blur();input.dispatchEvent(out());assert.equal(remounts,1,'host hover resumes when the live native editor is no longer focused');
+    editor.replaceChildren(input);input.focus();f.materials.dispose();input.dispatchEvent(out());assert.equal(remounts,2,'disposal removes the native hover guard');
+  } finally {await f.cleanup();}
+});
 
 test('long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation', async () => {
   const f = await fixture(); try {
@@ -97,26 +141,26 @@ test('long MiniProject and four real files: list joining, trusted report inserti
     assert.equal((await f.content.api.result(record.references[0].patch.requestId))!.record.items[0]!.status, 'APPLIED_VERIFIED');
     await f.work.refresh();
     const row = document.querySelector<HTMLElement>(`.wb-row[data-uuid="${parent}"]`)!; row.click(); row.focus();
-    await f.materials.ui.show(f.c.root); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${material.id}"]`)!.click();
+    await f.materials.library(f.c.root, "", "history"); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${material.id}"]`)!.click();
     await until(() => !!f.materials.panel.root.querySelector('.wb-reading'), 'Markdown reading');
     assert.equal(f.materials.panel.root.querySelector<HTMLElement>('.wb-editor')!.hidden, true);
     await f.materials.ui.returnToBody(); assert.equal((f.work.snapshot() as {view: {selected: string}}).view.selected, parent);
     assert.equal((await f.work.reportAPI.read()).mode, 'report');
-    await f.materials.ui.show(f.c.root); f.find('改文件名').click();
+    await f.materials.library(f.c.root, "", "history"); f.find('改文件名').click();
     await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename form');
     // Choose this material's action; the list includes four independent entries.
     f.find('取消').click();
     f.materials.panel.root.querySelector(`[data-material-id="${material.id}"]`)!.parentElement!.querySelectorAll<HTMLButtonElement>('details button')[1]!.click();
     await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'selected rename');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '研究终稿'; f.find('保存').click();
-    await until(() => f.c.blocks.get(child)!.content.includes('研究终稿](longdoc://'), 'generated label follows');
+    await until(async () => { const view=await f.materials.readMaterial(material.id);return view.path===join(f.workDirectory,'研究终稿.md') && f.c.blocks.get(child)!.content.split('\n')[0]===view.reference; }, 'generated label follows the full filename');
     await until(() => !f.materials.panel.root.querySelector('.wb-material-rename') && !!f.materials.panel.root.querySelector(`[data-material-row="${material.id}"] .wb-material-feedback`)?.textContent?.includes('已改名'), 'rename UI completion before external rename');
     assert.equal(f.c.blocks.get(alias.uuid)!.content, `[我的阅读说明](longdoc://${material.id})`);
     const path = join(f.workDirectory, '研究终稿.md'); assert.equal(await readFile(path, 'utf8'), '# 研究说明\n\n真实 Markdown 材料。');
     const version = (await f.materials.readMaterial(material.id)).version;
     await rename(path, join(f.workDirectory, '外部研究.md'));
-    await f.materials.ui.show(f.c.root); assert.equal((await f.materials.readMaterial(material.id)).path, join(f.workDirectory, '外部研究.md'));
-    await until(() => f.c.blocks.get(child)!.content.includes('外部研究](longdoc://'), 'external identity rename follows');
+    await f.materials.library(f.c.root, "", "history"); assert.equal((await f.materials.readMaterial(material.id)).path, join(f.workDirectory, '外部研究.md'));
+    await until(async () => f.c.blocks.get(child)!.content.split('\n')[0] === (await f.materials.readMaterial(material.id)).reference, 'external identity rename follows the full filename');
     assert.equal((await f.materials.readMaterial(material.id)).version, version);
     const elsewhere = join(f.root, '另处研究.md'); await rename(join(f.workDirectory, '外部研究.md'), elsewhere);
     await f.materials.ui.open(material.id); assert.match(f.materials.panel.root.textContent!, /文件失联/);
@@ -138,11 +182,11 @@ test('summary is optional record metadata: search, clearing and file rename pres
     await until(async () => (await f.materials.readMaterial(view!.id)).summary === '访谈第一轮的记录', 'summary stored');
     const described = await f.materials.readMaterial(view!.id); assert.equal(described.reference, view!.reference); assert.equal(described.version, view!.version); assert.deepEqual(described.capabilities.edit, {user: false, agent: false});
     assert.equal((await f.materials.listMaterials(f.c.root, '第一轮')).materials[0]!.id, view!.id);
-    await f.materials.ui.show(f.c.root); f.find('改文件名').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename');
+    await f.materials.library(f.c.root, "", "history"); f.find('改文件名').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="文件名称（保留扩展名）"]'), 'rename');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="文件名称（保留扩展名）"]')!.value = '访谈参考'; f.find('保存').click();
     await until(async () => (await f.materials.readMaterial(view!.id)).title === '访谈参考', 'file renamed');
     assert.equal((await f.materials.readMaterial(view!.id)).summary, '访谈第一轮的记录'); assert.equal(await readFile(join(f.workDirectory, '访谈参考.md'), 'utf8'), '原始文件正文');
-    await f.materials.ui.show(f.c.root); f.find('写概述').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="一句话概述"]'), 'clear summary');
+    await f.materials.library(f.c.root, "", "history"); f.find('写概述').click(); await until(() => !!f.materials.panel.root.querySelector('input[aria-label="一句话概述"]'), 'clear summary');
     f.materials.panel.root.querySelector<HTMLInputElement>('input[aria-label="一句话概述"]')!.value = ''; f.find('保存').click();
     await until(async () => !(await f.materials.readMaterial(view!.id)).summary, 'empty summary removes metadata');
     assert.equal((await f.materials.readMaterial(view!.id)).title, '访谈参考'); assert.equal(f.c.counts().inserts, 0);
@@ -165,7 +209,7 @@ test('same-name conflict and permission failure retain the rename input and neve
   } finally { await f.cleanup(); }
 });
 
-test('file drop joins real host files while binary clicks open exact path and report application failure truthfully', async () => {
+test('damaged image clicks report builtin preview failure and explicit external opening reports application failure truthfully', async () => {
   const f = await fixture(); try {
     const path = join(f.workDirectory, '原始图片.png'); await writeFile(path, Buffer.from([137, 80, 78, 71]));
     await f.joinFiles([path]);
@@ -173,10 +217,10 @@ test('file drop joins real host files while binary clicks open exact path and re
     assert.equal(f.find('加入材料'), undefined);
     await until(async () => (await f.materials.listMaterials(f.c.root)).materials.length === 1, 'picker result');
     const view = (await f.materials.listMaterials(f.c.root)).materials[0]!;
-    await f.materials.ui.show(f.c.root); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
-    await until(() => f.opened.length === 1, 'default app request'); assert.equal(f.opened[0], path); assert.equal(view.content, null); assert.equal(f.c.counts().inserts, 0);
+    await f.materials.library(f.c.root, "", "history"); f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
+    await until(() => f.materials.panel.root.textContent!.includes('图片格式或尺寸无法核验'), 'damaged image preview feedback'); assert.equal(f.opened.length, 0); f.find('外部打开').click(); await until(() => f.opened.length === 1, 'explicit external app request'); assert.equal(f.opened[0], path); assert.equal(view.content, null); assert.equal(f.c.counts().inserts, 0);
     assert.deepEqual(view.capabilities.edit, {user: false, agent: false}); assert.equal(await readFile(path).then(bytes => bytes.toString('hex')), '89504e47');
-    f.apis.openPath = async () => 'no default application'; f.materials.panel.root.querySelector<HTMLButtonElement>(`[data-material-id="${view.id}"]`)!.click();
+    f.apis.openPath = async () => 'no default application'; f.find('外部打开').click();
     await until(() => f.materials.panel.root.textContent!.includes('no default application'), 'application error');
     assert.doesNotMatch(f.materials.panel.root.querySelector('.wb-status')!.textContent!, /已交给默认应用/);
   } finally { await f.cleanup(); }
@@ -185,7 +229,7 @@ test('file drop joins real host files while binary clicks open exact path and re
 test('batch partial failure retains imported file without any Graph insertion; stale clipboard completion does not appear in another work', async () => {
   const f = await fixture(), previousNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator'); try {
     const path = join(f.workDirectory, '成功.md'); await writeFile(path, 'saved');
-    await f.materials.ui.show(f.c.root);
+    await f.materials.library(f.c.root, "", "history");
     const rejected = new f.c.browser.File(['missing'], '不存在.md'); Object.defineProperty(rejected, 'path', {value: join(f.workDirectory, '不存在.md')});
     f.materials.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(f.event('drop', [await f.file(path), rejected as unknown as File]));
     await until(() => f.materials.panel.root.textContent!.includes('不存在.md 未加入'), 'partial batch result');
@@ -194,7 +238,7 @@ test('batch partial failure retains imported file without any Graph insertion; s
     Object.defineProperty(f.c.browser.navigator, 'clipboard', {configurable: true, value: {writeText: async () => { entered.resolve(); await gate.promise; }}});
     Object.defineProperty(globalThis, 'navigator', {configurable: true, value: f.c.browser.navigator});
     f.find('复制链接').click(); await entered.promise;
-    const second = f.c.add('**[MiniProject]** 另一工作 #MiniProject'); await f.materials.ui.show(second.uuid); gate.resolve(); await delay(30);
+    const second = f.c.add('**[MiniProject]** 另一工作 #MiniProject'); await f.materials.library(second.uuid, "", "history"); gate.resolve(); await delay(30);
     assert.equal(f.materials.panel.root.querySelector('textarea[aria-label="材料链接"]'), null);
     assert.doesNotMatch(f.materials.panel.root.querySelector('.wb-status')!.textContent!, /已复制材料/);
   } finally { if (previousNavigator) Object.defineProperty(globalThis, 'navigator', previousNavigator); else Reflect.deleteProperty(globalThis, 'navigator'); await f.cleanup(); }

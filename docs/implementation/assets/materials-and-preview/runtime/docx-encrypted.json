@@ -1,0 +1,189 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "url": "file://<A_WORKTREE>/apps/logseq-plugin/dist/index.html?__v__=0.2.0",
+      "title": "",
+      "preview": [],
+      "buttons": [
+        {
+          "text": "阅读当前工作或继续阅读",
+          "disabled": false
+        },
+        {
+          "text": "打开当前块的工作",
+          "disabled": false
+        },
+        {
+          "text": "查找全部材料",
+          "disabled": false
+        },
+        {
+          "text": "正式任务",
+          "disabled": false
+        },
+        {
+          "text": "插件设置",
+          "disabled": false
+        },
+        {
+          "text": "关闭工作台",
+          "disabled": false
+        },
+        {
+          "text": "‹ 材料列表",
+          "disabled": false
+        },
+        {
+          "text": "复制链接",
+          "disabled": false
+        },
+        {
+          "text": "关闭",
+          "disabled": false
+        },
+        {
+          "text": "改文件名",
+          "disabled": false
+        },
+        {
+          "text": "写概述",
+          "disabled": false
+        },
+        {
+          "text": "同步名称与引用",
+          "disabled": false
+        },
+        {
+          "text": "补关联",
+          "disabled": false
+        },
+        {
+          "text": "重新定位",
+          "disabled": false
+        },
+        {
+          "text": "来源",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿并继续",
+          "disabled": false
+        },
+        {
+          "text": "另存草稿后加载外部版本",
+          "disabled": false
+        },
+        {
+          "text": "外部打开",
+          "disabled": false
+        },
+        {
+          "text": "在 Logseq 写作",
+          "disabled": true
+        },
+        {
+          "text": "查看原结构查看并调整展示排列；原文结构保持",
+          "disabled": true
+        },
+        {
+          "text": "只看选定范围保留完整来源块；随时返回全文",
+          "disabled": true
+        },
+        {
+          "text": "重新读取正文从当前来源核对，保留安全保护",
+          "disabled": true
+        },
+        {
+          "text": "显示原生页面继续当前原生输入，保留阅读位置",
+          "disabled": true
+        },
+        {
+          "text": "跟随工作对象点击默认固定当前工作；选中普通子块不会切换",
+          "disabled": true
+        },
+        {
+          "text": "正文",
+          "disabled": true
+        },
+        {
+          "text": "材料",
+          "disabled": true
+        },
+        {
+          "text": "",
+          "disabled": false
+        },
+        {
+          "text": "审阅与历史",
+          "disabled": true
+        },
+        {
+          "text": "上一问题",
+          "disabled": false
+        },
+        {
+          "text": "取消等待",
+          "disabled": false
+        },
+        {
+          "text": "完整内容",
+          "disabled": false
+        },
+        {
+          "text": "协作",
+          "disabled": false
+        },
+        {
+          "text": "开始阶段",
+          "disabled": false
+        },
+        {
+          "text": "取消",
+          "disabled": false
+        },
+        {
+          "text": "记录当前版本",
+          "disabled": false
+        },
+        {
+          "text": "认可这个版本",
+          "disabled": false
+        },
+        {
+          "text": "查看待认可版本",
+          "disabled": false
+        },
+        {
+          "text": "看本阶段全部变化",
+          "disabled": false
+        },
+        {
+          "text": "返回原位置",
+          "disabled": false
+        },
+        {
+          "text": "连接正文维护",
+          "disabled": true
+        },
+        {
+          "text": "允许润色与原块整理",
+          "disabled": true
+        },
+        {
+          "text": "断开工作连接",
+          "disabled": false
+        }
+      ],
+      "text": "工作台\n关闭工作台\n‹ 材料列表\n加密 中文.docx\n复制链接\n关闭\n更多\nDOCX · 只读阅读\n加密 中文.docx\n\n此 Office 文件已加密。请先在原应用解密后预览；未转换或覆盖原件。",
+      "windows": {
+        "outerWidth": 980,
+        "outerHeight": 700,
+        "innerWidth": 384,
+        "innerHeight": 652,
+        "screenX": 230,
+        "screenY": 44
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "preview": [
+        {
+          "previewTarget": "material:ddcedfbf-93a2-44e3-aab4-6541cb592282",
+          "previewVersion": "df4552ef186b03f53b795dbc9d2f5425f13fceaa30452a9fa571623f579a5928",
+          "previewFormat": "docx",
+          "previewComplete": "true",
+          "images": [
+            {
+              "src": null,
+              "complete": true,
+              "naturalWidth": 0
+            }
+          ],
+          "text": "中文 方案.docx\n独立窗口\n\n本次版本来自真实文件字节；材料绑定的物理身份仍待核验，不自动认领外部改名或同名替换。原关联与历史保留。\n\n材料只读预览验收\n中文章节\n\n保留段落、条件、原始文件与工作身份。\n\n第一项检查\n第二项检查\n\n城市\n\n\t\n\n计划\n\n\n\n\n上海\n\n\t\n\n需核验天气\n\n\n\n\n广州\n\n\t\n\n保持原始表格"
+        }
+      ],
+      "rows": []
+    }
+  }
+}

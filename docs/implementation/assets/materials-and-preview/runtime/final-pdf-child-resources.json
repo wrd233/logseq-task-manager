@@ -1,0 +1,36 @@
+{
+  "pid": 4115,
+  "port": 19447,
+  "resources": [
+    {
+      "id": "E4BF438C56153BD4C7224E518F96B741",
+      "type": "page",
+      "title": "只读扫描.pdf",
+      "url": "about:blank"
+    },
+    {
+      "id": "DB9FCAD875497EAF16E1A7FC2EA1EE24",
+      "type": "page",
+      "title": "Materials Preview Acceptance",
+      "url": "file://<A_WORKTREE>/tmp/materials-preview-desktop/Logseq.app/Contents/Resources/app/electron.html#/page/Materials%20Preview%20Acceptance"
+    },
+    {
+      "id": "85CB2FC2514D5DE4EB6278AB3C6FEA05",
+      "type": "worker",
+      "title": "",
+      "url": ""
+    },
+    {
+      "id": "DA85664109AC3FFAB5769DC43A37B5FC",
+      "type": "worker",
+      "title": "",
+      "url": ""
+    },
+    {
+      "id": "5BE3BBB995D404D50BE85C2322FF6883",
+      "type": "worker",
+      "title": "",
+      "url": ""
+    }
+  ]
+}

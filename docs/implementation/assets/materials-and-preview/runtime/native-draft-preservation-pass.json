@@ -1,0 +1,22 @@
+{
+  "commit": "9d7cf615739de9bc8fd3c2da371934d76bfe895a",
+  "nativeEditingUuid": "18e69e53-2a1d-485b-8923-7f5963f0a01c",
+  "sameTextareaId": "edit-block-2-18e69e53-2a1d-485b-8923-7f5963f0a01c",
+  "sameValue": true,
+  "sameSelection": [
+    18,
+    22
+  ],
+  "active": true,
+  "connected": true,
+  "sameSavedBlock": true,
+  "preview": [
+    {
+      "previewTarget": "material:ddcedfbf-93a2-44e3-aab4-6541cb592282",
+      "previewVersion": "df4552ef186b03f53b795dbc9d2f5425f13fceaa30452a9fa571623f579a5928",
+      "previewFormat": "docx",
+      "previewComplete": "true"
+    }
+  ],
+  "physicalIME": "not verified"
+}

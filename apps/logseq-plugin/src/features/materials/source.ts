@@ -2,7 +2,7 @@ import { hostDocument } from "../../host/panel-host.ts";
 import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import type { MaterialWorkContext } from "../../workspace/material-context.ts";
 import type { MaterialService, MaterialResult } from "./service.ts";
-import { isLong, makeLink, idFrom, titleOf } from "./store.ts";
+import { isLong, idFrom, titleOf } from "./store.ts";
 import { versionOf } from "./store.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { capturePastePrompt, type CapturePrompt } from "./paste-ui.ts";
@@ -122,7 +122,7 @@ export class MaterialSourceActions {
         const persisted = block.properties?.id === uuid;
         if (persisted) target.setSelectionRange(snapshot.start, snapshot.start + plain.length);
         else target.select();
-        const insertion = persisted ? makeLink({id: result.material.id, title: result.material.title}) : `${snapshot.value.slice(0, snapshot.start)}${result.material.reference}${snapshot.value.slice(snapshot.end)}\nid:: ${uuid}`;
+        const insertion = persisted ? result.material.reference : `${snapshot.value.slice(0, snapshot.start)}${result.material.reference}${snapshot.value.slice(snapshot.end)}\nid:: ${uuid}`;
         if (!hostDocument()?.execCommand("insertText", false, insertion)) return {reference: result.material.reference, problem: "材料已保存，编辑器未接受链接。原文仍保留。"};
         localStorage.removeItem(pending);
         void (async () => {
