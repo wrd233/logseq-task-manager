@@ -42,6 +42,20 @@
   "rawEvidence": [
     "input-before-title-runtime.json",
     "input-after-title-runtime.json",
-    "input-after-material-runtime.json"
-  ]
+    "input-after-material-runtime.json",
+    "input-after-collaboration-runtime.json",
+    "input-collaboration-export-exercise.json"
+  ],
+  "collaborationExport": {
+    "at": "2026-10-09T16:02:37.486Z",
+    "sceneId": "b9b7f411-d8fd-4129-ad25-2119bd2076ff",
+    "savedSources": 103,
+    "nativeDraft": {
+      "included": false,
+      "editing": true,
+      "reason": "saved-source-only"
+    },
+    "inputNodeAndSelectionPreserved": true,
+    "sourceAndGraphUnchanged": true
+  }
 }

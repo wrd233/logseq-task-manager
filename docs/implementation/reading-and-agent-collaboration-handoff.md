@@ -20,7 +20,11 @@
 
 [原生已保存输入](assets/reading-agent/package-layout-final-input-evidence.json)在本包实测：选择真实输入中的一段文字，点“目标”标题，再打开正文 PNG 引用，textarea 的 backend node `71635`、文字和 9–21 选区均保持；Graph 字节和保存原文不变，文件点击不改变来源集合。标题实际标记 6 来源/6 已挂载/0 当前可见，没有把屏幕外来源说成已可见。焦点按明确点击移至阅读控件。这次输入包含已保存文本，不能证明未提交草稿或物理 IME。
 
-本包还需完成 Graph 切换/正常卸载的资源释放、实际 Kernel 正式对象边界复验，再做逐条完成审计与最终交付。旧包对应路径有实测记录，但本段不把它们当作新版通过。物理 IME、未提交草稿、原剪贴板恢复、其他平台/宿主版本、普通 IO 竞态、整套升级/降级/恢复仍未证明。原生产审计的自动 Fake 正式化、schema 23/CLI 22 恢复不匹配、生产路径与写入竞态等风险没有因此修复；本包仍不建议直接用于重要生产 Graph。
+[同包生命周期证据](assets/reading-agent/package-layout-final-lifecycle-evidence.json)完成工作/Graph 切换、正常禁用图片与 PDF 四组检查，每组前后都是 PID 3226 与同一宿主 target。Graph 切换撤销真实切换前阅读邀请，迟到 submit 与旧 status 均返回 WORKSPACE_OFFLINE；PNG 两预览与旧 blob 释放，PDF 两预览及两个额外 worker 释放，禁用后的插件 iframe 为零、宿主监听 44→18。两个 ASCII 资产副本和原件、主合成页面字节均保持。此结论不证明所有定时器、长期无泄漏或特殊文件名 URL 兼容。
+
+带现场去协作也保留同一原生输入节点和 9–21 选区，现场明确 `nativeDraft included=false/editing=true/reason=saved-source-only`，只导出 103 份已保存来源；保存文字没有因导出强制退出编辑。
+
+本包还需实际 Kernel 正式对象边界复验，再做逐条完成审计与最终交付。旧包对应路径有实测记录，但本段不把它们当作新版通过。物理 IME、未提交草稿、原剪贴板恢复、其他平台/宿主版本、普通 IO 竞态、整套升级/降级/恢复仍未证明。原生产审计的自动 Fake 正式化、schema 23/CLI 22 恢复不匹配、生产路径与写入竞态等风险没有因此修复；本包仍不建议直接用于重要生产 Graph。
 
 ## 以下为历史阶段记录
 

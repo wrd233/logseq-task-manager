@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-09T16:19:17.922Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "status": "listed same-process lifecycle paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "pairs": [
+    {
+      "kind": "work",
+      "pid": 3226,
+      "hostTarget": "23AAB966CF7676087488BA87D584D57F",
+      "beforeAt": "2026-10-09T15:45:49.160Z",
+      "afterAt": "2026-10-09T15:46:26.447Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 46,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 44,
+        "blobsReadable": 0,
+        "blobReads": 4
+      }
+    },
+    {
+      "kind": "graph",
+      "pid": 3226,
+      "hostTarget": "23AAB966CF7676087488BA87D584D57F",
+      "beforeAt": "2026-10-09T16:06:23.518Z",
+      "afterAt": "2026-10-09T16:07:09.585Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 44,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 42,
+        "blobsReadable": 0,
+        "blobReads": 4
+      }
+    },
+    {
+      "kind": "disable-image",
+      "pid": 3226,
+      "hostTarget": "23AAB966CF7676087488BA87D584D57F",
+      "beforeAt": "2026-10-09T16:10:45.580Z",
+      "afterAt": "2026-10-09T16:11:57.818Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 44,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 2
+      }
+    },
+    {
+      "kind": "disable-pdf",
+      "pid": 3226,
+      "hostTarget": "23AAB966CF7676087488BA87D584D57F",
+      "beforeAt": "2026-10-09T16:17:35.884Z",
+      "afterAt": "2026-10-09T16:17:52.374Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 3,
+        "nativeDocumentListeners": 44,
+        "blobsReadable": 0,
+        "blobReads": 0
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 0
+      }
+    }
+  ],
+  "oldWorkCalls": [
+    {
+      "words": [
+        "status"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    },
+    {
+      "words": [
+        "reading",
+        "select",
+        "scattered-continuous-final-ec3797ae"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    }
+  ],
+  "oldGraphCalls": [
+    {
+      "words": [
+        "status"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    },
+    {
+      "words": [
+        "reading",
+        "submit",
+        "--input-file",
+        "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/evidence/graph-switch-late-plan.json"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    }
+  ],
+  "actualPreswitchReadingRequest": "bb5c0bf2-bc75-44b3-91db-d10cb7d5caa9",
+  "disableOldCall": {
+    "error": {
+      "code": "WORKSPACE_OFFLINE",
+      "message": "WORKSPACE_OFFLINE"
+    }
+  },
+  "primaryGraphUnchanged": true,
+  "syntheticAssetBytesUnchanged": true,
+  "asciiAssetAliases": true,
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/evidence",
+  "limits": [
+    "Only these observed lifecycle paths; no all-timer, arbitrary-callback or long-duration leak proof",
+    "Native SDK wrapper listener attribution unavailable; actual document totals are reported",
+    "ASCII asset aliases do not prove special-name native URL encoding compatibility",
+    "No production Graph, cross-platform, physical IME, unsaved draft or ordinary IO-race acceptance"
+  ]
+}
