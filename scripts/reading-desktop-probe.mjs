@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {homedir} from 'node:os';
 import process from 'node:process';
 import console from 'node:console';
+import {createHash} from 'node:crypto';
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),defaultRoot=join(repo,'tmp/reading-desktop'),root=resolve(process.argv[3]??defaultRoot);
 const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));
 const bootstrap=process.argv[4]==='bootstrap';
@@ -46,6 +47,8 @@ for(const context of contexts) {
       collaborationUI:(()=>{const panel=document.querySelector('[data-collaboration="true"]');return panel?{visible:!panel.hidden,text:panel.innerText,inputs:[...panel.querySelectorAll('textarea')].map(input=>({value:input.value,readOnly:input.readOnly}))}:null;})(),
       ordinaryTodoUI:(()=>{const panel=document.querySelector('[data-ordinary-todo="true"]');return panel?{visible:!panel.hidden,text:panel.innerText,choices:[...panel.querySelectorAll('input[type=checkbox]')].map(input=>({label:input.parentElement?.textContent,checked:input.checked}))}:null;})(),
       readingStyle:(()=>{const node=document.querySelector('.wb-report-row[data-report-root]>.wb-body>p:first-child');if(!node)return null;const style=window.getComputedStyle(node);return {fontSize:style.fontSize,fontWeight:style.fontWeight};})(),
+      readingGeometry:(()=>{const c=[...document.querySelectorAll('.wb-scroll')].find(c=>c.clientHeight>0);if(!c)return null;const rows=[...c.querySelectorAll('.wb-row[data-uuid]')].filter(n=>!n.hidden&&n.getBoundingClientRect().width>0).map(n=>{const b=n.querySelector('.wb-body'),s=window.getComputedStyle(n),bs=window.getComputedStyle(b);return {uuid:n.dataset.uuid,rowWidth:n.getBoundingClientRect().width,columns:s.gridTemplateColumns,bodyWidth:b.getBoundingClientRect().width,bodyColumn:bs.gridColumn};});return {panelWidth:c.clientWidth,minBodyWidth:Math.min(...rows.map(r=>r.bodyWidth)),maxBodyWidth:Math.max(...rows.map(r=>r.bodyWidth)),rows};})(),
+      readingPosition:(()=>{const c=[...document.querySelectorAll('.wb-scroll')].find(c=>c.clientHeight>0);if(!c)return null;const box=c.getBoundingClientRect(),rows=[...c.querySelectorAll('.wb-row[data-uuid]')].filter(n=>!n.hidden&&n.getBoundingClientRect().bottom>box.top&&n.getBoundingClientRect().top<box.bottom),a=rows[0],f=document.activeElement;return {scrollTop:c.scrollTop,clientHeight:c.clientHeight,scrollHeight:c.scrollHeight,anchor:a?.dataset.uuid??null,offset:a?a.getBoundingClientRect().top-box.top:null,visible:rows.map(n=>n.dataset.uuid),focused:{tag:f?.tagName,uuid:f?.closest('.wb-row')?.dataset.uuid??null,heading:f?.dataset.readingHeading??null,text:f?.textContent?.slice(0,120)},selection:document.getSelection()?.toString()};})(),
       primary:[...document.querySelectorAll('.wb-row[data-report-source-id]')].map(node=>({uuid:node.dataset.uuid,sourceId:node.dataset.reportSourceId,version:node.dataset.reportContentVersion,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
       structureRows:[...document.querySelectorAll('.wb-row[data-uuid]:not([data-report-source-id])')].map(node=>({uuid:node.dataset.uuid,text:node.querySelector('.wb-body')?.textContent,hidden:node.hidden})),
       materialDirectory:(()=>{const rows=document.querySelector('[data-material-directory-rows]');return rows?{complete:rows.dataset.directoryComplete,entries:[...rows.children].map(node=>({text:node.innerText,current:node.dataset.directoryCurrent,path:node.dataset.directoryPath,buttons:[...node.querySelectorAll('button')].map(b=>({name:b.textContent,path:b.title,id:b.dataset.materialId??null}))})),breadcrumbs:document.querySelector('.wb-material-breadcrumb')?.innerText,roots:[...document.querySelectorAll('select[aria-label="当前材料根目录"] option')].map(v=>({value:v.value,text:v.textContent})),notices:[...document.querySelectorAll('.wb-preview-notice')].map(v=>v.textContent)}:null;})(),
@@ -66,5 +69,6 @@ if(values.some(v=>v.value?.pluginConnected)){
 }
 socket.close();const destination=resolve(process.argv[2]??join(root,'evidence/runtime.json'));
 if(!destination.startsWith(root+'/evidence/'))throw Error('Evidence must stay in this owned directory');
-await writeFile(destination,JSON.stringify({observedAt:new Date().toISOString(),manifest,values,nativeInputNodes,errors,consoleErrors},null,2)+'\n');
+const graphFileSha=createHash('sha256').update(await readFile(join(manifest.graph,'pages/合成阅读与协作.md'))).digest('hex');
+await writeFile(destination,JSON.stringify({observedAt:new Date().toISOString(),manifest,graphFileSha,values,nativeInputNodes,errors,consoleErrors},null,2)+'\n');
 console.log(JSON.stringify({destination,contexts:values.map(value=>({url:value.url,exception:value.exception?.text??null,plugin:!!value.value?.pluginConnected,blocks:value.value?.primary?.length??value.value?.nativeBlocks??0})),errors:errors.length}));

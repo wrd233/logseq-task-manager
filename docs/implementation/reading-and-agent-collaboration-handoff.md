@@ -141,3 +141,13 @@ B 的阶段 ZIP 已开始仓库外正常安装预检，不能计为最终包。`
 Graph-two 的原生 Markdown 链接使用 `%20` 时，Logseq 0.10.15 实际生成 `%2520`，界面提示“文件状态暂不可核验”；此兼容形式未通过。保留原始失败事实后，在合成 assets 新增无空格同字节别名，真实原生编辑两条子链接；父原文保持。别名 PDF/PNG 主预览和原生独立窗口可读，但两个普通叶块分别形成范围，点另一叶会关闭前一独立窗口；没有把它描述成同一工作范围的双窗保留证明。24 原始材料及组合插件资源保持原字节。
 
 同一组合包的 Page 最终复验见 [package-page-stage-evidence.json](assets/reading-agent/package-page-stage-evidence.json)。真实“阅读当前页面”进入整页范围，正常页面目录关联保留既有 WORKSPACE.md、生成 WORKSPACE.task-copilot.md；真实页面 UUID `6ac83d9e-2af2-44a3-94bd-33848f387de5` 与 104 来源完整在场，来源块中不伪造同 UUID 根。真实“带当前工作去协作”保存页面请求，只读连接的 todo/content.apply/formatting/stage 四条块写入路径拒绝 BLOCK_SCOPE_REQUIRED，旧块连接离线。随后只从本地独立开放文件写作，包内 materials.capture 保存“页面阅读比较.md”，重试同一真实 ID `ea23ab65-6a9c-18b9-cf77-471a18c3140b`；保存来源、Graph SHA 和用户入口保持。真实切回块后旧 Page 连接 WORKSPACE_OFFLINE；回到页面重新准备只读现场，文件/正文/TODO 均未授权，实际重读同一材料和全部来源，scene.sourceMatches=true。未把页面读取能力扩述为页面正文/TODO/阶段可写。
+
+同包选择/键盘/折叠/书签阶段见 [package-interaction-stage-evidence.json](assets/reading-agent/package-interaction-stage-evidence.json)。实际拖选“阅读与协作合成验收；”不改变 requested 集合和来源；Enter 在同一阅读 article 请求 104 来源，宿主实际挂载/标记 75、不可用 29；Escape 清除全部标记、未进入编辑。首次坐标换算错误误入原生输入，没有改字并按 Escape 退出，最终选择事实来自真实阅读区域。正常原生菜单折叠全部子项后，定位仍保留折叠状态，只标记实际存在的 1 个根、其余 103 如实不可见，定位前后 Graph SHA 相同；随后正常原生菜单展开。手工折叠/展开会改变序列化 collapsed 元数据，不能把整个夹具设置过程说成只读。
+
+中段来源 15 的焦点、来源 13 的锚点在材料往返完全保持；连续/对照/原结构/返回对照的锚点偏移差不足 1 像素，Graph SHA 一致。104 个来源在最终连续/对照中逐 ID/保存版本与中文正文字符序列核对通过，已知语义行首标记在阅读标签，未知/问一下/当前推进/等待仍保留原字面。原结构模式保留已有个人展示排列；新正式字段的来源父级/深度保持，但展示兄弟位置和原生源序不同，未声称精确原生全序。
+
+随后实际视觉复验发现原结构模式不可读：原生 Chromium 的 369px 阅读区域中，row 四列为 `18px 18px 259px 30px`，正文 grid-column=auto，被自动放入 18px 控制列，中文逐字竖排；总滚动高度 110169px。故前述身份/版本/书签通过不能推出原结构视觉可用。原始证据 `structure-layout-failure-runtime.json` 与上述摘要的 visualFailure 保留。修补共享行样式将正文明确放入第 3 个伸缩文字列；报告模式既有更高优先级第 2 列保持。加入 report→structure→report 的节点/正文/计算列回归，确认旧实现实际失败，新实现相关 13 项通过；新包及同包核心闭环需重新验证，旧组合包不作为最终视觉通过包。
+
+目录最终演练见 [package-directory-stage-evidence.json](assets/reading-agent/package-directory-stage-evidence.json)。禁用/重启后通过真实访达复制本次材料根、在只读同步入口粘贴恢复访问，23 个当前层项可读。额外合成 MD 通过真实“改文件名”操作变为“自动加入改名验收.md”，材料 ID `78b5bb2a-2f75-48f7-a4f7-25c0529e116f`、正文 SHA 保持，rename Journal complete，旧/新 reference 的 ID 同一；物理 identity=null，未宣称自动跟随任意外部改名。仅把固定自有 materials 目录独占移到自有离线路径：目录 complete=false，材料记录/ID/reference 保留、availability=unavailable；旧材料方案新选择拒绝 material-outside-scope，状态 material-unavailable。证据脚本最初猜错原因已纠正，未改产品行为。恢复原目录后实际自动重读 23 当前项，原 ID/版本/路径恢复，同方案材料按钮再次打开同一目标/版本，原文与 Graph SHA 保持，24 个原样本全程 SHA 保持。被动 plan listing 在新读取校验前仍含上次 current 状态；新选择会现场校验，不称所有异步提示即时刷新。
+
+原结构文字列修补后的 `tmp/structure-layout-check.log` 全量通过 799 项，零失败/跳过/取消；requirements/typecheck/lint/test/sandbox/build/boundaries/taste 均通过。后续仅修改证据探针/摘要/交接，相关 ESLint 和 diff 检查通过。修补的新安装包/实际视觉与最终核心闭环尚需验收，不能把这次自动门禁改述为 Desktop 已修复。

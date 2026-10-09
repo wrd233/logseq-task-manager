@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "status": "listed selection/fold/bookmark paths verified; original-structure visual failure found",
+  "observedAt": "2026-10-09T10:49:44.444Z",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "visualFailure": {
+    "originalStructureReadable": false,
+    "minBodyWidth": 18,
+    "panelWidth": 369,
+    "firstRow": {
+      "uuid": "b7261007-0000-4000-8000-000000000001",
+      "rowWidth": 341,
+      "columns": "18px 18px 259px 30px",
+      "bodyWidth": 18,
+      "bodyColumn": "auto"
+    },
+    "scrollHeight": 110169,
+    "rawEvidence": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence/structure-layout-failure-runtime.json"
+  },
+  "sources": 104,
+  "fullChineseBodySequenceChecks": 104,
+  "selection": {
+    "text": "阅读与协作合成验收；",
+    "sourceAndRequestedSetUnchanged": true,
+    "editing": false
+  },
+  "keyboard": {
+    "enter": {
+      "requested": 104,
+      "marked": 75,
+      "unavailable": 29
+    },
+    "escapeCleared": true,
+    "sourceUnchanged": true
+  },
+  "fold": {
+    "normalNativeMenuAllChildren": true,
+    "requested": 104,
+    "marked": 1,
+    "unavailable": 103,
+    "collapsedKept": true,
+    "graphBytesUnchangedByLocator": true,
+    "restoredViaNativeMenu": true
+  },
+  "bookmark": {
+    "materialRoundTripPositionAndFocusEqual": true,
+    "focusedUuid": "b7261007-0000-4000-8000-000000000015",
+    "anchorUuid": "b7261007-0000-4000-8000-000000000013",
+    "positions": [
+      {
+        "mode": "report",
+        "plan": "scattered-continuous-final-f5255702",
+        "scrollTop": 2020,
+        "offset": -62.15625
+      },
+      {
+        "mode": "report",
+        "plan": "scattered-comparison-final-f5255702",
+        "scrollTop": 2560.5,
+        "offset": -62.3671875
+      },
+      {
+        "mode": "structure",
+        "plan": "scattered-comparison-final-f5255702",
+        "scrollTop": 19388,
+        "offset": -62.375
+      },
+      {
+        "mode": "report",
+        "plan": "scattered-comparison-final-f5255702",
+        "scrollTop": 2560.5,
+        "offset": -62.3671875
+      }
+    ],
+    "sourceAnchorRetainedWithinOnePixel": true,
+    "originalStructureRows": 104,
+    "savedPresentationOrderPreserved": true,
+    "nativeSiblingOrderMatches": false,
+    "graphSha": "05d89d84d7198f46ccacadccc097c4ef9d172d706a6404353c684917a8a4d4f9"
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence",
+  "limits": [
+    "First coordinate attempt entered native input; no text was changed and Escape exited. Final selection evidence is actual reading selection",
+    "Native all-child fold/unfold intentionally changes serialized collapsed metadata; only the locator itself is claimed byte-preserving",
+    "UI plan menu keeps focus on its own summary; cross-layout row focus is not claimed",
+    "Separate actual geometry/screenshot found original-structure bodies auto-placed into an 18px control track; this package does not pass original-structure visual usability",
+    "Original-structure mode preserves the existing personal presentation. New formal field retains its source parent/depth, but its display sibling position differs from native source order; exact native order is not claimed",
+    "Physical IME, unsaved drafts, clipboard preservation and long-duration soak remain unverified",
+    "Chinese sequence checks preserve body characters after recognized semantic labels; tables/code/format resource evidence is recorded separately"
+  ]
+}

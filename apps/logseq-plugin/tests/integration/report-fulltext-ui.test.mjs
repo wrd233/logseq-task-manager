@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fixture} from '../fixtures/work-view.mjs';
 import {longformRows} from '../fixtures/report-longform.ts';
+import {workbenchShellStyle} from '../../src/host/visual-style.ts';
 
 const rows=longformRows('77777777-7777-4777-8777-777777777777');
 const row=(f,id)=>f.browser.document.querySelector(`.wb-row[data-uuid="${id}"]`);
@@ -16,6 +17,18 @@ async function longFixture(){
   f.setCurrent(f.root.uuid);await f.work.open(f.root.uuid);
   return f;
 }
+test('source body uses the flexible text track across structure/report round trips',async()=>{
+  const f=await longFixture();try{
+    const style=f.browser.document.createElement('style');style.textContent=workbenchShellStyle;f.browser.document.head.prepend(style);
+    const target=row(f,rows[14].uuid),body=target.querySelector('.wb-body'),original=body.textContent;
+    for(const [mode,column] of [['report','2'],['structure','3'],['report','2'],['structure','3']]){
+      assert.equal((await f.work.reportAPI.setMode(mode)).ok,true);
+      assert.equal(row(f,rows[14].uuid),target);assert.equal(target.querySelector('.wb-body'),body);
+      assert.equal(f.browser.getComputedStyle(body).gridColumn,column,'body must not auto-place into an 18px control track');
+      if(mode==='structure')assert.equal(body.textContent,original);
+    }
+  }finally{await f.close();}
+});
 test('entering real long report ignores inherited folds and compact overrides; explicit folds and lens exit restore all current sources',async()=>{
   const f=await longFixture();try{
     let s=f.work.snapshot();f.work.apply({graph:s.graph,root:s.root,expectedSeq:s.seq,type:'collapse',uuid:f.root.uuid,collapsed:true});

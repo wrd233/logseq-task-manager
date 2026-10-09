@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "status": "listed UI rename/directory offline/restore paths verified",
+  "observedAt": "2026-10-09T10:43:44.699Z",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "rename": {
+    "materialId": "78b5bb2a-2f75-48f7-a4f7-25c0529e116f",
+    "sha256": "f6f028e2acd9f4b0fbefe0731f1d8309bfba6bbb18fffe1fce0d5995203a458e",
+    "from": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/preview-corpus/materials/自动加入验收.md",
+    "to": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/preview-corpus/materials/自动加入改名验收.md",
+    "journalStatus": "complete",
+    "physicalIdentity": null,
+    "oldReference": "[📄 自动加入验收\\.md](longdoc://78b5bb2a-2f75-48f7-a4f7-25c0529e116f)",
+    "currentReference": "[📄 自动加入改名验收\\.md](longdoc://78b5bb2a-2f75-48f7-a4f7-25c0529e116f)",
+    "sameIdAndBytes": true,
+    "graphUnchanged": true
+  },
+  "offline": {
+    "actualSyntheticRootMove": true,
+    "directoryComplete": false,
+    "visibleEntries": 0,
+    "materialIdPreserved": "78b5bb2a-2f75-48f7-a4f7-25c0529e116f",
+    "referencePreserved": "[📄 自动加入改名验收\\.md](longdoc://78b5bb2a-2f75-48f7-a4f7-25c0529e116f)",
+    "availability": "unavailable",
+    "readingSelectionReason": "material-outside-scope",
+    "readingPlanStatus": "material-unavailable"
+  },
+  "restore": {
+    "sameId": true,
+    "sameVersion": true,
+    "samePath": true,
+    "directoryComplete": true,
+    "currentEntries": 23,
+    "readingEntrySameIdAndVersion": true,
+    "graphUnchanged": true,
+    "originalSamplesUnchanged": 24
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence",
+  "limits": [
+    "First offline helper expected the wrong reason; actual validator returns material-outside-scope and read status is material-unavailable",
+    "Restoration is a controlled return of the exact directory; arbitrary external leaf rename/replace automatic physical tracking is not proven",
+    "Stock Desktop physical identity is null. The UI-controlled rename uses recorded path/version/size and stable record identity",
+    "Before fresh reading validation the passive plan listing still reported its last-known current state; fresh selection rejected the unavailable material",
+    "Directory after disable/restart needed an actual Finder directory paste to regain read-only sync; no synthetic permission or Clipboard/FSA override"
+  ]
+}
