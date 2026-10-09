@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "status": "listed page paths verified",
+  "observedAt": "2026-10-09T10:22:49.122Z",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "pageUuid": "6ac83d9e-2af2-44a3-94bd-33848f387de5",
+  "sources": 104,
+  "actualPageIdentity": true,
+  "inventedWritableRoot": false,
+  "readOnlyBlocks": true,
+  "deniedBlockOnly": [
+    "todo read",
+    "content apply",
+    "formatting preview",
+    "stage read"
+  ],
+  "oldBlockRejection": "DESCRIPTOR_STALE",
+  "manifest": {
+    "primarySource": {
+      "graphId": "graph:logseq_local_/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/graph",
+      "rootUuid": "6ac83d9e-2af2-44a3-94bd-33848f387de5",
+      "kind": "page",
+      "pageName": "合成阅读与协作"
+    },
+    "generatedEntryFile": "WORKSPACE.task-copilot.md",
+    "userEntryPreserved": true
+  },
+  "independentFileGrant": true,
+  "material": {
+    "id": "ea23ab65-6a9c-18b9-cf77-471a18c3140b",
+    "version": "0a338020ae572bcc63a5cabf456cdc03cfba5a70e76715af6d69e937786a0873",
+    "reference": "[📄 页面阅读比较\\.md](longdoc://ea23ab65-6a9c-18b9-cf77-471a18c3140b)",
+    "sameIdOnRetry": true
+  },
+  "sourceUnchanged": true,
+  "graphUnchanged": true,
+  "pageSwitchRejection": "WORKSPACE_OFFLINE",
+  "reconnect": {
+    "readOnly": true,
+    "sameSource": true,
+    "sameMaterial": true,
+    "sceneMatches": true
+  },
+  "rawEvidence": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence/page-exercise.json",
+  "limits": [
+    "Page has no body/TODO/stage writable root; this does not establish writable Project/Area page operations",
+    "No physical IME, clipboard, other host versions or ordinary IO race acceptance"
+  ]
+}

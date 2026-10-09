@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "status": "listed lifecycle paths verified; remaining final matrix incomplete",
+  "observedAt": "2026-10-09T10:19:22.048Z",
+  "commit": "31b1a751a0df5c582da776fc2e271ee8bd4ec119",
+  "zipHash": "d564a87ccd14e3c665234b6d21acec3d6426fb003e6044347b60a9f3af4a8dae",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "pairs": [
+    {
+      "kind": "work",
+      "beforeAt": "2026-10-09T06:26:54.030Z",
+      "afterAt": "2026-10-09T06:27:58.184Z",
+      "hostTarget": "AAAEDF95877560B5159DC7C9AE453CC6",
+      "pid": null,
+      "before": {
+        "previewPages": 3,
+        "pluginFrames": 1,
+        "workers": 2,
+        "nativeDocumentListeners": 47,
+        "blobsReadable": 4,
+        "blobReads": 4
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 47,
+        "blobsReadable": 0,
+        "blobReads": 2
+      },
+      "sameNativeHost": true
+    },
+    {
+      "kind": "graph",
+      "beforeAt": "2026-10-09T06:31:24.218Z",
+      "afterAt": "2026-10-09T06:33:01.832Z",
+      "hostTarget": "AAAEDF95877560B5159DC7C9AE453CC6",
+      "pid": null,
+      "before": {
+        "previewPages": 3,
+        "pluginFrames": 1,
+        "workers": 2,
+        "nativeDocumentListeners": 47,
+        "blobsReadable": 4,
+        "blobReads": 4
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 43,
+        "blobsReadable": 0,
+        "blobReads": 2
+      },
+      "sameNativeHost": true
+    },
+    {
+      "kind": "disable-image",
+      "beforeAt": "2026-10-09T10:17:35.430Z",
+      "afterAt": "2026-10-09T10:17:55.836Z",
+      "hostTarget": "512CFEF25E919A69FC699ED9161614E7",
+      "pid": 2887,
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 45,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 2
+      },
+      "sameNativeHost": true
+    },
+    {
+      "kind": "disable-pdf",
+      "beforeAt": "2026-10-09T10:18:12.225Z",
+      "afterAt": "2026-10-09T10:18:30.471Z",
+      "hostTarget": "512CFEF25E919A69FC699ED9161614E7",
+      "pid": 2887,
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 3,
+        "nativeDocumentListeners": 45,
+        "blobsReadable": 0,
+        "blobReads": 0
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 0
+      },
+      "sameNativeHost": true
+    }
+  ],
+  "oldWorkCalls": [
+    {
+      "command": "status",
+      "code": "WORKSPACE_OFFLINE"
+    },
+    {
+      "command": "reading select scattered-comparison-final-5949692f",
+      "code": "WORKSPACE_OFFLINE"
+    }
+  ],
+  "graphAssetCompatibility": {
+    "percentEncodedSpacePassed": false,
+    "nativeHref": "file:///Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/graph-two/assets/%E4%B8%AD%E6%96%87%2520%E5%A4%9A%E9%A1%B5%E6%89%AB%E6%8F%8F.pdf",
+    "result": "文件状态暂不可核验。",
+    "ordinaryNativeAliases": [
+      "../assets/中文扫描.pdf",
+      "../assets/中文图像.png"
+    ],
+    "parentTextPreserved": true
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-final-first/evidence",
+  "limits": [
+    "Previous process handles were absent on continuation; unload baselines were re-established on the new live host and never paired across that restart",
+    "DOM inspector cannot reliably attribute native SDK wrapper listeners to individual plugin components; only actual totals are reported",
+    "No proof of every timer, arbitrary callback, long-duration soak or all platforms",
+    "Graph-two asset links are on separate ordinary leaf scopes; changing leaf closes the prior independent preview",
+    "Percent-encoded space in this native host was double encoded; no general native URL encoding compatibility claim"
+  ]
+}
