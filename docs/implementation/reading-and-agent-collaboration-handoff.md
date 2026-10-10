@@ -1,6 +1,6 @@
 # 阅读编排、Agent 协作与最终联调：实施记录
 
-状态：**实施中，未完成交付**。不作为生产安装建议，也不把函数测试记为 Desktop 通过。
+状态：**本轮 B 实施、A 合入及限定范围的最终本地交付完成**。当前包结果以[最终矩阵](reading-and-agent-collaboration-final-matrix.md)和本节为准；后文保留历次阶段状态与失败记录。没有推送、PR、main 合并或发布，不作为重要生产 Graph 的安装建议。
 
 ## 当前替换安装包（2026-10-10）
 
@@ -24,7 +24,15 @@
 
 [新包正式边界](assets/reading-agent/package-focus-final-formal-evidence.json)通过：实际普通 UI 注册原锚点 2/77，两个隔离 Kernel 对象均 OPEN；真实 AGENT 当前推进投影 VERIFIED，稳定保存后的重试返回同一提交且 Graph 不变。首次紧接提交的重试校验未通过，未保存该次前后细项，不能断言原因；后续完整核验通过，保留这一限制。独立正文/TODO 许可下，两正式标题与真实受管字段均持久 BLOCKED，正式 TODO 两次均在实际所选范围外拒绝，正式根不在受信许可候选中。冷重启后 104 来源、Graph、业务状态保持，全部写许可撤销，三条拒绝 Journal 查询与 recover digest 相同。四份实际私有记录文件名均 87 字节。Kernel 是仓库源码运行的普通隔离外部服务，不能算包内 Kernel 发布或生产迁移通过。
 
-**新包最终矩阵仍在进行。** Graph 切换与正常卸载、原生输入及目录恢复需要续接当前新实例复验，再进行逐条完成审计和最终交付。下文 c20 包实测不能直接改名为新包通过；800 项检查及现有演练不能证明生产升级或整个目标完成。
+[新包目录恢复](assets/reading-agent/package-focus-final-directory-evidence.json)完成正常改名、受控根失联和原路径恢复：新增材料 `a841aebf-64bb-4390-85bf-6413419a4423` 的 ID/版本保持，失联时旧读法 material-unavailable、选择拒绝，恢复后同一阅读入口可用，24 原件保持。恢复同步仍是明确标注的不完整列表，未声称任意外部改名/替换可可靠追踪。
+
+[新包生命周期](assets/reading-agent/package-focus-final-lifecycle-evidence.json)完成工作、Graph、正常禁用图片与 PDF 四对同进程观察。Graph 切换使切换前实际邀请的迟到提交失效；禁用后旧连接拒绝。图像预览2→0且旧blob不可读；PDF预览2→0、worker3→1，禁用后插件iframe为零、宿主监听45→18。每对使用同PID/target，工作对为6493，其余为5264，没有跨重启拼接。
+
+[新包输入](assets/reading-agent/package-focus-final-input-evidence.json)保持原生 textarea backend node 29327、原文与9–21选区；材料预览和带现场去协作不强制结束输入，导出104保存来源，nativeDraft included=false/editing=true。选择文字时标题尝试零请求，未算定位通过。[新包交互](assets/reading-agent/package-focus-final-interaction-evidence.json)另在真实标题焦点上通过Enter104来源请求/挂载/标记、Escape清除、当时5来源可见；原生全部折叠时只标记1并报告103不可挂载，折叠状态及定位前后Graph保持，再用原生菜单展开。正文实际选中“阅读与协作合成验收”不误触定位。初次AX操作没有建立键盘焦点，保留失败观察；原生折叠/展开本身会改宿主保存元数据，不将整个往返记为字节不变。
+
+[包内实际启动器](assets/reading-agent/package-focus-final-launcher-evidence.json)已在自有通道运行真实可执行 `Start collaboration.command`；实际工作目录为安装包dist、Node20、生成新descriptor，正常UI重连104来源，正文/文件/TODO均false。初次辅助脚本预期绝对argv，实际启动器使用相对workspace.mjs，经完整命令/cwd/执行文件核对后记录；不称为Finder双击或默认用户环境通过。
+
+**当前包最终矩阵已闭合，生产升级与安全降级仍未通过。** 六项实施和十条跨模块路径逐项对应当前包事实，见[最终矩阵与限制](reading-and-agent-collaboration-final-matrix.md)。下文 c20 包只作历史证据；800项函数检查不能代替实机事实，也不能消除原生产风险。
 
 ## 上一安装包与已核验闭环（2026-10-09，cda68037）
 

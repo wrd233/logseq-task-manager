@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T03:24:06.652Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed final package keyboard selection and fold paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "keyboard": {
+    "requested": 104,
+    "marked": 104,
+    "mounted": 104,
+    "visible": 5,
+    "enterPassed": true,
+    "escapeCleared": true,
+    "sourceAndGraphUnchanged": true
+  },
+  "fold": {
+    "nativeMenu": true,
+    "requested": 104,
+    "marked": 1,
+    "unavailable": 103,
+    "collapsedKept": true,
+    "locatorSourceAndGraphUnchanged": true,
+    "restoredThroughNativeMenu": true
+  },
+  "selection": {
+    "text": "阅读与协作合成验收",
+    "noSourceRequestOrGraphChange": true
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "Initial AX activation did not establish keyboard focus; retained three ax-focus-attempt snapshots and repeated with observed real title focus",
+    "Native fold/unfold changes collapsed metadata intentionally; only the locator pair is byte-preserving",
+    "No physical IME, unsaved draft, clipboard restoration or arbitrary external drag/drop claim"
+  ]
+}

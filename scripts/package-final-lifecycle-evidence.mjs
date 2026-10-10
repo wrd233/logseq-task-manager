@@ -5,9 +5,12 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {acceptanceRoot} from './acceptance-context.mjs';
 import console from 'node:console';
+import process from 'node:process';
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),m=JSON.parse(await readFile(join(root,'manifest.json'))),sha=v=>createHash('sha256').update(v).digest('hex');
 const read=async n=>JSON.parse(await readFile(join(m.evidence,n+'.json'))),same=r=>{if(r.commit!==m.identity.commit||r.zipHash!==m.zipHash)throw Error('Mixed final ZIP evidence');};
 if(!m.ownerToken)throw Error('Owned outside-repository installation required');
+const outputIndex=process.argv.indexOf('--output'),output=outputIndex<0?'package-layout-final-lifecycle-evidence.json':process.argv[outputIndex+1];
+if(!output||!/^package-[a-z0-9-]+-lifecycle-evidence\.json$/u.test(output))throw Error('Explicit safe lifecycle evidence filename required');
 const stats=r=>({previewPages:r.pages.filter(p=>p.previewTargets.length).length,pluginFrames:r.pages.filter(p=>decodeURIComponent(p.url).startsWith('file://'+m.plugin+'/dist/')).length,workers:r.targets.filter(t=>t.type==='worker').length,nativeDocumentListeners:r.listeners.find(l=>l.surface==='native-document')?.all.length,blobsReadable:r.blobs.filter(b=>b.ok).length,blobReads:r.blobs.length}),pairs=[];
 for(const [kind,a,b,removed]of [['work','before','after-work',false],['graph','before-graph','after-graph',false],['disable-image','before-unload','after-unload',true],['disable-pdf','before-unload-pdf','after-unload-pdf',true]]){
   const before=await read('resources-'+a+'-runtime'),after=await read('resources-'+b+'-runtime');same(before);same(after);
@@ -24,7 +27,10 @@ if(![work,graph].every(r=>r.results.length===2&&r.results.every(x=>x.exitCode===
 if(sha(await readFile(join(m.graph,'pages/合成阅读与协作.md')))!==fixture.primaryGraphHash)throw Error('Primary Graph bytes changed during lifecycle checks');
 for(const f of fixture.files)if(sha(await readFile(join(fixture.graph,'assets',f.file)))!==f.version||sha(await readFile(f.original))!==f.version)throw Error('Asset bytes changed');
 const data={schemaVersion:1,at:new Date().toISOString(),commit:m.identity.commit,zipHash:m.zipHash,status:'listed same-process lifecycle paths verified',outsideRepository:true,capabilityInjection:false,pairs,oldWorkCalls:work.results,oldGraphCalls:graph.results,actualPreswitchReadingRequest:late.requestId,disableOldCall:unload.error,primaryGraphUnchanged:true,syntheticAssetBytesUnchanged:true,asciiAssetAliases:true,rawEvidenceRoot:m.evidence,limits:['Only these observed lifecycle paths; no all-timer, arbitrary-callback or long-duration leak proof','Native SDK wrapper listener attribution unavailable; actual document totals are reported','ASCII asset aliases do not prove special-name native URL encoding compatibility','No production Graph, cross-platform, physical IME, unsaved draft or ordinary IO-race acceptance']};
-await writeFile(join(repo,'docs/implementation/assets/reading-agent/package-layout-final-lifecycle-evidence.json'),JSON.stringify(data,null,2)+'\n');
+await writeFile(join(repo,'docs/implementation/assets/reading-agent',output),JSON.stringify(data,null,2)+'\n');
+if(process.argv.includes('--lifecycle-only')){
+  console.log(JSON.stringify({sameZIP:true,sameProcessPairs:pairs.length,pdfWorkersReleased:true,observedBlobsRevoked:true,savedOnlyExport:false,finalMatrix:false}));process.exit(0);
+}
 const input=JSON.parse(await readFile(join(repo,'docs/implementation/assets/reading-agent/package-layout-final-input-evidence.json'))),exported=await read('input-collaboration-export-exercise'),observed=await read('input-after-collaboration-runtime');same(input);same(exported);
 const scene=exported.scene.scene;
 if(!exported.sourceUnchanged||!exported.graphUnchanged||!exported.editingStillActive||exported.node!==input.nativeInput.backendNodeId||JSON.stringify(exported.selection)!==JSON.stringify([input.nativeInput.selection.start,input.nativeInput.selection.end])||!observed.nativeInputNodes.some(n=>n.backendNodeId===exported.node)||scene.nativeDraft.included!==false||scene.nativeDraft.editing!==true||scene.nativeDraft.reason!=='saved-source-only'||scene.savedSource.blocks.length!==103)throw Error('Actual saved-source-only export/input preservation missing');

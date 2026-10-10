@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-10T03:26:15.683Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "entry": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/installation/task-copilot-workbench/Start collaboration.command",
+  "entryHash": "897590e50745e733b8bf3e715f8ac0196fad2a7dd7b3984a9577e028c71d6dd7",
+  "pid": 7674,
+  "command": "node workspace.mjs workspace serve --state-dir /Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/channel",
+  "cwd": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/installation/task-copilot-workbench/dist",
+  "node": "v20.20.2",
+  "normalExecutableEntry": true,
+  "newDescriptorObserved": true,
+  "identityCheckedByCommandCwdAndExecutable": true,
+  "capabilityInjection": false,
+  "limits": [
+    "Owned explicit state-dir argument and Node 20 PATH; not Finder double-click or default user environment proof",
+    "First helper expected absolute argv; actual launcher uses relative workspace.mjs in verified package dist"
+  ],
+  "readonlyReconnect": {
+    "verifiedAt": "2026-10-10T03:27:08.959Z",
+    "sources": 104,
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/graph",
+      "rootUuid": "b7261007-0000-4000-8000-000000000001"
+    },
+    "body": false,
+    "file": false,
+    "todo": false
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T03:16:14.428Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed saved native input paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "nativeInput": {
+    "uuid": "b7261007-0000-4000-8000-000000000028",
+    "backendNodeId": 29327,
+    "valueHash": "20aef5ae681255aaddc0893c8c5128050e00f16d929d5502caa84da1f880577a",
+    "selection": {
+      "start": 9,
+      "end": 21
+    },
+    "nodeValueAndSelectionPreserved": true,
+    "editingStillActive": true
+  },
+  "sourceAndGraphUnchanged": true,
+  "material": {
+    "target": "material:22ca6f7b-890c-436a-b1c0-9c31944b4573",
+    "version": "34d5d0d525f75147a43fc4df64e5ea7d048b4c3737f940d470c407115d65fa94"
+  },
+  "titleAttempt": {
+    "requested": 0,
+    "highlighted": 0,
+    "selectionPreserved": true,
+    "notCountedAsTitleLocatorAcceptance": true
+  },
+  "collaborationExport": {
+    "sceneId": "daeb597b-1422-471e-8a14-35ad7e9901dd",
+    "savedSources": 104,
+    "nativeDraft": {
+      "included": false,
+      "editing": true,
+      "reason": "saved-source-only"
+    }
+  },
+  "rawEvidence": [
+    "input-before-highlight-runtime.json",
+    "input-after-highlight-runtime.json",
+    "input-after-material-runtime.json",
+    "input-after-collaboration-runtime.json"
+  ],
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "Only already saved input; no unsaved draft or physical IME proof",
+    "The selected-text title attempt kept zero source requests and is not counted as a locator pass",
+    "Focus changed with explicit clicks; original textarea and selection persisted",
+    "No system clipboard, Undo, arbitrary host or long-duration leak proof"
+  ]
+}

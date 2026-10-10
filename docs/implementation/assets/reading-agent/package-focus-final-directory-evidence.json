@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T03:07:52.682Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed same-ZIP controlled directory paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "rename": {
+    "id": "a841aebf-64bb-4390-85bf-6413419a4423",
+    "version": "0a78efb2c35a80db4ede3caac3d4a4e8f9575a65715b0459b1c913fd915252ce",
+    "oldReference": "[📄 自动加入验收\\.md](longdoc://a841aebf-64bb-4390-85bf-6413419a4423)",
+    "newReference": "[📄 自动加入改名验收\\.md](longdoc://a841aebf-64bb-4390-85bf-6413419a4423)",
+    "from": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/preview-corpus/materials/自动加入验收.md",
+    "to": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/preview-corpus/materials/自动加入改名验收.md",
+    "journalStatus": "complete",
+    "physicalIdentity": null,
+    "sameIdAndBytes": true
+  },
+  "offline": {
+    "controlledRootMove": true,
+    "availability": "unavailable",
+    "oldRecordAndReferencePreserved": true,
+    "directoryComplete": false,
+    "entries": 0,
+    "readingSelectionReason": "material-outside-scope",
+    "planStatus": "material-unavailable"
+  },
+  "restore": {
+    "sameIdAndVersionAndPath": true,
+    "sameReadingEntryPreview": true,
+    "sourcesAndGraphUnchanged": true,
+    "originalBytesUnchanged": 24,
+    "directoryComplete": false,
+    "entries": 22,
+    "notices": [
+      "目录授权已恢复；此宿主接口会过滤部分特殊文件名。再次原生粘贴该目录可读取这些名称；旧观察和关联保留。"
+    ]
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "Cold restart normal Continue read-only sync restores permission but stock host filters some special file names; restored listing is partial and clearly labelled",
+    "No general external leaf rename/replace physical tracking proof; stock host physical identity remains null",
+    "Only this exact controlled root return; no arbitrary IO races, full migration or production recovery claim"
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T03:12:23.814Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed same-process lifecycle paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "pairs": [
+    {
+      "kind": "work",
+      "pid": 6493,
+      "hostTarget": "6C39468C4CABD380BA94132BD9CCD6A5",
+      "beforeAt": "2026-10-10T01:06:14.251Z",
+      "afterAt": "2026-10-10T01:06:30.671Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 46,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 44,
+        "blobsReadable": 0,
+        "blobReads": 4
+      }
+    },
+    {
+      "kind": "graph",
+      "pid": 5264,
+      "hostTarget": "E17EE7B149BB445FC5B828CCDD52B9DE",
+      "beforeAt": "2026-10-10T03:09:15.705Z",
+      "afterAt": "2026-10-10T03:09:49.228Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 45,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 43,
+        "blobsReadable": 0,
+        "blobReads": 4
+      }
+    },
+    {
+      "kind": "disable-image",
+      "pid": 5264,
+      "hostTarget": "E17EE7B149BB445FC5B828CCDD52B9DE",
+      "beforeAt": "2026-10-10T03:10:51.911Z",
+      "afterAt": "2026-10-10T03:11:06.553Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 1,
+        "nativeDocumentListeners": 45,
+        "blobsReadable": 5,
+        "blobReads": 5
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 2
+      }
+    },
+    {
+      "kind": "disable-pdf",
+      "pid": 5264,
+      "hostTarget": "E17EE7B149BB445FC5B828CCDD52B9DE",
+      "beforeAt": "2026-10-10T03:11:36.854Z",
+      "afterAt": "2026-10-10T03:11:46.718Z",
+      "before": {
+        "previewPages": 2,
+        "pluginFrames": 1,
+        "workers": 3,
+        "nativeDocumentListeners": 45,
+        "blobsReadable": 0,
+        "blobReads": 0
+      },
+      "after": {
+        "previewPages": 0,
+        "pluginFrames": 0,
+        "workers": 1,
+        "nativeDocumentListeners": 18,
+        "blobsReadable": 0,
+        "blobReads": 0
+      }
+    }
+  ],
+  "oldWorkCalls": [
+    {
+      "command": [
+        "status"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    },
+    {
+      "command": [
+        "reading",
+        "select",
+        "scattered-comparison-continued-cb4d416e"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    }
+  ],
+  "oldGraphCalls": [
+    {
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    },
+    {
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    }
+  ],
+  "actualPreswitchReadingRequest": "562246a2-4c55-4357-86d8-5173ab847087",
+  "disableOldCall": {
+    "error": {
+      "code": "WORKSPACE_OFFLINE",
+      "message": "WORKSPACE_OFFLINE"
+    }
+  },
+  "primaryGraphUnchanged": true,
+  "syntheticAssetBytesUnchanged": true,
+  "asciiAssetAliases": true,
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "Only these observed lifecycle paths; no all-timer, arbitrary-callback or long-duration leak proof",
+    "Native SDK wrapper listener attribution unavailable; actual document totals are reported",
+    "ASCII asset aliases do not prove special-name native URL encoding compatibility",
+    "No production Graph, cross-platform, physical IME, unsaved draft or ordinary IO-race acceptance"
+  ]
+}
