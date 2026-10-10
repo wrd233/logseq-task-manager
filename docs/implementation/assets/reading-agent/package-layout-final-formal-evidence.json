@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-09T16:25:18.414Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "status": "listed normal Kernel and formal protection paths verified",
+  "normalKernel": {
+    "objects": [
+      {
+        "id": "c4f8f78e-1b4f-42ec-8e12-c99721ec0f42",
+        "kind": "MINI_PROJECT",
+        "anchor": "b7261007-0000-4000-8000-000000000002",
+        "lifecycle": "OPEN"
+      },
+      {
+        "id": "777f9240-658b-4bf8-8bf5-80715db46b00",
+        "kind": "TASK",
+        "anchor": "b7261007-0000-4000-8000-000000000077",
+        "lifecycle": "OPEN"
+      }
+    ],
+    "externalSourceService": true,
+    "isolatedDatabase": true,
+    "remoteProvider": false
+  },
+  "privateStorage": {
+    "boundedFiles": 4,
+    "filenameBytes": 87,
+    "createRequestsCleared": true,
+    "downgradeVerified": false
+  },
+  "governedFocus": {
+    "actor": "AGENT",
+    "commit": "ef34470b-50dd-464b-85e1-c49ef17de0dd",
+    "projectionStatus": "VERIFIED",
+    "replaySameCommit": true,
+    "graphUnchangedOnReplay": true
+  },
+  "ordinaryProtection": {
+    "body": [
+      {
+        "requestId": "formal-boundary-body-0",
+        "digest": "3a5e88338d6d968d07a873cfadf4b8e2aa1375d89e9097b90045813726a281ce",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-1",
+        "digest": "7e70bc01e8988517c0a5561a61dffc1d5348207b512e5acd066f084c23d479aa",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-2",
+        "digest": "8060167925e698279725d636a00af7dc535bb412e245613159f273d77165ce57",
+        "reason": "PROTECTED_MANAGED",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      }
+    ],
+    "todo": [
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000002",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      },
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000077",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      }
+    ],
+    "registeredRootsNotInTrustedGrant": [
+      "**[MiniProject]** 选择资料整理方式；现在只核验试用，不代表整件事已完成。 #MiniProject",
+      "TODO **[任务]** 正式边界合成样本；此锚点只用来核验自然写回保护，不代表正式 Kernel 注册。"
+    ],
+    "sourceAndGraphAndFormalStateUnchanged": true,
+    "inRangeFormalTodoAttempt": false
+  },
+  "coldRestart": {
+    "at": "2026-10-09T16:25:18.412Z",
+    "desktop": {
+      "pid": 10296,
+      "command": [
+        "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/Logseq integrated-layout-final.app/Contents/MacOS/Logseq",
+        "--user-data-dir=/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/profile",
+        "--remote-debugging-port=19349",
+        "--remote-debugging-address=127.0.0.1"
+      ],
+      "cwd": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final"
+    },
+    "sourceUnchanged": true,
+    "graphUnchanged": true,
+    "formalStateUnchanged": true,
+    "allWritePermissionsRevoked": true,
+    "queries": [
+      {
+        "requestId": "formal-boundary-body-0",
+        "digest": "3a5e88338d6d968d07a873cfadf4b8e2aa1375d89e9097b90045813726a281ce",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-1",
+        "digest": "7e70bc01e8988517c0a5561a61dffc1d5348207b512e5acd066f084c23d479aa",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-2",
+        "digest": "8060167925e698279725d636a00af7dc535bb412e245613159f273d77165ce57",
+        "reason": "PROTECTED_MANAGED",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      }
+    ],
+    "currentFormalObject": "777f9240-658b-4bf8-8bf5-80715db46b00",
+    "currentClosureReadonlyQuery": true
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/evidence",
+  "capabilityInjection": false,
+  "limits": [
+    "Formal TODO runtime calls were outside the actual selected grant; registered roots are excluded from the trusted form",
+    "External Kernel ran from ordinary repository source; not a bundled standalone Kernel release",
+    "No production schema migration, full backup restore or safe downgrade proof",
+    "Original Fake executor, path and ordinary IO-race production risks remain"
+  ]
+}

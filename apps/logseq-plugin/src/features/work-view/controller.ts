@@ -376,7 +376,7 @@ export class WorkView {
   }
   rememberMaterials(scope: SourceScope): void {
     const current=this.readingScope(),actual=this.materialScope(scope);
-    if (this.panel.visible && this.contentChoice === "body" && current && actual&&sameLensScope(actual,current)) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark() };
+    if (this.panel.visible && this.contentChoice === "body" && current && actual&&sameLensScope(actual,current)) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
   }
   /** Legacy material associations carry a UUID only. Restore page metadata only
    * from this already verified active page, never from an external caller. */
@@ -389,7 +389,7 @@ export class WorkView {
     if (!scope || !current || !sameLensScope(scope, current)) {
       surface.classList.remove("wb-materials-in-work"); this.shell.mount(this.panel.root); return false;
     }
-    if (this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark() };
+    if (this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
     this.contentChoice = "materials"; surface.classList.add("wb-materials-in-work"); this.shell.mount(surface); this.renderHeading(); return true;
   }
   async returnToBody(uuid = this.rootUuid): Promise<void> {

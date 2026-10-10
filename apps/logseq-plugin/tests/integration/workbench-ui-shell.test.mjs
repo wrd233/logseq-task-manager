@@ -45,6 +45,27 @@ test('materials mount uses the entire scope and body return retains mode, lens, 
   } finally { await material.close(); await f.close(); }
 });
 
+test('material and body tabs may receive focus without losing the last real reading source', async () => {
+  let f,material;
+  f = await fixture(undefined, 4, {initialReadingMode:'report',onMaterials:async()=>{
+    await material.open();f.work.mountMaterialChrome(material.root,{graphId:'one:/one',rootUuid:'root'});
+  }});
+  const { FeaturePanel } = await import('../../src/host/panel-host.ts');
+  material = new FeaturePanel('materials','材料');
+  try {
+    await f.work.open('root');const node=row(f,'b0'),container=node.parentElement;
+    const source=JSON.stringify([...f.blocks]);node.focus();container.scrollTop=123;
+    const materials=f.work.panel.root.querySelector('[data-work-content=materials]');
+    materials.focus();materials.click();
+    for(let i=0;i<100&&!material.visible;i++)await delay(5);
+    const body=material.root.querySelector('[data-work-content=body]');body.focus();body.click();
+    for(let i=0;i<100&&(!f.work.panel.visible||f.browser.document.activeElement!==node);i++)await delay(5);
+    assert.equal(f.work.panel.visible,true);assert.equal(container.scrollTop,123);
+    assert.equal(f.browser.document.activeElement,node,'return must retain the reading source, even after tab focus');
+    assert.equal(JSON.stringify([...f.blocks]),source);
+  } finally {await material.close();await f.close();}
+});
+
 test('work menu retains focus on source updates and Escape closes locally without intercepting composition', async () => {
   const f = await shellFixture();
   try {

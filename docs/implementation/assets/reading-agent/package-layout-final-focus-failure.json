@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T00:28:37.253Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "status": "failed material-tab reading focus restoration",
+  "before": {
+    "scrollTop": 2020,
+    "clientHeight": 448,
+    "scrollHeight": 11960,
+    "anchor": "b7261007-0000-4000-8000-000000000013",
+    "offset": -62.15625,
+    "visible": [
+      "b7261007-0000-4000-8000-000000000013",
+      "b7261007-0000-4000-8000-000000000014",
+      "b7261007-0000-4000-8000-000000000015",
+      "b7261007-0000-4000-8000-000000000016",
+      "b7261007-0000-4000-8000-000000000017"
+    ],
+    "focused": {
+      "tag": "ARTICLE",
+      "uuid": "b7261007-0000-4000-8000-000000000015",
+      "heading": null,
+      "text": "⠿▾思考两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。\n⋯条目操作 · [想法] 两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。自动强调正常弱化压缩全文 / 收起编辑原文对照原文只看此处增加视图缩进减"
+    },
+    "selection": ""
+  },
+  "after": {
+    "scrollTop": 2020,
+    "clientHeight": 448,
+    "scrollHeight": 11960,
+    "anchor": "b7261007-0000-4000-8000-000000000013",
+    "offset": -62.15625,
+    "visible": [
+      "b7261007-0000-4000-8000-000000000013",
+      "b7261007-0000-4000-8000-000000000014",
+      "b7261007-0000-4000-8000-000000000015",
+      "b7261007-0000-4000-8000-000000000016",
+      "b7261007-0000-4000-8000-000000000017"
+    ],
+    "focused": {
+      "tag": "ARTICLE",
+      "uuid": "b7261007-0000-4000-8000-000000000001",
+      "heading": null,
+      "text": "⠿▾MiniProject阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。我希望这份资料能保留做事时真实的节奏：查到一条事实就续接原任务，改变想法就留下改变的理由，仍然不知道的地方继续写不知道。读者可以换一种"
+    },
+    "selection": ""
+  },
+  "positionPreserved": true,
+  "focusPreserved": false,
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/evidence",
+  "rawEvidence": [
+    "interaction-bookmark-focused-runtime.json",
+    "interaction-bookmark-focused-return-runtime.json"
+  ],
+  "next": "Source fix has a real tab-focus regression; replacement ZIP and its complete final matrix remain required"
+}

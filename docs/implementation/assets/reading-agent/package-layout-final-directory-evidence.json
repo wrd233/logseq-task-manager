@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-09T16:29:23.115Z",
+  "commit": "cda68037f82dfb5496d3a9427e4d2a4562d5580c",
+  "zipHash": "c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688",
+  "status": "listed same-ZIP controlled directory paths verified",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "rename": {
+    "id": "282abc39-afea-4f62-8e5e-de3ac0b9fc23",
+    "version": "233ca39c4005321ba7dd1e685bb87bece4fa5460eb85a5fe1494cd3e898eaa29",
+    "oldReference": "[📄 自动加入验收\\.md](longdoc://282abc39-afea-4f62-8e5e-de3ac0b9fc23)",
+    "newReference": "[📄 自动加入改名验收\\.md](longdoc://282abc39-afea-4f62-8e5e-de3ac0b9fc23)",
+    "from": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/preview-corpus/materials/自动加入验收.md",
+    "to": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/preview-corpus/materials/自动加入改名验收.md",
+    "journalStatus": "complete",
+    "physicalIdentity": null,
+    "sameIdAndBytes": true
+  },
+  "offline": {
+    "controlledRootMove": true,
+    "availability": "unavailable",
+    "oldRecordAndReferencePreserved": true,
+    "directoryComplete": false,
+    "entries": 22,
+    "readingSelectionReason": "material-outside-scope",
+    "planStatus": "material-unavailable"
+  },
+  "restore": {
+    "sameIdAndVersionAndPath": true,
+    "sameReadingEntryPreview": true,
+    "sourcesAndGraphUnchanged": true,
+    "originalBytesUnchanged": 24,
+    "directoryComplete": false,
+    "entries": 22,
+    "notices": [
+      "目录授权已恢复；此宿主接口会过滤部分特殊文件名。再次原生粘贴该目录可读取这些名称；旧观察和关联保留。"
+    ]
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-layout-final/evidence",
+  "limits": [
+    "Cold restart normal Continue read-only sync restores permission but stock host filters some special file names; restored listing is partial and clearly labelled",
+    "No general external leaf rename/replace physical tracking proof; stock host physical identity remains null",
+    "Only this exact controlled root return; no arbitrary IO races, full migration or production recovery claim"
+  ]
+}

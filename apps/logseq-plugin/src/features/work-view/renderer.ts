@@ -46,11 +46,16 @@ export class WorkViewRenderer {
   private layout: Array<{ uuid: string; depth: number }> = [];
   private composingUuid: string | null = null;
   private historical = false;
+  private lastReadingFocus: HTMLElement | null = null;
   private reporting = false;
   private readonly headings = new Map<string,HTMLElement>();
   private readonly readingLayout:ReadingLayoutRenderer;
   get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {
+    container.addEventListener("focusin",event=>{
+      const target=event.target as HTMLElement;
+      if (container.contains(target) && (this.sourceRow(target)===target || [...this.headings.values()].includes(target))) this.lastReadingFocus=target;
+    });
     this.readingLayout=new ReadingLayoutRenderer({sources:(ids,context,contextIds)=>this.actions.sources?.(ids,context,contextIds),material:id=>this.actions.material?.(id)});
     container.addEventListener("keydown",event=>{
       if(event.key==="Escape"&&!event.isComposing&&!this.composing&&!this.historical&&!(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]"))this.actions.clearSources?.();
@@ -280,7 +285,7 @@ export class WorkViewRenderer {
     this.restoreSelection(reading);
   }
 
-  bookmark(): ReadingBookmark {
+  bookmark(retainReadingFocus = false): ReadingBookmark {
     const bounds = this.container.getBoundingClientRect();
     const anchor = this.sourceNodes().find(value => {
       const node = value as HTMLElement, rect = node.getBoundingClientRect();
@@ -295,7 +300,8 @@ export class WorkViewRenderer {
       }
     }
     const focused = document.activeElement as HTMLElement | null;
-    const bookmark: ReadingBookmark = { uuid, offset: anchor ? anchor.getBoundingClientRect().top - bounds.top : 0, scrollTop: this.container.scrollTop, fallback, focused: focused && this.container.contains(focused) ? focused : null };
+    const previous = retainReadingFocus && this.lastReadingFocus?.isConnected && this.container.contains(this.lastReadingFocus) && !this.lastReadingFocus.closest("[hidden]") ? this.lastReadingFocus : null;
+    const bookmark: ReadingBookmark = { uuid, offset: anchor ? anchor.getBoundingClientRect().top - bounds.top : 0, scrollTop: this.container.scrollTop, fallback, focused: focused && this.container.contains(focused) ? focused : previous };
     const selected = document.getSelection();
     if (selected?.rangeCount) {
       const range = selected.getRangeAt(0);
@@ -349,5 +355,5 @@ export class WorkViewRenderer {
     return Array.from(this.container.querySelectorAll<HTMLElement>(".wb-row[data-uuid]"))
       .filter(node=>this.entries.get(node.dataset.uuid!)?.node===node&&!node.closest("[hidden]"));
   }
-  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear();this.readingLayout.clear(); this.layout = []; this.composingUuid = null; this.container.replaceChildren(); }
+  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear();this.readingLayout.clear(); this.layout = []; this.composingUuid = null; this.lastReadingFocus=null; this.container.replaceChildren(); }
 }

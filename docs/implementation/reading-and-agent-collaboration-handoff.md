@@ -24,7 +24,13 @@
 
 带现场去协作也保留同一原生输入节点和 9–21 选区，现场明确 `nativeDraft included=false/editing=true/reason=saved-source-only`，只导出 103 份已保存来源；保存文字没有因导出强制退出编辑。
 
-本包还需实际 Kernel 正式对象边界复验，再做逐条完成审计与最终交付。旧包对应路径有实测记录，但本段不把它们当作新版通过。物理 IME、未提交草稿、原剪贴板恢复、其他平台/宿主版本、普通 IO 竞态、整套升级/降级/恢复仍未证明。原生产审计的自动 Fake 正式化、schema 23/CLI 22 恢复不匹配、生产路径与写入竞态等风险没有因此修复；本包仍不建议直接用于重要生产 Graph。
+[同包正式边界](assets/reading-agent/package-layout-final-formal-evidence.json)通过：正常本地 UI 注册现有 2/77 锚点，独立 Kernel 的两个对象均 OPEN。真实 AGENT 当前推进提交投影 VERIFIED，相同提议重试是同一提交且 Graph 不变；独立正文/TODO 许可下，两标题与真实受管字段返回持久 BLOCKED，正式 TODO 返回所选许可范围外拒绝，正式根没有出现在受信 TODO 候选里。冷重启后只读重连，104 保存来源/Graph/业务状态保持，写权限全部撤销，三条拒绝 Journal 的 result/recover digest 相同。私有保存的当前对象 ID 与 Kernel 只读对象查询可对应；这不等同重启后的界面自动选择该事项。Kernel 是仓库源码启动的普通外部服务，不是包内独立 Kernel 发布。
+
+[同包目录恢复](assets/reading-agent/package-layout-final-directory-evidence.json)通过实际行内改名、限定合成根失联/恢复及读法材料入口重开：材料 `282abc39-afea-4f62-8e5e-de3ac0b9fc23` ID/版本/旧引用保持；失联返回 unavailable、材料读法失效；恢复同路径后同一材料重新可用，24 原件与 Graph/来源保持。冷启动“继续只读同步”使用原宿主许可，但过滤特殊名称，恢复列表 22 项且 complete=false，界面如实提示；未把这个部分列表记为完整同步。
+
+最终交互复验又发现[材料页签焦点丢失](assets/reading-agent/package-layout-final-focus-failure.json)：中段来源 15 焦点在真实页签往返后变成根来源 1，滚动锚点/偏移保持。原测试直接打开材料，没有模拟页签先获得焦点。新增实际页签焦点回归先失败；源码仅为材料书签保留此 renderer 上次真实来源/标题焦点，范围清空同步清除，其他书签默认行为不变。24 项相关 UI 回归通过；`tmp/material-tab-focus-check.log` 全量检查 **800 项通过，零失败/跳过/取消**。干净源码提交、替换安装包及最终安装矩阵仍必须完成，当前 c20 包不能宣布交付完成。
+
+物理 IME、未提交草稿、原剪贴板恢复、其他平台/宿主版本、普通 IO 竞态、整套升级/降级/恢复仍未证明。原生产审计的自动 Fake 正式化、schema 23/CLI 22 恢复不匹配、生产路径与写入竞态等风险没有因此修复；本包仍不建议直接用于重要生产 Graph。
 
 ## 以下为历史阶段记录
 
