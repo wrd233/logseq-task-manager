@@ -1,0 +1,23 @@
+// Actual fresh-install reading and material-tab focus regression closure.
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {dirname,join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {acceptanceRoot} from './acceptance-context.mjs';
+import process from 'node:process';
+import console from 'node:console';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=acceptanceRoot(repo),m=JSON.parse(await readFile(join(root,'manifest.json'))),sha=v=>createHash('sha256').update(v).digest('hex'),exec=promisify(execFile),read=async n=>JSON.parse(await readFile(join(m.evidence,n+'.json')));
+if(!m.ownerToken)throw Error('Owned final package required');
+const observe=async n=>{const r=await read('material-tab-focus-'+n+'-runtime');if(r.manifest.identity.commit!==m.identity.commit||r.manifest.zipHash!==m.zipHash||r.errors.length||r.values.some(v=>v.exception))throw Error('Same-package runtime required');return {r,v:r.values.find(v=>v.value?.pluginConnected).value};};
+const before=await observe('before'),file=await observe('file'),after=await observe('after'),reading=await read('package-reading-exercise'),identity=JSON.parse(await readFile(join(m.plugin,'build-identity.json')));
+if(identity.builtFromDirtyTree||identity.commit!==m.identity.commit||sha(await readFile(join(root,'installation.zip')))!==m.zipHash||sha(await readFile(join(repo,'docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip')))!==m.zipHash)throw Error('Clean installed ZIP identity mismatch');
+for(const [path,hash]of Object.entries(identity.files))if(sha(await readFile(join(m.plugin,path)))!==hash)throw Error('Installed resource changed');
+if(before.v.readingPosition.focused.uuid!=='b7261007-0000-4000-8000-000000000015'||JSON.stringify(before.v.readingPosition)!==JSON.stringify(after.v.readingPosition)||before.v.editing||after.v.editing||JSON.stringify(before.v.source)!==JSON.stringify(file.v.source)||JSON.stringify(before.v.source)!==JSON.stringify(after.v.source)||before.r.graphFileSha!==file.r.graphFileSha||before.r.graphFileSha!==after.r.graphFileSha)throw Error('Actual focus/position/source preservation missing');
+const preview=file.v.previews[0];if(!preview?.target.startsWith('material:')||preview.complete!=='true')throw Error('Actual material preview required');
+const material=JSON.parse((await exec(process.execPath,[join(m.plugin,'dist/workspace.mjs'),'workspace','materials','read',preview.target.slice(9),'--directory',m.work,'--state-dir',m.channel,'--client','focus-final','--json'],{cwd:root,timeout:30000})).stdout);
+if(material.version!==preview.version||sha(await readFile(material.path))!==preview.version||material.path!==join(m.work,'纯阅读焦点复验.md'))throw Error('Actual material service/bytes identity mismatch');
+if(!reading.sourceUnchanged||!reading.graphUnchanged||!reading.userWorkspacePreserved||reading.source.blocks.length!==101||reading.denied.length!==3||reading.highlight.value.highlightedSourceIds.length!==25)throw Error('Actual initial reading loop missing');
+const data={schemaVersion:1,at:new Date().toISOString(),commit:m.identity.commit,zipHash:m.zipHash,status:'fresh-install reading and actual material-tab focus fix verified; final matrix incomplete',outsideRepository:true,capabilityInjection:false,installedResources:Object.keys(identity.files).length,cleanBuild:true,reading:{sources:101,layouts:2,denied:reading.denied,highlighted:25,sourceAndGraphUnchanged:true,userWorkspacePreserved:true},materialTabFocus:{before:before.v.readingPosition,after:after.v.readingPosition,positionAndFocusEqual:true,sourceAndGraphUnchanged:true,actualMaterial:{id:material.id,reference:material.reference,version:material.version,path:material.path}},rawEvidenceRoot:m.evidence,limits:['This fresh ZIP still requires final collaboration, format/reference, lifecycle, Page and formal matrix','Physical IME, unsaved draft, original clipboard restoration and production migration remain unverified']};
+await writeFile(join(repo,'docs/implementation/assets/reading-agent/package-focus-final-initial-evidence.json'),JSON.stringify(data,null,2)+'\n');console.log(JSON.stringify({sameZIP:true,resources:data.installedResources,readingSources:101,materialTabFocusPreserved:true,finalMatrix:false}));

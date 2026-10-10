@@ -1,8 +1,8 @@
 # 装好后直接阅读
 
-[下载安装包](../implementation/assets/workbench-visual-refresh/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
+[下载当前验收包](../implementation/assets/simple-start-reading/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
 
-这里的链接仍是视觉刷新阶段包。下文新增的协作现场和共同指导正在本分支实施，最终包与完整验收尚未交付；请先看[当前实施记录](../implementation/reading-and-agent-collaboration-handoff.md)。
+当前包含材料 A 与阅读/协作 B 的合入，并修复材料页签往返丢失阅读焦点的问题。已在新的隔离实例复验基本读法和该修复，完整最终矩阵仍在进行；请先在合成或可丢弃的 Graph 副本使用，并查看[当前实施记录](../implementation/reading-and-agent-collaboration-handoff.md)。这不是重要生产 Graph 的安装建议。
 
 ## 安装与更新
 
@@ -12,7 +12,7 @@
 
 更新时先停用旧插件，解压新包，再从插件页加载新文件夹并启用。若在原目录替换文件，使用插件页的重载或重启 Logseq。已有设置、目录与私有记录继续保留。此包通过解压加载，没有商店上架或自动更新功能。
 
-本轮实测环境为 macOS 15.2 Intel、Logseq Desktop 0.10.9。其他宿主版本和 Windows／Linux 未实机验收。
+当前隔离复验使用 macOS 15.1 ARM64、Logseq Desktop 0.10.15。较早截图来自其他阶段；Windows／Linux 和其他宿主版本未由本次验收证明。
 
 ## 写原文，点一次阅读
 

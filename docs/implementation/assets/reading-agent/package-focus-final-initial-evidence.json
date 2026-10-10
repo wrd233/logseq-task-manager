@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T00:36:12.679Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "fresh-install reading and actual material-tab focus fix verified; final matrix incomplete",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "installedResources": 615,
+  "cleanBuild": true,
+  "reading": {
+    "sources": 101,
+    "layouts": 2,
+    "denied": [
+      "CONTENT_WRITE_AUTHORIZATION_REQUIRED",
+      "FILE_WRITE_AUTHORIZATION_REQUIRED",
+      "TODO_AUTHORIZATION_REQUIRED"
+    ],
+    "highlighted": 25,
+    "sourceAndGraphUnchanged": true,
+    "userWorkspacePreserved": true
+  },
+  "materialTabFocus": {
+    "before": {
+      "scrollTop": 2466.5,
+      "clientHeight": 448,
+      "scrollHeight": 12317,
+      "anchor": "b7261007-0000-4000-8000-000000000013",
+      "offset": -62.3671875,
+      "visible": [
+        "b7261007-0000-4000-8000-000000000013",
+        "b7261007-0000-4000-8000-000000000014",
+        "b7261007-0000-4000-8000-000000000015",
+        "b7261007-0000-4000-8000-000000000016",
+        "b7261007-0000-4000-8000-000000000017"
+      ],
+      "focused": {
+        "tag": "ARTICLE",
+        "uuid": "b7261007-0000-4000-8000-000000000015",
+        "heading": null,
+        "text": "⠿▾思考两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。\n⋯条目操作 · [想法] 两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。自动强调正常弱化压缩全文 / 收起编辑原文对照原文只看此处增加视图缩进减"
+      },
+      "selection": ""
+    },
+    "after": {
+      "scrollTop": 2466.5,
+      "clientHeight": 448,
+      "scrollHeight": 12317,
+      "anchor": "b7261007-0000-4000-8000-000000000013",
+      "offset": -62.3671875,
+      "visible": [
+        "b7261007-0000-4000-8000-000000000013",
+        "b7261007-0000-4000-8000-000000000014",
+        "b7261007-0000-4000-8000-000000000015",
+        "b7261007-0000-4000-8000-000000000016",
+        "b7261007-0000-4000-8000-000000000017"
+      ],
+      "focused": {
+        "tag": "ARTICLE",
+        "uuid": "b7261007-0000-4000-8000-000000000015",
+        "heading": null,
+        "text": "⠿▾思考两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。\n⋯条目操作 · [想法] 两个方案的成本差异可能来自维护方式，目前缺少连续一周使用后的观察。自动强调正常弱化压缩全文 / 收起编辑原文对照原文只看此处增加视图缩进减"
+      },
+      "selection": ""
+    },
+    "positionAndFocusEqual": true,
+    "sourceAndGraphUnchanged": true,
+    "actualMaterial": {
+      "id": "52cc0f2e-0f4b-4a69-8f76-f43331cd9ae8",
+      "reference": "[📄 纯阅读焦点复验\\.md](longdoc://52cc0f2e-0f4b-4a69-8f76-f43331cd9ae8)",
+      "version": "705ee52b6cf7211d9256fd3fe9d5494148a626f0717eadb570bfba7640b37aa1",
+      "path": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/work/纯阅读焦点复验.md"
+    }
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "This fresh ZIP still requires final collaboration, format/reference, lifecycle, Page and formal matrix",
+    "Physical IME, unsaved draft, original clipboard restoration and production migration remain unverified"
+  ]
+}

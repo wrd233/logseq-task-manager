@@ -2,9 +2,19 @@
 
 状态：**实施中，未完成交付**。不作为生产安装建议，也不把函数测试记为 Desktop 通过。
 
-## 当前安装包与已核验闭环（2026-10-09）
+## 当前替换安装包（2026-10-10）
 
-当前可加载 ZIP 为 `docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip`，SHA-256 `c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688`。实际应用源码提交为 `cda68037f82dfb5496d3a9427e4d2a4562d5580c`；后续证据与交接提交不改变包内应用身份。旧包 `d564a87c…` 的记录仅证明旧版本，不能混入本包结论。
+当前可加载 ZIP 是 `docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip`，SHA-256 `fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51`，干净源码提交 `16d2a420fc96d2a7420fb474436a18813b7a46c2`。它保留 A 完整交付及前述原结构修复，并修复下文实机发现的材料页签焦点丢失。
+
+`tmp/material-tab-focus-check.log` 全量检查 800 项通过、零失败/跳过/取消；`tmp/material-tab-focus-package.log` 保存新包生成结果。在仓库外全新的 `integrated-focus-final` Graph/profile/通道中，615 个安装资源逐项符合包内 build identity。普通系统插件页确认同一插件 ID 并正常重载；没有注入 SDK、IPC 或 FileIO。
+
+[新包初始闭环与焦点复验](assets/reading-agent/package-focus-final-initial-evidence.json)实际通过 101 来源两种读法、25 个原生来源定位、未授权正文/文件/TODO 拒绝；Graph 与已有用户 WORKSPACE 保持。真实“材料页签 → 自动出现的合成 Markdown 文件 → 正文页签”恢复同一来源 15 焦点、来源 13 锚点、2466.5 滚动位置及 -62.3671875 偏移，前后完全相同，实际文件 ID/预览/服务 SHA 一致。
+
+**新包最终矩阵仍在进行。** 三条写作演练、五类引用/预览、指导更新、页面、范围/卸载、正式保护等下文 c20 包的实测不能直接改名为新包通过；这些需要续接当前新实例复验，再进行逐条完成审计和最终交付。800 项检查和一次焦点修复复验不能证明生产升级或整个目标完成。
+
+## 上一安装包与已核验闭环（2026-10-09，cda68037）
+
+上一 ZIP 的 SHA-256 为 `c20cfa893a38e7f1c034e3358da2a1d691fcae6905cce11b50f9dfe284cba688`，实际应用源码提交 `cda68037f82dfb5496d3a9427e4d2a4562d5580c`。原件仍在 `integrated-layout-final/installation.zip`，Git 提交 `5649f1f` 也保留该包。以下只描述该版本；更早的 `d564a87c…` 与最新 `fd479b84…` 不能混入它的结论。
 
 在仓库外的 `integrated-layout-final` 实例逐项核对了 615 个包内资源，使用自己的 Graph、profile、材料与通道。当前[同包核心证据](assets/reading-agent/package-layout-final-core-evidence.json)实际通过：101 来源的两种读法、未授权正文/文件/TODO 拒绝；三条真实 CLI/Graph/文件/Journal 协作演练；共同指导一处更新、两工作重读同版并保留不同项目要求；并发新增条件使旧方案与旧格式提议失效，明确保留当前原文后仅批准一处标记；103 来源及已完成子项重启仍在，全部连接权限撤销。
 
