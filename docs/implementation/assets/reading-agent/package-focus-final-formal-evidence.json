@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T03:05:17.061Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed normal Kernel and formal protection paths verified",
+  "normalKernel": {
+    "objects": [
+      {
+        "id": "6a0fd4d1-1c44-447f-8a21-5bcbb8aa4b1b",
+        "kind": "MINI_PROJECT",
+        "anchor": "b7261007-0000-4000-8000-000000000002",
+        "lifecycle": "OPEN"
+      },
+      {
+        "id": "61322605-c926-4735-819e-67237f153d2c",
+        "kind": "TASK",
+        "anchor": "b7261007-0000-4000-8000-000000000077",
+        "lifecycle": "OPEN"
+      }
+    ],
+    "externalSourceService": true,
+    "isolatedDatabase": true,
+    "remoteProvider": false
+  },
+  "privateStorage": {
+    "boundedFiles": 4,
+    "filenameBytes": 87,
+    "createRequestsCleared": true,
+    "downgradeVerified": false
+  },
+  "governedFocus": {
+    "actor": "AGENT",
+    "commit": "ef34470b-50dd-464b-85e1-c49ef17de0dd",
+    "projectionStatus": "VERIFIED",
+    "replaySameCommit": true,
+    "graphUnchangedOnReplay": true
+  },
+  "ordinaryProtection": {
+    "body": [
+      {
+        "requestId": "formal-boundary-body-0",
+        "digest": "9d3f9c98337fb07e14993cbf844209c69abaa4ec0683f86858c5e011107f7fc9",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-1",
+        "digest": "82e5c3da79edeafc28131bf0811c98c7a500174220e16757f5ffb424a28c2590",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-2",
+        "digest": "6db340b88397d7b0912825606cb90bd37447771af75fcc3788d0bc46aa30bbc8",
+        "reason": "PROTECTED_MANAGED",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      }
+    ],
+    "todo": [
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000002",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      },
+      {
+        "uuid": "b7261007-0000-4000-8000-000000000077",
+        "code": "TODO_OUTSIDE_GRANTED_RANGE"
+      }
+    ],
+    "registeredRootsNotInTrustedGrant": [
+      "**[MiniProject]** 选择资料整理方式；现在只核验试用，不代表整件事已完成。 #MiniProject",
+      "TODO **[任务]** 正式边界合成样本；此锚点只用来核验自然写回保护，不代表正式 Kernel 注册。"
+    ],
+    "sourceAndGraphAndFormalStateUnchanged": true,
+    "inRangeFormalTodoAttempt": false
+  },
+  "coldRestart": {
+    "at": "2026-10-10T03:05:17.059Z",
+    "desktop": {
+      "pid": 5264,
+      "command": [
+        "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/Logseq integrated-focus-final.app/Contents/MacOS/Logseq",
+        "--user-data-dir=/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/profile",
+        "--remote-debugging-port=19349",
+        "--remote-debugging-address=127.0.0.1"
+      ],
+      "cwd": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final"
+    },
+    "sourceUnchanged": true,
+    "graphUnchanged": true,
+    "formalStateUnchanged": true,
+    "allWritePermissionsRevoked": true,
+    "queries": [
+      {
+        "requestId": "formal-boundary-body-0",
+        "digest": "9d3f9c98337fb07e14993cbf844209c69abaa4ec0683f86858c5e011107f7fc9",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-1",
+        "digest": "82e5c3da79edeafc28131bf0811c98c7a500174220e16757f5ffb424a28c2590",
+        "reason": "PROTECTED_FORMAL_TITLE",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      },
+      {
+        "requestId": "formal-boundary-body-2",
+        "digest": "6db340b88397d7b0912825606cb90bd37447771af75fcc3788d0bc46aa30bbc8",
+        "reason": "PROTECTED_MANAGED",
+        "status": "not-applied",
+        "durable": true,
+        "recoverySameDigest": true
+      }
+    ],
+    "currentFormalObject": "61322605-c926-4735-819e-67237f153d2c",
+    "currentClosureReadonlyQuery": true
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "capabilityInjection": false,
+  "limits": [
+    "Formal TODO runtime calls were outside the actual selected grant; registered roots are excluded from the trusted form",
+    "External Kernel ran from ordinary repository source; not a bundled standalone Kernel release",
+    "No production schema migration, full backup restore or safe downgrade proof",
+    "Original Fake executor, path and ordinary IO-race production risks remain"
+  ]
+}
