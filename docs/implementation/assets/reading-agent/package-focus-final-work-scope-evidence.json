@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T01:07:42.187Z",
+  "status": "listed same-process work switch verified; remaining lifecycle matrix pending",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "pid": 6493,
+  "hostTarget": "6C39468C4CABD380BA94132BD9CCD6A5",
+  "before": {
+    "previews": 2,
+    "frames": 1,
+    "workers": 1,
+    "pluginListeners": 223,
+    "nativeListeners": 46,
+    "readableBlobs": 5,
+    "blobReads": 5
+  },
+  "after": {
+    "previews": 0,
+    "frames": 1,
+    "workers": 1,
+    "pluginListeners": 71,
+    "nativeListeners": 44,
+    "readableBlobs": 0,
+    "blobReads": 4
+  },
+  "oldCalls": [
+    {
+      "command": [
+        "status"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    },
+    {
+      "command": [
+        "reading",
+        "select",
+        "scattered-comparison-continued-cb4d416e"
+      ],
+      "exitCode": 1,
+      "error": {
+        "error": {
+          "code": "WORKSPACE_OFFLINE",
+          "message": "WORKSPACE_OFFLINE"
+        }
+      }
+    }
+  ],
+  "observedBlobsRevoked": true,
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "This pair predates the cold restart; never compare its baseline to a new process.",
+    "Graph switch, normal disable and PDF worker cleanup are still pending on this ZIP.",
+    "Listener counts and one observed pair do not prove long-term absence of leaks."
+  ]
+}
