@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T00:39:17.358Z",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "status": "listed same-ZIP doing and authorized ordinary TODO loop verified; final matrix incomplete",
+  "beforeSources": 101,
+  "afterSources": 102,
+  "independentBodyPermission": false,
+  "independentFileAndTodoPermissions": true,
+  "ordinaryParentStillTodo": true,
+  "child": {
+    "uuid": "17de47da-40a6-5815-a9ec-f0e6368d3fac",
+    "status": "complete",
+    "durable": true
+  },
+  "material": {
+    "id": "b0851967-a157-d9b0-2536-b4f5d252fda6",
+    "reference": "[📄 退出条件原句比较\\.md](longdoc://b0851967-a157-d9b0-2536-b4f5d252fda6)",
+    "version": "5ab39a92e5de425b52dcbbd823fbf518aae50d4847cf6b520c89229e152013bb",
+    "actualBytesHash": "5ab39a92e5de425b52dcbbd823fbf518aae50d4847cf6b520c89229e152013bb"
+  },
+  "originalSourcesPreserved": true,
+  "duplicateChildren": 0,
+  "fileOnlyCaptureDidNotWriteGraph": true,
+  "readonlyReconnect": {
+    "body": false,
+    "file": false,
+    "todo": false,
+    "sameRequestReturned": true,
+    "sourceUnchanged": true
+  },
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "limits": [
+    "This loop completes a synthetic evidence substep; parent/project and formal program approval remain separate",
+    "Remaining final matrix and production upgrade/downgrade safety not established"
+  ]
+}
