@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-10T00:56:43.684Z",
+  "status": "current ZIP collaboration/guidance/concurrency verified; final matrix incomplete",
+  "commit": "16d2a420fc96d2a7420fb474436a18813b7a46c2",
+  "zipHash": "fd479b84940e1247b0176708e6097320b7c165016cf868c20a12ff94702dca51",
+  "outsideRepository": true,
+  "capabilityInjection": false,
+  "rawEvidenceRoot": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/evidence",
+  "discussion": {
+    "initialSources": 26,
+    "finalSources": 27,
+    "childUuid": "1ec70195-2be0-5ea7-a2f6-1da413ec15b8",
+    "rounds": 2,
+    "material": {
+      "id": "bd364b91-2445-f52f-9344-cbe2f9921a53",
+      "reference": "[📄 阅读讨论的条件与权衡\\.md](longdoc://bd364b91-2445-f52f-9344-cbe2f9921a53)",
+      "sha256": "ca1627d678a8b8c8440cd743f38a967d23604a92a91c57b502ceb09a1062e365"
+    },
+    "originalsPreserved": true,
+    "existingTodoUnexecuted": true,
+    "repeatAndReadonlyReconnectSameJournal": true,
+    "disconnected": "WORKSPACE_OFFLINE"
+  },
+  "guidance": {
+    "oldVersion": "b24bf505fbafca1f91b37526d43453dc1f18e05d5d755dc3b7586996e1d9a3ee",
+    "newVersion": "73f955616e7741832474572e12d3ac2d3d56101462eba90316a693576c682509",
+    "originalTextRetained": true,
+    "twoEntrancesActuallyReread": true,
+    "oldSceneMismatchReported": true,
+    "projectVersions": [
+      "67cdb49e32f449d7258e506e04c8e875951e36f61ef0a901f3d98fe5b28a6796",
+      "1493fb7c33888d9231f8a3d7114e70e6f5a44f4717ccbc95ec92c3a29b06656a"
+    ],
+    "projectDifferencesAndUserEntriesPreserved": true,
+    "inputAttempt": "An end-key operation inserted in mid-text; retained raw attempt and corrected by replacing the full observed original plus appendix through normal UI."
+  },
+  "formatting": {
+    "oldConflict": "FORMAT_SOURCE_CHANGED",
+    "approvedChanges": [
+      "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/integrated-focus-final/graph\",\"b7261007-0000-4000-8000-000000000032\"]"
+    ],
+    "localApprovalOrigin": "local-user-command",
+    "actualAgentProposalOrigin": "verified-local-agent",
+    "structureAndUserConditionPreserved": true,
+    "durableReadback": true
+  },
+  "scattered": {
+    "sources": 103,
+    "layouts": 2,
+    "headings": [
+      0,
+      4
+    ],
+    "oldPlanRejected": true,
+    "bothUserConditionsPreserved": true,
+    "canonicalPrefixChanges": 0,
+    "observation": "Current continued layouts observed after closing the review overlay; initial comparison snapshot with open review is not layout proof."
+  },
+  "originalStructure": {
+    "sources": 103,
+    "minBodyWidth": 223,
+    "bodyColumn": 3
+  },
+  "limits": [
+    "Core format/reference/window matrix, lifecycle, Page, formal, directory recovery and final interaction replay remain pending on this ZIP.",
+    "Physical IME, unsaved draft, clipboard restoration, production migration, downgrade and ordinary IO races are not established."
+  ]
+}
