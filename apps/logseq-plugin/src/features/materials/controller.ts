@@ -246,43 +246,25 @@ export class Materials {
     this.editorRoot.hidden = true; this.body.hidden = false;
     this.refreshList = null;
     this.heading.replaceChildren(element("strong", "材料"), this.closeButton());
-    const tabs = element("div", "", "wb-material-tabs"); tabs.setAttribute("role", "tablist");
-    for (const [value, label] of [["files", "文件"], ["folders", "目录"], ["history", "已关联"]] as const) {
-      const item = button(label, () => void this.library(rootUuid, content, value).catch(this.fail));
-      item.setAttribute("role", "tab"); item.setAttribute("aria-selected", String(value === tab)); tabs.append(item);
-    }
-    this.heading.append(tabs);
+    delete this.heading.dataset.materialReading;
+    this.heading.append(button(tab === "folders" ? "返回材料" : "目录…", () => void this.library(rootUuid, content, tab === "folders" ? "files" : "folders").catch(this.fail)));
     const epoch = this.epoch, service = await this.ensureService(), context = await this.workContext(rootUuid); this.assertScope(epoch);
     this.previews.setScope({graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid});
     this.previewWorkRoot = this.currentWorkRoot?.() ?? null;
     const results = element("div"), recovery = element("details", "", "wb-material-recovery"), drop = materialDropArea(rootUuid);
     recovery.append(element("summary", "收纳恢复")); recovery.hidden = true;
     results.dataset.materialDropList = rootUuid ?? ""; this.body.dataset.materialList = String(tab !== "folders");
-    this.body.replaceChildren(recovery, ...(tab === "files" ? [drop, results] : [results]));
+    this.body.replaceChildren(recovery, ...(tab !== "folders" ? [drop, results] : [results]));
     if (tab === "folders") {
       if (!await this.panel.open(navigation)) return;
       this.mountWorkChrome();
       const service = await this.ensureService(), context = await this.workContext(rootUuid); this.assertScope(epoch);
-      this.folderCleanup=await renderMaterialFolders(results, service, context, () => this.assertScope(epoch), directory => {
+      this.folderCleanup=await renderMaterialFolders(results, service, context, () => this.assertScope(epoch), async directory => {
         if (directory) this.directoryPositions.set(JSON.stringify([this.graph, context.ownerUuid ?? context.sourceUuid]), {root: directory, relative: ""});
-        return this.library(rootUuid, content, directory ? "files" : "folders");
+        await this.library(rootUuid, content, directory ? "files" : "folders");
+        if (directory && this.contextUuid === rootUuid && this.graph === context.graph) {const browser = this.body.querySelector<HTMLDetailsElement>(".wb-material-directory-extra"); if (browser) browser.open = true;}
       });
       return;
-    }
-    if (tab === "files") {
-      if (this.contextUuid) this.beforeWorkMaterials?.({graphId: this.graphId, rootUuid: this.contextUuid});
-      if (!await this.panel.open(navigation)) return; this.mountWorkChrome();
-      const positionKey = JSON.stringify([this.graph, context.ownerUuid ?? context.sourceUuid]);
-      const directoryUI = await renderMaterialDirectory(results, service, context, {
-        valid: () => this.assertScope(epoch), open: async path => {const resolved = await service.resolveDirectoryFile(path, context); this.assertScope(epoch); await this.openDoc(resolved.materialId);},
-        grant: async (event, root) => {const pending = directoryGrantFromPaste(event, context.graph, () => desktopBridge().getClipboardData?.("NSFilenamesPboardType") ?? null, root); const grant = await pending; this.assertScope(epoch); await this.directoryReads.remember(grant); this.assertScope(epoch);},
-        resume: root => this.directoryReads.resume(context.graph, root),
-        decorate: (entry, record) => this.transfers.decorate(entry, record, rootUuid, [{label: "写概述", run: () => this.describe(record.id)}]),
-        history: () => this.library(rootUuid, content, "history"),
-        ...(this.directoryPositions.get(positionKey) ? {position: this.directoryPositions.get(positionKey)!} : {}), moved: position => this.directoryPositions.set(positionKey, position),
-      });
-      if (epoch !== this.epoch) {directoryUI.dispose(); return;}
-      this.folderCleanup = () => directoryUI.dispose(); this.refreshList = () => directoryUI.refresh(); return;
     }
     results.append(element("p", "正在加载材料…", "wb-material-loading"));
     for (let i = 0; i < localStorage.length; i++) {
@@ -304,6 +286,7 @@ export class Materials {
     if (!await this.panel.open(navigation)) return;
     this.mountWorkChrome();
     const related = new Set([...content.matchAll(/longdoc:\/\/([0-9a-f-]{36})/gi)].map(match => match[1]));
+    const count = element("small", "正在读取材料…", "wb-material-count"); this.heading.prepend(count);
     let searchEpoch = 0;
     const search = async () => {
       const ticket = ++searchEpoch, epoch = this.epoch;
@@ -311,6 +294,7 @@ export class Materials {
         const service = await this.ensureService(), entries = await service.list();
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
         const visible = rootUuid ? entries.filter(item => associationsOf(item).some(association => association.graph === this.graph && association.sourceUuid === rootUuid) || related.has(item.id)) : entries;
+        count.textContent = `${visible.length} 份材料`;
         const views = await Promise.all(visible.map(item => service.read(item.id, false).catch(error => unavailableMaterialView(item, this.directories.hint(this.graph, item.id) ?? "", error))));
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
         const rendered: HTMLElement[]=[];
@@ -335,7 +319,37 @@ export class Materials {
         this.message(service.listProblems.length ? `${visible.length} 份材料 · 部分目录暂不可读，已有关联保留。` : "");
       } catch (error) { if (epoch === this.epoch) { results.replaceChildren(element("p", error instanceof Error ? error.message : String(error))); this.fail(error); } }
     };
-    this.refreshList = search; await search();
+    const choose = element("input"); choose.type = "file"; choose.multiple = true; choose.hidden = true;
+    choose.setAttribute("aria-label", "选择材料文件");
+    choose.onchange = () => {
+      const files = Array.from(choose.files ?? []); choose.value = "";
+      if (this.disposed || epoch !== this.epoch || !choose.isConnected || !this.panel.visible) return;
+      void this.transfers.addFiles(files, rootUuid).catch(this.fail);
+    };
+    drop.append(button("选择文件…", () => choose.click()), choose);
+    const directory = element("details", "", "wb-material-directory-extra"), directoryBody = element("div");
+    directory.append(element("summary", "浏览关联目录中的其他文件"), directoryBody); this.body.append(directory);
+    let directoryUI: Awaited<ReturnType<typeof renderMaterialDirectory>> | null = null, directoryTicket = 0;
+    const positionKey = JSON.stringify([this.graph, context.ownerUuid ?? context.sourceUuid]);
+    const toggleDirectory = () => {
+      const ticket = ++directoryTicket; directoryUI?.dispose(); directoryUI = null; directoryBody.replaceChildren();
+      if (!directory.open) return;
+      void renderMaterialDirectory(directoryBody, service, context, {
+        valid: () => {this.assertScope(epoch); if (ticket !== directoryTicket) throw new Error("目录浏览已关闭。");},
+        open: async path => {const resolved = await service.resolveDirectoryFile(path, context); this.assertScope(epoch); await this.openDoc(resolved.materialId);},
+        grant: async (event, root) => {const grant = await directoryGrantFromPaste(event, context.graph, () => desktopBridge().getClipboardData?.("NSFilenamesPboardType") ?? null, root); this.assertScope(epoch); await this.directoryReads.remember(grant); this.assertScope(epoch);},
+        resume: root => this.directoryReads.resume(context.graph, root),
+        decorate: entry => entry, uncollectedOnly: true,
+        history: () => this.library(rootUuid, content),
+        ...(this.directoryPositions.get(positionKey) ? {position: this.directoryPositions.get(positionKey)!} : {}),
+        moved: position => this.directoryPositions.set(positionKey, position),
+      }).then(ui => {if (ticket !== directoryTicket || epoch !== this.epoch) ui.dispose(); else directoryUI = ui;})
+        .catch(error => {if (ticket === directoryTicket && epoch === this.epoch) directoryBody.replaceChildren(element("p", error instanceof Error ? error.message : String(error), "wb-preview-notice"));});
+    };
+    directory.addEventListener("toggle", toggleDirectory);
+    this.folderCleanup = () => {directoryTicket++; directoryUI?.dispose(); directory.removeEventListener("toggle", toggleDirectory);};
+    this.refreshList = async () => {await search(); await directoryUI?.refresh();}; await search();
+
     if (this.listPosition?.graph === this.graph && this.listPosition.root === rootUuid) {
       this.body.scrollTop = this.listPosition.scroll;
       if (this.listPosition.selected) results.querySelector<HTMLElement>(`[data-material-id="${this.listPosition.selected}"]`)?.focus({preventScroll: true});
@@ -387,10 +401,11 @@ export class Materials {
     const service = await this.ensureService(), context = await this.workContext(rootUuid); this.assertScope(epoch);
     const reader = new MaterialPreviewReader(service), target: MaterialPreviewTarget = reader.asset(path, {graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid});
     this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(rootUuid).catch(this.fail)), element("strong", fileName(path)), this.closeButton());
+    this.heading.dataset.materialReading = "true";
     if (rootUuid && this.returnWork) this.heading.append(this.returnButton());
     this.body.replaceChildren(); this.body.hidden = false; this.editorRoot.hidden = true; this.conflict.hidden = true; delete this.body.dataset.materialList;
     this.message(""); if (rootUuid) this.beforeWorkMaterials?.({graphId: this.graphId, rootUuid});
-    if (!await this.panel.open(navigation)) return; this.mountWorkChrome(); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body);
+    if (!await this.panel.open(navigation)) return; this.mountWorkChrome(); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body, this.heading);
   }
   async openDoc(id: string, returnUuid?: string | null): Promise<void> {
     if (this.disposed) return;
@@ -415,19 +430,23 @@ export class Materials {
     if (epoch !== this.epoch || !panels.isLatest(navigation)) return;
     this.store = store; this.current = record; this.mode = "reading"; this.base = view.content ?? ""; this.stableExternal = null; this.conflict.hidden = true;
     if (located.record.title !== record.title && record.references?.length) void this.transfers.sync(id).catch(this.fail);
-    this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(this.contextUuid).catch(this.fail)), element("strong", fileName(view.path)), button("复制链接", () => void this.transfers.copy(id, this.contextUuid, this.body, view.reference).catch(this.fail)), this.closeButton());
+    this.heading.replaceChildren(button("‹ 材料列表", () => void this.library(this.contextUuid).catch(this.fail)), element("strong", fileName(view.path)), this.closeButton());
     if (this.contextUuid && this.returnWork) this.heading.append(this.returnButton());
+    this.heading.dataset.materialReading = "true"; delete this.body.dataset.materialList;
+    this.heading.append(element("small", fileDetails(view)));
     const moreMenu=disclosureMenu("更多","当前材料的更多操作"); this.readerMenu=moreMenu; const more=moreMenu.content; this.heading.append(moreMenu.root);
-    more.append(button("改文件名", () => void this.transfers.rename(id, this.contextUuid).catch(this.fail)), button("写概述", () => void this.describe(id).catch(this.fail)), button("同步名称与引用", () => void this.recoverMaterial(id).catch(this.fail)), button("补关联", () => void this.linkExisting(id).catch(this.fail)), button("重新定位", () => void this.relocate().catch(this.fail)), button("来源", () => void this.locate().catch(this.fail)), element("small", `${record.imported ? "导入副本" : record.kind === "reference" ? "原文件" : "收纳创建"} · ${roleLabel(record.role)}`));
+    more.append(button("复制链接", () => void this.transfers.copy(id, this.contextUuid, this.body, view.reference).catch(this.fail)), button("外部打开", () => void this.openExternal(id).catch(this.fail)), button("改文件名", () => void this.transfers.rename(id, this.contextUuid).catch(this.fail)), button("写概述", () => void this.describe(id).catch(this.fail)), button("同步名称与引用", () => void this.recoverMaterial(id).catch(this.fail)), button("补关联", () => void this.linkExisting(id).catch(this.fail)), button("重新定位", () => void this.relocate().catch(this.fail)), button("来源", () => void this.locate().catch(this.fail)), element("small", `${record.imported ? "导入副本" : record.kind === "reference" ? "原文件" : "收纳创建"} · ${roleLabel(record.role)}`));
     if (record.kind === "capture" && record.sourceUuid) more.append(button("恢复收纳原文", () => void this.restore().catch(this.fail)));
     this.body.hidden = false; this.editorRoot.hidden = true;
     const facts = element("div", "", "wb-material-facts"), location = element("details"), path = element("summary", fileName(view.path));
     location.append(path, element("p", view.path), button("外部打开", () => void this.openExternal(id).catch(this.fail)));
-    facts.append(element("strong", fileDetails(view)), location); this.body.replaceChildren(facts);
+    facts.append(location); more.append(facts); this.body.replaceChildren();
+    const inlinePreview = !["spreadsheet", "legacy-doc", "unsupported"].includes(previewFormat(view.path));
+    if (!inlinePreview && view.availability === "available") this.body.append(element("p", previewFormat(view.path) === "legacy-doc" ? "旧版 .doc 请在 Word 中阅读，或另存为 .docx 后预览。" : "此文件使用外部应用阅读，原文件与关联保留。", "wb-preview-notice"), button("外部打开", () => void this.openExternal(id).catch(this.fail)));
     const notice = referenceNotice(record); if (notice) this.body.append(element("p", notice, "wb-material-result"), button("核验引用与改名", () => void this.recoverMaterial(id).catch(this.fail)));
     if (view.writeState === "pending") more.append(button("继续保存收纳", () => void store.resumeCapture(record).then(() => this.openDoc(id)).catch(this.fail)));
     if (view.content !== null && view.availability === "available") {
-      if (view.writeState === "ready") { const edit = button(record.kind === "reference" && !record.imported ? "编辑原文件" : "编辑", () => void this.beginEditing().catch(this.fail)); edit.dataset.materialEdit = "true"; this.heading.append(edit); }
+      if (view.writeState === "ready") { const edit = button(record.kind === "reference" && !record.imported ? "编辑原文件" : "编辑", () => void this.beginEditing().catch(this.fail)); edit.dataset.materialEdit = "true"; more.append(edit); }
       this.message(view.writeState === "pending" ? "收纳保存未完成，原文仍保留。可在更多中继续保存。" : "");
     } else if (view.availability === "unavailable") {
       this.body.append(element("p", "文件失联，原关联与历史仍保留。"), button("重新定位", () => void this.relocate().catch(this.fail)));
@@ -435,10 +454,10 @@ export class Materials {
     if (this.contextUuid) this.beforeWorkMaterials?.({ graphId: this.graphId, rootUuid: this.contextUuid });
     if (!await this.panel.open(navigation)) return;
     this.mountWorkChrome();
-    if (view.availability === "available") {
+    if (view.availability === "available" && inlinePreview) {
       const context = await this.workContext(this.contextUuid); this.assertScope(epoch);
       const reader = new MaterialPreviewReader(service);
-      try {const target = await reader.material(id, {graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid}); this.assertScope(epoch); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body);}
+      try {const target = await reader.material(id, {graph: this.graph, ownerUuid: context.ownerUuid ?? context.sourceUuid}); this.assertScope(epoch); this.previewWorkRoot = this.currentWorkRoot?.() ?? null; await this.previews.show(target, reader, this.body, this.heading);}
       catch (error) {this.assertScope(epoch); this.body.append(element("p", error instanceof Error ? error.message : String(error), "wb-preview-notice"));}
     }
     const draft = localStorage.getItem(this.key());

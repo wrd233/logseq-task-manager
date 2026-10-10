@@ -26,7 +26,7 @@ export class PreviewResources {
   dispose(): void {this.abort.abort(); for (const url of this.urls) URL.revokeObjectURL(url); this.urls.clear(); this.bytes = 0;}
   get activeURLs(): number {return this.urls.size;}
 }
-interface PreviewView { dispose(): void; snapshot: MaterialPreviewSnapshot; root: HTMLElement }
+interface PreviewView { dispose(): void; mounted(): void; snapshot: MaterialPreviewSnapshot; root: HTMLElement }
 function control(doc: Document, label: string, action: () => void): HTMLButtonElement {const button = doc.createElement("button"); button.type = "button"; button.textContent = label; button.onclick = action; return button;}
 export type PreviewLinkDelegate = (href: string, source: MaterialPreviewTarget) => Promise<void>;
 
@@ -43,15 +43,15 @@ export class MaterialPreviews {
     if (this.scope?.graph !== scope.graph || this.scope.ownerUuid !== scope.ownerUuid) {this.close(); this.scope = {...scope};}
   }
   clearMain(): void {this.generation++; this.loading?.dispose(); this.loading = null; this.main?.dispose(); this.main = null;}
-  async show(target: MaterialPreviewTarget, reader: MaterialPreviewReader, parent: HTMLElement): Promise<void> {
+  async show(target: MaterialPreviewTarget, reader: MaterialPreviewReader, parent: HTMLElement, toolbar?: HTMLElement): Promise<void> {
     this.setScope(target.scope); this.clearMain();
     const generation = this.generation, resources = new PreviewResources(); this.loading = resources;
     const placeholder = document.createElement("p"); placeholder.textContent = "正在读取文件…"; placeholder.setAttribute("role", "status"); parent.append(placeholder);
     try {
       const snapshot = await reader.read(target, resources.abort.signal);
-      const view = await this.view(snapshot, reader, resources, document, window, () => this.openWindow(snapshot, reader));
+      const view = await this.view(snapshot, reader, resources, document, window, () => this.openWindow(snapshot, reader), toolbar);
       if (generation !== this.generation || resources.abort.signal.aborted) {view.dispose(); return;}
-      placeholder.replaceWith(view.root); this.main = view; this.loading = null;
+      placeholder.replaceWith(view.root); this.main = view; this.loading = null; view.mounted();
     } catch (error) {
       resources.dispose(); if (generation !== this.generation) return;
       this.loading = null; placeholder.textContent = error instanceof Error ? error.message : String(error); placeholder.className = "wb-preview-notice";
@@ -82,16 +82,18 @@ export class MaterialPreviews {
     void this.view(snapshot, reader, resources, native.document, native).then(view => {
       if (native.closed || resources.abort.signal.aborted || this.scope !== scope || scope?.graph !== snapshot.target.scope.graph) {view.dispose(); if (!native.closed) native.close(); return;}
       // Main view navigation within the same work does not retarget the independent window.
-      entry.view = view; loading.replaceWith(view.root);
+      entry.view = view; loading.replaceWith(view.root); view.mounted();
     }).catch(error => {resources.dispose(); if (!native.closed) loading.textContent = error instanceof Error ? error.message : String(error);});
   }
-  private async view(snapshot: MaterialPreviewSnapshot, reader: MaterialPreviewReader, resources: PreviewResources, doc: Document, surfaceWindow: Window, enlarge?: () => void): Promise<PreviewView> {
+  private async view(snapshot: MaterialPreviewSnapshot, reader: MaterialPreviewReader, resources: PreviewResources, doc: Document, surfaceWindow: Window, enlarge?: () => void, toolbar?: HTMLElement): Promise<PreviewView> {
     const root = doc.createElement("section"), bar = doc.createElement("div"), name = doc.createElement("strong"), status = doc.createElement("p"), notices = doc.createElement("div");
     root.className = "wb-material-preview"; bar.className = "wb-preview-tools"; name.textContent = snapshot.target.fileName; status.className = "wb-preview-notice"; status.setAttribute("role", "status");
     root.dataset.previewTarget = snapshot.target.key; root.dataset.previewVersion = snapshot.version; root.dataset.previewFormat = snapshot.target.format;
-    bar.append(name); if (enlarge) bar.append(control(doc, "独立窗口", enlarge)); root.append(bar, status, notices);
+    const popup = enlarge ? control(doc, "独立窗口", enlarge) : null;
+    if (!toolbar) {bar.append(name); if (popup) bar.append(popup); root.append(bar);}
+    root.append(status, notices);
     let rendered: PreviewRendered | null = null, timer: ReturnType<typeof setTimeout> | null = null, busy = false, disposed = false;
-    const dispose = () => {if (disposed) return; disposed = true; if (timer) clearTimeout(timer); surfaceWindow.removeEventListener("focus", refresh); window.removeEventListener("focus", refresh); root.removeEventListener("click", click); rendered?.dispose(); resources.dispose(); root.remove();};
+    const dispose = () => {if (disposed) return; disposed = true; if (timer) clearTimeout(timer); popup?.remove(); surfaceWindow.removeEventListener("focus", refresh); window.removeEventListener("focus", refresh); root.removeEventListener("click", click); rendered?.dispose(); resources.dispose(); root.remove();};
     const refresh = () => {
       if (disposed || busy || resources.abort.signal.aborted) return;
       if (timer) clearTimeout(timer); timer = null; busy = true;
@@ -117,7 +119,7 @@ export class MaterialPreviews {
       root.dataset.previewComplete = String(rendered.complete); root.append(rendered.element);
       root.addEventListener("click", click); surfaceWindow.addEventListener("focus", refresh); if (surfaceWindow !== window) window.addEventListener("focus", refresh);
       timer = setTimeout(refresh, 3000);
-      return {root, snapshot, dispose};
+      return {root, snapshot, dispose, mounted: () => {if (disposed) return; if (toolbar && popup) toolbar.append(popup); rendered?.mounted?.();}};
     } catch (error) {dispose(); throw error;}
   }
   close(): void {this.clearMain(); for (const [native, entry] of this.windows) {entry.resources.dispose(); entry.view?.dispose(); if (!native.closed) native.close();} this.windows.clear(); this.scope = null;}
@@ -128,8 +130,8 @@ export const previewCSS = `
 .wb-material-preview{min-width:0;max-width:100%;color:var(--ls-primary-text-color,#30323b);font:15px/1.6 system-ui,sans-serif}
 .wb-preview-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;position:sticky;top:0;background:var(--ls-primary-background-color,#fff);z-index:1}
 .wb-preview-tools strong{overflow-wrap:anywhere;flex:1 1 180px}.wb-preview-tools button,.wb-preview-tools input,.wb-preview-tools select{font:inherit;color:inherit;background:transparent;border:1px solid #8887;border-radius:6px;padding:4px 8px}
-.wb-preview-tools button{cursor:pointer}.wb-preview-tools input{width:64px}.wb-preview-notice{font-size:13px;color:var(--ls-secondary-text-color,#62646d);overflow-wrap:anywhere}.wb-preview-document{overflow-wrap:anywhere}.wb-preview-document img{max-width:100%;height:auto}.wb-preview-document table{display:block;overflow:auto;border-collapse:collapse}.wb-preview-document td,.wb-preview-document th{border:1px solid #8887;padding:6px 10px}.wb-preview-document pre{overflow:auto;background:#8881;padding:12px;border-radius:6px}
-.wb-material-preview table,.wb-material-preview td,.wb-material-preview th{color:inherit}.wb-material-preview a{color:var(--ls-link-text-color,#4778b8)}.wb-material-heading{flex-wrap:wrap}.wb-material-heading>strong{flex:1 1 100%;overflow-wrap:anywhere;order:-1}
-.wb-preview-image-surface,.wb-preview-pdf-surface,.wb-preview-sheet-surface{overflow:auto;max-width:100%}.wb-preview-image-surface img{display:block;height:auto}.wb-preview-pdf canvas{display:block;max-width:none}.wb-preview-sheet table{border-collapse:collapse;font-size:13px}.wb-preview-sheet td,.wb-preview-sheet th{border:1px solid #8886;padding:4px 8px;min-width:70px;white-space:pre-wrap;max-width:320px;overflow-wrap:anywhere}.wb-preview-sheet th{background:#8882;position:sticky;top:0}.wb-preview-window{margin:0;padding:16px;background:var(--ls-primary-background-color,#fff)}
+.wb-preview-tools button{cursor:pointer}.wb-preview-tools input{width:64px}.wb-preview-notice{font-size:13px;color:var(--ls-secondary-text-color,#62646d);overflow-wrap:anywhere}.wb-preview-notice:empty{display:none}.wb-preview-document{overflow-wrap:anywhere;max-width:76ch;margin:0 auto}.wb-preview-document img{max-width:100%;height:auto}.wb-preview-document table{display:block;overflow:auto;border-collapse:collapse}.wb-preview-document td,.wb-preview-document th{border:1px solid #8887;padding:6px 10px}.wb-preview-document pre{overflow:auto;background:#8881;padding:12px;border-radius:6px}
+.wb-material-preview table,.wb-material-preview td,.wb-material-preview th{color:inherit}.wb-material-preview a{color:var(--ls-link-text-color,#4778b8)}.wb-material-heading{flex-wrap:wrap}.wb-material-heading>strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb-preview-image-surface,.wb-preview-pdf-surface,.wb-preview-sheet-surface{overflow:auto;max-width:100%}.wb-preview-image-surface img{display:block;height:auto}.wb-preview-pdf{width:100%}.wb-preview-pdf-page{margin:0 0 12px}.wb-preview-pdf-paper{position:relative;aspect-ratio:1 / 1.414;background:#fff;color:#62646d;overflow:hidden}.wb-preview-pdf-paper canvas{display:block;width:100%;height:auto}.wb-preview-pdf-placeholder{position:absolute;inset:0;display:grid;place-items:center;font-size:12px}.wb-preview-pdf-page>small{display:block;text-align:center;color:var(--ls-secondary-text-color,#62646d);font-size:11px;padding:3px 0}.wb-preview-sheet table{border-collapse:collapse;font-size:13px}.wb-preview-sheet td,.wb-preview-sheet th{border:1px solid #8886;padding:4px 8px;min-width:70px;white-space:pre-wrap;max-width:320px;overflow-wrap:anywhere}.wb-preview-sheet th{background:#8882;position:sticky;top:0}.wb-preview-window{margin:0;padding:16px;background:var(--ls-primary-background-color,#fff)}
 @media(prefers-color-scheme:dark){.wb-preview-window{--ls-primary-background-color:#24262b;--ls-primary-text-color:#e6e7eb;--ls-secondary-text-color:#b2b5bd}}
 `;

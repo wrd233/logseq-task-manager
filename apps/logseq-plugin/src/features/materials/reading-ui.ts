@@ -1,19 +1,18 @@
 import { button, element } from "../../host/panel-host.ts";
-import { extension, fileName, fileTitle } from "./names.ts";
+import { extension, fileName } from "./names.ts";
 import type { MaterialRecord } from "./store.ts";
 import type { MaterialView } from "./service.ts";
 import {previewFormat} from "./preview/paths.ts";
 
 export function fileDetails(view: Pick<MaterialView, "path" | "capabilities" | "availability">): string {
   const type = extension(view.path).slice(1).toUpperCase() || "文件";
-  return `${type} · ${view.availability === "unavailable" ? "文件失联" : ["legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? "外部阅读" : "只读阅读"}`;
+  return `${type} · ${view.availability === "unavailable" ? "文件失联" : ["spreadsheet", "legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? "外部阅读" : "只读阅读"}`;
 }
 export function materialEntry(view: MaterialView, open: () => void, draft: boolean): HTMLButtonElement {
-  const entry = button(fileName(view.path), open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
-  if (view.summary) entry.append(element("small", view.summary));
+  const entry = button("", open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
+  entry.append(element("span", fileName(view.path), "wb-material-name"));
   entry.append(element("small", `${fileDetails(view)}${draft ? " · 有保留草稿" : ""}`, "wb-material-meta"));
-  if (view.summary || view.title !== fileTitle(view.path)) entry.append(element("small", fileName(view.path), "wb-material-filename"));
-  entry.title = view.path;
+  entry.title = [view.path, view.summary].filter(Boolean).join("\n");
   return entry;
 }
 export function referenceNotice(record: MaterialRecord): string | null {
@@ -24,7 +23,7 @@ export function referenceNotice(record: MaterialRecord): string | null {
 export function materialDropArea(root: string | null): HTMLElement {
   const area = element("section", "", "wb-material-drop-area"); area.dataset.materialDropList = root ?? "";
   area.setAttribute("aria-label", "拖入文件加入材料");
-  area.append(element("p", "拖入文件或文件夹"), element("small", "复制到此工作的默认目录，保留原文件。"));
+  area.append(element("p", "拖入文件或文件夹"), element("small", "保留原文件，副本加入当前工作。"));
   return area;
 }
 /** Local material styles; the shared shell continues to own navigation and theme. */
@@ -33,9 +32,7 @@ export function installMaterialReadingStyle(): () => void {
   style.textContent = `
     [data-workbench-feature=materials] .wb-heading{gap:8px;align-items:center}
     [data-workbench-feature=materials] .wb-heading>strong{font-size:15px;min-width:0}
-    .wb-material-tabs{display:flex;gap:4px;margin-right:auto}
-    .wb-material-tabs button{border:0;border-radius:0;background:none;font-size:13px;padding:5px 9px}
-    .wb-material-tabs [aria-selected=true]{border-bottom:2px solid var(--ls-link-text-color,#6d8c7d)}
+    .wb-material-count{flex:1;font-size:12px;color:var(--wb-muted)}
     .wb-material-recovery{font-size:12px;margin:0 0 10px;max-width:100%;color:var(--ls-secondary-text-color,#666)}
     .wb-material-recovery button{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px;font-size:12px}
     .wb-material-import-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--ls-border-color,#eee);font-size:14px}
@@ -55,18 +52,21 @@ export function installMaterialReadingStyle(): () => void {
     .wb-material-drop-area p{margin:0 0 2px}.wb-material-drop-area small{color:var(--ls-secondary-text-color,#666)}
     .wb-material-drag-target{outline:2px solid var(--ls-link-text-color,#6d8c7d);outline-offset:2px}
     .wb-material-drop-hint{font-size:12px;font-weight:400;margin:4px 0;color:var(--ls-secondary-text-color,#666)}
-    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:11px 0;border-bottom:1px solid var(--wb-edge);position:relative}
-    [data-workbench-feature=materials] .wb-material{grid-column:1;grid-row:1;border:0;margin:0;padding:2px 0;min-width:0;white-space:normal;font-size:14px}
+    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:3px 0;min-height:38px;border-bottom:1px solid var(--wb-edge);position:relative}
+    [data-workbench-feature=materials] .wb-material{display:flex;align-items:center;gap:12px;grid-column:1;grid-row:1;border:0;margin:0;padding:5px 0;min-width:0;white-space:nowrap;font-size:14px}
+    .wb-material-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}.wb-material-meta{flex:none;color:var(--wb-muted)}
     .wb-material-meta,.wb-material-filename{font-size:12px;font-weight:400;line-height:1.6}
     .wb-material-entry>.wb-menu{grid-column:3;grid-row:1;font-size:12px}.wb-material-entry>.wb-menu>summary{font-size:12px}
-    .wb-material-feedback{grid-column:2;grid-row:1;font-size:12px;color:var(--wb-accent);width:48px;height:48px;display:flex;flex-direction:column;justify-content:center;overflow-wrap:anywhere}.wb-material-feedback button{font-size:12px;padding:0 4px;min-height:28px}
+    .wb-material-feedback{grid-column:2;grid-row:1;font-size:12px;color:var(--wb-accent);display:flex;align-items:center;gap:4px;max-width:100px;overflow-wrap:anywhere}.wb-material-feedback:empty{display:none}.wb-material-feedback button{font-size:12px;padding:0 4px;min-height:28px}
     .wb-material-problem{grid-column:1 / -1;margin:0;font-size:13px}
     .wb-material-rename{grid-column:1 / 3;grid-row:1;display:flex;flex-wrap:wrap;align-items:end;gap:6px;min-width:0}
     .wb-material-rename label{font-size:12px;color:var(--wb-muted);width:100%}.wb-material-rename input{display:block;width:100%;margin-top:4px;font-size:14px}.wb-material-rename p{width:100%;margin:2px 0;font-size:13px}
     .wb-material-entry:has(.wb-material-rename)>.wb-material-feedback{display:none}
     .wb-material-path{font-size:12px;margin-top:4px;color:var(--wb-muted)}.wb-material-path summary{cursor:pointer}.wb-material-path small{margin-top:4px}
     .wb-material-drop-compact{border:0!important;background:var(--wb-soft);padding:7px 10px!important;margin-bottom:5px!important}
-    .wb-material-drop-area:not(.wb-material-drop-compact){padding:28px 12px;text-align:center;background:var(--wb-soft)}
+    .wb-material-drop-area{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;background:var(--wb-soft);padding:8px 10px!important;margin-bottom:8px!important}.wb-material-drop-area p{margin:0}.wb-material-drop-area small{flex:1;font-size:12px}.wb-material-drop-area button{font-size:12px}
+    .wb-material-directory-extra{margin-top:18px;font-size:12px;color:var(--wb-muted)}.wb-material-directory-extra>summary{cursor:pointer;padding:8px 0}.wb-material-folder-heading{flex-wrap:wrap}.wb-material-folder-heading select{flex:1;min-width:0;max-width:100%}
+    .wb-material-heading[data-material-reading]>strong{display:block!important;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wb-material-heading[data-material-reading]>small{font-size:12px;color:var(--wb-muted)}
     .wb-material-drop-area.wb-material-drop-compact p{display:inline;margin-right:4px}.wb-material-drop-area.wb-material-drop-compact small{font-size:12px}
     .wb-material-drop-hint{position:absolute;z-index:10;pointer-events:none;padding:6px 10px;background:var(--wb-soft);border-radius:6px;box-shadow:var(--wb-shadow)}
     .wb-material-facts{font-size:12px;margin:0 0 12px;color:var(--ls-secondary-text-color,#666);overflow-wrap:anywhere}
@@ -78,7 +78,8 @@ export function installMaterialReadingStyle(): () => void {
 
     [data-workbench-feature=materials] .wb-material-form small{width:100%;color:var(--ls-secondary-text-color,#666)}
     [data-workbench-feature=materials] .wb-status:empty{display:none}
-    @media(max-width:480px){.wb-material-entry{gap:4px}.wb-material-drop-area{padding:8px}.wb-material-tools{gap:6px}}
+    @media(max-width:480px){.wb-material-entry{gap:4px}.wb-material-meta{font-size:11px}.wb-material-drop-area small{flex-basis:100%;order:1}.wb-material-tools{gap:6px}}
+    @media(pointer:coarse){.wb-material-entry{min-height:44px}}
   `;
   document.head.append(style); return () => style.remove();
 }

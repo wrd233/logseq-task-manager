@@ -129,7 +129,7 @@ test("report preserves stage show-all, immutable history and return to the exist
     assert.equal((await t.work.reportAPI.setMode("structure")).ok,false);
     assert.deepEqual(await t.work.reportAPI.resolve({}),{ok:false,reason:"historical-view"});
     assert.deepEqual(await t.work.reportAPI.openNative({}),{ok:false,reason:"historical-view"});
-    assert.equal(Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-menu-content button")).find(b=>b.dataset.actionLabel==="查看原结构")!.disabled,true);
+    assert.equal(Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-menu-content button")).find(b=>b.dataset.actionLabel==="原结构")!.disabled,true);
     assert.ok(Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter(b=>b.textContent==="编辑原文").every(b=>b.disabled));
     Array.from(document.querySelectorAll<HTMLButtonElement>(".wb-stage-bar button")).find(b=>b.textContent==="返回原位置")!.click();
     assert.ok(t.row(t.f.a).classList.contains("wb-report-row"));assert.equal(t.row(t.f.b).hidden,true);

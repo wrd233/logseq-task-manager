@@ -132,6 +132,7 @@ async function main(): Promise<void> {
     const connection = agentWorkspace?.api.status();
     const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
     if(scope.kind==="page")return [
+      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(scope)},
       {group:"工作目录",label:"关联页面工作目录",description:"保存真实页面原文与层级的读取副本",run:()=>workspace.local.bind(scope)},
       {group:"工作目录",label:"打开工作读取入口",run:()=>workspace.local.open(scope)},
       {group:"工作目录",label:"重新关联移动后的目录",run:()=>workspace.local.rebind(scope)},
@@ -141,6 +142,7 @@ async function main(): Promise<void> {
       {group:"外部连接与恢复",label:connected?"停止 agent 工作连接":"允许 agent 只读连接此页面",run:()=>connected?agentWorkspace!.local.stop():agentWorkspace!.local.connectRead(scope)},
     ];
     return [
+      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(root)},
       { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
       { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },
       { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },

@@ -496,27 +496,28 @@ export class WorkView {
     const review = this.review?.navigation?.();
     const parent=this.trace.objects.filter(crumb=>crumb.uuid!==this.rootUuid && ["miniproject","mini_project"].includes(crumb.type)).at(-1);
     const disabled = !!this.pageName || !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
+    const reading=this.report.readingAPI.read();
+    const setReadingMode = async (mode: "report" | "structure") => {
+      const original = await this.report.readingAPI.select(null); if (!original.ok) throw new Error(original.reason);
+      const result = await this.report.api.setMode(mode); if (!result.ok) throw new Error(result.reason);
+    };
     const actions: WorkShellAction[] = [
-      { label: this.report?.active ? "查看原结构" : "阅读完整正文", description: this.report?.active ? "查看并调整展示排列；原文结构保持" : "完整原句的报告排版", disabled, run: async () => {
-        const result = await this.report.api.setMode(this.report.active ? "structure" : "report"); if (!result.ok) throw new Error(result.reason);
-      } },
-      { label: "只看选定范围", description: "保留完整来源块；随时返回全文", disabled, run: async () => { await this.lenses.api.select(); } },
-      { label: "重新读取正文", description: "从当前来源核对，保留安全保护", disabled, run: async () => { await this.refresh(); if (this.report.active) { const result = await this.report.api.refresh(); if (!result.ok) throw new Error(result.reason); } this.failure = ""; this.render(); } },
-      { label: "显示原生页面", description: "继续当前原生输入，保留阅读位置", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
+      { area: "reading", label: "连续阅读", selected: !reading.activePlanId && this.report.active, disabled, run: () => setReadingMode("report") },
+      { area: "reading", label: "原结构", selected: !this.report.active, disabled, run: () => setReadingMode("structure") },
+      { area: "range", label: this.lenses.selection ? "返回全文" : "只读选中部分", description: "保留完整来源块；随时返回全文", disabled, run: async () => { const result = this.lenses.selection ? this.lenses.api.exit() : await this.lenses.api.select(); if (!result.ok) throw new Error(result.reason); } },
+      { area: "maintenance", label: "重新读取正文", description: "从当前来源核对，保留安全保护", disabled, run: async () => { await this.refresh(); if (this.report.active) { const result = await this.report.api.refresh(); if (!result.ok) throw new Error(result.reason); } this.failure = ""; this.render(); } },
+      { area: "settings", label: "显示原生页面", description: "继续当前原生输入，保留阅读位置", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
         const result = await this.report.api.showNative(); if (!result.ok) throw new Error(result.reason);
       } },
     ];
-    const reading=this.report.readingAPI.read();
-    for(const plan of reading.plans)actions.push({group:"阅读方案",label:plan.name,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
+    for(const plan of reading.plans)actions.push({area:"reading",group:"Agent 编排",label:plan.name,selected:reading.activePlanId===plan.planId,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
       disabled:!this.readingScope()||this.historical||this.renderer.composing||this.report.composing||plan.status!=="current",
-      run:async()=>{const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
-    if(reading.activePlanId)actions.push({group:"阅读方案",label:"返回默认全文读法",description:"保留来源，取消当前编排",disabled:this.historical||this.renderer.composing||this.report.composing,
-      run:async()=>{const result=await this.report.readingAPI.select(null);if(!result.ok)throw new Error(result.reason);}});
+      run:async()=>{const mode=await this.report.api.setMode("report");if(!mode.ok)throw new Error(mode.reason);const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
     for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid, "breadcrumb"), disabled: !this.rootUuid || this.historical });
     actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...this.contextActions());
     const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";
     this.shell.render({ parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid,"breadcrumb")} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
-      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), actions });
+      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), readingLabel: reading.activePlan?.name ?? (this.report.active ? "连续阅读" : "原结构"), actions });
   }
   private async openMaterials(): Promise<void> {
     const root = this.rootUuid, epoch = this.epoch;

@@ -31,5 +31,7 @@ export interface PreviewRendered {
   element: HTMLElement;
   complete: boolean;
   notices: string[];
+  /** Start viewport observers after insertion, including adoption into a native window. */
+  mounted?(): void;
   dispose(): void;
 }

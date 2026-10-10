@@ -29,11 +29,11 @@ export class CollaborationUI {
   }
   close():void{this.revision++;panels.reserve();void this.panel.close(false,"close",false);}
   dispose():void{this.disposed=true;this.revision++;this.panel.dispose();}
-  async open(root?:string|AgentWorkBinding["scope"],guideOnly=false):Promise<void>{
+  async open(root?:string|AgentWorkBinding["scope"],guideOnly=false,reading=false):Promise<void>{
     const revision=++this.revision,panelRevision=panels.reserve(),context=await this.boundary.context(root);
     if(this.disposed||revision!==this.revision)return;
     const {binding,guidance}=context,body=element("div","","wb-scroll"),header=element("div","","wb-heading");
-    header.append(element("strong",guideOnly?"共同指导与项目差异":"带当前工作去协作"),button("关闭",()=>this.close()));
+    header.append(element("strong",guideOnly?"共同指导与项目差异":reading?"让 Agent 设计读法":"带当前工作去协作"),button("关闭",()=>this.close()));
     const status=element("p"),current=()=>!this.disposed&&revision===this.revision;
     const check=async()=>{if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");await context.check();if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");};
     const input=(label:string,value:string,rows:number)=>{const wrap=element("label",label),box=element("textarea");box.value=value;box.rows=rows;box.style.cssText="display:block;width:100%;box-sizing:border-box;margin:6px 0 14px";wrap.append(box);body.append(wrap);return box;};
@@ -43,10 +43,10 @@ export class CollaborationUI {
     const action=(label:string,run:()=>Promise<void>)=>{const b=button(label,()=>{if(busy||composing||!current())return;busy=true;lock();void check().then(run).catch(error=>{if(current())status.textContent=error instanceof Error?error.message:String(error);}).finally(()=>{busy=false;lock();});});pending.add(b);return b;};
     body.append(element("p","现场仅含已保存的原文和选择的背景。原生草稿不包含在内；准备现场不会提交原生输入。"));
     if(!guideOnly){
-      const draftKey=`collaboration-form:${JSON.stringify([binding.scope,binding.workspaceId,binding.directory])}`;
-      let draft:{request:string;background:string[]}={request:"",background:[]};
+      const draftKey=`collaboration-form${reading?":reading":""}:${JSON.stringify([binding.scope,binding.workspaceId,binding.directory])}`;
+      let draft:{request:string;background:string[]}={request:reading?"请根据我的阅读目的设计这份工作的读法：\n\n阅读目的：\n\n保留完整原句与来源，不修改 Logseq 正文。先读取当前来源并通过 reading.request / reading.submit 提交可切换的阅读方案。":"",background:[]};
       const saved=localStorage.getItem(draftKey);if(saved)try{const raw=JSON.parse(saved);if(typeof raw.request==="string"&&Array.isArray(raw.background)&&raw.background.every((id:unknown)=>typeof id==="string"))draft=raw;}catch{/* Keep malformed UI data out of the saved scene. */}
-      const request=input("这次希望一起做什么",draft.request,4);request.maxLength=4000;
+      const request=input(reading?"阅读目的与偏好":"这次希望一起做什么",draft.request,reading?7:4);request.maxLength=4000;
       const background=element("details"),summary=element("summary","选择必要背景（完整当前原文会一并提供）"),selected=new Set(draft.background);
       background.append(summary);const choices=element("div");choices.style.cssText="max-height:28vh;overflow:auto";
       for(const block of context.backgroundSources){

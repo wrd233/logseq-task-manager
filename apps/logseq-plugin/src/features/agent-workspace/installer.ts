@@ -301,7 +301,7 @@ export function installAgentWorkspace(options: {
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

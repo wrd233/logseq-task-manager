@@ -71,7 +71,7 @@ test('manual UI and registered current-block commands apply a real subtree witho
   try {
     node(f, 'a').querySelector('.wb-body').click();
     assert.equal(f.work.snapshot().view.selected, 'a');
-    f.browser.document.querySelector('[data-action-label="只看选定范围"]').click();
+    f.browser.document.querySelector('[data-action-label="只读选中部分"]').click();
     await settle(() => f.work.lensesAPI.read().phase === 'focused');
     assert.deepEqual(visible(f), ['root', 's1', 'a']); assert.equal(f.work.lensesAPI.read().plan.question, '选定范围');
     f.commands.get('workbench-exit-lens')(); assert.equal(f.work.lensesAPI.read().phase, 'reading');

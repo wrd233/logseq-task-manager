@@ -14,10 +14,10 @@ export interface MaterialDirectoryUIOptions {
   history(): Promise<void>;
   position?: DirectoryLocation;
   moved(location: DirectoryLocation): void;
+  uncollectedOnly?: boolean;
 }
 export interface MaterialDirectoryUI {refresh(): Promise<void>; dispose(): void}
-/** A current one-level directory is the default surface. Registered history is a
- * separate discoverable entry, never substituted for filesystem observations. */
+/** Filesystem observations stay distinct from the collected material records. */
 export async function renderMaterialDirectory(parent: HTMLElement, service: MaterialService, context: MaterialWorkContext, options: MaterialDirectoryUIOptions): Promise<MaterialDirectoryUI> {
   const owner = context.ownerUuid ?? context.sourceUuid;
   const browser = new MaterialDirectoryBrowser(service.io, service.directories, context.graph, service.globalRoot), roots = browser.roots(context);
@@ -30,12 +30,13 @@ export async function renderMaterialDirectory(parent: HTMLElement, service: Mate
   }));
   const selector = element("select"); selector.setAttribute("aria-label", "当前材料根目录");
   for (const [index, root] of roots.entries()) {const item = element("option", `${index + 1}. ${fileName(root)} · ${root}`); item.value = root; selector.append(item);}
-  header.append(selector, button("刷新", () => void refresh().catch(showError)), button("已关联与历史材料", () => void options.history().catch(showError)));
+  header.append(selector, button("刷新", () => void refresh().catch(showError)));
+  if (!options.uncollectedOnly) header.append(button("已收纳材料", () => void options.history().catch(showError)));
   parent.append(header, breadcrumbs, problem, grant, rows);
   let location: DirectoryLocation | null = roots.length ? options.position && roots.includes(options.position.root) ? {...options.position} : {root: roots[0]!, relative: ""} : null;
   let disposed = false, records = new Map<string, MaterialRecord>(), recordRead = 0, publishedLocation = "";
   const pages = new Map<string, MaterialDirectoryPage>(), sync = new MaterialDirectorySync<MaterialDirectoryPage>(), plainRows = new Map<string, HTMLElement>(), knownRows = new Map<string, {signature: string; row: HTMLElement}>();
-  if (!location) {selector.disabled = true; grant.hidden = true; problem.textContent = "当前工作尚未关联材料目录。可在目录管理中添加；已有材料从历史入口查看。";}
+  if (!location) {selector.disabled = true; grant.hidden = true; problem.textContent = "当前工作尚未关联材料目录。可在目录管理中添加。";}
   const nativePaste = (event: ClipboardEvent) => {
     if (!location || !event.clipboardData?.files.length) return;
     event.preventDefault(); event.stopImmediatePropagation(); const root = location.root;
@@ -64,6 +65,7 @@ export async function renderMaterialDirectory(parent: HTMLElement, service: Mate
     const rendered: HTMLElement[] = [];
     for (const file of page.entries) {
       const record = records.get(file.path);
+      if (options.uncollectedOnly && file.type === "file" && record) continue;
       let row: HTMLElement;
       if (file.type === "file" && record) {
         const signature = JSON.stringify([file.path, file.name, record.title, record.summary, record.rename, record.references]), previous = knownRows.get(record.id);

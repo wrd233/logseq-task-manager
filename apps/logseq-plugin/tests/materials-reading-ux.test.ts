@@ -53,7 +53,7 @@ async function fixture() {
     return result as unknown as Event;
   };
   const joinFiles = async (paths: string[]) => {
-    await materials.library(c.root, "", "history");
+    await materials.library(c.root);
     const files = await Promise.all(paths.map(file));
     materials.panel.root.querySelector('[data-material-drop-list]')!.dispatchEvent(event('drop', files));
     await until(() => materials.panel.root.textContent!.includes(`已加入 ${paths.length} 份材料`), 'file batch rendered');
@@ -63,6 +63,37 @@ async function fixture() {
     cleanup: async () => { restoreBytes(); materials.ui.dispose(); work.dispose(); content.dispose(); await delay(20); await c.cleanup(); await rm(root, {recursive: true, force: true}); },
   };
 }
+
+test('default material list exposes collected files before any directory read grant and keeps preview chrome compact', async () => {
+  const f = await fixture(); try {
+    const path = join(f.workDirectory, '直接可见.md'); await writeFile(path, '# 已收纳正文\n\n无需切换关联页签。');
+    const [material] = await f.joinFiles([path]); await f.materials.library(f.c.root);
+    assert.ok(f.materials.panel.root.querySelector(`[data-material-id="${material!.id}"]`));
+    assert.equal(f.materials.panel.root.querySelector('[role=tablist]'), null);
+    assert.equal(f.materials.panel.root.querySelector<HTMLDetailsElement>('.wb-material-directory-extra')!.open, false);
+    assert.equal(f.materials.panel.root.querySelector('[data-material-directory-rows]'), null);
+    const original = JSON.stringify([...f.c.blocks]); await f.materials.openDoc(material!.id, f.c.root);
+    assert.equal(f.materials.panel.root.querySelectorAll('.wb-preview-tools strong').length, 0);
+    assert.ok(f.materials.panel.root.querySelector('.wb-material-heading [data-material-edit]')?.closest('details'));
+    assert.equal(f.materials.panel.root.querySelector('.wb-scroll > .wb-material-facts'), null);
+    assert.equal(f.find('独立窗口').closest('.wb-material-heading') !== null, true);
+    assert.equal(JSON.stringify([...f.c.blocks]), original);
+  } finally {await f.cleanup();}
+});
+
+test('a file picker result from the previous material view cannot import into the next work', async () => {
+  const f = await fixture(); try {
+    const path = join(f.root, '延迟选择.md'); await writeFile(path, '# 保留在原处');
+    await f.materials.library(f.c.root);
+    const chooser = f.materials.panel.root.querySelector<HTMLInputElement>('input[type=file]')!;
+    const file = await f.file(path); await f.materials.library(f.c.a);
+    Object.defineProperty(chooser, 'files', {value: [file], configurable: true});
+    chooser.dispatchEvent(new f.c.browser.Event('change') as unknown as Event); await delay(30);
+    assert.equal((await f.materials.listMaterials(f.c.a)).materials.length, 0);
+    assert.equal((await f.materials.listMaterials(f.c.root)).materials.length, 0);
+    assert.equal(f.c.counts().inserts, 0); assert.equal(await readFile(path, 'utf8'), '# 保留在原处');
+  } finally {await f.cleanup();}
+});
 
 test('native preview retains the same byte version and theme while returning to the same work, then closes after the trusted work scope changes without altering the material', async () => {
   const f = await fixture(), {Window} = await import('happy-dom'), child = new Window({url:'about:blank'}), originalOpen = f.c.browser.open;
@@ -213,7 +244,8 @@ test('damaged image clicks report builtin preview failure and explicit external 
   const f = await fixture(); try {
     const path = join(f.workDirectory, '原始图片.png'); await writeFile(path, Buffer.from([137, 80, 78, 71]));
     await f.joinFiles([path]);
-    assert.equal(f.materials.panel.root.querySelector('input[type=file]'), null);
+    assert.equal(f.materials.panel.root.querySelector<HTMLInputElement>('input[type=file]')!.hidden, true);
+    assert.ok(f.find('选择文件…'));
     assert.equal(f.find('加入材料'), undefined);
     await until(async () => (await f.materials.listMaterials(f.c.root)).materials.length === 1, 'picker result');
     const view = (await f.materials.listMaterials(f.c.root)).materials[0]!;

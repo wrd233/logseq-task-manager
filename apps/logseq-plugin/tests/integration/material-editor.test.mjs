@@ -87,7 +87,7 @@ test('offline directory preview leaves identity, source and editing permission u
     const path='/projects/A/协作参考.md', text='# 协作参考\n\n只读文件先阅读，再选择关联。';
     f.files.set(path,text); await f.materials.bindDirectory('projectA','/projects/A'); await f.materials.library('projectA');
     const find=label=>[...f.materials.panel.root.querySelectorAll('button')].find(b=>b.textContent===label);
-    assert.equal(find('目录文件'),undefined); assert.ok(find('目录'));
+    assert.equal(find('目录文件'),undefined); assert.ok(find('目录…'));
     await f.materials.directoryFiles(); await delay(30); const writes=f.writes.length;
     assert.match(f.materials.panel.root.textContent,/尚未关联/);
     find('协作参考.md').click(); await delay(30);
@@ -114,7 +114,7 @@ test('offline directory reads an existing captured output through its original i
     await f.materials.directoryFiles();await delay(30);
     assert.match(f.materials.panel.root.textContent,/已关联材料/);
     assert.equal(find('关联'),undefined);
-    find(output.path.split('/').at(-1)).click();await delay(30);
+    find(output.path.split('/').at(-1)).click();await until(()=>!!f.materials.panel.root.querySelector('.wb-reading h1'),'captured output preview rendered');
     assert.equal(f.materials.panel.root.querySelector('.wb-reading h1').textContent,'协作说明');
     const after=await f.materials.listMaterials('projectA');
     assert.equal(after.materials.length,1);assert.equal(after.materials[0].id,output.id);
