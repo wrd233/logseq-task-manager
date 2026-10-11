@@ -1,0 +1,54 @@
+{
+  "testedAt": "2026-10-11T08:11:34.409Z",
+  "dshVersion": "0.2.0-rc.2",
+  "levels": {
+    "dsh": "Installed native Cordis and tool execution pipeline",
+    "bridge": "Production HTTP workspace service",
+    "logseq": "Plugin installer and DOM with synthetic SDK host, not actual Desktop",
+    "model": "Production AgentLoop with a scripted local model adapter; no remote model call"
+  },
+  "checks": [
+    {
+      "check": "Native DSH tool reads production collaboration scene",
+      "ok": true,
+      "blocks": 3
+    },
+    {
+      "check": "Native DSH tools discover and read an actual bound-directory file",
+      "ok": true
+    },
+    {
+      "check": "Async prompt-assembly hook detects changed source, refreshes scene and contributes required runtime context",
+      "ok": true
+    },
+    {
+      "check": "Stable DSH session identity submits rendered reading plan without body writes; another identity is rejected",
+      "ok": true
+    },
+    {
+      "check": "Read-only connection rejects a native DSH body-write tool",
+      "ok": true
+    },
+    {
+      "check": "DSH session reference is associated with the same formal work identity",
+      "ok": true
+    },
+    {
+      "check": "Production DSH AgentLoop sees refreshed Logseq context, calls a native file tool, and records context and results in the session log",
+      "ok": true,
+      "modelAttempts": 2
+    },
+    {
+      "check": "Same DSH session automatically refreshes changed Logseq work on its next user turn",
+      "ok": true
+    },
+    {
+      "check": "Changing Graph invalidates the old DSH connection",
+      "ok": true
+    },
+    {
+      "check": "Cordis plugin unload removes its tools",
+      "ok": true
+    }
+  ]
+}
