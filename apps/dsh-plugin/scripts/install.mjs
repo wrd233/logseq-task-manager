@@ -1,0 +1,23 @@
+import process from 'node:process';
+import { execFileSync } from 'node:child_process';
+import { readFile, writeFile, copyFile, rename } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, URL } from 'node:url';
+
+const profile = process.argv[2] ?? 'web';
+if (!/^[a-z0-9_-]+$/i.test(profile)) throw Error('Invalid DSH profile name');
+const root = fileURLToPath(new URL('../', import.meta.url));
+const manifestPath = join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'profiles', profile, 'package.json');
+const original = JSON.parse(await readFile(manifestPath, 'utf8'));
+if (!Array.isArray(original.dsh?.profile?.bundles)) throw Error('Existing initialized DSH profile required');
+await import('./build.mjs');
+await copyFile(manifestPath, `${manifestPath}.before-logseq-workbench-${Date.now()}`);
+execFileSync('dsh', ['plugin', '--profile', profile, 'add', `link:${root.replace(/\/$/, '')}`], { stdio: 'inherit' });
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+const name = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).name;
+if (!manifest.dsh.profile.bundles.includes(name)) manifest.dsh.profile.bundles.push(name);
+const temporary = `${manifestPath}.logseq-workbench.tmp`;
+await writeFile(temporary, JSON.stringify(manifest, null, 2) + '\n');
+await rename(temporary, manifestPath);
+process.stdout.write(`Logseq workbench linked into DSH profile ${profile}. Restart that profile if the running host has not reloaded the bundle.\n`);

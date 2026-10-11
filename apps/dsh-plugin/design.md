@@ -88,3 +88,13 @@ DSH 已有 `ui-open-in-app` + `host-open-in-app` 及 Session Remote 打开/定�
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-sidebar-documentpreview/README.md
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-workspace/README.md
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-open-in-app/README.md
+
+## 2026-10-11 实现状态
+
+正式实现现位于 `src/`，已链接到本机 web profile。原生客户端 bundle 注册头部/会话动作、原文 overlay 子席位和右侧文件 tab；host 通过 Connection 的 exact Fetch routes 提供认证 RPC，与原生 /api interceptor 共存。会话绑定私有持久化、身份核验、取消/刷新、预算和模型工具已实现。
+
+宽屏临时几何适配使用 frame 的 `data-shell-overlay` / `data-sidebar-right-panel` 地标：左栏 360px、右栏 280px，避免浮层挡住对话。rc.2 尚未提供左栏几何 setter；此适配只在原文打开且宽度 >=1100px 时生效，关闭/卸载撤销。框架原生外部打开接口已实机验证访达定位。
+
+生产插件验证包含真实 companion + 原生 AgentLoop + 脚本模型，但 Logseq SDK 是合成的。实机浏览器验证使用同一隔离 companion，确认原文/文件、原生草稿引用、文件定位和关联清理；真实用户 Graph 与远端模型未代替用户试用。原型内的模拟消息不属于正式插件。
+
+全貌索引、二进制文件模型输入、自定义引用 chip 和可审阅写回仍未交付。当前身份/来源解析延续 Logseq 原有协议，不变更行首语义。实际安装和剩余限制以 README 为准。

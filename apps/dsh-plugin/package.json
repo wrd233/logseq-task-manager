@@ -1,0 +1,35 @@
+{
+  "name": "@task-copilot/dsh-logseq-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Logseq work context and external file actions alongside native DSH chat",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "install:dsh": "node scripts/install.mjs",
+    "test": "node --import tsx --test tests/*.test.mjs",
+    "test:host": "node --import tsx tests/host-proof.mjs"
+  },
+  "license": "MIT"
+}
