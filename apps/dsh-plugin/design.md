@@ -6,15 +6,17 @@
 
 Logseq 持有原文、行首语义标记、工作身份、授权与写回结果。DSH 持有会话、模型执行和面向会话的界面。插件把同一份工作带入 DSH，不复制一套项目管理状态。阅读编排仍通过现有有限方案协议进行，不接受任意 HTML 或替换原句。
 
-界面只有两个尺度：单份工作（正文、文件）和工作全貌。单工作默认是连续阅读；对话按需打开或并排。全貌首版采用领域 → 项目 → 工作的紧凑分组列表。列表呈现已有方向、主要下一步和等待事实，缺少来源就显示未知，不凭空补任务。未接入实际投入时不绘制比例面积；跨领域引用不重复计作正式归属。
+最新界面方向（2026-10-11）：DSH 原生对话与输入框保持中心。左侧保留会话导航，按需显示当前会话关联的 Logseq 原文摘要；右侧是可收起的密集工作文件列表。文件点击后使用本机应用打开，DSH 插件不再内置文件阅读器。Logseq 中既有的连续阅读和语义标记功能仍属于 Logseq 本身。当前示例为 `prototype/chat-first.html`，此前的阅读优先原型仅保留作设计历史。
+
+全貌后续通过单独入口或统筹会话进入，不常驻日常对话区。首版采用领域 → 项目 → 工作的紧凑分组列表，缺少来源就显示未知。未接入实际投入时不绘制比例面积，跨领域引用不重复计作正式归属。
 
 ## 已核对的接口与缺口
 
 | 需求 | 已有能力 | 插件需要完成 |
 | --- | --- | --- |
-| DSH 浏览器 UI | `dsh.client`、客户端模块、Slots、右侧 dock / fullscreen、tab 注册 | `./client` bundle、服务依赖声明、Logseq 工作 tab / 全貌 tab、恢复状态 |
+| DSH 浏览器 UI | `dsh.client`、客户端模块、Slots、会话行扩展、header utilities、右侧 tab 注册 | `./client` bundle、关联入口与摘要浮层、工作文件 tab、恢复状态 |
 | 当前工作 | `collaboration.read/refresh`、来源版本、指导、草稿排除、权限现场 | 稳定的 DSH Session → Logseq binding；有限上下文预算与过期处理 |
-| 工作文件 | `files.list/read`；材料关联、目录观察；现有多格式阅读 | 目录与材料合并投影；明确来源、截断和错误；二进制授权传输 |
+| 工作文件 | `files.list/read`；材料关联、目录观察；DSH 外部打开宿主能力 | 合并列表、受控路径解析、外部打开与定位、对话引用 |
 | 正式对象 | Kernel 已有 `/v1/console/world`，含正式对象及归属相关投影 | 用户端读取许可、Graph 过滤、分页；不能把整个 console payload 直接送入模型 |
 | 自然工作 | Logseq 工作范围、目录注册和来源身份 | 与正式对象合并的显式索引；去重、失联标记、未关联工作覆盖范围 |
 | 工作全貌 | 现有总体设计定义领域、项目和工作层级 | 不同来源的统一投影；目前没有对 DSH 开放的完整全貌接口 |
@@ -31,21 +33,38 @@ Logseq 持有原文、行首语义标记、工作身份、授权与写回结果�
 
 图切换、撤销连接、目录重绑：停掉旧读取，清空可操作现场；旧会话和最后已知数据可保留，但标记失联与时间。响应须核对 session / binding generation / source version，丢弃晚到结果。
 
-## 文件与预览
+## 文件与外部打开
 
 文件页直接显示工作默认目录及外部关联目录中的文件。`目录` 是来源，不是把文件藏起来的另一套入口。密集行显示名称、所在目录、来源；重名保留完整相对路径，不按 basename 去重。目录可折叠。材料稳定 ID 另存，不要求每个可见文件先成为材料。
 
-拖入明确默认目标，默认复制并保留原文件；重名询问或给出可撤销方案。浏览 UI、读取文件和写文件为不同能力。原型只模拟名称加入，不执行复制。
+首版 DSH 列表只承担打开、定位和引用，导入留在 Logseq 既有材料入口；后续若接拖入，必须明确目标目录和写入能力，不把所有入口都放在初始界面。
 
-阅读目标：Markdown、PDF、图片、Word。连续滚动，精简工具栏；仅保留回到列表、讨论此文件、必要的打开原文件。Markdown 可沿用现有渲染；PDF.js 连续页与按需画布；图片原生 viewer；DOCX 可复用现有转换，旧 DOC 需单独验证 LibreOffice → PDF 能力。Excel 仅列出并允许外部打开。
+所有格式都走外部打开，不在 DSH 内构建 Markdown、PDF、图片、Word 或 Excel 预览。文件行默认动作是使用系统关联应用打开；更多菜单只保留外部打开、显示文件位置、引用到对话。目录沿用原生访达/文件管理器打开控件的样式。
 
-DSH 现有 documentpreview 已有 Markdown / 图片 / PDF / Office 路线，但它通过 DSH Session 文件地址读取。Logseq 材料可能不在 session cwd 下，不能伪造原生 file 地址绕过路径边界。先使用 Logseq 资源地址与 bridge 字节读取，只有完整符合原生 workspace 授权条件时才委托原生预览。可复用 renderer 实现不等于资源授权可以复用。
+DSH 已有 `ui-open-in-app` + `host-open-in-app` 及 Session Remote 打开/定位能力。现有 `session.openWorkspacePath` 保留会话路径边界；Logseq 外部关联材料可能不在 session cwd 下，必须由 Logseq bridge 验证材料身份、当前绑定和路径再交宿主打开，不能把任意浏览器传入的绝对路径交给原生打开器。无需读取整个文件或准备预览字节就能打开。
 
-Word 转换引擎未安装、字体不足、文件损坏、大小超限都就地说明并提供原文件入口。用户看到文件不代表模型读懂其内容：PDF 文本提取、图片视觉输入、Word 文本结构分别适配，注明页码/来源/版本/截断；按需读取，不把全部二进制塞入提示词。
+用户打开文件不代表模型读懂内容。“引用到对话”创建工作/材料/版本引用，由模型工具按需读取。PDF 文本提取、图片视觉输入和 Word 文本结构仍分别适配，注明来源与截断；外部打开动作不触发模型读取。
+
+## 已验证的 UI 扩展边界
+
+本次通过认证入口打开本机 DSH 0.2.0-rc.2，检查了真实对话、56px 收起轨道、展开会话导航及右侧面板，并核对安装包类型。
+
+| 呈现 | 已有扩展点 | 约束 |
+| --- | --- | --- |
+| 左侧关联标识 | `sidebar.session.row.leading`，root / list | 小型会话状态标识，不把整段正文塞进 leading 席位 |
+| 左侧来源摘要 | `sidebar.session.row.hover`，或 row action + 插件自有 `shell.overlay` | 原生 hover 摘要只在浮层打开时挂载；点击摘要可用插件自有浮层，仍需实际 React 挂载验收 |
+| 左侧会话动作 | `sidebar.workspaces.session.row.action/menu.item` | 通过会话身份解析 Logseq 绑定 |
+| 会话头部关联入口 | `conversation.session.header.utilities`，session / list | 一个紧凑入口，原输入框和模型控件继续归 DSH |
+| 右侧工作文件 | `ctx.sidebarRightTabs.register` + keyed `sidebar.right.pane.tab` | 注册 `logseq-files` 页，沿用面板收起与会话作用域 |
+| 外部打开 | `ui-open-in-app` / `host-open-in-app`；受控 bridge | 宿主重新验证材料路径及可用应用，失败就地反馈 |
+
+当前左栏没有通用的常驻正文内容插槽；`sidebar.workspaces` 是由原生浏览器占用的 single slot。因此本方案只承诺会话关联入口与按需摘要，不替换原生会话树。如果以后要求左栏持续显示完整正文，应先新增一个专用内容席位，不能宣称现有 SDK 已支持任意左栏区域插入。
+
+原型保留原生产品的白/深灰表面、蓝色强调、对话/轨迹切换和圆角输入框；没有修改运行中 DSH 的代码。文件外部打开、Logseq 定位、引用和模型回复均为本地模拟。
 
 ## 会话与全貌
 
-当前会话只携带当前工作已保存正文、指导、必要材料索引和明确选择的片段；不发送整个 Graph。点“讨论此文件”创建指向工作/文件/版本的引用，由现有受控读取工具取内容。原型模拟这个引用，不连接真实模型。
+当前会话只携带当前工作已保存正文、指导、必要材料索引和明确选择的片段；不发送整个 Graph。文件菜单中的“引用到对话”创建指向工作/文件/版本的引用，由现有受控读取工具取内容。原型模拟这个引用，不连接真实模型。
 
 全貌分析使用独立的统筹会话：按显式选择的对象集合、期限/等待事实和必要摘要读取；进入深层正文再次检查该工作读取能力。AI 可以解释与提议，正式归属/完成状态仍走既有治理路径。
 
@@ -54,8 +73,8 @@ Word 转换引擎未安装、字体不足、文件损坏、大小超限都就地
 ## 交付顺序与验收
 
 1. 本次：feature 分支、项目内设计、可交互原型、保留原生 host 验证适配器。
-2. 原生挂载：构建客户端 bundle，注册单工作 tab，Remote 只读 bridge，会话握手与清理。
-3. 文件：实际列表、来源目录、受控字节读取、多格式预览、明确文件引用；拖入接入真实写入授权。
+2. 原生挂载：构建客户端 bundle，注册会话关联入口、摘要浮层及工作文件 tab；Remote 只读 bridge、会话握手与清理。
+3. 文件：实际列表、来源目录、受控外部打开与定位、明确文件引用。
 4. 全貌：合并正式对象/自然工作索引，验证跨 Graph 过滤、去重、失联、分页、未知字段和索引覆盖范围。
 5. 模型：上下文预算、取消、刷新竞态、阅读方案 UI；再接可审阅写回。
 
@@ -67,3 +86,5 @@ Word 转换引擎未安装、字体不足、文件损坏、大小超限都就地
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-sidebar-right/README.md
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-sidebar-files/README.md
 - https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-sidebar-documentpreview/README.md
+- https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-workspace/README.md
+- https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-open-in-app/README.md
