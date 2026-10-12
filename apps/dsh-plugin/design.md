@@ -98,3 +98,9 @@ DSH 已有 `ui-open-in-app` + `host-open-in-app` 及 Session Remote 打开/定�
 生产插件验证包含真实 companion + 原生 AgentLoop + 脚本模型，但 Logseq SDK 是合成的。实机浏览器验证使用同一隔离 companion，确认原文/文件、原生草稿引用、文件定位和关联清理；真实用户 Graph 与远端模型未代替用户试用。原型内的模拟消息不属于正式插件。
 
 全貌索引、二进制文件模型输入、自定义引用 chip 和可审阅写回仍未交付。当前身份/来源解析延续 Logseq 原有协议，不变更行首语义。实际安装和剩余限制以 README 为准。
+
+## 2026-10-12 共享读法交付
+
+共享读法已在 `feature/shared-reading-views` 集成：命名方案、工作选择、基础模式和上一版恢复由 Logseq 状态统一提供，DSH 两秒轮询并使用便携布局投影。Logseq 保留原有 shell 和阅读器；Markdown 与行首标记解析共享。方案按工作保存在当前 Logseq profile 的 localStorage，不保存原句副本。
+
+同一 planId 可更新命名读法；新 planId 新增。原文变化保留布局，新增段落保留在“新增 · 尚未归类”，删除来源移出。用户切换选择后，Agent 的晚到结果只保存；同一工作其他会话能选择已有方案，请求提交仍由各自邀请归属约束。实现和完整验收见 `shared-reading.md`；全貌、任意新渲染组件和文件窗口不在本轮范围。
