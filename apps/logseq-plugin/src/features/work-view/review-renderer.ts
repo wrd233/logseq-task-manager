@@ -1,16 +1,11 @@
-import DOMPurify from "dompurify";
-import { safeMarkdownURI } from "../materials/links.ts";
-import { marked } from "./vendor/marked.js";
 import { button, element } from "../../host/panel-host.ts";
 import { reviewProblem, type ReviewChange } from "./review-port.ts";
 import { textHunks } from "./text-diff.ts";
 import { reportMarkdown, reportProjection } from "./report-body.ts";
 
 const displayText=reportMarkdown;
-export function renderMarkdown(content:string):string {
-  return DOMPurify.sanitize(marked.parse(displayText(content),{breaks:true}) as string,
-    {ALLOWED_URI_REGEXP:safeMarkdownURI, FORBID_TAGS:["img","iframe","style","input","button"], FORBID_ATTR:["style"]});
-}
+import { renderMarkdown } from "./markdown.ts";
+export { renderMarkdown } from "./markdown.ts";
 
 /** Decorate safe rendered text nodes without replacing links, code or emphasis. */
 export function highlightReview(body:HTMLElement, change:ReviewChange | undefined, content:string, projected = false):void {

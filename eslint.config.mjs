@@ -15,6 +15,10 @@ export default tseslint.config(
     }
   },
   {
+    files: ["apps/dsh-plugin/src/**/*.jsx"],
+    languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
+  },
+  {
     files: ["apps/logseq-plugin/tests/integration/*.mjs"],
     languageOptions: { globals: { crypto: "readonly" } },
   }

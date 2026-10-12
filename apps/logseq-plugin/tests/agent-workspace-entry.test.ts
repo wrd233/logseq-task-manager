@@ -339,7 +339,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
             ]}]};
         assert.equal((await cli(["reading","submit"],comparison)).ok,true);
         assert.equal(f.browser.document.querySelectorAll(".wb-reading-column").length,2);
-        await assert.rejects(cli(["reading","select","cli-comparison"],undefined,"two"),/READING_PLAN_NOT_OWNED/);
+        assert.equal((await cli(["reading","select","cli-comparison"],undefined,"two")).ok,true);
         assert.equal((await cli(["reading","original"])).ok,true);
         assert.equal((await cli(["reading","read"])).activePlanId,null);
         assert.equal((await cli(["reading","select","cli-continuous"])).ok,true);

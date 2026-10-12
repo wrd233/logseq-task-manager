@@ -31,20 +31,20 @@ async function invitation(h:Awaited<ReturnType<typeof harness>>) {
 }
 test("controller owns real invitations, full plans, selection and identical retry without granting writing authority",async()=>{
   const h=await harness(),request=await invitation(h),input=plan(h.source,request.requestId);
-  assert.deepEqual(await h.controller.api.submit(input),{ok:true,value:{planId:"plan-one",status:"selected"}});
-  assert.deepEqual(await h.controller.api.submit(input),{ok:true,value:{planId:"plan-one",status:"already-selected"}});
+  assert.deepEqual(await h.controller.api.submit(input),{ok:true,value:{planId:"plan-one",status:"selected",revision:1}});
+  assert.deepEqual(await h.controller.api.submit(input),{ok:true,value:{planId:"plan-one",status:"already-selected",revision:1}});
   const state=h.controller.api.read();assert.deepEqual(state.activePlan,input);assert.equal(state.capabilities.writesSource,false);assert.equal(state.capabilities.authorizesTodo,false);
   state.activePlan!.name="changed outside";assert.equal(h.controller.api.read().activePlan!.name,input.name);
   assert.deepEqual(await h.controller.api.original(),{ok:true,value:null});assert.equal(h.controller.api.read().activePlanId,null);
-  assert.equal((await h.controller.api.select("plan-one")).ok,true);assert.equal(h.changes,4);
-  assert.deepEqual(await h.controller.api.submit({...input,name:"reuse an existing identity for another layout"}),{ok:false,reason:"reading-plan-id-conflict"});
+  assert.equal((await h.controller.api.select("plan-one")).ok,true);assert.ok(h.changes>0);
+  assert.deepEqual(await h.controller.api.submit({...input,name:"reuse an existing identity for another layout"}),{ok:false,reason:"reading-view-changed"});
 });
-test("same Graph and root rebinding invalidates plans and requests by the source provider lifetime",async()=>{
+test("same work rebinding keeps named views but revokes pending requests",async()=>{
   const h=await harness(),request=await invitation(h);await h.controller.api.submit(plan(h.source,request.requestId));
   let release!:(value:LensResult<SourceSnapshot>)=>void;h.read=()=>new Promise(resolve=>{release=resolve;});
   const pending=h.controller.api.request({schemaVersion:1,purpose:"before directory rebinding"});h.version="binding-two";
   release({ok:true,value:h.source});assert.deepEqual(await pending,{ok:false,reason:"reading-request-revoked"});
-  assert.equal(h.controller.api.read().activePlan,null);assert.deepEqual(h.controller.api.read().plans,[]);
+  assert.equal(h.controller.api.read().activePlan,null);assert.equal(h.controller.api.read().plans[0]!.status,"unverified");
   assert.deepEqual(await h.controller.api.submit(plan(h.source,request.requestId)),{ok:false,reason:"reading-request-not-found"});
 });
 test("unknown request IDs and source bases do not manufacture invitation ownership",async()=>{
@@ -54,12 +54,13 @@ test("unknown request IDs and source bases do not manufacture invitation ownersh
   assert.deepEqual(await h.controller.api.submit({...plan(h.source,request.requestId),sourceSetVersion:"f".repeat(64)}),{ok:false,reason:"reading-request-basis-mismatch"});
   assert.deepEqual(await h.controller.api.request({schemaVersion:1,purpose:"read",root:"another",actor:"user"}),{ok:false,reason:"unknown-field"});
 });
-test("user appended conditions stale cached plans and never get overwritten by old reading",async()=>{
+test("saved text changes refresh the active view without overwriting original conditions",async()=>{
   const h=await harness(),request=await invitation(h),input=plan(h.source,request.requestId);await h.controller.api.submit(input);
   const blocks=h.source.blocks.map(b=>({...b,content:b.content+"\n不过用户刚加了新的退出条件"}));blocks[0]!.contentVersion=await sha256(blocks[0]!.content!);
   h.source=await snapshot(scope,blocks);h.controller.noteSource(h.source);
-  assert.equal(h.controller.api.read().activePlanId,null);assert.equal(h.controller.api.read().plans[0]!.status,"stale");
-  assert.deepEqual(await h.controller.api.select("plan-one"),{ok:false,reason:"stale-reading-plan"});
+  assert.equal(h.controller.api.read().activePlanId,"plan-one");assert.equal(h.controller.api.read().plans[0]!.status,"current");
+  assert.match(h.controller.active(h.source)!.basis.blocks[0]!.content!,/用户刚加/);
+  assert.equal((await h.controller.api.select("plan-one")).ok,true);
   assert.deepEqual(await h.controller.api.submit(input),{ok:false,reason:"stale-source-set"});assert.match(h.source.blocks[0]!.content!,/用户刚加了新的退出条件/u);
 });
 test("cancel, scope switch, history and dispose revoke delayed requests and late layouts",async()=>{
@@ -109,4 +110,33 @@ test("a newly observed material scope revokes an already displayed cached materi
   input.layout.push({kind:"material",key:"file",materialId:"synthetic-material"});await h.controller.api.submit(input);
   h.materials=async()=>new Set();await invitation(h);
   assert.equal(h.controller.api.read().activePlan,null);assert.equal(h.controller.api.read().plans[0]!.status,"material-unavailable");
+});
+
+test("work views persist across controller restart, stay scoped, and carry fresh source after additions and deletions",async()=>{
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+  let source=await sourceFixture(),current:SourceScope=scope;
+  const host={scope:()=>current,source:async()=>({ok:true as const,value:source}),materials:async()=>new Set<string>(),unavailable:()=>null,changed:()=>{},storage};
+  const first=new ReadingPlanController(host),request=await first.api.request({schemaVersion:1,purpose:"persist"});assert.ok(request.ok);
+  assert.ok((await first.api.submit(plan(source,request.value.requestId))).ok);first.dispose();
+  const restored=new ReadingPlanController(host);assert.ok((await restored.api.refresh()).ok);assert.equal(restored.api.read().activePlanId,"plan-one");
+  assert.ok(![...values.values()].join("").includes(source.blocks[0]!.content!),"storage holds layouts rather than copies of source text");
+  const newId=sourceId(scope.graphId,"new-child"),newText="[问题] 新增问题";
+  source=await snapshot(scope,[...source.blocks,{sourceId:newId,target:{kind:"logseq-block",graphId:scope.graphId,blockUuid:"new-child"},content:newText,contentVersion:await sha256(newText),parentUuid:scope.rootUuid,depth:1,order:0,availability:"available"}]);
+  assert.ok((await restored.api.refresh()).ok);const active=restored.active(source)!;
+  assert.equal(active.primarySourceIds.length,2);assert.ok(active.headings.some(heading=>heading.title==="新增 · 尚未归类"));
+  source=await sourceFixture();assert.ok((await restored.api.refresh()).ok);assert.deepEqual(restored.active(source)!.primarySourceIds,[source.blocks[0]!.sourceId]);
+  current={...scope,graphId:"other:/graph"};assert.equal(restored.api.read().plans.length,0);
+  current=scope;await restored.api.refresh();assert.equal(restored.api.read().activePlanId,"plan-one");
+});
+test("updates keep one named view, preserve intervening navigation, restore prior layout and reject concurrent overwrites",async()=>{
+  const h=await harness(),initial=await invitation(h);await h.controller.api.submit(plan(h.source,initial.requestId));
+  const update=await invitation(h);await h.controller.api.original();
+  const changed={...plan(h.source,update.requestId),name:"调整之后"};
+  const result=await h.controller.api.submit(changed);assert.ok(result.ok);assert.equal(result.value.status,"saved");
+  assert.equal(h.controller.api.read().activePlanId,null);assert.equal(h.controller.api.read().plans.length,1);assert.equal(h.controller.api.read().plans[0]!.revision,2);
+  await h.controller.api.select("plan-one");await h.controller.api.restore("plan-one");assert.equal(h.controller.api.read().activePlan!.name,"先读原句");
+  const earlier=await invitation(h),later=await invitation(h);
+  assert.ok((await h.controller.api.submit({...plan(h.source,later.requestId),name:"最新读法"})).ok);
+  assert.deepEqual(await h.controller.api.submit({...plan(h.source,earlier.requestId),name:"较早结果"}),{ok:false,reason:"reading-view-changed"});
+  assert.equal(h.controller.api.read().activePlan!.name,"最新读法");
 });

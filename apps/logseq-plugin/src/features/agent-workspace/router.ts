@@ -28,7 +28,6 @@ type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI" | "readingAPI" 
 export class AgentWorkspaceRouter {
     private readonly questions = new Map<string, string>();
     private readonly readingRequests=new Map<string,string>();
-    private readonly readingPlans=new Map<string,string>();
     private generation=0;
     private readonly loadedGuidance=new Map<string,LoadedGuidanceBasis>();
     constructor(private readonly ports: {
@@ -50,7 +49,7 @@ export class AgentWorkspaceRouter {
         // Cancel the presentation controller's pending generation too: a select
         // already awaiting a source read must not take effect after disconnect.
         this.ports.work?.readingAPI.cancel();
-        this.readingRequests.clear();this.readingPlans.clear();this.ports.work?.reportAPI.clearHighlight();
+        this.readingRequests.clear();this.ports.work?.reportAPI.clearHighlight();
     }
     async assert(binding: AgentWorkBinding, lease: ScopeLease): Promise<void> {
         if (!this.ports.content.valid(lease) || !sameWorkScope(binding.scope, lease.scope) || !await this.ports.binding.valid(binding))
@@ -229,7 +228,7 @@ export class AgentWorkspaceRouter {
             if(!state.scope||!sameWorkScope(state.scope,binding.scope))throw new WorkspaceError("VIEW_SCOPE_MISMATCH");
             const generation=this.generation,owner=JSON.stringify([call.instanceId,call.connectionId,call.clientId]);
             const checked=async()=>{await check();if(generation!==this.generation)throw new WorkspaceError("CONNECTION_REVOKED");};
-            if(command==="reading.read")return state;
+            if(command==="reading.read") {const result=await work.readingAPI.refresh();await checked();if(!result.ok)throw new WorkspaceError("READING_UNAVAILABLE",result.reason);return result.value;}
             if(command==="reading.request") {
                 const result=await work.readingAPI.request({schemaVersion:1,purpose:workText(payload.purpose,240)});
                 try {await checked();}catch(error){if(result.ok)work.readingAPI.cancel(result.value.requestId);throw error;}
@@ -246,10 +245,6 @@ export class AgentWorkspaceRouter {
                 const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"]);
                 if(this.readingRequests.get(workText(raw.requestId))!==owner)throw new WorkspaceError("READING_REQUEST_NOT_OWNED");
                 await checked();const result=await work.readingAPI.submit(payload.plan);await checked();
-                if(result.ok) {this.readingPlans.set(result.value.planId,owner);
-                    const active=new Set(work.readingAPI.read().plans.map(plan=>plan.planId));
-                    for(const id of this.readingPlans.keys())if(!active.has(id))this.readingPlans.delete(id);
-                }
                 return result;
             }
             if(command==="reading.cancel") {
@@ -257,8 +252,13 @@ export class AgentWorkspaceRouter {
                 const result=work.readingAPI.cancel(id);this.readingRequests.delete(id);return result;
             }
             if(command==="reading.select") {
-                const id=workText(payload.planId);if(this.readingPlans.get(id)!==owner)throw new WorkspaceError("READING_PLAN_NOT_OWNED");
+                const id=workText(payload.planId);
                 const result=await work.readingAPI.select(id);await checked();return result;
+            }
+            if(command==="reading.restore") {const result=await work.readingAPI.restore(workText(payload.planId));await checked();return result;}
+            if(command==="reading.mode") {
+                if(payload.mode!=="report"&&payload.mode!=="structure")throw new WorkspaceError("INVALID_READING_MODE");
+                const result=await work.readingAPI.setMode(payload.mode);await checked();return result;
             }
             if(command==="reading.original") {const result=await work.readingAPI.select(null);await checked();return result;}
             if(command==="reading.highlight") {const result=await work.reportAPI.highlight(payload.input);await checked();return result;}

@@ -244,3 +244,26 @@ export function readingBasisChanged(verified:VerifiedReadingPlan,source:SourceSn
   const {scope,structureVersion,sourceSetVersion}=verified.plan;
   return !sameLensScope(scope,source.scope)||scope.kind!==source.scope.kind||scope.pageName!==source.scope.pageName||structureVersion!==source.structureVersion||sourceSetVersion!==source.sourceSetVersion;
 }
+
+/** Keep a reading arrangement over current source IDs. New paragraphs remain visible. */
+export function refreshReadingPlan(plan:ReadingPlan,source:SourceSnapshot):ReadingPlan {
+  const available=new Set(source.blocks.map(block=>block.sourceId)),used=new Set<string>(),keys=new Set<string>();
+  const units=(values:ReadingUnit[]):ReadingUnit[]=>values.flatMap<ReadingUnit>(value=>{
+    keys.add(value.key);
+    if(value.kind==="sequence"||value.kind==="paragraphs") {
+      const sourceIds=value.sourceIds.filter(id=>available.has(id)&&!used.has(id));sourceIds.forEach(id=>used.add(id));
+      return sourceIds.length?[{...value,sourceIds}]:[];
+    }
+    if(value.kind==="material")return [value];
+    if(value.kind==="group") {const children=units(value.children);return children.length?[{...value,children}]:[];}
+    const columns=value.columns.map(column=>{keys.add(column.key);return {...column,children:units(column.children)};}).filter(column=>column.children.length);
+    return columns.length>=2?[{...value,columns}]:columns.length?[{kind:"group" as const,key:value.key,title:value.title,children:columns.map(column=>({kind:"group" as const,...column}))}]:[];
+  });
+  const layout=units(plan.layout),newIds=source.blocks.filter(block=>!used.has(block.sourceId)).map(block=>block.sourceId);
+  if(newIds.length) {
+    let key="new-source";while(keys.has(key)||keys.has(`${key}-body`))key+="-new";
+    layout.push({kind:"group",key,title:"新增 · 尚未归类",children:[{kind:"paragraphs",key:`${key}-body`,sourceIds:newIds}]});
+  }
+  return {...plan,structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion,
+    sourceVersions:source.blocks.map(block=>({sourceId:block.sourceId,contentVersion:block.contentVersion!})),layout};
+}

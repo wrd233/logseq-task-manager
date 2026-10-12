@@ -1,0 +1,4 @@
+- insert:
+    - id: logseq-workbench
+      name: '@task-copilot/dsh-logseq-workbench'
+      config: {}

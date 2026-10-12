@@ -28,7 +28,8 @@ const deny = (reason: string): {ok:false;reason:string} => ({ok:false,reason});
 
 /** Session presentation/navigation. No source writes, material store, formal state or additional provider. */
 export class WorkViewReport {
-  private mode: "report" | "structure";
+  private get mode():"report"|"structure" {return this.plans.api.read().mode;}
+  private set mode(value:"report"|"structure") {this.plans.api.setMode(value);}
   private source: SourceSnapshot | null = null;
   private sourceRevision = -1;
   private reading: Promise<LensResult<SourceSnapshot>> | null = null;
@@ -58,8 +59,7 @@ export class WorkViewReport {
     compare: (input: unknown) => this.compare(input), showNative: () => this.showNative(),
     highlight:(input:unknown)=>this.highlight(input),clearHighlight:()=>this.sourceSet.clear(),
   };
-  constructor(private readonly host: ReportHost, private readonly defaultMode: "report" | "structure" = "report") {
-    this.mode=defaultMode;
+  constructor(private readonly host: ReportHost, defaultMode: "report" | "structure" = "report") {
     this.plans=new ReadingPlanController({scope:()=>this.disposed?null:this.host.scope(),version:()=>this.host.scopeVersion?.()??"",
       unavailable:()=>this.host.historical()?"historical-view":this.host.renderer.composing||this.editor.isComposing?"editing-in-progress":null,
       source:async()=>{
@@ -76,17 +76,23 @@ export class WorkViewReport {
         if(!this.valid(scope,lifetime)||port!==this.materialPort)throw new Error("READING_MATERIAL_SCOPE_CHANGED");
         requireLens(views.length<=2000&&new Set(views.map(view=>view.id)).size===views.length,"invalid-reading-material-list");
         this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(views.filter(view=>view.availability==="available").map(view=>view.id));
-      },changed:()=>this.host.changed()});
+      },changed:()=>this.host.changed(),defaultMode,...(typeof localStorage!=="undefined"?{storage:localStorage}:{})});
   }
   readonly readingAPI={
-    read:()=>this.plans.api.read(),request:(input:unknown)=>this.plans.api.request(input),
+    setMode:async(mode:"report"|"structure")=>{
+      const result=await this.plans.api.refresh();if(!result.ok)return result;
+      const bookmark=this.host.renderer.bookmark();this.plans.api.setMode(mode);
+      if(this.host.visible())this.host.renderer.restore(bookmark,[],false);
+      return {ok:true as const,value:null};
+    },
+    read:()=>this.plans.api.read(),refresh:()=>this.plans.api.refresh(),restore:(id:unknown)=>this.plans.api.restore(id),request:(input:unknown)=>this.plans.api.request(input),
     submit:async(input:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.submit(input);
-      if(result.ok) {this.mode="report";this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}
       return result;
     },select:async(id:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.select(id);
-      if(result.ok) {this.mode="report";this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}
       return result;
     },cancel:(requestId?:unknown)=>this.plans.api.cancel(requestId),
   };
@@ -115,7 +121,7 @@ export class WorkViewReport {
     if (!scope || (this.boundScope && sameLensScope(this.boundScope,scope))) return;
     this.boundScope={...scope};
     const saved=this.sessions.get(JSON.stringify([scope.graphId,scope.rootUuid]));
-    this.mode=saved?.mode??this.defaultMode; this.folds=new Set(saved?.folds??[]); this.suspended=saved?.bookmark??null;
+    this.folds=new Set(saved?.folds??[]); this.suspended=saved?.bookmark??null;
   }
   async restoreReading(): Promise<void> {
     const bookmark=this.suspended, scope=this.host.scope(), lifetime=this.lifetime;
