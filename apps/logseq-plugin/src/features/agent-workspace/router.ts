@@ -229,7 +229,7 @@ export class AgentWorkspaceRouter {
             if(!state.scope||!sameWorkScope(state.scope,binding.scope))throw new WorkspaceError("VIEW_SCOPE_MISMATCH");
             const generation=this.generation,owner=JSON.stringify([call.instanceId,call.connectionId,call.clientId]);
             const checked=async()=>{await check();if(generation!==this.generation)throw new WorkspaceError("CONNECTION_REVOKED");};
-            if(command==="reading.read")return state;
+            if(command==="reading.read") {const result=await work.readingAPI.refresh();await checked();if(!result.ok)throw new WorkspaceError("READING_UNAVAILABLE",result.reason);return result.value;}
             if(command==="reading.request") {
                 const result=await work.readingAPI.request({schemaVersion:1,purpose:workText(payload.purpose,240)});
                 try {await checked();}catch(error){if(result.ok)work.readingAPI.cancel(result.value.requestId);throw error;}
@@ -257,8 +257,13 @@ export class AgentWorkspaceRouter {
                 const result=work.readingAPI.cancel(id);this.readingRequests.delete(id);return result;
             }
             if(command==="reading.select") {
-                const id=workText(payload.planId);if(this.readingPlans.get(id)!==owner)throw new WorkspaceError("READING_PLAN_NOT_OWNED");
+                const id=workText(payload.planId);
                 const result=await work.readingAPI.select(id);await checked();return result;
+            }
+            if(command==="reading.restore") {const result=await work.readingAPI.restore(workText(payload.planId));await checked();return result;}
+            if(command==="reading.mode") {
+                if(payload.mode!=="report"&&payload.mode!=="structure")throw new WorkspaceError("INVALID_READING_MODE");
+                const result=await work.readingAPI.setMode(payload.mode);await checked();return result;
             }
             if(command==="reading.original") {const result=await work.readingAPI.select(null);await checked();return result;}
             if(command==="reading.highlight") {const result=await work.reportAPI.highlight(payload.input);await checked();return result;}

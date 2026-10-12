@@ -179,9 +179,10 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
             command = pair;
             payload = { question: required(args, "--question") };
         }
+        else if(pair==="reading.mode"&&commandWords.length===3) {command=pair;payload={mode:commandWords[2]};}
         else if(pair==="reading.request"&&commandWords.length===2) {command=pair;payload={purpose:required(args,"--purpose")};}
-        else if(["reading.select","reading.cancel"].includes(pair)&&commandWords.length===3) {
-            command=pair as WorkspaceCommand;payload={[pair==="reading.select"?"planId":"requestId"]:commandWords[2]};
+        else if(["reading.select","reading.restore","reading.cancel"].includes(pair)&&commandWords.length===3) {
+            command=pair as WorkspaceCommand;payload={[pair!=="reading.cancel"?"planId":"requestId"]:commandWords[2]};
         }
         else if (pair === "materials.associate" && commandWords.length === 2) {
             command = pair;

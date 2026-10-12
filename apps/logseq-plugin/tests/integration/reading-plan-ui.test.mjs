@@ -162,13 +162,14 @@ test('material delegation precedes row location and offline material plans retir
     assert.equal(f.work.panel.root.querySelectorAll('.wb-row[data-report-source-id]').length,101);assert.equal(JSON.stringify([...f.blocks].map(([id,block])=>[id,block.content,block.parent,block.children.map(child=>child.uuid)])),f.original);
   } finally {await f.close();}
 });
-test('source changes and scope switches revoke stale layout and native marks, preserving concurrent new source text',async()=>{
+test('source changes refresh the selected layout while scope switches clear native marks',async()=>{
   const f=await readingFixture();try {
     const input=plan(f);await f.work.readingAPI.submit(input);
     const source=f.work.reportAPI.read();
     assert.equal((await f.work.reportAPI.highlight({schemaVersion:1,sourceIds:[f.request.source.blocks[1].sourceId],includeContext:false,structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion})).ok,true);
     const changed=corpus[14].content+'\n不过用户刚加了一个退出条件';f.content(corpus[14].uuid,changed);await f.work.refresh();
-    await until(()=>f.work.readingAPI.read().activePlan===null);
+    await until(()=>f.work.readingAPI.read().activePlan?.sourceSetVersion!==input.sourceSetVersion);
+    assert.equal(f.work.readingAPI.read().activePlanId,input.planId);
     assert.equal(f.browser.document.querySelectorAll('[data-task-copilot-source-set]').length,0);
     assert.match(row(f,corpus[14].uuid).querySelector('.wb-body').textContent,/用户刚加了一个退出条件/);
     assert.equal((await f.work.readingAPI.submit(input)).ok,false);
