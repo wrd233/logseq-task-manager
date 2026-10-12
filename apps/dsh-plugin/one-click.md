@@ -1,0 +1,43 @@
+# 从事务一键进入 DSH
+
+实现分支：`codex/one-click-dsh-collaboration`，起点为 main `0e9d2f9`。本轮不合并 main。
+
+## 用户路径
+
+打开工作的阅读视图，点击标题旁 **DSH 协作**。也可以从真实块的右键菜单选择 **工作台：DSH 协作**，或使用同名命令面板入口。无需在 Logseq 填请求，也无需到 DSH 再选目录。
+
+程序按顺序准备当前工作的目录、只读连接、DSH 工作区和会话，打开原生 DSH。左侧已有原文，右侧已有文件，光标进入原生输入框；此时没有自动发送消息或调用模型。以后点击 **继续 DSH 协作**，继续此工作最近使用的会话。
+
+“更多 → 协作与授权”保留 **另开 DSH 会话** 和 **在当前 DSH 会话聊**。后者遇到其他工作的会话时，先提供另开或明确切换选择；原有聊天历史和执行目录不会被抹掉。**其他 Agent 协作…** 保留原来的请求/背景表单，不再承担 DSH 的主流程。读法菜单的 **在 DSH 设计读法…** 直接进入同一会话，目的在 DSH 输入。
+
+## 默认位置
+
+读取本身不创建文件夹。实际收纳材料或明确点击 DSH 协作时才准备位置。已有主工作目录优先；否则复用当前工作已选定的默认材料目录，或沿现有 MaterialService 在默认根目录下创建 `workspaces/<root UUID>`，再由 Workspace Registry 建立正式目录关联。
+
+没有自定义材料根目录时，沿用 Graph 隔离的 `Documents/Task Copilot Materials/<Graph 指纹>`。已有设置、文件、材料身份和用户 WORKSPACE.md 不覆盖、不迁移。标题变化不改变工作身份或文件位置。普通子块的点击继续保持现有工作；只有显式打开另一个工作范围才建立另一份协作关联。
+
+File Graph 首次关联仍由现有 Registry 为根块保存 Logseq 原生 `id::`，正文措辞不重写。有稳定根身份的工作可以带着已保存正文进入 DSH，原生输入保持，不提交、不导出草稿。尚无稳定身份且正在编辑时，提示先保存输入；不会强制结束输入。
+
+## 两端交接
+
+Logseq 用既有私有插件通道建立读取/编排连接，并请求短期交接入口。DSH 的原生 Connection 提供本机登录地址；浏览器携带一次交接标识，宿主重新核对当前绑定，再创建或续接真实 Session。会话归入对应 DSH Workspace，避免空会话还要求用户选目录。
+
+客户端通过官方 `uiWorkspace.openSession` 导航，并等待 Session 挂载后打开文件面板。原文浮层显式使用官方 SessionProvider，因此空会话也显示原文及引用按钮；不依赖已有消息触发会话头部。交接完成清理 URL 中的交接标识。常用会话保存在现有私有绑定记录中，重启后继续。
+
+DSH 的请求来自当前聊天，不再把旧 Logseq 协作请求注入为本次目的。读取权限不扩展为正文、文件或 TODO 写权限。生成的读取入口不占据 DSH 日常文件列表；它仍存在于目录，可供其他 Agent 使用。
+
+## 一次配置与本机试用
+
+DSH 插件须已安装在 `web` profile，Logseq 设置中的 Agent 工作连接指向同一个 companion 状态目录。默认是 `~/.task-copilot-workspace`。默认 Web 端口为 3080；自定义部署可设置 DSH 插件的 `browserUrl`。
+
+在项目 Node 20 环境执行一次 `node apps/dsh-plugin/scripts/install-background.mjs`，macOS 登录后由本机启动器保持 companion 与 DSH 就绪。DSH 使用独立 Node 22，项目服务使用 Node 20。启动器不打开浏览器、不调用模型，不停止其他服务；日志位于状态目录。
+
+取消后台启动可用 `launchctl bootout gui/$(id -u)/com.taskcopilot.dsh-collaboration` 并移除自己的 `~/Library/LaunchAgents/com.taskcopilot.dsh-collaboration.plist`；现有资料和服务数据保留。其他平台可直接运行 `start-collaboration.mjs`。这不是任意 shell 执行能力，也没有向 Logseq 添加启动进程的接口。
+
+## 验证
+
+- Logseq 完整 556 项通过；随后涉及稳定身份/原生输入的改动另经 24 项工作区回归及生产一键集成验证。
+- DSH 9 项通过：自动位置、已有材料目录复用、两个工作各自会话、重复交接、最近会话续接、显式另开、当前会话分歧、断连、过期、正文/草稿保留等。
+- CLI 17 项、原有生产宿主 8 组验证通过。全仓库类型检查、lint 与完整构建通过。
+- 本机原生 DSH 0.2.0-rc.2：使用真实 Workspace/Session Controller 和浏览器，验证自动关联、空会话原文、文件面板、输入可用、重复入口续接同一会话和交接标识清理。Logseq 使用合成 SDK 与生产 HTTP companion；没有向远端模型发送消息。
+- 独立 Logseq Lab 使用本分支构建及已有测试 Graph。真实 Desktop 的一键点击联动仍供用户试用，本轮没有声称替用户完成真实 Graph + 远端模型验收。

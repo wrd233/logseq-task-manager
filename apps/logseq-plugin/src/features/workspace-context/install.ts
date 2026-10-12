@@ -26,12 +26,16 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     persistRoot: async (scope, valid) => {
       const check = async () => { if (!valid() || (await current()).graphId !== scope.graphId || !valid()) throw new ScopeExpired(); };
       await check();
-      if (await logseq.Editor.checkEditing()) throw new Error("请先结束块编辑，再关联目录。");
       const block = await logseq.Editor.getBlock(scope.rootUuid); await check();
       if (!block) throw new Error("工作入口暂不可读。");
       const body = object(block), content = typeof body.content === "string" ? body.content : body.title;
       if (typeof content !== "string") throw new Error("工作入口暂不可读。");
       const isDbGraph = await currentGraphIsDb(logseq.App); await check();
+      if (await logseq.Editor.checkEditing()) {
+        const properties=body.properties as Record<string,unknown>|undefined;
+        if(isDbGraph||properties?.id===scope.rootUuid)return;
+        throw new Error("请先保存当前输入，再为这份工作准备稳定的协作入口。");
+      }
       await ensurePersistentSourceIdentity({
         getBlock: async uuid => { await check(); const result = await logseq.Editor.getBlock(uuid); await check(); return result; },
         upsertBlockProperty: async (uuid, key, value) => { await check(); await logseq.Editor.upsertBlockProperty(uuid, key, value); await check(); },

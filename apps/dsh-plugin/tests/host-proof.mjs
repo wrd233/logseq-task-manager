@@ -13,6 +13,7 @@ import * as plugin from "../src/index.mjs";
 const repo = process.cwd();
 await mkdir(join(repo, "tmp/dsh-research"), { recursive: true });
 const f = await contentFixture();
+if(process.env.DSH_ONE_CLICK_NATIVE==='1')f.blocks.get(f.root).content='**[事务]** DSH 一键协作试用（合成）';
 const root = await realpath(await mkdtemp(join(tmpdir(), "dsh-logseq-proof-"))), directory = join(root, "work"), state = join(root, "state");
 await mkdir(directory);
 let server = await startWorkspaceServer({ stateDirectory: state });
@@ -72,6 +73,15 @@ try {
   const fallbackView = await fallback.view('fallback-session');
   assert.equal(fallbackView.blocks.length, 3); fallback.dispose();
   await api.open(f.root);
+  if(process.env.DSH_ONE_CLICK_NATIVE==='1'){
+    await writeFile(join(directory,'阅读说明.md'),'# 一键协作试用\n\n在 DSH 中直接提出请求，Logseq 保留原文。\n');
+    console.log(JSON.stringify({directory,state,evidence:root}));
+    logseq.App.openExternalLink=async url=>writeFile(join(root,'handoff-url.txt'),url,{mode:0o600});
+    while(!await readFile(join(state,'dsh-browser.json'),'utf8').then(()=>true,()=>false))await delay(200);
+    await api.dsh.open();console.log(JSON.stringify({handoffReady:true,urlFile:join(root,'handoff-url.txt')}));
+    process.on('SIGUSR1',()=>{void api.dsh.open().then(()=>console.log(JSON.stringify({handoffReady:true,urlFile:join(root,'handoff-url.txt')})));});
+    await new Promise(resolve=>process.once('SIGTERM',resolve));
+  }else{
   await writeFile(join(directory, "proposal.md"), "# Proposal\n\nA real file in the bound directory.\n");
   await f.commands.get("agent-workspace-collaboration")();
   const form = document.querySelector('[data-collaboration="true"]');
@@ -113,6 +123,7 @@ try {
       inspect: async () => ({ meta: { cwd: directory } }),
       openWorkspacePath: async input => { assert.equal(input.path, join(directory, 'proposal.md')); return { opened: true }; }
     });
+    host.reflect.provide('workspaceController', {create:async()=>({workspace:{workspaceId:'proof-workspace'},created:false}),rename:async()=>{}});
   } });
   const fiber = await ctx.plugin(plugin, { workspaceStateDirectory: state, bindingStateDirectory: join(root, 'bindings') });
   await fiber.await();
@@ -235,6 +246,7 @@ try {
   assert.equal(ctx.tools.schemas().some(t => t.name.startsWith('logseq_')), false);
   checks.push({ check: 'Production Cordis unload removes model-facing tools', ok: true });
   console.log(JSON.stringify({ dshVersion: '0.2.0-rc.2', logseq: 'Synthetic SDK with production plugin and HTTP companion', model: 'Native AgentLoop with local scripted model', checks }, null, 2));
+  }
   }
 } finally {
   await ctx?.fiber.dispose(); await f.unload(); await server.close(); await f.cleanup(); await rm(root, { recursive: true, force: true });

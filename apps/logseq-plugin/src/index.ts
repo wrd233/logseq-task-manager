@@ -15,6 +15,7 @@ import { installAgentWorkspace, workspaceBindingPort } from "./features/agent-wo
 import { installStageWorkbench, type StageInstallation } from "./features/stage-workbench/installer.ts";
 import { fileName } from "./features/materials/names.ts";
 import { sameLensScope } from "./features/work-view/lens-source.ts";
+import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 
 logseq.useSettingsSchema([
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
@@ -114,7 +115,8 @@ async function main(): Promise<void> {
     const selected = stageApi.scope();
     if (!selected || !sameWorkScope(selected, scope)) throw new WorkspaceError("SCOPE_MISMATCH");
   };
-  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api,stage:{
+  agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api,
+    ensureDshWork:(scope,check)=>ensureDshWork(scope,{resolve:workspace.api.resolve,directory:scope=>requireMaterials().prepareWorkDirectory(scope),bind:workspace.api.bind,check}),stage:{
     read:async (input,binding)=>{
       requireStageScope(binding.scope);
       const value = workRecord(input,["stageId"]);
@@ -126,27 +128,42 @@ async function main(): Promise<void> {
     submit:async (input,binding,origin)=>{requireStageScope(binding.scope);return origin?stages.trustedSubmit(input,origin):stageApi.submit(input);},
   }});
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
+  const dshFromBlock = async (uuid?:string) => {
+    requireActive();if(!work)throw new Error("工作视图未启用。");
+    await work.openCurrentWork(uuid);
+    const scope=work.readingAPI.read().scope;if(!scope)throw new Error("请先选择工作块。");
+    await agentWorkspace!.local.openDsh(scope);
+  };
+  logseq.App.registerCommandPalette({key:"workbench-dsh",label:"工作台：DSH 协作"},()=>dshFromBlock().catch(report));
+  logseq.App.registerCommand("block-context-menu-item",{key:"workbench-dsh-block",label:"工作台：DSH 协作"},({uuid}:{uuid:string})=>dshFromBlock(uuid).catch(report));
   work?.setContextActions(() => {
     const scope=work!.readingAPI.read().scope,root=scope?.rootUuid;
     if (!root || !scope) return [];
     const connection = agentWorkspace?.api.status();
     const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
+    const dsh = {area:"primary" as const,label:agentWorkspace!.local.dshUsed(scope)?"继续 DSH 协作":"DSH 协作",description:"自动准备工作位置与会话；在 DSH 中提出请求",preserveInputFocus:true,run:()=>agentWorkspace!.local.openDsh(scope)};
+    const dshMore = [
+      {group:"外部连接与恢复",label:"另开 DSH 会话",run:()=>agentWorkspace!.local.openDsh(scope,"new")},
+      {group:"外部连接与恢复",label:"在当前 DSH 会话聊",run:()=>agentWorkspace!.local.openDsh(scope,"current")},
+    ];
     if(scope.kind==="page")return [
-      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(scope)},
+      dsh,...dshMore,
+      {area:"reading",label:"在 DSH 设计读法…",description:"进入此工作的会话，直接表达阅读目的",run:()=>agentWorkspace!.local.openDsh(scope)},
       {group:"工作目录",label:"关联页面工作目录",description:"保存真实页面原文与层级的读取副本",run:()=>workspace.local.bind(scope)},
       {group:"工作目录",label:"打开工作读取入口",run:()=>workspace.local.open(scope)},
       {group:"工作目录",label:"重新关联移动后的目录",run:()=>workspace.local.rebind(scope)},
-      {group:"外部连接与恢复",label:"带当前工作去协作",description:"页面原文、请求和指导；没有可写根块",run:()=>agentWorkspace!.local.collaborate(scope)},
+      {group:"外部连接与恢复",label:"其他 Agent 协作…",description:"准备页面原文与请求，交给其他 Agent",run:()=>agentWorkspace!.local.collaborate(scope)},
       {group:"外部连接与恢复",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
       ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅允许目录内材料写作；页面正文保持只读",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
       {group:"外部连接与恢复",label:connected?"停止 agent 工作连接":"允许 agent 只读连接此页面",run:()=>connected?agentWorkspace!.local.stop():agentWorkspace!.local.connectRead(scope)},
     ];
     return [
-      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(root)},
+      dsh,...dshMore,
+      {area:"reading",label:"在 DSH 设计读法…",description:"进入此工作的会话，直接表达阅读目的",run:()=>agentWorkspace!.local.openDsh(scope)},
       { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
       { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },
       { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },
-      { group: "外部连接与恢复", label: "带当前工作去协作", description: "准备已保存现场、本次请求与指导；新连接仅允许读取和编排", run: () => agentWorkspace!.local.collaborate(root) },
+      { group: "外部连接与恢复", label: "其他 Agent 协作…", description: "按需准备请求和背景，交给其他 Agent", run: () => agentWorkspace!.local.collaborate(root) },
       { group: "外部连接与恢复", label: "共同指导与项目差异", description: "一份共同来源；本工作只补充差异", run: () => agentWorkspace!.local.guidance(root) },
       { group: "正文维护", label: "查看并整理行首格式", description: "选择范围，核对受限真实差异，再明确写入", run: () => agentWorkspace!.local.format(root) },
       ...(connected&&!connection.permissions.bodyWrite?[{group:"外部连接与恢复",label:"允许 Agent 维护这里正文",description:"明确允许当前真实块范围的正文写作；新连接的文件与 TODO 许可另行选择",run:()=>agentWorkspace!.local.connect(root)}]:[]),
@@ -167,6 +184,9 @@ async function main(): Promise<void> {
     workspace: workspace.api,
     content: content.api,
     agentWorkspace: agentWorkspace.api,
+    dsh: {open:(mode:"continue"|"new"|"current"="continue")=>{
+      requireActive();const scope=work?.readingAPI.read().scope;if(!scope)throw new Error("请先打开这份工作的阅读视图。");return agentWorkspace!.local.openDsh(scope,mode);
+    }},
     stages: stages.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),

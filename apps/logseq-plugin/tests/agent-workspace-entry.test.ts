@@ -158,15 +158,15 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const newScene=await cli(["collaboration","refresh"]);assert.equal(newScene.guidance.common.version,newGuide.common.version);assert.equal(newScene.guidance.project.version,newGuide.project.version);
         f.editing(false);
         await api.open(f.root);
-        const designReading = document.querySelector<HTMLButtonElement>('[data-action-label="让 Agent 设计读法…"]')!;
-        designReading.click();
+        assert.ok(document.querySelector<HTMLButtonElement>('[data-action-label="在 DSH 设计读法…"]'));
+        await f.commands.get("agent-workspace-design-reading")!();
         for(let i=0;i<100&&!form.querySelector(".wb-heading")?.textContent?.includes("让 Agent 设计读法");i++)await delay(10);
         const readingPreferences=form.querySelector<HTMLTextAreaElement>("textarea")!;
         assert.match(readingPreferences.value,/reading.request \/ reading.submit/);assert.match(readingPreferences.value,/不修改 Logseq 正文/);
         assert.equal(api.agentWorkspace.status().connected,true);assert.equal(f.counts().writes,readonlyCounts.writes);
         readingPreferences.value="请按取消条件和待询问问题设计读法。";readingPreferences.dispatchEvent(new f.browser.Event("input") as unknown as Event);
         await f.commands.get("agent-workspace-collaboration")!();assert.equal(form.querySelector<HTMLTextAreaElement>("textarea")!.value,request.value,"reading preferences do not overwrite the ordinary collaboration draft");
-        await api.open(f.root);document.querySelector<HTMLButtonElement>('[data-action-label="让 Agent 设计读法…"]')!.click();
+        await api.open(f.root);await f.commands.get("agent-workspace-design-reading")!();
         for(let i=0;i<100&&form.querySelector<HTMLTextAreaElement>("textarea")!.value!==readingPreferences.value;i++)await delay(10);
         assert.equal(form.querySelector<HTMLTextAreaElement>("textarea")!.value,readingPreferences.value);
         const formatNode=f.add("[想法] 可能去湖边，尚未询问。");

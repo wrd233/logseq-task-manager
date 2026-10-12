@@ -2,10 +2,14 @@
 import process from 'node:process';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { rm, readFile } from 'node:fs/promises';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
+import { DshHandoffs } from './handoff.mjs';
+import { browserDescriptor, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 
 export const name = 'logseq-workbench';
-export const inject = ['connection', 'sessionController', 'tools', 'systemPrompt'];
+export const inject = ['connection', 'sessionController', 'workspaceController', 'tools', 'systemPrompt'];
 
 /** Native DSH host plugin. RPC is carried by the authenticated Connection service. */
 export async function apply(ctx, config = {}) {
@@ -15,7 +19,18 @@ export async function apply(ctx, config = {}) {
     inspectSession: (sessionId, signal) => ctx.sessionController.inspect(sessionId, signal),
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
   ctx.on('dispose', () => service.dispose());
+  const handoffs=new DshHandoffs({service,createSession:async({cwd,title})=>{
+    const value=await ctx.workspaceController.create({path:cwd});
+    if(value.created)await ctx.workspaceController.rename({workspaceId:value.workspace.workspaceId,title});
+    return ctx.sessionController.create({workspaceId:value.workspace.workspaceId});
+  },renameSession:input=>ctx.sessionController.rename(input)});
+  if(ctx.connection.authenticatedUrl){
+    const url=ctx.connection.authenticatedUrl(localDshUrl(config.browserUrl??'http://127.0.0.1:3080/').href),path=browserDescriptor(service.transport.stateDirectory);
+    await atomicJson(path,{schemaVersion:1,url,pid:process.pid});
+    ctx.on('dispose',async()=>{try{const current=JSON.parse(await readFile(path,'utf8'));if(current.url===url&&current.pid===process.pid)await rm(path,{force:true});}catch(error){if(error.code!=='ENOENT')throw error;}});
+  }
   const routes = {
+    handoff:async(input,signal)=>{const value=request(input,['ticket','currentSessionId','replace','fresh']);return handoffs.open(value.ticket,value.currentSessionId,value.replace===true,signal,value.fresh===true);},
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },

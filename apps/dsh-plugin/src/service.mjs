@@ -6,6 +6,7 @@ import { join, dirname, basename, resolve, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { validateReadingPlan } from '../../logseq-plugin/src/features/work-view/reading-plan.ts';
 import { readingDocument } from '../../logseq-plugin/src/features/work-view/reading-document.ts';
+import { workObject } from '../../logseq-plugin/src/features/work-view/focus.mjs';
 import { WorkspaceError, parseWorkBinding, workRecord, workText } from '@task-copilot/contracts';
 import { privateDescriptor, workspaceEntry } from '../../task-copilot-cli/src/workspace-cli.ts';
 import { atomicJson, authorizedRoot, scopedPath } from '../../task-copilot-cli/src/workspace-files.ts';
@@ -60,7 +61,7 @@ export class BindingStore {
     const operation = this.queue.then(async () => {
       assertCurrent();
       const next = new Map(this.bindings);
-      if (binding) next.set(sessionId, parseWorkBinding(binding)); else next.delete(sessionId);
+      next.delete(sessionId); if (binding) next.set(sessionId, parseWorkBinding(binding));
       if (next.size > 256) throw new WorkspaceError('BINDING_LIMIT');
       await atomicJson(join(this.directory, 'bindings.json'), { schemaVersion: 1, bindings: [...next].map(([sessionId, binding]) => ({ sessionId, binding })) });
       try { assertCurrent(); }
@@ -78,7 +79,7 @@ export class BindingStore {
 export function projectFiles(packet) {
   const scene = packet.scene, root = scene.binding.directory;
   const facts = packet.files?.observation?.files ?? [];
-  const files = facts.filter(f => f.kind === 'file' && f.change !== 'missing').map(f => ({
+  const files = facts.filter(f => f.kind === 'file' && f.change !== 'missing' && f.path !== scene.entryFile).map(f => ({
     key: `file:${f.path}`, name: basename(f.path), relativePath: f.path, group: dirname(f.path) === '.' ? '工作目录' : `工作目录 · ${dirname(f.path)}`,
     availability: f.availability, materialId: f.materialId, size: f.size, version: f.modifiedAt,
   }));
@@ -97,7 +98,7 @@ export function projectFiles(packet) {
 export function modelContext(packet, maxChars = 24000) {
   const scene = packet.scene;
   const result = { binding: scene.binding, sourceBundleVersion: scene.sourceBundleVersion, permissions: packet.current?.permissions ?? scene.permissions,
-    request: scene.request?.slice(0, 4000) ?? '', guidance: {
+    request: '', guidance: {
       common: { version: scene.guidance?.common?.version ?? null, text: scene.guidance?.common?.text?.slice(0, 4000) ?? '' },
       project: { version: scene.guidance?.project?.version ?? null, text: scene.guidance?.project?.text?.slice(0, 4000) ?? '' },
     }, reading: packet.reading ? { mode: packet.reading.mode, activePlanId: packet.reading.activePlanId, plans: packet.reading.plans } : null, nativeDraft: { included: false }, savedSource: [], materials: [], truncated: true,
@@ -183,6 +184,7 @@ export class WorkbenchService {
       if (!['COLLABORATION_SCENE_UNAVAILABLE', 'COLLABORATION_CONTEXT_REQUIRED'].includes(error.code)) throw error;
       const source = await call('refresh'), permissions = await call('status'), guidance = await call('guidance.read'), materials = await call('materials.list');
       packet = { scene: { binding: entry.binding, savedSource: source.snapshot, selectedBackground: [], request: '', guidance,
+        entryFile: source.workspace?.binding?.manifest?.entryFile,
         permissions: permissions.capabilities, sourceBundleVersion: source.snapshot.sourceSetVersion, materials: materials.materials,
         nativeDraft: { included: false } }, current: { permissions: permissions.capabilities } };
     }
@@ -216,7 +218,8 @@ export class WorkbenchService {
         new Set((scene.materials ?? []).filter(m => m.availability === 'available').map(m => m.id)))); }
       catch { /* Source changed between reads; the next refresh retries the current arrangement. */ }
     }
-    return { sessionId, reading: reading ? { ...reading, document } : null, binding: scene.binding, title: scene.savedSource.page?.pageName ?? blocks[0]?.content?.split('\n')[0]?.slice(0, 120) ?? 'Logseq 工作',
+    const firstLine=blocks[0]?.content?.split('\n')[0]??'Logseq 工作';
+    return { sessionId, reading: reading ? { ...reading, document } : null, binding: scene.binding, title: scene.binding.scope.pageName ?? workObject(firstLine)?.title ?? firstLine.slice(0,120),
       capturedAt: scene.savedSource.capturedAt, version: scene.sourceBundleVersion, blocks,
       truncated: blocks.length !== scene.savedSource.blocks.length || blocks.some(b => b.truncated),
       files: projectFiles(packet), fileTruncation: packet.files?.observation?.truncated ?? [],

@@ -1,22 +1,23 @@
-/* global window, document, AbortController, setInterval, clearInterval */
+/* global window, document, AbortController, setInterval, clearInterval, URLSearchParams */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
 import { reportProjection } from '../../logseq-plugin/src/features/work-view/report-body.ts';
 
-export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation'];
+export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation', 'uiWorkspace', 'sessions'];
 const errorText = error => ({
   SESSION_NOT_BOUND: '先关联此会话的 Logseq 工作目录。', WORKSPACE_NOT_BOUND: '此目录没有 Logseq 连接。请在 Logseq 关联目录并允许 agent 连接当前工作。',
   WORKSPACE_OFFLINE: 'Logseq 工作连接已离线，请在 Logseq 重新连接。', CONNECTION_STALE: '连接已改变，请在 Logseq 重新连接。',
   DESCRIPTOR_STALE: '本地服务已重启，请在 Logseq 重新允许连接。', WORK_SCOPE_CHANGED: '目录对应的工作已改变，请重新关联。',
   ENOENT: '没有找到工作目录或本地连接。', FILE_UNAVAILABLE: '文件已失联或不可用，请刷新列表。',
   INPUT_BUSY: '输入框正在提交，请稍后再引用。', BINDING_CHANGED: '会话关联已改变，请重新读取。',
+  DSH_HANDOFF_EXPIRED: '这次协作入口已过期，请在 Logseq 再点一次 DSH 协作。',
 }[error?.code] ?? '暂时无法读取，请检查本地服务与 Logseq 连接。');
 
 export function apply(ctx) {
   const style = document.createElement('style'); style.textContent = styles + readingStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
-  let overlay = null, disposed = false;
+  let overlay = null, disposed = false, handoff = null, handoffController = null;
   const emit = () => { for (const listener of listeners) listener(); };
   const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
   const get = sessionId => rows.get(sessionId) ?? empty;
@@ -27,6 +28,27 @@ export function apply(ctx) {
     if (!answer.ok) throw Object.assign(Error(answer.error.message), { code: answer.error.code });
     return answer.value;
   };
+  async function enterHandoff(replace=false, fresh=false) {
+    if(!handoff || disposed)return;
+    handoffController?.abort(); const controller = handoffController = new AbortController();
+    const ticket=handoff.ticket;
+    handoff={...handoff,busy:true,error:null};emit();
+    try {
+      const currentSessionId=ctx.sidebarRight.mounted.getSnapshot();
+      const result=await rpc('handoff',{ticket,...(currentSessionId?{currentSessionId}:{}),replace,fresh},controller.signal);
+      if(disposed||controller.signal.aborted)return;
+      if(result.conflict){handoff={ticket,busy:false,conflict:true,title:result.title};emit();return;}
+      await ctx.sessions.refresh(); if(disposed||controller.signal.aborted)return;
+      ctx.uiWorkspace.openSession(result.sessionId);show(result.sessionId,true);
+      const hash=new URLSearchParams(window.location.hash.slice(1));hash.delete('logseq-work');
+      window.history.replaceState(window.history.state,'',window.location.pathname+window.location.search+(hash.size?`#${hash}`:''));
+      handoff=null;emit();
+    }catch(error){if(!controller.signal.aborted&&!disposed){handoff={ticket,busy:false,error};emit();}}
+  }
+  function readHandoff(){
+    const ticket=new URLSearchParams(window.location.hash.slice(1)).get('logseq-work');
+    if(ticket && ticket!==handoff?.ticket){handoff={ticket,busy:true};emit();void enterHandoff();}
+  }
   const pending = new Map();
   async function refresh(sessionId) {
     if (disposed || pending.has(sessionId)) return pending.get(sessionId)?.promise;
@@ -56,7 +78,7 @@ export function apply(ctx) {
     }, [sessionId, active]);
     return row;
   }
-  function show(sessionId) { overlay = { sessionId }; emit(); void refresh(sessionId); }
+  function show(sessionId,files=false) { overlay = { sessionId, files }; emit(); void refresh(sessionId); }
   function close() { overlay = null; emit(); }
   async function openFile(sessionId, key, reveal = false) {
     try { await rpc('open', { sessionId, key, reveal }); update(sessionId, { notice: reveal ? '已在访达显示。' : '已交给系统打开。', error: null }); }
@@ -140,9 +162,23 @@ export function apply(ctx) {
   }
   function Overlay(props) {
     const seat = useRef(null);
+    const [reference,setReference]=useState(null);
     const current = useSyncExternalStore(subscribe, () => overlay, () => null);
+    const entry = useSyncExternalStore(subscribe, () => handoff, () => null);
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
-    useEffect(() => { if (current && mounted && current.sessionId !== mounted) show(mounted); }, [mounted, current?.sessionId]);
+    useEffect(()=>{
+      if(!current||mounted!==current.sessionId){setReference(null);return;}
+      const held=ctx.sessions.retain(current.sessionId,{source:'controllerOperation'});setReference(held);
+      return ()=>held.release();
+    },[mounted,current?.sessionId]);
+    useEffect(() => { if (current && !current.files && mounted && current.sessionId !== mounted) show(mounted); }, [mounted, current?.sessionId,current?.files]);
+    useEffect(()=>{
+      if(current?.files&&mounted===current.sessionId){
+        ctx.sidebarRight.openTab('logseq-files');
+        overlay={...current,files:false};emit();
+        void ctx.sessions.using(mounted,{source:'controllerOperation'},async reference=>{const binding=await reference.ready;ctx.conversation.input.for(binding.ctx).focus();}).catch(()=>{});
+      }
+    },[mounted,current]);
     useEffect(() => { const escape = event => { if (event.key === 'Escape') close(); }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, []);
     useEffect(() => {
       if (!current || !mounted || current.sessionId !== mounted) return;
@@ -152,9 +188,11 @@ export function apply(ctx) {
       if (!frame?.style.gridTemplateColumns) return;
       frame.classList.add('lq-frame-open');
       return () => frame.classList.remove('lq-frame-open');
-    }, [mounted, current?.sessionId]);
-    if (!current || !mounted || current.sessionId !== mounted) return null;
-    return <div ref={seat}>{props.renderSlot('logseq.work.source', {})}</div>;
+    }, [mounted, current?.sessionId,reference?.sessionId]);
+    return <>{entry ? <section className="lq-source lq-handoff" aria-label="进入 DSH 协作" role="status">
+      {entry.busy?<p>正在进入此事务的 DSH 会话…</p>:entry.conflict?<><h2>{entry.title}</h2><p>当前会话还有其他工作的上下文。</p><button type="button" onClick={()=>{void enterHandoff(false,true);}}>另开本事务会话</button><button type="button" onClick={()=>{void enterHandoff(true);}}>明确切换当前会话</button></>:<><p>{errorText(entry.error)}</p><button type="button" onClick={()=>{void enterHandoff();}}>重试</button></>}
+      {!entry.busy?<button type="button" onClick={()=>{handoffController?.abort();handoff=null;emit();}}>关闭</button>:null}
+    </section>:null}{current&&mounted&&current.sessionId===mounted&&reference?.sessionId===mounted?<div ref={seat}><props.SessionProvider session={reference}>{props.renderSlot('logseq.work.source', {})}</props.SessionProvider></div>:null}</>;
   }
   function Files(props) {
     const tab = props.useTabInfo();
@@ -177,6 +215,7 @@ export function apply(ctx) {
   register('shell.overlay', { id: 'logseq-workbench', children: { 'logseq.work.source': { kind: 'single', scope: 'session' } } }, Overlay);
   register('logseq.work.source', { id: 'logseq-workbench' }, WorkPanel);
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
-  ctx.on('dispose', () => { disposed = true; style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
-  ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); });
+  window.addEventListener('hashchange',readHandoff);readHandoff();
+  ctx.on('dispose', () => { disposed = true; handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
+  ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
 }

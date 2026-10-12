@@ -41,6 +41,7 @@ export function installAgentWorkspace(options: {
     binding: WorkspaceBindingPort;
     source?: WorkspaceSourcePort;
     stage?: OptionalStagePort;
+    ensureDshWork?: (scope: ScopeLease["scope"], check: () => Promise<void>) => Promise<unknown>;
     intervalMs?: number;
 }) {
     let disposed = false, generation = 0, timer: ReturnType<typeof setTimeout> | null = null, busy = false, failures = 0;
@@ -297,11 +298,34 @@ export function installAgentWorkspace(options: {
             disposers.push(off);
     }
     const connectRead=(target?:string|ScopeLease["scope"])=>allow(target,false,true);
+    const designCommand=logseq.App.registerCommandPalette({key:"agent-workspace-design-reading",label:"工作台：为其他 Agent 准备读法请求"},()=>{if(!disposed)return ui.open(undefined,false,true).catch(report);});
+    let dshSequence = 0;
+    const dshKey = (scope: ScopeLease["scope"]) => `workbench:dsh-used:${JSON.stringify(scope)}`;
+    const openDsh = async (scope: ScopeLease["scope"], mode: "continue"|"new"|"current" = "continue") => {
+        const ticket = ++dshSequence;
+        const check = async () => {
+            const active = options.work?.readingAPI.read().scope;
+            if (disposed || ticket !== dshSequence || !active || !sameWorkScope(active, scope) || graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId)
+                throw new WorkspaceError("CONNECTION_REVOKED", "当前工作已改变，请从这份工作的 DSH 协作入口重试。");
+        };
+        if (!options.ensureDshWork) throw new WorkspaceError("MATERIALS_UNAVAILABLE");
+        await options.ensureDshWork(scope, check); await check();
+        if (!connection || !sameWorkScope(connection.binding.scope, scope)) await allow(scope, false, true, true);
+        const value = connection; if (!value) throw new WorkspaceError("CHANNEL_UNAVAILABLE");
+        await valid(value); await check();
+        const source = scope.kind === "page" ? null : await logseq.Editor.getBlock(scope.rootUuid);
+        const title = scope.pageName || source?.content?.split("\n")[0]?.replace(/\*\*/g, "").slice(0, 180) || "Logseq 工作";
+        const result = await post(value.descriptor, "/plugin/dsh", {connectionId: value.id, mode, title}) as {url: string};
+        await valid(value); await check();
+        await logseq.App.openExternalLink(result.url);
+        localStorage.setItem(dshKey(scope), "true");
+    };
     const todoCommand=logseq.App.registerCommandPalette({key:"agent-workspace-todo",label:"工作台：允许 agent 维护普通 TODO"},()=>{if(!disposed)return todoUI.open().catch(report);});
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openDsh,dshUsed:(scope:ScopeLease["scope"])=>localStorage.getItem(dshKey(scope))==="true",connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+        if(typeof designCommand==="function")designCommand();
             if (disposed)
                 return;
             disposed = true;

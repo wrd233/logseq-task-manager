@@ -92,7 +92,12 @@ electron.app.setPath('desktop', paths.home + '/Desktop');
 electron.app.setAppLogsPath(paths.evidence + '/app-logs');
 electron.app.setAsDefaultProtocolClient = () => false;
 electron.app.removeAsDefaultProtocolClient = () => false;
-electron.shell.openExternal = async () => { throw new Error('External links disabled in isolated test instance'); };
+const openExternal = electron.shell.openExternal.bind(electron.shell);
+electron.shell.openExternal = async (value) => {
+  const url = new URL(value);
+  if(url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port === '3080')return openExternal(value);
+  throw new Error('Only the local DSH entry is allowed in this isolated test instance');
+};
 electron.dialog.showOpenDialog = async (...args) => {
   const options = args[args.length - 1];
   return options?.properties?.includes('openDirectory') ? {canceled: false, filePaths: [paths.graph]} : {canceled: true, filePaths: []};

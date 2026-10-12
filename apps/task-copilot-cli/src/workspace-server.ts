@@ -4,6 +4,7 @@ import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promi
 import { join, resolve, dirname } from "node:path";
 import { WorkspaceError, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
+import { createDshHandoff, type DshMode } from "./dsh-handoff.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -282,6 +283,15 @@ export async function startWorkspaceServer(options: {
             if (request.method !== "POST")
                 throw new WorkspaceError("METHOD_REJECTED");
             const input = await body(request);
+            if (request.url === "/plugin/dsh") {
+                const raw = workRecord(input, ["connectionId", "mode", "title"]), connectionId = workText(raw.connectionId);
+                const binding = broker.assert(connectionId);
+                if (!["continue", "new", "current"].includes(String(raw.mode))) throw new WorkspaceError("INVALID_INPUT");
+                const result = await createDshHandoff(state, {mode: raw.mode as DshMode, title: workText(raw.title, 800),
+                    entry: {instanceId, connectionId, binding, directory: binding.directory}});
+                broker.assert(connectionId);
+                send(response, 200, result); return;
+            }
             if (request.url === "/plugin/connect") {
                 const raw = workRecord(input, ["connectionId", "binding"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
                 root = await authorizedRoot(binding.directory);
