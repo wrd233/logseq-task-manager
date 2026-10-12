@@ -1,6 +1,8 @@
 /* global window, document, AbortController, setInterval, clearInterval */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { styles } from './styles.mjs';
+import { styles, readingStyles } from './styles.mjs';
+import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
+import { reportProjection } from '../../logseq-plugin/src/features/work-view/report-body.ts';
 
 export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation'];
 const errorText = error => ({
@@ -12,7 +14,7 @@ const errorText = error => ({
 }[error?.code] ?? '暂时无法读取，请检查本地服务与 Logseq 连接。');
 
 export function apply(ctx) {
-  const style = document.createElement('style'); style.textContent = styles; document.head.append(style);
+  const style = document.createElement('style'); style.textContent = styles + readingStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false;
   const emit = () => { for (const listener of listeners) listener(); };
@@ -49,7 +51,7 @@ export function apply(ctx) {
     useEffect(() => {
       if (!active) return;
       void refresh(sessionId);
-      const timer = setInterval(() => { void refresh(sessionId); }, 5000);
+      const timer = setInterval(() => { void refresh(sessionId); }, 2000);
       return () => clearInterval(timer);
     }, [sessionId, active]);
     return row;
@@ -91,16 +93,49 @@ export function apply(ctx) {
       finally { update(sessionId, { busy: false }); }
     }}><label htmlFor={`lq-directory-${sessionId}`}>Logseq 工作目录</label><input id={`lq-directory-${sessionId}`} value={directory} onChange={event => setDirectory(event.target.value)} placeholder={row.status?.cwd ?? '/工作目录'} disabled={row.busy} /><button type="submit" disabled={row.busy}>关联当前会话</button><p>使用已在 Logseq 允许连接的工作目录。</p></form>;
   }
+  async function selectReading(sessionId, selection) {
+    pending.get(sessionId)?.controller.abort(); pending.delete(sessionId);
+    const revision = get(sessionId).revision + 1;
+    update(sessionId, { revision, busy: true, error: null });
+    try {
+      const view = await rpc('select', { sessionId, ...selection });
+      if (get(sessionId).revision === revision) update(sessionId, { view });
+    } catch (error) { if (get(sessionId).revision === revision) update(sessionId, { error }); }
+    finally { if (get(sessionId).revision === revision) update(sessionId, { busy: false }); }
+  }
+  function ReadingBody({ sessionId, inputActions, view }) {
+    const blocks = new Map(view.blocks.map(block => [block.sourceId, block]));
+    const reading = view.reading;
+    const block = (id, context = false) => {
+      const value = blocks.get(id); if (!value) return null;
+      const projection = reportProjection(value.content ?? '来源暂不可用');
+      return <div key={id} className="lq-block" data-source-id={id} style={!reading?.document && reading?.mode === 'structure' ? { marginInlineStart: Math.min(value.depth, 6) * 10 } : undefined}>
+        {projection.label || projection.task ? <span className="lq-marker">{[projection.task, projection.label].filter(Boolean).join(' · ')}</span> : null}
+        <div className="lq-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(projection.markdown) }} />
+        {!context ? <Quote sessionId={sessionId} inputActions={inputActions} item={{ sourceId: id, contentVersion: value.contentVersion }} title="引用此段" /> : null}
+      </div>;
+    };
+    const context = ids => ids?.length ? <aside className="lq-reading-context"><span>来源上下文</span>{ids.map(id => block(id, true))}</aside> : null;
+    const unit = value => <section key={value.key} className="lq-reading-unit" data-reading-unit={value.key}>
+      {value.title ? <h3>{value.title}</h3> : null}{context(value.contextSourceIds)}
+      {value.sourceIds?.map(id => block(id))}{value.children?.map(unit)}
+      {value.columns?.map(column => <section key={column.key} className="lq-reading-unit"><h3>{column.title}</h3>{context(column.contextSourceIds)}{column.children.map(unit)}</section>)}
+      {value.materialId ? <button type="button" className="lq-reading-material" onClick={() => { void openFile(sessionId, view.files.find(file => file.materialId === value.materialId)?.key ?? `material:${value.materialId}`); }}>{view.files.find(file => file.materialId === value.materialId)?.name ?? '关联材料暂不可读'}</button> : null}
+    </section>;
+    return <div className={`lq-body ${reading?.mode === 'structure' ? 'lq-structure' : ''}`}>{reading?.document ? reading.document.map(unit) : view.blocks.map(value => block(value.sourceId))}</div>;
+  }
   function WorkPanel({ sessionId, inputActions }) {
     const row = useRow(sessionId, true), [more, setMore] = useState(false);
-    return <section className="lq-source" aria-label="关联的 Logseq 原文"><header><span>Logseq 原文</span><div>{row.view ? <a href={row.view.logseqUrl} aria-label="在 Logseq 打开原文">↗</a> : null}<button type="button" aria-label="更多工作操作" onClick={() => setMore(!more)}>···</button><button type="button" aria-label="收起 Logseq 原文" onClick={close}>×</button></div></header>
-      {more ? <div className="lq-source-menu"><button type="button" onClick={() => { void refresh(sessionId); setMore(false); }}>刷新原文</button><button type="button" onClick={() => { ctx.sidebarRight.openTab('logseq-files'); setMore(false); }}>工作文件</button>{row.status?.bound ? <button type="button" disabled={row.busy} onClick={async () => {
+    return <section className="lq-source" aria-label="关联的 Logseq 原文"><header><span>Logseq 阅读</span><div>{row.view ? <a href={row.view.logseqUrl} aria-label="在 Logseq 打开原文">↗</a> : null}<button type="button" aria-label="更多工作操作" onClick={() => setMore(!more)}>···</button><button type="button" aria-label="收起 Logseq 原文" onClick={close}>×</button></div></header>
+      {more ? <div className="lq-source-menu"><button type="button" onClick={() => { void refresh(sessionId); setMore(false); }}>刷新阅读</button><button type="button" onClick={() => { ctx.sidebarRight.openTab('logseq-files'); setMore(false); }}>工作文件</button>{row.view?.reading?.plans.find(plan => plan.planId === row.view.reading.activePlanId)?.canRestore ? <button type="button" disabled={row.busy} onClick={() => { void selectReading(sessionId, { planId: row.view.reading.activePlanId, restore: true }); setMore(false); }}>恢复当前读法上一版</button> : null}{row.status?.bound ? <button type="button" disabled={row.busy} onClick={async () => {
         invalidate(sessionId); update(sessionId, { busy: true });
         try { await rpc('unbind', { sessionId }); await refresh(sessionId); }
         catch (error) { update(sessionId, { error }); } finally { update(sessionId, { busy: false }); }
       }}>解除此会话关联</button> : null}</div> : null}
       {row.error ? <p className="lq-error" role="status">{errorText(row.error)}</p> : null}
-      {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2><div className="lq-body">{row.view.blocks.map(block => <div key={block.sourceId} className={`lq-block ${block.depth === 0 ? 'lq-root-block' : ''}`} style={{ paddingInlineStart: Math.min(block.depth, 6) * 8 }}><p>{block.content ?? '来源暂不可用'}</p><Quote sessionId={sessionId} inputActions={inputActions} item={{ sourceId: block.sourceId, contentVersion: block.contentVersion }} title="引用此段" /></div>)}</div>{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
+      {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2>{row.view.reading ? <><div className="lq-reading-picker"><select aria-label="当前工作读法" disabled={row.busy} value={row.view.reading.selectedPlanId ? `plan:${row.view.reading.selectedPlanId}` : `mode:${row.view.reading.mode ?? 'report'}`} onChange={event => {
+        const value = event.target.value; void selectReading(sessionId, value.startsWith('mode:') ? { mode: value.slice(5) } : { planId: value.slice(5) });
+      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><p className="lq-reading-version">{row.view.reading.activePlanId ? `读法 v${row.view.reading.plans.find(plan => plan.planId === row.view.reading.activePlanId)?.revision ?? 1} · 与 Logseq 同步` : '与 Logseq 同步'}{row.view.reading.persistenceError ? ' · 本机保存失败' : ''}</p></> : <p className="lq-muted">在 Logseq 打开此工作后，可同步读法。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
     </section>;
   }
   function Overlay(props) {

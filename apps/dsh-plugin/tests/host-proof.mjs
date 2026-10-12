@@ -82,6 +82,16 @@ try {
   for (let i = 0; i < 500 && !form.textContent.includes("\u73B0\u573A\u5DF2\u6838\u9A8C\u5E76\u4FDD\u5B58"); i++) await delay(10);
   assert.match(form.textContent, /现场已核验并保存/);
   if (process.env.DSH_UI_PROOF === '1') {
+    const invitation=await api.reading.request({schemaVersion:1,purpose:'双端讨论对照'});
+    assert.ok(invitation.ok);const source=invitation.value.source,ids=source.blocks.map(block=>block.sourceId);
+    const uiPlan={schemaVersion:1,requestId:invitation.value.requestId,planId:'shared-discussion',name:'讨论对照',scope:source.scope,
+      structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion,
+      sourceVersions:source.blocks.map(block=>({sourceId:block.sourceId,contentVersion:block.contentVersion})),layout:[
+        {kind:'paragraphs',key:'background',sourceIds:ids.slice(0,1)},
+        {kind:'comparison',key:'discussion',title:'讨论对照',columns:[
+          {key:'proposal',title:'方案',children:[{kind:'paragraphs',key:'proposal-body',sourceIds:ids.slice(1,2)}]},
+          {key:'questions',title:'待解决问题',children:[{kind:'paragraphs',key:'questions-body',sourceIds:ids.slice(2)}]}]}]};
+    assert.ok((await api.reading.submit(uiPlan)).ok);
     console.log(JSON.stringify({ directory, state }));
     await new Promise(resolve => process.once('SIGTERM', resolve));
   } else {
@@ -149,6 +159,23 @@ try {
   const foreign = await execute('logseq_reading_submit', { plan }, { id: 'other-session', session: { id: 'other-session' }, ctx });
   assert.equal(foreign.isError, true); assert.match(JSON.stringify(foreign), /READING_REQUEST_NOT_OWNED/);
   const accepted = await value('logseq_reading_submit', { plan }); assert.equal(accepted.value.status, 'selected');
+  const named = await rpc('read', { sessionId: 'proof-session' });
+  assert.equal(named.reading.activePlanId, plan.planId);
+  assert.equal(named.reading.document[0].kind, 'paragraphs');
+  await rpc('select', { sessionId: 'other-session', planId: plan.planId });
+  assert.equal((await value('logseq_reading_list')).activePlanId, plan.planId);
+  const editRequest = await value('logseq_reading_request', { purpose: '调整当前命名读法' });
+  const edited = { ...plan, requestId: editRequest.value.requestId, name: '调整后的读法' };
+  await rpc('select', { sessionId: 'other-session', mode: 'structure' });
+  const saved = await value('logseq_reading_submit', { plan: edited });
+  assert.equal(saved.value.status, 'saved');
+  assert.equal((await rpc('read', { sessionId: 'proof-session' })).reading.mode, 'structure');
+  const selected = await rpc('select', { sessionId: 'other-session', planId: plan.planId });
+  assert.equal(selected.reading.plans[0].revision, 2);
+  const restored = await rpc('select', { sessionId: 'other-session', planId: plan.planId, restore: true });
+  assert.equal(restored.reading.activePlan.name, plan.name);
+  assert.equal(restored.reading.plans[0].revision, 3);
+  checks.push({check:'Two authenticated sessions share selection, named updates retain identity, navigation survives late submission, previous view restores',ok:true});
   assert.equal(f.counts().writes, before.writes);
   checks.push({ check: 'Native reading plan is rendered by Logseq, session ownership holds, original text unchanged', ok: true });
   for (const name of ["dsh-llm", "dsh-session", "dsh-session-projection", "dsh-agent", "dsh-agent-loop"]) {
