@@ -24,7 +24,7 @@ export const workspaceCommands = {
     "sessions.list": [], "sessions.add": ["platform", "externalId", "url", "description"], "sessions.remove": ["platform", "externalId"],
     "focus.request": ["question"], "focus.source": [], "focus.apply": ["plan"],
     "focus.read": [], "focus.cancel": [], "focus.exit": [], "focus.back": [],
-    "reading.request": ["purpose"], "reading.read": [], "reading.submit": ["plan"],
+    "reading.request": ["purpose"], "reading.read": [], "reading.view": [], "reading.submit": ["plan"],
     "reading.select": ["planId"], "reading.restore": ["planId"], "reading.mode": ["mode"], "reading.original": [], "reading.cancel": ["requestId"],
     "reading.highlight": ["input"], "reading.clear": [],
     "content.read": [], "content.apply": ["patch"], "content.result": ["requestId"],

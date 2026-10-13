@@ -228,6 +228,7 @@ export class AgentWorkspaceRouter {
             if(!state.scope||!sameWorkScope(state.scope,binding.scope))throw new WorkspaceError("VIEW_SCOPE_MISMATCH");
             const generation=this.generation,owner=JSON.stringify([call.instanceId,call.connectionId,call.clientId]);
             const checked=async()=>{await check();if(generation!==this.generation)throw new WorkspaceError("CONNECTION_REVOKED");};
+            if(command==="reading.view") {const result=await work.readingAPI.view();await checked();if(!result.ok)throw new WorkspaceError("READING_UNAVAILABLE",result.reason);return result.value;}
             if(command==="reading.read") {const result=await work.readingAPI.refresh();await checked();if(!result.ok)throw new WorkspaceError("READING_UNAVAILABLE",result.reason);return result.value;}
             if(command==="reading.request") {
                 const result=await work.readingAPI.request({schemaVersion:1,purpose:workText(payload.purpose,240)});

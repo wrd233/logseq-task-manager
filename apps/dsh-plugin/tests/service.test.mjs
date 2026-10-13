@@ -52,7 +52,8 @@ test('file opening rechecks authority and refuses arbitrary paths, symlinks and 
     const f = fixture(root); await f.service.bind('one', root);
     const view = await f.service.view('one'); assert.equal(view.blocks[0].content, 'A saved original paragraph'); assert.match(view.logseqUrl, /graph\/Lab\?/);
     await f.service.open('one', 'file:proposal.md', false); assert.deepEqual(f.opened, [join(root, 'proposal.md')]);
-    await assert.rejects(f.service.open('one', 'file:../../secret', false), { code: 'FILE_UNAVAILABLE' });
+    await assert.rejects(f.service.open('one', 'file:../../secret', false), { code: 'PATH_OUTSIDE_SCOPE' });
+    f.service.opening.entries.clear();
     await rm(join(root, 'proposal.md')); await symlink('/etc/hosts', join(root, 'proposal.md'));
     await assert.rejects(f.service.open('one', 'file:proposal.md', false), { code: 'SYMLINK_RESTRICTED' });
     assert.equal(f.opened.length, 1);
@@ -80,14 +81,47 @@ test('external materials are resolved only from current Logseq material identiti
   try {
     await mkdir(join(root, 'work')); await writeFile(join(root, 'linked.docx'), 'synthetic');
     const f = fixture(join(root, 'work')), original = f.packet;
-    f.service.transport.call = async (_entry, command) => {
+    f.service.transport.call = async (_entry, command, payload) => {
       if (command === 'collaboration.read') { const packet = original(); packet.scene.materials = [{ id: 'linked', filename: 'linked.docx', path: join(root, 'linked.docx'), availability: 'available', version: 'v1' }]; return packet; }
+      if(command==='materials.read'){if(payload.id!=='linked')throw Object.assign(Error('outside'),{code:'MATERIAL_OUTSIDE_SCOPE'});return {id:'linked',path:join(root,'linked.docx'),availability:'available'};}
       if (command === 'files.list') return { observation: { files: [], truncated: [] } };
       return {};
     };
     await f.service.bind('one', join(root, 'work'));
     const view = await f.service.view('one'); assert.equal(view.files[0].key, 'material:linked');
     await f.service.open('one', 'material:linked', false); assert.equal(f.opened[0], join(root, 'linked.docx'));
-    await assert.rejects(f.service.open('one', 'material:unrelated', false), { code: 'FILE_UNAVAILABLE' });
+    await assert.rejects(f.service.open('one', 'material:unrelated', false), { code: 'MATERIAL_OUTSIDE_SCOPE' });
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('opening a local file skips source, reading and directory scans and coalesces repeated clicks',async()=>{
+  const root=await realpath(await mkdtemp(join(tmpdir(),'dsh-fast-open-')));
+  try{
+    await writeFile(join(root,'proposal.md'),'hello');
+    const f=fixture(root);await f.service.bind('one',root);
+    const calls=[],original=f.service.transport.call;
+    f.service.transport.call=async(...args)=>{calls.push(args[1]);return original(...args);};
+    let release;const gate=new Promise(resolve=>{release=resolve;});
+    f.service.openPath=async path=>{f.opened.push(path);await gate;return {opened:true};};
+    const clicks=Array.from({length:20},()=>f.service.open('one','file:proposal.md',false));
+    await new Promise(resolve=>setImmediate(resolve));
+    release();await Promise.all(clicks);
+    assert.equal(f.opened.length,1);assert.deepEqual(calls,['status']);
+    await f.service.open('one','file:proposal.md',false);assert.equal(f.opened.length,1,'rapid repeats after launcher returns cannot create extra windows');
+    await f.service.open('one','file:proposal.md',true);assert.equal(f.opened.length,2,'reveal is a distinct explicit action');
+    f.service.opening.entries.clear();f.offline();
+    await assert.rejects(f.service.open('one','file:proposal.md',false),{code:'WORKSPACE_OFFLINE'});
+    assert.equal(f.opened.length,2);
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test('source arrives without scanning files; file catalog is a separate read',async()=>{
+  const f=fixture('/work');await f.service.bind('one','/work');
+  const calls=[];f.service.transport.call=async(_entry,command)=>{
+    calls.push(command);
+    if(command==='reading.view')return {source:f.packet().scene.savedSource,reading:{mode:'report',plans:[],document:null}};
+    if(command==='files.list')return {observation:{files:[{path:'notes.md',kind:'file',availability:'available'}],truncated:[]},materials:[{id:'linked',path:'/outside/linked.pdf',availability:'available'}]};
+    throw Error(`unexpected ${command}`);
+  };
+  const source=await f.service.sourceView('one');assert.equal(source.blocks.length,1);assert.deepEqual(calls,['reading.view']);assert.deepEqual(source.files,[]);
+  const files=await f.service.files('one');assert.equal(files.files.length,2);assert.deepEqual(calls,['reading.view','files.list']);
 });

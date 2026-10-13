@@ -43,6 +43,7 @@ export async function privateDescriptor(path: string): Promise<WorkspaceDescript
     return parseWorkspaceDescriptor(JSON.parse(await readFile(path, "utf8"))) as WorkspaceDescriptor;
 }
 export async function workspaceEntry(directory: string): Promise<{
+    entryFile: string;
     directory: string;
     instanceId: string;
     connectionId: string;
@@ -79,7 +80,7 @@ export async function workspaceEntry(directory: string): Promise<{
             const entry = await lstat(join(current, entryFile));
             if (!entry.isFile() || entry.isSymbolicLink())
                 throw new WorkspaceError("WORKSPACE_ENTRY_INVALID");
-            return { directory: current, instanceId: workText(raw.instanceId), connectionId: workText(raw.connectionId), binding };
+            return { entryFile, directory: current, instanceId: workText(raw.instanceId), connectionId: workText(raw.connectionId), binding };
         }
         catch (error) {
             if ((error as {

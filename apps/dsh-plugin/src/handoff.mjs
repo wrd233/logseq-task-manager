@@ -27,7 +27,7 @@ export class DshHandoffs {
       }
     }
     if(!sessionId){const created=await this.createSession({cwd:entry.binding.directory,title:request.title});sessionId=created.sessionId;await this.renameSession({sessionId,title:request.title});}
-    await service.bind(sessionId,entry.binding.directory,signal);
+    await service.bind(sessionId,entry.binding.directory,signal,entry);
     await atomicJson(handoffPath(state,ticket),{...request,sessionId});
     await service.command(sessionId,'sessions.add',{platform:'dsh',externalId:sessionId,description:request.title},signal);
     return {sessionId,title:request.title,conflict:false};

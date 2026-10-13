@@ -34,7 +34,8 @@ export async function apply(ctx, config = {}) {
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },
-    read: async (input, signal) => { const value = request(input, ['sessionId']); return service.view(value.sessionId, signal); },
+    read: async (input, signal) => { const value = request(input, ['sessionId']); return service.sourceView(value.sessionId, signal); },
+    files: async (input, signal) => { const value=request(input,['sessionId']);return service.files(value.sessionId,signal); },
     select: async (input, signal) => {
       const value = request(input, ['sessionId', 'mode', 'planId', 'restore']);
       if (value.mode !== undefined && value.mode !== 'report' && value.mode !== 'structure') throw Error('INVALID_READING_MODE');

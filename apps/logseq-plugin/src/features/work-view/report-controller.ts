@@ -85,7 +85,7 @@ export class WorkViewReport {
       if(this.host.visible())this.host.renderer.restore(bookmark,[],false);
       return {ok:true as const,value:null};
     },
-    read:()=>this.plans.api.read(),refresh:()=>this.plans.api.refresh(),restore:(id:unknown)=>this.plans.api.restore(id),request:(input:unknown)=>this.plans.api.request(input),
+    read:()=>this.plans.api.read(),refresh:()=>this.plans.api.refresh(),view:()=>this.plans.api.view(),restore:(id:unknown)=>this.plans.api.restore(id),request:(input:unknown)=>this.plans.api.request(input),
     submit:async(input:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.submit(input);
       if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}

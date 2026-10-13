@@ -147,7 +147,8 @@ try {
   const scene = await value('logseq_work_read');
   assert.equal(scene.savedSource.length, 3); assert.equal(scene.nativeDraft.included, false);
   const view = await rpc('read', { sessionId: 'proof-session' });
-  assert.equal(view.blocks.length, 3); assert.ok(view.files.some(file => file.name === 'proposal.md'));
+  assert.equal(view.blocks.length, 3); assert.deepEqual(view.files,[]);
+  const catalog=await rpc('files',{sessionId:'proof-session'});assert.ok(catalog.files.some(file=>file.name==='proposal.md'));
   assert.equal((await rpc('open', { sessionId: 'proof-session', key: 'file:proposal.md', reveal: false })).opened, true);
   const file = await value('logseq_file_read', { path: 'proposal.md' }); assert.match(file.content, /A real file/);
   checks.push({ check: 'Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter', ok: true });

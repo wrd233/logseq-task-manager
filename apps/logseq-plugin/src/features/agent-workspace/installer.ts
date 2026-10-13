@@ -309,8 +309,10 @@ export function installAgentWorkspace(options: {
                 throw new WorkspaceError("CONNECTION_REVOKED", "当前工作已改变，请从这份工作的 DSH 协作入口重试。");
         };
         if (!options.ensureDshWork) throw new WorkspaceError("MATERIALS_UNAVAILABLE");
-        await options.ensureDshWork(scope, check); await check();
-        if (!connection || !sameWorkScope(connection.binding.scope, scope)) await allow(scope, false, true, true);
+        if (!connection || !sameWorkScope(connection.binding.scope, scope)) {
+            await options.ensureDshWork(scope, check); await check();
+            await allow(scope, false, true, true);
+        }
         const value = connection; if (!value) throw new WorkspaceError("CHANNEL_UNAVAILABLE");
         await valid(value); await check();
         const source = scope.kind === "page" ? null : await logseq.Editor.getBlock(scope.rootUuid);

@@ -140,3 +140,14 @@ test("updates keep one named view, preserve intervening navigation, restore prio
   assert.deepEqual(await h.controller.api.submit({...plan(h.source,earlier.requestId),name:"较早结果"}),{ok:false,reason:"reading-view-changed"});
   assert.equal(h.controller.api.read().activePlan!.name,"最新读法");
 });
+
+test("portable view couples fresh saved source and its verified reading without a second source read",async()=>{
+  const h=await harness(),request=await invitation(h);await h.controller.api.submit(plan(h.source,request.requestId));
+  let reads=0;h.read=async()=>{reads++;return {ok:true,value:h.source};};
+  const result=await h.controller.api.view();assert.equal(result.ok,true);if(!result.ok)return;
+  assert.equal(reads,1);assert.equal(result.value.source.sourceSetVersion,result.value.reading.sourceSetVersion);
+  assert.deepEqual(result.value.reading.document?.[0]?.sourceIds,h.source.blocks.map(b=>b.sourceId));
+  result.value.source.blocks[0]!.content="caller mutation";
+  const next=await h.controller.api.view();assert.equal(next.ok,true);if(next.ok)assert.notEqual(next.value.source.blocks[0]!.content,"caller mutation");
+  h.read=async()=>({ok:false,reason:"source-unavailable"});assert.deepEqual(await h.controller.api.view(),{ok:false,reason:"source-unavailable"});
+});

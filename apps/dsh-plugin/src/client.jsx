@@ -1,4 +1,5 @@
-/* global window, document, AbortController, setInterval, clearInterval, URLSearchParams */
+import { SingleFlight } from './single-flight.mjs';
+/* global window, document, AbortController, setInterval, clearInterval, setTimeout, clearTimeout, URLSearchParams */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
@@ -21,7 +22,7 @@ export function apply(ctx) {
   const emit = () => { for (const listener of listeners) listener(); };
   const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
   const get = sessionId => rows.get(sessionId) ?? empty;
-  const empty = Object.freeze({ status: null, view: null, error: null, busy: false, revision: 0 });
+  const empty = Object.freeze({ status: null, view: null, files: [], fileTruncation: [], filesLoaded:false, error: null, busy: false, opening: [], revision: 0 });
   const update = (sessionId, patch) => { rows.set(sessionId, { ...get(sessionId), ...patch }); emit(); };
   const rpc = async (method, payload, signal) => {
     const answer = await ctx.connection.rpc.call('/api', `logseq-workbench/${method}`, payload, signal);
@@ -38,7 +39,7 @@ export function apply(ctx) {
       const result=await rpc('handoff',{ticket,...(currentSessionId?{currentSessionId}:{}),replace,fresh},controller.signal);
       if(disposed||controller.signal.aborted)return;
       if(result.conflict){handoff={ticket,busy:false,conflict:true,title:result.title};emit();return;}
-      await ctx.sessions.refresh(); if(disposed||controller.signal.aborted)return;
+      await ctx.sessions.refresh();if(disposed||controller.signal.aborted)return;
       ctx.uiWorkspace.openSession(result.sessionId);show(result.sessionId,true);
       const hash=new URLSearchParams(window.location.hash.slice(1));hash.delete('logseq-work');
       window.history.replaceState(window.history.state,'',window.location.pathname+window.location.search+(hash.size?`#${hash}`:''));
@@ -50,39 +51,57 @@ export function apply(ctx) {
     if(ticket && ticket!==handoff?.ticket){handoff={ticket,busy:true};emit();void enterHandoff();}
   }
   const pending = new Map();
-  async function refresh(sessionId) {
-    if (disposed || pending.has(sessionId)) return pending.get(sessionId)?.promise;
+  async function refresh(sessionId, kind = 'source') {
+    const key = `${sessionId}:${kind}`;
+    if (disposed || pending.has(key)) return pending.get(key)?.promise;
     const controller = new AbortController(), revision = get(sessionId).revision;
     const promise = (async () => {
       try {
-        const status = await rpc('status', { sessionId }, controller.signal);
-        const view = status.bound ? await rpc('read', { sessionId }, controller.signal) : null;
-        if (!disposed && get(sessionId).revision === revision) update(sessionId, { status, view, error: null, ...(!status.bound ? { notice: null } : {}) });
-      } catch (error) {
-        if (!controller.signal.aborted && !disposed && get(sessionId).revision === revision) update(sessionId, { view: null, error });
-      } finally { if (pending.get(sessionId)?.controller === controller) pending.delete(sessionId); }
+        let status=get(sessionId).status;
+        if(!status){status=await rpc('status',{sessionId},controller.signal);if(get(sessionId).revision!==revision)return;update(sessionId,{status});}
+        const value=status.bound?await rpc(kind==='files'?'files':'read',{sessionId},controller.signal):null;
+        if(!disposed && get(sessionId).revision===revision)update(sessionId,kind==='files'
+          ? {files:value?.files??[],fileTruncation:value?.fileTruncation??[],filesLoaded:true,fileError:null}
+          : {view:value,error:null,...(!status.bound?{notice:null}:{})});
+      }catch(error){
+        // Keep the last successful content visible while it updates; it is not Agent authority.
+        if(!controller.signal.aborted&&!disposed&&get(sessionId).revision===revision)update(sessionId,kind==='files'?{fileError:error}:{error});
+      }finally{if(pending.get(key)?.controller===controller)pending.delete(key);}
     })();
-    pending.set(sessionId, { promise, controller }); return promise;
+    pending.set(key,{promise,controller});return promise;
+  }
+  function cancelReads(sessionId) {
+    for(const [key,request] of pending)if(key.startsWith(`${sessionId}:`)){request.controller.abort();pending.delete(key);}
   }
   function invalidate(sessionId) {
-    pending.get(sessionId)?.controller.abort(); pending.delete(sessionId);
-    update(sessionId, { revision: get(sessionId).revision + 1, view: null, error: null, notice: null });
+    cancelReads(sessionId);
+    update(sessionId,{revision:get(sessionId).revision+1,status:null,view:null,files:[],filesLoaded:false,opening:[],fileError:null,error:null,notice:null});
   }
-  function useRow(sessionId, active = false) {
-    const row = useSyncExternalStore(subscribe, () => get(sessionId), () => empty);
-    useEffect(() => {
-      if (!active) return;
-      void refresh(sessionId);
-      const timer = setInterval(() => { void refresh(sessionId); }, 2000);
-      return () => clearInterval(timer);
-    }, [sessionId, active]);
+  function useRow(sessionId, active = false, kind = 'source') {
+    const row=useSyncExternalStore(subscribe,()=>get(sessionId),()=>empty);
+    useEffect(()=>{
+      if(!active)return;
+      const reread=()=>{if(document.visibilityState!=='hidden')void refresh(sessionId,kind);};
+      // Give the initial source request the first turn; a directory scan cannot delay first paint.
+      const first=setTimeout(reread,kind==='files'?150:0);
+      const timer=setInterval(reread,kind==='files'?15000:5000);
+      window.addEventListener('focus',reread);
+      return ()=>{clearTimeout(first);clearInterval(timer);window.removeEventListener('focus',reread);};
+    },[sessionId,active,kind]);
     return row;
   }
   function show(sessionId,files=false) { overlay = { sessionId, files }; emit(); void refresh(sessionId); }
   function close() { overlay = null; emit(); }
-  async function openFile(sessionId, key, reveal = false) {
-    try { await rpc('open', { sessionId, key, reveal }); update(sessionId, { notice: reveal ? '已在访达显示。' : '已交给系统打开。', error: null }); }
-    catch (error) { update(sessionId, { error, notice: null }); }
+  const fileActions=new SingleFlight(1200);
+  function openFile(sessionId,key,reveal=false) {
+    const action=JSON.stringify([sessionId,get(sessionId).revision,key,reveal]);
+    const revision=get(sessionId).revision;
+    return fileActions.run(action,async()=>{
+      update(sessionId,{opening:[...get(sessionId).opening,key],fileError:null,notice:null});
+      try{await rpc('open',{sessionId,key,reveal});if(get(sessionId).revision===revision)update(sessionId,{notice:reveal?'已在访达显示。':'已交给系统打开。'});}
+      catch(error){if(get(sessionId).revision===revision)update(sessionId,{fileError:error,notice:null});}
+      finally{if(get(sessionId).revision===revision)update(sessionId,{opening:get(sessionId).opening.filter(value=>value!==key)});}
+    });
   }
   function Quote({ sessionId, inputActions, item, title = '引用到对话' }) {
     return <button type="button" className="lq-link" onClick={() => {
@@ -116,9 +135,9 @@ export function apply(ctx) {
     }}><label htmlFor={`lq-directory-${sessionId}`}>Logseq 工作目录</label><input id={`lq-directory-${sessionId}`} value={directory} onChange={event => setDirectory(event.target.value)} placeholder={row.status?.cwd ?? '/工作目录'} disabled={row.busy} /><button type="submit" disabled={row.busy}>关联当前会话</button><p>使用已在 Logseq 允许连接的工作目录。</p></form>;
   }
   async function selectReading(sessionId, selection) {
-    pending.get(sessionId)?.controller.abort(); pending.delete(sessionId);
+    cancelReads(sessionId);
     const revision = get(sessionId).revision + 1;
-    update(sessionId, { revision, busy: true, error: null });
+    update(sessionId, { revision, busy: true, opening: [], error: null });
     try {
       const view = await rpc('select', { sessionId, ...selection });
       if (get(sessionId).revision === revision) update(sessionId, { view });
@@ -126,15 +145,24 @@ export function apply(ctx) {
     finally { if (get(sessionId).revision === revision) update(sessionId, { busy: false }); }
   }
   function ReadingBody({ sessionId, inputActions, view }) {
+    const [selection,setSelection]=useState(null);
+    useEffect(()=>setSelection(null),[view.version]);
+    const selectedText=()=>{
+      const selected=window.getSelection();
+      const element=selected?.anchorNode?.parentElement?.closest('[data-source-id]');
+      const end=selected?.focusNode?.parentElement?.closest('[data-source-id]');
+      const text=selected?.toString().trim();
+      setSelection(text&&element===end?{text:text.slice(0,4000),sourceId:element?.dataset.sourceId}:null);
+    };
     const blocks = new Map(view.blocks.map(block => [block.sourceId, block]));
-    const reading = view.reading;
+    const reading = view.reading, files=get(sessionId).files;
     const block = (id, context = false) => {
       const value = blocks.get(id); if (!value) return null;
       const projection = reportProjection(value.content ?? '来源暂不可用');
       return <div key={id} className="lq-block" data-source-id={id} style={!reading?.document && reading?.mode === 'structure' ? { marginInlineStart: Math.min(value.depth, 6) * 10 } : undefined}>
         {projection.label || projection.task ? <span className="lq-marker">{[projection.task, projection.label].filter(Boolean).join(' · ')}</span> : null}
         <div className="lq-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(projection.markdown) }} />
-        {!context ? <Quote sessionId={sessionId} inputActions={inputActions} item={{ sourceId: id, contentVersion: value.contentVersion }} title="引用此段" /> : null}
+        {!context ? <span className="lq-block-action"><Quote sessionId={sessionId} inputActions={inputActions} item={{ sourceId: id, contentVersion: value.contentVersion }} title="引用" /></span> : null}
       </div>;
     };
     const context = ids => ids?.length ? <aside className="lq-reading-context"><span>来源上下文</span>{ids.map(id => block(id, true))}</aside> : null;
@@ -142,9 +170,9 @@ export function apply(ctx) {
       {value.title ? <h3>{value.title}</h3> : null}{context(value.contextSourceIds)}
       {value.sourceIds?.map(id => block(id))}{value.children?.map(unit)}
       {value.columns?.map(column => <section key={column.key} className="lq-reading-unit"><h3>{column.title}</h3>{context(column.contextSourceIds)}{column.children.map(unit)}</section>)}
-      {value.materialId ? <button type="button" className="lq-reading-material" onClick={() => { void openFile(sessionId, view.files.find(file => file.materialId === value.materialId)?.key ?? `material:${value.materialId}`); }}>{view.files.find(file => file.materialId === value.materialId)?.name ?? '关联材料暂不可读'}</button> : null}
+      {value.materialId ? <button type="button" className="lq-reading-material" onClick={() => { void openFile(sessionId, files.find(file => file.materialId === value.materialId)?.key ?? `material:${value.materialId}`); }}>{files.find(file => file.materialId === value.materialId)?.name ?? '打开关联材料'}</button> : null}
     </section>;
-    return <div className={`lq-body ${reading?.mode === 'structure' ? 'lq-structure' : ''}`}>{reading?.document ? reading.document.map(unit) : view.blocks.map(value => block(value.sourceId))}</div>;
+    return <div onMouseUp={selectedText} onKeyUp={selectedText} className={`lq-body ${reading?.mode === 'structure' ? 'lq-structure' : ''}`}>{selection?<div className="lq-selection-action"><Quote sessionId={sessionId} inputActions={inputActions} item={{sourceId:selection.sourceId,contentVersion:blocks.get(selection.sourceId)?.contentVersion,selectedText:selection.text}} title="引用选中文字" /></div>:null}{reading?.document ? reading.document.map(unit) : view.blocks.map(value => block(value.sourceId))}</div>;
   }
   function WorkPanel({ sessionId, inputActions }) {
     const row = useRow(sessionId, true), [more, setMore] = useState(false);
@@ -157,7 +185,7 @@ export function apply(ctx) {
       {row.error ? <p className="lq-error" role="status">{errorText(row.error)}</p> : null}
       {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2>{row.view.reading ? <><div className="lq-reading-picker"><select aria-label="当前工作读法" disabled={row.busy} value={row.view.reading.selectedPlanId ? `plan:${row.view.reading.selectedPlanId}` : `mode:${row.view.reading.mode ?? 'report'}`} onChange={event => {
         const value = event.target.value; void selectReading(sessionId, value.startsWith('mode:') ? { mode: value.slice(5) } : { planId: value.slice(5) });
-      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><p className="lq-reading-version">{row.view.reading.activePlanId ? `读法 v${row.view.reading.plans.find(plan => plan.planId === row.view.reading.activePlanId)?.revision ?? 1} · 与 Logseq 同步` : '与 Logseq 同步'}{row.view.reading.persistenceError ? ' · 本机保存失败' : ''}</p></> : <p className="lq-muted">在 Logseq 打开此工作后，可同步读法。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
+      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><span className="lq-reading-version" title={row.error?"暂时离线，显示上次读取内容":row.view.reading.persistenceError?"读法同步保存失败":`与 Logseq 同步${row.view.reading.activePlanId?" · 读法 v"+(row.view.reading.plans.find(plan=>plan.planId===row.view.reading.activePlanId)?.revision??1):""}`}>{row.error?'离线':row.view.reading.persistenceError?'未保存':'同步'}</span></> : <p className="lq-muted">在 Logseq 打开此工作后，可同步读法。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
     </section>;
   }
   function Overlay(props) {
@@ -196,16 +224,16 @@ export function apply(ctx) {
   }
   function Files(props) {
     const tab = props.useTabInfo();
-    const row = useRow(props.sessionId, tab.tab.visible), [menu, setMenu] = useState(null);
-    useEffect(() => tab.tab.actions.bindCommands({ refresh: () => { void refresh(props.sessionId); } }), [props.sessionId, tab.tab.actions]);
+    const row = useRow(props.sessionId, tab.tab.visible, 'files'), [menu, setMenu] = useState(null);
+    useEffect(() => tab.tab.actions.bindCommands({ refresh: () => { void refresh(props.sessionId,'files'); } }), [props.sessionId, tab.tab.actions]);
     useEffect(() => { setMenu(null); }, [props.sessionId]);
     let previous = '';
-    return <section className="lq-files" aria-label="Logseq 工作文件"><div className="lq-file-title"><span>{row.view?.title ?? 'Logseq 工作文件'}</span><button type="button" aria-label="打开工作目录" onClick={() => { void openFile(props.sessionId, 'directory'); }}>↗</button></div>
-      {row.error ? <p className="lq-error" role="status">{errorText(row.error)}</p> : null}
+    return <section className="lq-files" aria-label="Logseq 工作文件"><div className="lq-file-title"><span>{row.view?.title ?? 'Logseq 工作文件'}</span><button type="button" aria-label="打开工作目录" onClick={() => { void openFile(props.sessionId, 'directory'); }} disabled={row.opening.includes('directory')}>↗</button></div>
+      {row.fileError ? <p className="lq-error" role="status">{errorText(row.fileError)}</p> : null}
       {row.status && !row.status.bound ? <button type="button" className="lq-link" onClick={() => show(props.sessionId)}>关联 Logseq 工作</button> : null}
       {row.notice ? <p className="lq-muted" role="status">{row.notice}</p> : null}
-      {row.view?.files.map(file => { const group = previous !== file.group ? <h3>{file.group}</h3> : null; previous = file.group; return <React.Fragment key={file.key}>{group}<div className="lq-file-row"><button type="button" className="lq-file-open" title={file.relativePath} disabled={file.availability !== 'available'} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}><span aria-hidden="true">▤</span><span>{file.name}</span></button><button type="button" className="lq-more" aria-label={`${file.name}的更多操作`} aria-expanded={menu === file.key} onClick={() => setMenu(menu === file.key ? null : file.key)}>···</button></div>{menu === file.key ? <div className="lq-file-menu"><button type="button" onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}>外部打开</button><button type="button" onClick={() => { setMenu(null); void openFile(props.sessionId, file.key, true); }}>在访达显示</button><Quote sessionId={props.sessionId} inputActions={props.inputActions} item={{ file: file.key, path: file.relativePath, materialId: file.materialId, version: file.version }} /></div> : null}</React.Fragment>; })}
-      {row.view && !row.view.files.length ? <p className="lq-muted">此工作暂无文件。</p> : null}{row.view?.fileTruncation.length ? <p className="lq-muted">文件扫描达到范围限制，部分目录未列出。</p> : null}
+      {row.files.map(file => { const group = previous !== file.group ? <h3>{file.group}</h3> : null; previous = file.group; return <React.Fragment key={file.key}>{group}<div className="lq-file-row"><button type="button" className="lq-file-open" title={file.relativePath} disabled={file.availability !== 'available'||row.opening.includes(file.key)} aria-busy={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}><span aria-hidden="true">▤</span><span>{file.name}</span>{row.opening.includes(file.key)?<small className="lq-opening" role="status">正在打开…</small>:null}</button><button type="button" className="lq-more" aria-label={`${file.name}的更多操作`} aria-expanded={menu === file.key} onClick={() => setMenu(menu === file.key ? null : file.key)}>···</button></div>{menu === file.key ? <div className="lq-file-menu"><button type="button" disabled={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}>外部打开</button><button type="button" disabled={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key, true); }}>在访达显示</button><Quote sessionId={props.sessionId} inputActions={props.inputActions} item={{ file: file.key, path: file.relativePath, materialId: file.materialId, version: file.version }} /></div> : null}</React.Fragment>; })}
+      {!row.filesLoaded&&!row.fileError?<p className="lq-muted">正在读取文件列表…</p>:null}{row.filesLoaded && !row.files.length ? <p className="lq-muted">此工作暂无文件。</p> : null}{row.fileTruncation.length ? <p className="lq-muted">文件扫描达到范围限制，部分目录未列出。</p> : null}
     </section>;
   }
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/dsh-logseq-workbench', kind: 'logseq-files', title: () => '工作文件', priority: 'extension', guide: [{ id: 'logseq-files', order: 350, title: () => 'Logseq 工作文件' }] }));

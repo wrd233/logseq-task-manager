@@ -204,7 +204,7 @@ export async function startWorkspaceServer(options: {
             if (call.command === "files.list") {
                 observations = await discoverFiles(root!, materials, observations);
                 check();
-                return { binding, observation: observations };
+                return { binding, observation: observations, materials };
             }
             const path = await scopedPath(root!, call.payload.path);
             check();

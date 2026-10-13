@@ -1,3 +1,4 @@
+import { SingleFlight } from './single-flight.mjs';
 /* global AbortSignal, fetch */
 import process from 'node:process';
 import { readFile, mkdir, lstat, realpath } from 'node:fs/promises';
@@ -120,7 +121,7 @@ export function modelContext(packet, maxChars = 24000) {
 export class WorkbenchService {
   constructor({ transport, store, inspectSession, openPath }) {
     this.transport = transport; this.store = store; this.inspectSession = inspectSession; this.openPath = openPath;
-    this.generations = new Map(); this.stopped = false;
+    this.generations = new Map(); this.stopped = false; this.opening = new SingleFlight();
   }
   check(sessionId, generation, signal) {
     signal?.throwIfAborted();
@@ -141,14 +142,14 @@ export class WorkbenchService {
     const session = await this.inspectSession(sessionId, signal);
     return { sessionId, bound: this.store.bindings.has(sessionId), binding: this.store.bindings.get(sessionId) ?? null, cwd: session.meta?.cwd ?? null };
   }
-  async bind(sessionId, directory, signal) {
+  async bind(sessionId, directory, signal, verifiedEntry) {
     const session = await this.inspectSession(workText(sessionId), signal);
     const target = directory ? workText(directory, 4096) : session.meta?.cwd;
     if (!target || !isAbsolute(target)) throw new WorkspaceError('ABSOLUTE_DIRECTORY_REQUIRED');
     const generation = (this.generations.get(sessionId) ?? 0) + 1;
     this.generations.set(sessionId, generation);
-    const entry = await this.transport.entry(target);
-    await this.transport.call(entry, 'status', {}, sessionId, signal);
+    const entry = verifiedEntry ?? await this.transport.entry(target);
+    if(!verifiedEntry)await this.transport.call(entry, 'status', {}, sessionId, signal);
     this.check(sessionId, generation, signal);
     await this.store.change(sessionId, entry.binding, () => this.check(sessionId, generation, signal));
     this.check(sessionId, generation, signal);
@@ -200,10 +201,14 @@ export class WorkbenchService {
     const result = selection.mode ? await this.command(sessionId, 'reading.mode', { mode: selection.mode }, signal)
       : await this.command(sessionId, selection.restore ? 'reading.restore' : 'reading.select', { planId: selection.planId }, signal);
     if (result?.ok === false) throw new WorkspaceError('READING_SELECTION_FAILED', result.reason);
-    return this.view(sessionId, signal);
+    return this.sourceView(sessionId, signal);
   }
   async view(sessionId, signal) {
-    const packet = await this.read(sessionId, signal), scene = packet.scene;
+    const packet = await this.read(sessionId, signal);
+    return this.projectView(sessionId, packet);
+  }
+  projectView(sessionId, packet) {
+    const scene = packet.scene;
     let chars = 0;
     const blocks = [];
     for (const block of scene.savedSource.blocks) {
@@ -212,8 +217,8 @@ export class WorkbenchService {
       blocks.push({ ...block, content: text, truncated: text !== block.content });
     }
     const reading = packet.reading;
-    let document = null;
-    if (reading?.activePlan) {
+    let document = packet.reading?.document ?? null;
+    if (reading?.activePlan && !document) {
       try { document = readingDocument(validateReadingPlan(reading.activePlan, scene.savedSource,
         new Set((scene.materials ?? []).filter(m => m.availability === 'available').map(m => m.id)))); }
       catch { /* Source changed between reads; the next refresh retries the current arrangement. */ }
@@ -225,29 +230,48 @@ export class WorkbenchService {
       files: projectFiles(packet), fileTruncation: packet.files?.observation?.truncated ?? [],
       logseqUrl: `logseq://graph/${encodeURIComponent(scene.binding.scope.graphId.split(':')[0])}?${scene.binding.scope.kind === 'page' ? 'page=' + encodeURIComponent(scene.binding.scope.pageName) : 'block-id=' + encodeURIComponent(scene.binding.scope.rootUuid)}` };
   }
-  async resolveFile(sessionId, key, signal) {
-    const packet = await this.read(sessionId, signal), binding = packet.scene.binding;
-    const file = projectFiles(packet).find(file => file.key === workText(key, 8192));
-    if (!file || file.availability !== 'available') throw new WorkspaceError('FILE_UNAVAILABLE');
-    let path;
-    if (key.startsWith('file:')) path = await scopedPath(await authorizedRoot(binding.directory), file.relativePath);
-    else {
-      // Only an exact material id in the currently authorized Logseq work may resolve an external path.
-      const material = packet.scene.materials.find(m => m.id === file.materialId);
-      if (!material || !isAbsolute(material.path)) throw new WorkspaceError('FILE_OUTSIDE_SCOPE');
-      path = resolve(material.path);
-      let component = path;
-      while (true) {
-        if ((await lstat(component)).isSymbolicLink()) throw new WorkspaceError('SYMLINK_RESTRICTED');
-        const parent = dirname(component); if (parent === component) break; component = parent;
-      }
+  async sourceView(sessionId, signal) {
+    const generation=this.generations.get(sessionId)??0,entry=await this.binding(sessionId,signal);
+    let source,reading=null;
+    try {const value=await this.transport.call(entry,'reading.view',{},sessionId,signal);source=value.source;reading=value.reading;}
+    catch(error) {
+      if(!['READING_UNAVAILABLE','VIEW_SCOPE_MISMATCH'].includes(error.code))throw error;
+      const value=await this.transport.call(entry,'refresh',{},sessionId,signal);source=value.snapshot;
     }
+    this.check(sessionId,generation,signal);
+    return this.projectView(sessionId,{scene:{binding:entry.binding,savedSource:source,sourceBundleVersion:source.sourceSetVersion,materials:[]},reading});
+  }
+  async files(sessionId,signal) {
+    const generation=this.generations.get(sessionId)??0,entry=await this.binding(sessionId,signal);
+    const result=await this.transport.call(entry,'files.list',{},sessionId,signal);
+    this.check(sessionId,generation,signal);
+    return {files:projectFiles({scene:{binding:entry.binding,entryFile:entry.entryFile,materials:result.materials??[]},files:result}),fileTruncation:result.observation?.truncated??[]};
+  }
+  async resolveFile(sessionId, key, signal) {
+    const entry=await this.binding(sessionId,signal),binding=entry.binding;
+    workText(key,8192);
+    let path;
+    if(key.startsWith('file:'))path=await scopedPath(await authorizedRoot(binding.directory),key.slice(5));
+    else if(key.startsWith('material:')) {
+      const material=await this.command(sessionId,'materials.read',{id:key.slice(9)},signal);
+      if(material.availability!=='available'||!isAbsolute(material.path))throw new WorkspaceError('FILE_UNAVAILABLE');
+      path=resolve(material.path);
+      let component=path;
+      while(true){
+        if((await lstat(component)).isSymbolicLink())throw new WorkspaceError('SYMLINK_RESTRICTED');
+        const parent=dirname(component);if(parent===component)break;component=parent;
+      }
+    }else throw new WorkspaceError('FILE_UNAVAILABLE');
     if (!(await lstat(path)).isFile()) throw new WorkspaceError('REGULAR_FILE_REQUIRED');
     const current = await this.binding(sessionId, signal);
     if (!sameBinding(current.binding, binding)) throw new WorkspaceError('BINDING_CHANGED');
-    return { path, file };
+    return { path };
   }
-  async open(sessionId, key, reveal, signal) {
+  open(sessionId, key, reveal, signal) {
+    const generation=this.generations.get(sessionId)??0;
+    return this.opening.run(JSON.stringify([sessionId,generation,key,reveal]),()=>this.openOnce(sessionId,key,reveal,signal).catch(error=>{if(error.code==='ENOENT')throw new WorkspaceError('FILE_UNAVAILABLE');throw error;}));
+  }
+  async openOnce(sessionId, key, reveal, signal) {
     const generation = this.generations.get(sessionId) ?? 0;
     const resolved = key === 'directory' ? { path: (await this.binding(sessionId, signal)).directory } : await this.resolveFile(sessionId, key, signal);
     this.check(sessionId, generation, signal);
