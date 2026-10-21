@@ -28,6 +28,13 @@ export class FileCaptureStore {
     this.root = resolve(root); this.fault = fault;
   }
   async directory(path) {
+    // Reject an existing symlink ancestor BEFORE recursive mkdir can create
+    // directories through it. The root itself is selected by the trusted host.
+    let ancestor = path;
+    for (;;) {
+      try { if (await realpath(ancestor) !== ancestor) throw Error('UNSAFE_STORAGE_PATH'); break; }
+      catch (error) { if (!missing(error)) throw error; ancestor = resolve(ancestor, '..'); }
+    }
     await mkdir(path, { recursive: true, mode: 0o700 });
     await this.checkDirectory(path);
     // fsync ancestors too: a newly-created partition must survive a host restart.

@@ -51,3 +51,5 @@ npx eslint apps/dsh-plugin/src/capture-inbox apps/dsh-plugin/tests/capture-inbox
 ```
 
 上述最新命令均退出 0；显式 JSX 浏览器预览打包成功，Capture 与 Inbox 初始焦点、双击编辑自动聚焦已复核。后续真实宿主结果由共同基线发布后补录，不能把这组模块验证升级为真实宿主证明。
+
+最后补一项根创建边界：已有祖先符号链接在 mkdir 之前拒绝，验证目标目录未被创建。该增量 Capture36 + 共享8 = **44 / 44，通过，退出 0**，局部 ESLint 与 diff 空白检查退出 0；前述 68 项指定回归对应此前修订，不冒充此增量的全链路结果。共享入口整合后须跑完整回归。

@@ -1,7 +1,7 @@
 /* global process */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, readdir, readFile, writeFile, symlink, rename } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, readdir, readFile, writeFile, symlink, rename, mkdir, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, execFile } from 'node:child_process';
@@ -151,4 +151,11 @@ test('real store plus controller recovers an unknown capture across controller r
   const record = (await store.list(unbound))[0]; restarted.edit(record.id); restarted.editText('合成数据：编辑原文'); await restarted.saveEdit();
   assert.equal((await store.list(unbound))[0].history.length, 2); assert.equal(restarted.state.edit, null);
   assert.equal(restarted.draftCandidates.size, 0); await restarted.dispose();
+});
+test('a symlink ancestor is rejected before creating the configured private root', async t => {
+  const { root } = await fixture(t), outside = join(root, 'synthetic-outside'), alias = join(root, 'synthetic-alias');
+  await mkdir(outside, { mode: 0o700 }); await symlink(outside, alias);
+  const unsafe = new FileCaptureStore(join(alias, 'must-not-be-created'));
+  assert.equal((await unsafe.execute(context, create())).status, 'unknown');
+  await assert.rejects(access(join(outside, 'must-not-be-created')), { code: 'ENOENT' });
 });
