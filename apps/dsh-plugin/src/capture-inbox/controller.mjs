@@ -54,6 +54,7 @@ export class CaptureInboxController {
       onEdit: id => this.edit(id), onEditText: value => this.editText(value), onEditSave: () => this.saveEdit(),
       onEditCancel: () => this.patch({ editOpen: false, problem: '编辑草稿已保留，再次编辑可继续。' }),
       onRestore: (id, v) => this.mutate(id, { kind: 'restore', restoreVersion: v }), onArchive: (id, archived) => this.mutate(id, { kind: 'archive', archived }),
+      onArchiveSelected: archived => this.archiveSelected(archived),
       onQuote: () => this.quote(), onRetryQuote: () => this.quote(true), onRefresh: () => this.refresh(),
       onRecoverDraft: () => this.recoverDraft(), onRetryEdit: () => this.editAttempt ? this.runEdit(this.editAttempt) : undefined,
       onRebaseEdit: () => this.rebaseEdit(),
@@ -191,6 +192,16 @@ export class CaptureInboxController {
     const row = this.records.find(record => record.id === id); if (!row || this.stale || this.state.editStatus === 'pending') return;
     return this.runEdit({ ...operation, id, expectedVersion: row.version, requestKey: newKey() });
   }
+  async archiveSelected(archived) {
+    const ids = [...this.state.selected];
+    for (const id of ids) {
+      if (this.stale || this.editAttempt || this.state.edit) break;
+      const row = this.records.find(record => record.id === id);
+      if (!row || row.archived === archived) continue;
+      await this.mutate(id, { kind: 'archive', archived });
+      if (this.state.editStatus !== 'saved') break;
+    }
+  }
   async runEdit(command) {
     if (this.state.editStatus === 'pending' || this.stale) return;
     this.editAttempt = clone(command); this.patch({ editStatus: 'pending', problem: '' });
@@ -214,7 +225,7 @@ export class CaptureInboxController {
     await this.persist();
   }
   async quote(retry = false) {
-    if (this.state.quoteStatus === 'pending' || this.stale) return;
+    if (this.state.quoteStatus === 'pending' || (retry && this.state.quoteStatus === 'inserted') || this.stale) return;
     // Synchronous native span capture BEFORE any asynchronous operation.
     const selected = this.records.filter(row => this.state.selected.includes(row.id));
     const quote = retry ? this.state.quote : quoteRecords(selected);

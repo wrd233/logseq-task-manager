@@ -29,14 +29,14 @@ export function CaptureInboxView({ state, actions }) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault(); if (state.mode === 'capture') actions.onSave(); else if (edit) actions.onEditSave();
     }
-    if (event.key === 'Tab') {
+    if (event.key === 'Tab' && !state.pinned) {
       const nodes = [...root.current.querySelectorAll('button:not(:disabled),textarea,input,select,summary,[tabindex="0"]')].filter(node => node.getClientRects().length);
       const first = nodes[0], last = nodes.at(-1), focused = root.current.ownerDocument.activeElement;
       if (event.shiftKey && focused === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && focused === last) { event.preventDefault(); first?.focus(); }
     }
   };
-  return <section ref={root} className="tc-capture-inbox" role="dialog" aria-modal="true" aria-label={state.mode === 'capture' ? '快速记录' : 'Inbox'} onKeyDown={keyDown}>
+  return <section ref={root} className="tc-capture-inbox" role="dialog" aria-modal={!state.pinned} aria-label={state.mode === 'capture' ? '快速记录' : 'Inbox'} onKeyDown={keyDown}>
     <style>{captureInboxStyles}</style>
     <header><h2>{state.mode === 'capture' ? '快速记录' : 'Inbox'}</h2><div className="ci-tools">
       <button type="button" onClick={() => actions.onMode(state.mode === 'capture' ? 'inbox' : 'capture')}>{state.mode === 'capture' ? '回看 Inbox' : '写一条'}</button>
@@ -56,6 +56,7 @@ export function CaptureInboxView({ state, actions }) {
     </div> : <>
       <label className="ci-search">搜索全部正文与历史<input ref={search} type="search" value={state.query} onChange={event => actions.onQuery(event.target.value)} /></label>
       <div className="ci-tools"><button type="button" onClick={actions.onToday}>选择今天</button><button type="button" onClick={actions.onSelectAll}>全选当前结果</button><button type="button" onClick={actions.onClearSelection}>清空选择</button><label className="ci-check"><input type="checkbox" checked={state.includeArchived} onChange={event => actions.onIncludeArchived(event.target.checked)} />显示归档</label><button type="button" onClick={actions.onRefresh}>刷新</button></div>
+      <div className="ci-tools"><button type="button" disabled={!state.selected.length || state.editStatus === 'pending'} onClick={() => actions.onArchiveSelected(true)}>归档所选</button><button type="button" disabled={!state.selected.length || state.editStatus === 'pending'} onClick={() => actions.onArchiveSelected(false)}>撤销所选归档</button></div>
       <p className="ci-note">{state.records.length} 条 · 已选 {state.selected.length} 条{state.query ? ' · 搜索包含归档和旧正文' : ''}</p>
       <div className="ci-grid"><ul ref={list} aria-label="记录列表" onScroll={event => actions.onListScroll(event.currentTarget.scrollTop)}>{state.records.map(row => <li key={row.id}><div className="ci-row">
         <input type="checkbox" aria-label={`选择 ${row.text.slice(0, 30)}`} checked={state.selected.includes(row.id)} onChange={event => actions.onSelect(row.id, event.target.checked)} />
@@ -71,6 +72,6 @@ export function CaptureInboxView({ state, actions }) {
       {state.editStatus === 'conflict' && !state.edit && <button type="button" onClick={actions.onCancelConflictOperation}>取消冲突操作并重新核对</button>}
       <div className="ci-tools"><button className="ci-primary" type="button" disabled={!state.selected.length || state.quoteStatus === 'pending'} onClick={actions.onQuote}>带去 DSH 草稿</button><span className="ci-note">仅插入原文引用，由你决定何时发送。</span></div>
     </>}
-    {state.quote && <div className="ci-quote"><details open={state.quoteStatus !== 'inserted'}><summary>{state.quoteStatus === 'inserted' ? '引用已插入原生草稿' : '待引用原文已保留'}</summary><label>原文引用<textarea readOnly value={state.quote} /></label><button type="button" disabled={state.quoteStatus === 'pending'} onClick={actions.onRetryQuote}>在当前选区重试引用</button></details></div>}
+    {state.quote && <div className="ci-quote"><details open={state.quoteStatus !== 'inserted'}><summary>{state.quoteStatus === 'inserted' ? '引用已插入原生草稿' : '待引用原文已保留'}</summary><label>原文引用<textarea readOnly value={state.quote} /></label><button type="button" disabled={['pending', 'inserted'].includes(state.quoteStatus)} onClick={actions.onRetryQuote}>在当前选区重试引用</button></details></div>}
   </section>;
 }

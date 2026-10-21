@@ -1,5 +1,6 @@
 /* global window, document, AbortController, setInterval, clearInterval */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { installCaptureInbox } from './capture-inbox/host-client.jsx';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
 import { reportProjection } from '../../logseq-plugin/src/features/work-view/report-body.ts';
@@ -71,11 +72,12 @@ export function apply(ctx) {
       if (!inputActions.insertText(text, span)) update(sessionId, { error: { code: 'INPUT_BUSY' } });
     }}>{title}</button>;
   }
+  const CaptureEntry = installCaptureInbox(ctx, rpc);
   function Header(props) {
     const row = useRow(props.sessionId);
-    return <button type="button" className="lq-header" aria-label="查看关联的 Logseq 工作" onClick={() => {
+    return <><CaptureEntry {...props} /><button type="button" className="lq-header" aria-label="查看关联的 Logseq 工作" onClick={() => {
       show(props.sessionId); ctx.sidebarRight.openTab('logseq-files');
-    }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button>;
+    }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button></>;
   }
   function RowAction({ sessionId }) {
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
@@ -143,7 +145,7 @@ export function apply(ctx) {
     const current = useSyncExternalStore(subscribe, () => overlay, () => null);
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
     useEffect(() => { if (current && mounted && current.sessionId !== mounted) show(mounted); }, [mounted, current?.sessionId]);
-    useEffect(() => { const escape = event => { if (event.key === 'Escape') close(); }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, []);
+    useEffect(() => { const escape = event => { if (event.key === 'Escape' && !event.defaultPrevented && !event.isComposing) close(); }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, []);
     useEffect(() => {
       if (!current || !mounted || current.sessionId !== mounted) return;
       // The additive overlay has no public left-column geometry setter in DSH rc.2.

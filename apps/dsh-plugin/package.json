@@ -29,7 +29,8 @@
     "build": "node scripts/build.mjs",
     "install:dsh": "node scripts/install.mjs",
     "test": "node --import tsx --test tests/*.test.mjs",
-    "test:host": "node --import tsx tests/host-proof.mjs"
+    "test:host": "node --import tsx tests/host-proof.mjs",
+    "preview:capture": "npm run build && node scripts/preview-capture.mjs"
   },
   "license": "MIT"
 }

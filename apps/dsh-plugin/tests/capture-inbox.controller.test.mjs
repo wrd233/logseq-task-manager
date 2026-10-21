@@ -157,3 +157,26 @@ test('returning to Inbox retains selection, active record and module scroll stat
   assert.equal(controller.state.listScroll, 180); assert.equal(controller.state.detailScroll, 70);
   controller.actions.onQuery('synthetic'); assert.equal(controller.state.listScroll, 0);
 });
+
+test('bulk archive stops at unknown receipt and retries the same request before continuing', async () => {
+  const rows = [structuredClone(row), { ...structuredClone(row), id: 'second' }];
+  const commands = []; let lost = true;
+  const { controller } = await fixture({ list: async () => rows, execute: async (_c, command) => {
+    commands.push(command);
+    if (lost) return { status: 'unknown' };
+    const record = rows.find(r => r.id === command.id); record.archived = command.archived; record.version++;
+    return { status: 'saved', record };
+  } });
+  controller.actions.onSelectAll(); await controller.actions.onArchiveSelected(true);
+  assert.equal(commands.length, 1); const key = commands[0].requestKey;
+  await controller.actions.onArchiveSelected(true); assert.equal(commands.length, 1);
+  lost = false; await controller.actions.onRetryEdit(); assert.equal(commands[1].requestKey, key);
+  await controller.actions.onArchiveSelected(true); assert.equal(commands.length, 3);
+  assert.ok(rows.every(r => r.archived));
+  await controller.actions.onArchiveSelected(false); assert.ok(rows.every(r => !r.archived));
+});
+test('retry button cannot duplicate an already inserted quote', async () => {
+  const { controller, calls } = await fixture(); controller.actions.onSelectAll();
+  await controller.quote(); await controller.quote(true);
+  assert.equal(calls.filter(c => c[0] === 'insert').length, 1);
+});

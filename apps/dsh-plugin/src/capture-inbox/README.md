@@ -1,6 +1,6 @@
 # Capture / Inbox 模块
 
-输入共同基线 `f992619025f5b4d086a2e8ee1729936d488ecc89`；已普通获取 main 的 G2 方案批准 `75c8c44982e7348413c8cdd207f3eb69cb47b904` 和共享原生草稿适配 `10238baf`，controller 消费其 sameWorkUiContext，不复制公共活跃比较逻辑。**此目录提供实现模块，不注册真实宿主入口。整体 Goal 在真实宿主接线和验收前未完成。**
+输入共同基线 `f992619025f5b4d086a2e8ee1729936d488ecc89`；已普通获取 main 的 G2 方案批准 `75c8c44982e7348413c8cdd207f3eb69cb47b904` 和共享原生草稿适配 `10238baf`，controller 消费其 sameWorkUiContext，不复制公共活跃比较逻辑。**真实 DSH 入口已在本分支接线：`index.mjs` 注册认证 RPC，`client.jsx` 注册快速记录和 Inbox。最新验收与宿主限制见 [交付记录](../../../../docs/implementation/2026-10-22-capture-inbox-delivery.md)。**
 
 ## 主代理接入
 
