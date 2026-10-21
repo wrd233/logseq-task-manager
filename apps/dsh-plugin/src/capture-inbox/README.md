@@ -1,6 +1,6 @@
 # Capture / Inbox 模块
 
-输入共同基线 `f992619025f5b4d086a2e8ee1729936d488ecc89`；已普通获取 main 的 G2 方案批准 `75c8c44982e7348413c8cdd207f3eb69cb47b904`。**此目录提供实现模块，不注册真实宿主入口。整体 Goal 在真实宿主接线和验收前未完成。**
+输入共同基线 `f992619025f5b4d086a2e8ee1729936d488ecc89`；已普通获取 main 的 G2 方案批准 `75c8c44982e7348413c8cdd207f3eb69cb47b904` 和共享原生草稿适配 `10238baf`，controller 消费其 sameWorkUiContext，不复制公共活跃比较逻辑。**此目录提供实现模块，不注册真实宿主入口。整体 Goal 在真实宿主接线和验收前未完成。**
 
 ## 主代理接入
 
@@ -37,6 +37,6 @@
 
 背景点击不关闭，Escape（非 IME composition）请求保存草稿并关闭；钉住仅限 DSH 内，默认 saved 后收起，钉住后清空正文继续。双击和“编辑正文”都可编辑，取消编辑仅收起并保留草稿。今天按宿主本地日期，在当前搜索结果内选择；全文搜索包含归档与旧版本。选中项可跨过滤条件保留，界面显示总选中数。这些是可逆默认，不是新增产品定案。
 
-`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。本轮外发授权未到达时不提交 DSH；本地实现不等于 Flash 已执行。新增 onRecoverDraft/onKeepLocalDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
+`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。用户已于 2026-10-21 明确批准独立脱敏目录 `/Users/wangrundong/work/capture-inbox-flash-ui` 的 ui-input.md / view.jsx / styles.mjs 读写外发；仅该目录进入批准列表。随后通过 hub 提交 Flash 前端复核任务 `a3c60d81084a68f8d2a0facc`，尚需独立审查实际差异和验证，不能以任务成功当验收。真实仓库与 Graph 未进入外发根目录。新增 onRecoverDraft/onKeepLocalDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
 
 行为与真实文件测试：`node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`。真实文件/子进程证据与模拟 Store/port 证据在测试文件内分开标记。物理中文 IME、真实 Desktop/Logseq Graph、系统断电与跨设备均不能由这些测试推断；最终证据见后续 ACCEPTANCE.md。

@@ -33,4 +33,6 @@ G1/G2/G4：主代理核验修订后，批准私有根、可信 context/来源核
 
 ## 交回
 
-模块 PR：[Draft #1](https://github.com/wrd233/logseq-task-manager/pull/1)，在真实接线/宿主验证完成前保持 draft。主代理正在独立复审 `4870b373`，本线不自行合并 main。外部 DSH 尚未获得此最小目录的明确外发授权，未提交任务、未变更 approved_roots；独立提示词已交付 `FRONTEND-TASK.md`，前端在本机实现。
+模块 PR：[Draft #1](https://github.com/wrd233/logseq-task-manager/pull/1)，在真实接线/宿主验证完成前保持 draft。主代理正在独立复审 `4870b373`，本线不自行合并 main。已普通合并主代理发布的 `10238baf`，消费同一共享原生草稿适配器和活跃上下文比较；模块加共享适配测试 **38 / 38，退出 0**。
+
+用户最小目录外发授权于 2026-10-21 明确到达后，只批准脱敏目录 `/Users/wangrundong/work/capture-inbox-flash-ui` 的 ui-input.md / view.jsx / styles.mjs 给 DeepSeek 官方 API；实际仓库/Graph 未获批或外发。hub 任务 `a3c60d81084a68f8d2a0facc`，幂等键 `capture-inbox-ui-20261021-a01`，Flash、180秒、单 Worker，前端复核在副本进行，不与 Codex 同改仓库文件。最终状态、实际 Git diff 与 Codex 独立验证结果待后续补入。

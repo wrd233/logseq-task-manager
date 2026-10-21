@@ -6,7 +6,7 @@
 
 MaterialService.capture 依赖 graph、MaterialDirectories 与 destination(context)，MaterialStore 以材料目录为根；其 ready 不包含 Inbox 队列和追加编辑版本。直接作为无项目全局 Capture 会引入虚假归属。因此建议复用其“原文/请求指纹/读回确认”原则，使用模块私有 Node 文件存储 `FileCaptureStore`，由共同基线主代理批准并注入独立的单设备私有根目录。不能在 Graph、Journal 或任意项目文件中写入；不承诺跨设备同步。
 
-本线协议唯一位置 `protocol.ts`；文件适配器位于 DSH capture-inbox/store.mjs。每个完整 scope/binding/workObject/session 分区，generation 仅用于活跃调用保护，重连可读回原分区。无项目保存允许 scope/binding/workObject 为空；有 session 时仍隔离 session。来源块只接受真实 sourceId/target/contentVersion，材料保存既有 UUID/version/reference，sessionId 单独保留。不扫描来源文件。
+本线协议唯一位置 `protocol.ts`；文件适配器位于 DSH capture-inbox/store.mjs。每个完整 scope/binding、稳定 workObjectId、session 分区，generation 与 workObject.version 仅用于活跃调用保护，重连/对象版本递增可读回原分区。无项目保存允许 scope/binding/workObject 为空；有 session 时仍隔离 session。来源块只接受真实 sourceId/target/contentVersion，材料保存既有 UUID/version/reference，sessionId 单独保留。不扫描来源文件。
 
 不可变请求意图、不可变递增版本；同 requestKey 重试恢复原操作，同 key 变内容拒绝；CAS 发布避免两个进程覆盖同版本。每个落盘文件 fsync、发布目录 fsync、读回核对后才 saved。崩溃后重新读取/同键重试，未知结果不清输入。草稿也是 CAS 追加版本，冲突保留调用方输入。必须通过真实文件/重启测试后再批准接线；不是以 mock Store 完成 G2。
 

@@ -1,5 +1,6 @@
 /* global crypto, structuredClone */
-import { encode, partition, sameContext, checkOrigin } from './identity.mjs';
+import { encode, partition, checkOrigin } from './identity.mjs';
+import { sameWorkUiContext as sameContext } from '../../../logseq-plugin/src/workspace/copilot-ui-port.ts';
 
 /** @typedef {import('../../../logseq-plugin/src/workspace/copilot-ui-port.ts').WorkUiContext} WorkUiContext */
 /** @typedef {import('../../../logseq-plugin/src/workspace/copilot-ui-port.ts').SharedUiPort} SharedUiPort */

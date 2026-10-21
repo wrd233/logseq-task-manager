@@ -17,7 +17,6 @@ export function partition(context) {
   if (context.sessionId !== null && !identifier(context.sessionId)) throw Error('INVALID_SESSION');
   return encode({ scope: context.scope, binding: context.binding, workObjectId: context.workObject?.id ?? null, sessionId: context.sessionId });
 }
-export const sameContext = (left, right) => partition(left) === partition(right) && left.generation === right.generation && encode(left.workObject) === encode(right.workObject);
 export function checkOrigin(origin, context) {
   if (!origin || origin.sessionId !== context.sessionId) throw Error('SOURCE_SESSION_MISMATCH');
   if (Object.keys(origin).some(key => !['block', 'material', 'sessionId'].includes(key))) throw Error('INVALID_ORIGIN');
