@@ -1,0 +1,193 @@
+/* global structuredClone */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { CaptureInboxController, visibleRecords, quoteRecords } from '../src/capture-inbox/controller.mjs';
+
+// Clearly synthetic Store/host fixtures; these cannot establish native DSH behavior.
+const context = { scope: null, binding: null, workObject: null, sessionId: 'synthetic-session', generation: 1 };
+const revision = { version: 1, text: '合成数据 原始正文', at: '2026-10-21T01:00:00Z', requestKey: 'synthetic' };
+const row = { id: 'synthetic-record', original: revision.text, text: revision.text, version: 1, archived: false, createdAt: revision.at, origin: { sessionId: context.sessionId }, history: [revision] };
+const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+async function fixture(overrides = {}, portOverrides = {}) {
+  let draftVersion = 0, savedDraft = null;
+  const calls = [], commands = [];
+  const store = { list: async () => [structuredClone(row)], readDraft: async () => ({ version: draftVersion, draft: savedDraft }),
+    saveDraft: async (_context, version, draft) => { assert.equal(version, draftVersion); savedDraft = structuredClone(draft); return { status: 'saved', version: ++draftVersion }; },
+    execute: async (_context, command) => { commands.push(structuredClone(command)); return { status: 'saved', record: row }; }, ...overrides };
+  const port = { context: () => context, insertDraft: async text => { calls.push(['insert', text]); return 'inserted'; }, returnFocus: () => calls.push(['focus']), ...portOverrides };
+  const controller = new CaptureInboxController({ store, context, createPort: () => { calls.push(['capture']); return port; }, now: () => new Date('2026-10-21T05:00:00Z') });
+  await controller.open('capture', port);
+  return { controller, store, calls, commands, port, getDraft: () => savedDraft };
+}
+test('reliable save closes and returns focus; pin retains capture with empty text', async () => {
+  const { controller, calls } = await fixture(); controller.actions.onText('合成记录');
+  await controller.save(); assert.equal(controller.state.text, ''); assert.equal(controller.state.visible, false); assert.deepEqual(calls, [['focus']]);
+  await controller.open(); controller.actions.onPin(true); controller.actions.onText('another'); await controller.save();
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.text, '');
+});
+test('continued typing survives asynchronous save and uses a new request key', async () => {
+  const wait = deferred(); const { controller, getDraft } = await fixture({ execute: () => wait.promise });
+  controller.actions.onText('first'); const originalKey = controller.state.requestKey;
+  const saving = controller.save(); await controller.draftQueue;
+  controller.actions.onText('first + later typing'); wait.resolve({ status: 'saved', record: row }); await saving;
+  assert.equal(controller.state.text, 'first + later typing'); assert.notEqual(controller.state.requestKey, originalKey);
+  assert.equal(controller.state.visible, true); assert.equal(getDraft().text, 'first + later typing');
+});
+for (const status of ['unknown', 'partial', 'failed', 'conflict']) test(`${status} does not clear or close, retry keeps original command despite later typing`, async () => {
+  const commands = []; const { controller } = await fixture({ execute: async (_context, command) => { commands.push(command); return { status, problem: 'synthetic failure' }; } });
+  controller.actions.onText('first'); await controller.save(); const key = controller.captureAttempt.requestKey;
+  assert.equal(controller.state.text, 'first'); assert.equal(controller.state.visible, true);
+  controller.actions.onText('later'); await controller.save(); assert.equal(commands[1].requestKey, key); assert.equal(commands[1].text, 'first'); assert.equal(controller.state.text, 'later');
+});
+test('durable draft failure blocks save and close; recovery safely reconciles own lost acknowledgement', async () => {
+  let saved = null, calls = 0, execute = 0;
+  const { controller } = await fixture({ saveDraft: async (_context, _version, draft) => { saved = draft; return calls++ ? { status: 'saved', version: calls } : { status: 'unknown' }; },
+    readDraft: async () => ({ version: saved ? 1 : 0, draft: saved }), execute: async () => { execute++; return { status: 'saved', record: row }; } });
+  controller.actions.onText('kept'); await controller.draftQueue;
+  await controller.save(); assert.equal(execute, 0); assert.equal(await controller.close(), false); assert.equal(controller.state.visible, true);
+  assert.equal(await controller.recoverDraft(), true); await controller.save(); assert.equal(execute, 1);
+});
+test('edit conflict retains body and requires explicit rebase before a fresh version request', async () => {
+  const { controller } = await fixture({ execute: async () => ({ status: 'conflict', record: row, problem: 'VERSION_CONFLICT' }) });
+  controller.edit(row.id); controller.editText('合成数据：我的未保存编辑'); await controller.saveEdit();
+  assert.equal(controller.state.edit.text, '合成数据：我的未保存编辑'); const key = controller.editAttempt.requestKey;
+  await controller.rebaseEdit(); assert.equal(controller.state.edit.text, '合成数据：我的未保存编辑'); assert.notEqual(controller.state.edit.requestKey, key);
+});
+test('search includes archived and old bodies; today and current-results selection are scoped', async () => {
+  const rows = [row, { ...row, id: 'archived', archived: true, text: 'new', history: [revision, { ...revision, version: 2, text: 'new' }] }, { ...row, id: 'yesterday', createdAt: '2026-10-20T01:00:00Z' }];
+  assert.equal(visibleRecords(rows, '', false).length, 2); assert.equal(visibleRecords(rows, '原始正文', false).length, 3);
+  const { controller } = await fixture({ list: async () => rows }); controller.actions.onToday(); assert.deepEqual(controller.state.selected, [row.id]);
+  controller.actions.onQuery('原始正文'); controller.actions.onSelectAll(); assert.equal(controller.state.selected.length, 3); controller.actions.onClearSelection(); assert.equal(controller.state.selected.length, 0);
+});
+for (const status of ['busy', 'stale', 'unavailable']) test(`native ${status} keeps exact quote; span captured before draft persistence`, async () => {
+  const { controller, calls } = await fixture({}, { insertDraft: async () => status }); controller.actions.onSelect(row.id, true);
+  await controller.quote(); assert.equal(calls[0][0], 'capture'); assert.equal(controller.state.quoteStatus, status); assert.equal(controller.state.quote, quoteRecords([row]));
+  assert.ok(controller.state.quote.includes(row.original)); assert.ok(controller.state.quote.includes(context.sessionId));
+});
+test('session/generation change during async quote blocks insertion and retains quote in original partition', async () => {
+  let active = context; const waiting = deferred(); let block = false;
+  const { controller, calls } = await fixture({ saveDraft: async () => { if (block) await waiting.promise; return { status: 'saved', version: 1 }; } }, { context: () => active });
+  controller.actions.onSelect(row.id, true); block = true; const quoting = controller.quote();
+  active = { ...context, generation: 2 }; waiting.resolve(); await quoting;
+  assert.equal(controller.state.quoteStatus, 'stale'); assert.equal(calls.some(call => call[0] === 'insert'), false); assert.ok(controller.state.quote);
+});
+test('initial draft read failure followed by reopen cannot overwrite new input', async () => {
+  let reads = 0, focused = 0;
+  const disk = { text: '合成旧磁盘草稿', requestKey: 'old', edit: null, quote: '', captureAttempt: null, editAttempt: null };
+  const store = { readDraft: async () => { if (++reads === 1) throw Error('synthetic offline'); return { version: 1, draft: disk }; },
+    saveDraft: async (_context, expected, draft) => { assert.equal(expected, 1); assert.equal(draft.text, '合成新输入'); return { status: 'saved', version: 2 }; }, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  const port = { context: () => context, returnFocus: () => { focused++; } };
+  await controller.open('capture', port); controller.setText('合成新输入'); await controller.open('capture', port);
+  assert.equal(reads, 1); assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.recoverDraft(), false); assert.equal(controller.state.otherDraft.draft.text, disk.text);
+  assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.keepLocalDraft(), true); assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.close(), true); assert.equal(focused, 1);
+});
+test('unavailable native port still preserves an exact quote without sending', async () => {
+  const { controller } = await fixture(); controller.createPort = () => { throw Error('synthetic no native input'); };
+  controller.actions.onSelect(row.id, true); await controller.quote();
+  assert.equal(controller.state.quoteStatus, 'unavailable'); assert.equal(controller.state.quote, quoteRecords([row]));
+});
+test('new typing while close persists cannot be hidden, including a failed follow-up draft', async () => {
+  const { controller, store } = await fixture(); controller.setText('before close'); await controller.draftQueue;
+  const entered = deferred(), blocked = deferred(), original = store.saveDraft; let count = 0;
+  // Change quote to force a fresh close snapshot even when the body is unchanged.
+  controller.patch({ quote: 'synthetic pending quote' });
+  store.saveDraft = async (...args) => { if (++count === 1) { entered.resolve(); await blocked.promise; return original(...args); } return { status: 'unknown' }; };
+  const closing = controller.close(); await entered.promise; controller.setText('later typing'); blocked.resolve();
+  assert.equal(await closing, false); await controller.draftQueue;
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.text, 'later typing'); assert.equal(controller.state.draftStatus, 'unknown');
+});
+test('typing during the saved-list refresh prevents automatic closing', async () => {
+  const { controller, store, calls } = await fixture(); controller.setText('first'); await controller.draftQueue;
+  const entered = deferred(), blocked = deferred();
+  store.list = async () => { entered.resolve(); await blocked.promise; return [row]; };
+  const saving = controller.save(); await entered.promise; controller.setText('later after receipt'); blocked.resolve(); await saving;
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.text, 'later after receipt'); assert.equal(calls.some(call => call[0] === 'focus'), false);
+});
+test('keeping local draft after disk conflict writes a new version even if local body matches an old fingerprint', async () => {
+  const { controller, store, getDraft } = await fixture(); controller.setText('local A'); await controller.draftQueue;
+  const local = controller.draft(), priorVersion = controller.draftVersion;
+  await store.saveDraft(context, priorVersion, { ...local, text: 'other disk B', requestKey: 'other-key' });
+  assert.equal(await controller.recoverDraft(), false); assert.equal(controller.state.otherDraft.draft.text, 'other disk B');
+  assert.equal(await controller.keepLocalDraft(), true);
+  assert.equal(controller.draftVersion, priorVersion + 2); assert.equal(getDraft().text, 'local A'); assert.equal(controller.state.draftStatus, 'saved');
+});
+test('typing during a reopened asynchronous draft read stays local and requires explicit reconciliation', async () => {
+  let reads = 0; const blocked = deferred(), entered = deferred();
+  const disk = { text: 'old disk', requestKey: 'old-key', edit: null, quote: '', captureAttempt: null, editAttempt: null };
+  const store = { readDraft: async () => { if (++reads === 1) throw Error('synthetic offline'); entered.resolve(); return blocked.promise; }, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  await controller.open(); const reopening = controller.open(); await entered.promise;
+  controller.setText('new input while reading'); blocked.resolve({ version: 1, draft: disk }); await reopening;
+  assert.equal(controller.state.text, 'new input while reading'); assert.equal(controller.state.otherDraft.draft.text, 'old disk');
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.draftStatus, 'conflict');
+});
+test('typing after failed draft write preserves the recovery status and does not strand it at pending', async () => {
+  const { controller } = await fixture({ saveDraft: async () => ({ status: 'unknown' }) });
+  controller.setText('first'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown');
+  controller.setText('later'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown'); assert.equal(controller.state.text, 'later');
+});
+test('late draft load from an earlier open cannot replace a newer open', async () => {
+  const first = deferred(), second = deferred(); let reads = 0;
+  const makeDraft = text => ({ text, requestKey: text, edit: null, quote: '', captureAttempt: null, editAttempt: null });
+  const store = { readDraft: () => ++reads === 1 ? first.promise : second.promise, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  const openingFirst = controller.open(), openingSecond = controller.open();
+  second.resolve({ version: 2, draft: makeDraft('newest draft') }); await openingSecond;
+  first.resolve({ version: 1, draft: makeDraft('older draft') }); await openingFirst;
+  assert.equal(controller.state.text, 'newest draft'); assert.equal(controller.draftVersion, 2);
+});
+test('late list refresh cannot replace the latest record view', async () => {
+  const { controller, store } = await fixture(), first = deferred(), second = deferred(); let reads = 0;
+  store.list = () => ++reads === 1 ? first.promise : second.promise;
+  const old = controller.refresh(), latest = controller.refresh();
+  second.resolve([{ ...row, version: 2, text: 'newest' }]); await latest;
+  first.resolve([row]); await old;
+  assert.equal(controller.state.records[0].text, 'newest');
+});
+test('returning to Inbox retains selection, active record and module scroll state', async () => {
+  const { controller } = await fixture(); controller.actions.onMode('inbox');
+  controller.actions.onActive(row.id); controller.actions.onSelect(row.id, true);
+  controller.actions.onListScroll(180); controller.actions.onDetailScroll(70);
+  await controller.close(); await controller.open('inbox');
+  assert.equal(controller.state.activeId, row.id); assert.deepEqual(controller.state.selected, [row.id]);
+  assert.equal(controller.state.listScroll, 180); assert.equal(controller.state.detailScroll, 70);
+  controller.actions.onQuery('synthetic'); assert.equal(controller.state.listScroll, 0);
+});
+
+test('bulk archive stops at unknown receipt and retries the same request before continuing', async () => {
+  const rows = [structuredClone(row), { ...structuredClone(row), id: 'second' }];
+  const commands = []; let lost = true;
+  const { controller } = await fixture({ list: async () => rows, execute: async (_c, command) => {
+    commands.push(command);
+    if (lost) return { status: 'unknown' };
+    const record = rows.find(r => r.id === command.id); record.archived = command.archived; record.version++;
+    return { status: 'saved', record };
+  } });
+  controller.actions.onSelectAll(); await controller.actions.onArchiveSelected(true);
+  assert.equal(commands.length, 1); const key = commands[0].requestKey;
+  await controller.actions.onArchiveSelected(true); assert.equal(commands.length, 1);
+  lost = false; await controller.actions.onRetryEdit(); assert.equal(commands[1].requestKey, key);
+  await controller.actions.onArchiveSelected(true); assert.equal(commands.length, 3);
+  assert.ok(rows.every(r => r.archived));
+  await controller.actions.onArchiveSelected(false); assert.ok(rows.every(r => !r.archived));
+});
+test('retry button cannot duplicate an already inserted quote', async () => {
+  const { controller, calls } = await fixture(); controller.actions.onSelectAll();
+  await controller.quote(); await controller.quote(true);
+  assert.equal(calls.filter(c => c[0] === 'insert').length, 1);
+});
+
+test('confirmed quote retires its durable recovery payload and is not offered again after reload', async () => {
+  const { controller, getDraft, store, port } = await fixture(); controller.actions.onSelectAll();
+  await controller.quote();
+  assert.equal(controller.state.quoteStatus, 'inserted');
+  assert.equal(controller.state.quote, ''); assert.equal(getDraft().quote, '');
+  assert.match(controller.state.problem, /尚未发送/);
+  const reloaded = new CaptureInboxController({ store, context, createPort: () => port });
+  await reloaded.open('capture'); assert.equal(reloaded.state.quote, '');
+  assert.equal(reloaded.state.text, '');
+});

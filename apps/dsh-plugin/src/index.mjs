@@ -2,6 +2,8 @@
 import process from 'node:process';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { CaptureHost } from './capture-host.mjs';
+import { FileCaptureStore } from './capture-inbox/store.mjs';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
 
 export const name = 'logseq-workbench';
@@ -14,7 +16,8 @@ export async function apply(ctx, config = {}) {
   const service = new WorkbenchService({ store, transport: new CompanionTransport(config.workspaceStateDirectory ?? process.env.TASK_COPILOT_WORKSPACE_STATE),
     inspectSession: (sessionId, signal) => ctx.sessionController.inspect(sessionId, signal),
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
-  ctx.on('dispose', () => service.dispose());
+  const capture = new CaptureHost({ store: new FileCaptureStore(resolve(config.captureStateDirectory ?? join(config.bindingStateDirectory ?? join(homedir(), '.dsh', 'logseq-workbench'), 'capture-inbox'))), workbench: service });
+  ctx.on('dispose', () => { capture.dispose(); service.dispose(); });
   const routes = {
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
@@ -32,6 +35,8 @@ export async function apply(ctx, config = {}) {
       return service.open(value.sessionId, value.key, value.reveal, signal);
     },
   };
+  routes['capture/context'] = (input, signal) => capture.context(input, signal);
+  for (const method of ['list', 'execute', 'readDraft', 'saveDraft']) routes[`capture/${method}`] = (input, signal) => capture.call(method, input, signal);
   const dispatch = async (endpoint, input, signal) => {
     try {
       const route = routes[endpoint];
