@@ -82,6 +82,7 @@ export class CaptureInboxController {
         if (result.status !== 'saved') { this.draftBlocked = true; this.patch({ draftStatus: result.status, problem: '草稿未确认，当前输入仍保留。请保留窗口并核对原分区草稿。' }); return false; }
         this.draftVersion = result.version;
         this.lastDraftFingerprint = encode(draft);
+        this.draftCandidates.clear();
         if (encode(this.draft()) === encode(draft)) this.patch({ draftStatus: 'saved' });
         return true;
       } catch { this.draftBlocked = true; this.patch({ draftStatus: 'unknown', problem: '草稿保存未确认，当前输入仍保留。' }); return false; }

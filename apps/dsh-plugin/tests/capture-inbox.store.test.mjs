@@ -8,6 +8,7 @@ import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { URL } from 'node:url';
 import { FileCaptureStore } from '../src/capture-inbox/store.mjs';
+import { CaptureInboxController } from '../src/capture-inbox/controller.mjs';
 
 // Every fixture is synthetic. These tests never load a Graph or a DSH profile.
 const context = { scope: null, binding: null, workObject: null, sessionId: 'synthetic-session', generation: 1 };
@@ -133,4 +134,21 @@ test('directory-level symlink is rejected on both record and draft reads', async
   const draftDir = join(home, 'drafts'), movedDraft = join(root, 'synthetic-outside-drafts');
   await rename(draftDir, movedDraft); await symlink(movedDraft, draftDir);
   await assert.rejects(store.readDraft(context), /UNSAFE_STORAGE_PATH/);
+});
+test('real store plus controller recovers an unknown capture across controller restart, without a duplicate', async t => {
+  const { root, store } = await fixture(t);
+  const unbound = { scope: null, binding: null, workObject: null, sessionId: null, generation: 1 };
+  const uncertain = new FileCaptureStore(root, { fault: async phase => { if (phase === 'before-receipt') throw Error('synthetic disconnected receipt'); } });
+  const port = { context: () => unbound, returnFocus() {}, insertDraft: async () => 'busy' };
+  const first = new CaptureInboxController({ store: uncertain, context: unbound, createPort: () => port });
+  await first.open(); first.setText('合成数据：无项目记录，回执丢失后重启'); await first.save();
+  assert.equal(first.state.captureStatus, 'unknown'); assert.equal(first.state.visible, true);
+  const key = first.captureAttempt.requestKey; await first.dispose();
+  const restarted = new CaptureInboxController({ store, context: { ...unbound, generation: 2 }, createPort: () => port });
+  await restarted.open(); assert.equal(restarted.captureAttempt.requestKey, key); assert.ok(restarted.state.text);
+  restarted.actions.onPin(true); await restarted.save();
+  assert.equal((await store.list(unbound)).length, 1); assert.equal(restarted.state.text, ''); assert.equal(restarted.state.visible, true);
+  const record = (await store.list(unbound))[0]; restarted.edit(record.id); restarted.editText('合成数据：编辑原文'); await restarted.saveEdit();
+  assert.equal((await store.list(unbound))[0].history.length, 2); assert.equal(restarted.state.edit, null);
+  assert.equal(restarted.draftCandidates.size, 0); await restarted.dispose();
 });

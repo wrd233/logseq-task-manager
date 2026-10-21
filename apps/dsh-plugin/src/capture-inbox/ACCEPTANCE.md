@@ -5,7 +5,7 @@
 ## 已执行
 
 - Node 20.20.2 / npm 10.8.2，`npm ci --no-audit --no-fund`、初始 `npm run typecheck`、`npm run build`，均退出 0，根依赖/lock 无变更。
-- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **29 / 29 通过，退出 0**。
+- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **30 / 30 通过，退出 0**；其中新增控制器连接真实文件 Store 的无项目/未知回执/重启恢复/继续编辑联合测试。同一请求只产生一条记录。可靠草稿回执后释放内存中的已确认候选快照，避免累积保留每次键入的文本副本。
 - 其中真实文件系统测试使用 macOS 私有临时目录与 0600/0700 文件，不用内存替身；覆盖 fsync/读回、子进程重启、两进程并发 CAS、同 key 同参数/不同参数、新 key 同正文、请求意图已发布而正文未发布、回执丢失、追加版本/恢复/归档撤销、完整 scope/session 分区、对象版本和连接代次不换分区、文件与目录级 symlink 拒绝、损坏数据失败关闭。
 - controller 测试明确使用合成 Store/SharedUiPort，覆盖异步续写、partial/unknown/failed/conflict 不清输入、同键重试、保存失败不关闭、编辑冲突显式 rebase、搜索包含归档和历史、今天/全选、同步 span 工厂时序、busy/stale/unavailable 保留引用、连接代次改变拒绝插入、首次读回失败重开不覆盖新输入、关闭期间和保存后刷新期间继续输入不隐藏。
 - 独立审查先发现了初版测试未覆盖的六个问题；修订增加父目录检查、同一历史快照生成 parent、精确请求版本回执、首次读回失败保护、关闭和刷新期间输入代次检查，并补入回归。不能以初版 22 项通过替代这些修订。
