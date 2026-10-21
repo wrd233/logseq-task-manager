@@ -1,0 +1,25 @@
+# Task Copilot Capture Inbox — fixed pure UI contract
+All data is SYNTHETIC / 合成数据. No real Graph, credentials or private project files.
+Create only view.jsx and styles.mjs in this directory. React is external. Import React/hooks from 'react'. Export function CaptureInboxView({state, actions}) and export const captureInboxStyles = `...` from styles.mjs. Component includes <style>{captureInboxStyles}</style>; every selector scoped under .tc-capture-inbox. No global listeners except properly cleaned component effects. No I/O/storage/RPC/network/AI. No task/Journal actions. No HTML injection. Render text as React text.
+
+SharedUiPort and WorkUiContext have a single owning definition in repository apps/logseq-plugin/src/workspace/copilot-ui-port.ts. They are NOT frontend props; controller alone consumes it. Do not redeclare public types. No host access by the view. Host return/DSH insert are callback intents only.
+
+state is immutable, controlled:
+{
+ mode: 'capture'|'inbox', visible: true,
+ text:'', pinned:false, captureStatus:'idle'|'pending'|'saved'|'unknown'|'partial'|'failed'|'conflict',
+ problem:'', draftStatus:'saved'|'pending'|'unknown'|'conflict',
+ records:[{id:'synthetic-1', text:'合成数据：先留下一句话。', original:'合成数据：先留下一句话。', createdAt:'2026-10-21T01:00:00.000Z', version:1, archived:false, origin:{sessionId:null}, history:[{version:1,text:'合成数据：先留下一句话。',at:'2026-10-21T01:00:00.000Z',archived:false,requestKey:'synthetic-key'}]}],
+ query:'', includeArchived:false, selected:[],
+ edit:null | {id,expectedVersion,text,requestKey}, editStatus:'idle'|'pending'|'conflict'|'unknown'|'saved'|'failed',
+ quote:'', quoteStatus:'idle'|'pending'|'inserted'|'busy'|'stale'|'unavailable'
+}
+records is ALREADY filtered by controller. No filtering or sorting logic needed here. Selection may include invisible records; show count. During pending allow continued body/edit typing, but disable duplicate saves. Unknown/conflict/failed/partial DO NOT clear input or auto-close. Only controller can clear on reliable saved. No local form copies of controlled text/edit. Do not infer saved from promise completion. Busy states textual, aria-live polite.
+
+actions callbacks (always call, never implement persistence):
+onText(string), onSave(), onPin(boolean), onClose(), onMode('capture'|'inbox'), onQuery(string), onIncludeArchived(boolean), onSelect(id,boolean), onToday(), onSelectAll(), onClearSelection(), onEdit(id), onEditText(string), onEditSave(), onEditCancel(), onRestore(id, numericVersion), onArchive(id,boolean), onQuote(), onRetryQuote(), onRefresh().
+Callbacks may return promises; controller handles errors. Do not invoke onClose after onSave. Do not clear text in view. onEditCancel asks controller to retain/discard safely. Selecting history version may be LOCAL UI state; recovery button sends onRestore(id,version) only. Keep original + all history accessible. Double-click body or keyboard Edit button starts editing. Archive and undo archive explicit, archived rows visibly labeled. Quote fallback text must be selectable/read-only. Quote action only enabled with selections, preserve fallback on busy/stale/unavailable. OnClose preserves drafts via controller; Escape calls onClose only outside IME composition. Background click does nothing (reversible default). Pin labeled '在 DSH 内钉住' (not system always-on-top).
+
+Capture first frame focuses textarea. Mode capture: dialog labeled 快速记录, title/project/tag NOT required. Capture modal trap Tab within visible component if using aria-modal; restore host focus through onClose only. Ctrl/Cmd+Enter saves unless composing; Escape closes unless composing. Pin keeps open and controller clears saved text. Compact reading-like Inbox 13-14px text, low saturation, sufficient text contrast, quiet controls, date shown locale, full text wrapping. Narrow 320px no horizontal overflow, 44px primary controls, visible focus, labels, reduced-motion. All buttons type=button except form handling explicitly prevented; accessibility keyboard alternatives for double-click. Do not add success animations.
+
+Deliver only those two files, not README. You cannot run terminal/tests; do not claim tests. In final explain props, error states and unverified host/IME boundaries. Worker single Flash max180seconds/16requests, no escalation/retry/recursive agents/shell. Self contained scope, no other reads.
