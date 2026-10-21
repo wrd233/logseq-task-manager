@@ -32,3 +32,15 @@
 - 重新通过 G2 后，按[接线计划](03-Capture-G2与宿主接线计划.md)先整合已提交模块，再发布共享入口/RPC/原生草稿适配。真实 Desktop/Logseq、重启与物理 IME 继续单独验收。
 
 本轮统计：Standards 3 项（最高 P1）；Spec 3 项（最高 P1）。
+
+## 4870b373 修订复审
+
+固定修订 `4870b3735a42c85884efc9b959dacf4a5322dd96` 的 Store 12/12 测试与三项原始存储复现通过：目录符号链接拒绝，CAS 父链保持有效，同键回执在后续编辑后不变化。29 项模块测试加 8 项公共 port 测试在主代理独立副本通过。Standards 原三项关闭；未确认系统断电持久性。
+
+Spec 原关闭/自动收起竞态已修复，草稿路径还有三项阻塞（下列行号属于本修订）：
+
+1. **[P1] 恢复后旧 lastDraftFingerprint 可制造假 saved。** `controller.mjs:73,93,101–102`：加载 A/v1，保存 B/v2 后丢失回执，再将本地输入改回 A；recoverDraft/keepLocalDraft 接纳磁盘 v2 却未重置确认指纹，persist 因 A 与 v1 指纹相同而跳过写入。复现 recovery=true、close=true、状态 saved，而新 controller 实际加载 B。接纳磁盘版本时须同步/失效该版本对应的确认指纹，只有当前正文的可靠回执才可去重或关闭。
+2. **[P1] 重开读取期间新输入仍被覆盖。** `controller.mjs:107–116` 只在 await readDraft 前检查本地输入。初次读取失败后空输入重开，让 readDraft 等待，期间键入新正文，再返回旧磁盘草稿，结果仍覆盖新正文。需校验读取的输入代次与 open 生命周期，也要覆盖重叠 open 的迟到结果。
+3. **[P2] draftBlocked 分支覆盖错误状态，恢复入口消失。** `controller.mjs:67–69` 在发现 blocked 前将 draftStatus 设置 pending；一次 unknown 后继续键入，状态会永久 pending，view 的 unknown/conflict 恢复按钮因此不显示。保存/关闭仍被阻塞。blocked 时保留可恢复的失败状态，不能承诺有正在进行的保存。
+
+模块真实入口仍未启用；A 应在自己目录修复并交付新提交。此复审不修改 A 文件。
