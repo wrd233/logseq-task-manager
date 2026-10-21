@@ -1,19 +1,37 @@
 # 后续 Goal B：真实工作结构历史的只读链路
 
-状态：可交给后续 Codex 执行的任务说明；本文件不启动任务、不代替用户开发授权。先完成[并行契约](../02-并行开发契约.md)的 G0，与 A 消费同一共享接口 commit。产品目标见[工作证据与历史](../../modules/06-工作证据与历史.md)与[工作结构](../../modules/04-工作结构与编排.md)。本 Goal 只读；完整三投影与历史恢复仍按后续证据/决定推进。
+状态：完整后续 Goal 提示词。由用户在电脑 B 发起本 Goal 后执行；当前准备任务不启动实现。目标分支 `codex/work-structure-history-v1`，与 A 使用同一共同基线和共享类型，不必等待 A 的未合并代码。产品目标见[工作证据与历史](../../modules/06-工作证据与历史.md)与[工作结构](../../modules/04-工作结构与编排.md)。本 Goal 只读；完整三投影与历史恢复仍按后续证据/决定推进。
+
+## 独立检出与运行
+
+在新目录执行，已有同名目录/分支先保护其工作。仓库使用 Node `>=20.19 <21`、npm 10.8.2；DSH 宿主独立使用其支持的 Node 22.19+（本机验证环境为 Node 24），不要更改仓库 engine。
+
+```sh
+git clone --single-branch --branch codex/work-structure-history-v1 https://github.com/wrd233/logseq-task-manager.git task-copilot-history
+cd task-copilot-history
+git status --short --branch
+git fetch --prune origin
+git log -1 --oneline
+node --version
+npm ci --no-audit --no-fund
+npm run typecheck
+npm run build
+```
+
+真实 Logseq 使用构建后的 `apps/logseq-plugin`，DSH 接入参考 `apps/dsh-plugin/README.md`，另设隔离 profile，不覆盖日常环境。上述命令只验证开发启动；最终历史体验必须另有真实宿主证据。
 
 ## Goal 正文
 
 你负责 Task Copilot 的工作结构历史开发线 B。用现有 StageHistory、StageStart、StageRevision.source 与 SourceSnapshot 建立真实数据的只读时间回放：同一张图展示已记录节点、文字与来源拓扑变化，位置尽量稳定，点击可核查历史来源；图不可用时提供完整文字目录与差异清单。不得制造未保存的历史或通过回放产生正文/正式写入。
 
-开始前读取[代码基线](../00-代码基线核查-2026-10-21.md)、[并行契约](../02-并行开发契约.md)、[来源状态](../../SOURCE-AND-STATUS.md)、[待决登记](../../DECISION-REGISTER.md)、[跨模块设计](../../architecture/01-跨模块设计.md)、模块 04/06。参考锚点为 main `edd79c55ee84db64164e585deef8ce188b8778fc`、feature `fe0ac2162c2970797f4dfe42b658b915c10bac9a` 与 DSH tag `687f282e8625c6b8d11ff58211a90524be2e4317`；执行时必须重新核查。
+开始前读取[代码基线](../00-代码基线核查-2026-10-21.md)末节、[并行契约](../02-并行开发契约.md)、[来源状态](../../SOURCE-AND-STATUS.md)、[待决登记](../../DECISION-REGISTER.md)、[跨模块设计](../../architecture/01-跨模块设计.md)、模块 04/06。准备任务的输入 main 为 `669726965693595c860dbc235b85a5adc1d82900`；本次准备提交是两条分支起点。执行时重新 fetch 核查，不盲用历史 SHA；不依赖未合并的一键 DSH feature。
 
 ### 入口检查与依赖
 
-1. 核查工作区与主代理发布的 G0 集成 SHA / 共享类型；脏工作区或版本不一致先报告，不覆盖、不 reset/stash，不自行整合 feature。
-2. G0 未满足时只准备，不复制 WorkRef/SourceRef/ReturnContext 实现。主代理只读封装已有本地 stage.api.history；如果入口在 DSH，由主代理补受 session/binding/租约保护的只读 transport，不在 renderer 中直读 Graph 或私有磁盘。
+1. 核查工作区、共同基线与 `apps/logseq-plugin/src/workspace/copilot-ui-port.ts`；有已有工作或分歧先保护并报告，不覆盖、不 reset/stash，不自行整合 feature。fetch 失败停止依赖远端状态的操作。
+2. 共享类型已跟踪即可独立实现本线数据适配和播放器，不等 A。模块内可接入注入的 stage.api.history provider；共享入口及 DSH 受 session/binding/租约保护的只读 transport 由共同基线主代理串行接线。共享需求写本模块 `INTEGRATION-REQUEST.md`，不在 renderer 中直读 Graph/私有磁盘，不复制公共类型。成果提交并普通推送本分支，交回 PR；不自行合并 main 或另一条线，不 force-push。
 3. G1/G3 核对真实 provider 与选定已授权块范围。当前远端 stage.read 不是 history 枚举；没有阶段/页面校验不支持/损坏数据时，显示明确未覆盖，不能偷偷 begin/checkpoint/authorize 来填数据。
-4. 缺少 mammoth 等依赖或 SDK 行为不兼容时保留集成阻塞。可以并行完成标注合成数据的 renderer，但 fixture 演示不能算真实历史链路完成。
+4. 依赖用已提交 lock 的 npm ci 安装；早期本机 mammoth 缺失是历史环境记录，不能直接认作干净检出失败。实际安装失败或 SDK 不兼容时报告；不顺带修改锁文件。可先完成标注合成数据的 renderer，但 fixture 演示不能算真实历史链路完成。
 
 ### 输入输出与历史语义
 
@@ -46,7 +64,7 @@
 
 **适合 DSH 的前端子任务**：固定 SharedUiPort / StageHistoryPort 接口，输入醒目标记的合成 StageHistory fixture，完成只读时间轴、稳定 sourceId 布局、局部高亮、来源按钮、问题/空态及文字回退。renderer 不接真实 Graph、不落盘、不重写快照校验、不自行选择模型或改变正式语义。Codex 负责 provider 适配、归因与历史完整性、零写入审查和真实宿主集成。
 
-通道不可用时 Codex 可独立执行该前端任务。若用外部 Flash，先说明发给 DeepSeek 官方 API 的具体内容并获得最小目录授权；检查秘密，只提供批准的脱敏范围与合成 fixture，自包含任务含 cwd/允许文件/禁止范围/接口/验收/唯一 idempotency_key。查询沿用原 key；不要与 Worker 改同文件；Codex 独立复核实际 diff 与测试。工具可见不代表通道已验。
+通道不可用或尚无外发授权时交付下方独立前端提示词，不假称已委派；Codex 可继续本线工作。若用外部 Flash，先说明发给 DeepSeek 官方 API 的具体内容并获得最小目录授权；检查秘密，只提供批准的脱敏范围与合成 fixture，自包含任务含 cwd/允许文件/禁止范围/接口/验收/唯一 idempotency_key。查询沿用原 key；不要与 Worker 改同文件；Codex 独立复核实际 diff 与测试。工具可见不代表通道已验；另一电脑没有本机 Worker 目录时使用提示词，不依赖绝对路径。
 
 委派前阅读系统 `/Users/wangrundong/work/codex-dsh-system/README.md` 与当时适用的 AGENTS.md，核对 `config/projects.json` 精确目录许可。默认 hub、read_only=true；写入任务须有对应最小目录写入授权。Flash 固定单 Worker、180 秒内、最多 16 次请求，不自动升级/重试/递归，不额外套 Codex 调度子代理；终端降级按 README 明确 backend。不要改变全局 provider、主模型或登录。
 
@@ -61,4 +79,14 @@
 
 只有真实 provider + 来源树回放 + 文字回退 + 零写入 + 宿主验收有证据时，报告此只读切片完成；同时明确正式对象树/代码图/历史恢复仍未覆盖。只有 fixture UI 时，保持整体 Goal 未完成并列 G1/G3/G4 阻塞。
 
-交付实际 diff/commit、共享接口 pin、数据覆盖表、命令与退出结果、真实/合成证据、未决事项和后续 provider 依赖。完成后停止，不自行开始历史恢复、正式结构编辑或全目录扫描。
+交付实际 diff/commit、远端分支或 PR、共同基线 SHA、数据覆盖表、命令与退出结果、真实/合成证据、未决事项和后续 provider 依赖。共享接线由共同基线主代理先发布再获取；等待时可交回模块成果，整体 Goal 不算完成。完成后停止，不自行开始历史恢复、正式结构编辑或全目录扫描。
+
+## 独立前端子任务提示词（通道不可用时直接交付）
+
+> 你负责 Task Copilot 结构历史的纯只读播放器。cwd 为本次提交任务指定的、经用户批准的脱敏 `structure-history` 目录。Codex 先提供只读 `ui-input.md`，写明固定 props、模块内帧/差异 view model 和醒目标注“合成数据”的多帧 fixture；缺少输入就报告，不猜造公共历史接口。
+>
+> 只允许新增或编辑当前目录 `player.jsx`、`styles.mjs`，导出 React `StructureHistoryPlayer`。渲染已保存帧的时间选择、以 sourceId 保持位置的来源树、增删/正文/父子位置变化高亮、该帧正文/差异面板、来源定位回调、候选/损坏/缺失状态与完整文字目录回退。未保存正文显示未知；当前来源定位与历史正文展示是分开的动作。
+>
+> 不改共享类型、数据适配、StageStore、RPC、入口、全局 CSS、Kernel、依赖或配置；不读真实 Graph、私有磁盘或今天文件，不写入/校正历史，不实现编辑/accept/checkpoint/旧版恢复。不将来源树冒充正式对象树/代码图；无依赖历史就显示未覆盖，不从缩进推正式依赖。图失败/窄屏/减少动效仍可用，变化带文字或形状提示。
+>
+> 交回允许文件变更、props 使用说明、缺失/分叉/空帧演示与未验证清单。你无终端权限，不声称跑过测试；Codex 独立检查 diff、跑布局/只读交互测试并验证真实 provider 与宿主。Worker 的限制/幂等键由提交方按本文及 AGENTS.md 填写，不递归委派。
