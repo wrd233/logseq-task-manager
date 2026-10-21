@@ -42,3 +42,5 @@
 6. 真实 DSH/Logseq 使用独立合成 Graph 与隔离 profile 验收入口、存储/服务重启、引用、来源、窄屏、减少动效；真实 Desktop 和物理中文 IME 与 scripted host-proof 分别记录。缺少这些证据时只报告模块/接线阶段完成，整体 A Goal 不算完成。
 
 本次尚未执行上述模块或宿主验收。待 A 的可审提交出现前，主代理只发布本计划，不创建功能占位实现。
+
+后续进展：`7b49d00e` 的[独立审查](04-Capture-7b49d00e审查.md)发现六项问题，未整合该版本。主代理已在共同 `copilot-ui-port.ts` 实现不依赖 A/B 的原生交互适配器；8 项合成适配边界测试与 6 项既有 DSH service 测试通过，Logseq workspace 类型检查和受影响文件 ESLint 通过。这些只证明同步 span、上下文失效、插入/焦点边界，尚未注册真实宿主入口，也不等于模块 G2 或真实 DSH/Logseq 验收。
