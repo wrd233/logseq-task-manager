@@ -37,6 +37,6 @@
 
 背景点击不关闭，Escape（非 IME composition）请求保存草稿并关闭；钉住仅限 DSH 内，默认 saved 后收起，钉住后清空正文继续。双击和“编辑正文”都可编辑，取消编辑仅收起并保留草稿。今天按宿主本地日期，在当前搜索结果内选择；全文搜索包含归档与旧版本。选中项可跨过滤条件保留，界面显示总选中数。这些是可逆默认，不是新增产品定案。
 
-`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。用户已于 2026-10-21 明确批准独立脱敏目录 `/Users/wangrundong/work/capture-inbox-flash-ui` 的 ui-input.md / view.jsx / styles.mjs 读写外发；仅该目录进入批准列表。随后通过 hub 提交 Flash 前端复核任务 `a3c60d81084a68f8d2a0facc`，尚需独立审查实际差异和验证，不能以任务成功当验收。真实仓库与 Graph 未进入外发根目录。新增 onRecoverDraft/onKeepLocalDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
+`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。用户已于 2026-10-21 明确批准独立脱敏目录 `/Users/wangrundong/work/capture-inbox-flash-ui` 的 ui-input.md / view.jsx / styles.mjs 读写外发；仅该目录进入批准列表。hub Flash 前端复核任务 `a3c60d81084a68f8d2a0facc` 终态 failed/max-tokens，读取3个允许文件后未产生写入；Codex 用 git diff --no-index 独立核对 view/styles 差异为空，没有自动重试、升级或扩大目录。保留独立提示词并本地继续。真实仓库与 Graph 未进入外发根目录。新增 onRecoverDraft/onKeepLocalDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
 
 行为与真实文件测试：`node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`。真实文件/子进程证据与模拟 Store/port 证据在测试文件内分开标记。物理中文 IME、真实 Desktop/Logseq Graph、系统断电与跨设备均不能由这些测试推断；最终证据见后续 ACCEPTANCE.md。

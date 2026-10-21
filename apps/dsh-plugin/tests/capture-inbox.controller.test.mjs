@@ -72,16 +72,18 @@ test('session/generation change during async quote blocks insertion and retains 
   assert.equal(controller.state.quoteStatus, 'stale'); assert.equal(calls.some(call => call[0] === 'insert'), false); assert.ok(controller.state.quote);
 });
 test('initial draft read failure followed by reopen cannot overwrite new input', async () => {
-  let reads = 0;
+  let reads = 0, focused = 0;
   const disk = { text: '合成旧磁盘草稿', requestKey: 'old', edit: null, quote: '', captureAttempt: null, editAttempt: null };
   const store = { readDraft: async () => { if (++reads === 1) throw Error('synthetic offline'); return { version: 1, draft: disk }; },
     saveDraft: async (_context, expected, draft) => { assert.equal(expected, 1); assert.equal(draft.text, '合成新输入'); return { status: 'saved', version: 2 }; }, list: async () => [] };
   const controller = new CaptureInboxController({ store, context, createPort: () => null });
-  await controller.open(); controller.setText('合成新输入'); await controller.open();
+  const port = { context: () => context, returnFocus: () => { focused++; } };
+  await controller.open('capture', port); controller.setText('合成新输入'); await controller.open('capture', port);
   assert.equal(reads, 1); assert.equal(controller.state.text, '合成新输入');
   assert.equal(await controller.recoverDraft(), false); assert.equal(controller.state.otherDraft.draft.text, disk.text);
   assert.equal(controller.state.text, '合成新输入');
   assert.equal(await controller.keepLocalDraft(), true); assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.close(), true); assert.equal(focused, 1);
 });
 test('unavailable native port still preserves an exact quote without sending', async () => {
   const { controller } = await fixture(); controller.createPort = () => { throw Error('synthetic no native input'); };
@@ -104,4 +106,27 @@ test('typing during the saved-list refresh prevents automatic closing', async ()
   store.list = async () => { entered.resolve(); await blocked.promise; return [row]; };
   const saving = controller.save(); await entered.promise; controller.setText('later after receipt'); blocked.resolve(); await saving;
   assert.equal(controller.state.visible, true); assert.equal(controller.state.text, 'later after receipt'); assert.equal(calls.some(call => call[0] === 'focus'), false);
+});
+test('keeping local draft after disk conflict writes a new version even if local body matches an old fingerprint', async () => {
+  const { controller, store, getDraft } = await fixture(); controller.setText('local A'); await controller.draftQueue;
+  const local = controller.draft(), priorVersion = controller.draftVersion;
+  await store.saveDraft(context, priorVersion, { ...local, text: 'other disk B', requestKey: 'other-key' });
+  assert.equal(await controller.recoverDraft(), false); assert.equal(controller.state.otherDraft.draft.text, 'other disk B');
+  assert.equal(await controller.keepLocalDraft(), true);
+  assert.equal(controller.draftVersion, priorVersion + 2); assert.equal(getDraft().text, 'local A'); assert.equal(controller.state.draftStatus, 'saved');
+});
+test('typing during a reopened asynchronous draft read stays local and requires explicit reconciliation', async () => {
+  let reads = 0; const blocked = deferred(), entered = deferred();
+  const disk = { text: 'old disk', requestKey: 'old-key', edit: null, quote: '', captureAttempt: null, editAttempt: null };
+  const store = { readDraft: async () => { if (++reads === 1) throw Error('synthetic offline'); entered.resolve(); return blocked.promise; }, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  await controller.open(); const reopening = controller.open(); await entered.promise;
+  controller.setText('new input while reading'); blocked.resolve({ version: 1, draft: disk }); await reopening;
+  assert.equal(controller.state.text, 'new input while reading'); assert.equal(controller.state.otherDraft.draft.text, 'old disk');
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.draftStatus, 'conflict');
+});
+test('typing after failed draft write preserves the recovery status and does not strand it at pending', async () => {
+  const { controller } = await fixture({ saveDraft: async () => ({ status: 'unknown' }) });
+  controller.setText('first'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown');
+  controller.setText('later'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown'); assert.equal(controller.state.text, 'later');
 });

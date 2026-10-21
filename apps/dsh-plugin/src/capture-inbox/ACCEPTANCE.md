@@ -5,7 +5,7 @@
 ## 已执行
 
 - Node 20.20.2 / npm 10.8.2，`npm ci --no-audit --no-fund`、初始 `npm run typecheck`、`npm run build`，均退出 0，根依赖/lock 无变更。
-- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **30 / 30 通过，退出 0**；其中新增控制器连接真实文件 Store 的无项目/未知回执/重启恢复/继续编辑联合测试。同一请求只产生一条记录。可靠草稿回执后释放内存中的已确认候选快照，避免累积保留每次键入的文本副本。
+- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **33 / 33 通过，退出 0**；其中新增控制器连接真实文件 Store 的无项目/未知回执/重启恢复/继续编辑联合测试。同一请求只产生一条记录。可靠草稿回执后释放内存中的已确认候选快照，避免累积保留每次键入的文本副本。
 - 其中真实文件系统测试使用 macOS 私有临时目录与 0600/0700 文件，不用内存替身；覆盖 fsync/读回、子进程重启、两进程并发 CAS、同 key 同参数/不同参数、新 key 同正文、请求意图已发布而正文未发布、回执丢失、追加版本/恢复/归档撤销、完整 scope/session 分区、对象版本和连接代次不换分区、文件与目录级 symlink 拒绝、损坏数据失败关闭。
 - controller 测试明确使用合成 Store/SharedUiPort，覆盖异步续写、partial/unknown/failed/conflict 不清输入、同键重试、保存失败不关闭、编辑冲突显式 rebase、搜索包含归档和历史、今天/全选、同步 span 工厂时序、busy/stale/unavailable 保留引用、连接代次改变拒绝插入、首次读回失败重开不覆盖新输入、关闭期间和保存后刷新期间继续输入不隐藏。
 - 独立审查先发现了初版测试未覆盖的六个问题；修订增加父目录检查、同一历史快照生成 parent、精确请求版本回执、首次读回失败保护、关闭和刷新期间输入代次检查，并补入回归。不能以初版 22 项通过替代这些修订。
@@ -36,3 +36,7 @@ G1/G2/G4：主代理核验修订后，批准私有根、可信 context/来源核
 模块 PR：[Draft #1](https://github.com/wrd233/logseq-task-manager/pull/1)，在真实接线/宿主验证完成前保持 draft。主代理正在独立复审 `4870b373`，本线不自行合并 main。已普通合并主代理发布的 `10238baf`，消费同一共享原生草稿适配器和活跃上下文比较；模块加共享适配测试 **38 / 38，退出 0**。
 
 用户最小目录外发授权于 2026-10-21 明确到达后，只批准脱敏目录 `/Users/wangrundong/work/capture-inbox-flash-ui` 的 ui-input.md / view.jsx / styles.mjs 给 DeepSeek 官方 API；实际仓库/Graph 未获批或外发。hub 任务 `a3c60d81084a68f8d2a0facc`，幂等键 `capture-inbox-ui-20261021-a01`，Flash、180秒、单 Worker，前端复核在副本进行，不与 Codex 同改仓库文件。最终状态、实际 Git diff 与 Codex 独立验证结果待后续补入。
+
+后续复核发现并修复三项恢复问题：实际读回后更新持久指纹，避免误报 saved；异步 reopen 期间键入通过 epoch 检查保留并展示两份草稿；draftBlocked 时保留 unknown/conflict 状态与恢复入口。新增回归后，Capture 33 项 + 共享 port 8 项 = **41 / 41，退出 0**。恢复后关闭仍返回最初有效触发控件。
+
+Flash 实际终态 **failed**，error=`turn ended: max-tokens`，session=`session-a1a45d12-ffa7-405a-864f-023145f56692`。执行结果仅表示已读取3个允许文件；Codex 独立执行 view/styles 的 `git diff --no-index`，两文件差异为空，未采纳任何 Worker 成果、未把失败计为前端验收，没有自动重试或换 backend/provider。独立提示词保留，本地继续实现与验证。
