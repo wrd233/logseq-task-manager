@@ -1,6 +1,10 @@
 /* global crypto, structuredClone */
 import { encode, partition, sameContext, checkOrigin } from './identity.mjs';
 
+/** @typedef {import('../../../logseq-plugin/src/workspace/copilot-ui-port.ts').WorkUiContext} WorkUiContext */
+/** @typedef {import('../../../logseq-plugin/src/workspace/copilot-ui-port.ts').SharedUiPort} SharedUiPort */
+/** @typedef {import('../../../logseq-plugin/src/features/capture-inbox/protocol.ts').CaptureStore} CaptureStore */
+
 const clone = value => structuredClone(value);
 const newKey = () => crypto.randomUUID();
 const dateKey = value => { const d = new Date(value); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
@@ -26,6 +30,7 @@ export function quoteRecords(records) {
  * Keep this instance until dispose/flush, including while its overlay is hidden.
  */
 export class CaptureInboxController {
+  /** @param {{store: CaptureStore, context: WorkUiContext, createPort: () => SharedUiPort, origin?: import('../../../logseq-plugin/src/features/capture-inbox/protocol.ts').CaptureOrigin, now?: () => Date}} options */
   constructor({ store, context, createPort, origin = { sessionId: context.sessionId }, now = () => new Date() }) {
     partition(context); checkOrigin(origin, context);
     this.store = store; this.context = clone(context); this.origin = clone(origin); this.createPort = createPort; this.now = now;

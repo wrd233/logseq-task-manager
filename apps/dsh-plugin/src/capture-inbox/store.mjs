@@ -21,6 +21,7 @@ async function syncDirectory(path) { const handle = await open(path, constants.O
  * stale lock timeout. Acknowledgement is fsync + exact readback, not a rename alone.
  * No cleanup removes historical evidence. Staged files are ignored on recovery.
  */
+/** @implements {import('../../../logseq-plugin/src/features/capture-inbox/protocol.ts').CaptureStore} */
 export class FileCaptureStore {
   constructor(root, { fault = async () => {} } = {}) {
     if (!isAbsolute(root) || resolve(root) === '/') throw Error('PRIVATE_ROOT_REQUIRED');

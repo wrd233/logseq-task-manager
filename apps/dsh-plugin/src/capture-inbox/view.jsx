@@ -4,15 +4,16 @@ import { captureInboxStyles } from './styles.mjs';
 const saveLabel = { idle: '', pending: '正在保存，仍可继续输入。', saved: '已可靠保存。', unknown: '保存结果未知，输入已保留。', partial: '保存尚未完成，输入已保留。', failed: '保存失败，输入已保留。', conflict: '存在版本冲突，输入已保留。' };
 const date = value => new Date(value).toLocaleString();
 export function CaptureInboxView({ state, actions }) {
-  const root = useRef(null), input = useRef(null), editInput = useRef(null);
+  const root = useRef(null), input = useRef(null), editInput = useRef(null), search = useRef(null);
   const [activeId, setActiveId] = useState(null);
   useEffect(() => {
     if (state.visible && state.mode === 'capture') input.current?.focus();
+    else if (state.visible && state.mode === 'inbox') search.current?.focus();
   }, [state.visible, state.mode]);
   useEffect(() => {
     if (state.visible && state.mode === 'capture' && state.captureStatus === 'saved' && !state.text) input.current?.focus();
   }, [state.visible, state.mode, state.captureStatus, state.text]);
-  useEffect(() => { if (state.editOpen && state.mode === 'inbox') editInput.current?.focus(); }, [state.editOpen, state.edit?.id, state.mode]);
+  useEffect(() => { if (state.visible && state.editOpen && state.mode === 'inbox') editInput.current?.focus(); }, [state.visible, state.editOpen, state.edit?.id, state.mode]);
   if (!state.visible) return null;
   const active = state.records.find(row => row.id === activeId) ?? state.records[0];
   const edit = state.editOpen && state.edit;
@@ -47,7 +48,7 @@ export function CaptureInboxView({ state, actions }) {
         <button type="button" className="ci-primary" disabled={state.captureStatus === 'pending' || (!state.text.trim() && !['unknown', 'partial', 'failed', 'conflict'].includes(state.captureStatus))} onClick={actions.onSave}>{state.captureStatus === 'pending' ? '正在保存…' : ['unknown', 'partial', 'failed', 'conflict'].includes(state.captureStatus) ? '核对并重试原请求' : '保存'}</button>
       </div><p role="status" aria-live="polite" className="ci-note">{saveLabel[state.captureStatus]} Ctrl / ⌘ + Enter 保存；Escape 保留草稿并返回。</p>
     </div> : <>
-      <label className="ci-search">搜索全部正文与历史<input type="search" value={state.query} onChange={event => actions.onQuery(event.target.value)} /></label>
+      <label className="ci-search">搜索全部正文与历史<input ref={search} type="search" value={state.query} onChange={event => actions.onQuery(event.target.value)} /></label>
       <div className="ci-tools"><button type="button" onClick={actions.onToday}>选择今天</button><button type="button" onClick={actions.onSelectAll}>全选当前结果</button><button type="button" onClick={actions.onClearSelection}>清空选择</button><label className="ci-check"><input type="checkbox" checked={state.includeArchived} onChange={event => actions.onIncludeArchived(event.target.checked)} />显示归档</label><button type="button" onClick={actions.onRefresh}>刷新</button></div>
       <p className="ci-note">{state.records.length} 条 · 已选 {state.selected.length} 条{state.query ? ' · 搜索包含归档和旧正文' : ''}</p>
       <div className="ci-grid"><ul aria-label="记录列表">{state.records.map(row => <li key={row.id}><div className="ci-row">
