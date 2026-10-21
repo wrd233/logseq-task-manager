@@ -61,3 +61,13 @@ npx eslint apps/dsh-plugin/src/capture-inbox apps/dsh-plugin/tests/capture-inbox
 本机回环浏览器加载 40 条醒目标记的合成记录：列表滚动 432px、选中一条，关闭重开后仍 432px 且选中数为 1；再选当前条目 8，关闭前/重开后的滚动均 407px，当前条目均为 8，选中数仍为 1。DOM 只读观察与截图相符，[回访证据](evidence/inbox-return-state.png)。仍为模拟 Store/Port 的模块 UI 证据，不替代真实 DSH/Logseq 验收。
 
 共享主代理此前回合因 workspace credits 停止；本次实际核查其终态后重新交回接线工作，已恢复 active。主线未发布的工作保留原处，不将其当作已消费的远端集成；待发布后普通 merge 并重验。
+
+普通获取已发布宿主边界 `2cb0ced7` 后，2026-10-22 在 A 独立 clone 执行以下完整指定回归，**79 / 79 通过，退出 0**；紧接的 Logseq workspace typecheck 与 DSH workspace build 均退出 0：
+
+```sh
+node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs apps/dsh-plugin/tests/copilot-ui-port.test.mjs apps/dsh-plugin/tests/capture-host.test.mjs apps/dsh-plugin/tests/service.test.mjs apps/logseq-plugin/tests/workspace-context.test.ts apps/logseq-plugin/tests/workspace-reading.test.ts apps/logseq-plugin/tests/agent-workspace-entry.test.ts
+npm run typecheck --workspace @task-copilot/logseq-plugin
+npm run build --workspace @task-copilot/dsh-logseq-workbench
+```
+
+Capture37、共享port8、宿主边界9、既有基线25。生产入口尚未随该公开版本注册，因此这仍不能证明最终真实 UI 入口已集成；最终主代理入口提交获取后须再审计。

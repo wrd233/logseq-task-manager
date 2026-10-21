@@ -38,6 +38,6 @@
 node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs apps/dsh-plugin/tests/copilot-ui-port.test.mjs apps/dsh-plugin/tests/capture-host.test.mjs
 ```
 
-54 tests / 54 pass / 0 fail，退出 0。测试中 CaptureHost 为真实边界实现，workbench 为明确合成替身，因此这不是 DSH/Logseq 宿主证据。
+54 tests / 54 pass / 0 fail，退出 0。随后加入 Goal 指定的 service、workspace-context、workspace-reading、agent-workspace-entry 回归，共 **79 tests / 79 pass / 0 fail，退出 0**；Logseq typecheck 与 DSH build 退出 0，完整命令见 ACCEPTANCE.md 最新节。测试中 CaptureHost 为真实边界实现，workbench 为明确合成替身，因此这不是 DSH/Logseq 宿主证据。
 
 最终完成只能在上述待验项的实际证据进入已获取版本后重新审计；只要真实入口、来源或草稿保护有缺项，就不标记 Goal complete。单设备、可逆默认及未知结果恢复规则见 README，不把 Journal/跨设备/系统置顶等未决事项冻结为产品决定。
