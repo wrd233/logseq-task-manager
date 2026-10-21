@@ -1,3 +1,4 @@
+import { StructureHistoryView } from "./structure-history-view.ts";
 import { button, element } from "../../host/panel-host.ts";
 import type { WorkView } from "../work-view/controller.ts";
 import type { ReadingBookmark } from "../work-view/renderer.ts";
@@ -56,7 +57,7 @@ export class StageReview implements ReviewPort {
   setCollaboration(port:CollaborationPort|null):void{this.collaboration=port;this.setup.refresh();}
   enter():void{this.expanded=true;this.chrome();}
   open():void{if(this.busy())return;this.enter();void this.bridge?.openReview();this.bridge?.repaint();this.run(()=>this.reload());}
-  async openHistory():Promise<void>{if(this.busy())return;this.enter();await this.bridge?.openReview();this.more.open=true;this.historyBox.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
+  async openHistory():Promise<void>{if(this.busy())return;this.enter();await this.bridge?.openReview();this.more.open=true;this.historyBox.open=true;this.structureHistory.element.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
   private draftKey(uuid:string):string{return `workbench:stage-draft:${JSON.stringify(this.scope)}:${uuid}`;}
   private savedDraft(uuid:string):ReviewDraft|null{
     try{const raw=localStorage.getItem(this.draftKey(uuid));if(!raw)return null;const d=JSON.parse(raw);
@@ -87,6 +88,7 @@ export class StageReview implements ReviewPort {
   private readonly backButton=button("返回原位置",()=>this.returnCurrent());
   private readonly historyBox=element("details");
   private readonly historyList=element("div");
+  private readonly structureHistory=new StructureHistoryView();
   private readonly filesBox=element("details");
   private readonly filesList=element("div");
   private readonly fileIds=new Set<string>();
@@ -105,7 +107,7 @@ export class StageReview implements ReviewPort {
       if(event.key==="Enter"){event.preventDefault();this.run(()=>this.begin());}
       if(event.key==="Escape"){event.preventDefault();event.stopPropagation();this.cancelGoalButton.click();}
     };
-    this.historyBox.append(element("summary","阶段历史"),this.historyList);
+    this.historyBox.append(element("summary","阶段历史"),this.structureHistory.element,this.historyList);
     this.filesBox.append(element("summary","成果文件"),this.filesList);
     this.filesBox.addEventListener("toggle",()=>{if(this.filesBox.open)this.run(()=>this.files());});
     this.versionInfo.append(element("summary","当前所见版本详情"),this.versionText);
@@ -139,7 +141,7 @@ export class StageReview implements ReviewPort {
   scopeChanged(scope:ReviewContext["scope"]|null):void{
     this.activeEditor?.replaceChildren();this.activeEditor=null;
     this.ticket++;this.recorder.invalidate();this.scope=scope;this.history={stages:[],current:null,currentEventId:null,problems:[]};
-    this.selected=null;this.seen=null;this.historyMode=false;this.submittedMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.goalOpen=false;this.fileIds.clear();this.issue.textContent="";
+    this.structureHistory.update(this.history);this.selected=null;this.seen=null;this.historyMode=false;this.submittedMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.goalOpen=false;this.fileIds.clear();this.issue.textContent="";
     this.expanded=false;this.changeCount=0;this.displayedRevision=null;
     this.chrome();if(scope)this.run(()=>this.reload());
   }
@@ -148,7 +150,7 @@ export class StageReview implements ReviewPort {
   async reload():Promise<void>{
     const scope=this.scope,ticket=this.ticket;if(!scope)return;
     const history=await this.recorder.store.history(scope);if(ticket!==this.ticket||this.disposed)return;
-    this.history=history;if(!this.selected)this.selected=history.current;
+    this.history=history;this.structureHistory.update(history);if(!this.selected)this.selected=history.current;
     this.seen=(this.editing||this.draft||this.historyMode)&&this.seen?this.stage()?.revisions.find(r=>r.id===this.seen!.id)??null:this.stage()?latest(this.stage()!):null;
     this.issue.classList.remove("wb-notice");
     this.issue.textContent=[...history.problems,...(history.storageNotes??[])].join(" · ");this.historyList.replaceChildren();
