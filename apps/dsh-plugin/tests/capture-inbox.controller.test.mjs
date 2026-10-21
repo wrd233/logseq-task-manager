@@ -180,3 +180,14 @@ test('retry button cannot duplicate an already inserted quote', async () => {
   await controller.quote(); await controller.quote(true);
   assert.equal(calls.filter(c => c[0] === 'insert').length, 1);
 });
+
+test('confirmed quote retires its durable recovery payload and is not offered again after reload', async () => {
+  const { controller, getDraft, store, port } = await fixture(); controller.actions.onSelectAll();
+  await controller.quote();
+  assert.equal(controller.state.quoteStatus, 'inserted');
+  assert.equal(controller.state.quote, ''); assert.equal(getDraft().quote, '');
+  assert.match(controller.state.problem, /尚未发送/);
+  const reloaded = new CaptureInboxController({ store, context, createPort: () => port });
+  await reloaded.open('capture'); assert.equal(reloaded.state.quote, '');
+  assert.equal(reloaded.state.text, '');
+});

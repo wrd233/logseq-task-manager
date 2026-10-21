@@ -239,7 +239,13 @@ export class CaptureInboxController {
     try {
       if (this.stale || !sameContext(port.context(), this.context)) { this.patch({ quoteStatus: 'stale' }); return; }
       const result = await port.insertDraft(quote, this.context);
-      this.patch({ quoteStatus: result, problem: result === 'inserted' ? '' : '原生草稿未插入，引用保留；返回原现场后重试。' });
+      this.patch({ quoteStatus: result, ...(result === 'inserted' ? { quote: '' } : {}),
+        problem: result === 'inserted' ? '原文引用已插入 DSH 草稿，尚未发送。' : '原生草稿未插入，引用保留；返回原现场后重试。' });
+      // A confirmed native insertion is no longer a pending quote. Retire its
+      // recovery payload durably so a reload does not offer it as a new retry.
+      // If this acknowledgement write is lost, the older disk payload remains
+      // uncertain and still requires the user to inspect the native draft.
+      if (result === 'inserted') await this.persist();
     } catch { this.patch({ quoteStatus: 'unavailable', problem: '原生草稿不可用，引用保留。' }); }
   }
   async close() {

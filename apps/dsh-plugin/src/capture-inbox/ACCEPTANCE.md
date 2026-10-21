@@ -71,3 +71,7 @@ npm run build --workspace @task-copilot/dsh-logseq-workbench
 ```
 
 Capture37、共享port8、宿主边界9、既有基线25。生产入口尚未随该公开版本注册，因此这仍不能证明最终真实 UI 入口已集成；最终主代理入口提交获取后须再审计。
+
+## 独立 Worktree 宿主接线后的最新证据
+
+前述记录为历史模块验收。真实 DSH 入口、63 项回归、根 check 和实际浏览器证据见 [交付记录](../../../../docs/implementation/2026-10-22-capture-inbox-delivery.md)。继续回合补齐成功引用后的可靠恢复清理，DSH 回归提升为 **64/64**，并实际 reload 验证不重新提示该引用。真实 Logseq Graph 的正向来源/断连/换绑与物理 IME 仍缺可操作的独立宿主，未宣称完整双宿主验收通过。
