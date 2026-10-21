@@ -2,6 +2,6 @@
 
 共同输入基线：`f992619025f5b4d086a2e8ee1729936d488ecc89`；已获取共同基线的 G2 工程方案批准 `75c8c449`。仅修改 A 目录与对应测试，共享入口/RPC/来源核验和原生 SharedUiPort 适配由共同基线主代理整合。本 PR 暂为 draft，整体 Goal 未完成，不能作为生产闭环交付。
 
-验证：新增 Capture 测试 29 项通过，涵盖真实文件/子进程重启、两进程 CAS、未知回执重试、目录级 symlink、版本冲突、刷新/关闭期间继续输入；指定基线回归合计 54 项通过，局部 ESLint、受影响 Logseq typecheck/DSH build 通过，结果见模块 ACCEPTANCE.md。浏览器截图使用醒目标记的合成 Store/Port，不代表真实 DSH/Logseq 验收。
+验证：新增 Capture 测试 35 项通过，涵盖真实文件/子进程重启、两进程 CAS、未知回执重试、目录级 symlink、版本冲突、恢复/刷新/关闭期间继续输入和迟到读回结果；加共享适配与指定基线回归合计 68 项通过，局部 ESLint、受影响 Logseq typecheck/DSH build 通过，结果见模块 ACCEPTANCE.md。浏览器截图使用醒目标记的合成 Store/Port，不代表真实 DSH/Logseq 验收。用户授权最小脱敏目录后曾提交 Flash 前端复核，因 max-tokens 失败，无文件差异、未采纳成果、未自动重试。
 
 未验：真实独立 Graph/profile 的入口、认证 RPC、原生草稿既有内容/异步续写/会话切换/提交锁定/返回焦点，以及物理 IME。恢复方式：未知操作用原 requestKey 核对重试；版本恢复追加新版本；停用入口时保留私有数据。无 Journal/正式任务写入、自动发送或跨设备同步承诺。

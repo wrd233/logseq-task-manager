@@ -130,3 +130,21 @@ test('typing after failed draft write preserves the recovery status and does not
   controller.setText('first'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown');
   controller.setText('later'); await controller.draftQueue; assert.equal(controller.state.draftStatus, 'unknown'); assert.equal(controller.state.text, 'later');
 });
+test('late draft load from an earlier open cannot replace a newer open', async () => {
+  const first = deferred(), second = deferred(); let reads = 0;
+  const makeDraft = text => ({ text, requestKey: text, edit: null, quote: '', captureAttempt: null, editAttempt: null });
+  const store = { readDraft: () => ++reads === 1 ? first.promise : second.promise, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  const openingFirst = controller.open(), openingSecond = controller.open();
+  second.resolve({ version: 2, draft: makeDraft('newest draft') }); await openingSecond;
+  first.resolve({ version: 1, draft: makeDraft('older draft') }); await openingFirst;
+  assert.equal(controller.state.text, 'newest draft'); assert.equal(controller.draftVersion, 2);
+});
+test('late list refresh cannot replace the latest record view', async () => {
+  const { controller, store } = await fixture(), first = deferred(), second = deferred(); let reads = 0;
+  store.list = () => ++reads === 1 ? first.promise : second.promise;
+  const old = controller.refresh(), latest = controller.refresh();
+  second.resolve([{ ...row, version: 2, text: 'newest' }]); await latest;
+  first.resolve([row]); await old;
+  assert.equal(controller.state.records[0].text, 'newest');
+});

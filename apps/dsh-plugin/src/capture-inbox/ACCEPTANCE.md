@@ -5,7 +5,7 @@
 ## 已执行
 
 - Node 20.20.2 / npm 10.8.2，`npm ci --no-audit --no-fund`、初始 `npm run typecheck`、`npm run build`，均退出 0，根依赖/lock 无变更。
-- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **33 / 33 通过，退出 0**；其中新增控制器连接真实文件 Store 的无项目/未知回执/重启恢复/继续编辑联合测试。同一请求只产生一条记录。可靠草稿回执后释放内存中的已确认候选快照，避免累积保留每次键入的文本副本。
+- `node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`，修订后 **35 / 35 通过，退出 0**；其中新增控制器连接真实文件 Store 的无项目/未知回执/重启恢复/继续编辑联合测试。同一请求只产生一条记录。可靠草稿回执后释放内存中的已确认候选快照，避免累积保留每次键入的文本副本。
 - 其中真实文件系统测试使用 macOS 私有临时目录与 0600/0700 文件，不用内存替身；覆盖 fsync/读回、子进程重启、两进程并发 CAS、同 key 同参数/不同参数、新 key 同正文、请求意图已发布而正文未发布、回执丢失、追加版本/恢复/归档撤销、完整 scope/session 分区、对象版本和连接代次不换分区、文件与目录级 symlink 拒绝、损坏数据失败关闭。
 - controller 测试明确使用合成 Store/SharedUiPort，覆盖异步续写、partial/unknown/failed/conflict 不清输入、同键重试、保存失败不关闭、编辑冲突显式 rebase、搜索包含归档和历史、今天/全选、同步 span 工厂时序、busy/stale/unavailable 保留引用、连接代次改变拒绝插入、首次读回失败重开不覆盖新输入、关闭期间和保存后刷新期间继续输入不隐藏。
 - 独立审查先发现了初版测试未覆盖的六个问题；修订增加父目录检查、同一历史快照生成 parent、精确请求版本回执、首次读回失败保护、关闭和刷新期间输入代次检查，并补入回归。不能以初版 22 项通过替代这些修订。
@@ -40,3 +40,14 @@ G1/G2/G4：主代理核验修订后，批准私有根、可信 context/来源核
 后续复核发现并修复三项恢复问题：实际读回后更新持久指纹，避免误报 saved；异步 reopen 期间键入通过 epoch 检查保留并展示两份草稿；draftBlocked 时保留 unknown/conflict 状态与恢复入口。新增回归后，Capture 33 项 + 共享 port 8 项 = **41 / 41，退出 0**。恢复后关闭仍返回最初有效触发控件。
 
 Flash 实际终态 **failed**，error=`turn ended: max-tokens`，session=`session-a1a45d12-ffa7-405a-864f-023145f56692`。执行结果仅表示已读取3个允许文件；Codex 独立执行 view/styles 的 `git diff --no-index`，两文件差异为空，未采纳任何 Worker 成果、未把失败计为前端验收，没有自动重试或换 backend/provider。独立提示词保留，本地继续实现与验证。
+
+补充异步请求代次：旧 open/readDraft 和旧 refresh 的迟到结果不能替换最新状态，恢复操作会使早期读回失效。最新指定命令覆盖 capture35、共享 port8、基线25，**68 / 68 通过，退出 0**：
+
+```sh
+node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs apps/dsh-plugin/tests/copilot-ui-port.test.mjs apps/dsh-plugin/tests/service.test.mjs apps/logseq-plugin/tests/workspace-context.test.ts apps/logseq-plugin/tests/workspace-reading.test.ts apps/logseq-plugin/tests/agent-workspace-entry.test.ts
+npm run typecheck --workspace @task-copilot/logseq-plugin
+npm run build --workspace @task-copilot/dsh-logseq-workbench
+npx eslint apps/dsh-plugin/src/capture-inbox apps/dsh-plugin/tests/capture-inbox.*test.mjs
+```
+
+上述最新命令均退出 0；显式 JSX 浏览器预览打包成功，Capture 与 Inbox 初始焦点、双击编辑自动聚焦已复核。后续真实宿主结果由共同基线发布后补录，不能把这组模块验证升级为真实宿主证明。
