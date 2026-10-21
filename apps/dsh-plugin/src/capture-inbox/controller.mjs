@@ -31,10 +31,10 @@ export class CaptureInboxController {
     this.store = store; this.context = clone(context); this.origin = clone(origin); this.createPort = createPort; this.now = now;
     this.listeners = new Set(); this.records = []; this.draftVersion = 0; this.draftQueue = Promise.resolve(); this.draftBlocked = false;
     this.captureAttempt = null; this.editAttempt = null; this.loaded = false; this.disposed = false; this.stale = false;
-    this.draftCandidates = new Set();
+    this.draftCandidates = new Set(); this.lastDraftFingerprint = null; this.inputEpoch = 0;
     this.state = Object.freeze({ visible: false, mode: 'capture', text: '', requestKey: newKey(), pinned: false,
       captureStatus: 'idle', draftStatus: 'saved', problem: '', records: [], query: '', includeArchived: false, selected: [],
-      edit: null, editOpen: false, editStatus: 'idle', quote: '', quoteStatus: 'idle' });
+      edit: null, editOpen: false, editStatus: 'idle', quote: '', quoteStatus: 'idle', otherDraft: null });
     this.actions = Object.freeze({
       onText: value => this.setText(value), onSave: () => this.save(), onPin: pinned => this.patch({ pinned }), onClose: () => this.close(),
       onMode: mode => this.patch({ mode }), onQuery: query => this.patch({ query }), onIncludeArchived: includeArchived => this.patch({ includeArchived }),
@@ -47,6 +47,7 @@ export class CaptureInboxController {
       onQuote: () => this.quote(), onRetryQuote: () => this.quote(true), onRefresh: () => this.refresh(),
       onRecoverDraft: () => this.recoverDraft(), onRetryEdit: () => this.editAttempt ? this.runEdit(this.editAttempt) : undefined,
       onRebaseEdit: () => this.rebaseEdit(),
+      onKeepLocalDraft: () => this.keepLocalDraft(),
       onCancelConflictOperation: () => {
         if (this.state.editStatus === 'conflict' && !this.state.edit) { this.editAttempt = null; this.patch({ editStatus: 'idle', problem: '冲突操作已取消，可核对当前版本后重新操作。' }); void this.persist(); }
       },
@@ -63,14 +64,19 @@ export class CaptureInboxController {
   draft() { return clone({ text: this.state.text, requestKey: this.state.requestKey, edit: this.state.edit, quote: this.state.quote,
     captureAttempt: this.captureAttempt, editAttempt: this.editAttempt }); }
   persist() {
-    const draft = this.draft(); this.patch({ draftStatus: 'pending' });
+    this.patch({ draftStatus: 'pending' });
     const job = this.draftQueue.then(async () => {
       if (this.draftBlocked) return false;
+      // Coalesce queued typing into the latest full snapshot; never clear the
+      // currently attempted command until a reliable operation receipt arrives.
+      const draft = this.draft();
+      if (encode(draft) === this.lastDraftFingerprint) { this.patch({ draftStatus: 'saved' }); return true; }
       try {
         this.draftCandidates.add(encode(draft));
         const result = await this.store.saveDraft(this.context, this.draftVersion, draft);
         if (result.status !== 'saved') { this.draftBlocked = true; this.patch({ draftStatus: result.status, problem: '草稿未确认，当前输入仍保留。请保留窗口并核对原分区草稿。' }); return false; }
         this.draftVersion = result.version;
+        this.lastDraftFingerprint = encode(draft);
         if (encode(this.draft()) === encode(draft)) this.patch({ draftStatus: 'saved' });
         return true;
       } catch { this.draftBlocked = true; this.patch({ draftStatus: 'unknown', problem: '草稿保存未确认，当前输入仍保留。' }); return false; }
@@ -82,16 +88,29 @@ export class CaptureInboxController {
     try {
       const saved = await this.store.readDraft(this.context);
       if (saved.version !== this.draftVersion && !this.draftCandidates.has(encode(saved.draft))) {
-        this.patch({ draftStatus: 'conflict', problem: '另一窗口保存了不同草稿；当前输入保留，请先复制当前输入并核对另一窗口。' }); return false;
+        this.patch({ draftStatus: 'conflict', otherDraft: saved, problem: '磁盘已有不同草稿，当前输入保留。核对后可将当前输入另存为新版本。' }); return false;
       }
-      this.draftVersion = saved.version; this.draftBlocked = false; return this.persist();
+      this.loaded = true; this.draftVersion = saved.version; this.draftBlocked = false; return this.persist();
+    } catch { this.patch({ draftStatus: 'unknown', problem: '草稿仍不可读，当前输入保留。' }); return false; }
+  }
+  async keepLocalDraft() {
+    const reviewed = this.state.otherDraft; if (!reviewed) return false;
+    try {
+      const saved = await this.store.readDraft(this.context);
+      if (encode(saved) !== encode(reviewed)) { this.patch({ otherDraft: saved, problem: '磁盘草稿再次变化，请重新核对。' }); return false; }
+      this.loaded = true; this.draftVersion = saved.version; this.draftBlocked = false;
+      this.patch({ otherDraft: null }); return this.persist();
     } catch { this.patch({ draftStatus: 'unknown', problem: '草稿仍不可读，当前输入保留。' }); return false; }
   }
   async open(mode = 'capture', returnPort = null) {
     if (!this.loaded) {
+      if (this.state.text || this.state.edit || this.state.quote || this.captureAttempt || this.editAttempt) {
+        this.patch({ visible: true, mode, draftStatus: 'unknown', problem: '当前有未保存输入，重新读回不会覆盖它。请先重查草稿保存。' }); return;
+      }
       try {
         const saved = await this.store.readDraft(this.context);
         this.draftVersion = saved.version;
+        this.lastDraftFingerprint = saved.draft ? encode(saved.draft) : null;
         if (saved.draft) { const { captureAttempt, editAttempt, ...values } = saved.draft;
           this.captureAttempt = captureAttempt; this.editAttempt = editAttempt;
           this.patch({ ...values, captureStatus: captureAttempt ? 'unknown' : 'idle', editStatus: editAttempt ? 'unknown' : 'idle' }); }
@@ -105,6 +124,7 @@ export class CaptureInboxController {
     catch { this.patch({ problem: '记录暂不可读，已有输入和选择已保留。' }); }
   }
   setText(value) {
+    this.inputEpoch++;
     this.patch({ text: value, requestKey: this.captureAttempt ? newKey() : this.state.requestKey, captureStatus: this.captureAttempt ? this.state.captureStatus : 'idle' });
     if (this.loaded) void this.persist();
   }
@@ -121,8 +141,10 @@ export class CaptureInboxController {
     this.captureAttempt = null;
     const unchanged = this.state.text === command.text && this.state.requestKey === command.requestKey;
     this.patch({ ...(unchanged ? { text: '', requestKey: newKey() } : {}), captureStatus: 'saved' });
+    const savedEpoch = this.inputEpoch, clearedKey = this.state.requestKey;
     await this.refresh(); const durable = await this.persist();
-    if (unchanged && !this.state.pinned && durable && !this.stale) await this.close();
+    if (unchanged && !this.state.pinned && durable && !this.stale && this.state.visible &&
+      this.inputEpoch === savedEpoch && this.state.text === '' && this.state.requestKey === clearedKey) await this.close();
   }
   edit(id) {
     const row = this.records.find(record => record.id === id); if (!row) return;
@@ -131,6 +153,7 @@ export class CaptureInboxController {
   }
   editText(value) {
     if (!this.state.edit) return;
+    this.inputEpoch++;
     this.patch({ edit: { ...this.state.edit, text: value, requestKey: this.editAttempt ? newKey() : this.state.edit.requestKey } }); void this.persist();
   }
   async saveEdit() {
@@ -184,7 +207,9 @@ export class CaptureInboxController {
     } catch { this.patch({ quoteStatus: 'unavailable', problem: '原生草稿不可用，引用保留。' }); }
   }
   async close() {
+    const snapshot = encode(this.draft()), epoch = this.inputEpoch;
     if (!this.loaded || !await this.persist()) return false;
+    if (epoch !== this.inputEpoch || snapshot !== encode(this.draft()) || this.lastDraftFingerprint !== encode(this.draft()) || this.state.draftStatus !== 'saved') return false;
     this.patch({ visible: false });
     if (!this.stale && this.returnPort && sameContext(this.returnPort.context(), this.context)) this.returnPort.returnFocus(this.context);
     return true;

@@ -28,11 +28,14 @@ export class FileCaptureStore {
   }
   async directory(path) {
     await mkdir(path, { recursive: true, mode: 0o700 });
-    const stat = await lstat(path);
-    if (!stat.isDirectory() || (await realpath(path)) !== path || stat.uid !== process.getuid?.() || (stat.mode & 0o077)) throw Error('UNSAFE_STORAGE_PATH');
+    await this.checkDirectory(path);
     // fsync ancestors too: a newly-created partition must survive a host restart.
     await syncDirectory(path);
     await syncDirectory(resolve(path, '..'));
+  }
+  async checkDirectory(path) {
+    const stat = await lstat(path);
+    if (!stat.isDirectory() || (await realpath(path)) !== path || stat.uid !== process.getuid?.() || (stat.mode & 0o077)) throw Error('UNSAFE_STORAGE_PATH');
   }
   async home(context) {
     const tenant = partition(context);
@@ -43,6 +46,7 @@ export class FileCaptureStore {
   }
   async read(path) {
     // Never follow a replaced/symlinked data file. Reads are bounded before parsing.
+    await this.checkDirectory(resolve(path, '..'));
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       const stat = await handle.stat();
@@ -54,6 +58,7 @@ export class FileCaptureStore {
   }
   async optional(path) { try { return await this.read(path); } catch (error) { if (missing(error)) return null; throw error; } }
   async publish(path, value) {
+    await this.checkDirectory(resolve(path, '..'));
     const content = encode({ schema: 1, value, digest: hash(encode(value)) });
     if (Buffer.byteLength(content) > MAX_BYTES) throw Error('CAPTURE_FILE_SIZE_LIMIT');
     const staged = `${path}.${randomUUID()}.pending`;
@@ -68,6 +73,7 @@ export class FileCaptureStore {
     } finally { await unlink(staged).catch(() => {}); }
   }
   async revisions(path) {
+    await this.checkDirectory(path);
     const all = await readdir(path);
     if (all.some(name => !/^\d+\.json$/.test(name) && !/^\d+\.json\.[a-f0-9-]{36}\.pending$/.test(name))) throw Error('FOREIGN_CAPTURE_FILE');
     const names = all.filter(name => /^\d+\.json$/.test(name)).sort((a, b) => Number.parseInt(a) - Number.parseInt(b));
@@ -84,6 +90,9 @@ export class FileCaptureStore {
   async record(home, recordId) {
     const path = join(home, 'records', id(recordId));
     let rows; try { rows = await this.revisions(path); } catch (error) { if (missing(error)) return null; throw error; }
+    return this.fromRows(recordId, rows);
+  }
+  fromRows(recordId, rows) {
     if (!rows.length) return null;
     const first = rows[0], last = rows.at(-1);
     if (first.kind !== 'create' || first.id !== recordId || rows.some(row => row.id !== recordId || typeof row.text !== 'string' || typeof row.archived !== 'boolean')) throw Error('CORRUPT_CAPTURE_RECORD');
@@ -129,9 +138,12 @@ export class FileCaptureStore {
       const rows = await this.revisions(recordPath), existing = rows[expected];
       if (existing?.requestKey === command.requestKey) {
         await syncDirectory(recordPath);
-        return { status: 'saved', record: await this.record(home, recordId) };
+        return { status: 'saved', record: this.fromRows(recordId, rows.slice(0, expected + 1)) };
       }
-      const current = await this.record(home, recordId);
+      // The compared current version and parent hash MUST come from one snapshot.
+      // A second read could observe a concurrent revision without its parent rows.
+      const current = this.fromRows(recordId, rows);
+      await this.fault('after-history-read', recordPath);
       if ((current?.version ?? 0) !== expected) return { status: 'conflict', record: current, problem: 'VERSION_CONFLICT' };
       if (command.kind !== 'create' && !current) return { status: 'conflict', record: null, problem: 'RECORD_MISSING' };
       const restored = command.kind === 'restore' ? current.history.find(row => row.version === command.restoreVersion) : null;
@@ -144,20 +156,26 @@ export class FileCaptureStore {
       const observed = await this.publish(join(recordPath, `${next.version}.json`), next);
       if (observed.requestKey !== command.requestKey) return { status: 'conflict', record: await this.record(home, recordId), problem: 'VERSION_CONFLICT' };
       await this.fault('before-receipt', recordPath);
-      return { status: 'saved', record: await this.record(home, recordId) };
+      return { status: 'saved', record: this.fromRows(recordId, (await this.revisions(recordPath)).slice(0, next.version)) };
     } catch (error) { return { status: 'unknown', problem: `保存结果未确认；请保留输入并用原请求重试。${error.message}` }; }
   }
   async readDraft(context) {
     const home = await this.home(context), rows = await this.revisions(join(home, 'drafts'));
+    for (const row of rows) this.validateDraft(row.draft, context);
     return { version: rows.length, draft: rows.at(-1)?.draft ?? null };
   }
-  async saveDraft(context, expectedVersion, draft) {
-    context = structuredClone(context); draft = structuredClone(draft); partition(context);
-    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) throw Error('INVALID_VERSION');
+  validateDraft(draft, context) {
+    if (!draft || Object.keys(draft).some(field => !['text', 'requestKey', 'quote', 'edit', 'captureAttempt', 'editAttempt'].includes(field))) throw Error('INVALID_DRAFT');
     text(draft.text); key(draft.requestKey); text(draft.quote);
     if (draft.edit) { id(draft.edit.id); version(draft.edit.expectedVersion); text(draft.edit.text); key(draft.edit.requestKey); }
     if (draft.captureAttempt) this.validate(draft.captureAttempt, context);
     if (draft.editAttempt) this.validate(draft.editAttempt, context);
+    if (draft.captureAttempt && draft.captureAttempt.kind !== 'create' || draft.editAttempt?.kind === 'create') throw Error('INVALID_DRAFT_ATTEMPT');
+  }
+  async saveDraft(context, expectedVersion, draft) {
+    context = structuredClone(context); draft = structuredClone(draft); partition(context);
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) throw Error('INVALID_VERSION');
+    this.validateDraft(draft, context);
     try {
       const home = await this.home(context), path = join(home, 'drafts'), rows = await this.revisions(path);
       if (rows.length >= MAX_VERSIONS) throw Error('CAPTURE_DRAFT_HISTORY_LIMIT');

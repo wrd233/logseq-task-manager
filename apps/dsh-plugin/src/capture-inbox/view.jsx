@@ -4,7 +4,7 @@ import { captureInboxStyles } from './styles.mjs';
 const saveLabel = { idle: '', pending: '正在保存，仍可继续输入。', saved: '已可靠保存。', unknown: '保存结果未知，输入已保留。', partial: '保存尚未完成，输入已保留。', failed: '保存失败，输入已保留。', conflict: '存在版本冲突，输入已保留。' };
 const date = value => new Date(value).toLocaleString();
 export function CaptureInboxView({ state, actions }) {
-  const root = useRef(null), input = useRef(null);
+  const root = useRef(null), input = useRef(null), editInput = useRef(null);
   const [activeId, setActiveId] = useState(null);
   useEffect(() => {
     if (state.visible && state.mode === 'capture') input.current?.focus();
@@ -12,6 +12,7 @@ export function CaptureInboxView({ state, actions }) {
   useEffect(() => {
     if (state.visible && state.mode === 'capture' && state.captureStatus === 'saved' && !state.text) input.current?.focus();
   }, [state.visible, state.mode, state.captureStatus, state.text]);
+  useEffect(() => { if (state.editOpen && state.mode === 'inbox') editInput.current?.focus(); }, [state.editOpen, state.edit?.id, state.mode]);
   if (!state.visible) return null;
   const active = state.records.find(row => row.id === activeId) ?? state.records[0];
   const edit = state.editOpen && state.edit;
@@ -38,6 +39,7 @@ export function CaptureInboxView({ state, actions }) {
       {state.problem && <p className="ci-status">{state.problem}</p>}
       {state.draftStatus !== 'saved' && <p className="ci-note">{state.draftStatus === 'pending' ? '正在保护草稿…' : '草稿尚未确认，请保留当前窗口。'}{['unknown', 'conflict'].includes(state.draftStatus) && <button type="button" onClick={actions.onRecoverDraft}>重查草稿保存</button>}</p>}
     </div>
+    {state.otherDraft && <details open><summary>核对磁盘中的另一份草稿 · v{state.otherDraft.version}</summary><p className="ci-body">{state.otherDraft.draft?.text}</p>{state.otherDraft.draft?.edit && <p className="ci-body">编辑草稿：{state.otherDraft.draft.edit.text}</p>}{state.otherDraft.draft?.quote && <p className="ci-body">待引用：{state.otherDraft.draft.quote}</p>}<button type="button" onClick={actions.onKeepLocalDraft}>保留当前输入，另存为草稿新版本</button></details>}
     {state.mode === 'capture' ? <div className="ci-capture">
       <label htmlFor="ci-capture-body">先留下一句话</label>
       <textarea ref={input} id="ci-capture-body" value={state.text} onChange={event => actions.onText(event.target.value)} placeholder="不必先想标题或归属。" />
@@ -52,7 +54,7 @@ export function CaptureInboxView({ state, actions }) {
         <input type="checkbox" aria-label={`选择 ${row.text.slice(0, 30)}`} checked={state.selected.includes(row.id)} onChange={event => actions.onSelect(row.id, event.target.checked)} />
         <button type="button" aria-current={active?.id === row.id} onClick={() => setActiveId(row.id)} onDoubleClick={() => actions.onEdit(row.id)}><time dateTime={row.createdAt}>{date(row.createdAt)}{row.archived ? ' · 已归档' : ''}</time><span className="ci-preview">{row.text || '（空正文）'}</span></button>
       </div></li>)}{!state.records.length && <li>这里还没有记录。</li>}</ul>
-      <div>{edit ? <><label htmlFor="ci-edit-body">编辑正文 · 基于 v{edit.expectedVersion}</label><textarea id="ci-edit-body" value={edit.text} onChange={event => actions.onEditText(event.target.value)} /><div className="ci-tools"><button type="button" disabled={state.editStatus === 'pending'} onClick={actions.onEditSave}>保存编辑</button><button type="button" onClick={actions.onEditCancel}>收起并保留草稿</button>{state.editStatus === 'conflict' && <button type="button" onClick={actions.onRebaseEdit}>保留我的正文，基于最新版本继续</button>}</div><p className="ci-note" role="status">{saveLabel[state.editStatus]}</p></> : active ? <>
+      <div>{edit ? <><label htmlFor="ci-edit-body">编辑正文 · 基于 v{edit.expectedVersion}</label><textarea ref={editInput} id="ci-edit-body" value={edit.text} onChange={event => actions.onEditText(event.target.value)} /><div className="ci-tools"><button type="button" disabled={state.editStatus === 'pending'} onClick={actions.onEditSave}>保存编辑</button><button type="button" onClick={actions.onEditCancel}>收起并保留草稿</button>{state.editStatus === 'conflict' && <button type="button" onClick={actions.onRebaseEdit}>保留我的正文，基于最新版本继续</button>}</div><p className="ci-note" role="status">{saveLabel[state.editStatus]}</p>{state.editStatus === 'conflict' && state.records.find(row => row.id === edit.id) && <details open><summary>核对当前已保存正文</summary><p className="ci-body">{state.records.find(row => row.id === edit.id).text}</p></details>}</> : active ? <>
         <time dateTime={active.createdAt}>{date(active.createdAt)} · v{active.version}{active.archived ? ' · 已归档' : ''}</time>
         <p className="ci-body" onDoubleClick={() => actions.onEdit(active.id)}>{active.text || '（空正文）'}</p>
         <div className="ci-tools"><button type="button" onClick={() => actions.onEdit(active.id)}>编辑正文</button><button type="button" disabled={state.editStatus === 'pending'} onClick={() => actions.onArchive(active.id, !active.archived)}>{active.archived ? '撤销归档' : '归档'}</button></div>

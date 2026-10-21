@@ -29,7 +29,7 @@
 | 对象版本递增 | workObjectId 相同，记录不消失；活跃上下文仍比较完整版本 |
 | 绑定目录搬迁 | 完整 binding 改变，旧分区保留；宿主需提供明确回访入口，不自动迁移 |
 
-不可变请求意图先落盘，再 CAS 发布版本。硬链接发布若目标已存在则比较，两个进程不能覆盖同一版本；临时 .pending 不进入正文。hash 包裹和父版本 hash 校验损坏，失败关闭。草稿保留当前正文、编辑正文、待核对原保存/编辑请求和待引用文本；另一窗口冲突不覆盖。`onRecoverDraft` 只接纳原版本或本实例已尝试写入的确切快照，否则需用户复制当前输入并核对其他窗口。
+不可变请求意图先落盘，再 CAS 发布版本。硬链接发布若目标已存在则比较，两个进程不能覆盖同一版本；临时 .pending 不进入正文。比较版本和生成 parent hash 使用同一不可变读取快照。同键重试返回该请求实际提交的版本，不能把后来版本当作该请求收据。hash 包裹和父版本 hash 校验损坏，失败关闭。草稿保留当前正文、编辑正文、待核对原保存/编辑请求和待引用文本；另一窗口冲突不覆盖当前输入。`onRecoverDraft` 只自动接纳原版本或本实例已尝试写入的确切快照，否则展示磁盘草稿，用户明确 `onKeepLocalDraft` 后把当前输入追加为新草稿版本，保留旧文件；再次变化须重新核对。
 
 边界：每正文/引用最多 100 万 UTF-16 字符、每落盘文件最多 800 万字节、每分区最多 5000 条记录、每记录及草稿最多 10000 版本；达到上限报告未知/错误并保留输入，无自动删除/压缩/跨设备同步。草稿按变更追加，长时间使用需后续单独审查保留策略；首版不无限制读取磁盘。文件系统须支持 hard link 和目录 fsync，不支持时不宣称 saved。
 
@@ -37,6 +37,6 @@
 
 背景点击不关闭，Escape（非 IME composition）请求保存草稿并关闭；钉住仅限 DSH 内，默认 saved 后收起，钉住后清空正文继续。双击和“编辑正文”都可编辑，取消编辑仅收起并保留草稿。今天按宿主本地日期，在当前搜索结果内选择；全文搜索包含归档与旧版本。选中项可跨过滤条件保留，界面显示总选中数。这些是可逆默认，不是新增产品定案。
 
-`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。本轮外发授权未到达时不提交 DSH；本地实现不等于 Flash 已执行。新增 onRecoverDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
+`FRONTEND-TASK.md` 是独立前端子任务提示词（合成 fixture / 固定 callbacks）。本轮外发授权未到达时不提交 DSH；本地实现不等于 Flash 已执行。新增 onRecoverDraft/onKeepLocalDraft/onRetryEdit/onRebaseEdit/onCancelConflictOperation 只发 controller 意图，不由 view 做 I/O。
 
 行为与真实文件测试：`node --import tsx --test apps/dsh-plugin/tests/capture-inbox.*test.mjs`。真实文件/子进程证据与模拟 Store/port 证据在测试文件内分开标记。物理中文 IME、真实 Desktop/Logseq Graph、系统断电与跨设备均不能由这些测试推断；最终证据见后续 ACCEPTANCE.md。

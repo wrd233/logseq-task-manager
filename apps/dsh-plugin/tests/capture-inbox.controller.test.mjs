@@ -71,3 +71,37 @@ test('session/generation change during async quote blocks insertion and retains 
   active = { ...context, generation: 2 }; waiting.resolve(); await quoting;
   assert.equal(controller.state.quoteStatus, 'stale'); assert.equal(calls.some(call => call[0] === 'insert'), false); assert.ok(controller.state.quote);
 });
+test('initial draft read failure followed by reopen cannot overwrite new input', async () => {
+  let reads = 0;
+  const disk = { text: '合成旧磁盘草稿', requestKey: 'old', edit: null, quote: '', captureAttempt: null, editAttempt: null };
+  const store = { readDraft: async () => { if (++reads === 1) throw Error('synthetic offline'); return { version: 1, draft: disk }; },
+    saveDraft: async (_context, expected, draft) => { assert.equal(expected, 1); assert.equal(draft.text, '合成新输入'); return { status: 'saved', version: 2 }; }, list: async () => [] };
+  const controller = new CaptureInboxController({ store, context, createPort: () => null });
+  await controller.open(); controller.setText('合成新输入'); await controller.open();
+  assert.equal(reads, 1); assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.recoverDraft(), false); assert.equal(controller.state.otherDraft.draft.text, disk.text);
+  assert.equal(controller.state.text, '合成新输入');
+  assert.equal(await controller.keepLocalDraft(), true); assert.equal(controller.state.text, '合成新输入');
+});
+test('unavailable native port still preserves an exact quote without sending', async () => {
+  const { controller } = await fixture(); controller.createPort = () => { throw Error('synthetic no native input'); };
+  controller.actions.onSelect(row.id, true); await controller.quote();
+  assert.equal(controller.state.quoteStatus, 'unavailable'); assert.equal(controller.state.quote, quoteRecords([row]));
+});
+test('new typing while close persists cannot be hidden, including a failed follow-up draft', async () => {
+  const { controller, store } = await fixture(); controller.setText('before close'); await controller.draftQueue;
+  const entered = deferred(), blocked = deferred(), original = store.saveDraft; let count = 0;
+  // Change quote to force a fresh close snapshot even when the body is unchanged.
+  controller.patch({ quote: 'synthetic pending quote' });
+  store.saveDraft = async (...args) => { if (++count === 1) { entered.resolve(); await blocked.promise; return original(...args); } return { status: 'unknown' }; };
+  const closing = controller.close(); await entered.promise; controller.setText('later typing'); blocked.resolve();
+  assert.equal(await closing, false); await controller.draftQueue;
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.text, 'later typing'); assert.equal(controller.state.draftStatus, 'unknown');
+});
+test('typing during the saved-list refresh prevents automatic closing', async () => {
+  const { controller, store, calls } = await fixture(); controller.setText('first'); await controller.draftQueue;
+  const entered = deferred(), blocked = deferred();
+  store.list = async () => { entered.resolve(); await blocked.promise; return [row]; };
+  const saving = controller.save(); await entered.promise; controller.setText('later after receipt'); blocked.resolve(); await saving;
+  assert.equal(controller.state.visible, true); assert.equal(controller.state.text, 'later after receipt'); assert.equal(calls.some(call => call[0] === 'focus'), false);
+});

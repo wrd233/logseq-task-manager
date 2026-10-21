@@ -1,7 +1,7 @@
 /* global process */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, readdir, readFile, writeFile, symlink } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, readdir, readFile, writeFile, symlink, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, execFile } from 'node:child_process';
@@ -63,6 +63,29 @@ test('lost receipt resumes original operation without duplicate after restart', 
   assert.equal((await uncertain.execute(context, create())).status, 'unknown');
   assert.equal((await store.execute(context, create())).status, 'saved'); assert.equal((await store.list(context)).length, 1);
 });
+test('idempotent retry returns the committed revision, not a later writer version', async t => {
+  const { store } = await fixture(t), first = await store.execute(context, create());
+  const edit = { kind: 'edit', id: first.record.id, expectedVersion: 1, text: 'synthetic-own-edit', requestKey: 'own-edit' };
+  await store.execute(context, edit);
+  await store.execute(context, { ...edit, expectedVersion: 2, text: 'synthetic-other-writer', requestKey: 'other-edit' });
+  const retry = await store.execute(context, edit);
+  assert.equal(retry.status, 'saved'); assert.equal(retry.record.version, 2); assert.equal(retry.record.text, edit.text);
+  assert.equal((await store.list(context))[0].version, 3);
+});
+test('a concurrent revision between history observation and publish cannot corrupt the parent chain', async t => {
+  const { root, store } = await fixture(t), first = await store.execute(context, create());
+  let written = false;
+  const racing = new FileCaptureStore(root, { fault: async phase => {
+    if (phase === 'after-history-read' && !written) {
+      written = true;
+      assert.equal((await store.execute(context, { kind: 'edit', id: first.record.id, expectedVersion: 1, requestKey: 'other-writer', text: 'other' })).status, 'saved');
+    }
+  } });
+  const command = { kind: 'edit', id: first.record.id, expectedVersion: 2, requestKey: 'observed-late', text: 'third' };
+  assert.equal((await racing.execute(context, command)).status, 'conflict');
+  assert.equal((await store.execute(context, command)).status, 'saved');
+  assert.equal((await store.list(context))[0].history.length, 3);
+});
 test('partial intent and failure before publication retain request for same-key retry', async t => {
   const { root, store } = await fixture(t);
   const broken = new FileCaptureStore(root, { fault: async (phase, path) => { if (phase === 'before-publish' && path.includes('/records/')) throw Error('synthetic write failure'); } });
@@ -100,4 +123,14 @@ test('corruption and symlinks fail closed; body instructions create no authority
   await assert.rejects(store.list(context), /CORRUPT_CAPTURE_DATA/);
   await rm(file); await symlink(join(root, 'outside'), file);
   await assert.rejects(store.list(context));
+});
+test('directory-level symlink is rejected on both record and draft reads', async t => {
+  const { root, store } = await fixture(t); await store.execute(context, create());
+  const home = join(root, (await readdir(root))[0]), recordDir = join(home, 'records', (await readdir(join(home, 'records')))[0]);
+  const moved = join(root, 'synthetic-outside'); await rename(recordDir, moved); await symlink(moved, recordDir);
+  await assert.rejects(store.list(context), /UNSAFE_STORAGE_PATH/);
+  assert.equal((await store.execute(context, create())).status, 'unknown');
+  const draftDir = join(home, 'drafts'), movedDraft = join(root, 'synthetic-outside-drafts');
+  await rename(draftDir, movedDraft); await symlink(movedDraft, draftDir);
+  await assert.rejects(store.readDraft(context), /UNSAFE_STORAGE_PATH/);
 });
