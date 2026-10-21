@@ -44,3 +44,5 @@
 本次尚未执行上述模块或宿主验收。待 A 的可审提交出现前，主代理只发布本计划，不创建功能占位实现。
 
 后续进展：`7b49d00e` 的[独立审查](04-Capture-7b49d00e审查.md)发现六项问题，未整合该版本。主代理已在共同 `copilot-ui-port.ts` 实现不依赖 A/B 的原生交互适配器；8 项合成适配边界测试与 6 项既有 DSH service 测试通过，Logseq workspace 类型检查和受影响文件 ESLint 通过。这些只证明同步 span、上下文失效、插入/焦点边界，尚未注册真实宿主入口，也不等于模块 G2 或真实 DSH/Logseq 验收。
+
+随后发布 `apps/dsh-plugin/src/capture-host.mjs` 的 `CaptureHost`：由主代理注入 Store 与现有 WorkbenchService，服务端重建上下文、签发进程/会话/连接绑定的调用凭据、拒绝客户端 root/context、核实来源，并对迟到结果失败关闭。无绑定或断连时只保存当前私有分区；草稿中的待处理来源仍是未核实输入，不为保存草稿额外读取 Graph，实际 execute 才核实来源。9 项合成服务边界测试、8 项 port 测试和 6 项既有 service 测试通过；受影响文件 ESLint 通过。此阶段不导入未合并 A 实现、不注册 RPC/模型工具、不实例化生产存储或改变日常 profile。模块通过审查后由入口统一实例化和注册，再补真实服务/宿主验证。
