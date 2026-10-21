@@ -22,7 +22,7 @@ await mkdir(join(profile, 'node_modules/@task-copilot'), { recursive: true });
 const link = join(profile, 'node_modules', name);
 try { await symlink(plugin, link); } catch (error) {
   if (error.code !== 'EEXIST') throw error;
-  if (await realpath(link) !== await realpath(plugin)) throw Error('Existing preview plugin link belongs to another checkout; choose a separate preview directory.');
+  if (await realpath(link) !== await realpath(plugin)) throw Error('Existing preview plugin link belongs to another checkout; choose a separate preview directory.', { cause: error });
 }
 // Dedicated overlay rather than replacing the profile's user configuration.
 const patch = join(root, 'capture.patch.yml');
