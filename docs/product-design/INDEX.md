@@ -30,6 +30,7 @@
 - [后续 Goal A：Capture / Inbox](planning/goals/01-Capture-Inbox-Goal.md)：日常闭环与适合委派的前端子任务。
 - [后续 Goal B：结构历史](planning/goals/02-结构历史-Goal.md)：真实来源树只读回放、覆盖限制与前端子任务。
 - [Capture G2 与宿主接线计划](planning/03-Capture-G2与宿主接线计划.md)：单设备持久化方案的条件批准、上下文校验与等待 A 已提交模块后的整合顺序。
+- [Capture 7b49d00e 独立审查](planning/04-Capture-7b49d00e审查.md)：固定提交的 Standards / Spec 六项复现与 G2 阻塞，区分模块测试和真实宿主证据。
 
 ## 来源与参考材料
 
