@@ -40,10 +40,14 @@ export class CaptureInboxController {
     this.draftCandidates = new Set(); this.lastDraftFingerprint = null; this.inputEpoch = 0; this.loadToken = 0; this.refreshToken = 0;
     this.state = Object.freeze({ visible: false, mode: 'capture', text: '', requestKey: newKey(), pinned: false,
       captureStatus: 'idle', draftStatus: 'saved', problem: '', records: [], query: '', includeArchived: false, selected: [],
-      edit: null, editOpen: false, editStatus: 'idle', quote: '', quoteStatus: 'idle', otherDraft: null });
+      edit: null, editOpen: false, editStatus: 'idle', quote: '', quoteStatus: 'idle', otherDraft: null,
+      activeId: null, listScroll: 0, detailScroll: 0 });
     this.actions = Object.freeze({
       onText: value => this.setText(value), onSave: () => this.save(), onPin: pinned => this.patch({ pinned }), onClose: () => this.close(),
-      onMode: mode => this.patch({ mode }), onQuery: query => this.patch({ query }), onIncludeArchived: includeArchived => this.patch({ includeArchived }),
+      onMode: mode => this.patch({ mode }), onQuery: query => this.patch({ query, listScroll: 0 }), onIncludeArchived: includeArchived => this.patch({ includeArchived }),
+      onActive: activeId => this.patch({ activeId, detailScroll: 0 }),
+      onListScroll: listScroll => this.patch({ listScroll: Math.max(0, Number(listScroll) || 0) }),
+      onDetailScroll: detailScroll => this.patch({ detailScroll: Math.max(0, Number(detailScroll) || 0) }),
       onSelect: (id, checked) => this.patch({ selected: checked ? [...new Set([...this.state.selected, id])] : this.state.selected.filter(value => value !== id) }),
       onToday: () => this.patch({ selected: this.state.records.filter(row => dateKey(row.createdAt) === dateKey(this.now())).map(row => row.id) }),
       onSelectAll: () => this.patch({ selected: this.state.records.map(row => row.id) }), onClearSelection: () => this.patch({ selected: [] }),

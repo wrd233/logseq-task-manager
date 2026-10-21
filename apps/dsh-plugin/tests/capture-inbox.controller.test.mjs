@@ -148,3 +148,12 @@ test('late list refresh cannot replace the latest record view', async () => {
   first.resolve([row]); await old;
   assert.equal(controller.state.records[0].text, 'newest');
 });
+test('returning to Inbox retains selection, active record and module scroll state', async () => {
+  const { controller } = await fixture(); controller.actions.onMode('inbox');
+  controller.actions.onActive(row.id); controller.actions.onSelect(row.id, true);
+  controller.actions.onListScroll(180); controller.actions.onDetailScroll(70);
+  await controller.close(); await controller.open('inbox');
+  assert.equal(controller.state.activeId, row.id); assert.deepEqual(controller.state.selected, [row.id]);
+  assert.equal(controller.state.listScroll, 180); assert.equal(controller.state.detailScroll, 70);
+  controller.actions.onQuery('synthetic'); assert.equal(controller.state.listScroll, 0);
+});

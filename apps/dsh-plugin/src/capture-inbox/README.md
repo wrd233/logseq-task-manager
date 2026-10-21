@@ -10,6 +10,7 @@
 - `createPort` 是**同步**工厂，每次用户引用动作立刻捕获 `conversation.input.captureInsertion()` 的 span；适配 SharedUiPort 唯一原定义，用原 span `insertText()`，不覆盖、不发送。port.context() 返回当前实况，不只返回创建时快照；否则模块无法拦截变化。
 - controller.open(mode, returnPort) 在读取前由宿主同步创建 returnPort 保存触发控件。使用 `useSyncExternalStore(controller.subscribe, controller.getSnapshot)`，渲染 `<CaptureInboxView state={state} actions={controller.actions}/>`；局部样式由 view 带入。
 - `connectionChanged()` 使旧 controller 停止正式动作，保留原分区草稿；跨 session 新建 controller，不 mutate 原 context。突发断连若 RPC 已失效，则保持内存输入、明确 unknown，不绕过认证写入。保持旧实例可回访；`dispose()` 等待草稿队列后才销毁。
+- 当前条目、选择、列表/正文滚动位置保存在该 controller 的模块内存视图状态；浮窗卸载重开后恢复，搜索更改时重置列表滚动。此状态不写入 CaptureStore，不建立公共返回数据库，也不承诺重启后恢复滚动位置。
 - 关闭 await persist，只有草稿回执可靠才隐藏并 returnFocus。宿主强制卸载/进程被杀之前尚未确认的键入仍可能未落盘；不能声称逐键零损失。提示用户保留窗口、重查草稿状态。系统睡眠/断电仍需另验。
 
 ## 数据和恢复

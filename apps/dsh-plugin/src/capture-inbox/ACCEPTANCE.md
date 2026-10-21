@@ -53,3 +53,11 @@ npx eslint apps/dsh-plugin/src/capture-inbox apps/dsh-plugin/tests/capture-inbox
 上述最新命令均退出 0；显式 JSX 浏览器预览打包成功，Capture 与 Inbox 初始焦点、双击编辑自动聚焦已复核。后续真实宿主结果由共同基线发布后补录，不能把这组模块验证升级为真实宿主证明。
 
 最后补一项根创建边界：已有祖先符号链接在 mkdir 之前拒绝，验证目标目录未被创建。该增量 Capture36 + 共享8 = **44 / 44，通过，退出 0**，局部 ESLint 与 diff 空白检查退出 0；前述 68 项指定回归对应此前修订，不冒充此增量的全链路结果。共享入口整合后须跑完整回归。
+
+## 2026-10-22 回访状态补齐
+
+当前条目 activeId 和 list/detail scroll 从 React 挂载内移到同一 controller 的内存状态；不增加 Store/RPC 或持久化字段，不写共享核心。新增关闭/重开行为用例后 **Capture37 + 共享8 = 45 / 45 通过，退出 0**；局部 ESLint、diff 检查、显式 JSX 打包退出 0。
+
+本机回环浏览器加载 40 条醒目标记的合成记录：列表滚动 432px、选中一条，关闭重开后仍 432px 且选中数为 1；再选当前条目 8，关闭前/重开后的滚动均 407px，当前条目均为 8，选中数仍为 1。DOM 只读观察与截图相符，[回访证据](evidence/inbox-return-state.png)。仍为模拟 Store/Port 的模块 UI 证据，不替代真实 DSH/Logseq 验收。
+
+共享主代理此前回合因 workspace credits 停止；本次实际核查其终态后重新交回接线工作，已恢复 active。主线未发布的工作保留原处，不将其当作已消费的远端集成；待发布后普通 merge 并重验。

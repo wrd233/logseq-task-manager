@@ -1,11 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { captureInboxStyles } from './styles.mjs';
 
 const saveLabel = { idle: '', pending: '正在保存，仍可继续输入。', saved: '已可靠保存。', unknown: '保存结果未知，输入已保留。', partial: '保存尚未完成，输入已保留。', failed: '保存失败，输入已保留。', conflict: '存在版本冲突，输入已保留。' };
 const date = value => new Date(value).toLocaleString();
 export function CaptureInboxView({ state, actions }) {
   const root = useRef(null), input = useRef(null), editInput = useRef(null), search = useRef(null);
-  const [activeId, setActiveId] = useState(null);
+  const list = useRef(null), detail = useRef(null);
+  useEffect(() => {
+    if (state.visible && state.mode === 'inbox' && list.current) list.current.scrollTop = state.listScroll ?? 0;
+  }, [state.visible, state.mode, state.query]);
+  useEffect(() => {
+    if (state.visible && detail.current) detail.current.scrollTop = state.detailScroll ?? 0;
+  }, [state.visible, state.mode, state.activeId, state.editOpen]);
   useEffect(() => {
     if (state.visible && state.mode === 'capture') input.current?.focus();
     else if (state.visible && state.mode === 'inbox') search.current?.focus();
@@ -15,7 +21,7 @@ export function CaptureInboxView({ state, actions }) {
   }, [state.visible, state.mode, state.captureStatus, state.text]);
   useEffect(() => { if (state.visible && state.editOpen && state.mode === 'inbox') editInput.current?.focus(); }, [state.visible, state.editOpen, state.edit?.id, state.mode]);
   if (!state.visible) return null;
-  const active = state.records.find(row => row.id === activeId) ?? state.records[0];
+  const active = state.records.find(row => row.id === state.activeId) ?? state.records[0];
   const edit = state.editOpen && state.edit;
   const keyDown = event => {
     if (event.nativeEvent?.isComposing || event.isComposing || event.keyCode === 229) return;
@@ -51,13 +57,13 @@ export function CaptureInboxView({ state, actions }) {
       <label className="ci-search">搜索全部正文与历史<input ref={search} type="search" value={state.query} onChange={event => actions.onQuery(event.target.value)} /></label>
       <div className="ci-tools"><button type="button" onClick={actions.onToday}>选择今天</button><button type="button" onClick={actions.onSelectAll}>全选当前结果</button><button type="button" onClick={actions.onClearSelection}>清空选择</button><label className="ci-check"><input type="checkbox" checked={state.includeArchived} onChange={event => actions.onIncludeArchived(event.target.checked)} />显示归档</label><button type="button" onClick={actions.onRefresh}>刷新</button></div>
       <p className="ci-note">{state.records.length} 条 · 已选 {state.selected.length} 条{state.query ? ' · 搜索包含归档和旧正文' : ''}</p>
-      <div className="ci-grid"><ul aria-label="记录列表">{state.records.map(row => <li key={row.id}><div className="ci-row">
+      <div className="ci-grid"><ul ref={list} aria-label="记录列表" onScroll={event => actions.onListScroll(event.currentTarget.scrollTop)}>{state.records.map(row => <li key={row.id}><div className="ci-row">
         <input type="checkbox" aria-label={`选择 ${row.text.slice(0, 30)}`} checked={state.selected.includes(row.id)} onChange={event => actions.onSelect(row.id, event.target.checked)} />
-        <button type="button" aria-current={active?.id === row.id} onClick={() => setActiveId(row.id)} onDoubleClick={() => actions.onEdit(row.id)}><time dateTime={row.createdAt}>{date(row.createdAt)}{row.archived ? ' · 已归档' : ''}</time><span className="ci-preview">{row.text || '（空正文）'}</span></button>
+        <button type="button" aria-current={active?.id === row.id} onClick={() => actions.onActive(row.id)} onDoubleClick={() => actions.onEdit(row.id)}><time dateTime={row.createdAt}>{date(row.createdAt)}{row.archived ? ' · 已归档' : ''}</time><span className="ci-preview">{row.text || '（空正文）'}</span></button>
       </div></li>)}{!state.records.length && <li>这里还没有记录。</li>}</ul>
       <div>{edit ? <><label htmlFor="ci-edit-body">编辑正文 · 基于 v{edit.expectedVersion}</label><textarea ref={editInput} id="ci-edit-body" value={edit.text} onChange={event => actions.onEditText(event.target.value)} /><div className="ci-tools"><button type="button" disabled={state.editStatus === 'pending'} onClick={actions.onEditSave}>保存编辑</button><button type="button" onClick={actions.onEditCancel}>收起并保留草稿</button>{state.editStatus === 'conflict' && <button type="button" onClick={actions.onRebaseEdit}>保留我的正文，基于最新版本继续</button>}</div><p className="ci-note" role="status">{saveLabel[state.editStatus]}</p>{state.editStatus === 'conflict' && state.records.find(row => row.id === edit.id) && <details open><summary>核对当前已保存正文</summary><p className="ci-body">{state.records.find(row => row.id === edit.id).text}</p></details>}</> : active ? <>
         <time dateTime={active.createdAt}>{date(active.createdAt)} · v{active.version}{active.archived ? ' · 已归档' : ''}</time>
-        <p className="ci-body" onDoubleClick={() => actions.onEdit(active.id)}>{active.text || '（空正文）'}</p>
+        <p ref={detail} className="ci-body" onScroll={event => actions.onDetailScroll(event.currentTarget.scrollTop)} onDoubleClick={() => actions.onEdit(active.id)}>{active.text || '（空正文）'}</p>
         <div className="ci-tools"><button type="button" onClick={() => actions.onEdit(active.id)}>编辑正文</button><button type="button" disabled={state.editStatus === 'pending'} onClick={() => actions.onArchive(active.id, !active.archived)}>{active.archived ? '撤销归档' : '归档'}</button></div>
         <details><summary>原始正文与 {active.history.length} 个版本</summary>{active.history.map(row => <div className="ci-history" key={row.version}><time dateTime={row.at}>v{row.version} · {date(row.at)}{row.restoredFrom ? ` · 恢复自 v${row.restoredFrom}` : ''}</time><pre>{row.text}</pre><button type="button" disabled={state.editStatus === 'pending'} onClick={() => actions.onRestore(active.id, row.version)}>以此正文新增版本</button></div>)}</details>
       </> : null}</div></div>
