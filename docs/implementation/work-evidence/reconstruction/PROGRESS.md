@@ -1,6 +1,6 @@
 # 交互式工作还原实施进度
 
-状态：进行中，尚未达到完整 Goal 验收标准。日期：2026-10-22（Asia/Shanghai）。
+状态：进行中，尚未达到完整 Goal 验收标准。日期：2026-10-22 至 2026-10-23（Asia/Shanghai）。
 
 ## 本轮基线与现场
 
@@ -14,19 +14,25 @@
 
 首次无检查点明确为初始观察；无 HEAD 到首次提交可增量观察；历史被改写/不可用明确未知，不猜测区间。不完整结果不推进有效检查点。单轮提交元数据整理有 5 秒总预算、100 提交/500 文件上限和既有进程输出上限，截断可见。默认不读取提交正文或未跟踪全文，敏感路径仅保留元数据。采集后再核对来源版本，不声明原子快照。
 
-UI 目前仅增加提交范围诊断摘要。**尚未把提交与工作区来源统一为交互文件条目，尚未实现提交正文按需查看。** 当前这一步不是完整产品交付。
+`items.ts` 现已提供统一文件条目（提交/工作区来源合并、重命名别名保留）及按记录内提交引用读取的历史 diff。历史 blob 模式、大小与敏感路径先检查，符号链接/gitlink/大文件拒绝，正文不存档。引用选择已支持只有提交变化的文件。
+
+`reconstruction.ts` 提供事实条目与解释/澄清/交接的独立语义。Store 的 work 记录复用已有私有路径、哈希、不可变发布与幂等回执，不另建正式 Evidence 系统。记录引用必须在同一观察中存在，分析结果必须指向对应条目的分析起点；同一 Store 的追加按观察串行。派生视图保留未分析、失败、等待澄清与跳过状态，可提前整理交接草稿。重启后待完成分析目前标为 interrupted-or-running，尚需运行时区分当前活跃请求与已中断请求。
+
+`analysis.mjs` 已按实际 DSH stream 请求/finish 协议编写宿主模型适配器；无 tools、无 sessionId、无原生消息提交。它只接受明确存在的 evidence ref，拒绝工具调用、伪造来源、错误或截断输出。**尚未接服务端工作流 RPC 或前端调用，因此还没有发生真实模型请求。** 测试里的解释来自显式替身，不能当作模型验收。
+
+UI 目前仍仅有提交范围摘要；统一条目、解释、澄清、交接编辑与历史 diff 的界面尚待接通。这些基础能力不是完整产品交付。
 
 ## 本次验证
 
-- CLI 全部 30/30（新增真实 Git 增量测试 2 项：多提交+未跟踪、改后改回、重复观察/重启、无 HEAD、重命名、历史改写后连续观察仍为未知）。
-- Work Evidence 专属 15/15；CLI 类型检查、改动源码 lint、独立构建通过。
+- CLI 全部 33/33（新增真实 Git/存储测试 5 项：多提交+未跟踪、改后改回、重复观察/重启、无 HEAD、重命名、历史改写后连续观察仍为未知、历史 diff 边界、独立解释/澄清/交接与幂等重启）。
+- Work Evidence 专属 17/17；CLI 类型检查、改动源码 lint、独立构建通过。
 - 本轮还未进行新功能的真实 DSH 宿主/模型验收；前轮报告不替代本轮。
 
 ## 已调查的接入点与剩余工作
 
 已读取结构历史分支 `features/structure-history/view.ts`：其 renderer 直接依赖 StageHistory/structureFrame/SourceSelection，不能把完整业务视图搬入 Work Evidence。下一步需提取仅含节点、关系、布局与选择的最小通用工具，业务来源适配留在各自模块。
 
-已检查本机 DSH 0.2.1-rc.2 的实际类型：`@deepseek-ai/dsh-llm/lib/types/index.d.ts` / `types.d.ts` 提供 `ctx.llm.stream(GenerateOptions)`，请求含 provider/model/messages/system/maxTokens/signal；`agentDefaultModel.currentSelection()` 可读取宿主模型选择。还需核查 RequestMessage 和 FinishReason 并实现服务端辅助分析调用，不需要发送原生对话或使用工具权限。未读取任何认证文件或密钥。
+已检查本机 DSH 0.2.1-rc.2 的实际类型：`@deepseek-ai/dsh-llm/lib/types/index.d.ts` / `types.d.ts` 提供 `ctx.llm.stream(GenerateOptions)`，请求含 provider/model/messages/system/maxTokens/signal；`agentDefaultModel.currentSelection()` 可读取宿主模型选择。已核查 RequestUserInput 和 FinishReason，已实现模型调用适配器；下一步接通服务端辅助分析工作流，不需要发送原生对话或使用工具权限。未读取任何认证文件或密钥。
 
 后续必须继续完成：
 
