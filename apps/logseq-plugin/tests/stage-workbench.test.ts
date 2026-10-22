@@ -182,7 +182,7 @@ test("persisted id metadata does not prevent a precise plain-text change marker 
     const stage=await s.begin();block.content=`沿用已有目录。\nid:: ${s.f.a}`;
     const r=await s.checkpoint(stage.start.id,stage.start.id),change=composeDiff(stage.start.source,r.source,r).get(s.f.a)!;
     assert.ok(change.inline);assert.equal(change.inline.inserted,"");
-    assert.equal(change.inline.prefix+change.inline.suffix,"沿用已有目录。\n");
+    assert.equal(change.inline.prefix+change.inline.suffix,"沿用已有目录。");
     assert.equal(change.before,stage.start.source.blocks.find(b=>b.target.blockUuid===s.f.a)!.content);
     assert.equal(change.after,block.content);assert.equal(change.version,r.source.blocks.find(b=>b.target.blockUuid===s.f.a)!.contentVersion);
   }finally{await s.cleanup();}

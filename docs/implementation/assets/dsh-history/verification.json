@@ -1,0 +1,163 @@
+{
+  "baseline": "b1c7c44d767d98454a641a97020df95b44623752",
+  "remoteMain": "2cb0ced7688b7af19ac5814b1f556ecae255f3c9",
+  "branch": "codex/dsh-history-workbench",
+  "hosts": {
+    "dsh": "0.2.1-rc.2",
+    "logseq": "0.10.9",
+    "isolated": true,
+    "modelInference": false,
+    "sdkReplacement": false
+  },
+  "nativeTools": {
+    "session": "history-api-9e2423b8-965f-41f8-8b8c-f18fce4324fb",
+    "names": [
+      "work_history_snapshot",
+      "work_history_explain",
+      "work_history_list",
+      "work_history_read",
+      "work_history_compare"
+    ],
+    "calls": 8
+  },
+  "logseq": {
+    "stage": "03b34a2c-cb65-432b-8a00-a76f09ebedd6",
+    "revisions": [
+      "03b34a2c-cb65-432b-8a00-a76f09ebedd6",
+      "e0ae879b-15c9-414b-a6a9-dcec2df72ab7",
+      "332d9cb0-1d44-4f63-b727-c8131cd26f01"
+    ],
+    "imported": [
+      {
+        "id": "28262523-c5e0-4219-9a73-283a2e695c6b",
+        "sourceRevision": "332d9cb0-1d44-4f63-b727-c8131cd26f01",
+        "nodes": 4
+      },
+      {
+        "id": "d10d2bdd-88fb-4d55-bc8d-95be44df04ec",
+        "sourceRevision": "e0ae879b-15c9-414b-a6a9-dcec2df72ab7",
+        "nodes": 5
+      },
+      {
+        "id": "ecd78f44-48ce-4049-b9e5-431003f90b12",
+        "sourceRevision": "03b34a2c-cb65-432b-8a00-a76f09ebedd6",
+        "nodes": 4
+      }
+    ],
+    "permissions": {
+      "read": true,
+      "bodyWrite": false,
+      "structureWrite": false,
+      "fileWrite": false,
+      "ordinaryTodo": false,
+      "formalApproval": false
+    }
+  },
+  "draft": {
+    "preserved": true,
+    "references": 4,
+    "sent": false,
+    "deletedNodeSnapshotCorrect": true,
+    "comparison": {
+      "history": "28262523-c5e0-4219-9a73-283a2e695c6b",
+      "project": "/Users/mac/.codex/worktrees/dsh-history-workbench/logseq-task-manager/tmp/history-acceptance/work",
+      "origin": "observed",
+      "title": "DSH 联合验收：真实来源修订",
+      "occurredAt": "2026-10-22T15:00:12.957Z",
+      "recordedAt": "2026-10-22T15:07:03.885Z",
+      "reconstructedAt": null,
+      "comparedWith": "ecd78f44-48ce-4049-b9e5-431003f90b12"
+    },
+    "sourceVersions": [
+      {
+        "historical": "463b7fcbb85a6e6159c6c7dc17f7c9ad910e9d221a8cf914097557c5b363b5c7",
+        "current": null,
+        "notice": "当前来源已删除或移出已授权工作范围；不扩大读取范围，保存的历史正文保持原样。"
+      },
+      {
+        "historical": "961cf5a70403f3fce9e194face83ddfd679b63dab631894c64a1ecf60c48e859",
+        "current": "bf36b53fce5fd5e5a54e78ae99665add66840d4873b2effdabd5388ff5459048",
+        "notice": "来源已变化；下面是今天的内容，历史快照保持不变。"
+      }
+    ]
+  },
+  "git": {
+    "repeatedReadsDeduplicated": true,
+    "checkpoints": [
+      {
+        "id": "18319cdb-7014-4b0d-b3e0-b2f60de6b3d3",
+        "head": "c700ed3d64a0a412a16970189d22f3c49779364c",
+        "paths": [
+          "notes.md",
+          "WORKSPACE.md"
+        ],
+        "patch": "diff --git a/notes.md b/notes.md\nindex 84fe842..fd5d507 100644\n--- a/notes.md\n+++ b/notes.md\n@@ -1,3 +1,5 @@\n # 独立历史验收工作\n \n 仅用于本次 DSH 与 Logseq 联合验收。\n+\n+第二版：真实文件修改，用于自动 Git 检查点和来源版本核对。\n",
+        "since": ""
+      },
+      {
+        "id": "90b0fd69-d0ed-49b4-a37b-bf1aaced5019",
+        "head": "0d3ef073ad1fa10153413dec1135a39cfe5d5b18",
+        "paths": [
+          "WORKSPACE.md",
+          "notes.md"
+        ],
+        "patch": "",
+        "since": "diff --git a/notes.md b/notes.md\nindex 84fe842..fd5d507 100644\n--- a/notes.md\n+++ b/notes.md\n@@ -1,3 +1,5 @@\n # 独立历史验收工作\n \n 仅用于本次 DSH 与 Logseq 联合验收。\n+\n+第二版：真实文件修改，用于自动 Git 检查点和来源版本核对。\n"
+      }
+    ]
+  },
+  "largeStructure": {
+    "nativeNodes": 1000,
+    "renderedDirectoryNodes": 10,
+    "searchedLastNode": true,
+    "storageComparisonTestNodes": 5000
+  },
+  "sourceReadonly": {
+    "files": 8,
+    "unchanged": true,
+    "hashes": {
+      "graph/pages/历史工作台验收.md": "9fd44784cf4cafdeca24da2e794428d9310c98382b19910c1cf77a2e925a3cf3",
+      "graph/pages/contents.md": "3973e022e93220f9212c18d0d0c543ae7c309e46640da93a4a0314de999f5112",
+      "stage-storage/stage-prepared-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-e0ae879b-15c9-414b-a6a9-dcec2df72ab7": "55a586ff202efdcb7ef7c283765bf32b917ad096cd57d03c2b73450858494a22",
+      "stage-storage/stage-workbench-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-e0ae879b-15c9-414b-a6a9-dcec2df72ab7": "55a586ff202efdcb7ef7c283765bf32b917ad096cd57d03c2b73450858494a22",
+      "stage-storage/stage-workbench-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-332d9cb0-1d44-4f63-b727-c8131cd26f01": "85a2446e78aa47965db6ec2abe70ee57da12a089be28e7df81782f2bf6d603fc",
+      "stage-storage/stage-prepared-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-03b34a2c-cb65-432b-8a00-a76f09ebedd6": "84d7174a8e13482f00060115e1260780f1fb8141125cdb6b8c002edddf37e908",
+      "stage-storage/stage-prepared-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-332d9cb0-1d44-4f63-b727-c8131cd26f01": "85a2446e78aa47965db6ec2abe70ee57da12a089be28e7df81782f2bf6d603fc",
+      "stage-storage/stage-workbench-v1-5418dfca2309121fb5e4202a91b2e93067c21cec61bfd89193d733d959160c7a-03b34a2c-cb65-432b-8a00-a76f09ebedd6": "84d7174a8e13482f00060115e1260780f1fb8141125cdb6b8c002edddf37e908"
+    }
+  },
+  "verification": {
+    "logseqTests": 565,
+    "dshTests": 34,
+    "otherWorkspaceSuites": "passed in full npm test run; affected suites fully rerun after corrections",
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "boundaries": "12 passed",
+    "defaultConcurrencyCaveat": "One existing native navigation timer test timed out under default full concurrency; all 565 Logseq tests pass at concurrency 2. No change to that timing test."
+  },
+  "binaries": {
+    "apps/dsh-plugin/dist/index.js": "6332ddc6c2b239f3e395512a418fd9bc444af7f4150b41753e765dd3381992e8",
+    "apps/dsh-plugin/dist/client.js": "0d8044d0ac5da1754bf0cba954fc67d92f5e9a431aa5c6670b1ce67546a418b9",
+    "apps/logseq-plugin/dist/index.js": "9dd48222f0f1b0b106c7b0fcc905d23e43ab0be8aaca625869a9998934d0155e",
+    "apps/logseq-plugin/dist/workspace.mjs": "8f700309b63c528988edb698425e74f51330f785d7fe2166d7bac747d65416f9"
+  },
+  "screenshots": {
+    "deleted-source-ui.png": "bc079181684384f3ce338428fe0217aa71592e821cb5183fa69a89616e8446c2",
+    "draft-ui.png": "ed04c49ad89e279d00cd5149305ae85686c9e8abf949037f397b51bfdc914371",
+    "large-ui.png": "ecf84c0c31241f2cd583440ca95d2187e1dd9dee10ffa54d1b40be93f4104af5",
+    "workbench-ui.png": "476cbee7e337623eebc6b73ba05229e77a549d3659f03446104a6b8a55b2a17d"
+  },
+  "limits": [
+    "Physical macOS window controls, IME and native file chooser not tested",
+    "No real user Graph or remote model inference",
+    "One DSH process writes each private history directory"
+  ],
+  "ui": {
+    "nativeSidebar": true,
+    "arbitraryLogseqComparison": true,
+    "depthBefore": 2,
+    "depthAfter": 3,
+    "fastRefreshThenProjectionSwitch": "passed without previous-request cancellation errors"
+  }
+}

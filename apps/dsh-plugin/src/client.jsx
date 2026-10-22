@@ -1,4 +1,5 @@
 /* global window, document, AbortController, setInterval, clearInterval */
+import { applyHistoryClient } from './structure-history/client.jsx';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
@@ -14,6 +15,7 @@ const errorText = error => ({
 }[error?.code] ?? '暂时无法读取，请检查本地服务与 Logseq 连接。');
 
 export function apply(ctx) {
+  applyHistoryClient(ctx);
   const style = document.createElement('style'); style.textContent = styles + readingStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false;

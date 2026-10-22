@@ -26,7 +26,8 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
     persistRoot: async (scope, valid) => {
       const check = async () => { if (!valid() || (await current()).graphId !== scope.graphId || !valid()) throw new ScopeExpired(); };
       await check();
-      if (await logseq.Editor.checkEditing()) throw new Error("请先结束块编辑，再关联目录。");
+      const editing=await logseq.Editor.checkEditing();
+      if (editing===true||editing===scope.rootUuid) throw new Error("请先结束工作入口块的编辑，再关联目录。");
       const block = await logseq.Editor.getBlock(scope.rootUuid); await check();
       if (!block) throw new Error("工作入口暂不可读。");
       const body = object(block), content = typeof body.content === "string" ? body.content : body.title;
