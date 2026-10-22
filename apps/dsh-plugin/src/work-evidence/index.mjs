@@ -1,11 +1,14 @@
 /* global Response */
 import { EvidenceStore } from '../../../task-copilot-cli/src/work-evidence/store.ts';
 import { isAbsolute } from 'node:path';
+import { reconstructionRuntime } from './runtime.mjs';
 export const name = 'work-evidence';
-export const inject = ['connection'];
+export const inject = ['connection', 'llm', 'agentDefaultModel', 'sessionController'];
 export async function apply(ctx, config = {}) {
   if (!config.stateDirectory || !isAbsolute(config.stateDirectory)) throw Error('EXPLICIT_STATE_DIRECTORY_REQUIRED');
   const store = new EvidenceStore(config.stateDirectory); await store.init();
+  const runtime = reconstructionRuntime(store, ctx, config);
+  ctx.on?.('dispose', () => runtime.dispose());
   const routes = {
     scopes: () => store.scopesReport(), select: p => store.select(p.directory),
     observe: p => store.observe(p.scopeId), history: p => store.historyReport(p.scopeId),
@@ -13,6 +16,11 @@ export async function apply(ctx, config = {}) {
     note: p => store.note(p.scopeId, p.observationId, p.text, p.requestId, p.supersedesId),
     diff: p => store.diff(p.scopeId, p.observationId, p.path, p.side),
     quote: p => store.quote(p.scopeId, p.observationId, p.paths),
+    reconstruction: p => runtime.view(p),
+    commitDiff: p => store.commitDiff(p.scopeId, p.observationId, p.itemId, p.sha),
+    analyze: p => runtime.analyze(p), clarify: p => runtime.clarify(p),
+    handoffDraft: p => runtime.handoffDraft(p), saveHandoff: p => runtime.saveHandoff(p),
+    quoteHandoff: p => runtime.quoteHandoff(p),
   };
   // UI-only authenticated RPC. No model tool, system context, session cwd or grant mutation.
   for (const [method, operation] of Object.entries(routes)) ctx.connection.fetch.register({

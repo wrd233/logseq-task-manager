@@ -19,3 +19,8 @@ test('missing model, fabricated refs, malformed JSON shape and failed finish are
   await assert.rejects(model({}).runtime.explain({evidence:[]}),/ANALYSIS_INVALID_REFERENCES/);
   await assert.rejects(model(value,{kind:'error',failure:{code:'AUTH'}}).runtime.explain({evidence:[]}),/AUTH/);
 });
+test('an already aborted analysis never invokes a provider and reports a resumable local interruption',async()=>{
+ const f=model();
+ await assert.rejects(f.runtime.explain({evidence:[]},undefined,globalThis.AbortSignal.abort()),/ANALYSIS_INTERRUPTED/);
+ assert.equal(f.requests.length,0);
+});

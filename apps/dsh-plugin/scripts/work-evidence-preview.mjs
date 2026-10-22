@@ -18,9 +18,20 @@ for (const path of [join(home, 'profiles'), profile, join(profile, 'node_modules
   try { if (!(await lstat(path)).isDirectory() || await realpath(path) !== path) throw Error('PROFILE_PATH_RESTRICTED'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
-for (const path of [join(profile, 'cordis.patch.yml'), join(profile, 'package.json'), join(state, 'process.json'), join(state, 'address.json'), join(state, 'host.log')]) {
+for (const path of [join(profile, 'cordis.patch.yml'), join(profile, 'package.json'), join(state, 'process.json'), join(state, 'address.json'), join(state, 'origin.json'), join(state, 'host.log')]) {
   try { if (!(await lstat(path)).isFile()) throw Error('PROFILE_FILE_RESTRICTED'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+// A browser's draft backup belongs to its origin. Allocate once, then reuse that owned address.
+// A busy port is a startup error; never silently switch origins or replace another server.
+let port = '0';
+for (const filename of ['origin.json', 'address.json']) {
+  try {
+    const value = JSON.parse(await readFile(join(state, filename), 'utf8'));
+    const match = /^http:\/\/127\.0\.0\.1:(\d{4,5})$/u.exec(value.address);
+    if (!match || Number(match[1]) < 1024 || Number(match[1]) > 65535) throw Error('OWNED_ORIGIN_INVALID');
+    port = match[1]; break;
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
 try { await access(join(profile, 'package.json')); }
 catch (error) {
@@ -44,7 +55,7 @@ try { await symlink(output, join(parent, 'dsh-work-evidence')); }
 catch (error) {
   if (error.code !== 'EEXIST' || await realpath(join(parent, 'dsh-work-evidence')) !== output) throw error;
 }
-const child = spawn('dsh', ['--profile', 'work-evidence', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+const child = spawn('dsh', ['--profile', 'work-evidence', '--host', '127.0.0.1', '--port', port, '--no-open'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
 await writeFile(join(state, 'process.json'), JSON.stringify({ parentPid: process.pid, hostPid: child.pid, home, profile, proofMode: process.env.WORK_EVIDENCE_HOST_PROOF === '1' }));
 const log = createWriteStream(join(state, 'host.log'), { flags: 'a', mode: 0o600 });
 for (const stream of [child.stdout, child.stderr]) {
@@ -57,7 +68,10 @@ for (const stream of [child.stdout, child.stderr]) {
       const line = pending.slice(0, end + 1); pending = pending.slice(end + 1);
       log.write(line.replace(/([?&]token=)[^\s]+/gu, '$1[redacted]'));
       const address = line.match(/http:\/\/127\.0\.0\.1:\d+/u)?.[0];
-      if (address) void writeFile(join(state, 'address.json'), JSON.stringify({ address }));
+      if (address) {
+        void writeFile(join(state, 'address.json'), JSON.stringify({ address }));
+        void writeFile(join(state, 'origin.json'), JSON.stringify({ address }), { flag: 'wx', mode: 0o600 }).catch(error => { if (error.code !== 'EEXIST') process.stderr.write(`Origin receipt failed: ${error.code}\n`); });
+      }
     }
   });
 }

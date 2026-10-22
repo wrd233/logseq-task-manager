@@ -35,6 +35,7 @@ async function fixture() {
       }; });
       case 'diff': if (failDiff) throw Object.assign(Error('source changed'), { code: 'SOURCE_CHANGED' }); value = { state: 'current-text', text: 'obsolete diff body' }; break;
       case 'quote': value = ' citation'; break;
+      case 'reconstruction': value = { items: [{ fact: { id: 'file-item', path: 'work.txt', aliases: ['work.txt'], commits: [], workspace: observation.value.files[0] }, state: 'pending' }], events: [], handoffs: [], complete: true }; break;
       case 'read': if (failRead) throw Error('list transport failed'); value = { observation, notes: list(notes) }; break;
       default: throw Error(method);
     }
@@ -44,8 +45,8 @@ async function fixture() {
   const find = (type, label) => { const found = walk(tree()).find(node => node.type === type && (!label || text(node).includes(label))); assert.ok(found, `${type}: ${label}`); return found; };
   const tick = () => new Promise(resolve => setImmediate(resolve));
   find('button', '工作变化').props.onClick(); await tick(); find('form').props.onSubmit({ preventDefault() {} }); await tick();
-  find('button', '查看工作变化并保存').props.onClick(); await tick();
-  return { find, tree, tick, callbacks, notes, remount: () => unmount(Component), reinitialize: () => apply(context), draft: () => draft, allowInsert: value => { canInsert = value; }, release: () => release(), failRead: () => { failRead = true; }, failDiff: () => { failDiff = true; } };
+  find('button', '同步一下我刚才做的事').props.onClick(); await tick(); tree(); await tick();
+  return { find, tree, tick, callbacks, notes, remount: () => unmount(Component), reinitialize: () => apply(context), draft: () => draft, allowInsert: value => { canInsert = value; }, release: () => release(), failRead: (value = true) => { failRead = value; }, failDiff: () => { failDiff = true; } };
 }
 test('production client preserves typing across save and failed list refresh; closing and reopening does not reset it', async () => {
   const f = await fixture(); f.find('textarea').props.onChange({ target: { value: 'first intent' } });
@@ -70,7 +71,7 @@ test('a failed diff refresh removes the previously displayed current diff', asyn
 
 test('production quote preview cancels safely and failed insertion remains retryable without replacing the draft', async () => {
   const f = await fixture();
-  walk(f.tree()).find(node => node.type === 'input' && node.props.type === 'checkbox').props.onChange({ target: { checked: true } });
+  walk(f.tree()).find(node => node.type === 'label' && text(node).includes('work.txt')).props.children[0].props.onChange({ target: { checked: true } });
   f.find('button', '准备草稿引用').props.onClick(); await f.tick();
   assert.equal(f.draft(), 'existing draft');
   f.find('button', '关闭引用预览').props.onClick(); assert.equal(f.draft(), 'existing draft');
@@ -88,10 +89,10 @@ test('DSH slot remount keeps the open panel, observation and in-flight lock unti
   f.find('button', '保存补充').props.onClick(); await f.tick();
   f.find('textarea').props.onChange({ target: { value: 'new while pending' } });
   f.remount(); assert.equal(f.find('textarea').props.value, 'new while pending');
-  assert.equal(f.find('button', '查看工作变化并保存').props.disabled, true);
+  assert.equal(f.find('button', '同步一下我刚才做的事').props.disabled, true);
   f.release(); await f.tick();
   assert.equal(f.find('textarea').props.value, 'new while pending');
-  assert.equal(f.find('button', '查看工作变化并保存').props.disabled, false);
+  assert.equal(f.find('button', '同步一下我刚才做的事').props.disabled, false);
   assert.equal(f.notes.length, 1);
 });
 
@@ -100,4 +101,9 @@ test('plugin reinitialization restores open preference, selected history and the
   f.reinitialize(); f.tree(); await f.tick(); f.tree(); await f.tick();
   assert.equal(f.find('textarea').props.value, 'retain on plugin restart');
   assert.match(text(f.tree()), /历史记录/);
+});
+test('a failed navigation restore cannot erase the remembered observation and a later open retries it', async () => {
+ const f=await fixture();f.failRead();f.reinitialize();f.tree();await f.tick();f.tree();await f.tick();
+ f.failRead(false);f.find('button','收起').props.onClick();f.find('button','工作变化').props.onClick();await f.tick();f.tree();await f.tick();
+ assert.match(text(f.tree()),/历史记录/);assert(f.find('button','未暂存差异'));
 });

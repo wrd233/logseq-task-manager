@@ -1,0 +1,316 @@
+TAP version 13
+# Subtest: UI-only RPC uses real Git and disk, rejects foreign scope and invalid envelopes, never touches session/tools
+ok 1 - UI-only RPC uses real Git and disk, rejects foreign scope and invalid envelopes, never touches session/tools
+  ---
+  duration_ms: 360.717417
+  ...
+# Subtest: native draft insertion preserves concurrent typing, refuses stale spans and never submits/replaces
+ok 2 - native draft insertion preserves concurrent typing, refuses stale spans and never submits/replaces
+  ---
+  duration_ms: 0.379667
+  ...
+# Subtest: host model adapter uses the actual DSH stream vocabulary without tools or message submission
+ok 3 - host model adapter uses the actual DSH stream vocabulary without tools or message submission
+  ---
+  duration_ms: 1.558083
+  ...
+# Subtest: missing model, fabricated refs, malformed JSON shape and failed finish are genuine failures
+ok 4 - missing model, fabricated refs, malformed JSON shape and failed finish are genuine failures
+  ---
+  duration_ms: 2.025042
+  ...
+# Subtest: an already aborted analysis never invokes a provider and reports a resumable local interruption
+ok 5 - an already aborted analysis never invokes a provider and reports a resumable local interruption
+  ---
+  duration_ms: 3.651375
+  ...
+# Subtest: production client preserves typing across save and failed list refresh; closing and reopening does not reset it
+ok 6 - production client preserves typing across save and failed list refresh; closing and reopening does not reset it
+  ---
+  duration_ms: 16.210792
+  ...
+# Subtest: reading the same observation again cannot clear unsubmitted intent
+ok 7 - reading the same observation again cannot clear unsubmitted intent
+  ---
+  duration_ms: 16.735125
+  ...
+# Subtest: a failed diff refresh removes the previously displayed current diff
+ok 8 - a failed diff refresh removes the previously displayed current diff
+  ---
+  duration_ms: 43.231041
+  ...
+# Subtest: production quote preview cancels safely and failed insertion remains retryable without replacing the draft
+ok 9 - production quote preview cancels safely and failed insertion remains retryable without replacing the draft
+  ---
+  duration_ms: 135.147375
+  ...
+# Subtest: DSH slot remount keeps the open panel, observation and in-flight lock until the actual receipt
+ok 10 - DSH slot remount keeps the open panel, observation and in-flight lock until the actual receipt
+  ---
+  duration_ms: 39.512542
+  ...
+# Subtest: plugin reinitialization restores open preference, selected history and the browser-backed unsaved intent
+ok 11 - plugin reinitialization restores open preference, selected history and the browser-backed unsaved intent
+  ---
+  duration_ms: 24.582625
+  ...
+# Subtest: a failed navigation restore cannot erase the remembered observation and a later open retries it
+ok 12 - a failed navigation restore cannot erase the remembered observation and a later open retries it
+  ---
+  duration_ms: 41.753333
+  ...
+# Subtest: archived real-host records replay with exact receipts and isolated corruption
+ok 13 - archived real-host records replay with exact receipts and isolated corruption
+  ---
+  duration_ms: 375.934917
+  ...
+# Subtest: personal fixture can be recreated, changed, checked and removed only by exact owned run identity
+ok 14 - personal fixture can be recreated, changed, checked and removed only by exact owned run identity
+  ---
+  duration_ms: 3010.890041
+  ...
+# Subtest: clarification/handoff drafts fence later typing and restore the exact lost receipt payload after reload
+ok 15 - clarification/handoff drafts fence later typing and restore the exact lost receipt payload after reload
+  ---
+  duration_ms: 9.942584
+  ...
+# Subtest: skipping never clears typed text and invalid receipts stay retryable
+ok 16 - skipping never clears typed text and invalid receipts stay retryable
+  ---
+  duration_ms: 4.444
+  ...
+# Subtest: generic node-edge layout has no business dependencies, keeps child selection stable and honors expansion
+ok 17 - generic node-edge layout has no business dependencies, keeps child selection stable and honors expansion
+  ---
+  duration_ms: 0.414791
+  ...
+# Subtest: an explicitly rejected interpretation version keeps the answer editable instead of pinning an impossible retry
+ok 18 - an explicitly rejected interpretation version keeps the answer editable instead of pinning an impossible retry
+  ---
+  duration_ms: 0.304875
+  ...
+# Subtest: real store workflow: independent progress, local answer reanalysis, skip, immutable handoff/reopen/quote and receipt replay
+ok 19 - real store workflow: independent progress, local answer reanalysis, skip, immutable handoff/reopen/quote and receipt replay
+  ---
+  duration_ms: 2273.130625
+  ...
+# Subtest: missing model is a persisted local failure; restart distinguishes interrupted jobs and preserves earlier answers
+ok 20 - missing model is a persisted local failure; restart distinguishes interrupted jobs and preserves earlier answers
+  ---
+  duration_ms: 664.373292
+  ...
+# Subtest: related session reads only explicitly chosen matching cwd and visible bounded text; never changes binding or reads tools/secrets
+ok 21 - related session reads only explicitly chosen matching cwd and visible bounded text; never changes binding or reads tools/secrets
+  ---
+  duration_ms: 514.490333
+  ...
+# Subtest: Logseq context uses the existing exact directory grant over real loopback transport and never refreshes/binds/writes
+ok 22 - Logseq context uses the existing exact directory grant over real loopback transport and never refreshes/binds/writes
+  ---
+  duration_ms: 528.961542
+  ...
+# Subtest: large real commit/workspace diffs cannot crowd a saved clarification out of local reanalysis
+ok 23 - large real commit/workspace diffs cannot crowd a saved clarification out of local reanalysis
+  ---
+  duration_ms: 1328.5365
+  ...
+# Subtest: delayed real-store receipt never clears later input; another save persists that input separately
+ok 24 - delayed real-store receipt never clears later input; another save persists that input separately
+  ---
+  duration_ms: 411.125959
+  ...
+# Subtest: lost receipt retries the original immutable payload and key, retaining new input across retry and host restart
+ok 25 - lost receipt retries the original immutable payload and key, retaining new input across retry and host restart
+  ---
+  duration_ms: 302.968792
+  ...
+# Subtest: revision fencing also retains input edited away and back, and malformed receipts never clear it
+ok 26 - revision fencing also retains input edited away and back, and malformed receipts never clear it
+  ---
+  duration_ms: 244.620791
+  ...
+# Subtest: browser backup restores an unknown request and later typing; retry retains exact identity
+ok 27 - browser backup restores an unknown request and later typing; retry retains exact identity
+  ---
+  duration_ms: 1.059667
+  ...
+# Subtest: intent edit and explicit cancel cannot overwrite pending input; failed backup is visible
+ok 28 - intent edit and explicit cancel cannot overwrite pending input; failed backup is visible
+  ---
+  duration_ms: 0.179042
+  ...
+# Subtest: all reference commands support machine-readable output
+ok 29 - all reference commands support machine-readable output
+  ---
+  duration_ms: 1.493167
+  ...
+# Subtest: unknown commands fail without touching a fallback database
+ok 30 - unknown commands fail without touching a fallback database
+  ---
+  duration_ms: 0.225625
+  ...
+# Subtest: External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+ok 31 - External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+  ---
+  duration_ms: 0.88625
+  ...
+# Subtest: CLI emits stable JSON errors and refuses non-waiting proposal apply
+ok 32 - CLI emits stable JSON errors and refuses non-waiting proposal apply
+  ---
+  duration_ms: 0.111625
+  ...
+# Subtest: object filters fail closed instead of silently returning an empty list
+ok 33 - object filters fail closed instead of silently returning an empty list
+  ---
+  duration_ms: 0.070208
+  ...
+# Subtest: backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+ok 34 - backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+  ---
+  duration_ms: 62.348167
+  ...
+# Subtest: backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+ok 35 - backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+  ---
+  duration_ms: 56.711958
+  ...
+# Subtest: restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+ok 36 - restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+  ---
+  duration_ms: 68.224333
+  ...
+# Subtest: restore retains committed WAL data in the previous logical snapshot
+ok 37 - restore retains committed WAL data in the previous logical snapshot
+  ---
+  duration_ms: 161.953167
+  ...
+# Subtest: service status recognizes stale descriptor and never reports a dead pid as running
+ok 38 - service status recognizes stale descriptor and never reports a dead pid as running
+  ---
+  duration_ms: 17.82025
+  ...
+# Subtest: doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+ok 39 - doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+  ---
+  duration_ms: 7.223167
+  ...
+# Subtest: a corrupt observation is isolated, valid history stays immutable, and another directory still compares and observes
+ok 40 - a corrupt observation is isolated, valid history stays immutable, and another directory still compares and observes
+  ---
+  duration_ms: 844.413625
+  ...
+# Subtest: corrupt supplements, scope records, valid-hash invalid shapes and symlink records cannot poison another directory
+ok 41 - corrupt supplements, scope records, valid-hash invalid shapes and symlink records cannot poison another directory
+  ---
+  duration_ms: 516.240625
+  ...
+# Subtest: immutable v1 flat records still read back; unknown-owner corruption is explicit and does not block observations
+ok 42 - immutable v1 flat records still read back; unknown-owner corruption is explicit and does not block observations
+  ---
+  duration_ms: 490.134625
+  ...
+# Subtest: same supplement request replays the exact receipt after restart, races deduplicate, and changed payloads conflict
+ok 43 - same supplement request replays the exact receipt after restart, races deduplicate, and changed payloads conflict
+  ---
+  duration_ms: 282.289667
+  ...
+# Subtest: storage rejects every existing symlink prefix before mkdir, without creating outside or inside target directories
+ok 44 - storage rejects every existing symlink prefix before mkdir, without creating outside or inside target directories
+  ---
+  duration_ms: 27.102166
+  ...
+# Subtest: intent revisions append immutable history, replay exact revision receipts, and clean observations can be cited
+ok 45 - intent revisions append immutable history, replay exact revision receipts, and clean observations can be cited
+  ---
+  duration_ms: 385.738875
+  ...
+# Subtest: incremental sync retains new commits and current dirty files, including a reverted intermediate change, across restart
+ok 46 - incremental sync retains new commits and current dirty files, including a reverted intermediate change, across restart
+  ---
+  duration_ms: 1162.459916
+  ...
+# Switched to a new branch 'rewritten'
+# Subtest: unborn checkpoint, rename and rewritten history are explicit, never replaced with a guessed range
+ok 47 - unborn checkpoint, rename and rewritten history are explicit, never replaced with a guessed range
+  ---
+  duration_ms: 1190.644708
+  ...
+# Subtest: unified file evidence keeps commit and workspace sources together and bounds historical body reads
+ok 48 - unified file evidence keeps commit and workspace sources together and bounds historical body reads
+  ---
+  duration_ms: 720.407541
+  ...
+# Subtest: interpretations, clarification and early handoff append separately and survive restart without changing the observation
+ok 49 - interpretations, clarification and early handoff append separately and survive restart without changing the observation
+  ---
+  duration_ms: 318.807666
+  ...
+# Subtest: historical evidence refuses sensitive paths, symlink blobs and oversized text without reading link targets
+ok 50 - historical evidence refuses sensitive paths, symlink blobs and oversized text without reading link targets
+  ---
+  duration_ms: 581.68725
+  ...
+# Subtest: real Git staged, unstaged, untracked, renames, deletion, unusual paths, immutable restart, notes and stale diff
+ok 51 - real Git staged, unstaged, untracked, renames, deletion, unusual paths, immutable restart, notes and stale diff
+  ---
+  duration_ms: 1348.845333
+  ...
+# Subtest: real unborn and clean repos, non Git, invalid directory, output and file count limits, actual Git timeout
+ok 52 - real unborn and clean repos, non Git, invalid directory, output and file count limits, actual Git timeout
+  ---
+  duration_ms: 1145.968042
+  ...
+# Subtest: scope isolation, sensitive paths/content, binary, symlink, outside root, no untracked body reads
+ok 53 - scope isolation, sensitive paths/content, binary, symlink, outside root, no untracked body reads
+  ---
+  duration_ms: 539.919542
+  ...
+# Subtest: real concurrent writer is reported as inconsistent, never atomic
+ok 54 - real concurrent writer is reported as inconsistent, never atomic
+  ---
+  duration_ms: 334.058792
+  ...
+# Subtest: diff size limits are visible, staged deletion works, directory symlinks and environment overrides cannot widen scope
+ok 55 - diff size limits are visible, staged deletion works, directory symlinks and environment overrides cannot widen scope
+  ---
+  duration_ms: 556.785916
+  ...
+# Subtest: bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+ok 56 - bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+  ---
+  duration_ms: 65.611208
+  ...
+# Subtest: scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+ok 57 - scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+  ---
+  duration_ms: 79.990958
+  ...
+# Subtest: metadata links and material write paths are rejected before reading or writing outside roots
+ok 58 - metadata links and material write paths are rejected before reading or writing outside roots
+  ---
+  duration_ms: 12.065583
+  ...
+# Subtest: broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+ok 59 - broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+  ---
+  duration_ms: 24.706625
+  ...
+# Subtest: real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+ok 60 - real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+  ---
+  duration_ms: 70.963583
+  ...
+# Subtest: concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+ok 61 - concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+  ---
+  duration_ms: 141.7005
+  ...
+1..61
+# tests 61
+# suites 0
+# pass 61
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5660.922791

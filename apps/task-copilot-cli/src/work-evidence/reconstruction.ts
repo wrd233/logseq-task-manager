@@ -1,8 +1,9 @@
 import { fileItems } from './items.ts';
 import type { Observation } from './git.ts';
 export type Interpretation = { explanation: string; group: string; question: string | null; uncertainties: string[]; evidenceRefs: string[] };
+export type AnalysisSource = { ref: string; hash: string; capturedAt: string; kind: string; truncated: boolean };
 export type WorkPayload =
-  | { kind: 'analysis-started'; itemId: string; model: string }
+  | { kind: 'analysis-started'; itemId: string; model: string; sources?: AnalysisSource[]; sourceProblems?: string[] }
   | { kind: 'analysis-result'; itemId: string; runId: string; interpretation: Interpretation }
   | { kind: 'analysis-failed'; itemId: string; runId: string; error: string }
   | { kind: 'clarification'; itemId: string; interpretationId: string; text: string; skipped: boolean }
@@ -19,7 +20,7 @@ export function validWorkEvent(value: unknown): value is WorkEvent {
   if (value.kind === 'handoff') return text(value.text, 24000) && !!value.text.trim() && Array.isArray(value.sourceEventIds) && value.sourceEventIds.length <= 2000 && value.sourceEventIds.every(uuid) && (value.supersedesId === null || uuid(value.supersedesId));
   if (!text(value.itemId, 64) || !/^[a-f\d]{64}$/u.test(value.itemId)) return false;
   switch (value.kind) {
-    case 'analysis-started': return text(value.model, 200);
+    case 'analysis-started': return text(value.model, 200) && (value.sourceProblems === undefined || Array.isArray(value.sourceProblems) && value.sourceProblems.length <= 100 && value.sourceProblems.every(p => text(p, 500))) && (value.sources === undefined || Array.isArray(value.sources) && value.sources.length <= 100 && value.sources.every(s => object(s) && text(s.ref, 4096) && text(s.hash, 64) && text(s.capturedAt, 64) && text(s.kind, 64) && typeof s.truncated === 'boolean'));
     case 'analysis-result': return uuid(value.runId) && validInterpretation(value.interpretation);
     case 'analysis-failed': return uuid(value.runId) && text(value.error, 200);
     case 'clarification': return uuid(value.interpretationId) && text(value.text, 2000) && typeof value.skipped === 'boolean' && (value.skipped || !!value.text.trim());
@@ -32,9 +33,12 @@ export function reconstruction(record: Observation, events: WorkEvent[]) {
     const local = relevant.filter(e => 'itemId' in e && e.itemId === fact.id);
     const run = local.filter(e => e.kind === 'analysis-started').at(-1);
     const result = local.slice().reverse().find(e => 'runId' in e && e.runId === run?.id);
-    const interpretation = result?.kind === 'analysis-result' ? result : null;
-    const clarification = local.slice().reverse().find(e => e.kind === 'clarification' && e.interpretationId === interpretation?.id);
-    const state = result?.kind === 'analysis-failed' ? 'failed' : interpretation ? interpretation.interpretation.question && !clarification ? 'needs-clarification' : 'interpreted' : run ? 'interrupted-or-running' : 'pending';
+    // Keep the last explanation available during a retry; its run remains explicit.
+    const interpretation = local.slice().reverse().find(e => e.kind === 'analysis-result') ?? null;
+    const clarification = local.slice().reverse().find(e => e.kind === 'clarification');
+    const answeredCurrent = clarification?.kind === 'clarification' && clarification.interpretationId === interpretation?.id;
+    const needsUpdate = clarification?.kind === 'clarification' && !clarification.skipped && !!interpretation && clarification.createdAt > interpretation.createdAt;
+    const state = run && !result ? 'interrupted-or-running' : result?.kind === 'analysis-failed' ? 'failed' : needsUpdate ? 'needs-reanalysis' : interpretation ? interpretation.interpretation.question && !answeredCurrent ? 'needs-clarification' : 'interpreted' : 'pending';
     return { fact, state, runId: run?.id ?? null, interpretation, clarification, error: result?.kind === 'analysis-failed' ? result.error : null };
   });
   return { items, handoffs: relevant.filter(e => e.kind === 'handoff'), events: relevant };
@@ -43,16 +47,26 @@ export function reconstruction(record: Observation, events: WorkEvent[]) {
 export function handoffDraft(record: Observation, events: WorkEvent[]) {
   const view = reconstruction(record, events);
   const lines = [`工作交接 · ${record.observedAt}`, `观察来源：work-evidence:v1:${record.scopeId}:${record.id}`, `范围：${record.directory}`, `提交区间：${record.sync?.fromHead ?? '初始/未知'} → ${record.head ?? '无 HEAD'}；${record.sync?.state ?? '旧观察，未保存增量范围'}`, ''];
-  for (const item of view.items) {
-    lines.push(`文件：${JSON.stringify(item.fact.path)}`, `观察事实：${item.fact.commits.length} 个来源提交；当前工作区${item.fact.workspace ? '有变化' : '没有本次变化条目'}。`);
-    if (item.interpretation) {
-      const i = item.interpretation.interpretation;
-      lines.push(`Agent 解释（非完成证明）：${i.explanation}`, `工作主题（Agent 归组）：${i.group}`, ...i.uncertainties.map(u => `未知：${u}`));
-      if (i.question) lines.push(`关键问题：${i.question}`);
-    } else lines.push(`未知：${item.error ? `分析失败 ${item.error}` : '尚未获得解释'}。`);
-    if (item.clarification?.kind === 'clarification') lines.push(item.clarification.skipped ? '用户跳过澄清：相关结论仍待确认。' : `据用户澄清：${item.clarification.text}`);
-    else if (item.state === 'needs-clarification') lines.push('未知：关键问题尚未回答。');
-    lines.push('');
+  if (record.state === 'failed') lines.push(`未知：本次观察失败（${record.error}）。`);
+  if (record.truncated || record.sync?.truncated) lines.push('未知：来源结果截断，缺失部分尚未核对。');
+  if (!record.consistent && record.state !== 'failed') lines.push('未知：观察期间来源改变，不是一致快照。');
+  lines.push('来源边界：只保存观察元数据；差异正文未存档，当前来源可能已变化。');
+  const groups = [...new Set(view.items.map(item => item.interpretation?.interpretation.group ?? '尚未归组'))];
+  for (const group of groups) {
+    lines.push(`工作主题（Agent 归组）：${group}`);
+    for (const item of view.items.filter(item => (item.interpretation?.interpretation.group ?? '尚未归组') === group)) {
+      lines.push(`文件：${JSON.stringify(item.fact.path)}`, `观察事实：${item.fact.commits.length} 个来源提交；当前工作区${item.fact.workspace ? '有变化' : '没有本次变化条目'}。`);
+      if (item.interpretation) {
+        const i = item.interpretation.interpretation;
+        lines.push(`Agent 解释（非完成证明）：${i.explanation}`, ...i.uncertainties.map(u => `未知：${u}`), ...i.evidenceRefs.map(ref => `解释来源：${ref}`));
+        if (['interrupted-or-running', 'failed'].includes(item.state)) lines.push('未知：最新分析未完成；以上为此前解释。');
+        if (item.state === 'needs-reanalysis') lines.push('未知：用户说明已保存，但此前解释尚未据此更新。');
+        if (i.question) lines.push(`关键问题：${i.question}`);
+      } else lines.push(`未知：${item.error ? `分析失败 ${item.error}` : '尚未获得解释'}。`);
+      if (item.clarification?.kind === 'clarification') lines.push(item.clarification.skipped ? '用户跳过澄清：相关结论仍待确认。' : `据用户澄清：${item.clarification.text}`);
+      else if (item.state === 'needs-clarification') lines.push('未知：关键问题尚未回答。');
+      lines.push('');
+    }
   }
   lines.push('验证：这里只组织来源与解释；未附实际测试证据的检查不能视为通过。', '下一步：核对未知项，由用户决定后续工作；不自动创建任务或发送。');
   return lines.join('\n');

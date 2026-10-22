@@ -1,0 +1,391 @@
+{
+  "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+  "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+  "observationHash": "187316f7f1e24fba393e06c0f6e73002de17acffd7e6d318c2746b2c9e135ab1",
+  "head": "d34e93cc08dcd33687cb251873776db5d17074fa",
+  "branch": "main",
+  "sourceVersion": "08ede7574bf89873b2617cb78d2ff787d1e4eab1eb1ee5c88ecff6c89a8c1f41",
+  "sync": {
+    "state": "complete",
+    "fromObservationId": "406f85a8-5673-41ca-87f8-b34fb4edec6f",
+    "fromHead": "ec2a3e72fcbdce0c41baa09d30330ee76a11cb37",
+    "toHead": "d34e93cc08dcd33687cb251873776db5d17074fa",
+    "commits": [
+      {
+        "sha": "5d83a366ff9a1887baa4b317cedde54f04ce01c3",
+        "subject": "Retain user input until a saved receipt arrives"
+      },
+      {
+        "sha": "d34e93cc08dcd33687cb251873776db5d17074fa",
+        "subject": "Document restart recovery"
+      }
+    ],
+    "files": [
+      {
+        "path": "work.txt",
+        "originalPath": null,
+        "status": "M",
+        "restricted": false,
+        "commits": [
+          "5d83a366ff9a1887baa4b317cedde54f04ce01c3"
+        ]
+      },
+      {
+        "path": "恢复说明.md",
+        "originalPath": null,
+        "status": "A",
+        "restricted": false,
+        "commits": [
+          "d34e93cc08dcd33687cb251873776db5d17074fa"
+        ]
+      }
+    ],
+    "truncated": false,
+    "reason": null
+  },
+  "items": [
+    {
+      "path": "work.txt",
+      "state": "interpreted",
+      "runId": "4d246db7-e8ca-4c57-9e61-7d0cd16d73e4",
+      "interpretationId": "3e665249-ad83-483a-b3f5-dfe78c99eb09",
+      "clarificationId": "195afb4c-2f66-4052-95d3-a703d1e4c81c",
+      "skipped": false
+    },
+    {
+      "path": "恢复说明.md",
+      "state": "pending",
+      "runId": null
+    },
+    {
+      "path": "未跟踪.txt",
+      "state": "interpreted",
+      "runId": "3bfc651e-1505-41af-96ab-cf94740de479",
+      "interpretationId": "097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+      "clarificationId": "ce8d877e-61ad-4cfa-a12c-7cfef4605bfd",
+      "skipped": true
+    }
+  ],
+  "runs": [
+    {
+      "kind": "analysis-started",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "model": "deepseek-official/deepseek-flash",
+      "sources": [
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "ccdc2b4408f02195a192fa587f17e7305194d7dd945569ad6c1ca808d1399a5f",
+          "kind": "git-observation",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:25:55.847Z"
+        },
+        {
+          "ref": "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "75de1111ac13d069d95b02f4f3be5949bb12603a4936e572a07bdbe3ba17d3d5",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:25:55.847Z"
+        },
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:staged",
+          "hash": "3baad8f25e3a281e653ce1e3cbe7036fb24cac041897ff3cef5421ddeac9ca4d",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:25:55.847Z"
+        },
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:unstaged",
+          "hash": "47e6a463432b4256e68b1837531c141f1cb373694d3907dd4acf6138fb1202b5",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:25:55.847Z"
+        }
+      ],
+      "sourceProblems": [],
+      "schemaVersion": 1,
+      "id": "9a16d611-8481-4b3d-81c7-6f559e86ac37",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:25:55.848Z"
+    },
+    {
+      "kind": "analysis-started",
+      "itemId": "8d443cc219ac21af30b576176fb60e9434b5a3af23b169124b7907aa2c13a604",
+      "model": "deepseek-official/deepseek-flash",
+      "sources": [
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:8d443cc219ac21af30b576176fb60e9434b5a3af23b169124b7907aa2c13a604",
+          "hash": "a3f39a0a7108bde1c38d90f5cb2de9acc10390e7ecd8a9fb8a8f7c69f5e3a610",
+          "kind": "git-observation",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:26:00.061Z"
+        }
+      ],
+      "sourceProblems": [],
+      "schemaVersion": 1,
+      "id": "3bfc651e-1505-41af-96ab-cf94740de479",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:26:00.066Z"
+    },
+    {
+      "kind": "analysis-started",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "model": "deepseek-official/deepseek-flash",
+      "sources": [
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "ccdc2b4408f02195a192fa587f17e7305194d7dd945569ad6c1ca808d1399a5f",
+          "kind": "git-observation",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:27:03.062Z"
+        },
+        {
+          "ref": "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "75de1111ac13d069d95b02f4f3be5949bb12603a4936e572a07bdbe3ba17d3d5",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:27:03.062Z"
+        },
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:staged",
+          "hash": "3baad8f25e3a281e653ce1e3cbe7036fb24cac041897ff3cef5421ddeac9ca4d",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:27:03.062Z"
+        },
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:unstaged",
+          "hash": "47e6a463432b4256e68b1837531c141f1cb373694d3907dd4acf6138fb1202b5",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:27:03.062Z"
+        },
+        {
+          "ref": "work-evidence:clarification:5d017818-e80b-451b-9050-f79d6bfd30e2",
+          "hash": "08205cc5b4d65b684a2b66cefa7bd94aa88a4b499dd0dbcaa388b7a072f13f43",
+          "kind": "user-clarification",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:27:03.062Z"
+        }
+      ],
+      "sourceProblems": [],
+      "schemaVersion": 1,
+      "id": "92b73ac9-ab7e-44e6-8cbf-51c22734ef69",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:27:03.067Z"
+    },
+    {
+      "kind": "analysis-started",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "model": "deepseek-official/deepseek-flash",
+      "sources": [
+        {
+          "ref": "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "ccdc2b4408f02195a192fa587f17e7305194d7dd945569ad6c1ca808d1399a5f",
+          "kind": "git-observation",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:46:36.942Z"
+        },
+        {
+          "ref": "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "hash": "75de1111ac13d069d95b02f4f3be5949bb12603a4936e572a07bdbe3ba17d3d5",
+          "kind": "git-diff",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:46:36.942Z"
+        },
+        {
+          "ref": "work-evidence:interpretation:097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+          "hash": "3e0bd310172aaecc0c77cf4635f5c7d26ef0647044e291d73ce2e57a3eca19d5",
+          "kind": "related-file-interpretation",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:46:36.942Z"
+        },
+        {
+          "ref": "work-evidence:clarification:5d017818-e80b-451b-9050-f79d6bfd30e2",
+          "hash": "08205cc5b4d65b684a2b66cefa7bd94aa88a4b499dd0dbcaa388b7a072f13f43",
+          "kind": "user-clarification",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:46:36.942Z"
+        },
+        {
+          "ref": "work-evidence:clarification:195afb4c-2f66-4052-95d3-a703d1e4c81c",
+          "hash": "7d07cf2684c057a5f5aeaeac9f7642c96c2a25ec6aecffeea1377ce395aeba95",
+          "kind": "user-clarification",
+          "truncated": false,
+          "capturedAt": "2026-10-22T16:46:36.942Z"
+        }
+      ],
+      "sourceProblems": [
+        "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:staged: SOURCE_CHANGED",
+        "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:unstaged: SOURCE_CHANGED"
+      ],
+      "schemaVersion": 1,
+      "id": "4d246db7-e8ca-4c57-9e61-7d0cd16d73e4",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:46:36.950Z"
+    }
+  ],
+  "results": [
+    {
+      "kind": "analysis-result",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "runId": "9a16d611-8481-4b3d-81c7-6f559e86ac37",
+      "interpretation": {
+        "explanation": "观察事实：work.txt 最初内容为 initial content，提交 5d83a36 将其改为“Save receipts before clearing user input.”；当前暂存区又加入“Current staged work.”，工作区另有未暂存行“Later unstaged edit.”。推断：该文件正在整理“清空用户输入前保存收据”的说明，后两行更像暂存/未暂存状态的示例或占位文本；仅凭现有证据无法确认它们是否属于实际需求。没有运行验证证据，不能据此判断相关行为是否已实现或生效。",
+        "group": "收据保存说明草稿",
+        "question": "work.txt 的后续提交范围是只包含当前已暂存内容，还是也要包含未暂存的“Later unstaged edit”？",
+        "uncertainties": [
+          "无法判断“Save receipts before clearing user input.”是实际需求说明，还是测试/示例文本",
+          "未暂存的“Later unstaged edit.”是否应纳入后续提交未知",
+          "没有运行验证证据，无法确认保存收据相关行为是否已实现或生效"
+        ],
+        "evidenceRefs": [
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:staged",
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:unstaged"
+        ]
+      },
+      "schemaVersion": 1,
+      "id": "a43f7cf1-b738-460c-9aca-2171e00f9b0e",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:26:05.230Z"
+    },
+    {
+      "kind": "analysis-result",
+      "itemId": "8d443cc219ac21af30b576176fb60e9434b5a3af23b169124b7907aa2c13a604",
+      "runId": "3bfc651e-1505-41af-96ab-cf94740de479",
+      "interpretation": {
+        "explanation": "观察：该文件在工作区被标记为未跟踪（untracked=true），没有任何提交记录，暂存/未暂存状态均为“?”，当前 HEAD 为 d34e93c…。推断：它尚未纳入版本历史，也不属于已暂存或已跟踪的修改；由于没有文件内容信息，无法判断其用途及应保留、提交还是忽略。",
+        "group": "Git 未跟踪文件",
+        "question": "这个未跟踪文件下一步应纳入版本控制，还是加入忽略规则？",
+        "uncertainties": [
+          "文件内容和用途未知",
+          "是否应纳入版本控制或忽略未知",
+          "未提供实际文件变更内容"
+        ],
+        "evidenceRefs": [
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:8d443cc219ac21af30b576176fb60e9434b5a3af23b169124b7907aa2c13a604"
+        ]
+      },
+      "schemaVersion": 1,
+      "id": "097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:26:05.867Z"
+    },
+    {
+      "kind": "analysis-result",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "runId": "92b73ac9-ab7e-44e6-8cbf-51c22734ef69",
+      "interpretation": {
+        "explanation": "观察事实：work.txt 最初为“initial content”，提交 5d83a36 改为“Save receipts before clearing user input.”；当前暂存区再加入“Current staged work.”，工作区另有未暂存行“Later unstaged edit.”。用户补充说明本轮目的，是验证暂存与未暂存内容能够分别展示，且两部分都属于本轮说明；推断这些行更像用于区分暂存/未暂存状态的示例说明，而非已确认的产品行为。尚无极产品级验证证据，因此不能写成相关展示已实际生效或通过。",
+        "group": "暂存与未暂存展示",
+        "question": null,
+        "uncertainties": [
+          "尚无产品级验证证据，无法确认暂存与未暂存分别展示在实际产品中是否生效"
+        ],
+        "evidenceRefs": [
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:staged",
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c:unstaged",
+          "work-evidence:clarification:5d017818-e80b-451b-9050-f79d6bfd30e2"
+        ]
+      },
+      "schemaVersion": 1,
+      "id": "b47fc101-5cd3-4fb3-a05e-83cea2b9471f",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:27:08.510Z"
+    },
+    {
+      "kind": "analysis-result",
+      "itemId": "d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+      "runId": "4d246db7-e8ca-4c57-9e61-7d0cd16d73e4",
+      "interpretation": {
+        "explanation": "观察事实：work.txt 在提交 5d83a36 中由“initial content”改为“Save receipts before clearing user input.”；当前工作区记录显示该文件同时有暂存修改（staged=M）和未暂存修改（unstaged=M），但具体的暂存/未暂存差异因来源已变化而不可用。用户修订说明：本文件只用于隔离验证暂存/未暂存差异展示，旧观察之后的来源改动使当前正文不能当作旧版本；本轮不声称实际产品级验证通过。推断：该文件是用于区分暂存与未暂存状态的示例载体，尚不能作为展示功能已生效或通过的证据。",
+        "group": "暂存与未暂存展示",
+        "question": null,
+        "uncertainties": [
+          "当前正文及具体暂存/未暂存差异内容未知：相关证据返回 SOURCE_CHANGED。",
+          "尚无实际产品级验证证据，不能判断暂存/未暂存展示是否生效或通过。",
+          "提交中的说明文字与当前用于验证的示例内容之间是否属于同一目的关系，无法确认。"
+        ],
+        "evidenceRefs": [
+          "work-evidence:v1:510cb642-9d77-48a5-83c4-e4b27f2c4b36:d396aaef-b202-471a-a184-771fbbec24ff:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "git:5d83a366ff9a1887baa4b317cedde54f04ce01c3:file:d9f613b1bb46e1e0781d41eafb017692ab9facd3ebd50fd7dbc1d39d444c9d6c",
+          "work-evidence:clarification:5d017818-e80b-451b-9050-f79d6bfd30e2",
+          "work-evidence:clarification:195afb4c-2f66-4052-95d3-a703d1e4c81c"
+        ]
+      },
+      "schemaVersion": 1,
+      "id": "3e665249-ad83-483a-b3f5-dfe78c99eb09",
+      "scopeId": "510cb642-9d77-48a5-83c4-e4b27f2c4b36",
+      "observationId": "d396aaef-b202-471a-a184-771fbbec24ff",
+      "createdAt": "2026-10-22T16:46:44.611Z"
+    }
+  ],
+  "handoffs": [
+    {
+      "id": "69c72b4a-4182-4eab-98cc-301d82c30867",
+      "hash": "afb04a3b5eb3bc6e24bb76a46cdb03cfd2e1e564c20a0d7d54144e83a877fbec",
+      "createdAt": "2026-10-22T16:29:07.376Z",
+      "supersedesId": null,
+      "sourceEventIds": [
+        "9a16d611-8481-4b3d-81c7-6f559e86ac37",
+        "3bfc651e-1505-41af-96ab-cf94740de479",
+        "a43f7cf1-b738-460c-9aca-2171e00f9b0e",
+        "097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+        "5d017818-e80b-451b-9050-f79d6bfd30e2",
+        "92b73ac9-ab7e-44e6-8cbf-51c22734ef69",
+        "ce8d877e-61ad-4cfa-a12c-7cfef4605bfd",
+        "b47fc101-5cd3-4fb3-a05e-83cea2b9471f"
+      ]
+    },
+    {
+      "id": "58c57d70-dbaa-496e-807a-12a0ae08c355",
+      "hash": "d03d89ab65c226eda2876b29cd8e91b49b613c5edbe734b902575a97c6f0edc7",
+      "createdAt": "2026-10-22T16:34:23.098Z",
+      "supersedesId": "69c72b4a-4182-4eab-98cc-301d82c30867",
+      "sourceEventIds": [
+        "9a16d611-8481-4b3d-81c7-6f559e86ac37",
+        "3bfc651e-1505-41af-96ab-cf94740de479",
+        "a43f7cf1-b738-460c-9aca-2171e00f9b0e",
+        "097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+        "5d017818-e80b-451b-9050-f79d6bfd30e2",
+        "92b73ac9-ab7e-44e6-8cbf-51c22734ef69",
+        "ce8d877e-61ad-4cfa-a12c-7cfef4605bfd",
+        "b47fc101-5cd3-4fb3-a05e-83cea2b9471f"
+      ]
+    },
+    {
+      "id": "1bceceba-02be-4213-a2cc-d682f85fd3f4",
+      "hash": "393ff3b28b3148684b6ffddc56a50fbc27125c97647aa3f2756e5f2e97d14714",
+      "createdAt": "2026-10-22T16:56:09.509Z",
+      "supersedesId": null,
+      "sourceEventIds": [
+        "9a16d611-8481-4b3d-81c7-6f559e86ac37",
+        "3bfc651e-1505-41af-96ab-cf94740de479",
+        "a43f7cf1-b738-460c-9aca-2171e00f9b0e",
+        "097e94d5-20ae-4f1a-b5ea-1f654d8de869",
+        "5d017818-e80b-451b-9050-f79d6bfd30e2",
+        "92b73ac9-ab7e-44e6-8cbf-51c22734ef69",
+        "ce8d877e-61ad-4cfa-a12c-7cfef4605bfd",
+        "b47fc101-5cd3-4fb3-a05e-83cea2b9471f",
+        "195afb4c-2f66-4052-95d3-a703d1e4c81c",
+        "4d246db7-e8ca-4c57-9e61-7d0cd16d73e4",
+        "3e665249-ad83-483a-b3f5-dfe78c99eb09"
+      ]
+    }
+  ],
+  "verification": {
+    "nativeQuotedRecordHashVerifiedByIndependentCLI": true,
+    "otherItemRunUnchanged": true,
+    "handoffsReadByIndependentCLI": 3
+  }
+}

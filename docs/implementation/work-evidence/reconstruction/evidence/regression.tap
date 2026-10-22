@@ -1,0 +1,270 @@
+TAP version 13
+# Subtest: unbound private capture uses only host context without any project or model read
+ok 1 - unbound private capture uses only host context without any project or model read
+  ---
+  duration_ms: 1.156167
+  ...
+# Subtest: root, context, guessed lease and wrong session are rejected before Store access
+ok 2 - root, context, guessed lease and wrong session are rejected before Store access
+  ---
+  duration_ms: 0.297041
+  ...
+# Subtest: binding, connection and host restart invalidate old leases without migrating private data
+ok 3 - binding, connection and host restart invalidate old leases without migrating private data
+  ---
+  duration_ms: 0.546208
+  ...
+# Subtest: remembered bound work permits private capture offline and reconnect preserves its partition identity
+ok 4 - remembered bound work permits private capture offline and reconnect preserves its partition identity
+  ---
+  duration_ms: 0.921958
+  ...
+# Subtest: client source metadata is verified against an authorized host read, never trusted by shape
+ok 5 - client source metadata is verified against an authorized host read, never trusted by shape
+  ---
+  duration_ms: 0.371666
+  ...
+# Subtest: an offline private draft keeps pending source input without reading or authorizing the source
+ok 6 - an offline private draft keeps pending source input without reading or authorizing the source
+  ---
+  duration_ms: 0.348166
+  ...
+# Subtest: a late reply after connection replacement is discarded and never retargeted
+ok 7 - a late reply after connection replacement is discarded and never retargeted
+  ---
+  duration_ms: 0.261583
+  ...
+# Subtest: private filesystem diagnostics are not returned through Capture receipts
+ok 8 - private filesystem diagnostics are not returned through Capture receipts
+  ---
+  duration_ms: 0.120583
+  ...
+# Subtest: host disposal prevents all subsequent context and Store operations
+ok 9 - host disposal prevents all subsequent context and Store operations
+  ---
+  duration_ms: 0.198125
+  ...
+# Subtest: span capture is synchronous and subsequent native typing is never replaced
+ok 10 - span capture is synchronous and subsequent native typing is never replaced
+  ---
+  duration_ms: 2.047083
+  ...
+# Subtest: native insertion uses one original span once and does not access replace or submit
+ok 11 - native insertion uses one original span once and does not access replace or submit
+  ---
+  duration_ms: 0.481625
+  ...
+# Subtest: session, generation and formal version changes reject late insertion and focus return
+ok 12 - session, generation and formal version changes reject late insertion and focus return
+  ---
+  duration_ms: 0.205542
+  ...
+# Subtest: complete page scope and binding fields participate in the UI fence
+ok 13 - complete page scope and binding fields participate in the UI fence
+  ---
+  duration_ms: 0.17725
+  ...
+# Subtest: locked or unavailable native editor preserves the caller quote
+ok 14 - locked or unavailable native editor preserves the caller quote
+  ---
+  duration_ms: 0.098125
+  ...
+# Subtest: return focuses only the original connected control while context is still current
+ok 15 - return focuses only the original connected control while context is still current
+  ---
+  duration_ms: 0.083625
+  ...
+# Subtest: source requests delegate to host verification and a stale context never reaches the opener
+ok 16 - source requests delegate to host verification and a stale context never reaches the opener
+  ---
+  duration_ms: 0.357166
+  ...
+# Subtest: host teardown and an untrusted stale argument cannot revive an interaction
+ok 17 - host teardown and an untrusted stale argument cannot revive an interaction
+  ---
+  duration_ms: 0.118458
+  ...
+# Subtest: binding persists privately and an unrelated session cannot inherit it
+ok 18 - binding persists privately and an unrelated session cannot inherit it
+  ---
+  duration_ms: 11.325375
+  ...
+# Subtest: a superseded binding write rolls back and does not poison later changes
+ok 19 - a superseded binding write rolls back and does not poison later changes
+  ---
+  duration_ms: 32.021667
+  ...
+# Subtest: file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+ok 20 - file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+  ---
+  duration_ms: 4.233708
+  ...
+# Subtest: late read after unbind is discarded and offline data cannot be opened
+ok 21 - late read after unbind is discarded and offline data cannot be opened
+  ---
+  duration_ms: 0.931875
+  ...
+# Subtest: model context stays bounded without breaking JSON or granting writes
+ok 22 - model context stays bounded without breaking JSON or granting writes
+  ---
+  duration_ms: 0.865166
+  ...
+# Subtest: external materials are resolved only from current Logseq material identities
+ok 23 - external materials are resolved only from current Logseq material identities
+  ---
+  duration_ms: 24.952959
+  ...
+# Subtest: stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+ok 24 - stage goal opens deliberately, IME Enter does not create a stage and Escape returns focus without changing history
+  ---
+  duration_ms: 189.965958
+  ...
+# Subtest: clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+ok 25 - clicking a changed body edits the full current authoritative source; composing input and unchanged nodes survive, local edit produces same-stage facts
+  ---
+  duration_ms: 69.8015
+  ...
+# Subtest: suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+ok 26 - suggestion is a normal marked child in authoritative Graph; local shortcut accepts only seen revision and later native text stays independent
+  ---
+  duration_ms: 74.953417
+  ...
+# Subtest: historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+ok 27 - historical view uses immutable saved text; correcting it reads present source and writes a new linked revision without changing old snapshots
+  ---
+  duration_ms: 64.39525
+  ...
+# Subtest: focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+ok 28 - focused review discovers outside changes, show-all retains lens and anchor, return restores problem selection and stable rows
+  ---
+  duration_ms: 32.40575
+  ...
+# Subtest: report preserves stage show-all, immutable history and return to the existing lens
+ok 29 - report preserves stage show-all, immutable history and return to the existing lens
+  ---
+  duration_ms: 36.584791
+  ...
+# Subtest: historical raw comparison shows saved text without carrying the current report version
+ok 30 - historical raw comparison shows saved text without carrying the current report version
+  ---
+  duration_ms: 36.018
+  ...
+# Subtest: review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+ok 31 - review draft survives installer restart; it is explicit, rereads current text and never transfers to another stage
+  ---
+  duration_ms: 102.379833
+  ...
+# Subtest: selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+ok 32 - selecting an accepted historical revision updates its local acceptance affordance and keeps newer source independent
+  ---
+  duration_ms: 40.257584
+  ...
+# Subtest: later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+ok 33 - later current edits cannot be mistaken for an unseen pending result; explicit submitted-version reading enables exact acceptance
+  ---
+  duration_ms: 47.827083
+  ...
+# Subtest: durable two-block write plus append forms one immutable revision; queries and repeated observations do not multiply it
+ok 34 - durable two-block write plus append forms one immutable revision; queries and repeated observations do not multiply it
+  ---
+  duration_ms: 36.237417
+  ...
+# Subtest: acceptance freezes the seen revision even when a newer revision arrived; later native edits do not revoke it or open stages
+ok 35 - acceptance freezes the seen revision even when a newer revision arrived; later native edits do not revoke it or open stages
+  ---
+  duration_ms: 21.075375
+  ...
+# Subtest: a new goal leaves old acceptance pending; explicit activation is required to continue an older stage
+ok 36 - a new goal leaves old acceptance pending; explicit activation is required to continue an older stage
+  ---
+  duration_ms: 19.076208
+  ...
+# Subtest: partial/conflict and lost acknowledgements preserve actual meanings, proposed text never becomes confirmed stage output
+ok 37 - partial/conflict and lost acknowledgements preserve actual meanings, proposed text never becomes confirmed stage output
+  ---
+  duration_ms: 17.129333
+  ...
+# Subtest: Journal success and failed stage persistence reconcile after restart without source replay
+ok 38 - Journal success and failed stage persistence reconcile after restart without source replay
+  ---
+  duration_ms: 18.027125
+  ...
+# Subtest: expected revision competition retains a candidate, while the canonical result and acceptance remain immutable
+ok 39 - expected revision competition retains a candidate, while the canonical result and acceptance remain immutable
+  ---
+  duration_ms: 8.7295
+  ...
+# Subtest: cross-process competing immutable children fail closed and keep both candidates
+ok 40 - cross-process competing immutable children fail closed and keep both candidates
+  ---
+  duration_ms: 9.141667
+  ...
+# Subtest: scope revoke A/B/A and dispose reject late stage capture; no new-scope record appears
+ok 41 - scope revoke A/B/A and dispose reject late stage capture; no new-scope record appears
+  ---
+  duration_ms: 24.534875
+  ...
+# Subtest: forged shapes, foreign facts and reused IDs cannot authorize or claim a stage
+ok 42 - forged shapes, foreign facts and reused IDs cannot authorize or claim a stage
+  ---
+  duration_ms: 11.275209
+  ...
+# Subtest: registered material snapshots preserve old bytes independently, and binary records make no backup promise
+ok 43 - registered material snapshots preserve old bytes independently, and binary records make no backup promise
+  ---
+  duration_ms: 11.039125
+  ...
+# Subtest: block identity, repeat text, removed blocks and long/complex Markdown use bounded honest diff
+ok 44 - block identity, repeat text, removed blocks and long/complex Markdown use bounded honest diff
+  ---
+  duration_ms: 5.317417
+  ...
+# Subtest: persisted id metadata does not prevent a precise plain-text change marker or alter its version facts
+ok 45 - persisted id metadata does not prevent a precise plain-text change marker or alter its version facts
+  ---
+  duration_ms: 4.733125
+  ...
+# Subtest: real installed local API writes through content and recovers idempotently, with no accept or actor capability
+ok 46 - real installed local API writes through content and recovers idempotently, with no accept or actor capability
+  ---
+  duration_ms: 17.13
+  ...
+# Subtest: installed stage adapter retains real MaterialService versions and permissions using the formal unbound source provider
+ok 47 - installed stage adapter retains real MaterialService versions and permissions using the formal unbound source provider
+  ---
+  duration_ms: 39.2305
+  ...
+# Subtest: torn metadata publication recovers verified prepared bytes; interrupted preparation is retained without changing stage or replaying content
+ok 48 - torn metadata publication recovers verified prepared bytes; interrupted preparation is retained without changing stage or replaying content
+  ---
+  duration_ms: 8.078333
+  ...
+# Subtest: an observed new block from an unknown insertion can be corrected in the same stage without upgrading the unknown request
+ok 49 - an observed new block from an unknown insertion can be corrected in the same stage without upgrading the unknown request
+  ---
+  duration_ms: 13.060334
+  ...
+# Subtest: same submit after an explicit identity recovery records the new fact version exactly once and never inserts the body again
+ok 50 - same submit after an explicit identity recovery records the new fact version exactly once and never inserts the body again
+  ---
+  duration_ms: 23.4425
+  ...
+# Subtest: v22 history migration preserves every row and audit FK while allowing current-state deletion
+ok 51 - v22 history migration preserves every row and audit FK while allowing current-state deletion
+  ---
+  duration_ms: 61.026834
+  ...
+# Subtest: failed v23 migration rolls back DDL, data and version together and closes its connection
+ok 52 - failed v23 migration rolls back DDL, data and version together and closes its connection
+  ---
+  duration_ms: 67.040333
+  ...
+1..52
+# tests 52
+# suites 0
+# pass 52
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1118.514875

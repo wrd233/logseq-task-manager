@@ -1,0 +1,52 @@
+{
+  "node20": "20.20.2",
+  "node24": "24.19.0",
+  "dsh": "0.2.1-rc.2",
+  "behaviorTests": 61,
+  "regressionTests": 52,
+  "totalTests": 113,
+  "checks": [
+    {
+      "name": "behavior",
+      "exitCode": 0,
+      "sha256": "d8dd604af3fed1a8259da97183ad64122f61715222cf316d73772c7167a6fca3",
+      "bytes": 15547,
+      "localLog": "tmp/work-evidence-reconstruction-final-behavior.tap"
+    },
+    {
+      "name": "regression",
+      "exitCode": 0,
+      "sha256": "58e3dbc0e869c0c188a13583a278a72589eace603e233eded813f061df51d984",
+      "bytes": 13049,
+      "localLog": "tmp/work-evidence-reconstruction-regression.log"
+    },
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "sha256": "18cb94f690d576e2d43d46163b31b3c1be0e336df3739ef45224576ceeddedd6",
+      "bytes": 729,
+      "localLog": "tmp/work-evidence-reconstruction-typecheck-final.log"
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "localLog": "tmp/work-evidence-reconstruction-workspace-lint-final.log"
+    },
+    {
+      "name": "workspaceBuild",
+      "exitCode": 0,
+      "sha256": "a5635060fd85fe238737967c78c6259066e2c3e2bb8a4a26933b901195560ff8",
+      "bytes": 76,
+      "localLog": "tmp/work-evidence-reconstruction-workspace-build.log"
+    },
+    {
+      "name": "independentBuild",
+      "exitCode": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "localLog": "tmp/work-evidence-reconstruction-independent-build.log"
+    }
+  ]
+}
