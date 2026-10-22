@@ -1,0 +1,59 @@
+{
+  "baseline": "2cb0ced7688b7af19ac5814b1f556ecae255f3c9",
+  "reusedImplementation": "f84631604eba47e0311f927897da626ede4afb00",
+  "branch": "codex/work-structure-history-v1",
+  "node": "20.20.2 for regressions; bundled native SQLite ABI 115",
+  "pluginFull": {
+    "command": "tsx --test --test-concurrency=2 apps/logseq-plugin/tests/*.test.ts apps/logseq-plugin/tests/integration/*.test.mjs",
+    "summary": "1..564\n# tests 564\n# suites 0\n# pass 564\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 165084.715417",
+    "scope": "Full independent-workspace run, before final focused hardening and one new SourceReader missing/unavailable test"
+  },
+  "dsh": {
+    "command": "npm test -w @task-copilot/dsh-logseq-workbench",
+    "summary": "1..23\n# tests 23\n# suites 0\n# pass 23\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 792.560532"
+  },
+  "finalFocused": {
+    "command": "tsx --test apps/logseq-plugin/tests/structure-history*.test.ts apps/logseq-plugin/tests/stage-*.test.ts",
+    "summary": "1..36\n# tests 36\n# suites 0\n# pass 36\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3578.787072"
+  },
+  "typecheck": {
+    "command": "npm run typecheck -w @task-copilot/logseq-plugin",
+    "exitCode": 0
+  },
+  "lint": {
+    "command": "eslint history module, shared opener, stage review, history tests and history scripts",
+    "exitCode": 0
+  },
+  "builds": {
+    "logseq": 0,
+    "dsh": 0,
+    "indexHash": "5697fe2fb88e9c2fc64ce2718829f44b6dbe83b830e896da6e1d0dc5133f65c3",
+    "externalWorktreeSources": false
+  },
+  "archive": {
+    "file": "legacy-host-result.json",
+    "validation": "Production StageStore hash/chain verification and replay in tests; not current live evidence"
+  },
+  "live": {
+    "file": "live-host-result.json",
+    "frames": 3,
+    "allGraphFramesMeasured": true,
+    "directory": true,
+    "narrowDirectory": true,
+    "sharedSelection": true,
+    "returnFocus": {
+      "text": "收起审阅",
+      "className": "wb-review-entry wb-attention"
+    },
+    "graphUnchanged": true,
+    "fileStorageUnchanged": true,
+    "bootstrap": "Built-in directory picker path hook only; SDK/provider unchanged; hook deleted after graph import"
+  },
+  "limitations": [
+    "No DSH history enumeration transport",
+    "No formal-object/code history or restore writes",
+    "No pixel screenshot; live DOM/layout/interaction evidence retained",
+    "macOS folder chooser accessibility rejected; built-in directory path bootstrap used",
+    "Full initial concurrent run hit ENOSPC and material timeout; independent bounded-concurrency run passed"
+  ]
+}

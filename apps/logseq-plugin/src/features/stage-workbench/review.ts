@@ -1,3 +1,7 @@
+import { HistoryPlayer } from "../structure-history/player.ts";
+import { createSharedUiPort, sameWorkUiContext, type WorkUiContext } from "../../workspace/copilot-ui-port.ts";
+import { historySourceOpener } from "../../workspace/history-source-opener.ts";
+import { graphIdentity } from "../../graph-adapter.ts";
 import { button, element } from "../../host/panel-host.ts";
 import type { WorkView } from "../work-view/controller.ts";
 import type { ReadingBookmark } from "../work-view/renderer.ts";
@@ -56,7 +60,7 @@ export class StageReview implements ReviewPort {
   setCollaboration(port:CollaborationPort|null):void{this.collaboration=port;this.setup.refresh();}
   enter():void{this.expanded=true;this.chrome();}
   open():void{if(this.busy())return;this.enter();void this.bridge?.openReview();this.bridge?.repaint();this.run(()=>this.reload());}
-  async openHistory():Promise<void>{if(this.busy())return;this.enter();await this.bridge?.openReview();this.more.open=true;this.historyBox.open=true;await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
+  async openHistory():Promise<void>{if(this.busy())return;this.enter();await this.bridge?.openReview();this.more.open=true;this.historyBox.open=true;this.structureHistory.element.open=true;this.structureHistory.enter(this.historyTrigger());await this.reload();const stage=this.history.stages.find(s=>s.start.id===this.history.current)??this.history.stages.at(-1);if(stage)this.showHistory(stage.start.id);else this.chrome();}
   private draftKey(uuid:string):string{return `workbench:stage-draft:${JSON.stringify(this.scope)}:${uuid}`;}
   private savedDraft(uuid:string):ReviewDraft|null{
     try{const raw=localStorage.getItem(this.draftKey(uuid));if(!raw)return null;const d=JSON.parse(raw);
@@ -87,6 +91,7 @@ export class StageReview implements ReviewPort {
   private readonly backButton=button("返回原位置",()=>this.returnCurrent());
   private readonly historyBox=element("details");
   private readonly historyList=element("div");
+  private readonly structureHistory:HistoryPlayer;
   private readonly filesBox=element("details");
   private readonly filesList=element("div");
   private readonly fileIds=new Set<string>();
@@ -98,6 +103,19 @@ export class StageReview implements ReviewPort {
   private readonly versionText=element("pre");
   private readonly setup=collaborationSetup(()=>this.scope,()=>this.collaboration,action=>this.run(action),()=>this.busy());
   constructor(readonly recorder:StageRecorder,private readonly actions:ReviewActions){
+    const context=():WorkUiContext|null=>this.disposed||!this.scope?null:{scope:this.scope,binding:null,workObject:null,sessionId:null,generation:this.ticket};
+    const opener=historySourceOpener({context,notice:message=>this.structureHistory.notice(message),host:{
+      graphId:async()=>graphIdentity(await logseq.App.getCurrentGraph()),
+      block:async id=>{const block=await logseq.Editor.getBlock(id);return block&&typeof block.content==='string'?{uuid:block.uuid,content:block.content}:null;},
+      navigate:async id=>{await logseq.Editor.openInRightSidebar(id);},
+    }});
+    this.structureHistory=new HistoryPlayer({context,cancel:opener.cancel,history:{read:async expected=>{
+      const check=()=>{const current=context();if(!expected.scope||!current||!sameWorkUiContext(expected,current))throw Error('WORK_UI_STALE');};
+      check();const before=await logseq.App.getCurrentGraph();check();if(graphIdentity(before)!==expected.scope!.graphId)throw Error('WORK_UI_STALE');
+      const history=await this.recorder.store.history(expected.scope!);check();
+      const after=await logseq.App.getCurrentGraph();check();if(graphIdentity(after)!==expected.scope!.graphId)throw Error('WORK_UI_STALE');
+      return history;
+    }},ui:trigger=>createSharedUiPort({readContext:context,returnTarget:trigger,openSource:opener.open})});
     this.entry.className="wb-collaboration-entry";
     this.goal.placeholder="本阶段的一句话目标";this.goal.maxLength=240;this.goal.setAttribute("aria-label","阶段目标");
     this.goal.onkeydown=event=>{
@@ -105,7 +123,8 @@ export class StageReview implements ReviewPort {
       if(event.key==="Enter"){event.preventDefault();this.run(()=>this.begin());}
       if(event.key==="Escape"){event.preventDefault();event.stopPropagation();this.cancelGoalButton.click();}
     };
-    this.historyBox.append(element("summary","阶段历史"),this.historyList);
+    this.structureHistory.element.addEventListener("toggle",()=>{if(this.structureHistory.element.open)this.structureHistory.enter(this.historyTrigger());});
+    this.historyBox.append(element("summary","阶段历史"),this.structureHistory.element,this.historyList);
     this.filesBox.append(element("summary","成果文件"),this.filesList);
     this.filesBox.addEventListener("toggle",()=>{if(this.filesBox.open)this.run(()=>this.files());});
     this.versionInfo.append(element("summary","当前所见版本详情"),this.versionText);
@@ -138,16 +157,17 @@ export class StageReview implements ReviewPort {
   }
   scopeChanged(scope:ReviewContext["scope"]|null):void{
     this.activeEditor?.replaceChildren();this.activeEditor=null;
-    this.ticket++;this.recorder.invalidate();this.scope=scope;this.history={stages:[],current:null,currentEventId:null,problems:[]};
+    this.ticket++;this.structureHistory.reset();this.recorder.invalidate();this.scope=scope;this.history={stages:[],current:null,currentEventId:null,problems:[]};
     this.selected=null;this.seen=null;this.historyMode=false;this.submittedMode=false;this.currentMatches=true;this.all=false;this.bookmark=null;this.editing=false;this.frozen=null;this.goalOpen=false;this.fileIds.clear();this.issue.textContent="";
     this.expanded=false;this.changeCount=0;this.displayedRevision=null;
     this.chrome();if(scope)this.run(()=>this.reload());
   }
+  private historyTrigger():HTMLElement{return this.bar.parentElement?.parentElement?.querySelector<HTMLElement>('.wb-review-entry')??this.entry;}
   private stage():Stage|null{return this.history.stages.find(s=>s.start.id===this.selected)??null;}
   private writable():Stage|null{return this.history.stages.find(s=>s.start.id===this.history.current)??null;}
   async reload():Promise<void>{
     const scope=this.scope,ticket=this.ticket;if(!scope)return;
-    const history=await this.recorder.store.history(scope);if(ticket!==this.ticket||this.disposed)return;
+    let history:StageHistory;try{history=await this.structureHistory.read();}catch(error){if(error instanceof Error&&error.message==='WORK_UI_STALE')return;throw error;}if(ticket!==this.ticket||this.disposed)return;
     this.history=history;if(!this.selected)this.selected=history.current;
     this.seen=(this.editing||this.draft||this.historyMode)&&this.seen?this.stage()?.revisions.find(r=>r.id===this.seen!.id)??null:this.stage()?latest(this.stage()!):null;
     this.issue.classList.remove("wb-notice");
