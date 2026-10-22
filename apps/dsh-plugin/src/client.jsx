@@ -1,4 +1,6 @@
 /* global window, document, AbortController, setInterval, clearInterval */
+import { createPlanner } from './planner.jsx';
+import { plannerStyles } from './planner-styles.mjs';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
@@ -14,7 +16,7 @@ const errorText = error => ({
 }[error?.code] ?? '暂时无法读取，请检查本地服务与 Logseq 连接。');
 
 export function apply(ctx) {
-  const style = document.createElement('style'); style.textContent = styles + readingStyles; document.head.append(style);
+  const style = document.createElement('style'); style.textContent = styles + readingStyles + plannerStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false;
   const emit = () => { for (const listener of listeners) listener(); };
@@ -73,9 +75,9 @@ export function apply(ctx) {
   }
   function Header(props) {
     const row = useRow(props.sessionId);
-    return <button type="button" className="lq-header" aria-label="查看关联的 Logseq 工作" onClick={() => {
+    return <><button type="button" className="lq-header" aria-label="打开时间规划" onClick={() => ctx.sidebarRight.openTab('semantic-planner')}>◷ 规划</button><button type="button" className="lq-header" aria-label="查看关联的 Logseq 工作" onClick={() => {
       show(props.sessionId); ctx.sidebarRight.openTab('logseq-files');
-    }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button>;
+    }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button></>;
   }
   function RowAction({ sessionId }) {
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
@@ -171,12 +173,15 @@ export function apply(ctx) {
     </section>;
   }
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/dsh-logseq-workbench', kind: 'logseq-files', title: () => '工作文件', priority: 'extension', guide: [{ id: 'logseq-files', order: 350, title: () => 'Logseq 工作文件' }] }));
+  const Planner = createPlanner({ rpc });
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', guide: [{ id: 'semantic-planner', order: 351, title: () => '个人时间规划' }] }));
   const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
   register('conversation.session.header.utilities', { id: 'logseq-workbench', order: 10 }, Header);
   register('sidebar.workspaces.session.row.action', { id: 'logseq-workbench', order: 100 }, RowAction);
   register('shell.overlay', { id: 'logseq-workbench', children: { 'logseq.work.source': { kind: 'single', scope: 'session' } } }, Overlay);
   register('logseq.work.source', { id: 'logseq-workbench' }, WorkPanel);
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
+  register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, props => <Planner key={props.sessionId} {...props} />);
   ctx.on('dispose', () => { disposed = true; style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
   ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); });
 }

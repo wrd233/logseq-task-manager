@@ -13,6 +13,7 @@ export type AgentWorkBinding = {
     workspaceId: string | null;
 };
 export const workspaceCommands = {
+    "planner.references": [],
     "status": [], "refresh": [], "read": [], "source.read": ["sourceId"],
     "guidance.read": [], "collaboration.read": [], "collaboration.refresh": [],
     "materials.list": [], "materials.read": ["id"],

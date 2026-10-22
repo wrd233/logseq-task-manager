@@ -1,5 +1,6 @@
 /* global Response */
 import process from 'node:process';
+import { PlannerStore } from './planner-store.mjs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
@@ -11,11 +12,29 @@ export const inject = ['connection', 'sessionController', 'tools', 'systemPrompt
 export async function apply(ctx, config = {}) {
   const store = new BindingStore(resolve(config.bindingStateDirectory ?? join(homedir(), '.dsh', 'logseq-workbench')));
   await store.load();
+  const planner = new PlannerStore(resolve(config.plannerStateDirectory ?? store.directory));
+  await planner.load();
   const service = new WorkbenchService({ store, transport: new CompanionTransport(config.workspaceStateDirectory ?? process.env.TASK_COPILOT_WORKSPACE_STATE),
     inspectSession: (sessionId, signal) => ctx.sessionController.inspect(sessionId, signal),
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
   ctx.on('dispose', () => service.dispose());
   const routes = {
+    'planner-read': async (input, signal) => { const value = request(input, ['sessionId']); await ctx.sessionController.inspect(value.sessionId, signal); return planner.read(); },
+    'planner-references': async (input, signal) => { const value = request(input, ['sessionId']); return service.command(value.sessionId, 'planner.references', {}, signal); },
+    'planner-change': async (input, signal) => {
+      const value = request(input, ['sessionId', 'revision', 'action', 'entry', 'id', 'slots']);
+      await ctx.sessionController.inspect(value.sessionId, signal);
+      if (value.action === 'save' && value.entry.reference) {
+        const old = planner.read().entries.find(e => e.id === value.entry.id);
+        if (!old || JSON.stringify(old.reference) !== JSON.stringify(value.entry.reference)) {
+          const references = await service.command(value.sessionId, 'planner.references', {}, signal);
+          const ref = references.find(r => r.graphId === value.entry.reference.graphId && r.blockUuid === value.entry.reference.blockUuid);
+          if (!ref) throw Object.assign(Error('PLANNER_REFERENCE_MISSING'), { code: 'PLANNER_REFERENCE_MISSING' });
+          value.entry.reference = ref;
+        }
+      }
+      return planner.change(value);
+    },
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },

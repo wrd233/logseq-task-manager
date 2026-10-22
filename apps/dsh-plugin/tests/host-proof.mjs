@@ -148,6 +148,23 @@ try {
   assert.notEqual(first.sourceBundleVersion, second.sourceBundleVersion);
   assert.match(JSON.stringify(second), /New saved source/);
   checks.push({ check: 'Production async context assembly refreshes saved Logseq changes', ok: true });
+  const plannerBefore = f.counts();
+  const { blockIdentityCache } = await import('../../logseq-plugin/src/block-identity.ts');
+  const identityScope = blockIdentityCache.activate(view.binding.scope.graphId);
+  for (const [i, block] of view.blocks.entries()) blockIdentityCache.setFormal(block.target.blockUuid,
+    { kind: 'FORMAL', objectKind: ['PROJECT', 'MINI_PROJECT', 'TASK'][i], workObjectId: `synthetic-${i}`, title: `Synthetic ${i}` }, identityScope);
+  const refs = await rpc('planner-references', { sessionId: 'proof-session' });
+  assert.deepEqual(refs.map(r => r.kind), ['PROJECT', 'MINI_PROJECT', 'TASK']);
+  let personal = await rpc('planner-read', { sessionId: 'proof-session' });
+  for (const reference of refs) personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision,
+    action: 'save', entry: { title: reference.title, date: '2026-10-22', slotId: personal.slots[0].id, reference } });
+  assert.equal(personal.entries.length, 3);
+  assert.equal((await rpc('planner-read', { sessionId: 'other-session' })).entries.length, 3);
+  const { PlannerStore } = await import('../src/planner-store.mjs');
+  const reloadedPlanner = new PlannerStore(join(root, 'bindings')); await reloadedPlanner.load();
+  assert.equal(reloadedPlanner.read().entries.length, 3);
+  assert.equal(f.counts().writes, plannerBefore.writes);
+  checks.push({ check: 'Planner authenticated RPC references Project/MiniProject/Task, shares personal plans across sessions, reloads disk, and never writes Graph', ok: true });
   const before = f.counts();
   const reading = await value('logseq_reading_request', { purpose: '连续阅读完整原句' });
   const source = reading.value.source;

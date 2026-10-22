@@ -1,3 +1,5 @@
+import { lookupBlockIdentity } from "../../block-identity.ts";
+import { workObject } from "../work-view/focus.mjs";
 import { WorkspaceError, workRecord, workText, sameWorkScope, type AgentWorkBinding, type WorkspaceDelivery } from "@task-copilot/contracts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { ScopeLease, CallOrigin, LoadedGuidanceBasis } from "../content-writeback/protocol.ts";
@@ -112,6 +114,18 @@ export class AgentWorkspaceRouter {
             const reading=await this.ports.source.refresh(binding.scope);await check();
             if(reading.freshness!=="checked"||!reading.observed)throw new WorkspaceError("SOURCE_UNAVAILABLE");return reading.observed.primary;
         };
+        if(command === "planner.references") {
+            const source = await sourceRead(); await check();
+            return source.blocks.flatMap(block => {
+                const identity = lookupBlockIdentity(block.target.blockUuid, binding.scope.graphId);
+                const label = workObject(block.content ?? "");
+                if(identity.kind !== "FORMAL" && !label) return [];
+                return [{ graphId: binding.scope.graphId, blockUuid: block.target.blockUuid,
+                    objectId: identity.kind === "FORMAL" ? identity.workObjectId : null,
+                    kind: identity.kind === "FORMAL" ? identity.objectKind : label!.type === "task" ? "TASK" : "MINI_PROJECT",
+                    title: identity.kind === "FORMAL" ? identity.title ?? block.content?.split("\n")[0] ?? "工作" : label!.title }];
+            });
+        }
         if(command.startsWith("formatting.")){
             const formatting=this.ports.formatting;if(!formatting)throw new WorkspaceError("FORMATTING_UNAVAILABLE");
             const id=await this.contentId(call,payload.requestId);await check();
