@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, rename } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { EvidenceStore } from '../src/work-evidence/store.ts';
 async function fixture() {
-  const base = resolve('tmp/work-evidence-reconstruction/tests'); await mkdir(base, { recursive: true });
+  const base = fileURLToPath(new URL('../../../tmp/work-evidence-reconstruction/tests/', import.meta.url)); await mkdir(base, { recursive: true });
   const root = await mkdtemp(join(base, 'sync-')), repo = join(root, '仓库 with spaces'); await mkdir(repo);
   const git = (args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'main']); git(['config', 'user.name', 'Fixture']); git(['config', 'user.email', 'fixture@example.invalid']);
