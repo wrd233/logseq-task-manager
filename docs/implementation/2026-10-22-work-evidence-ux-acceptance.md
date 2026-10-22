@@ -127,7 +127,7 @@ node apps/dsh-plugin/scripts/work-evidence-playground.mjs status "$RUN_ID"
 node apps/dsh-plugin/scripts/work-evidence-playground.mjs stop "$RUN_ID"
 ```
 
-`stop` 读取本次 PID，并核对实际进程命令包含本 Worktree 的启动器和这个运行完整路径；只停止匹配的自有进程。已停止时会明确拒绝，不会猜测其他 Goal 的进程。要重置，首选 `new` 创建另一个运行，保留原记录。需要删除一个已停止的运行时，必须确认精确 ID：
+`stop` 读取本次 PID，并核对实际进程命令包含本 Worktree 的启动器和这个运行完整路径；只停止匹配的自有进程。已停止时会明确拒绝，不会猜测其他 Goal 的进程。交付前还补充了异常退出保护：即使启动器不再匹配，只要记录的 DSH 子进程 PID 仍存活，就拒绝重启和清理，要求先检查；PID 复用时也采取保守拒绝，绝不据此杀进程。此保护以真实存活进程回归验证，位于宿主记录的 postCaptureGuardVerification，不改变已验收的客户端、RPC 或存储代码。要重置，首选 `new` 创建另一个运行，保留原记录。需要删除一个已停止的运行时，必须确认精确 ID：
 
 ```sh
 node apps/dsh-plugin/scripts/work-evidence-playground.mjs remove "$RUN_ID" "--confirm=$RUN_ID"

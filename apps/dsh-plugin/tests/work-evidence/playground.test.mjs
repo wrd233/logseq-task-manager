@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFile, mkdir, symlink, readdir, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, symlink, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
@@ -19,6 +19,11 @@ test('personal fixture can be recreated, changed, checked and removed only by ex
     assert.throws(() => cli(['change', one.runId]));
     assert.throws(() => cli(['remove', one.runId, '--confirm=wrong']));
     assert.equal(JSON.parse(cli(['status', one.runId])).live, false);
+    await writeFile(join(one.runDirectory, 'process.json'), JSON.stringify({ parentPid: process.pid, hostPid: process.pid }));
+    assert.equal(JSON.parse(cli(['status', one.runId])).hostPidAlive, true);
+    assert.throws(() => cli(['start', one.runId]));
+    assert.throws(() => cli(['remove', one.runId, `--confirm=${one.runId}`]));
+    await rm(join(one.runDirectory, 'process.json'));
     assert.equal(JSON.parse(await readFile(join(one.runDirectory, 'owned.json'), 'utf8')).id, one.runId);
     const outside = join(two.runDirectory, 'outside'); await mkdir(outside);
     await symlink(outside, join(one.runDirectory, 'bundle'));

@@ -132,5 +132,11 @@
     "apps/dsh-plugin/scripts/work-evidence-playground.mjs": "4a6c910912a2b4b3d05d45a36ad86bce03bc5621d2c204351f3534106d54353f",
     "apps/dsh-plugin/scripts/work-evidence-build.mjs": "2b93361b0bd114d6e85ab93153db5d7493d7a1679f2e1a6f01c8d824ae7d6470",
     "apps/dsh-plugin/scripts/work-evidence-preview.mjs": "00c3ed97c95241ada779bfea11446405cd433a2f84ba8a007372d72517356032"
+  },
+  "postCaptureGuardVerification": {
+    "file": "apps/dsh-plugin/scripts/work-evidence-playground.mjs",
+    "sha256": "98bae0d9854d372be082dd2861a62afff7efc70cfb8b3ec1f4750745a0973a43",
+    "change": "Conservatively refuse restart/removal when recorded DSH child PID is alive even if the launcher no longer matches.",
+    "evidence": "playground.test.mjs with a real live process PID; final normal host status checked separately. Client, store and RPC source hashes are unchanged."
   }
 }

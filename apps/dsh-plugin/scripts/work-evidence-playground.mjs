@@ -51,8 +51,11 @@ try {
     if (marker.owner !== owner || marker.root !== root || marker.id !== runId) throw Error('NOT_THIS_WORKTREE_OWNED_RUN');
     const repo = join(run, '体验 仓库');
     const info = await json(join(run, 'process.json')).catch(() => null), live = info && identity(run, info);
+    // A launcher may have exited abnormally while DSH survives. Refuse removal/restart conservatively.
+    let hostPidAlive = false;
+    if (Number.isSafeInteger(info?.hostPid) && info.hostPid > 0) { try { process.kill(info.hostPid, 0); hostPidAlive = true; } catch (error) { hostPidAlive = error.code !== 'ESRCH'; } }
     if (command === 'start') {
-      if (live) throw Error('THIS_RUN_ALREADY_RUNNING');
+      if (live || hostPidAlive) throw Error('THIS_RUN_ALREADY_RUNNING_OR_HOST_PID_NEEDS_INSPECTION');
       if (option && option !== '--faults') throw Error('UNKNOWN_START_OPTION');
       const child = spawn(process.execPath, [preview, '--work-evidence-run', run], { cwd: root, stdio: 'inherit', env: { ...process.env, WORK_EVIDENCE_RUN_DIRECTORY: run, WORK_EVIDENCE_HOST_PROOF: option === '--faults' ? '1' : '' } });
       for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
@@ -60,7 +63,7 @@ try {
     } else if (command === 'stop') {
       if (!live) throw Error('NO_MATCHING_LIVE_OWNED_HOST');
       process.kill(info.parentPid, 'SIGTERM'); console.log('Stop requested for this owned run only.');
-    } else if (command === 'status') console.log(JSON.stringify({ runDirectory: run, live: !!live, address: await json(join(run, 'address.json')).catch(() => null), info }, null, 2));
+    } else if (command === 'status') console.log(JSON.stringify({ runDirectory: run, live: !!live, hostPidAlive, address: await json(join(run, 'address.json')).catch(() => null), info }, null, 2));
     else if (command === 'change') {
       if (git(repo, ['rev-parse', '--show-toplevel']).trim() !== repo) throw Error('NOT_OWNED_FIXTURE_ROOT');
       await changed(repo); console.log('Synthetic changes prepared.');
@@ -84,7 +87,7 @@ try {
       await writeFile(join(run, 'proof-control.json'), JSON.stringify({ pauseNote: command === 'pause' || command === 'lose-receipt', dropReceipt: command === 'lose-receipt' || command === 'release' }), { mode: 0o600 });
       console.log(command === 'release' ? 'Released; one successful receipt may be replaced by HTTP 503.' : 'Fault control updated for this run only.');
     } else if (command === 'remove') {
-      if (live || option !== `--confirm=${runId}`) throw Error('STOP_AND_CONFIRM_EXACT_RUN_ID_FIRST');
+      if (live || hostPidAlive || option !== `--confirm=${runId}`) throw Error('STOP_AND_CONFIRM_EXACT_RUN_ID_FIRST');
       await rm(run, { recursive: true }); console.log('Removed this marked owned run.');
     } else throw Error('Commands: new [--clean], start RUN_ID [--faults], status/stop/change/corrupt/repair/pause/release/lose-receipt/normal RUN_ID, remove RUN_ID --confirm=RUN_ID');
   }
