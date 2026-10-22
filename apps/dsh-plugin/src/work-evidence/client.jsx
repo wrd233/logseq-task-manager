@@ -120,6 +120,12 @@ export function apply(ctx) {
           <p>记录对应：<code>{o.directory}</code></p>
           <p>{o.state === 'failed' ? `观察失败：${labels[o.error] ?? o.error}` : o.state === 'clean' ? '未观察到变化' : `${o.files.length} 项变化`} · 分支：{o.branch ?? '未知'} · HEAD：{o.head?.slice(0, 12) ?? '尚无提交'}</p>
           <p>{sourceChanged ? '已确认当前来源发生变化。旧记录保持原样，请重新观察。' : '这是当时保存的记录，并非实时状态。工作区可能已变化，可重新观察核对。'}</p></div>
+          {o.sync && <details><summary>自上次同步以来 · {o.sync.commits.length} 个新提交 · {o.sync.files.length} 个提交文件</summary>
+            <p>{o.sync.state === 'initial' ? '首次观察，不推断更早的工作。' : o.sync.state === 'complete' ? '提交区间已核对；下方工作区变化另外保留，同一提交文件只列一次。' : `提交范围尚不完整：${o.sync.reason}。检查点不会据此前移。`}</p>
+            {o.sync.truncated && <p>提交或文件数量已截断，缺失部分未知。</p>}
+            {o.sync.commits.map(commit => <p key={commit.sha}><code>{commit.sha.slice(0, 12)}</code> {commit.subject}</p>)}
+            {o.sync.files.map(file => <p key={file.path}>{JSON.stringify(file.path)}{file.originalPath ? ` ← ${JSON.stringify(file.originalPath)}` : ''} · {file.commits.length} 个来源提交{file.restricted ? ' · 仅元数据' : ''}</p>)}
+          </details>}
           {o.truncated && <p role="status">结果截断，缺失部分无法确定。</p>}
           {!o.consistent && o.state !== 'failed' && <p role="status">观察期间来源发生变化，本次不是一致快照。</p>}
           {o.historyIncomplete && <p role="status">此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。</p>}
