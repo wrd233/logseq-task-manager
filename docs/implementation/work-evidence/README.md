@@ -4,7 +4,7 @@
 
 实现基线：2026-10-22 fetch 后的 `origin/main` = `2cb0ced7688b7af19ac5814b1f556ecae255f3c9`。独立分支 `codex/work-evidence-v1`，Worktree `/Users/wangrundong/work/logseq-task-manager-work-evidence`。未合入其他功能分支。
 
-当前版本包含 MVP 之后的可靠性修复。最新测试、真实 DSH 操作记录及接口兼容说明以 [reliability/ACCEPTANCE.md](reliability/ACCEPTANCE.md) 为准；原验收页保留初版历史结果。
+v1 的可靠性修复记录见 [reliability/ACCEPTANCE.md](reliability/ACCEPTANCE.md)。本分支 v1.1 的个人体验入口、可重建环境、最新测试与真实宿主验收以 [个人体验指南](../2026-10-22-work-evidence-ux-acceptance.md) 为准；旧验收页保留历史结果。
 
 ## 启动
 

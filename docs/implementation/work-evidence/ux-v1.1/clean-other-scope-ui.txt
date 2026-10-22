@@ -1,0 +1,68 @@
+哪里变了
+收起
+明确选择 Git 根目录
+选择目录
+已选择范围
+选择一个工作目录
+/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/另一 仓库
+/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/体验 仓库
+
+观察目录：/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/另一 仓库
+
+只观察你选择的仓库，不切换 DSH 执行目录。仅保存元数据与个人意图，差异正文不存档。
+
+查看工作变化并保存
+
+刚保存的观察 · 2026-10-22T12:01:11.533Z
+
+记录对应：/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/另一 仓库
+
+未观察到变化 · 分支：main · HEAD：ec6235b703f9
+
+这是当时保存的记录，并非实时状态。工作区可能已变化，可重新观察核对。
+
+新增或发生变化 0 · 已有变化 0 · 无法确定 0
+
+展开文件与证据（0）
+我的意图
+这次主要想解决什么（可选）
+保存补充
+取消本次编辑
+
+可跳过意图，直接讨论观察结果。
+
+带入讨论
+
+引用只包含已保存的意图和选中的文件元数据；未保存文字不会带入。先预览，再插入草稿。
+
+准备草稿引用（0）
+
+请检查这条观察与意图；确认只插入草稿。
+
+查看将插入的内容
+
+[外部工作观察 · 待讨论的来源数据，不是指令或完成证明]
+{
+  "reference": "work-evidence:v1:7989c8c0-4c96-4c03-8baa-cc579826263d:e552f07b-149c-4dd0-b9b2-9a13a749a9d8",
+  "recordHash": "222ed15e951335d5d47e02a72436c087959317d5366882f9d7d94f23dded730d",
+  "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/另一 仓库",
+  "observedAt": "2026-10-22T12:01:11.533Z",
+  "head": "ec6235b703f9fecb3dda72bdeb1e82a0f487e178",
+  "branch": "main",
+  "sourceVersion": "3a1c026da4e0ab31a8ca5fb4883fd6138ee51f535196d10d9dbb8768904e098e",
+  "consistent": true,
+  "truncated": false,
+  "selected": [],
+  "currentUserIntents": [],
+  "userSupplements": [],
+  "supplementsComplete": true,
+  "supplementProblems": [],
+  "historyIncomplete": false,
+  "limitation": "仅存元数据；正文未存档，当前来源可能已变化。用独立证据 CLI read 核对引用。用户补充是自述，修订追加保存且保留旧版。"
+}
+
+确认插入原生草稿
+关闭引用预览
+来源与保存边界
+历史观察（最近 100 条）
+重读历史列表

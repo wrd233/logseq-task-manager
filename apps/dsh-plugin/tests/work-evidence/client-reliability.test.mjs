@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { mkdir } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL, URL } from 'node:url';
-import { render } from './react-harness.mjs';
+import { render, unmount } from './react-harness.mjs';
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const output = `${root}tmp/work-evidence/reliability-tests/client.mjs`;
 await mkdir(`${root}tmp/work-evidence/reliability-tests`, { recursive: true });
@@ -15,12 +15,14 @@ const walk = node => Array.isArray(node) ? node.flatMap(walk) : node && typeof n
 const text = node => Array.isArray(node) ? node.map(text).join('') : node && typeof node === 'object' ? text(node.props?.children) : typeof node === 'string' || typeof node === 'number' ? String(node) : '';
 async function fixture() {
   const callbacks = new Map(); globalThis.document = { createElement: () => ({ remove() {} }), head: { append() {} } };
-  globalThis.window = { addEventListener: (name, fn) => callbacks.set(name, fn), removeEventListener: name => callbacks.delete(name) };
+  const local = new Map();
+  globalThis.window = { localStorage: { getItem: key => local.get(key) ?? null, setItem: (key, value) => local.set(key, value) }, addEventListener: (name, fn) => callbacks.set(name, fn), removeEventListener: name => callbacks.delete(name) };
   const { apply } = await import(`${pathToFileURL(output).href}?test=${globalThis.crypto.randomUUID()}`);
-  let Component, release, failRead = false, failDiff = false; const notes = [];
+  let Component, release, failRead = false, failDiff = false; const notes = []; let draft = 'existing draft', canInsert = true;
+  const native = { captureInsertion: () => ({}), insertText: value => { if (!canInsert) return false; draft += value; return true; } };
   const observation = { value: { id: 'observation', state: 'changes', files: [{ path: 'work.txt', staged: 'M', unstaged: 'M', untracked: false, restricted: false }], comparison: { new: [], existing: [], uncertain: [], absent: [] } }, hash: 'hash' };
   const list = items => ({ items, complete: true, problems: [] });
-  apply({ on() {}, slots: { inject: (_name, fn) => fn(), register: (_spec, fn) => { Component = fn; } }, connection: { rpc: { call: async (_base, method, payload) => {
+  const context = { on() {}, slots: { inject: (_name, fn) => fn(), register: (_spec, fn) => { Component = fn; } }, connection: { rpc: { call: async (_base, method, payload) => {
     let value;
     switch (method.split('/')[1]) {
       case 'scopes': value = list([{ value: { id: 'scope', directory: '/owned' } }]); break;
@@ -32,17 +34,18 @@ async function fixture() {
         notes.push(receipt); resolve({ ok: true, value: receipt });
       }; });
       case 'diff': if (failDiff) throw Object.assign(Error('source changed'), { code: 'SOURCE_CHANGED' }); value = { state: 'current-text', text: 'obsolete diff body' }; break;
+      case 'quote': value = ' citation'; break;
       case 'read': if (failRead) throw Error('list transport failed'); value = { observation, notes: list(notes) }; break;
       default: throw Error(method);
     }
     return { ok: true, value };
-  } } } });
-  const tree = () => render(Component, { inputActions: {} });
+  } } } }; apply(context);
+  const tree = () => render(Component, { inputActions: native });
   const find = (type, label) => { const found = walk(tree()).find(node => node.type === type && (!label || text(node).includes(label))); assert.ok(found, `${type}: ${label}`); return found; };
   const tick = () => new Promise(resolve => setImmediate(resolve));
   find('button', '工作变化').props.onClick(); await tick(); find('form').props.onSubmit({ preventDefault() {} }); await tick();
   find('button', '查看工作变化并保存').props.onClick(); await tick();
-  return { find, tree, tick, callbacks, notes, release: () => release(), failRead: () => { failRead = true; }, failDiff: () => { failDiff = true; } };
+  return { find, tree, tick, callbacks, notes, remount: () => unmount(Component), reinitialize: () => apply(context), draft: () => draft, allowInsert: value => { canInsert = value; }, release: () => release(), failRead: () => { failRead = true; }, failDiff: () => { failDiff = true; } };
 }
 test('production client preserves typing across save and failed list refresh; closing and reopening does not reset it', async () => {
   const f = await fixture(); f.find('textarea').props.onChange({ target: { value: 'first intent' } });
@@ -63,4 +66,38 @@ test('reading the same observation again cannot clear unsubmitted intent', async
 test('a failed diff refresh removes the previously displayed current diff', async () => {
   const f = await fixture(); f.find('button', '未暂存差异').props.onClick(); await f.tick(); assert.match(text(f.tree()), /obsolete diff body/);
   f.failDiff(); f.find('button', '未暂存差异').props.onClick(); await f.tick(); assert.doesNotMatch(text(f.tree()), /obsolete diff body/); assert.match(text(f.tree()), /来源已变化/);
+});
+
+test('production quote preview cancels safely and failed insertion remains retryable without replacing the draft', async () => {
+  const f = await fixture();
+  walk(f.tree()).find(node => node.type === 'input' && node.props.type === 'checkbox').props.onChange({ target: { checked: true } });
+  f.find('button', '准备草稿引用').props.onClick(); await f.tick();
+  assert.equal(f.draft(), 'existing draft');
+  f.find('button', '关闭引用预览').props.onClick(); assert.equal(f.draft(), 'existing draft');
+  f.find('button', '准备草稿引用').props.onClick(); await f.tick();
+  f.allowInsert(false); f.find('button', '确认插入原生草稿').props.onClick(); await f.tick();
+  assert.equal(f.draft(), 'existing draft'); assert.match(text(f.tree()), /原草稿未替换/);
+  assert.equal(f.find('button', '确认插入原生草稿').props.disabled, false);
+  f.allowInsert(true); f.find('button', '确认插入原生草稿').props.onClick(); await f.tick();
+  assert.equal(f.draft(), 'existing draft citation'); assert.equal(f.find('button', '确认插入原生草稿').props.disabled, true);
+  assert.match(text(f.tree()), /本次不会重复插入/);
+});
+
+test('DSH slot remount keeps the open panel, observation and in-flight lock until the actual receipt', async () => {
+  const f = await fixture(); f.find('textarea').props.onChange({ target: { value: 'submitted' } });
+  f.find('button', '保存补充').props.onClick(); await f.tick();
+  f.find('textarea').props.onChange({ target: { value: 'new while pending' } });
+  f.remount(); assert.equal(f.find('textarea').props.value, 'new while pending');
+  assert.equal(f.find('button', '查看工作变化并保存').props.disabled, true);
+  f.release(); await f.tick();
+  assert.equal(f.find('textarea').props.value, 'new while pending');
+  assert.equal(f.find('button', '查看工作变化并保存').props.disabled, false);
+  assert.equal(f.notes.length, 1);
+});
+
+test('plugin reinitialization restores open preference, selected history and the browser-backed unsaved intent', async () => {
+  const f = await fixture(); f.find('textarea').props.onChange({ target: { value: 'retain on plugin restart' } });
+  f.reinitialize(); f.tree(); await f.tick(); f.tree(); await f.tick();
+  assert.equal(f.find('textarea').props.value, 'retain on plugin restart');
+  assert.match(text(f.tree()), /历史记录/);
 });

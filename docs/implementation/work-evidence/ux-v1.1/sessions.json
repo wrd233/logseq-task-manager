@@ -1,0 +1,30 @@
+[
+  {
+    "runId": "run-c4229e06-d8ed-45ae-9b43-6dce9774ec11",
+    "header": {
+      "type": "session",
+      "version": 4,
+      "id": "session-e5673e0a-2e42-4899-bee9-14a5e6fe5673",
+      "createdAt": 1792670252137,
+      "cwd": "/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/documents/deepseek-harness/default-workspace",
+      "isSeeded": false,
+      "delegationDepth": 0,
+      "agentPreset": "standard"
+    },
+    "events": []
+  },
+  {
+    "runId": "run-fbec7cc3-6a2c-4f45-95e1-8c6e513dfdb4",
+    "header": {
+      "type": "session",
+      "version": 4,
+      "id": "session-d021c0b6-38a7-47dc-bcb1-51028714ade4",
+      "createdAt": 1792670842268,
+      "cwd": "/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-fbec7cc3-6a2c-4f45-95e1-8c6e513dfdb4/documents/deepseek-harness/default-workspace",
+      "isSeeded": false,
+      "delegationDepth": 0,
+      "agentPreset": "standard"
+    },
+    "events": []
+  }
+]

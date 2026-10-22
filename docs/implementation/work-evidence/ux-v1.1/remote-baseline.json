@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-10-22T12:04:32.508Z",
+  "url": "https://github.com/wrd233/logseq-task-manager.git",
+  "protocolOutput": "96546056f6b42d306efd4924cfcd3e6ecf0c3c07\trefs/heads/codex/capture-inbox-v1\nf84631604eba47e0311f927897da626ede4afb00\trefs/heads/codex/one-click-dsh-collaboration\nacae168666495e269b1c533f0e232783a2fc8777\trefs/heads/codex/work-evidence-v1\nb1c7c44d767d98454a641a97020df95b44623752\trefs/heads/codex/work-structure-history-v1\n2cb0ced7688b7af19ac5814b1f556ecae255f3c9\trefs/heads/main",
+  "baseline": "acae168666495e269b1c533f0e232783a2fc8777",
+  "refs": [
+    {
+      "name": "main",
+      "sha": "2cb0ced7688b7af19ac5814b1f556ecae255f3c9",
+      "parents": [
+        "9ff13a7ad152e6188e32bb20c76af89b5f6a38ed"
+      ],
+      "mainRelation": "0\t0",
+      "commits": "",
+      "changedPaths": ""
+    },
+    {
+      "name": "codex/work-evidence-v1",
+      "sha": "acae168666495e269b1c533f0e232783a2fc8777",
+      "parents": [
+        "f4df6f576bafbef7353f555c71ed032288418845"
+      ],
+      "mainRelation": "0\t2",
+      "commits": "acae168 fix: preserve work evidence input and isolate damaged records\nf4df6f5 feat: add isolated Git work evidence and native DSH draft references",
+      "changedPaths": "apps/dsh-plugin/scripts/work-evidence-build.mjs\napps/dsh-plugin/scripts/work-evidence-preview.mjs\napps/dsh-plugin/src/work-evidence/client.jsx\napps/dsh-plugin/src/work-evidence/draft.mjs\napps/dsh-plugin/src/work-evidence/index.mjs\napps/dsh-plugin/src/work-evidence/supplement.mjs\napps/dsh-plugin/tests/work-evidence/adapter.test.mjs\napps/dsh-plugin/tests/work-evidence/client-reliability.test.mjs\napps/dsh-plugin/tests/work-evidence/host-evidence.test.mjs\napps/dsh-plugin/tests/work-evidence/host-gate.mjs\napps/dsh-plugin/tests/work-evidence/react-harness.mjs\napps/dsh-plugin/tests/work-evidence/supplement.test.mjs\napps/task-copilot-cli/src/work-evidence/git.ts\napps/task-copilot-cli/src/work-evidence/main.ts\napps/task-copilot-cli/src/work-evidence/storage-path.ts\napps/task-copilot-cli/src/work-evidence/store.ts\napps/task-copilot-cli/tests/work-evidence-reliability.test.ts\napps/task-copilot-cli/tests/work-evidence.test.ts\ndocs/implementation/work-evidence/ACCEPTANCE.md\ndocs/implementation/work-evidence/README.md\ndocs/implementation/work-evidence/host-history.png\ndocs/implementation/work-evidence/host-native-draft.png\ndocs/implementation/work-evidence/host-result.json\ndocs/implementation/work-evidence/reliability/ACCEPTANCE.md\ndocs/implementation/work-evidence/reliability/concurrent-input-preserved.png\ndocs/implementation/work-evidence/reliability/host-records.json\ndocs/implementation/work-evidence/reliability/host-result.json\ndocs/implementation/work-evidence/reliability/lost-receipt-preserved.png\ndocs/implementation/work-evidence/reliability/normal-native-draft.png\ndocs/implementation/work-evidence/reliability/other-directory-unaffected.png\ndocs/implementation/work-evidence/reliability/partial-history.png\ndocs/implementation/work-evidence/reliability/receipt-recovered.png\ndocs/implementation/work-evidence/reliability/reloaded-history.png"
+    },
+    {
+      "name": "codex/capture-inbox-v1",
+      "sha": "96546056f6b42d306efd4924cfcd3e6ecf0c3c07",
+      "parents": [
+        "a0490b33fd3de8d7e428ba1c786cbe1fbe7b1f5e"
+      ],
+      "mainRelation": "0\t18",
+      "commits": "9654605 fix(capture): preserve recovered draft provenance before source seeding\na0490b3 feat(capture): verify source selections and preserve sourced draft recovery\n6c83bdb fix(capture): retire confirmed native quote recovery after insertion\n36679e4 fix(capture): retain preview link conflict diagnostic cause\nde99ea2 feat(capture): connect durable Inbox to native DSH daily workflow\nfd68b83 docs(capture): record published host-boundary regression evidence\nd06d249 docs(capture): audit Goal requirements against current evidence\n0f2a141 Merge remote-tracking branch 'origin/main' into codex/capture-inbox-v1\nc536d8e fix(capture): retain Inbox selection and scroll across reopen\naee9a5f fix(capture): reject symlink ancestors before creating storage roots\n58c7326 fix(capture): fence late draft loads and inbox refresh results\n1ea2aa6 fix(capture): keep draft recovery receipts and local input consistent\neaebba1 refactor(capture): consume baseline context guard and record Flash scope\n1d0ef50 Merge branch 'main' of https://github.com/wrd233/logseq-task-manager into codex/capture-inbox-v1\nb07e1d1 test(capture): verify real-store controller recovery after lost receipt\nbf67c01 docs(capture): record review evidence and PR handoff\n4870b37 fix(capture): guard storage reads and asynchronous draft races\n7b49d00 feat(capture): add durable inbox store and guarded UI module",
+      "changedPaths": "apps/dsh-plugin/package.json\napps/dsh-plugin/scripts/preview-capture.mjs\napps/dsh-plugin/src/capture-host.mjs\napps/dsh-plugin/src/capture-inbox/ACCEPTANCE.md\napps/dsh-plugin/src/capture-inbox/FRONTEND-TASK.md\napps/dsh-plugin/src/capture-inbox/GOAL-AUDIT.md\napps/dsh-plugin/src/capture-inbox/PR-DESCRIPTION.md\napps/dsh-plugin/src/capture-inbox/README.md\napps/dsh-plugin/src/capture-inbox/controller.mjs\napps/dsh-plugin/src/capture-inbox/evidence/inbox-busy.png\napps/dsh-plugin/src/capture-inbox/evidence/inbox-return-state.png\napps/dsh-plugin/src/capture-inbox/evidence/narrow-inbox.png\napps/dsh-plugin/src/capture-inbox/evidence/narrow-unknown.png\napps/dsh-plugin/src/capture-inbox/host-client.jsx\napps/dsh-plugin/src/capture-inbox/identity.mjs\napps/dsh-plugin/src/capture-inbox/problems.mjs\napps/dsh-plugin/src/capture-inbox/store.mjs\napps/dsh-plugin/src/capture-inbox/styles.mjs\napps/dsh-plugin/src/capture-inbox/view.jsx\napps/dsh-plugin/src/client.jsx\napps/dsh-plugin/src/index.mjs\napps/dsh-plugin/tests/capture-inbox.controller.test.mjs\napps/dsh-plugin/tests/capture-inbox.rpc.test.mjs\napps/dsh-plugin/tests/capture-inbox.source.test.mjs\napps/dsh-plugin/tests/capture-inbox.store.test.mjs\napps/logseq-plugin/src/features/capture-inbox/INTEGRATION-REQUEST.md\napps/logseq-plugin/src/features/capture-inbox/protocol.ts\ndocs/implementation/2026-10-22-capture-inbox-delivery.md\ndocs/implementation/2026-10-22-capture-source-integration.md\ndocs/implementation/assets/capture-inbox/dsh-inbox.png\ndocs/implementation/assets/capture-inbox/quote-confirmed-reload.png\ndocs/implementation/assets/capture-inbox/save-failure.png"
+    },
+    {
+      "name": "codex/work-structure-history-v1",
+      "sha": "b1c7c44d767d98454a641a97020df95b44623752",
+      "parents": [
+        "2cb0ced7688b7af19ac5814b1f556ecae255f3c9"
+      ],
+      "mainRelation": "0\t1",
+      "commits": "b1c7c44 feat(history): integrate causal read-only replay on history development line",
+      "changedPaths": "apps/logseq-plugin/src/features/stage-workbench/review.ts\napps/logseq-plugin/src/features/structure-history/INTEGRATION-REQUEST.md\napps/logseq-plugin/src/features/structure-history/model.ts\napps/logseq-plugin/src/features/structure-history/player.ts\napps/logseq-plugin/src/features/structure-history/view.ts\napps/logseq-plugin/src/workspace/history-source-opener.ts\napps/logseq-plugin/tests/structure-history.test.ts\napps/logseq-plugin/tests/structure-history.trust.test.ts\ndocs/implementation/2026-10-22-structure-history-v1.md\ndocs/implementation/assets/structure-history/build-input-audit.json\ndocs/implementation/assets/structure-history/legacy-host-result.json\ndocs/implementation/assets/structure-history/live-host-result.json\ndocs/implementation/assets/structure-history/verification.json\nscripts/structure-history-desktop.mjs\nscripts/structure-history-host-proof.mjs"
+    },
+    {
+      "name": "codex/one-click-dsh-collaboration",
+      "sha": "f84631604eba47e0311f927897da626ede4afb00",
+      "parents": [
+        "fe0ac2162c2970797f4dfe42b658b915c10bac9a"
+      ],
+      "mainRelation": "8\t4",
+      "commits": "f846316 feat: replay verified Logseq work structure history read-only\nfe0ac21 fix: compact DSH reading and coalesce external file actions\n300881a fix: detect companion through its process lock and listener\n32e9931 feat: enter DSH collaboration directly from a Logseq work",
+      "changedPaths": "apps/dsh-plugin/README.md\napps/dsh-plugin/assets/compact-reading-native.png\napps/dsh-plugin/assets/one-click-native.png\napps/dsh-plugin/one-click.md\napps/dsh-plugin/scripts/install-background.mjs\napps/dsh-plugin/scripts/start-collaboration.mjs\napps/dsh-plugin/src/client.jsx\napps/dsh-plugin/src/handoff.mjs\napps/dsh-plugin/src/index.mjs\napps/dsh-plugin/src/service.mjs\napps/dsh-plugin/src/single-flight.mjs\napps/dsh-plugin/src/styles.mjs\napps/dsh-plugin/tests/host-proof.mjs\napps/dsh-plugin/tests/one-click.test.mjs\napps/dsh-plugin/tests/service.test.mjs\napps/logseq-plugin/src/features/agent-workspace/dsh-work.ts\napps/logseq-plugin/src/features/agent-workspace/installer.ts\napps/logseq-plugin/src/features/agent-workspace/router.ts\napps/logseq-plugin/src/features/materials/controller.ts\napps/logseq-plugin/src/features/stage-workbench/review.ts\napps/logseq-plugin/src/features/stage-workbench/structure-history-view.ts\napps/logseq-plugin/src/features/stage-workbench/structure-history.ts\napps/logseq-plugin/src/features/work-view/reading-controller.ts\napps/logseq-plugin/src/features/work-view/report-controller.ts\napps/logseq-plugin/src/features/work-view/shell.ts\napps/logseq-plugin/src/features/workspace-context/install.ts\napps/logseq-plugin/src/index.ts\napps/logseq-plugin/tests/agent-workspace-entry.test.ts\napps/logseq-plugin/tests/reading-controller.test.ts\napps/logseq-plugin/tests/structure-history.test.ts\napps/task-copilot-cli/src/dsh-handoff.ts\napps/task-copilot-cli/src/workspace-cli.ts\napps/task-copilot-cli/src/workspace-server.ts\ndocs/implementation/2026-10-22-structure-history.md\ndocs/implementation/assets/structure-history/host-result.json\ndocs/implementation/assets/structure-history/host.png\ndocs/user-guide/workbench-usage.md\npackages/contracts/src/workspace-agent.ts\nscripts/logseq-sandbox.mjs\nscripts/structure-history-host-proof.mjs"
+    },
+    {
+      "name": "codex/work-evidence-ux-v1",
+      "exists": false
+    }
+  ]
+}

@@ -85,3 +85,18 @@ test('storage rejects every existing symlink prefix before mkdir, without creati
   await assert.rejects(new EvidenceStore(unsafe).init(), /STATE_DIRECTORY_RESTRICTED/); assert.equal((await lstat(unsafe)).mode & 0o777, 0o755);
   const good = join(root, 'new', 'private', 'state'); await new EvidenceStore(good).init(); assert.equal((await lstat(good)).mode & 0o777, 0o700);
 });
+test('intent revisions append immutable history, replay exact revision receipts, and clean observations can be cited', async () => {
+  const f = await fixture(), o = await f.store.observe(f.a.id);
+  const first = await f.store.note(f.a.id, o.value.id, 'original intent');
+  const before = await readFile(join(f.store.directory, `note-${f.a.id}-${o.value.id}-${first.value.id}.json`));
+  const revisionId = randomUUID(), revised = await f.store.note(f.a.id, o.value.id, 'revised intent', revisionId, first.value.id);
+  assert.deepEqual(await new EvidenceStore(f.store.directory).note(f.a.id, o.value.id, 'revised intent', revisionId, first.value.id), revised);
+  await assert.rejects(f.store.note(f.a.id, o.value.id, 'revised intent', revisionId), /NOTE_KEY_REUSED/);
+  assert.deepEqual(await readFile(join(f.store.directory, `note-${f.a.id}-${o.value.id}-${first.value.id}.json`)), before);
+  const quote = JSON.parse((await f.store.quote(f.a.id, o.value.id, [])).slice((await f.store.quote(f.a.id, o.value.id, [])).indexOf('{')));
+  assert.equal(quote.userSupplements.length, 2); assert.deepEqual(quote.currentUserIntents.map((n: { text: string }) => n.text), ['revised intent']);
+  const foreign = await f.store.observe(f.b.id);
+  await assert.rejects(f.store.note(f.b.id, foreign.value.id, 'foreign revision', randomUUID(), first.value.id));
+  const special = join(f.root, '含 空格的存储', '观察 记录'); await new EvidenceStore(special).init();
+  assert.equal((await lstat(special)).mode & 0o777, 0o700);
+});

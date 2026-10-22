@@ -11,10 +11,15 @@ export function useState(initial) {
   return [values[index], next => { values[index] = typeof next === 'function' ? next(values[index]) : next; }];
 }
 export function useRef(initial) { const { index, values } = slot(() => ({ current: initial })); return values[index]; }
+export function useEffect(callback, dependencies) {
+  const { index, values } = slot(null), previous = values[index];
+  if (!previous || dependencies.some((value, i) => value !== previous[i])) { values[index] = dependencies; globalThis.queueMicrotask(callback); }
+}
 export function useSyncExternalStore(_subscribe, getSnapshot) { return getSnapshot(); }
 function createElement(type, props, ...children) { return { type, props: { ...props, children } }; }
 export default { createElement, Fragment: Symbol.for('review.fragment') };
 export function render(component, props = {}) { return expand(createElement(component, props)); }
+export function unmount(component) { hooks.delete(component); }
 function expand(node) {
   if (Array.isArray(node)) return node.map(expand);
   if (!node || typeof node !== 'object') return node;

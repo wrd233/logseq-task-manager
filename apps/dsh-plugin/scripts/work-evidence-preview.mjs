@@ -1,17 +1,27 @@
 import process from 'node:process';
 import { execFileSync, spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, writeFile, symlink, access, realpath } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, symlink, access, realpath, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { output, runDirectory } from './work-evidence-build.mjs';
+import { privateDirectory } from '../../task-copilot-cli/src/work-evidence/storage-path.ts';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const state = runDirectory;
 const home = join(state, 'dsh-home-v1');
 const profile = join(home, 'profiles/work-evidence');
 const env = { ...process.env, DSH_HOME: home, DEEPSEEK_API_KEY: '', DSH_API_KEY: '', PATH: `/opt/homebrew/opt/node@24/bin:${process.env.PATH}` };
-await mkdir(home, { recursive: true, mode: 0o700 });
+await privateDirectory(home);
+// Preflight existing launch/config paths before DSH or this script can write through them.
+for (const path of [join(home, 'profiles'), profile, join(profile, 'node_modules'), join(profile, 'node_modules/@task-copilot'), join(state, 'documents')]) {
+  try { if (!(await lstat(path)).isDirectory() || await realpath(path) !== path) throw Error('PROFILE_PATH_RESTRICTED'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+for (const path of [join(profile, 'cordis.patch.yml'), join(profile, 'package.json'), join(state, 'process.json'), join(state, 'address.json'), join(state, 'host.log')]) {
+  try { if (!(await lstat(path)).isFile()) throw Error('PROFILE_FILE_RESTRICTED'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 try { await access(join(profile, 'package.json')); }
 catch (error) {
   if (error.code !== 'ENOENT') throw error;
@@ -35,7 +45,7 @@ catch (error) {
   if (error.code !== 'EEXIST' || await realpath(join(parent, 'dsh-work-evidence')) !== output) throw error;
 }
 const child = spawn('dsh', ['--profile', 'work-evidence', '--host', '127.0.0.1', '--port', '0', '--no-open'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
-await writeFile(join(state, 'process.json'), JSON.stringify({ parentPid: process.pid, hostPid: child.pid, home, profile }));
+await writeFile(join(state, 'process.json'), JSON.stringify({ parentPid: process.pid, hostPid: child.pid, home, profile, proofMode: process.env.WORK_EVIDENCE_HOST_PROOF === '1' }));
 const log = createWriteStream(join(state, 'host.log'), { flags: 'a', mode: 0o600 });
 for (const stream of [child.stdout, child.stderr]) {
   let pending = '';

@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { build } from 'esbuild';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { lstat, writeFile } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { privateDirectory } from '../../task-copilot-cli/src/work-evidence/storage-path.ts';
@@ -11,12 +11,16 @@ const rel = relative(resolve(root, 'tmp'), runDirectory);
 if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw Error('RUN_DIRECTORY_OUTSIDE_WORKTREE_TMP');
 await privateDirectory(runDirectory, false);
 export const output = `${runDirectory}/bundle`;
-await mkdir(`${output}/dist`, { recursive: true });
+await privateDirectory(`${output}/dist`, false);
+for (const path of [`${output}/dist/index.js`, `${output}/dist/client.js`, `${output}/package.json`, `${output}/cordis.patch.yml`, `${runDirectory}/cli.mjs`]) {
+  try { if (!(await lstat(path)).isFile()) throw Error('BUILD_FILE_RESTRICTED'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 const name = '@task-copilot/dsh-work-evidence';
 const entry = process.env.WORK_EVIDENCE_HOST_PROOF === '1' ? 'tests/work-evidence/host-gate.mjs' : 'src/work-evidence/index.mjs';
 await build({ entryPoints: [`${root}apps/dsh-plugin/${entry}`], outfile: `${output}/dist/index.js`, bundle: true, platform: 'node', format: 'esm', target: 'node24' });
 const client = await build({ entryPoints: [`${root}apps/dsh-plugin/src/work-evidence/client.jsx`], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', external: ['react', 'react/jsx-runtime'], write: false });
 await writeFile(`${output}/dist/client.js`, `window.__ModuleLoader__.load({id:${JSON.stringify(name)},factory:(require)=>{var module={exports:{}};var exports=module.exports;\n${client.outputFiles[0].text}\nreturn module.exports;}});\n`);
-await writeFile(`${output}/package.json`, JSON.stringify({ name, version: '0.1.0', type: 'module', main: 'dist/index.js', exports: { '.': './dist/index.js', './client': './dist/client.js', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web', inject: ['@deepseek-ai/dsh-client-connection', '@deepseek-ai/dsh-client-ui-renderer', '@deepseek-ai/dsh-client-ui-conversation'] } } }, null, 2));
+await writeFile(`${output}/package.json`, JSON.stringify({ name, version: '0.1.1', type: 'module', main: 'dist/index.js', exports: { '.': './dist/index.js', './client': './dist/client.js', './package.json': './package.json' }, dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web', inject: ['@deepseek-ai/dsh-client-connection', '@deepseek-ai/dsh-client-ui-renderer', '@deepseek-ai/dsh-client-ui-conversation'] } } }, null, 2));
 await writeFile(`${output}/cordis.patch.yml`, `- insert:\n    - id: work-evidence\n      name: '${name}'\n      config:\n        stateDirectory: ${JSON.stringify(`${runDirectory}/state`)}\n`);
 await build({ entryPoints: [`${root}apps/task-copilot-cli/src/work-evidence/main.ts`], outfile: `${runDirectory}/cli.mjs`, bundle: true, platform: 'node', format: 'esm', target: 'node24' });

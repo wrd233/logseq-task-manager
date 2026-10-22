@@ -1,0 +1,154 @@
+
+> @task-copilot/cli@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: all reference commands support machine-readable output
+ok 1 - all reference commands support machine-readable output
+  ---
+  duration_ms: 2.803041
+  ...
+# Subtest: unknown commands fail without touching a fallback database
+ok 2 - unknown commands fail without touching a fallback database
+  ---
+  duration_ms: 0.164834
+  ...
+# Subtest: External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+ok 3 - External Agent commands are JSON-first, non-interactive, and filter objects without a query DSL
+  ---
+  duration_ms: 1.023709
+  ...
+# Subtest: CLI emits stable JSON errors and refuses non-waiting proposal apply
+ok 4 - CLI emits stable JSON errors and refuses non-waiting proposal apply
+  ---
+  duration_ms: 0.121625
+  ...
+# Subtest: object filters fail closed instead of silently returning an empty list
+ok 5 - object filters fail closed instead of silently returning an empty list
+  ---
+  duration_ms: 0.075333
+  ...
+# Subtest: backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+ok 6 - backup create produces a manifest, schema, and integrity-passing SQLite snapshot
+  ---
+  duration_ms: 20.524875
+  ...
+# Subtest: backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+ok 7 - backup inspect rejects missing manifest, corrupt DB, schema mismatch, and future schema
+  ---
+  duration_ms: 12.505959
+  ...
+# Subtest: restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+ok 8 - restore validates and atomically replaces the current database while keeping the previous file and clearing runtime leases
+  ---
+  duration_ms: 15.2015
+  ...
+# Subtest: restore retains committed WAL data in the previous logical snapshot
+ok 9 - restore retains committed WAL data in the previous logical snapshot
+  ---
+  duration_ms: 52.4185
+  ...
+# Subtest: service status recognizes stale descriptor and never reports a dead pid as running
+ok 10 - service status recognizes stale descriptor and never reports a dead pid as running
+  ---
+  duration_ms: 2.509875
+  ...
+# Subtest: doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+ok 11 - doctor reports integrity, foreign keys, schema, and stale service without printing secrets
+  ---
+  duration_ms: 3.28775
+  ...
+# Subtest: a corrupt observation is isolated, valid history stays immutable, and another directory still compares and observes
+ok 12 - a corrupt observation is isolated, valid history stays immutable, and another directory still compares and observes
+  ---
+  duration_ms: 401.815708
+  ...
+# Subtest: corrupt supplements, scope records, valid-hash invalid shapes and symlink records cannot poison another directory
+ok 13 - corrupt supplements, scope records, valid-hash invalid shapes and symlink records cannot poison another directory
+  ---
+  duration_ms: 261.741542
+  ...
+# Subtest: immutable v1 flat records still read back; unknown-owner corruption is explicit and does not block observations
+ok 14 - immutable v1 flat records still read back; unknown-owner corruption is explicit and does not block observations
+  ---
+  duration_ms: 249.6075
+  ...
+# Subtest: same supplement request replays the exact receipt after restart, races deduplicate, and changed payloads conflict
+ok 15 - same supplement request replays the exact receipt after restart, races deduplicate, and changed payloads conflict
+  ---
+  duration_ms: 160.691
+  ...
+# Subtest: storage rejects every existing symlink prefix before mkdir, without creating outside or inside target directories
+ok 16 - storage rejects every existing symlink prefix before mkdir, without creating outside or inside target directories
+  ---
+  duration_ms: 6.41125
+  ...
+# Subtest: intent revisions append immutable history, replay exact revision receipts, and clean observations can be cited
+ok 17 - intent revisions append immutable history, replay exact revision receipts, and clean observations can be cited
+  ---
+  duration_ms: 237.282958
+  ...
+# Subtest: real Git staged, unstaged, untracked, renames, deletion, unusual paths, immutable restart, notes and stale diff
+ok 18 - real Git staged, unstaged, untracked, renames, deletion, unusual paths, immutable restart, notes and stale diff
+  ---
+  duration_ms: 697.659542
+  ...
+# Subtest: real unborn and clean repos, non Git, invalid directory, output and file count limits, actual Git timeout
+ok 19 - real unborn and clean repos, non Git, invalid directory, output and file count limits, actual Git timeout
+  ---
+  duration_ms: 458.589375
+  ...
+# Subtest: scope isolation, sensitive paths/content, binary, symlink, outside root, no untracked body reads
+ok 20 - scope isolation, sensitive paths/content, binary, symlink, outside root, no untracked body reads
+  ---
+  duration_ms: 362.804334
+  ...
+# Subtest: real concurrent writer is reported as inconsistent, never atomic
+ok 21 - real concurrent writer is reported as inconsistent, never atomic
+  ---
+  duration_ms: 211.105208
+  ...
+# Subtest: diff size limits are visible, staged deletion works, directory symlinks and environment overrides cannot widen scope
+ok 22 - diff size limits are visible, staged deletion works, directory symlinks and environment overrides cannot widen scope
+  ---
+  duration_ms: 431.228
+  ...
+# Subtest: bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+ok 23 - bounded observations preserve valuable hidden files, material IDs, binary limits and actual body hashes
+  ---
+  duration_ms: 19.598958
+  ...
+# Subtest: scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+ok 24 - scan bounds and closed ignore config report omitted ranges; explicit sessions contain only real links
+  ---
+  duration_ms: 19.791417
+  ...
+# Subtest: metadata links and material write paths are rejected before reading or writing outside roots
+ok 25 - metadata links and material write paths are rejected before reading or writing outside roots
+  ---
+  duration_ms: 4.200125
+  ...
+# Subtest: broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+ok 26 - broker isolates clients, rejects forged commands and stale grants, and never redelivers an unknown result
+  ---
+  duration_ms: 23.065958
+  ...
+# Subtest: real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+ok 27 - real loopback server uses private separate capabilities, instance identity, host and browser-origin checks
+  ---
+  duration_ms: 33.477333
+  ...
+# Subtest: concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+ok 28 - concurrent explicit session writes preserve both references and entry identity uses the Registry manifest
+  ---
+  duration_ms: 69.463333
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2473.442542

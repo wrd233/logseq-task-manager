@@ -1,0 +1,48 @@
+哪里变了
+收起
+明确选择 Git 根目录
+选择目录
+已选择范围
+选择一个工作目录
+/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/体验 仓库
+
+观察目录：/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/体验 仓库
+
+只观察你选择的仓库，不切换 DSH 执行目录。仅保存元数据与个人意图，差异正文不存档。
+
+查看工作变化并保存
+
+刚保存的观察 · 2026-10-22T12:01:10.723Z
+
+记录对应：/Users/wangrundong/work/logseq-task-manager-work-evidence-ux/tmp/work-evidence-ux/run-c4229e06-d8ed-45ae-9b43-6dce9774ec11/体验 仓库
+
+5 项变化 · 分支：main · HEAD：ec6235b703f9
+
+这是当时保存的记录，并非实时状态。工作区可能已变化，可重新观察核对。
+
+此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。
+
+新增或发生变化 0 · 已有变化 0 · 无法确定 5
+
+展开文件与证据（5）
+我的意图
+这次主要想解决什么（可选）
+保存补充
+取消本次编辑
+
+可跳过意图，直接讨论观察结果。
+
+带入讨论
+
+引用只包含已保存的意图和选中的文件元数据；未保存文字不会带入。先预览，再插入草稿。
+
+准备草稿引用（0）
+
+展开文件并勾选要讨论的变化。
+
+来源与保存边界
+历史观察部分可用：1 条记录不可用，已隔离
+历史观察（最近 100 条）
+重读历史列表
+
+观察记录已保存。

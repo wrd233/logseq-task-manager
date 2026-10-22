@@ -10,7 +10,7 @@ export async function apply(ctx, config = {}) {
     scopes: () => store.scopesReport(), select: p => store.select(p.directory),
     observe: p => store.observe(p.scopeId), history: p => store.historyReport(p.scopeId),
     read: async p => ({ observation: await store.observation(p.scopeId, p.observationId), notes: await store.notesReport(p.scopeId, p.observationId) }),
-    note: p => store.note(p.scopeId, p.observationId, p.text, p.requestId),
+    note: p => store.note(p.scopeId, p.observationId, p.text, p.requestId, p.supersedesId),
     diff: p => store.diff(p.scopeId, p.observationId, p.path, p.side),
     quote: p => store.quote(p.scopeId, p.observationId, p.paths),
   };
