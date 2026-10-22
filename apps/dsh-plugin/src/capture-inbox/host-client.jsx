@@ -1,6 +1,7 @@
 /* global document, setInterval, clearInterval */
 import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createSharedUiPort } from '../../../logseq-plugin/src/workspace/copilot-ui-port.ts';
+import { captureIssue } from './problems.mjs';
 import { CaptureInboxController } from './controller.mjs';
 import { CaptureInboxView } from './view.jsx';
 
@@ -22,11 +23,11 @@ export function installCaptureInbox(ctx, rpc) {
       return native.insertDraft(text, context);
     } };
   };
-  async function open(sessionId, mode, target) {
+  async function open(sessionId, mode, target, selection, lease) {
     const token = ++epoch;
     error = ''; emit();
     try {
-      const info = await rpc('capture/context', { sessionId });
+      const info = await rpc('capture/context', { sessionId, ...(selection ? { selection, lease } : {}) });
       if (disposed || token !== epoch || mounted() !== sessionId) return;
       let entry = entries.get(info.lease);
       if (!entry) {
@@ -46,7 +47,8 @@ export function installCaptureInbox(ctx, rpc) {
       if (!entry.valid) { entry.valid = true; entry.controller.stale = false; }
       active = entry; emit();
       await entry.controller.open(mode, port(entry, undefined, target));
-    } catch { if (token === epoch) { error = '记录暂不可用，请检查 DSH 连接后重试。'; emit(); } }
+      if (selection) await entry.controller.seedSource(info);
+    } catch (problem) { if (token === epoch) { error = captureIssue(problem, '记录暂不可用，请检查 DSH 连接后重试。'); emit(); } }
   }
   function Entry({ sessionId }) {
     const returnTarget = useRef(null);
@@ -91,5 +93,7 @@ export function installCaptureInbox(ctx, rpc) {
   ctx.slots.inject('logseq.capture.inbox', () => ctx.slots.register({ name: 'logseq.capture.inbox', id: 'logseq-capture-inbox' }, Panel));
   ctx.on('connection/reset', () => { epoch++; for (const entry of entries.values()) { entry.valid = false; void entry.controller.connectionChanged(); } });
   ctx.on('dispose', () => { disposed = true; epoch++; for (const entry of entries.values()) { entry.unsubscribe(); void entry.controller.dispose(); } listeners.clear(); });
+  // Shared entry owner calls synchronously from an explicit source action.
+  Entry.captureSource = ({ sessionId, selection, lease, returnTarget }) => open(sessionId, 'capture', returnTarget, selection, lease);
   return Entry;
 }

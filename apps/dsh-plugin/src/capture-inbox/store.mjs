@@ -9,7 +9,7 @@ import { encode, partition, checkOrigin } from './identity.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const MAX_TEXT = 1_000_000;
 const MAX_RECORDS = 5000, MAX_VERSIONS = 10000, MAX_BYTES = 8_000_000;
-const text = value => { if (typeof value !== 'string' || value.length > MAX_TEXT) throw Error('INVALID_TEXT'); return value; };
+const text = value => { if (typeof value !== 'string') throw Error('INVALID_TEXT'); if (value.length > MAX_TEXT) throw Object.assign(Error('CAPTURE_TEXT_LIMIT'), { code: 'CAPTURE_TEXT_LIMIT' }); return value; };
 const key = value => { if (typeof value !== 'string' || !value || value.length > 256) throw Error('INVALID_REQUEST_KEY'); return value; };
 const version = value => { if (!Number.isSafeInteger(value) || value < 1) throw Error('INVALID_VERSION'); return value; };
 const id = value => { if (!/^[a-f0-9]{64}$/.test(value)) throw Error('INVALID_RECORD_ID'); return value; };
@@ -128,6 +128,19 @@ export class FileCaptureStore {
     if (command.kind === 'archive' && typeof command.archived !== 'boolean') throw Error('INVALID_ARCHIVE');
     if (command.kind === 'restore') version(command.restoreVersion);
   }
+  async replay(context, command) {
+    context = structuredClone(context); command = structuredClone(command); this.validate(command, context);
+    const home = await this.home(context);
+    const intent = await this.optional(join(home, 'requests', `${hash(command.requestKey)}.json`));
+    if (!intent) return null;
+    if (encode(intent) !== encode(command)) return { status: 'conflict', record: null, problem: 'REQUEST_KEY_REUSED' };
+    const recordId = command.kind === 'create' ? hash(command.requestKey) : command.id;
+    let rows; try { rows = await this.revisions(join(home, 'records', recordId)); } catch (error) { if (missing(error)) return null; throw error; }
+    const expected = command.kind === 'create' ? 0 : command.expectedVersion;
+    if (rows[expected]?.requestKey !== command.requestKey) return null;
+    await syncDirectory(join(home, 'records', recordId));
+    return { status: 'saved', record: this.fromRows(recordId, rows.slice(0, expected + 1)) };
+  }
   async execute(context, command) {
     // Snapshot before the first await; caller mutation cannot change an accepted intent.
     context = structuredClone(context); command = structuredClone(command);
@@ -173,7 +186,8 @@ export class FileCaptureStore {
     return { version: rows.length, draft: rows.at(-1)?.draft ?? null };
   }
   validateDraft(draft, context) {
-    if (!draft || Object.keys(draft).some(field => !['text', 'requestKey', 'quote', 'edit', 'captureAttempt', 'editAttempt'].includes(field))) throw Error('INVALID_DRAFT');
+    if (!draft || Object.keys(draft).some(field => !['text', 'requestKey', 'quote', 'edit', 'captureAttempt', 'editAttempt', 'origin'].includes(field))) throw Error('INVALID_DRAFT');
+    if (draft.origin) checkOrigin(draft.origin, context);
     text(draft.text); key(draft.requestKey); text(draft.quote);
     if (draft.edit) { id(draft.edit.id); version(draft.edit.expectedVersion); text(draft.edit.text); key(draft.edit.requestKey); }
     if (draft.captureAttempt) this.validate(draft.captureAttempt, context);

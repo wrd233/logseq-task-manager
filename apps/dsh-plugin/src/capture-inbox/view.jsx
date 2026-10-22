@@ -42,6 +42,7 @@ export function CaptureInboxView({ state, actions }) {
       <button type="button" onClick={() => actions.onMode(state.mode === 'capture' ? 'inbox' : 'capture')}>{state.mode === 'capture' ? '回看 Inbox' : '写一条'}</button>
       <button type="button" onClick={actions.onClose}>关闭并返回</button>
     </div></header>
+    {(state.origin?.block || state.origin?.material) && <p className="ci-note" title={JSON.stringify(state.origin)}>来源：{state.origin.block ? `Logseq 块 · ${state.origin.block.contentVersion?.slice(0, 8)}` : `材料 · ${state.origin.material.version}`}</p>}
     <div role="status" aria-live="polite">
       {state.problem && <p className="ci-status">{state.problem}</p>}
       {state.draftStatus !== 'saved' && <p className="ci-note">{state.draftStatus === 'pending' ? '正在保护草稿…' : '草稿尚未确认，请保留当前窗口。'}{['unknown', 'conflict'].includes(state.draftStatus) && <button type="button" onClick={actions.onRecoverDraft}>重查草稿保存</button>}</p>}

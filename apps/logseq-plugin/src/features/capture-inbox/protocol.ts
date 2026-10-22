@@ -26,12 +26,15 @@ export type CaptureReceipt =
   | { status: "unknown" | "partial" | "failed"; problem: string };
 export type CaptureDraft = {
   text: string; requestKey: string;
+  origin?: CaptureOrigin;
   edit: { id: string; expectedVersion: number; text: string; requestKey: string } | null;
   quote: string;
   captureAttempt: Extract<CaptureCommand, { kind: "create" }> | null;
   editAttempt: Exclude<CaptureCommand, { kind: "create" }> | null;
 };
 export interface CaptureStore {
+  /** Exact committed receipt only; never publish or complete a pending intent. */
+  replay?(context: WorkUiContext, command: CaptureCommand): Promise<CaptureReceipt | null>;
   list(context: WorkUiContext): Promise<readonly CaptureRecord[]>;
   execute(context: WorkUiContext, command: CaptureCommand): Promise<CaptureReceipt>;
   readDraft(context: WorkUiContext): Promise<{ version: number; draft: CaptureDraft | null }>;

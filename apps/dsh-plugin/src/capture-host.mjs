@@ -1,4 +1,5 @@
 /* global structuredClone */
+import { captureIssue } from './capture-inbox/problems.mjs';
 import { randomUUID } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { WorkspaceError, parseWorkBinding, workRecord, workText } from '@task-copilot/contracts';
@@ -16,7 +17,7 @@ const fail = code => { throw new WorkspaceError(code); };
 const publicReceipt = result => {
   if (!result || result.status === 'saved') return result;
   const known = ['REQUEST_KEY_REUSED', 'VERSION_CONFLICT', 'RECORD_MISSING', 'RESTORE_VERSION_MISSING', 'DRAFT_VERSION_CONFLICT'];
-  return { ...result, problem: known.includes(result.problem) ? result.problem : '本机保存尚未确认，请保留输入并重试同一请求。' };
+  return { ...result, problem: known.includes(result.problem) ? result.problem : captureIssue(result.problem, '本机保存尚未确认，请保留输入并重试同一请求。') };
 };
 
 /** Authenticated UI-only boundary. Store roots, contexts and leases are host owned.
@@ -57,8 +58,17 @@ export class CaptureHost {
     return row;
   }
   async context(input, signal) {
-    const value = workRecord(input, ['sessionId']), row = await this.current(workText(value.sessionId), signal);
-    return structuredClone({ context: row.context, lease: row.lease, availability: row.availability, origin: { sessionId: row.context.sessionId } });
+    const value = workRecord(input, ['sessionId', 'selection', 'lease']), row = await this.current(workText(value.sessionId), signal);
+    const origin = { sessionId: row.context.sessionId, ...(value.selection ?? {}) };
+    let text;
+    if (value.selection !== undefined) {
+      if (value.lease !== row.lease) fail('CAPTURE_CONTEXT_STALE');
+      workRecord(value.selection, ['block', 'material']);
+      if (Boolean(value.selection.block) === Boolean(value.selection.material)) fail('INVALID_CAPTURE_SELECTION');
+      text = await this.verifyCommand({ kind: 'create', requestKey: 'selection', text: '', origin }, row, signal, true, true);
+      await this.authorized(row.context.sessionId, row.lease, row.context, signal);
+    }
+    return structuredClone({ context: row.context, lease: row.lease, availability: row.availability, origin, ...(text === undefined ? {} : { text }) });
   }
   async authorized(sessionId, lease, expected, signal) {
     this.alive(signal);
@@ -66,7 +76,7 @@ export class CaptureHost {
     if (row.lease !== lease || expected && !sameWorkUiContext(expected, row.context)) fail('CAPTURE_CONTEXT_STALE');
     return row;
   }
-  async verifyCommand(command, row, signal, verifySources = true) {
+  async verifyCommand(command, row, signal, verifySources = true, readText = false) {
     const allowed = commandFields[command?.kind];
     if (!allowed) fail('INVALID_CAPTURE_COMMAND');
     workRecord(command, allowed);
@@ -77,19 +87,27 @@ export class CaptureHost {
     // draft offline must not require a new Graph read or fabricate provenance.
     if (!verifySources) return;
     if ((origin.block || origin.material) && row.availability !== 'connected') fail('CAPTURE_SOURCE_UNAVAILABLE');
+    let body;
     if (origin.block) {
       const selected = workRecord(origin.block, ['sourceId', 'target', 'contentVersion']);
       const target = workRecord(selected.target, ['kind', 'graphId', 'blockUuid']);
       const packet = await this.workbench.command(row.context.sessionId, 'source.read', { sourceId: workText(selected.sourceId, 4096) }, signal);
       const source = packet?.source;
-      if (!source || source.sourceId !== selected.sourceId || source.contentVersion !== selected.contentVersion ||
+      if (!selected.contentVersion || packet?.freshness !== 'checked' || source?.availability !== 'available' || !source || source.sourceId !== selected.sourceId || source.contentVersion !== selected.contentVersion ||
         source.target?.kind !== target.kind || source.target.graphId !== target.graphId || source.target.blockUuid !== target.blockUuid) fail('CAPTURE_SOURCE_NOT_VERIFIED');
+      body = source.content;
     }
     if (origin.material) {
       const selected = workRecord(origin.material, ['materialId', 'version', 'reference']);
       const list = await this.workbench.command(row.context.sessionId, 'materials.list', {}, signal);
-      if (!list?.materials?.some(material => material.id === selected.materialId && material.version === selected.version && material.reference === selected.reference && material.availability === 'available')) fail('CAPTURE_SOURCE_NOT_VERIFIED');
+      if (!selected.version || !list?.materials?.some(material => material.id === selected.materialId && material.version === selected.version && material.reference === selected.reference && material.availability === 'available')) fail('CAPTURE_SOURCE_NOT_VERIFIED');
+      if (readText) {
+        const material = await this.workbench.command(row.context.sessionId, 'materials.read', { id: selected.materialId }, signal);
+        if (material?.id !== selected.materialId || material.version !== selected.version || material.reference !== selected.reference || material.availability !== 'available') fail('CAPTURE_SOURCE_NOT_VERIFIED');
+        body = material.content;
+      }
     }
+    if (readText) { if (typeof body !== 'string') fail('CAPTURE_SOURCE_TEXT_UNAVAILABLE'); if (body.length > 1_000_000) fail('CAPTURE_TEXT_LIMIT'); return body; }
   }
   async call(method, input, signal) {
     if (!fields[method]) fail('UNKNOWN_CAPTURE_ROUTE');
@@ -99,9 +117,14 @@ export class CaptureHost {
     // Never create a lease from a caller's context or a guessed generation.
     if (this.sessions.get(sessionId)?.lease !== lease) fail('CAPTURE_CONTEXT_STALE');
     const row = await this.authorized(sessionId, lease, null, signal), context = structuredClone(row.context);
-    if (method === 'execute') await this.verifyCommand(value.command, row, signal);
+    if (method === 'execute') {
+      await this.verifyCommand(value.command, row, signal, false);
+      const replay = await this.store.replay?.(context, value.command);
+      if (replay) { await this.authorized(sessionId, lease, context, signal); return publicReceipt(replay); }
+      await this.verifyCommand(value.command, row, signal);
+    }
     if (method === 'saveDraft') {
-      workRecord(value.draft, ['text', 'requestKey', 'edit', 'quote', 'captureAttempt', 'editAttempt']);
+      workRecord(value.draft, ['text', 'requestKey', 'edit', 'quote', 'captureAttempt', 'editAttempt', 'origin']);
       if (value.draft.captureAttempt) await this.verifyCommand(value.draft.captureAttempt, row, signal, false);
       if (value.draft.editAttempt) await this.verifyCommand(value.draft.editAttempt, row, signal, false);
     }

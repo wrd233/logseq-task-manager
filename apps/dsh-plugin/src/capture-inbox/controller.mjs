@@ -1,4 +1,5 @@
 /* global crypto, structuredClone */
+import { captureIssue } from './problems.mjs';
 import { encode, partition, checkOrigin } from './identity.mjs';
 import { sameWorkUiContext as sameContext } from '../../../logseq-plugin/src/workspace/copilot-ui-port.ts';
 
@@ -38,7 +39,7 @@ export class CaptureInboxController {
     this.listeners = new Set(); this.records = []; this.draftVersion = 0; this.draftQueue = Promise.resolve(); this.draftBlocked = false;
     this.captureAttempt = null; this.editAttempt = null; this.loaded = false; this.disposed = false; this.stale = false;
     this.draftCandidates = new Set(); this.lastDraftFingerprint = null; this.inputEpoch = 0; this.loadToken = 0; this.refreshToken = 0;
-    this.state = Object.freeze({ visible: false, mode: 'capture', text: '', requestKey: newKey(), pinned: false,
+    this.state = Object.freeze({ visible: false, mode: 'capture', origin: clone(origin), text: '', requestKey: newKey(), pinned: false,
       captureStatus: 'idle', draftStatus: 'saved', problem: '', records: [], query: '', includeArchived: false, selected: [],
       edit: null, editOpen: false, editStatus: 'idle', quote: '', quoteStatus: 'idle', otherDraft: null,
       activeId: null, listScroll: 0, detailScroll: 0 });
@@ -72,7 +73,7 @@ export class CaptureInboxController {
     next.records = visibleRecords(this.records, next.query, next.includeArchived);
     this.state = Object.freeze(next); for (const listener of this.listeners) listener();
   }
-  draft() { return clone({ text: this.state.text, requestKey: this.state.requestKey, edit: this.state.edit, quote: this.state.quote,
+  draft() { return clone({ text: this.state.text, ...((this.origin.block || this.origin.material) ? { origin: this.origin } : {}), requestKey: this.state.requestKey, edit: this.state.edit, quote: this.state.quote,
     captureAttempt: this.captureAttempt, editAttempt: this.editAttempt }); }
   persist() {
     if (this.draftBlocked) return Promise.resolve(false);
@@ -86,13 +87,13 @@ export class CaptureInboxController {
       try {
         this.draftCandidates.add(encode(draft));
         const result = await this.store.saveDraft(this.context, this.draftVersion, draft);
-        if (result.status !== 'saved') { this.draftBlocked = true; this.patch({ draftStatus: result.status, problem: '草稿未确认，当前输入仍保留。请保留窗口并核对原分区草稿。' }); return false; }
+        if (result.status !== 'saved') { this.draftBlocked = true; this.patch({ draftStatus: result.status, problem: captureIssue(result.problem, result.problem || '草稿未确认，当前输入仍保留。请保留窗口并核对原分区草稿。') }); return false; }
         this.draftVersion = result.version;
         this.lastDraftFingerprint = encode(draft);
         this.draftCandidates.clear();
         if (encode(this.draft()) === encode(draft)) this.patch({ draftStatus: 'saved' });
         return true;
-      } catch { this.draftBlocked = true; this.patch({ draftStatus: 'unknown', problem: '草稿保存未确认，当前输入仍保留。' }); return false; }
+      } catch (error) { this.draftBlocked = true; this.patch({ draftStatus: 'unknown', problem: captureIssue(error, '草稿保存未确认，当前输入仍保留。') }); return false; }
     });
     this.draftQueue = job; return job;
   }
@@ -136,7 +137,8 @@ export class CaptureInboxController {
         }
         this.draftVersion = saved.version;
         this.lastDraftFingerprint = saved.draft ? encode(saved.draft) : null;
-        if (saved.draft) { const { captureAttempt, editAttempt, ...values } = saved.draft;
+        if (saved.draft) { const { captureAttempt, editAttempt, origin, ...values } = saved.draft;
+          if (origin) { checkOrigin(origin, this.context); this.origin = clone(origin); this.patch({ origin: clone(origin) }); }
           this.captureAttempt = captureAttempt; this.editAttempt = editAttempt;
           this.patch({ ...values, captureStatus: captureAttempt ? 'unknown' : 'idle', editStatus: editAttempt ? 'unknown' : 'idle' }); }
         this.loaded = true;
@@ -148,6 +150,13 @@ export class CaptureInboxController {
     const token = ++this.refreshToken;
     try { const records = await this.store.list(this.context); if (token === this.refreshToken) { this.records = records; this.patch({}); } }
     catch { if (token === this.refreshToken) this.patch({ problem: '记录暂不可读，已有输入和选择已保留。' }); }
+  }
+  async seedSource({ text, origin }) {
+    checkOrigin(origin, this.context);
+    if (!this.loaded || this.state.text || this.captureAttempt || this.state.edit || this.stale) {
+      this.patch({ problem: '现有草稿已保留，请先处理它，再从来源重新捕获。' }); return false;
+    }
+    this.origin = clone(origin); this.patch({ origin: clone(origin) }); this.setText(text); return this.persist();
   }
   setText(value) {
     this.inputEpoch++;
@@ -161,11 +170,12 @@ export class CaptureInboxController {
     this.captureAttempt = clone(command); this.patch({ captureStatus: 'pending', problem: '' });
     if (!await this.persist()) { this.patch({ captureStatus: 'unknown' }); return; }
     let result;
-    try { result = await this.store.execute(this.context, command); } catch { result = { status: 'unknown', problem: '连接中断，请用原请求重试。' }; }
+    try { result = await this.store.execute(this.context, command); } catch (error) { result = { status: 'unknown', problem: captureIssue(error, '连接中断，请用原请求重试。') }; }
     this.patch({ captureStatus: result.status, problem: result.problem ?? '' });
     if (result.status !== 'saved') return;
     this.captureAttempt = null;
     const unchanged = this.state.text === command.text && this.state.requestKey === command.requestKey;
+    if (unchanged) { this.origin = { sessionId: this.context.sessionId }; this.patch({ origin: clone(this.origin) }); }
     this.patch({ ...(unchanged ? { text: '', requestKey: newKey() } : {}), captureStatus: 'saved' });
     const savedEpoch = this.inputEpoch, clearedKey = this.state.requestKey;
     await this.refresh(); const durable = await this.persist();
