@@ -4,6 +4,8 @@
 
 实现基线：2026-10-22 fetch 后的 `origin/main` = `2cb0ced7688b7af19ac5814b1f556ecae255f3c9`。独立分支 `codex/work-evidence-v1`，Worktree `/Users/wangrundong/work/logseq-task-manager-work-evidence`。未合入其他功能分支。
 
+当前版本包含 MVP 之后的可靠性修复。最新测试、真实 DSH 操作记录及接口兼容说明以 [reliability/ACCEPTANCE.md](reliability/ACCEPTANCE.md) 为准；原验收页保留初版历史结果。
+
 ## 启动
 
 以下命令均在本 Worktree 根目录运行。项目依赖使用 Node 20，DSH 0.2.1-rc.2 使用本机 Node 24。系统默认 Node 25 的动态库缺失，因此显式指定版本，不改全局设置。
@@ -14,6 +16,8 @@ PATH=/opt/homebrew/opt/node@24/bin:$PATH node apps/dsh-plugin/scripts/work-evide
 ```
 
 启动器构建独立插件和 CLI，使用 `tmp/work-evidence/` 专属输出、状态、日志、DSH_HOME 和 `work-evidence` profile。监听 `127.0.0.1:0`，终端打印实际带本机认证的 URL；`address.json` 只保存地址，`process.json` 保存本次进程号。使用终端的 Ctrl-C 停止本次宿主。不会安装到日常 DSH profile。
+
+可用 `WORK_EVIDENCE_RUN_DIRECTORY="$PWD/tmp/自己的运行目录"` 指定本 Worktree 内的独立运行目录。该路径必须绝对、规范化且位于本 Worktree 的 `tmp/` 下；状态目录检查会在创建前拒绝已有符号链接前缀。正常启动不要设置仅供验收的 `WORK_EVIDENCE_HOST_PROOF`。
 
 第一次在 DSH 关闭 API Key/登录提示即可。新会话上方或已有会话标题栏点“工作变化” → 输入明确选择的 Git 根目录 → “查看工作变化并保存” → 按需展开文件、查看暂存/未暂存差异 → 可选保存补充 → 勾选文件 → “引用所选证据到草稿”。发送由用户操作。面板选择独立于 DSH 工作区、cwd、工具权限和 Logseq 绑定。
 
@@ -32,6 +36,8 @@ PATH=/opt/homebrew/opt/node@24/bin:$PATH node apps/dsh-plugin/scripts/work-evide
 ```
 
 引用格式为 `work-evidence:v1:<scopeId>:<observationId>`，CLI `read` 读回对应原记录及独立补充。`recordHash` 校验原观察 JSON，补充各有自己的时间、来源和校验值；不构成数字签名或防本机管理员篡改承诺。
+
+`scopes`、`history` 与 `read.notes` 返回 `{ items, complete, problems }`。损坏记录会显示部分可用，其余有效记录仍可读取。CLI `note` 可再传一个 UUID `requestId`；丢失回执后以相同 ID 和原文重试，返回原补充及原时间。同一 ID 改写原文会被拒绝。
 
 ## 范围与状态
 

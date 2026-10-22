@@ -4,10 +4,10 @@ import { createWriteStream } from 'node:fs';
 import { mkdir, readFile, writeFile, symlink, access, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
-import { output } from './work-evidence-build.mjs';
+import { output, runDirectory } from './work-evidence-build.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const state = join(root, 'tmp/work-evidence');
+const state = runDirectory;
 const home = join(state, 'dsh-home-v1');
 const profile = join(home, 'profiles/work-evidence');
 const env = { ...process.env, DSH_HOME: home, DEEPSEEK_API_KEY: '', DSH_API_KEY: '', PATH: `/opt/homebrew/opt/node@24/bin:${process.env.PATH}` };

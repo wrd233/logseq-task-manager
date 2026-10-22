@@ -1,0 +1,717 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-22T09:18:33.035Z",
+  "fixtures": "Only synthetic repositories and this Goal dedicated profile",
+  "stateFiles": [
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-2853afd2-99ff-4c42-9f3c-81f06bcdded1-f160141e-abaa-4056-abc8-54f628971c6e.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"f160141e-abaa-4056-abc8-54f628971c6e\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"2853afd2-99ff-4c42-9f3c-81f06bcdded1\",\"text\":\"正式入口复测：补充与观察分开保存，引用留在草稿。\",\"createdAt\":\"2026-10-22T09:17:08.026Z\",\"source\":\"user-supplement\"},\"hash\":\"d8cfd368e598baba8fe443f9349d19f5a67953dcb24ab2aba338f9c14828b669\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-17bbe40d-c932-4c33-9ef2-35a45499ea14.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"17bbe40d-c932-4c33-9ef2-35a45499ea14\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"最终协议验收：等待回执时的新输入\",\"createdAt\":\"2026-10-22T09:12:15.109Z\",\"source\":\"user-supplement\"},\"hash\":\"6462208be278a3882141a929c413be2ffd852d971f006845f85b7a9f43fa75be\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-293d2bbf-a5ee-4be0-aa60-5c68b00280b6.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"293d2bbf-a5ee-4be0-aa60-5c68b00280b6\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"最终协议验收：提交成功但 HTTP 回执丢失\",\"createdAt\":\"2026-10-22T09:11:32.523Z\",\"source\":\"user-supplement\"},\"hash\":\"421600ef37a494de02928cc0034049e64e2eeb2bb7aa91dc4a4a42dd85bedb40\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-33817697-a755-48e8-8d58-b3e5b8286e7e.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"33817697-a755-48e8-8d58-b3e5b8286e7e\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"暂停回执前的原始补充\",\"createdAt\":\"2026-10-22T06:23:07.966Z\",\"source\":\"user-supplement\"},\"hash\":\"0c5d8a75ee8dc4942b709b2fc92fdf2b5b8aa750d8d157b71d18ddd174af8daa\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-36bf1c27-b501-4176-9b7c-7efce6cda0e1.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"36bf1c27-b501-4176-9b7c-7efce6cda0e1\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"模拟丢回执的原始补充\",\"createdAt\":\"2026-10-22T08:59:28.390Z\",\"source\":\"user-supplement\"},\"hash\":\"eab57522928d6dce79d33e04d0c6a45b6b9fe58f246f075e939a00b8173191ad\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-45712f2a-074f-4d66-8817-ed360e7d7d74.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"45712f2a-074f-4d66-8817-ed360e7d7d74\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"刷新保护验收：此段尚未保存\",\"createdAt\":\"2026-10-22T09:01:24.902Z\",\"source\":\"user-supplement\"},\"hash\":\"5bc07881918d7b233e13a401043fc8edf88040042ed5b3aa520c21eef0372a97\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-9bbbf261-3422-4a37-a6d1-6f3633d60c06.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"9bbbf261-3422-4a37-a6d1-6f3633d60c06\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"暂停回执前的原始补充；保存期间继续输入的新文字\",\"createdAt\":\"2026-10-22T06:24:15.322Z\",\"source\":\"user-supplement\"},\"hash\":\"1a1a01f9c149e3e55e5359e914af0386027e82a51bc081d88a5a7dd4f2530333\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643-c0f59c7d-ff72-4b08-a194-da0d6c2fc322.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"c0f59c7d-ff72-4b08-a194-da0d6c2fc322\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"text\":\"回执未确认时继续输入的文字也必须保留\",\"createdAt\":\"2026-10-22T09:00:19.746Z\",\"source\":\"user-supplement\"},\"hash\":\"6548dfc3397ce58172f1d79d815d60efbfe74dda75da09889bd15340a8543bdb\"}"
+    },
+    {
+      "name": "note-326f8930-5e33-4582-879a-e7c3bceed12a-d88b203b-3aff-4768-b39f-19a431f8f73b-18bce8af-81e3-4a23-a90c-45090f404501.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"18bce8af-81e3-4a23-a90c-45090f404501\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"observationId\":\"d88b203b-3aff-4768-b39f-19a431f8f73b\",\"text\":\"常规宿主：这次主要验证可靠性，不宣布工作完成。\",\"createdAt\":\"2026-10-22T06:10:53.351Z\",\"source\":\"user-supplement\"},\"hash\":\"8c13d5ccb66d0012cc988e50cff1025292af788d90fe9e6e63576384b306fe17\"}"
+    },
+    {
+      "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-2853afd2-99ff-4c42-9f3c-81f06bcdded1.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"2853afd2-99ff-4c42-9f3c-81f06bcdded1\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"startedAt\":\"2026-10-22T09:16:57.369Z\",\"observedAt\":\"2026-10-22T09:16:57.428Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\"sourceVersion\":\"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f\"}],\"comparison\":{\"previousId\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"new\":[],\"existing\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"uncertain\":[],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"69eb388308abd7b7043c7da72c69d07b4eaf2a1de04294352070606af8eba3c3\"}"
+    },
+    {
+      "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-3743e379-e558-4673-8c2f-6ee834854643.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"3743e379-e558-4673-8c2f-6ee834854643\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"startedAt\":\"2026-10-22T06:18:37.305Z\",\"observedAt\":\"2026-10-22T06:18:37.356Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\"sourceVersion\":\"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f\"}],\"comparison\":{\"previousId\":\"e542cd30-c380-46ac-8b8c-57e92d4c03d1\",\"new\":[],\"existing\":[],\"uncertain\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\",\"historyIncomplete\":true},\"hash\":\"6d3f3184932480f68257b1333d68f501ef0d546d707bfe1744df0708d49a5478\"}"
+    },
+    {
+      "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-590a2b7a-08fd-4623-9348-587f0929f5ab.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"590a2b7a-08fd-4623-9348-587f0929f5ab\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"startedAt\":\"2026-10-22T06:15:35.560Z\",\"observedAt\":\"2026-10-22T06:15:35.602Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\"sourceVersion\":\"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f\"}],\"comparison\":{\"previousId\":\"d88b203b-3aff-4768-b39f-19a431f8f73b\",\"new\":[\"work.txt\"],\"existing\":[\"deleted.txt\",\"rename new.txt\",\".env\",\"untracked.txt\"],\"uncertain\":[],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"622a39676c0c4cc20bd74cc9168c31973dfa744408b9f53747b16d74784f6ddb\"}"
+    },
+    {
+      "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-d88b203b-3aff-4768-b39f-19a431f8f73b.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"d88b203b-3aff-4768-b39f-19a431f8f73b\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"startedAt\":\"2026-10-22T06:10:35.726Z\",\"observedAt\":\"2026-10-22T06:10:35.773Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\"sourceVersion\":\"0d29e449be4351e520f4991e74e1e6a8e44b0c609df7f22d58d9e50affeaee8b\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"31700552af6177b174873baed74c3721f8ccb1067a1c79ddf49f8ba3ed46e70e\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f\"}],\"comparison\":{\"previousId\":null,\"new\":[],\"existing\":[],\"uncertain\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"f8eeb1af487114b2cd226b035a8f84aca8fb643c0a3a938eb820a4782f9f6213\"}"
+    },
+    {
+      "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-e542cd30-c380-46ac-8b8c-57e92d4c03d1.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"e542cd30-c380-46ac-8b8c-57e92d4c03d1\",\"scopeId\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"startedAt\":\"2026-10-22T06:18:17.750Z\",\"observedAt\":\"2026-10-22T06:18:17.803Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\"sourceVersion\":\"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f\"}],\"comparison\":{\"previousId\":\"590a2b7a-08fd-4623-9348-587f0929f5ab\",\"new\":[],\"existing\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"uncertain\":[],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"a7985594dc498c94f4f4e756620f7dcfcb65d224b895fca19bff2ef92f8639b8\"}"
+    },
+    {
+      "name": "observation-e763bca6-28aa-4bcc-b77b-e13b072e49ca-4e523f9d-cc6e-4118-982f-60e66254768b.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"4e523f9d-cc6e-4118-982f-60e66254768b\",\"scopeId\":\"e763bca6-28aa-4bcc-b77b-e13b072e49ca\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\",\"startedAt\":\"2026-10-22T06:18:54.063Z\",\"observedAt\":\"2026-10-22T06:18:54.112Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"137e8b974debde95f5f1cd51a1c6ac01a4476ced\",\"sourceVersion\":\"29d4b707ddc846f0272d482b3d18c916eafd7a59d9d035a77c7e2b893e11bc52\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"3c24b6acd29de9e376697659ef60909ae36e34fcd4af3ccc3745c4eab8020b1c\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"5952bb53e0b389e91333a04aae2b1c97d8cdfcc0aa10cc4bccb1ac92845d8ebb\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"429b7c610c541996cb131f2efdafda9f9c980a2145e987c73b4506ab0c702452\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"dc7a1efe58fabe6c7848c755d0b4202ffc44c05389ac032c043a2c73d97ade20\"}],\"comparison\":{\"previousId\":\"c9a3551c-75a7-4e51-807d-9b50566d394d\",\"new\":[],\"existing\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"uncertain\":[],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"ee7af2bf8838ea495e8b82cd5c24eea5455e657434408120fa5ad9ac17103f6a\"}"
+    },
+    {
+      "name": "observation-e763bca6-28aa-4bcc-b77b-e13b072e49ca-c9a3551c-75a7-4e51-807d-9b50566d394d.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"c9a3551c-75a7-4e51-807d-9b50566d394d\",\"scopeId\":\"e763bca6-28aa-4bcc-b77b-e13b072e49ca\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\",\"startedAt\":\"2026-10-22T06:18:46.602Z\",\"observedAt\":\"2026-10-22T06:18:46.657Z\",\"state\":\"changes\",\"error\":null,\"branch\":\"main\",\"head\":\"137e8b974debde95f5f1cd51a1c6ac01a4476ced\",\"sourceVersion\":\"29d4b707ddc846f0272d482b3d18c916eafd7a59d9d035a77c7e2b893e11bc52\",\"consistent\":true,\"truncated\":false,\"files\":[{\"path\":\"deleted.txt\",\"originalPath\":null,\"staged\":\".\",\"unstaged\":\"D\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"000000\"],\"restricted\":false,\"stamp\":\"431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f\"},{\"path\":\"rename new.txt\",\"originalPath\":\"rename old.txt\",\"staged\":\"R\",\"unstaged\":\".\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"3c24b6acd29de9e376697659ef60909ae36e34fcd4af3ccc3745c4eab8020b1c\"},{\"path\":\"work.txt\",\"originalPath\":null,\"staged\":\"M\",\"unstaged\":\"M\",\"untracked\":false,\"modes\":[\"100644\",\"100644\",\"100644\"],\"restricted\":false,\"stamp\":\"5952bb53e0b389e91333a04aae2b1c97d8cdfcc0aa10cc4bccb1ac92845d8ebb\"},{\"path\":\".env\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":true,\"stamp\":\"429b7c610c541996cb131f2efdafda9f9c980a2145e987c73b4506ab0c702452\"},{\"path\":\"untracked.txt\",\"originalPath\":null,\"staged\":\"?\",\"unstaged\":\"?\",\"untracked\":true,\"modes\":[],\"restricted\":false,\"stamp\":\"dc7a1efe58fabe6c7848c755d0b4202ffc44c05389ac032c043a2c73d97ade20\"}],\"comparison\":{\"previousId\":null,\"new\":[],\"existing\":[],\"uncertain\":[\"deleted.txt\",\"rename new.txt\",\"work.txt\",\".env\",\"untracked.txt\"],\"absent\":[]},\"limits\":{\"milliseconds\":5000,\"outputBytes\":1048576,\"files\":500,\"diffBytes\":65536,\"fileBytes\":262144},\"caveat\":\"只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。\"},\"hash\":\"5bcb8790f78a8e34404d930cc0962b36a243c9eafbd6ef17ae7f230062a14b94\"}"
+    },
+    {
+      "name": "scope-326f8930-5e33-4582-879a-e7c3bceed12a.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"326f8930-5e33-4582-879a-e7c3bceed12a\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\"selectedAt\":\"2026-10-22T06:10:30.605Z\",\"source\":\"explicit-user-selection\"},\"hash\":\"d34e2471590000fa4cce43d5ff67bc03480b6b68c19f8275b13ae3eea320806e\"}"
+    },
+    {
+      "name": "scope-e763bca6-28aa-4bcc-b77b-e13b072e49ca.json",
+      "raw": "{\"value\":{\"schemaVersion\":1,\"id\":\"e763bca6-28aa-4bcc-b77b-e13b072e49ca\",\"directory\":\"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\",\"selectedAt\":\"2026-10-22T06:18:46.345Z\",\"source\":\"explicit-user-selection\"},\"hash\":\"effcc56fd437931e55f9af0fc6ea346ec94016bcbf8a230bf340cf9cae089ba3\"}"
+    }
+  ],
+  "corruption": {
+    "name": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-590a2b7a-08fd-4623-9348-587f0929f5ab.json",
+    "raw": "{intentional owned-fixture corruption"
+  },
+  "partial": {
+    "scopes": [
+      {
+        "schemaVersion": 1,
+        "id": "326f8930-5e33-4582-879a-e7c3bceed12a",
+        "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a",
+        "selectedAt": "2026-10-22T06:10:30.605Z",
+        "source": "explicit-user-selection"
+      },
+      {
+        "schemaVersion": 1,
+        "id": "e763bca6-28aa-4bcc-b77b-e13b072e49ca",
+        "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b",
+        "selectedAt": "2026-10-22T06:18:46.345Z",
+        "source": "explicit-user-selection"
+      }
+    ],
+    "aHistory": {
+      "items": [
+        {
+          "value": {
+            "schemaVersion": 1,
+            "id": "3743e379-e558-4673-8c2f-6ee834854643",
+            "scopeId": "326f8930-5e33-4582-879a-e7c3bceed12a",
+            "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a",
+            "startedAt": "2026-10-22T06:18:37.305Z",
+            "observedAt": "2026-10-22T06:18:37.356Z",
+            "state": "changes",
+            "error": null,
+            "branch": "main",
+            "head": "cbf536e1adf0829dbc735d82b85cb210c31014cc",
+            "sourceVersion": "54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80",
+            "consistent": true,
+            "truncated": false,
+            "files": [
+              {
+                "path": "deleted.txt",
+                "originalPath": null,
+                "staged": ".",
+                "unstaged": "D",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "000000"
+                ],
+                "restricted": false,
+                "stamp": "431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f"
+              },
+              {
+                "path": "rename new.txt",
+                "originalPath": "rename old.txt",
+                "staged": "R",
+                "unstaged": ".",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68"
+              },
+              {
+                "path": "work.txt",
+                "originalPath": null,
+                "staged": "M",
+                "unstaged": "M",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd"
+              },
+              {
+                "path": ".env",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": true,
+                "stamp": "9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065"
+              },
+              {
+                "path": "untracked.txt",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": false,
+                "stamp": "03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f"
+              }
+            ],
+            "comparison": {
+              "previousId": "e542cd30-c380-46ac-8b8c-57e92d4c03d1",
+              "new": [],
+              "existing": [],
+              "uncertain": [
+                "deleted.txt",
+                "rename new.txt",
+                "work.txt",
+                ".env",
+                "untracked.txt"
+              ],
+              "absent": []
+            },
+            "limits": {
+              "milliseconds": 5000,
+              "outputBytes": 1048576,
+              "files": 500,
+              "diffBytes": 65536,
+              "fileBytes": 262144
+            },
+            "caveat": "只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。",
+            "historyIncomplete": true
+          },
+          "hash": "6d3f3184932480f68257b1333d68f501ef0d546d707bfe1744df0708d49a5478"
+        },
+        {
+          "value": {
+            "schemaVersion": 1,
+            "id": "e542cd30-c380-46ac-8b8c-57e92d4c03d1",
+            "scopeId": "326f8930-5e33-4582-879a-e7c3bceed12a",
+            "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a",
+            "startedAt": "2026-10-22T06:18:17.750Z",
+            "observedAt": "2026-10-22T06:18:17.803Z",
+            "state": "changes",
+            "error": null,
+            "branch": "main",
+            "head": "cbf536e1adf0829dbc735d82b85cb210c31014cc",
+            "sourceVersion": "54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80",
+            "consistent": true,
+            "truncated": false,
+            "files": [
+              {
+                "path": "deleted.txt",
+                "originalPath": null,
+                "staged": ".",
+                "unstaged": "D",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "000000"
+                ],
+                "restricted": false,
+                "stamp": "431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f"
+              },
+              {
+                "path": "rename new.txt",
+                "originalPath": "rename old.txt",
+                "staged": "R",
+                "unstaged": ".",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68"
+              },
+              {
+                "path": "work.txt",
+                "originalPath": null,
+                "staged": "M",
+                "unstaged": "M",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd"
+              },
+              {
+                "path": ".env",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": true,
+                "stamp": "9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065"
+              },
+              {
+                "path": "untracked.txt",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": false,
+                "stamp": "03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f"
+              }
+            ],
+            "comparison": {
+              "previousId": "590a2b7a-08fd-4623-9348-587f0929f5ab",
+              "new": [],
+              "existing": [
+                "deleted.txt",
+                "rename new.txt",
+                "work.txt",
+                ".env",
+                "untracked.txt"
+              ],
+              "uncertain": [],
+              "absent": []
+            },
+            "limits": {
+              "milliseconds": 5000,
+              "outputBytes": 1048576,
+              "files": 500,
+              "diffBytes": 65536,
+              "fileBytes": 262144
+            },
+            "caveat": "只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。"
+          },
+          "hash": "a7985594dc498c94f4f4e756620f7dcfcb65d224b895fca19bff2ef92f8639b8"
+        },
+        {
+          "value": {
+            "schemaVersion": 1,
+            "id": "d88b203b-3aff-4768-b39f-19a431f8f73b",
+            "scopeId": "326f8930-5e33-4582-879a-e7c3bceed12a",
+            "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a",
+            "startedAt": "2026-10-22T06:10:35.726Z",
+            "observedAt": "2026-10-22T06:10:35.773Z",
+            "state": "changes",
+            "error": null,
+            "branch": "main",
+            "head": "cbf536e1adf0829dbc735d82b85cb210c31014cc",
+            "sourceVersion": "0d29e449be4351e520f4991e74e1e6a8e44b0c609df7f22d58d9e50affeaee8b",
+            "consistent": true,
+            "truncated": false,
+            "files": [
+              {
+                "path": "deleted.txt",
+                "originalPath": null,
+                "staged": ".",
+                "unstaged": "D",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "000000"
+                ],
+                "restricted": false,
+                "stamp": "431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f"
+              },
+              {
+                "path": "rename new.txt",
+                "originalPath": "rename old.txt",
+                "staged": "R",
+                "unstaged": ".",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "93a8d6a3788f1c4d20eb84ba41dcaebd0d64d9cd94e2153cc84d3d36cb624a68"
+              },
+              {
+                "path": "work.txt",
+                "originalPath": null,
+                "staged": "M",
+                "unstaged": "M",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "31700552af6177b174873baed74c3721f8ccb1067a1c79ddf49f8ba3ed46e70e"
+              },
+              {
+                "path": ".env",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": true,
+                "stamp": "9e735b853627fc978cd40ea3e35ebcaece550bf4b9f7bac1558a7ba842051065"
+              },
+              {
+                "path": "untracked.txt",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": false,
+                "stamp": "03183840475876bffae37e97ec1756de9da8750b6eb1bbc2185e98aa221ee28f"
+              }
+            ],
+            "comparison": {
+              "previousId": null,
+              "new": [],
+              "existing": [],
+              "uncertain": [
+                "deleted.txt",
+                "rename new.txt",
+                "work.txt",
+                ".env",
+                "untracked.txt"
+              ],
+              "absent": []
+            },
+            "limits": {
+              "milliseconds": 5000,
+              "outputBytes": 1048576,
+              "files": 500,
+              "diffBytes": 65536,
+              "fileBytes": 262144
+            },
+            "caveat": "只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。"
+          },
+          "hash": "f8eeb1af487114b2cd226b035a8f84aca8fb643c0a3a938eb820a4782f9f6213"
+        }
+      ],
+      "complete": false,
+      "problems": [
+        {
+          "record": "observation-326f8930-5e33-4582-879a-e7c3bceed12a-590a2b7a-08fd-4623-9348-587f0929f5ab.json",
+          "code": "RECORD_UNAVAILABLE",
+          "scope": "selected"
+        }
+      ]
+    },
+    "bHistory": {
+      "items": [
+        {
+          "value": {
+            "schemaVersion": 1,
+            "id": "4e523f9d-cc6e-4118-982f-60e66254768b",
+            "scopeId": "e763bca6-28aa-4bcc-b77b-e13b072e49ca",
+            "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b",
+            "startedAt": "2026-10-22T06:18:54.063Z",
+            "observedAt": "2026-10-22T06:18:54.112Z",
+            "state": "changes",
+            "error": null,
+            "branch": "main",
+            "head": "137e8b974debde95f5f1cd51a1c6ac01a4476ced",
+            "sourceVersion": "29d4b707ddc846f0272d482b3d18c916eafd7a59d9d035a77c7e2b893e11bc52",
+            "consistent": true,
+            "truncated": false,
+            "files": [
+              {
+                "path": "deleted.txt",
+                "originalPath": null,
+                "staged": ".",
+                "unstaged": "D",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "000000"
+                ],
+                "restricted": false,
+                "stamp": "431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f"
+              },
+              {
+                "path": "rename new.txt",
+                "originalPath": "rename old.txt",
+                "staged": "R",
+                "unstaged": ".",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "3c24b6acd29de9e376697659ef60909ae36e34fcd4af3ccc3745c4eab8020b1c"
+              },
+              {
+                "path": "work.txt",
+                "originalPath": null,
+                "staged": "M",
+                "unstaged": "M",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "5952bb53e0b389e91333a04aae2b1c97d8cdfcc0aa10cc4bccb1ac92845d8ebb"
+              },
+              {
+                "path": ".env",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": true,
+                "stamp": "429b7c610c541996cb131f2efdafda9f9c980a2145e987c73b4506ab0c702452"
+              },
+              {
+                "path": "untracked.txt",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": false,
+                "stamp": "dc7a1efe58fabe6c7848c755d0b4202ffc44c05389ac032c043a2c73d97ade20"
+              }
+            ],
+            "comparison": {
+              "previousId": "c9a3551c-75a7-4e51-807d-9b50566d394d",
+              "new": [],
+              "existing": [
+                "deleted.txt",
+                "rename new.txt",
+                "work.txt",
+                ".env",
+                "untracked.txt"
+              ],
+              "uncertain": [],
+              "absent": []
+            },
+            "limits": {
+              "milliseconds": 5000,
+              "outputBytes": 1048576,
+              "files": 500,
+              "diffBytes": 65536,
+              "fileBytes": 262144
+            },
+            "caveat": "只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。"
+          },
+          "hash": "ee7af2bf8838ea495e8b82cd5c24eea5455e657434408120fa5ad9ac17103f6a"
+        },
+        {
+          "value": {
+            "schemaVersion": 1,
+            "id": "c9a3551c-75a7-4e51-807d-9b50566d394d",
+            "scopeId": "e763bca6-28aa-4bcc-b77b-e13b072e49ca",
+            "directory": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b",
+            "startedAt": "2026-10-22T06:18:46.602Z",
+            "observedAt": "2026-10-22T06:18:46.657Z",
+            "state": "changes",
+            "error": null,
+            "branch": "main",
+            "head": "137e8b974debde95f5f1cd51a1c6ac01a4476ced",
+            "sourceVersion": "29d4b707ddc846f0272d482b3d18c916eafd7a59d9d035a77c7e2b893e11bc52",
+            "consistent": true,
+            "truncated": false,
+            "files": [
+              {
+                "path": "deleted.txt",
+                "originalPath": null,
+                "staged": ".",
+                "unstaged": "D",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "000000"
+                ],
+                "restricted": false,
+                "stamp": "431537facdac8cc81b4e728488a39cb88751dc7f34a9e7899d6f79823d9bbb9f"
+              },
+              {
+                "path": "rename new.txt",
+                "originalPath": "rename old.txt",
+                "staged": "R",
+                "unstaged": ".",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "3c24b6acd29de9e376697659ef60909ae36e34fcd4af3ccc3745c4eab8020b1c"
+              },
+              {
+                "path": "work.txt",
+                "originalPath": null,
+                "staged": "M",
+                "unstaged": "M",
+                "untracked": false,
+                "modes": [
+                  "100644",
+                  "100644",
+                  "100644"
+                ],
+                "restricted": false,
+                "stamp": "5952bb53e0b389e91333a04aae2b1c97d8cdfcc0aa10cc4bccb1ac92845d8ebb"
+              },
+              {
+                "path": ".env",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": true,
+                "stamp": "429b7c610c541996cb131f2efdafda9f9c980a2145e987c73b4506ab0c702452"
+              },
+              {
+                "path": "untracked.txt",
+                "originalPath": null,
+                "staged": "?",
+                "unstaged": "?",
+                "untracked": true,
+                "modes": [],
+                "restricted": false,
+                "stamp": "dc7a1efe58fabe6c7848c755d0b4202ffc44c05389ac032c043a2c73d97ade20"
+              }
+            ],
+            "comparison": {
+              "previousId": null,
+              "new": [],
+              "existing": [],
+              "uncertain": [
+                "deleted.txt",
+                "rename new.txt",
+                "work.txt",
+                ".env",
+                "untracked.txt"
+              ],
+              "absent": []
+            },
+            "limits": {
+              "milliseconds": 5000,
+              "outputBytes": 1048576,
+              "files": 500,
+              "diffBytes": 65536,
+              "fileBytes": 262144
+            },
+            "caveat": "只保存元数据，不保存历史正文。前后校验不是原子快照；已有变化只表示相同元数据，不能证明正文相同。子模块内部变化未观察。"
+          },
+          "hash": "5bcb8790f78a8e34404d930cc0962b36a243c9eafbd6ef17ae7f230062a14b94"
+        }
+      ],
+      "complete": true,
+      "problems": []
+    }
+  },
+  "receipts": {
+    "beforeRetry": {
+      "value": {
+        "schemaVersion": 1,
+        "id": "293d2bbf-a5ee-4be0-aa60-5c68b00280b6",
+        "scopeId": "326f8930-5e33-4582-879a-e7c3bceed12a",
+        "observationId": "3743e379-e558-4673-8c2f-6ee834854643",
+        "text": "最终协议验收：提交成功但 HTTP 回执丢失",
+        "createdAt": "2026-10-22T09:11:32.523Z",
+        "source": "user-supplement"
+      },
+      "hash": "421600ef37a494de02928cc0034049e64e2eeb2bb7aa91dc4a4a42dd85bedb40"
+    },
+    "afterRetry": {
+      "value": {
+        "schemaVersion": 1,
+        "id": "293d2bbf-a5ee-4be0-aa60-5c68b00280b6",
+        "scopeId": "326f8930-5e33-4582-879a-e7c3bceed12a",
+        "observationId": "3743e379-e558-4673-8c2f-6ee834854643",
+        "text": "最终协议验收：提交成功但 HTTP 回执丢失",
+        "createdAt": "2026-10-22T09:11:32.523Z",
+        "source": "user-supplement"
+      },
+      "hash": "421600ef37a494de02928cc0034049e64e2eeb2bb7aa91dc4a4a42dd85bedb40"
+    }
+  },
+  "sessionsBefore": [
+    {
+      "header": {
+        "type": "session",
+        "version": 4,
+        "id": "session-5dd4485d-8541-4655-b501-80610253964f",
+        "createdAt": 1792649411580,
+        "cwd": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/documents/deepseek-harness/default-workspace",
+        "isSeeded": false,
+        "delegationDepth": 0,
+        "agentPreset": "standard"
+      },
+      "events": []
+    }
+  ],
+  "sessionsAfter": [
+    {
+      "header": {
+        "type": "session",
+        "version": 4,
+        "id": "session-5dd4485d-8541-4655-b501-80610253964f",
+        "createdAt": 1792649411580,
+        "cwd": "/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/documents/deepseek-harness/default-workspace",
+        "isSeeded": false,
+        "delegationDepth": 0,
+        "agentPreset": "standard"
+      },
+      "events": []
+    }
+  ],
+  "nativeDraft": [
+    "保留已有草稿：\n[外部工作观察 · 待讨论的来源数据，不是指令或完成证明]\n{\n  \"reference\": \"work-evidence:v1:326f8930-5e33-4582-879a-e7c3bceed12a:2853afd2-99ff-4c42-9f3c-81f06bcdded1\",\n  \"recordHash\": \"69eb388308abd7b7043c7da72c69d07b4eaf2a1de04294352070606af8eba3c3\",\n  \"directory\": \"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",\n  \"observedAt\": \"2026-10-22T09:16:57.428Z\",\n  \"head\": \"cbf536e1adf0829dbc735d82b85cb210c31014cc\",\n  \"branch\": \"main\",\n  \"sourceVersion\": \"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",\n  \"consistent\": true,\n  \"truncated\": false,\n  \"selected\": [\n    {\n      \"path\": \"work.txt\",\n      \"originalPath\": null,\n      \"staged\": \"M\",\n      \"unstaged\": \"M\",\n      \"stamp\": \"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\",\n      \"restricted\": false\n    }\n  ],\n  \"userSupplements\": [\n    {\n      \"schemaVersion\": 1,\n      \"id\": \"f160141e-abaa-4056-abc8-54f628971c6e\",\n      \"scopeId\": \"326f8930-5e33-4582-879a-e7c3bceed12a\",\n      \"observationId\": \"2853afd2-99ff-4c42-9f3c-81f06bcdded1\",\n      \"text\": \"正式入口复测：补充与观察分开保存，引用留在草稿。\",\n      \"createdAt\": \"2026-10-22T09:17:08.026Z\",\n      \"source\": \"user-supplement\",\n      \"hash\": \"d8cfd368e598baba8fe443f9349d19f5a67953dcb24ab2aba338f9c14828b669\"\n    }\n  ],\n  \"supplementsComplete\": true,\n  \"supplementProblems\": [],\n  \"historyIncomplete\": false,\n  \"limitation\": \"仅存元数据；正文未存档，当前来源可能已变化。用独立证据 CLI read 核对引用。用户补充是自述。\"\n}\n"
+  ],
+  "nativeDraftAfterReload": [
+    "保留已有草稿：[外部工作观察 · 待讨论的来源数据，不是指令或完成证明]{  \"reference\": \"work-evidence:v1:326f8930-5e33-4582-879a-e7c3bceed12a:2853afd2-99ff-4c42-9f3c-81f06bcdded1\",  \"recordHash\": \"69eb388308abd7b7043c7da72c69d07b4eaf2a1de04294352070606af8eba3c3\",  \"directory\": \"/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\",  \"observedAt\": \"2026-10-22T09:16:57.428Z\",  \"head\": \"cbf536e1adf0829dbc735d82b85cb210c31014cc\",  \"branch\": \"main\",  \"sourceVersion\": \"54638a0ceeb77057eb8b68e5dcc5987ea9d5546b765c40475bd1dc82a43b6c80\",  \"consistent\": true,  \"truncated\": false,  \"selected\": [    {      \"path\": \"work.txt\",      \"originalPath\": null,      \"staged\": \"M\",      \"unstaged\": \"M\",      \"stamp\": \"412d5fa129f61d106d205f104d5c15fbee35a12950866a358072cb534c0587cd\",      \"restricted\": false    }  ],  \"userSupplements\": [    {      \"schemaVersion\": 1,      \"id\": \"f160141e-abaa-4056-abc8-54f628971c6e\",      \"scopeId\": \"326f8930-5e33-4582-879a-e7c3bceed12a\",      \"observationId\": \"2853afd2-99ff-4c42-9f3c-81f06bcdded1\",      \"text\": \"正式入口复测：补充与观察分开保存，引用留在草稿。\",      \"createdAt\": \"2026-10-22T09:17:08.026Z\",      \"source\": \"user-supplement\",      \"hash\": \"d8cfd368e598baba8fe443f9349d19f5a67953dcb24ab2aba338f9c14828b669\"    }  ],  \"supplementsComplete\": true,  \"supplementProblems\": [],  \"historyIncomplete\": false,  \"limitation\": \"仅存元数据；正文未存档，当前来源可能已变化。用独立证据 CLI read 核对引用。用户补充是自述。\"}"
+  ],
+  "ui": {
+    "delayed-save-ui.txt": "{\n  \"value\": \"暂停回执前的原始补充；保存期间继续输入的新文字\",\n  \"panel\": \"哪里变了\\n收起\\n明确选择 Git 根目录\\n选择目录\\n已选择范围\\n选择一个工作目录\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\\n\\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\\n\\n查看工作变化并保存\\n\\n5 项变化 · 2026-10-22T06:18:37.356Z\\n\\n分支：main · HEAD：cbf536e1adf0\\n\\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\\n\\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\\n\\n展开文件与证据\\n这次主要想解决什么（可选）\\n保存补充\\n\\n原补充已保存，当前新输入仍保留、尚未保存。\\n\\n据用户补充 · 2026-10-22T06:23:07.966Z：暂停回执前的原始补充\\n\\n引用所选证据到草稿（0）\\n\\n来源与保存边界\\n历史观察部分可用：1 条记录不可用，已隔离\\n历史观察（最近 100 条）\\n\\n2026-10-22T06:18:37.356Z · changes · 5 项\\n\\n2026-10-22T06:18:17.803Z · changes · 5 项\\n\\n2026-10-22T06:10:35.773Z · changes · 5 项\"\n}",
+    "lost-receipt-ui.txt": "{\n  \"value\": \"最终协议验收：等待回执时的新输入\",\n  \"panel\": \"哪里变了\\n收起\\n明确选择 Git 根目录\\n选择目录\\n已选择范围\\n选择一个工作目录\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\\n\\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\\n\\n查看工作变化并保存\\n\\n5 项变化 · 2026-10-22T06:18:37.356Z\\n\\n分支：main · HEAD：cbf536e1adf0\\n\\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\\n\\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\\n\\n展开文件与证据\\n \\\"deleted.txt\\\"\\n已暂存 . · 未暂存 D\\n暂存差异\\n未暂存差异\\n \\\"rename new.txt\\\" ← \\\"rename old.txt\\\"\\n已暂存 R · 未暂存 .\\n暂存差异\\n未暂存差异\\n \\\"work.txt\\\"\\n已暂存 M · 未暂存 M\\n暂存差异\\n未暂存差异\\n \\\".env\\\"\\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据 · 敏感路径，仅元数据\\n \\\"untracked.txt\\\"\\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据\\n这次主要想解决什么（可选）\\n重查并重试原补充\\n\\n保存结果未确认，输入仍保留。请重查并重试原补充；同一请求不会重复保存。\\n\\n据用户补充 · 2026-10-22T06:23:07.966Z：暂停回执前的原始补充\\n\\n据用户补充 · 2026-10-22T06:24:15.322Z：暂停回执前的原始补充；保存期间继续输入的新文字\\n\\n据用户补充 · 2026-10-22T08:59:28.390Z：模拟丢回执的原始补充\\n\\n据用户补充 · 2026-10-22T09:00:19.746Z：回执未确认时继续输入的文字也必须保留\\n\\n据用户补充 · 2026-10-22T09:01:24.902Z：刷新保护验收：此段尚未保存\\n\\n引用所选证据到草稿（0）\\n\\n来源与保存边界\\n历史观察部分可用：1 条记录不可用，已隔离\\n历史观察（最近 100 条）\\n\\n2026-10-22T06:18:37.356Z · changes · 5 项\\n\\n2026-10-22T06:18:17.803Z · changes · 5 项\\n\\n2026-10-22T06:10:35.773Z · changes · 5 项\"\n}",
+    "recovered-ui.txt": "{\n  \"value\": \"最终协议验收：等待回执时的新输入\",\n  \"panel\": \"哪里变了\\n收起\\n明确选择 Git 根目录\\n选择目录\\n已选择范围\\n选择一个工作目录\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\\n\\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\\n\\n查看工作变化并保存\\n\\n5 项变化 · 2026-10-22T06:18:37.356Z\\n\\n分支：main · HEAD：cbf536e1adf0\\n\\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\\n\\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\\n\\n展开文件与证据\\n \\\"deleted.txt\\\"\\n已暂存 . · 未暂存 D\\n暂存差异\\n未暂存差异\\n \\\"rename new.txt\\\" ← \\\"rename old.txt\\\"\\n已暂存 R · 未暂存 .\\n暂存差异\\n未暂存差异\\n \\\"work.txt\\\"\\n已暂存 M · 未暂存 M\\n暂存差异\\n未暂存差异\\n \\\".env\\\"\\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据 · 敏感路径，仅元数据\\n \\\"untracked.txt\\\"\\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据\\n这次主要想解决什么（可选）\\n保存补充\\n\\n原补充已保存，当前新输入仍保留、尚未保存。\\n\\n据用户补充 · 2026-10-22T06:23:07.966Z：暂停回执前的原始补充\\n\\n据用户补充 · 2026-10-22T06:24:15.322Z：暂停回执前的原始补充；保存期间继续输入的新文字\\n\\n据用户补充 · 2026-10-22T08:59:28.390Z：模拟丢回执的原始补充\\n\\n据用户补充 · 2026-10-22T09:00:19.746Z：回执未确认时继续输入的文字也必须保留\\n\\n据用户补充 · 2026-10-22T09:01:24.902Z：刷新保护验收：此段尚未保存\\n\\n据用户补充 · 2026-10-22T09:11:32.523Z：最终协议验收：提交成功但 HTTP 回执丢失\\n\\n引用所选证据到草稿（0）\\n\\n来源与保存边界\\n历史观察部分可用：1 条记录不可用，已隔离\\n历史观察（最近 100 条）\\n\\n2026-10-22T06:18:37.356Z · changes · 5 项\\n\\n2026-10-22T06:18:17.803Z · changes · 5 项\\n\\n2026-10-22T06:10:35.773Z · changes · 5 项\"\n}",
+    "source-changed-ui.txt": "哪里变了\n收起\n明确选择 Git 根目录\n选择目录\n已选择范围\n选择一个工作目录\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\n\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\n\n查看工作变化并保存\n\n5 项变化 · 2026-10-22T06:10:35.773Z\n\n分支：main · HEAD：cbf536e1adf0\n\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\n\n展开文件与证据\n \"deleted.txt\"\n已暂存 . · 未暂存 D\n暂存差异\n未暂存差异\n \"rename new.txt\" ← \"rename old.txt\"\n已暂存 R · 未暂存 .\n暂存差异\n未暂存差异\n \"work.txt\"\n已暂存 M · 未暂存 M\n暂存差异\n未暂存差异\n \".env\"\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据 · 敏感路径，仅元数据\n \"untracked.txt\"\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据\n这次主要想解决什么（可选）\n保存补充\n\n据用户补充 · 2026-10-22T06:10:53.351Z：常规宿主：这次主要验证可靠性，不宣布工作完成。\n\n引用所选证据到草稿（0）\n\n来源与保存边界\n历史观察部分可用：1 条记录不可用，已隔离\n历史观察（最近 100 条）\n\n2026-10-22T06:18:37.356Z · changes · 5 项\n\n2026-10-22T06:18:17.803Z · changes · 5 项\n\n2026-10-22T06:10:35.773Z · changes · 5 项\n\n来源已变化，请重新观察后查看当前差异。",
+    "partial-history-ui.txt": "哪里变了\n收起\n明确选择 Git 根目录\n选择目录\n已选择范围\n选择一个工作目录\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\n\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\n\n查看工作变化并保存\n\n5 项变化 · 2026-10-22T06:18:37.356Z\n\n分支：main · HEAD：cbf536e1adf0\n\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\n\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\n\n展开文件与证据\n \"deleted.txt\"\n已暂存 . · 未暂存 D\n暂存差异\n未暂存差异\n \"rename new.txt\" ← \"rename old.txt\"\n已暂存 R · 未暂存 .\n暂存差异\n未暂存差异\n \"work.txt\"\n已暂存 M · 未暂存 M\n暂存差异\n未暂存差异\n \".env\"\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据 · 敏感路径，仅元数据\n \"untracked.txt\"\n已暂存 ? · 未暂存 ? · 未跟踪，仅元数据\n这次主要想解决什么（可选）\n保存补充\n\n引用所选证据到草稿（0）\n\n来源与保存边界\n历史观察部分可用：1 条记录不可用，已隔离\n历史观察（最近 100 条）\n\n2026-10-22T06:18:37.356Z · changes · 5 项\n\n2026-10-22T06:18:17.803Z · changes · 5 项\n\n2026-10-22T06:10:35.773Z · changes · 5 项\n\n观察记录已保存。",
+    "other-directory-ui.txt": "哪里变了\n收起\n明确选择 Git 根目录\n选择目录\n已选择范围\n选择一个工作目录\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\n\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\n\n查看工作变化并保存\n\n5 项变化 · 2026-10-22T06:18:54.112Z\n\n分支：main · HEAD：137e8b974deb\n\n新增或发生变化 0 · 已有变化 5 · 无法确定 0\n\n展开文件与证据\n这次主要想解决什么（可选）\n保存补充\n\n引用所选证据到草稿（0）\n\n来源与保存边界\n历史观察（最近 100 条）\n\n2026-10-22T06:18:54.112Z · changes · 5 项\n\n2026-10-22T06:18:46.657Z · changes · 5 项\n\n观察记录已保存。",
+    "unsaved-reload-ui.txt": "{\n  \"attemptedReload\": true,\n  \"value\": \"刷新保护验收：此段尚未保存\",\n  \"visiblePanel\": \"哪里变了\\n收起\\n明确选择 Git 根目录\\n选择目录\\n已选择范围\\n选择一个工作目录\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\\n\\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\\n\\n查看工作变化并保存\\n\\n5 项变化 · 2026-10-22T06:18:37.356Z\\n\\n分支：main · HEAD：cbf536e1adf0\\n\\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\\n\\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\\n\\n展开文件与证据\\n这次主要想解决什么（可选）\\n保存补充\\n\\n原补充已保存，当前新输入仍保留、尚未保存。\\n\\n据用户补充 · 2026-10-22T06:23:07.966Z：暂停回执前的原始补充\\n\\n据用户补充 · 2026-10-22T06:24:15.322Z：暂停回执前的原始补充；保存期间继续输入的新文字\\n\\n据用户补充 · 2026-10-22T08:59:28.390Z：模拟丢回执的原始补充\\n\\n据用户补充 · 2026-10-22T09:00:19.746Z：回执未确认时继续输入的文字也必须保留\\n\\n引用所选证据到草稿（0）\\n\\n来源与保存边界\\n历史观察部分可用：1 条记录不可用，已隔离\\n历史观察（最近 100 条）\\n\\n2026-10-22T06:18:37.356Z · changes · 5 项\\n\\n2026-10-22T06:18:17.803Z · changes · 5 项\\n\\n2026-10-22T06:10:35.773Z · changes · 5 项\"\n}",
+    "final-restart-ui.txt": "哪里变了\n收起\n明确选择 Git 根目录\n选择目录\n已选择范围\n选择一个工作目录\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-a\n/Users/wangrundong/work/logseq-task-manager-work-evidence/tmp/work-evidence-reliability-20261022/repo-b\n\n此选择只用于观察。元数据和补充保存在独立本机记录中；不保存历史正文。\n\n查看工作变化并保存\n\n5 项变化 · 2026-10-22T06:18:37.356Z\n\n分支：main · HEAD：cbf536e1adf0\n\n此前历史有缺失，本次与上次的比较无法确定；当前 Git 观察仍可查看。\n\n新增或发生变化 0 · 已有变化 0 · 无法确定 5\n\n展开文件与证据\n这次主要想解决什么（可选）\n保存补充\n\n据用户补充 · 2026-10-22T06:23:07.966Z：暂停回执前的原始补充\n\n据用户补充 · 2026-10-22T06:24:15.322Z：暂停回执前的原始补充；保存期间继续输入的新文字\n\n据用户补充 · 2026-10-22T08:59:28.390Z：模拟丢回执的原始补充\n\n据用户补充 · 2026-10-22T09:00:19.746Z：回执未确认时继续输入的文字也必须保留\n\n据用户补充 · 2026-10-22T09:01:24.902Z：刷新保护验收：此段尚未保存\n\n据用户补充 · 2026-10-22T09:11:32.523Z：最终协议验收：提交成功但 HTTP 回执丢失\n\n据用户补充 · 2026-10-22T09:12:15.109Z：最终协议验收：等待回执时的新输入\n\n引用所选证据到草稿（0）\n\n来源与保存边界\n历史观察（最近 100 条）\n\n2026-10-22T06:18:37.356Z · changes · 5 项\n\n2026-10-22T06:18:17.803Z · changes · 5 项\n\n2026-10-22T06:15:35.602Z · changes · 5 项\n\n2026-10-22T06:10:35.773Z · changes · 5 项"
+  },
+  "sourceHashes": {
+    "apps/task-copilot-cli/src/work-evidence/git.ts": "796ed1242b7fd629372d5b316ffc78979c37aee989c72da0623f06eafedd599a",
+    "apps/task-copilot-cli/src/work-evidence/store.ts": "9975b3a8bc94a98ad2b0081f93116e7de812ffda702502321f9c7603ae7d0974",
+    "apps/task-copilot-cli/src/work-evidence/storage-path.ts": "cb6a56cb7e3f59054b3ab7a568bca0b2560a6fcdf58a9b4160e562e6a251b458",
+    "apps/dsh-plugin/src/work-evidence/index.mjs": "ad5be71cc53cb71dcd1487f93a0a3b93a6053ff1d500825934f50d1ed0c7376e",
+    "apps/dsh-plugin/src/work-evidence/client.jsx": "f70f78e62427730e412daacbe49f8318e49e8f0468bedb74c34a6a203f60a32b",
+    "apps/dsh-plugin/src/work-evidence/supplement.mjs": "2fec34f75e0e48951acf68bef3d94518e036a5069762b023a89d1c1f7bda17aa",
+    "apps/dsh-plugin/src/work-evidence/draft.mjs": "fc945600758b7c0c23a9e5e4dff1fb220d1b8b9c96902688edc957a157e5a75a",
+    "apps/dsh-plugin/tests/work-evidence/host-gate.mjs": "0c47c9418a4ffea40f5fccfc33554dfbaaf9651df05ee65e01b780bddb3aab7e"
+  }
+}

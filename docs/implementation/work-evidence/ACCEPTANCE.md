@@ -1,4 +1,6 @@
-# 本轮验收记录
+# MVP 初版验收记录
+
+以下为提交 `f4df6f576bafbef7353f555c71ed032288418845` 的初版历史验收。可靠性加固后的最新结果见 [reliability/ACCEPTANCE.md](reliability/ACCEPTANCE.md)，不要把本页旧宿主地址与测试数量当作本轮结果。
 
 日期：2026-10-22（Asia/Shanghai）。所有测试仓库、安装、产物和状态在独立 Worktree 内。没有子代理、外部模型委派、其他分支合并或真实用户工作区故障模拟。
 

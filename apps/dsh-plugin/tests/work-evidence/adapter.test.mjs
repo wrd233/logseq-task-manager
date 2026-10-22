@@ -9,7 +9,8 @@ test('UI-only RPC uses real Git and disk, rejects foreign scope and invalid enve
  const rpc=async(method,payload)=>{const response=await routes.get(`/api/work-evidence/${method}`).fetch(new Request('http://localhost',{method:'POST',body:JSON.stringify({type:'client-request',rpcId:'test',method:`work-evidence/${method}`,payload})}));return (await response.json()).result;};
  const scope=(await rpc('select',{directory:repo})).value,o=(await rpc('observe',{scopeId:scope.id})).value;
  assert.equal(o.value.files[0].path,'external.txt');assert.equal((await rpc('quote',{scopeId:scope.id,observationId:o.value.id,paths:['external.txt']})).ok,true);
- assert.equal((await rpc('read',{scopeId:'00000000-0000-0000-0000-000000000000',observationId:o.value.id})).ok,false);
+ const foreign=await rpc('read',{scopeId:'00000000-0000-0000-0000-000000000000',observationId:o.value.id});assert.equal(foreign.ok,false);assert.equal(typeof foreign.error.message,'string');assert.deepEqual(foreign.error.details,{});
+ const restricted=await rpc('diff',{scopeId:scope.id,observationId:o.value.id,path:'external.txt',side:'unstaged'});assert.deepEqual(restricted,{ok:false,error:{code:'TEXT_DIFF_RESTRICTED',message:'TEXT_DIFF_RESTRICTED',details:{}}});
  const invalid=await routes.get('/api/work-evidence/scopes').fetch(new Request('http://localhost',{method:'POST',body:'{}'}));assert.equal(invalid.status,400);
  assert.deepEqual([...routes.keys()].sort(),['scopes','select','observe','history','read','note','diff','quote'].map(p=>`/api/work-evidence/${p}`).sort());
 });
