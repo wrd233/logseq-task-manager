@@ -1,0 +1,24 @@
+{
+  "testedAt": "2026-10-22T03:04:59.641Z",
+  "dshVersion": "0.2.1-rc.2",
+  "address": "http://127.0.0.1:64226",
+  "apiKeyConfigured": false,
+  "actualBrowser": true,
+  "historyReadAfterHostRestart": true,
+  "nativeDraftExistingTextPreserved": true,
+  "quoteInserted": true,
+  "sessionHeaderAndEventsUnchanged": true,
+  "messageEventCount": 0,
+  "sessionCwdRelative": "tmp/work-evidence/documents/deepseek-harness/default-workspace",
+  "evidenceDirectoryRelative": "tmp/work-evidence/host-repo",
+  "recordId": "86ce16f5-df40-4422-bcd9-d9a75b391eef",
+  "recordHash": "09ddbd051823f53756a45dac94c3f6e729ef61b9f8cc961d167642e55fcd65b8",
+  "directorySwitchPreservesNativeDraft": true,
+  "repeatedObservation": {
+    "new": 0,
+    "existing": 5,
+    "uncertain": 0
+  },
+  "finalLauncherSmokeAddress": "http://127.0.0.1:51613",
+  "hostLeftRunning": false
+}

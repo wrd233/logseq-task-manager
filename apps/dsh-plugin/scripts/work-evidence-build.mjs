@@ -1,0 +1,13 @@
+import { build } from 'esbuild';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath, URL } from 'node:url';
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+export const output = `${root}tmp/work-evidence/bundle`;
+await mkdir(`${output}/dist`, { recursive: true });
+const name = '@task-copilot/dsh-work-evidence';
+await build({ entryPoints:[`${root}apps/dsh-plugin/src/work-evidence/index.mjs`], outfile:`${output}/dist/index.js`,bundle:true,platform:'node',format:'esm',target:'node24' });
+const client = await build({ entryPoints:[`${root}apps/dsh-plugin/src/work-evidence/client.jsx`],bundle:true,platform:'browser',format:'cjs',target:'es2022',external:['react','react/jsx-runtime'],write:false });
+await writeFile(`${output}/dist/client.js`, `window.__ModuleLoader__.load({id:${JSON.stringify(name)},factory:(require)=>{var module={exports:{}};var exports=module.exports;\n${client.outputFiles[0].text}\nreturn module.exports;}});\n`);
+await writeFile(`${output}/package.json`,JSON.stringify({name,version:'0.1.0',type:'module',main:'dist/index.js',exports:{'.':'./dist/index.js','./client':'./dist/client.js','./package.json':'./package.json'},dsh:{bundle:{patch:'./cordis.patch.yml'},client:{platform:'web',inject:['@deepseek-ai/dsh-client-connection','@deepseek-ai/dsh-client-ui-renderer','@deepseek-ai/dsh-client-ui-conversation']}}},null,2));
+await writeFile(`${output}/cordis.patch.yml`,`- insert:\n    - id: work-evidence\n      name: '${name}'\n      config:\n        stateDirectory: ${JSON.stringify(`${root}tmp/work-evidence/state`)}\n`);
+await build({ entryPoints:[`${root}apps/task-copilot-cli/src/work-evidence/main.ts`],outfile:`${root}tmp/work-evidence/cli.mjs`,bundle:true,platform:'node',format:'esm',target:'node24' });
