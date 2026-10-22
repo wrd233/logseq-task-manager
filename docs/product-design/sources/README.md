@@ -59,3 +59,14 @@ Kernel schema、可信用户来源、Graph 投影和 DSH slots 均需在后续�
 | `planning/01-总体实施安排.md` | `16ecd034cd437d56374615e19f4b624fcf1553fb2e7508a27890dfa482715a73` |
 
 返回[基线说明](../README.md)或[文档导航](../INDEX.md)。
+
+## 2026-10-22 Work Evidence 设计包
+
+用户提供 `work-evidence-design-pack.zip`，并明确要求执行其中 03 文档同步 Goal。01 与 02 作为产品设计输入整合，03 约束本次文档交付；04 仅用于准备后续实现 Goal，未执行。未将 ZIP 或重复的原始正文副本入库。
+
+- `01-work-evidence-product-requirements.md` SHA-256：`90e182fd2af19f389a8fc0d39c775a7dd326bec416ddd0bf9ecfe13db489da35`。
+- `02-work-evidence-interaction-architecture.md` SHA-256：`cd40d42920924a50b4b0e21c2388d6362b8764633df5a93f6bc6c949e54228df`。
+- `03-work-evidence-document-sync-goal.md` SHA-256：`23b40286627871e515c4b63d1b24f24c3f7fe7c248a59f538db1840f82e208ac`。
+- `04-work-evidence-interactive-reconstruction-implementation-goal.md` SHA-256：`a8bb1e9a83bc85093d8b6d2b178177ffc2c79553e543b75f4e8c1975c4f78fc8`。
+
+ZIP SHA-256：`7937af531dea8d3a6a267cf684012c97dfb650b1241d316d6a7e24860485e1d5`。正文维护目标分别为模块 06 与架构 02；后续修订直接更新权威入口，不维护并行合订正文。

@@ -48,3 +48,7 @@ Capture / Inbox 与结构历史的后续并行开发，先读[实际代码基线
 - 既有研究的固定基线曾记录 `main` 与 `codex/one-click-dsh-collaboration` 的 SHA；实现代理应重新读取当前 SHA，而不是盲用旧结论。
 - 正式 Kernel 写入与 Logseq Graph 投影不是同一个结果：正式提交被接受后，Graph 投影仍可能待处理或冲突。用户界面必须说清状态。
 - DSH 的浏览、执行目录、工作身份、读取授权、模型上下文投递是不同概念，不得用一个下拉框或一个布尔值混为一谈。
+
+## 2026-10-22 Work Evidence 专项更新
+
+早期 Draft 0.1 的 91 道反馈统计仅说明当时输入。用户此次明确要求纳入的 Work Evidence 新设计，其确认决策以[模块 06](modules/06-工作证据与历史.md)和[交互架构](architecture/02-Work-Evidence交互式工作还原.md)为准，不受“未逐段标注即全部建议”的旧概括降级；具体数据结构和接口建议仍是可调整设计。其他模块原有倾向和未决项不变。[下一阶段 Goal](planning/goals/03-Work-Evidence交互式工作还原-Goal.md)仅为准备，本次仅授权文档同步。
