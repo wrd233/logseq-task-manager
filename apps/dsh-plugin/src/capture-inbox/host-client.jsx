@@ -33,7 +33,7 @@ export function installCaptureInbox(ctx, rpc) {
       if (!entry) {
         entry = { ...info, valid: true, inputActions: null };
         const call = (method, payload = {}) => rpc(`capture/${method}`, { sessionId, lease: info.lease, ...payload });
-        entry.controller = new CaptureInboxController({ context: info.context, origin: info.origin,
+        entry.controller = new CaptureInboxController({ context: info.context,
           store: { list: () => call('list'), readDraft: () => call('readDraft'), execute: (_c, command) => call('execute', { command }),
             saveDraft: (_c, expectedVersion, draft) => call('saveDraft', { expectedVersion, draft }) },
           createPort: () => port(entry, entry.inputActions) });

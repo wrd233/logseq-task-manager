@@ -87,3 +87,33 @@ test('10000 real draft versions reject the next write without removing history o
   assert.equal((await readdir(path)).length, 10000);
   assert.equal(await readFile(join(path, '10000.json'), 'utf8'), before);
 });
+
+test('a new source action cannot label a recovered session-only draft with its provenance', async t => {
+  const f = await fixture(t), plain = await f.host.context({ sessionId: 's' });
+  await f.store.saveDraft(plain.context, 0, { text: '先前的普通想法', requestKey: 'legacy-session', edit: null, quote: '', captureAttempt: null, editAttempt: null });
+  const selected = await f.host.context({ sessionId: 's', lease: plain.lease, selection: { block } });
+  // Even a caller using the former constructor convention cannot relabel disk text.
+  const controller = new CaptureInboxController({ context: plain.context, origin: selected.origin, store: f.store, createPort: () => null });
+  await controller.open();
+  assert.equal(await controller.seedSource(selected), false);
+  assert.equal(controller.state.text, '先前的普通想法');
+  assert.deepEqual(controller.origin, { sessionId: 's' });
+  assert.deepEqual(controller.state.origin, { sessionId: 's' });
+  await controller.save();
+  const records = await f.store.list(plain.context);
+  assert.equal(records.length, 1); assert.deepEqual(records[0].origin, { sessionId: 's' });
+});
+
+test('legacy pending source request keeps its own origin instead of the newly selected source', async t => {
+  const f = await fixture(t), plain = await f.host.context({ sessionId: 's' });
+  const source = await f.host.context({ sessionId: 's', lease: plain.lease, selection: { block } });
+  const captureAttempt = { kind: 'create', requestKey: 'legacy-pending-source', text: source.text, origin: source.origin };
+  await f.store.saveDraft(plain.context, 0, { text: source.text, requestKey: captureAttempt.requestKey, edit: null, quote: '', captureAttempt, editAttempt: null });
+  const next = await f.host.context({ sessionId: 's', lease: plain.lease, selection: { material } });
+  const controller = new CaptureInboxController({ context: plain.context, origin: next.origin, store: f.store, createPort: () => null });
+  await controller.open(); assert.equal(await controller.seedSource(next), false);
+  assert.deepEqual(controller.origin, source.origin); assert.deepEqual(controller.captureAttempt, captureAttempt);
+  await controller.save();
+  const records = await f.store.list(plain.context);
+  assert.equal(records.length, 1); assert.deepEqual(records[0].origin, source.origin);
+});

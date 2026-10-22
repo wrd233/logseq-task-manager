@@ -138,7 +138,13 @@ export class CaptureInboxController {
         this.draftVersion = saved.version;
         this.lastDraftFingerprint = saved.draft ? encode(saved.draft) : null;
         if (saved.draft) { const { captureAttempt, editAttempt, origin, ...values } = saved.draft;
-          if (origin) { checkOrigin(origin, this.context); this.origin = clone(origin); this.patch({ origin: clone(origin) }); }
+          // Recovered provenance belongs to the recovered draft, not to a new
+          // source action that happened to open this controller. Legacy drafts
+          // without provenance remain session-only unless an old pending create
+          // already recorded its exact origin.
+          const recoveredOrigin = origin ?? captureAttempt?.origin ?? { sessionId: this.context.sessionId };
+          checkOrigin(recoveredOrigin, this.context);
+          this.origin = clone(recoveredOrigin); this.patch({ origin: clone(recoveredOrigin) });
           this.captureAttempt = captureAttempt; this.editAttempt = editAttempt;
           this.patch({ ...values, captureStatus: captureAttempt ? 'unknown' : 'idle', editStatus: editAttempt ? 'unknown' : 'idle' }); }
         this.loaded = true;

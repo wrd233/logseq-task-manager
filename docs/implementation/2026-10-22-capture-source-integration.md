@@ -50,3 +50,17 @@ FileCaptureStore 增加可选只读 `replay(context,command)`：仅在请求指�
 增量文件：`capture-host.mjs`；Capture模块内`host-client.jsx`、`controller.mjs`、`store.mjs`、`view.jsx`、新增`problems.mjs`；模块独有`capture-inbox/protocol.ts`；`capture-inbox.rpc.test.mjs`及新增`capture-inbox.source.test.mjs`；本文。无共享client/index或公共端口变更。固定SHA由本提交后的Git日志给出，实际diff可用`git diff 6c83bdb..HEAD`复核。
 
 最后定向验证：`node --import tsx --test --test-name-pattern='verified' apps/dsh-plugin/tests/capture-inbox.source.test.mjs`，**2/2通过，退出0**；随后DSH构建、Capture及模块协议ESLint、diff空白检查退出0。上述分组结果按实际修订分别记录，不把较早89项冒充最后微调后的再次完整重跑。
+
+## 来源误标复核修复
+
+在 `a0490b3` 后进一步发现：旧session-only磁盘草稿没有origin字段时，来源入口若在构造控制器时预先传入新来源，读回旧草稿后拒绝seed仍会残留这个新来源。正文虽未覆盖，随后保存可能错误标注来源。
+
+修复：host-client构造控制器使用session默认来源，来源只由成功seed加入；读回旧草稿时明确使用其origin、既有待确认create请求origin，或session默认值，绝不从新来源动作继承。既有记录不迁移或改写。新来源遇旧草稿继续拒绝覆盖。
+
+新增两项真实FileCaptureStore测试：普通旧草稿遇块来源动作仍以session来源保存；旧块来源待确认请求遇新材料动作仍保持旧块来源和原请求。均校验最终保存记录，而不只检查界面标签。
+
+本回合仍只读取其他Worktree的Git元数据，包括新登记的`/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager`（分支`codex/work-structure-history-v1`、有未提交工作），未读取其实现或消费其未推送提交；原共享目录`codex/one-click-dsh-collaboration`也未写入。当前工具apps仍为空，没有可操作Logseq连接。已请求共享入口所有者的已发布接入提交与独占宿主连接，不将异步请求未回复视为授权或验收通过。
+
+本修复固定代码实际复跑：`node --import tsx --test apps/dsh-plugin/tests/*.test.mjs apps/logseq-plugin/tests/workspace-context.test.ts apps/logseq-plugin/tests/workspace-reading.test.ts apps/logseq-plugin/tests/agent-workspace-entry.test.ts`，**91/91通过，退出0**；随后Logseq typecheck、DSH build、受影响文件ESLint均退出0，diff检查通过。测试中的独立CLI/HTTP companion是真实运行，但Logseq SDK来源仍为合成fixture，不提升为真实桌面宿主证明。
+
+用户询问Computer Use路径后已明确说明：本聊天工具声明原生应用操作禁用，仅浏览器开放；实际apps清单为空。根本限制是桌面操作通道，非Graph名称、授权不足或固定端口不可更换。独占Graph和空闲端口可自行准备，但不能用脚本绕过当前工具限制控制真实桌面。共享来源按钮仍按原任务要求由入口所有者串行接入。
