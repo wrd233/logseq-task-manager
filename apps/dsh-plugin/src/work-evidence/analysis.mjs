@@ -9,6 +9,7 @@ export function analysisModel(ctx) {
     selection() {
       const selection = ctx.agentDefaultModel?.currentSelection();
       if (!ctx.llm || !selection?.provider || !selection?.model) throw failure('MODEL_NOT_CONFIGURED');
+      if (ctx.llm.listProviders && !ctx.llm.listProviders().some(provider => provider.id === selection.provider)) throw failure('MODEL_NOT_CONFIGURED');
       return { provider: selection.provider, model: selection.model, ...(selection.reasoningEffort ? { reasoningEffort: selection.reasoningEffort } : {}) };
     },
     async explain(packet, selection = this.selection(), signal) {

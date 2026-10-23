@@ -36,3 +36,20 @@ test('personal fixture can be recreated, changed, checked and removed only by ex
     assert.deepEqual(await readdir(outside), []);
   } finally { cli(['remove', one.runId, `--confirm=${one.runId}`]); cli(['remove', two.runId, `--confirm=${two.runId}`]); }
 });
+test('complete scenario adds exactly one commit after a clean checkpoint and refuses repeat without touching fixture', () => {
+  const run = JSON.parse(cli(['new', '--clean']));
+  const git = args => execFileSync('git', args, { cwd: run.repo, encoding: 'utf8' });
+  try {
+    const baseline = git(['rev-parse', 'HEAD']);
+    cli(['change', run.runId, '--with-commit']);
+    assert.equal(git(['rev-list', '--count', `${baseline.trim()}..HEAD`]).trim(), '1');
+    assert.match(git(['show', 'HEAD:work.txt']), /3 attempts/);
+    assert.match(git(['show', ':work.txt']), /5 attempts/);
+    const dirty = git(['status', '--porcelain', '-z']);
+    assert.match(dirty, /MM work.txt/); assert.match(dirty, / D 删除.txt/);
+    assert.match(dirty, /R {2}新 名称.txt/); assert.match(dirty, /\?\? 新增 文件.txt/);
+    const head = git(['rev-parse', 'HEAD']);
+    assert.throws(() => cli(['change', run.runId, '--with-commit']));
+    assert.equal(git(['rev-parse', 'HEAD']), head); assert.equal(git(['status', '--porcelain', '-z']), dirty);
+  } finally { cli(['remove', run.runId, `--confirm=${run.runId}`]); }
+});

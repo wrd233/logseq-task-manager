@@ -132,3 +132,14 @@ test('large real commit/workspace diffs cannot crowd a saved clarification out o
  assert(input.evidence.some(e=>e.kind==='git-diff'&&e.text&&e.truncated));assert(m.requests[0].messages[0].content[0].text.length<64000);
  m.gates.shift()();await f.runtime.settle();
 });
+
+test('model availability is read-only and refreshes after configuration without analysis', async () => {
+  const ctx = { agentDefaultModel: { currentSelection: () => ({ provider: 'fixture', model: 'fixture' }) }, llm: { listProviders: () => [] } }; const f = await fixture(ctx);
+  assert.equal((await f.runtime.view(f.p)).modelConfigured, false);
+  let calls = 0;
+  ctx.agentDefaultModel = { currentSelection: () => ({ provider: 'fixture', model: 'fixture' }) };
+  ctx.llm = { listProviders: () => [{ id: 'fixture' }], stream: () => { calls++; throw Error('must not analyze'); } };
+  assert.equal((await f.runtime.view(f.p)).modelConfigured, true);
+  assert.equal(calls, 0);
+  assert.equal((await f.store.workEvents(f.p.scopeId, f.p.observationId)).items.length, 0);
+});

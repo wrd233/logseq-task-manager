@@ -70,6 +70,7 @@ export function reconstructionComponent({ rpc, usePanelState }) {
       finally { setLocalBusy(prior => ({ ...prior, [key]: false })); }
     }
     useEffect(() => { void refresh().catch(error => setNotice(errorText(error))); }, [base]);
+    const canAnalyze = consent && view?.modelConfigured !== false;
     const hasActive = view?.items.some(active) ?? false;
     useEffect(() => {
       if (!hasActive) return;
@@ -107,12 +108,13 @@ export function reconstructionComponent({ rpc, usePanelState }) {
         {sessionId && <label><input type="checkbox" checked={sessionContext} onChange={event => setSessionContext(event.target.checked)} />结合当前会话的最近文本（仅当会话目录与所选仓库相同）</label>}
         <label><input type="checkbox" checked={logseqContext} onChange={event => setLogseqContext(event.target.checked)} />结合此目录已有授权的 Logseq 工作结构（不建立新绑定）</label>
       </details>
+      <p className="we-muted" role="status">{view?.modelConfigured === false ? '尚未配置或选择模型，分析暂不可用。' : '未配置模型时，分析不可用。'}观察、Diff、交接保存和引用仍可使用。请在独立 DSH 中配置并选择模型，再点“刷新分析状态”。</p>
       {!consent && <p className="we-muted">可先查看证据、整理交接；需要分析时在上方确认范围。</p>}
       {!view && <p>正在读取文件条目…</p>}
       {view && !view.complete && <p role="alert">部分分析记录不可用，已隔离；缺失内容保持未知。</p>}
       <div className="we-tools"><button type="button" aria-pressed={mode === 'list'} onClick={() => setMode('list')}>条目列表</button><button type="button" aria-pressed={mode === 'structure'} onClick={() => setMode('structure')}>结构关系</button><button type="button" onClick={() => void operation('refresh', refresh)}>刷新分析状态</button></div>
       {mode === 'structure' && <><StructureView nodes={nodes} edges={edges} selectedId={selected} onSelect={setSelected} /><p className="we-muted">归组来自 Agent 理解；选择文件可查看同一份证据。</p></>}
-      {mode === 'list' ? [...groups].map(([group,items]) => <section key={group}><h4>{group}</h4>{items.map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}</section>) : view?.items.filter(item => item.fact.id === selected).map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}
+      {mode === 'list' ? [...groups].map(([group,items]) => <section key={group}><h4>{group}</h4>{items.map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}</section>) : view?.items.filter(item => item.fact.id === selected).map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}
       {view?.items.length === 0 && <p>这次没有可用的文件条目；仍可保存带范围说明的交接。</p>}
       {diff && <div className="we-preview" aria-label="还原文件差异"><h4>{diff.path} · {diff.label}</h4><p>{diff.text ? '按需读取的来源正文，不存档。' : diff.state === 'truncated' ? '差异超过上限，正文未返回。' : '没有可展示的文本，受限或无差异。'}</p>{diff.text && <pre>{diff.text}</pre>}<button type="button" onClick={() => setDiff(null)}>关闭差异</button></div>}
       <h4>工作交接</h4><p className="we-muted">随时整理，不要求回答所有问题。未分析、失败或跳过的内容保留为未知。</p>

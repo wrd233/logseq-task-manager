@@ -13,12 +13,17 @@ const owner = 'task-copilot-work-evidence-ux-v1';
 const preview = join(root, 'apps/dsh-plugin/scripts/work-evidence-preview.mjs');
 const json = async path => JSON.parse(await readFile(path, 'utf8'));
 const save = (path, value) => writeFile(path, JSON.stringify(value, null, 2), { mode: 0o600, flag: 'wx' });
-const git = (directory, args) => execFileSync('git', ['--no-optional-locks', ...args], { cwd: directory, env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))), GIT_TERMINAL_PROMPT: '0' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-async function changed(repo) {
+const git = (directory, args) => execFileSync('git', ['--no-optional-locks', '-c', 'core.hooksPath=/dev/null', ...args], { cwd: directory, env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))), GIT_TERMINAL_PROMPT: '0' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+async function changed(repo, withCommit = false) {
   if (git(repo, ['status', '--porcelain']).trim()) throw Error('FIXTURE_ALREADY_CHANGED_USE_NEW_RUN');
   for (const file of ['work.txt', '旧 名称.txt', '删除.txt']) if (!(await lstat(join(repo, file))).isFile()) throw Error('FIXTURE_FILE_RESTRICTED');
-  await writeFile(join(repo, 'work.txt'), 'staged change\n'); git(repo, ['add', '--', 'work.txt']);
-  await writeFile(join(repo, 'work.txt'), 'unstaged change\n');
+  if (withCommit) {
+    await writeFile(join(repo, 'work.txt'), 'Retry policy: 3 attempts. Timeout decision pending.\n');
+    git(repo, ['add', '--', 'work.txt']);
+    git(repo, ['-c', 'user.name=Work Evidence Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Synthetic retry policy; validation not yet recorded']);
+  }
+  await writeFile(join(repo, 'work.txt'), 'Retry policy: 5 attempts. Timeout decision pending.\n'); git(repo, ['add', '--', 'work.txt']);
+  await writeFile(join(repo, 'work.txt'), 'Retry policy: 5 attempts. Timeout now 10 seconds; reason and validation unknown.\n');
   await rename(join(repo, '旧 名称.txt'), join(repo, '新 名称.txt')); git(repo, ['add', '-A', '--', '旧 名称.txt', '新 名称.txt']);
   await unlink(join(repo, '删除.txt'));
   await writeFile(join(repo, '新增 文件.txt'), 'Synthetic untracked text is not auto-read.\n', { flag: 'wx' });
@@ -66,7 +71,9 @@ try {
     } else if (command === 'status') console.log(JSON.stringify({ runDirectory: run, live: !!live, hostPidAlive, address: await json(join(run, 'address.json')).catch(() => null), info }, null, 2));
     else if (command === 'change') {
       if (git(repo, ['rev-parse', '--show-toplevel']).trim() !== repo) throw Error('NOT_OWNED_FIXTURE_ROOT');
-      await changed(repo); console.log('Synthetic changes prepared.');
+      if (option && option !== '--with-commit') throw Error('UNKNOWN_CHANGE_OPTION');
+      if (option === '--with-commit' && git(repo, ['log', '-1', '--format=%s']).trim() !== 'Synthetic baseline') throw Error('SCENARIO_ALREADY_PREPARED_USE_RESET');
+      await changed(repo, option === '--with-commit'); console.log('Synthetic changes prepared.');
     } else if (command === 'corrupt') {
       const cli = args => JSON.parse(execFileSync(process.execPath, [join(run, 'cli.mjs'), join(run, 'state'), ...args], { encoding: 'utf8' }));
       const scope = cli(['scopes']).items.map(s => s.value).find(s => s.directory === repo);

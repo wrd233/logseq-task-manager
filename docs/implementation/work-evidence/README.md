@@ -4,6 +4,10 @@
 
 产品依据：[模块 06](../../product-design/modules/06-工作证据与历史.md)、[交互架构](../../product-design/architecture/02-Work-Evidence交互式工作还原.md)。本轮实现与真实宿主验收见 [reconstruction/ACCEPTANCE.md](reconstruction/ACCEPTANCE.md)。v1 的 [ACCEPTANCE.md](ACCEPTANCE.md)、[可靠性验收](reliability/ACCEPTANCE.md)与 [v1.1 体验记录](../2026-10-22-work-evidence-ux-acceptance.md)保留为各自版本的历史证据。
 
+## 个人体验入口
+
+双击 `apps/dsh-plugin/scripts/work-evidence-experience.command`，按菜单启动/继续、生成包含新提交的样例、停止或重置。无需管理 RUN_ID。见[按点击顺序的短指南](personal/开始体验.md)与[本轮验证](personal/验收.md)。
+
 ## 体验
 
 1. 选择自己的 Git 根目录并同步；首次只建立初始范围，不推断更早工作。后续包含新提交及当前已暂存、未暂存、未跟踪、重命名和删除。

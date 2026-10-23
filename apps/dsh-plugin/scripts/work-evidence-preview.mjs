@@ -2,7 +2,7 @@ import process from 'node:process';
 import { execFileSync, spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readFile, writeFile, symlink, access, realpath, lstat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { output, runDirectory } from './work-evidence-build.mjs';
 import { privateDirectory } from '../../task-copilot-cli/src/work-evidence/storage-path.ts';
@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL('../../../', import.meta.url));
 const state = runDirectory;
 const home = join(state, 'dsh-home-v1');
 const profile = join(home, 'profiles/work-evidence');
-const env = { ...process.env, DSH_HOME: home, DEEPSEEK_API_KEY: '', DSH_API_KEY: '', PATH: `/opt/homebrew/opt/node@24/bin:${process.env.PATH}` };
+const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/(?:API_KEY|ACCESS_TOKEN|AUTH_TOKEN)$/u.test(key))), DSH_HOME: home, DEEPSEEK_API_KEY: '', DSH_API_KEY: '', PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
 await privateDirectory(home);
 // Preflight existing launch/config paths before DSH or this script can write through them.
 for (const path of [join(home, 'profiles'), profile, join(profile, 'node_modules'), join(profile, 'node_modules/@task-copilot'), join(state, 'documents')]) {
@@ -57,15 +57,19 @@ catch (error) {
 }
 const child = spawn('dsh', ['--profile', 'work-evidence', '--host', '127.0.0.1', '--port', port, '--no-open'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
 await writeFile(join(state, 'process.json'), JSON.stringify({ parentPid: process.pid, hostPid: child.pid, home, profile, proofMode: process.env.WORK_EVIDENCE_HOST_PROOF === '1' }));
+let personalAddressPrinted = false;
 const log = createWriteStream(join(state, 'host.log'), { flags: 'a', mode: 0o600 });
 for (const stream of [child.stdout, child.stderr]) {
   let pending = '';
   stream.on('data', bytes => {
-    process.stdout.write(bytes);
+    if (process.env.WORK_EVIDENCE_PERSONAL_LAUNCH !== '1') process.stdout.write(bytes);
     pending += bytes.toString();
     let end;
     while ((end = pending.indexOf('\n')) >= 0) {
       const line = pending.slice(0, end + 1); pending = pending.slice(end + 1);
+      if (process.env.WORK_EVIDENCE_PERSONAL_LAUNCH === '1' && !personalAddressPrinted && /http:\/\/127\.0\.0\.1:\d+\/.*[?&]token=/u.test(line)) {
+        personalAddressPrinted = true; process.stdout.write(line);
+      }
       log.write(line.replace(/([?&]token=)[^\s]+/gu, '$1[redacted]'));
       const address = line.match(/http:\/\/127\.0\.0\.1:\d+/u)?.[0];
       if (address) {

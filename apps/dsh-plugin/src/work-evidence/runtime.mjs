@@ -11,7 +11,9 @@ export function reconstructionRuntime(store, ctx, config = {}) {
   let disposed = false;
   async function view(p) {
     const value = await store.reconstruct(p.scopeId, p.observationId);
-    return { ...value, items: value.items.map(item => ({ ...item,
+    let modelConfigured = false;
+    try { model.selection(); modelConfigured = true; } catch { /* Read-only availability; never invokes the model. */ }
+    return { ...value, modelConfigured, items: value.items.map(item => ({ ...item,
       state: active.has(keyOf({ ...p, itemId: item.fact.id })) ? item.interpretation ? 'reanalyzing' : 'analyzing'
         : item.state === 'interrupted-or-running' ? 'interrupted' : item.state,
     })) };

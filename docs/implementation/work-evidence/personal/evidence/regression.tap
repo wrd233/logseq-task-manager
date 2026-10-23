@@ -1,0 +1,80 @@
+TAP version 13
+# Subtest: span capture is synchronous and subsequent native typing is never replaced
+ok 1 - span capture is synchronous and subsequent native typing is never replaced
+  ---
+  duration_ms: 0.698916
+  ...
+# Subtest: native insertion uses one original span once and does not access replace or submit
+ok 2 - native insertion uses one original span once and does not access replace or submit
+  ---
+  duration_ms: 0.155417
+  ...
+# Subtest: session, generation and formal version changes reject late insertion and focus return
+ok 3 - session, generation and formal version changes reject late insertion and focus return
+  ---
+  duration_ms: 0.128417
+  ...
+# Subtest: complete page scope and binding fields participate in the UI fence
+ok 4 - complete page scope and binding fields participate in the UI fence
+  ---
+  duration_ms: 0.149125
+  ...
+# Subtest: locked or unavailable native editor preserves the caller quote
+ok 5 - locked or unavailable native editor preserves the caller quote
+  ---
+  duration_ms: 0.087875
+  ...
+# Subtest: return focuses only the original connected control while context is still current
+ok 6 - return focuses only the original connected control while context is still current
+  ---
+  duration_ms: 0.073166
+  ...
+# Subtest: source requests delegate to host verification and a stale context never reaches the opener
+ok 7 - source requests delegate to host verification and a stale context never reaches the opener
+  ---
+  duration_ms: 0.37175
+  ...
+# Subtest: host teardown and an untrusted stale argument cannot revive an interaction
+ok 8 - host teardown and an untrusted stale argument cannot revive an interaction
+  ---
+  duration_ms: 0.090708
+  ...
+# Subtest: binding persists privately and an unrelated session cannot inherit it
+ok 9 - binding persists privately and an unrelated session cannot inherit it
+  ---
+  duration_ms: 4.739208
+  ...
+# Subtest: a superseded binding write rolls back and does not poison later changes
+ok 10 - a superseded binding write rolls back and does not poison later changes
+  ---
+  duration_ms: 2.247416
+  ...
+# Subtest: file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+ok 11 - file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+  ---
+  duration_ms: 2.404375
+  ...
+# Subtest: late read after unbind is discarded and offline data cannot be opened
+ok 12 - late read after unbind is discarded and offline data cannot be opened
+  ---
+  duration_ms: 0.983667
+  ...
+# Subtest: model context stays bounded without breaking JSON or granting writes
+ok 13 - model context stays bounded without breaking JSON or granting writes
+  ---
+  duration_ms: 0.922042
+  ...
+# Subtest: external materials are resolved only from current Logseq material identities
+ok 14 - external materials are resolved only from current Logseq material identities
+  ---
+  duration_ms: 2.235084
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 128.664708
