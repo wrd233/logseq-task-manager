@@ -119,7 +119,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal(status.formalWorkspace, "connected");
         assert.equal(status.capabilities.content, true);
         assert.equal(status.capabilities.stage, true);
-        await f.commands.get("agent-workspace-read")!();
+        await f.menus.get("工作台：只读连接此工作")!({uuid:f.root});
         const readStatus=await cli(["status"]);assert.equal(readStatus.capabilities.content,false);assert.equal(readStatus.capabilities.fileWrite,false);assert.equal(readStatus.contentProtocol.structureAuthorized,false);
         // Upgrade from the actual work menu, tied to its real root even if the
         // native selection changes. A new body connection cannot inherit files
@@ -130,6 +130,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         for(let i=0;i<500&&!(await cli(["status"])).capabilities.content;i++)await delay(10);
         const bodyStatus=await cli(["status"]);assert.equal(bodyStatus.binding.scope.rootUuid,f.root);assert.equal(bodyStatus.capabilities.content,true);assert.equal(bodyStatus.capabilities.fileWrite,false);assert.equal(bodyStatus.authorizesTodo,false);assert.equal(bodyStatus.contentProtocol.structureAuthorized,false);assert.deepEqual(f.counts().writes,beforeUpgrade.writes);
         f.editing(false);await f.commands.get("agent-workspace-read")!();
+        await (f.menus.get("工作台：只读连接此工作")! as (event:unknown)=>Promise<unknown>)({args:[{uuid:f.root}]});
         const readonlyCounts=f.counts(),deniedPatch=f.patch([await f.text(f.a,"Alpha","must remain saved")]);
         await assert.rejects(cli(["content","apply"],deniedPatch),/CONTENT_WRITE_AUTHORIZATION_REQUIRED/);
         await assert.rejects(cli(["materials","capture"],{requestKey:"read-must-not-capture",text:"must not become a file"}),/FILE_WRITE_AUTHORIZATION_REQUIRED/);

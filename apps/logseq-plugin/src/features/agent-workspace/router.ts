@@ -11,6 +11,7 @@ import type { CollaborationService } from "./collaboration.ts";
 import { parseTodoRequest, type OrdinaryTodoService } from "../ordinary-todo/service.ts";
 import { naturalLabels, type WritingFormatService } from "../writing-format/service.ts";
 export interface OptionalStagePort {
+    history?(binding: AgentWorkBinding): Promise<unknown>;
     read(input: unknown, binding: AgentWorkBinding): Promise<unknown>;
     submit(input: unknown, binding: AgentWorkBinding,origin?:CallOrigin): Promise<unknown>;
 }
@@ -318,6 +319,10 @@ export class AgentWorkspaceRouter {
             const input = { previousRequestId: await this.contentId(call, payload.previousRequestId), patch: await this.patch(call, payload.patch) };
             await check();
             return this.ports.content.trustedAgent.retry(binding.scope,input.previousRequestId,input.patch,this.origin(call));
+        }
+        if (command === "stage.history") {
+            if(!this.ports.stage?.history)throw new WorkspaceError("STAGE_HISTORY_UNAVAILABLE");
+            const history=await this.ports.stage.history(binding);await check();return history;
         }
         if (command === "stage.read" || command === "stage.submit") {
             if (!this.ports.stage)

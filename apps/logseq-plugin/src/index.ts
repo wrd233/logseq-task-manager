@@ -115,6 +115,7 @@ async function main(): Promise<void> {
     if (!selected || !sameWorkScope(selected, scope)) throw new WorkspaceError("SCOPE_MISMATCH");
   };
   agentWorkspace = installAgentWorkspace({content,materials,work,binding:workspaceBindingPort(workspace.service),source:workspace.api,stage:{
+    history:async binding=>{requireStageScope(binding.scope);const history=await stageApi.history();requireStageScope(binding.scope);return history;},
     read:async (input,binding)=>{
       requireStageScope(binding.scope);
       const value = workRecord(input,["stageId"]);

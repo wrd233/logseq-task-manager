@@ -1,0 +1,15 @@
+{
+  "sharedBaseline": "2cb0ced7688b7af19ac5814b1f556ecae255f3c9",
+  "reusedImplementation": "f84631604eba47e0311f927897da626ede4afb00",
+  "workspaceInputs": [
+    "../../packages/contracts/src/workspace-agent.ts",
+    "../../packages/contracts/src/index.ts",
+    "../../packages/client/src/browser.ts",
+    "src/features/structure-history/model.ts",
+    "src/features/structure-history/view.ts",
+    "src/features/structure-history/player.ts",
+    "src/workspace/history-source-opener.ts"
+  ],
+  "externalWorktreeSources": false,
+  "indexHash": "5697fe2fb88e9c2fc64ce2718829f44b6dbe83b830e896da6e1d0dc5133f65c3"
+}

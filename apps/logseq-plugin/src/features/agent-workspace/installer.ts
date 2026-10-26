@@ -283,8 +283,12 @@ export function installAgentWorkspace(options: {
         if (!disposed)
             return allow(uuid).catch(report);
     });
+    const readMenu=logseq.App.registerCommand("block-context-menu-item",{key:"agent-workspace-read-block",label:"工作台：只读连接此工作"},(event:{uuid?:string;args?:Array<{uuid?:string}>})=>{
+        if(!disposed)return allow(event.uuid??event.args?.[0]?.uuid,false,true).catch(report);
+    });
     const organizeMenu=logseq.App.registerCommand("block-context-menu-item",{key:"agent-workspace-organize-block",label:"工作台：允许 agent 润色并整理此工作原块"},({uuid}:{uuid:string})=>{if(!disposed)return allow(uuid,true).catch(report);});
     const offGraph = logseq.App.onCurrentGraphChanged(()=>revoke()), disposers: Array<() => void> = [offGraph];
+    if(typeof readMenu==="function")disposers.push(readMenu);
     if(typeof organizeMenu==="function")disposers.push(organizeMenu);
     if (typeof menu === "function")
         disposers.push(menu);

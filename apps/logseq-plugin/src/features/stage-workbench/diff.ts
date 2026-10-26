@@ -2,6 +2,9 @@ import type { BlockSnapshot, SourceSnapshot } from "../../workspace/source-proto
 import type { ReviewChange } from "../work-view/review-port.ts";
 import type { StageRevision } from "./protocol.ts";
 
+/** Persisted identity metadata is not user prose. Shared by both history clients. */
+export const sourceBody=(content:string|null):string|null=>content?.split("\n").filter(line=>!/^\s*id::/.test(line)).join("\n")??null;
+
 /** Bounded, deterministic single changed span. Complex syntax and ambiguous repeats stay block-level. */
 export function inlineDiff(before:string,after:string):ReviewChange["inline"]{
   if(before.length+after.length>12000||/[\x60*_#[\]<>|]|^\s*(?:[-+>] |\d+\. |\w+::)/m.test(before+after))return null;
@@ -36,11 +39,10 @@ export function composeDiff(before:SourceSnapshot,after:SourceSnapshot,revision:
   for(const block of after.blocks){
     const prior=old.get(block.sourceId);old.delete(block.sourceId);
     const structural=prior&&(prior.parentUuid!==block.parentUuid||prior.order!==block.order||prior.depth!==block.depth);
-    const body=(content:string|null)=>content?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??null;
-    const textChanged=prior&&body(prior.content)!==body(block.content);
+    const textChanged=prior&&sourceBody(prior.content)!==sourceBody(block.content);
     if(!prior||textChanged||structural){
       const kind=!prior?"added":textChanged?"modified":"structure";
-      changes.set(block.target.blockUuid,{kind,before:prior?.content??null,after:block.content,version:block.contentVersion,label:`${{added:"新增",modified:"修改",structure:"结构变化"}[kind]} · ${attribution(block,revision,kind==="structure")}`,problem:block.availability!=="available"?"来源当时不可用":null,location:structural?{before:{parentUuid:prior.parentUuid,order:prior.order,depth:prior.depth},after:{parentUuid:block.parentUuid,order:block.order,depth:block.depth}}:null,inline:prior?.content!==null&&prior?.content!==undefined&&block.content!==null?inlineDiff(body(prior.content)!,body(block.content)!):null});
+      changes.set(block.target.blockUuid,{kind,before:prior?.content??null,after:block.content,version:block.contentVersion,label:`${{added:"新增",modified:"修改",structure:"结构变化"}[kind]} · ${attribution(block,revision,kind==="structure")}`,problem:block.availability!=="available"?"来源当时不可用":null,location:structural?{before:{parentUuid:prior.parentUuid,order:prior.order,depth:prior.depth},after:{parentUuid:block.parentUuid,order:block.order,depth:block.depth}}:null,inline:prior?.content!==null&&prior?.content!==undefined&&block.content!==null?inlineDiff(sourceBody(prior.content)!,sourceBody(block.content)!):null});
     }
   }
   for(const block of old.values())changes.set(block.target.blockUuid,{kind:"removed",before:block.content,after:null,version:null,label:"块已缺失 · 来源未知",problem:null,inline:null});
@@ -75,11 +77,10 @@ export function observePositions(changes:Map<string,ReviewChange>,source:SourceS
 /** Unsaved-to-stage native observations carry no invented hash or authorship. */
 export function observeCurrentText(changes:Map<string,ReviewChange>,source:SourceSnapshot,rows:readonly {uuid:string;content:string;outside?:boolean;missing?:boolean}[],revisionId:string|null):void{
   const submitted=new Map(source.blocks.map(b=>[b.target.blockUuid,b])), present=new Set<string>();
-  const body=(text:string|null)=>text?.replace(/^\s*id::[^\n]*(?:\n|$)/gm,"")??null;
   for(const row of rows){
     if(row.outside)continue;
     const block=submitted.get(row.uuid);if(row.missing)continue;present.add(row.uuid);
-    if(block && body(block.content)===body(row.content))continue;
+    if(block && sourceBody(block.content)===sourceBody(row.content))continue;
     const previous=changes.get(row.uuid);
     changes.set(row.uuid,{kind:block?"modified":"added",before:block?.content??null,after:row.content,version:null,
       label:"当前原文变化 · 来源未知 / 间隔变化",problem:previous?.problem??null,inline:null,location:previous?.location??null,

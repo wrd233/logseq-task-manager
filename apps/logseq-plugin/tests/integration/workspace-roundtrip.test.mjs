@@ -28,7 +28,10 @@ test('installed workspace, lenses, content, materials and stages loop: committed
   try{
     await mkdir(directory);await import(`${entry}?roundtrip=1`);await f.boot();const api=bench();
     await api.open(f.root);assert.equal(f.counts().identities,0);
+    f.editing(f.root);await assert.rejects(api.workspace.bind({scope:f.scope,directory}),/先结束工作入口块的编辑/);
+    f.editing(f.a);const beforeBind=f.counts();
     const bound=await api.workspace.bind({scope:f.scope,directory});assert.equal(bound.freshness,'checked');
+    assert.equal(f.counts().writes,beforeBind.writes,'binding another root never replaces the native draft');f.editing(false);
     assert.equal((await api.lenses.select(f.a)).ok,true);
     await f.commands.get('content-authorize')();
     const before=await api.content.read();

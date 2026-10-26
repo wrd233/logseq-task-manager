@@ -31,7 +31,7 @@ export const workspaceCommands = {
     "content.pending": [], "content.recover": ["requestId"], "content.retry": ["previousRequestId", "patch"],
     "todo.read": [], "todo.apply": ["request"], "todo.result": ["requestId"], "todo.recover": ["requestId"], "todo.resumeIdentity": ["requestId"], "todo.retry": ["previousRequestId", "request"],
     "formatting.preview": ["requestId", "sourceIds", "labels"], "formatting.result": ["requestId"], "formatting.recover": ["requestId"],
-    "stage.read": ["input"], "stage.submit": ["input"],
+    "stage.history": [], "stage.read": ["input"], "stage.submit": ["input"],
 } as const;
 export type WorkspaceCommand = keyof typeof workspaceCommands;
 export type WorkspaceCall = {

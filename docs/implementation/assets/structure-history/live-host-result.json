@@ -1,0 +1,586 @@
+{
+  "kind": "live-owned-Logseq-host",
+  "directoryPickerOnlyBootstrap": true,
+  "sdkReplaced": false,
+  "observedAt": "2026-10-22T04:02:08.198Z",
+  "pluginHash": "5697fe2fb88e9c2fc64ce2718829f44b6dbe83b830e896da6e1d0dc5133f65c3",
+  "initialPoint": "0f2d13e2-25d3-4161-8613-c9df0ac30dc0",
+  "frames": [
+    {
+      "index": 0,
+      "graph": true,
+      "point": "3acf0e58-c45d-4d62-aca6-42cfe38fb102",
+      "edges": 3,
+      "nodes": [
+        {
+          "id": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+          "text": "合成验收：工作来源树\n",
+          "top": "0px",
+          "left": "0px",
+          "rect": {
+            "x": 15,
+            "y": 477.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 477.1796875,
+            "right": 245,
+            "bottom": 553.1796875,
+            "left": 15
+          }
+        },
+        {
+          "id": "8b63152d-7900-4db5-b8c2-396afb038449",
+          "text": "TODO 分析原文\n · TODO",
+          "top": "90px",
+          "left": "260px",
+          "rect": {
+            "x": 275,
+            "y": 567.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 567.1796875,
+            "right": 505,
+            "bottom": 643.1796875,
+            "left": 275
+          }
+        },
+        {
+          "id": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+          "text": "原始后代说明\n",
+          "top": "180px",
+          "left": "520px",
+          "rect": {
+            "x": 535,
+            "y": 657.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 657.1796875,
+            "right": 765,
+            "bottom": 733.1796875,
+            "left": 535
+          }
+        },
+        {
+          "id": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+          "text": "展示回放\n",
+          "top": "270px",
+          "left": "260px",
+          "rect": {
+            "x": 275,
+            "y": 747.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 747.1796875,
+            "right": 505,
+            "bottom": 823.1796875,
+            "left": 275
+          }
+        }
+      ],
+      "details": [
+        "合成验收：工作来源树\n\n变化：此快照无可确认变化\n块 UUID：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n来源：3acf0e58-c45d-4d62-aca6-42cfe38fb102\n父块：无 · 顺序 1 · 深度 0\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n上一修订原文\n无可比较原文\n定位今天的来源块（与历史正文分开）",
+        "TODO 分析原文\n\n变化：此快照无可确认变化\n块 UUID：8b63152d-7900-4db5-b8c2-396afb038449\n来源：3acf0e58-c45d-4d62-aca6-42cfe38fb102\n父块：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7 · 顺序 0 · 深度 1\n状态（该帧的原文标记）：TODO\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\nTODO 分析原文\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n上一修订原文\n无可比较原文\n定位今天的来源块（与历史正文分开）",
+        "原始后代说明\n\n变化：此快照无可确认变化\n块 UUID：8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n来源：3acf0e58-c45d-4d62-aca6-42cfe38fb102\n父块：8b63152d-7900-4db5-b8c2-396afb038449 · 顺序 0 · 深度 2\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n上一修订原文\n无可比较原文\n定位今天的来源块（与历史正文分开）",
+        "展示回放\n\n变化：此快照无可确认变化\n块 UUID：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n来源：3acf0e58-c45d-4d62-aca6-42cfe38fb102\n父块：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7 · 顺序 1 · 深度 1\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\n上一修订原文\n无可比较原文\n定位今天的来源块（与历史正文分开）"
+      ]
+    },
+    {
+      "index": 1,
+      "graph": true,
+      "point": "01245bdd-ada2-420d-a273-db0d1e855cd1",
+      "edges": 5,
+      "nodes": [
+        {
+          "id": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+          "text": "合成验收：工作来源树\n",
+          "top": "0px",
+          "left": "0px",
+          "rect": {
+            "x": 15,
+            "y": 477.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 477.1796875,
+            "right": 245,
+            "bottom": 553.1796875,
+            "left": 15
+          }
+        },
+        {
+          "id": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+          "text": "展示回放\n顺序变化",
+          "top": "270px",
+          "left": "260px",
+          "rect": {
+            "x": 275,
+            "y": 747.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 747.1796875,
+            "right": 505,
+            "bottom": 823.1796875,
+            "left": 275
+          }
+        },
+        {
+          "id": "8b63152d-7900-4db5-b8c2-396afb038449",
+          "text": "DONE 分析历史原文\n移动归属 · 深度变化 · 重命名 · 描述变化 · 状态变化 · 依赖变化 · DONE",
+          "top": "90px",
+          "left": "520px",
+          "rect": {
+            "x": 535,
+            "y": 567.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 567.1796875,
+            "right": 765,
+            "bottom": 643.1796875,
+            "left": 535
+          }
+        },
+        {
+          "id": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+          "text": "原始后代说明\n深度变化",
+          "top": "180px",
+          "left": "780px",
+          "rect": {
+            "x": 795,
+            "y": 657.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 657.1796875,
+            "right": 1025,
+            "bottom": 733.1796875,
+            "left": 795
+          }
+        },
+        {
+          "id": "eb52bec4-0616-4a20-acd3-7d07cbdcc5d5",
+          "text": "新增验收块\n新增",
+          "top": "360px",
+          "left": "520px",
+          "rect": {
+            "x": 535,
+            "y": 837.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 837.1796875,
+            "right": 765,
+            "bottom": 913.1796875,
+            "left": 535
+          }
+        }
+      ],
+      "details": [
+        "合成验收：工作来源树\n\n变化：此快照无可确认变化\n块 UUID：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n来源：01245bdd-ada2-420d-a273-db0d1e855cd1\n父块：无 · 顺序 1 · 深度 0\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n上一修订原文\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n定位今天的来源块（与历史正文分开）",
+        "展示回放\n\n变化：顺序变化\n块 UUID：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n来源：01245bdd-ada2-420d-a273-db0d1e855cd1\n父块：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7 · 顺序 0 · 深度 1\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n结构变化 · 来源未知 / 人工间隔变化\n\n位置差异：{\"before\":{\"parentUuid\":\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\",\"order\":1,\"depth\":1},\"after\":{\"parentUuid\":\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\",\"order\":0,\"depth\":1}}\n\n来源可用性：available\n\n历史保存原文（不可变）\n展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\n上一修订原文\n展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\n定位今天的来源块（与历史正文分开）",
+        "DONE 分析历史原文\n\n变化：移动归属、深度变化、重命名、描述变化、状态变化、依赖变化\n块 UUID：8b63152d-7900-4db5-b8c2-396afb038449\n来源：01245bdd-ada2-420d-a273-db0d1e855cd1\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 0 · 深度 2\n状态（该帧的原文标记）：DONE\n依赖（该帧的原文声明）：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n\n修改 · 来源未知 / 人工间隔变化\n\n位置差异：{\"before\":{\"parentUuid\":\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\",\"order\":0,\"depth\":1},\"after\":{\"parentUuid\":\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\",\"order\":0,\"depth\":2}}\n\n来源可用性：available\n\n历史保存原文（不可变）\nDONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述\n上一修订原文\nTODO 分析原文\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n定位今天的来源块（与历史正文分开）",
+        "原始后代说明\n\n变化：深度变化\n块 UUID：8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n来源：01245bdd-ada2-420d-a273-db0d1e855cd1\n父块：8b63152d-7900-4db5-b8c2-396afb038449 · 顺序 0 · 深度 3\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n结构变化 · 来源未知 / 人工间隔变化\n\n位置差异：{\"before\":{\"parentUuid\":\"8b63152d-7900-4db5-b8c2-396afb038449\",\"order\":0,\"depth\":2},\"after\":{\"parentUuid\":\"8b63152d-7900-4db5-b8c2-396afb038449\",\"order\":0,\"depth\":3}}\n\n来源可用性：available\n\n历史保存原文（不可变）\n原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n上一修订原文\n原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n定位今天的来源块（与历史正文分开）",
+        "新增验收块\n\n变化：新增\n块 UUID：eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n来源：01245bdd-ada2-420d-a273-db0d1e855cd1\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 1 · 深度 2\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n新增 · 来源未知 / 人工间隔变化\n\n来源可用性：available\n\n历史保存原文（不可变）\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n上一修订原文\n无可比较原文\n定位今天的来源块（与历史正文分开）"
+      ]
+    },
+    {
+      "index": 2,
+      "graph": true,
+      "point": "0f2d13e2-25d3-4161-8613-c9df0ac30dc0",
+      "edges": 5,
+      "nodes": [
+        {
+          "id": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+          "text": "合成验收：工作来源树\n",
+          "top": "0px",
+          "left": "0px",
+          "rect": {
+            "x": 15,
+            "y": 477.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 477.1796875,
+            "right": 245,
+            "bottom": 553.1796875,
+            "left": 15
+          }
+        },
+        {
+          "id": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+          "text": "展示回放\n",
+          "top": "270px",
+          "left": "260px",
+          "rect": {
+            "x": 275,
+            "y": 747.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 747.1796875,
+            "right": 505,
+            "bottom": 823.1796875,
+            "left": 275
+          }
+        },
+        {
+          "id": "8b63152d-7900-4db5-b8c2-396afb038449",
+          "text": "DONE 分析历史原文\n · DONE",
+          "top": "90px",
+          "left": "520px",
+          "rect": {
+            "x": 535,
+            "y": 567.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 567.1796875,
+            "right": 765,
+            "bottom": 643.1796875,
+            "left": 535
+          }
+        },
+        {
+          "id": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+          "text": "修订后的后代说明\n重命名 · 描述变化",
+          "top": "180px",
+          "left": "780px",
+          "rect": {
+            "x": 795,
+            "y": 657.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 657.1796875,
+            "right": 1025,
+            "bottom": 733.1796875,
+            "left": 795
+          }
+        },
+        {
+          "id": "eb52bec4-0616-4a20-acd3-7d07cbdcc5d5",
+          "text": "[删除] 新增验收块\n删除",
+          "top": "360px",
+          "left": "520px",
+          "rect": {
+            "x": 535,
+            "y": 837.1796875,
+            "width": 230,
+            "height": 76,
+            "top": 837.1796875,
+            "right": 765,
+            "bottom": 913.1796875,
+            "left": 535
+          }
+        }
+      ],
+      "details": [
+        "合成验收：工作来源树\n\n变化：此快照无可确认变化\n块 UUID：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：无 · 顺序 1 · 深度 0\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n上一修订原文\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n定位今天的来源块（与历史正文分开）",
+        "展示回放\n\n变化：此快照无可确认变化\n块 UUID：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7 · 顺序 0 · 深度 1\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\n上一修订原文\n展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\n定位今天的来源块（与历史正文分开）",
+        "DONE 分析历史原文\n\n变化：此快照无可确认变化\n块 UUID：8b63152d-7900-4db5-b8c2-396afb038449\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 0 · 深度 2\n状态（该帧的原文标记）：DONE\n依赖（该帧的原文声明）：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n\n来源可用性：available\n\n历史保存原文（不可变）\nDONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述\n上一修订原文\nDONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述\n定位今天的来源块（与历史正文分开）",
+        "修订后的后代说明\n\n变化：重命名、描述变化\n块 UUID：8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：8b63152d-7900-4db5-b8c2-396afb038449 · 顺序 0 · 深度 3\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n修改 · 来源未知 / 人工间隔变化\n\n来源可用性：available\n\n历史保存原文（不可变）\n修订后的后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n上一修订原文\n原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\n定位今天的来源块（与历史正文分开）",
+        "已删除 · 新增验收块\n\n变化：删除\n块 UUID：eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 1 · 深度 2\n状态（上一修订的原文标记）：未知\n依赖（上一修订的原文声明）：未记录 / 未知\n\n块已缺失 · 来源未知\n\n来源可用性：available\n\n删除前保存的原文（上一修订）\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n上一修订原文\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n定位今天的来源块（与历史正文分开）"
+      ]
+    }
+  ],
+  "directory": true,
+  "narrowDirectory": true,
+  "selectionBefore": "已删除 · 新增验收块\n\n变化：删除\n块 UUID：eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 1 · 深度 2\n状态（上一修订的原文标记）：未知\n依赖（上一修订的原文声明）：未记录 / 未知\n\n块已缺失 · 来源未知\n\n来源可用性：available\n\n删除前保存的原文（上一修订）\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n上一修订原文\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n定位今天的来源块（与历史正文分开）",
+  "selected": "已删除 · 新增验收块\n\n变化：删除\n块 UUID：eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 1 · 深度 2\n状态（上一修订的原文标记）：未知\n依赖（上一修订的原文声明）：未记录 / 未知\n\n块已缺失 · 来源未知\n\n来源可用性：available\n\n删除前保存的原文（上一修订）\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n上一修订原文\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n定位今天的来源块（与历史正文分开）",
+  "location": "DONE 分析历史原文\n\n变化：此快照无可确认变化\n块 UUID：8b63152d-7900-4db5-b8c2-396afb038449\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 0 · 深度 2\n状态（该帧的原文标记）：DONE\n依赖（该帧的原文声明）：6fa31236-a8da-488a-9cd8-1a2df02d00a3\n\n来源可用性：available\n\n历史保存原文（不可变）\nDONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述\n上一修订原文\nDONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述\n定位今天的来源块（与历史正文分开）\n\n来源已变化：即将打开今天的块；历史正文与版本保持不变。",
+  "deletedLocation": "已删除 · 新增验收块\n\n变化：删除\n块 UUID：eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：6fa31236-a8da-488a-9cd8-1a2df02d00a3 · 顺序 1 · 深度 2\n状态（上一修订的原文标记）：未知\n依赖（上一修订的原文声明）：未记录 / 未知\n\n块已缺失 · 来源未知\n\n来源可用性：available\n\n删除前保存的原文（上一修订）\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n上一修订原文\n新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\n定位今天的来源块（与历史正文分开）\n\n当前来源无法定位：Error: 来源已删除或不可用；历史正文仍保留。",
+  "sameVersion": "合成验收：工作来源树\n\n变化：此快照无可确认变化\n块 UUID：6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n来源：0f2d13e2-25d3-4161-8613-c9df0ac30dc0\n父块：无 · 顺序 1 · 深度 0\n状态（该帧的原文标记）：未知\n依赖（该帧的原文声明）：未记录 / 未知\n\n来源可用性：available\n\n历史保存原文（不可变）\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n上一修订原文\n合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\n定位今天的来源块（与历史正文分开）\n\n刚读取的来源版本一致：即将定位今天的块。",
+  "returned": {
+    "text": "收起审阅",
+    "className": "wb-review-entry wb-attention"
+  },
+  "history": {
+    "stages": [
+      {
+        "start": {
+          "id": "3acf0e58-c45d-4d62-aca6-42cfe38fb102",
+          "scope": {
+            "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+            "rootUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+          },
+          "goal": "合成验收：真实 SDK 与 StageStore",
+          "at": "2026-10-22T03:30:08.651Z",
+          "source": {
+            "schemaVersion": 1,
+            "scope": {
+              "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+              "rootUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+            },
+            "blocks": [
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                  "blockUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+                },
+                "content": "合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                "contentVersion": "aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d",
+                "parentUuid": null,
+                "order": 1,
+                "depth": 0,
+                "availability": "available"
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b63152d-7900-4db5-b8c2-396afb038449\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                  "blockUuid": "8b63152d-7900-4db5-b8c2-396afb038449"
+                },
+                "content": "TODO 分析原文\nid:: 8b63152d-7900-4db5-b8c2-396afb038449",
+                "contentVersion": "854bd210a85b2f76449b61165c18ce3850142e4a036813320a2c91a2c1c82e38",
+                "parentUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                "order": 0,
+                "depth": 1,
+                "availability": "available"
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                  "blockUuid": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813"
+                },
+                "content": "原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+                "contentVersion": "c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6",
+                "parentUuid": "8b63152d-7900-4db5-b8c2-396afb038449",
+                "order": 0,
+                "depth": 2,
+                "availability": "available"
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                  "blockUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3"
+                },
+                "content": "展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                "contentVersion": "5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8",
+                "parentUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                "order": 1,
+                "depth": 1,
+                "availability": "available"
+              }
+            ],
+            "structureVersion": "5891b4f532f7765f97798db7d01754b3823baf921459816008ddf329e1eaa988",
+            "sourceSetVersion": "02ef3eb248c9171d4d850b2e6595cd1741cf3101ea3308c3d52b488bfc2c29f6",
+            "capturedAt": "2026-10-22T03:30:08.649Z"
+          },
+          "files": [],
+          "previousStageId": null,
+          "previousRevisionId": null
+        },
+        "revisions": [
+          {
+            "id": "01245bdd-ada2-420d-a273-db0d1e855cd1",
+            "parent": "3acf0e58-c45d-4d62-aca6-42cfe38fb102",
+            "at": "2026-10-22T03:30:15.754Z",
+            "source": {
+              "schemaVersion": 1,
+              "scope": {
+                "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                "rootUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+              },
+              "blocks": [
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+                  },
+                  "content": "合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                  "contentVersion": "aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d",
+                  "parentUuid": null,
+                  "order": 1,
+                  "depth": 0,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3"
+                  },
+                  "content": "展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                  "contentVersion": "5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8",
+                  "parentUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                  "order": 0,
+                  "depth": 1,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b63152d-7900-4db5-b8c2-396afb038449\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "8b63152d-7900-4db5-b8c2-396afb038449"
+                  },
+                  "content": "DONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述",
+                  "contentVersion": "efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51",
+                  "parentUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                  "order": 0,
+                  "depth": 2,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813"
+                  },
+                  "content": "原始后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+                  "contentVersion": "c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6",
+                  "parentUuid": "8b63152d-7900-4db5-b8c2-396afb038449",
+                  "order": 0,
+                  "depth": 3,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "eb52bec4-0616-4a20-acd3-7d07cbdcc5d5"
+                  },
+                  "content": "新增验收块\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5",
+                  "contentVersion": "45cd67851719f3c9322c1b8d5b6b18ca67c6010bec95b19848e24ec93d6c7028",
+                  "parentUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                  "order": 1,
+                  "depth": 2,
+                  "availability": "available"
+                }
+              ],
+              "structureVersion": "d5d9a087ffb15cda3692a10c96afde8d970886866524387cd897e7dbaeb1d187",
+              "sourceSetVersion": "6a09441fc700d6b4e6269435f9b8653dbff0e4c561629f5c82da95aa8f1fe4a2",
+              "capturedAt": "2026-10-22T03:30:15.753Z"
+            },
+            "files": [],
+            "facts": [],
+            "fingerprint": "97950e78288a8392bca06a387154efcff997b1695cafdb0eebd12696f62e01e1",
+            "requestKey": "fa6aa6c6-bfa3-4d2a-aebd-f27d0098df03",
+            "inputDigest": "40be691d3b1ca03bd51bf30a6b4fcf32dccae80d28227c72cd03a7b6b0e960a6",
+            "correctionOf": null
+          },
+          {
+            "id": "0f2d13e2-25d3-4161-8613-c9df0ac30dc0",
+            "parent": "01245bdd-ada2-420d-a273-db0d1e855cd1",
+            "at": "2026-10-22T03:30:15.971Z",
+            "source": {
+              "schemaVersion": 1,
+              "scope": {
+                "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                "rootUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+              },
+              "blocks": [
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7"
+                  },
+                  "content": "合成验收：工作来源树\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                  "contentVersion": "aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d",
+                  "parentUuid": null,
+                  "order": 1,
+                  "depth": 0,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3"
+                  },
+                  "content": "展示回放\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                  "contentVersion": "5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8",
+                  "parentUuid": "6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7",
+                  "order": 0,
+                  "depth": 1,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b63152d-7900-4db5-b8c2-396afb038449\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "8b63152d-7900-4db5-b8c2-396afb038449"
+                  },
+                  "content": "DONE 分析历史原文\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\n补充描述",
+                  "contentVersion": "efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51",
+                  "parentUuid": "6fa31236-a8da-488a-9cd8-1a2df02d00a3",
+                  "order": 0,
+                  "depth": 2,
+                  "availability": "available"
+                },
+                {
+                  "sourceId": "[\"logseq\",\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\",\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\"]",
+                  "target": {
+                    "kind": "logseq-block",
+                    "graphId": "graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph",
+                    "blockUuid": "8b554b46-f3d8-4c82-bc77-ee8dbf4bc813"
+                  },
+                  "content": "修订后的后代说明\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813",
+                  "contentVersion": "ccd8d1ff84d23d9368ad95c319a8c27d29794130f409bfccf9b769183b604512",
+                  "parentUuid": "8b63152d-7900-4db5-b8c2-396afb038449",
+                  "order": 0,
+                  "depth": 3,
+                  "availability": "available"
+                }
+              ],
+              "structureVersion": "ad39b736a9fb9a719199a21304e284c7a1a718b07176b60737ef2b57ffd4b074",
+              "sourceSetVersion": "1c67bbc623c273590faccf6e822e41cd89d2d108c101e6e93e4d229b166da554",
+              "capturedAt": "2026-10-22T03:30:15.970Z"
+            },
+            "files": [],
+            "facts": [],
+            "fingerprint": "ff5f45afda8384adc599589f890f57f4792f38daf7c21a863fdb4f7c5af27b72",
+            "requestKey": "6cfe99fb-40bd-4be2-a592-239c4448cf20",
+            "inputDigest": "d0b6fb6a259f66aa98946f340fc5ffac39cefa6ab73b632c73990cd167521800",
+            "correctionOf": null
+          }
+        ],
+        "acceptances": [],
+        "candidates": [],
+        "problems": []
+      }
+    ],
+    "current": "3acf0e58-c45d-4d62-aca6-42cfe38fb102",
+    "currentEventId": "3acf0e58-c45d-4d62-aca6-42cfe38fb102",
+    "problems": [],
+    "storageNotes": []
+  },
+  "storageBefore": {
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-01245bdd-ada2-420d-a273-db0d1e855cd1": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"parent\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.754Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\"},\\\"content\\\":\\\"新增验收块\\\\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\",\\\"contentVersion\\\":\\\"45cd67851719f3c9322c1b8d5b6b18ca67c6010bec95b19848e24ec93d6c7028\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":1,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"d5d9a087ffb15cda3692a10c96afde8d970886866524387cd897e7dbaeb1d187\\\",\\\"sourceSetVersion\\\":\\\"6a09441fc700d6b4e6269435f9b8653dbff0e4c561629f5c82da95aa8f1fe4a2\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.753Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"97950e78288a8392bca06a387154efcff997b1695cafdb0eebd12696f62e01e1\\\",\\\"requestKey\\\":\\\"fa6aa6c6-bfa3-4d2a-aebd-f27d0098df03\\\",\\\"inputDigest\\\":\\\"40be691d3b1ca03bd51bf30a6b4fcf32dccae80d28227c72cd03a7b6b0e960a6\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"8f10e58c9b09feba4b36ecf3a1bebf5d8feb786c6f8070126e9e123d10dcd248\"}",
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-0f2d13e2-25d3-4161-8613-c9df0ac30dc0": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"parent\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.971Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"修订后的后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"ccd8d1ff84d23d9368ad95c319a8c27d29794130f409bfccf9b769183b604512\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"ad39b736a9fb9a719199a21304e284c7a1a718b07176b60737ef2b57ffd4b074\\\",\\\"sourceSetVersion\\\":\\\"1c67bbc623c273590faccf6e822e41cd89d2d108c101e6e93e4d229b166da554\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.970Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"ff5f45afda8384adc599589f890f57f4792f38daf7c21a863fdb4f7c5af27b72\\\",\\\"requestKey\\\":\\\"6cfe99fb-40bd-4be2-a592-239c4448cf20\\\",\\\"inputDigest\\\":\\\"d0b6fb6a259f66aa98946f340fc5ffac39cefa6ab73b632c73990cd167521800\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"e0c00c1d46b8e6ee94d7cb58602beb0df0c32e106b2230770e98230a41e682df\"}",
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-3acf0e58-c45d-4d62-aca6-42cfe38fb102": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"begin\\\",\\\"start\\\":{\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"goal\\\":\\\"合成验收：真实 SDK 与 StageStore\\\",\\\"at\\\":\\\"2026-10-22T03:30:08.651Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"TODO 分析原文\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"contentVersion\\\":\\\"854bd210a85b2f76449b61165c18ce3850142e4a036813320a2c91a2c1c82e38\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":1,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"5891b4f532f7765f97798db7d01754b3823baf921459816008ddf329e1eaa988\\\",\\\"sourceSetVersion\\\":\\\"02ef3eb248c9171d4d850b2e6595cd1741cf3101ea3308c3d52b488bfc2c29f6\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:08.649Z\\\"},\\\"files\\\":[],\\\"previousStageId\\\":null,\\\"previousRevisionId\\\":null},\\\"expectedStageId\\\":null,\\\"focusParent\\\":null}\",\"hash\":\"412b5781e09f0a27b3ea91a3920b1d74e016954d0355985bf9b9b6723a59962e\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-01245bdd-ada2-420d-a273-db0d1e855cd1": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"parent\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.754Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\"},\\\"content\\\":\\\"新增验收块\\\\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\",\\\"contentVersion\\\":\\\"45cd67851719f3c9322c1b8d5b6b18ca67c6010bec95b19848e24ec93d6c7028\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":1,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"d5d9a087ffb15cda3692a10c96afde8d970886866524387cd897e7dbaeb1d187\\\",\\\"sourceSetVersion\\\":\\\"6a09441fc700d6b4e6269435f9b8653dbff0e4c561629f5c82da95aa8f1fe4a2\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.753Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"97950e78288a8392bca06a387154efcff997b1695cafdb0eebd12696f62e01e1\\\",\\\"requestKey\\\":\\\"fa6aa6c6-bfa3-4d2a-aebd-f27d0098df03\\\",\\\"inputDigest\\\":\\\"40be691d3b1ca03bd51bf30a6b4fcf32dccae80d28227c72cd03a7b6b0e960a6\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"8f10e58c9b09feba4b36ecf3a1bebf5d8feb786c6f8070126e9e123d10dcd248\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-0f2d13e2-25d3-4161-8613-c9df0ac30dc0": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"parent\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.971Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"修订后的后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"ccd8d1ff84d23d9368ad95c319a8c27d29794130f409bfccf9b769183b604512\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"ad39b736a9fb9a719199a21304e284c7a1a718b07176b60737ef2b57ffd4b074\\\",\\\"sourceSetVersion\\\":\\\"1c67bbc623c273590faccf6e822e41cd89d2d108c101e6e93e4d229b166da554\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.970Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"ff5f45afda8384adc599589f890f57f4792f38daf7c21a863fdb4f7c5af27b72\\\",\\\"requestKey\\\":\\\"6cfe99fb-40bd-4be2-a592-239c4448cf20\\\",\\\"inputDigest\\\":\\\"d0b6fb6a259f66aa98946f340fc5ffac39cefa6ab73b632c73990cd167521800\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"e0c00c1d46b8e6ee94d7cb58602beb0df0c32e106b2230770e98230a41e682df\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-3acf0e58-c45d-4d62-aca6-42cfe38fb102": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"begin\\\",\\\"start\\\":{\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"goal\\\":\\\"合成验收：真实 SDK 与 StageStore\\\",\\\"at\\\":\\\"2026-10-22T03:30:08.651Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"TODO 分析原文\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"contentVersion\\\":\\\"854bd210a85b2f76449b61165c18ce3850142e4a036813320a2c91a2c1c82e38\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":1,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"5891b4f532f7765f97798db7d01754b3823baf921459816008ddf329e1eaa988\\\",\\\"sourceSetVersion\\\":\\\"02ef3eb248c9171d4d850b2e6595cd1741cf3101ea3308c3d52b488bfc2c29f6\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:08.649Z\\\"},\\\"files\\\":[],\\\"previousStageId\\\":null,\\\"previousRevisionId\\\":null},\\\"expectedStageId\\\":null,\\\"focusParent\\\":null}\",\"hash\":\"412b5781e09f0a27b3ea91a3920b1d74e016954d0355985bf9b9b6723a59962e\"}"
+  },
+  "storageAfter": {
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-01245bdd-ada2-420d-a273-db0d1e855cd1": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"parent\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.754Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\"},\\\"content\\\":\\\"新增验收块\\\\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\",\\\"contentVersion\\\":\\\"45cd67851719f3c9322c1b8d5b6b18ca67c6010bec95b19848e24ec93d6c7028\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":1,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"d5d9a087ffb15cda3692a10c96afde8d970886866524387cd897e7dbaeb1d187\\\",\\\"sourceSetVersion\\\":\\\"6a09441fc700d6b4e6269435f9b8653dbff0e4c561629f5c82da95aa8f1fe4a2\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.753Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"97950e78288a8392bca06a387154efcff997b1695cafdb0eebd12696f62e01e1\\\",\\\"requestKey\\\":\\\"fa6aa6c6-bfa3-4d2a-aebd-f27d0098df03\\\",\\\"inputDigest\\\":\\\"40be691d3b1ca03bd51bf30a6b4fcf32dccae80d28227c72cd03a7b6b0e960a6\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"8f10e58c9b09feba4b36ecf3a1bebf5d8feb786c6f8070126e9e123d10dcd248\"}",
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-0f2d13e2-25d3-4161-8613-c9df0ac30dc0": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"parent\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.971Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"修订后的后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"ccd8d1ff84d23d9368ad95c319a8c27d29794130f409bfccf9b769183b604512\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"ad39b736a9fb9a719199a21304e284c7a1a718b07176b60737ef2b57ffd4b074\\\",\\\"sourceSetVersion\\\":\\\"1c67bbc623c273590faccf6e822e41cd89d2d108c101e6e93e4d229b166da554\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.970Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"ff5f45afda8384adc599589f890f57f4792f38daf7c21a863fdb4f7c5af27b72\\\",\\\"requestKey\\\":\\\"6cfe99fb-40bd-4be2-a592-239c4448cf20\\\",\\\"inputDigest\\\":\\\"d0b6fb6a259f66aa98946f340fc5ffac39cefa6ab73b632c73990cd167521800\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"e0c00c1d46b8e6ee94d7cb58602beb0df0c32e106b2230770e98230a41e682df\"}",
+    "stage-prepared-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-3acf0e58-c45d-4d62-aca6-42cfe38fb102": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"begin\\\",\\\"start\\\":{\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"goal\\\":\\\"合成验收：真实 SDK 与 StageStore\\\",\\\"at\\\":\\\"2026-10-22T03:30:08.651Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"TODO 分析原文\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"contentVersion\\\":\\\"854bd210a85b2f76449b61165c18ce3850142e4a036813320a2c91a2c1c82e38\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":1,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"5891b4f532f7765f97798db7d01754b3823baf921459816008ddf329e1eaa988\\\",\\\"sourceSetVersion\\\":\\\"02ef3eb248c9171d4d850b2e6595cd1741cf3101ea3308c3d52b488bfc2c29f6\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:08.649Z\\\"},\\\"files\\\":[],\\\"previousStageId\\\":null,\\\"previousRevisionId\\\":null},\\\"expectedStageId\\\":null,\\\"focusParent\\\":null}\",\"hash\":\"412b5781e09f0a27b3ea91a3920b1d74e016954d0355985bf9b9b6723a59962e\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-01245bdd-ada2-420d-a273-db0d1e855cd1": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"parent\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.754Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\"},\\\"content\\\":\\\"新增验收块\\\\nid:: eb52bec4-0616-4a20-acd3-7d07cbdcc5d5\\\",\\\"contentVersion\\\":\\\"45cd67851719f3c9322c1b8d5b6b18ca67c6010bec95b19848e24ec93d6c7028\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":1,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"d5d9a087ffb15cda3692a10c96afde8d970886866524387cd897e7dbaeb1d187\\\",\\\"sourceSetVersion\\\":\\\"6a09441fc700d6b4e6269435f9b8653dbff0e4c561629f5c82da95aa8f1fe4a2\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.753Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"97950e78288a8392bca06a387154efcff997b1695cafdb0eebd12696f62e01e1\\\",\\\"requestKey\\\":\\\"fa6aa6c6-bfa3-4d2a-aebd-f27d0098df03\\\",\\\"inputDigest\\\":\\\"40be691d3b1ca03bd51bf30a6b4fcf32dccae80d28227c72cd03a7b6b0e960a6\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"8f10e58c9b09feba4b36ecf3a1bebf5d8feb786c6f8070126e9e123d10dcd248\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-0f2d13e2-25d3-4161-8613-c9df0ac30dc0": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"revision\\\",\\\"revision\\\":{\\\"id\\\":\\\"0f2d13e2-25d3-4161-8613-c9df0ac30dc0\\\",\\\"parent\\\":\\\"01245bdd-ada2-420d-a273-db0d1e855cd1\\\",\\\"at\\\":\\\"2026-10-22T03:30:15.971Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"DONE 分析历史原文\\\\ndepends-on:: ((6fa31236-a8da-488a-9cd8-1a2df02d00a3))\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\\n补充描述\\\",\\\"contentVersion\\\":\\\"efe1dd7d40d13cca1c0bfdbb5e261fb41e416aee763fb1450fa3945495335c51\\\",\\\"parentUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"修订后的后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"ccd8d1ff84d23d9368ad95c319a8c27d29794130f409bfccf9b769183b604512\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":3,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"ad39b736a9fb9a719199a21304e284c7a1a718b07176b60737ef2b57ffd4b074\\\",\\\"sourceSetVersion\\\":\\\"1c67bbc623c273590faccf6e822e41cd89d2d108c101e6e93e4d229b166da554\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:15.970Z\\\"},\\\"files\\\":[],\\\"facts\\\":[],\\\"fingerprint\\\":\\\"ff5f45afda8384adc599589f890f57f4792f38daf7c21a863fdb4f7c5af27b72\\\",\\\"requestKey\\\":\\\"6cfe99fb-40bd-4be2-a592-239c4448cf20\\\",\\\"inputDigest\\\":\\\"d0b6fb6a259f66aa98946f340fc5ffac39cefa6ab73b632c73990cd167521800\\\",\\\"correctionOf\\\":null}}\",\"hash\":\"e0c00c1d46b8e6ee94d7cb58602beb0df0c32e106b2230770e98230a41e682df\"}",
+    "stage-workbench-v1-d8187ec9447b074f41253cda09d9405f19b730f9c847a208acfabbc512e21f51-3acf0e58-c45d-4d62-aca6-42cfe38fb102": "{\"payload\":\"{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"stageId\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"kind\\\":\\\"begin\\\",\\\"start\\\":{\\\"id\\\":\\\"3acf0e58-c45d-4d62-aca6-42cfe38fb102\\\",\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"goal\\\":\\\"合成验收：真实 SDK 与 StageStore\\\",\\\"at\\\":\\\"2026-10-22T03:30:08.651Z\\\",\\\"source\\\":{\\\"schemaVersion\\\":1,\\\"scope\\\":{\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"rootUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"blocks\\\":[{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\"},\\\"content\\\":\\\"合成验收：工作来源树\\\\nid:: 6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"contentVersion\\\":\\\"aa59aa3b603f485045c00cb548fbb8ed397ff06b06ee81e502d3b0b852b4c80d\\\",\\\"parentUuid\\\":null,\\\"order\\\":1,\\\"depth\\\":0,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\"},\\\"content\\\":\\\"TODO 分析原文\\\\nid:: 8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"contentVersion\\\":\\\"854bd210a85b2f76449b61165c18ce3850142e4a036813320a2c91a2c1c82e38\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":0,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\"},\\\"content\\\":\\\"原始后代说明\\\\nid:: 8b554b46-f3d8-4c82-bc77-ee8dbf4bc813\\\",\\\"contentVersion\\\":\\\"c4f75c5292340f1d69493382845577ff3d80e9ad5709082bd55b8d16dc8566c6\\\",\\\"parentUuid\\\":\\\"8b63152d-7900-4db5-b8c2-396afb038449\\\",\\\"order\\\":0,\\\"depth\\\":2,\\\"availability\\\":\\\"available\\\"},{\\\"sourceId\\\":\\\"[\\\\\\\"logseq\\\\\\\",\\\\\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\\\\\",\\\\\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\\\\\"]\\\",\\\"target\\\":{\\\"kind\\\":\\\"logseq-block\\\",\\\"graphId\\\":\\\"graph:logseq_local_/Users/mac/.codex/worktrees/work-structure-history-v1/logseq-task-manager/tmp/structure-history-desktop/graph\\\",\\\"blockUuid\\\":\\\"6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\"},\\\"content\\\":\\\"展示回放\\\\nid:: 6fa31236-a8da-488a-9cd8-1a2df02d00a3\\\",\\\"contentVersion\\\":\\\"5019dca91de7c16c1a91004a819730f07645d17ec7a99212a585333ab2e570d8\\\",\\\"parentUuid\\\":\\\"6ad98340-b3e5-4a7f-8be3-c0d49e11a4b7\\\",\\\"order\\\":1,\\\"depth\\\":1,\\\"availability\\\":\\\"available\\\"}],\\\"structureVersion\\\":\\\"5891b4f532f7765f97798db7d01754b3823baf921459816008ddf329e1eaa988\\\",\\\"sourceSetVersion\\\":\\\"02ef3eb248c9171d4d850b2e6595cd1741cf3101ea3308c3d52b488bfc2c29f6\\\",\\\"capturedAt\\\":\\\"2026-10-22T03:30:08.649Z\\\"},\\\"files\\\":[],\\\"previousStageId\\\":null,\\\"previousRevisionId\\\":null},\\\"expectedStageId\\\":null,\\\"focusParent\\\":null}\",\"hash\":\"412b5781e09f0a27b3ea91a3920b1d74e016954d0355985bf9b9b6723a59962e\"}"
+  },
+  "graphBefore": {
+    "/logseq/config.edn": "7308b38ceacfcf80550cdbc29946dd54d3249408f6b1bb00e24982fb2f483617",
+    "/logseq/custom.css": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/pages/contents.md": "3973e022e93220f9212c18d0d0c543ae7c309e46640da93a4a0314de999f5112",
+    "/pages/合成阅读与协作.md": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+    "/pages/结构历史可信回放 · 合成验收.md": "1b8a4b973d6611303b1bac589b3d7065a55010fabc65cd801ad8318636be8e5a"
+  },
+  "graphAfter": {
+    "/logseq/config.edn": "7308b38ceacfcf80550cdbc29946dd54d3249408f6b1bb00e24982fb2f483617",
+    "/logseq/custom.css": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/pages/contents.md": "3973e022e93220f9212c18d0d0c543ae7c309e46640da93a4a0314de999f5112",
+    "/pages/合成阅读与协作.md": "d06502d84004dfe86ef548796b3ade5280bdfdeb61a48dffda44656acf341aea",
+    "/pages/结构历史可信回放 · 合成验收.md": "1b8a4b973d6611303b1bac589b3d7065a55010fabc65cd801ad8318636be8e5a"
+  }
+}

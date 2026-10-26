@@ -1,6 +1,6 @@
 # DSH × Logseq 工作台
 
-可安装的 DSH 插件。集成分支 `feature/shared-reading-views`，已在本机 DSH **0.2.0-rc.2** 的 `web` profile 加载。
+可安装的 DSH 插件。工作结构历史已在 DSH **0.2.1-rc.2** 的独立 `web` profile 中验收。最新 UI 精简与验证范围见[本轮记录](../../docs/implementation/2026-10-26-dsh-history-simplified.md)。
 
 - 原生 DSH 对话、输入框、模型选择和轨迹继续使用宿主实现。
 - 点会话头部 **↗ Logseq** 关联已授权的 Logseq 工作目录。
@@ -18,13 +18,19 @@
 3. 用左侧选择器切换“连续阅读”“原结构”或命名读法。Logseq 仍使用已有阅读菜单，无需更换界面。
 4. 在对话中说“新增一个讨论对照读法”或“把当前读法的问题放前面”。Agent 使用 reading.request 后提交完整布局；调整已有读法复用 planId，新增读法用新的 planId。更多操作中可恢复当前读法上一版。切到其他工作需先在 Logseq 建立对应连接，再关联该会话。
 
-本机已经安装；其他机器在项目安装依赖后，用 Node **22.19+**（DSH 所需）执行：
+在项目安装依赖后，要向目标 profile 安装当前工作树的版本，用 Node **22.19+**（DSH 所需）执行：
 
 ```sh
 node apps/dsh-plugin/scripts/install.mjs web
 ```
 
-安装器构建插件、备份 profile manifest、调用官方 `dsh plugin --profile web add link:...`，然后选中 bundle。若正在运行的 DSH 没有重新加载，重启该 profile。默认 companion 状态目录是 `~/.task-copilot-workspace`；自定义目录可通过 DSH 进程的 `TASK_COPILOT_WORKSPACE_STATE` 或 bundle 配置 `workspaceStateDirectory` 指定。私有会话绑定保存在 `~/.dsh/logseq-workbench/bindings.json`，不保存正文或连接凭据。
+安装器构建插件、备份 profile manifest、调用官方 `dsh plugin --profile web add link:...`，然后选中 bundle。若正在运行的 DSH 没有重新加载，重启该 profile。默认 companion 状态目录是 `~/.task-copilot-workspace`；自定义目录可通过 DSH 进程的 `TASK_COPILOT_WORKSPACE_STATE` 或 bundle 配置 `workspaceStateDirectory` 指定。私有会话绑定保存在 `~/.dsh/logseq-workbench/bindings.json`，不保存正文或连接凭据。历史快照另存在同目录的 `history/`，包含选定工作结构及来源证据。
+
+## 工作结构历史
+
+会话头部的 **工作历史** 打开原生侧栏：浏览时间线与结构图，比较任意同投影时点，查看正文和关系变化，核对今天来源，并把选中内容追加到原生草稿。Git 和已有 Logseq 阶段修订自动记录检查点；Agent 可保存自己的工作结构并追加解释。三种归属分别显示：工具观察、Agent 整理、历史重建。所有历史功能默认只读，不修改正式任务状态。
+
+Logseq 可右键工作入口块选择 **工作台：只读连接此工作**，然后在 DSH 关联该工作目录。结构历史的原始工具与存储契约见 [历史工作台](../../docs/implementation/2026-10-22-dsh-history-workbench.md)。
 
 ## 构建和验证
 
@@ -38,7 +44,7 @@ node --import tsx apps/dsh-plugin/tests/host-proof.mjs
 
 服务测试覆盖会话隔离、私有绑定、解绑竞态、越界和符号链接拒绝、失联以及上下文预算。宿主验证使用生产插件、真实 HTTP companion、原生 Cordis / Tools / SystemPrompt / AgentLoop、合成 Logseq SDK 和本地脚本模型，覆盖来源刷新、文件读取、阅读方案归属、Graph 失效和卸载，不调用远端模型。
 
-本机 DSH 浏览器另已验证关联、原文/文件列表、原生草稿引用、系统访达定位、收起和会话切换。截图使用隔离测试数据，不代表真实 Logseq Desktop Graph 已连接。真实用户 Graph 与远端模型的端到端使用仍需用户在 Logseq 连接当前工作。当前共享读法的验收见 [共享读法记录](shared-reading.md)。
+原有 DSH 浏览器验收覆盖关联、原文/文件列表、原生草稿引用、系统访达定位、收起和会话切换。共享读法原有验收见 [共享读法记录](shared-reading.md)。本轮历史工作台另完成真实 DSH 与 Logseq Desktop 的隔离测试图谱联合验收，详见上面的历史工作台记录；没有使用真实用户 Graph 或远端模型。
 
 ## 当前边界
 
