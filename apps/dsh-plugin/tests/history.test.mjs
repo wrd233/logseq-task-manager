@@ -109,6 +109,7 @@ test('existing production Stage recorder/store revisions import once with source
     const revision = await stages.api.checkpoint({ stageId: first.start.id, expectedRevision: first.start.id, requestKey: randomUUID(), requestIds: [] });
     const directory = await temporary(t), store = new HistoryStore(join(directory, 'history')), before = f.counts();
     const service = new HistoryService({ store, workbench: { generations: new Map(), status: async () => ({ binding: { directory, scope: first.start.scope } }), command: async (_session, command) => { assert.equal(command, 'stage.history'); return stages.api.history(); } } });
+    await service.observe('s');
     const list = await service.list('s', { track: 'default' });
     assert.equal(list.records.length, 2);
     assert.ok(list.track.startsWith('logseq:'));
@@ -179,13 +180,13 @@ test('a repository replaced inside the same project starts a new Git observation
     assert.equal(after.facts.since, '');
     assert.equal(after.nodes.length, 0);
 });
-test('canceling one browser read does not cancel a shared checkpoint needed by another reader',async t=>{
+test('canceling one checkpoint caller does not cancel collection needed by another caller',async t=>{
  const directory=await temporary(t),store=new HistoryStore(join(directory,'history')),controller=new globalThis.AbortController();
  let release,entered;const arrived=new Promise(resolve=>entered=resolve),hold=new Promise(resolve=>release=resolve);
  const workbench={generations:new Map(),status:async(_id,signal)=>{signal?.throwIfAborted();return {binding:{directory,scope:{graphId:'g',rootUuid:'r'}}};},command:async(_id,_name,_args,signal)=>{entered();await hold;signal?.throwIfAborted();return {stages:[],problems:[],storageNotes:[],current:null};}};
- const service=new HistoryService({store,workbench}),first=service.list('s',{},controller.signal);const canceled=assert.rejects(first,/abort/i);
- await arrived;controller.abort();const second=service.list('s');release();await canceled;
- const result=await second;assert.equal(result.records.length,0);assert.ok(!result.issues.some(i=>i.includes('Logseq')));
+ const service=new HistoryService({store,workbench}),first=service.observe('s',controller.signal).then(()=>controller.signal.throwIfAborted());const canceled=assert.rejects(first,/abort/i);
+ await arrived;controller.abort();const second=service.observe('s');release();await canceled;
+ const result=await second;assert.ok(!result.issues.some(i=>i.includes('Logseq')));assert.equal((await service.list('s')).records.length,0);
 });
 test('native RPC failure always keeps string diagnostics when cancellation has a numeric DOM code',async t=>{
  const {apply}=await import('../src/index.mjs'),directory=await realpath(await temporary(t)),routes=new Map();
@@ -193,4 +194,58 @@ test('native RPC failure always keeps string diagnostics when cancellation has a
  const route=routes.get('/api/logseq-workbench/history-list');
  const response=await route.fetch(new globalThis.Request('http://owned.test/api/logseq-workbench/history-list',{method:'POST',body:JSON.stringify({type:'client-request',method:'logseq-workbench/history-list',rpcId:'cancel-test',payload:{sessionId:'s'}})}));
  const value=await response.json();assert.equal(value.result.ok,false);assert.equal(value.result.error.code,'REQUEST_ABORTED');assert.equal(typeof value.result.error.message,'string');assert.deepEqual(value.result.error.details,{});
+});
+
+test('browse, arbitrary comparison and source checks leave history byte-for-byte unchanged', async t => {
+    const directory = await temporary(t), store = new HistoryStore(join(directory, 'history'));
+    let observations = 0;
+    const service = new HistoryService({ store, workbench: { generations: new Map(), status: async () => ({ cwd: directory }), command: async () => { observations++; throw Error('must not observe'); } } });
+    service.observe = async () => { observations++; throw Error('browsing must not checkpoint'); };
+    await writeFile(join(directory, 'source.md'), 'first');
+    const { createHash } = await import('node:crypto');
+    const version = createHash('sha256').update('first').digest('hex');
+    const a = await service.publish('s', { requestId: 'one', title: 'one', nodes: [node('a', { sources: [{ kind: 'file', ref: 'source.md', version }] })] });
+    const b = await service.publish('s', { requestId: 'two', title: 'two', nodes: [node('a', { body: 'second' })] });
+    const c = await service.publish('s', { requestId: 'three', title: 'three', nodes: [node('a', { body: 'third' })] });
+    const bytes = await readFile(join(store.folder(a.project), a.id + '.json'));
+    assert.equal((await service.list('s')).records.length, 3);
+    assert.equal((await service.diff('s', a.id, c.id)).changes[0].before.body, 'saved text');
+    assert.equal((await service.diff('s', c.id, b.id)).changes[0].after.body, 'second');
+    assert.match((await service.source('s', { snapshotId: a.id, nodeId: 'a' })).notice, /一致/);
+    await writeFile(join(directory, 'source.md'), 'today');
+    assert.match((await service.source('s', { snapshotId: a.id, nodeId: 'a' })).notice, /已变化/);
+    assert.deepEqual(await readFile(join(store.folder(a.project), a.id + '.json')), bytes);
+    assert.equal((await store.records(a.project)).records.length, 3);
+    assert.equal(observations, 0);
+});
+
+test('top-down tree wraps wide siblings without overlap and keeps search/change ancestry', async () => {
+    const { treeLayout, visibleTree } = await import('../src/structure-history/layout.mjs');
+    const before = snapshot([node('r'), node('left', { parentId: 'r' }), node('gone', { parentId: 'left' })]);
+    const after = snapshot([node('r'), node('left', { parentId: 'r' }), ...Array.from({ length: 18 }, (_, i) => node('n' + i, { parentId: i < 12 ? 'r' : 'n0', order: i }))]);
+    const changes = compare(before, after);
+    for (const width of [300, 800, 1400]) {
+        const view = visibleTree(after, changes), layout = treeLayout(view.nodes, width);
+        for (const edge of layout.edges) assert.ok(layout.positions.get(edge.to).y > layout.positions.get(edge.from).y);
+        const points = [...layout.positions.values()];
+        for (let i = 0; i < points.length; i++) {
+            assert.ok(points[i].x >= 0 && points[i].x + points[i].width <= layout.width);
+            for (let j = i + 1; j < points.length; j++) assert.ok(points[i].x + points[i].width <= points[j].x || points[j].x + points[j].width <= points[i].x || points[i].y + points[i].height <= points[j].y || points[j].y + points[j].height <= points[i].y, `${width}: ${points[i].id}/${points[j].id}`);
+        }
+    }
+    const found = visibleTree(after, changes, 'gone');
+    assert.deepEqual(found.nodes.map(n => n.id).sort(), ['gone', 'left', 'r']);
+    assert.deepEqual([...found.matches], ['gone']);
+    const many = structure({ nodes: Array.from({ length: 5000 }, (_, i) => node('n' + i, { parentId: i ? 'n' + Math.floor((i - 1) / 10) : null })) });
+    assert.equal(treeLayout(many.nodes, 800).positions.size, 5000);
+});
+
+test('partial frames joined with removed parents cannot create a display cycle or mutate history', async () => {
+    const { treeLayout, visibleTree } = await import('../src/structure-history/layout.mjs');
+    const before = snapshot([node('a'), node('b', { parentId: 'a' })]);
+    const after = { ...snapshot([]), ...structure({ nodes: [node('a', { parentId: 'b' })], coverage: 'partial' }) };
+    const changes = compare(before, after), saved = JSON.stringify({ before, after, changes });
+    const view = visibleTree(after, changes);
+    assert.equal(treeLayout(view.nodes, 600).positions.size, 2);
+    assert.equal(JSON.stringify({ before, after, changes }), saved);
 });

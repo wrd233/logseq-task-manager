@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-26T22:01:18.012855+08:00",
+  "baseline": "007b8e82232fd118b6ca2a62c1da8bdb059bc4eb",
+  "branch": "codex/dsh-history-workbench",
+  "host": {
+    "dsh": "0.2.1-rc.2",
+    "node": "24.19.0",
+    "data": "Explicit synthetic structure and real temporary file; isolated profile and history storage",
+    "modelRequests": 0,
+    "toolsExecuted": [
+      "work_history_snapshot",
+      "work_history_list",
+      "work_history_read",
+      "work_history_compare",
+      "work_history_source"
+    ]
+  },
+  "history": {
+    "savedVersions": 3,
+    "nonAdjacentComparison": [
+      1,
+      3
+    ],
+    "changedNodes": 6,
+    "allSavedBytesUnchangedAfterBrowsing": true,
+    "sha256": [
+      "748a14341a5bfd4e8e705f23bab74e16aa7c2aede9813c3fca5479695cacfeb1",
+      "6228d692da2a5eab75b2abe8f6a1ab30550701ef5344481410006bb3b1430b2b",
+      "1c77e6dc799f722e69fe0ad2bd6fb9ecbdeb8f1ce07abc9b91091ceb9022269b"
+    ]
+  },
+  "ui": {
+    "verified": [
+      "default graph",
+      "390px narrow layout",
+      "1280px wide layout",
+      "native sidebar and fullscreen",
+      "node selection and closing",
+      "Escape returns focus to node",
+      "version selection",
+      "non-adjacent comparison",
+      "changed-only filter",
+      "change-node navigation including removed node",
+      "old/new body display",
+      "source version changed notice",
+      "source/node/diff references preserve existing draft",
+      "update structure instruction inserted without sending",
+      "search retains ancestors",
+      "outline fallback"
+    ],
+    "wide": {
+      "workbenchWidth": 1279.5,
+      "graphWidthWithDetail": 931.5,
+      "detailWidth": 320,
+      "graphHeight": 600.5,
+      "workbenchHeight": 782
+    }
+  },
+  "checks": {
+    "fullWorkspaceTestsBeforeFinalRegression": 835,
+    "finalDshTests": 37,
+    "typecheck": "passed",
+    "lint": "passed",
+    "buildAndBinaryCheck": "passed",
+    "boundaryTests": 12,
+    "layoutSizes": [
+      300,
+      800,
+      1400
+    ],
+    "maxNodesAutomated": 5000
+  },
+  "notVerified": [
+    "real Logseq Desktop re-record/import this round",
+    "real user Graph",
+    "physical IME",
+    "cross-device and reboot persistence",
+    "5000 nodes in native UI",
+    "remote-model autonomous organization"
+  ],
+  "screenshots": [
+    "overview.png",
+    "compare-source.png",
+    "narrow.png"
+  ]
+}

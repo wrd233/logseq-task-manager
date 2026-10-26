@@ -76,15 +76,15 @@ export class HistoryService {
         return { project, issues };
     }
     async list(sessionId, input = {}, signal) {
-        const observed = await this.observe(sessionId, signal), { records, problems } = await this.store.records(observed.project.directory);
-        await this.check(observed.project, signal);
+        const project = await this.project(sessionId, signal), { records, problems } = await this.store.records(project.directory);
+        await this.check(project, signal);
         const snapshots = records.filter(r => r.kind === 'snapshot');
         const preferredTrack = snapshots.filter(r => r.origin === 'agent' && r.track === 'work-structure').at(-1)?.track ?? snapshots.filter(r => r.track.startsWith('logseq:')).at(-1)?.track ?? snapshots.at(-1)?.track ?? 'work-structure';
         const track = input.track === 'default' ? preferredTrack : input.track;
         const visible = records.filter(r => r.kind === 'snapshot' && (!track || r.track === track) && (!input.before || r.sequence < input.before));
         const preferredId = snapshots.filter(r => r.track === (track ?? preferredTrack) && r.origin !== 'reconstructed').at(-1)?.id ?? snapshots.filter(r => r.track === (track ?? preferredTrack)).at(-1)?.id ?? null;
         const limit = Math.min(200, Math.max(1, input.limit ?? 80)), page = visible.slice(-limit).reverse();
-        return { project: observed.project.directory, track: track ?? null, preferredTrack, preferredId, activity: snapshots.filter(r => r.origin === 'observed').slice(-3).reverse().map(metadata), issues: [...observed.issues, ...problems.map(p => p.message)],
+        return { project: project.directory, track: track ?? null, preferredTrack, preferredId, activity: snapshots.filter(r => r.origin === 'observed').slice(-3).reverse().map(metadata), issues: problems.map(p => p.message),
             tracks: [...new Set(records.filter(r => r.kind === 'snapshot').map(r => r.track))],
             records: page.map(r => ({ ...metadata(r), explanations: records.filter(e => e.kind === 'explanation' && e.targetId === r.id).map(e => ({ text: e.summary, sessionId: e.sessionId, recordedAt: e.recordedAt })) })),
             more: visible.length > limit, next: page.at(-1)?.sequence ?? null };
@@ -144,7 +144,7 @@ export class HistoryService {
             try {
                 const result = await this.workbench.command(sessionId, 'source.read', { sourceId: source.ref }, signal);
                 const block = result.source;
-                current = { content: block.content, version: block.contentVersion, availability: block.availability };
+                current = { content: block.content ?? null, version: block.contentVersion ?? null, availability: block.availability };
             }
             catch (error) {
                 if (error.code !== 'SOURCE_OUTSIDE_SCOPE')

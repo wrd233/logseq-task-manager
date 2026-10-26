@@ -1,5 +1,7 @@
 # DSH 工作结构历史工作台
 
+> 2026-10-26：当前界面、只读查询与来源工具以[精简实施记录](2026-10-26-dsh-history-simplified.md)为准。下文界面步骤和验收是 10 月 22 日的历史记录。
+
 本轮从 `b1c7c44d767d98454a641a97020df95b44623752` 开始，复用该提交的只读结构历史和既有 StageRecorder / StageStore。独立分支 `codex/dsh-history-workbench`，独立 worktree；未修改其他工作区、合并旁支或更新 main。最终重新 fetch 时，远端 main 仍为 `2cb0ced7688b7af19ac5814b1f556ecae255f3c9`。本记录补充此前仅覆盖 Logseq 的结构历史验收。
 
 ## 使用

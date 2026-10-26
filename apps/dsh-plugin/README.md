@@ -1,6 +1,6 @@
 # DSH × Logseq 工作台
 
-可安装的 DSH 插件。本轮工作结构历史已在 DSH **0.2.1-rc.2** 的独立 `web` profile 中验收，未更改日常 profile。
+可安装的 DSH 插件。工作结构历史已在 DSH **0.2.1-rc.2** 的独立 `web` profile 中验收。最新 UI 精简与验证范围见[本轮记录](../../docs/implementation/2026-10-26-dsh-history-simplified.md)。
 
 - 原生 DSH 对话、输入框、模型选择和轨迹继续使用宿主实现。
 - 点会话头部 **↗ Logseq** 关联已授权的 Logseq 工作目录。
@@ -30,7 +30,7 @@ node apps/dsh-plugin/scripts/install.mjs web
 
 会话头部的 **工作历史** 打开原生侧栏：浏览时间线与结构图，比较任意同投影时点，查看正文和关系变化，核对今天来源，并把选中内容追加到原生草稿。Git 和已有 Logseq 阶段修订自动记录检查点；Agent 可保存自己的工作结构并追加解释。三种归属分别显示：工具观察、Agent 整理、历史重建。所有历史功能默认只读，不修改正式任务状态。
 
-Logseq 可右键工作入口块选择 **工作台：只读连接此工作**，然后在 DSH 关联该工作目录。完整使用、五个 Agent 工具、存储边界和本轮真实联合验收见 [历史工作台](../../docs/implementation/2026-10-22-dsh-history-workbench.md)。
+Logseq 可右键工作入口块选择 **工作台：只读连接此工作**，然后在 DSH 关联该工作目录。结构历史的原始工具与存储契约见 [历史工作台](../../docs/implementation/2026-10-22-dsh-history-workbench.md)。
 
 ## 构建和验证
 
