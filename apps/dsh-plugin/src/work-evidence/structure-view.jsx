@@ -21,7 +21,7 @@ export function EvidenceStructure({ rpc, scopeId, observationId }) {
   };
   return <section aria-label="真实结构变化">
     {selector}
-    <p className="we-muted">比较 Logseq 已保存来源：{before.capturedAt} → {after.capturedAt}。这是来源采集时间，可能早于同步；并非两个时点间的完整操作过程。</p>
+    <p className="we-muted">比较 Logseq 来源快照：{before.capturedAt} → {after.capturedAt}。这是来源采集时间，与 Git 同步并非同一瞬间；并非两个时点间的完整操作过程。</p>
     <p>{changes.length} 个节点有变化 · 选中节点查看前后位置、正文与来源</p>
     <div style={{ overflow: 'auto', maxHeight: 480 }} role="region" aria-label="结构变化图">
       <div style={{ position: 'relative', width: layout.width, height: layout.height }}>

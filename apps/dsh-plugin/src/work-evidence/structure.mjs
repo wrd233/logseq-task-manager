@@ -3,16 +3,16 @@ import { realpath } from 'node:fs/promises';
 import { validateSnapshot } from '../../../logseq-plugin/src/workspace/source-protocol.ts';
 import { annotations } from '../../../logseq-plugin/src/features/structure-history/annotations.ts';
 import { structure, compare } from '../structure-history/model.mjs';
-import { CompanionTransport, sameBinding } from '../service.mjs';
+import { CompanionTransport } from '../service.mjs';
 
-// The companion returns an already saved scene, not an instantaneous Graph capture.
+// Block content.read uses the existing scoped source reader without publishing a workspace mirror.
 export async function captureStructure(store, record, config = {}, transport = new CompanionTransport(config.workspaceStateDirectory)) {
   if (record.state === 'failed' || !record.consistent || record.truncated || !['initial', 'complete'].includes(record.sync?.state)) return;
   const entry = await transport.entry(record.directory);
   if (await realpath(entry.directory) !== await realpath(record.directory)) throw Error('LOGSEQ_SCOPE_MISMATCH');
-  const packet = await transport.call(entry, 'collaboration.read', {}, 'work-evidence', AbortSignal.timeout(5000));
-  if (packet.current.permissions?.read !== true || !packet.current.sourceMatches || !sameBinding(packet.scene.binding, entry.binding)) throw Error('LOGSEQ_SOURCE_UNAVAILABLE');
-  const source = await validateSnapshot(packet.scene.savedSource);
+  // The page version of content.read refreshes the workspace mirror, so it is not used here.
+  if (entry.binding.scope.kind === 'page') throw Error('LOGSEQ_PAGE_READ_UNAVAILABLE');
+  const source = await validateSnapshot(await transport.call(entry, 'content.read', {}, 'work-evidence', AbortSignal.timeout(5000)));
   if (JSON.stringify(source.scope) !== JSON.stringify(entry.binding.scope) || source.blocks.length > 5000 || source.blocks.some(b => b.availability !== 'available') || source.page && source.page.availability !== 'available') throw Error('LOGSEQ_STRUCTURE_INCOMPLETE');
   await store.saveStructure(record.scopeId, record.id, source);
 }
@@ -50,8 +50,11 @@ export async function checkStructureSource(store, scopeId, observationId, nodeId
   if (!block) throw Error('HISTORY_SOURCE_MISSING');
   const transport = new CompanionTransport(config.workspaceStateDirectory), entry = await transport.entry(observation.directory);
   if (await realpath(entry.directory) !== await realpath(observation.directory) || JSON.stringify(entry.binding.scope) !== JSON.stringify(saved.scope)) throw Error('LOGSEQ_SCOPE_MISMATCH');
-  const result = await transport.call(entry, 'source.read', { sourceId: block.sourceId }, 'work-evidence', AbortSignal.timeout(5000));
-  if (result.source.sourceId !== block.sourceId) throw Error('LOGSEQ_SOURCE_CHANGED');
-  return { content: result.source.content, version: result.source.contentVersion, availability: result.source.availability,
-    matches: result.source.availability === 'available' && result.source.contentVersion === block.contentVersion };
+  if (entry.binding.scope.kind === 'page') throw Error('LOGSEQ_PAGE_READ_UNAVAILABLE');
+  const current = await validateSnapshot(await transport.call(entry, 'content.read', {}, 'work-evidence', AbortSignal.timeout(5000)));
+  if (JSON.stringify(current.scope) !== JSON.stringify(saved.scope)) throw Error('LOGSEQ_SCOPE_MISMATCH');
+  const source = current.blocks.find(item => item.sourceId === block.sourceId);
+  if (!source) throw Error('HISTORY_SOURCE_MISSING');
+  return { content: source.content, version: source.contentVersion, availability: source.availability,
+    matches: source.availability === 'available' && source.contentVersion === block.contentVersion };
 }

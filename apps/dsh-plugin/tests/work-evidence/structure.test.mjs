@@ -31,12 +31,12 @@ test('trusted snapshots compare ancestor moves, order, body and identity; unavai
 });
 test('capture requires matching authorized current source and saves its actual snapshot', async () => {
   const binding = { scope, directory: '/tmp', organization: 'flat', provider: 'workspace', workspaceId: null }, saved = [];
-  const scene = { binding, savedSource: await source(initial) }, packet = { scene, current: { permissions: { read: true }, sourceMatches: true } };
-  const transport = { entry: async () => ({ directory: '/tmp', binding }), call: async () => packet };
+  const packet = await source(initial); let allowed = true;
+  const transport = { entry: async () => ({ directory: '/tmp', binding }), call: async (_entry, command) => { assert.equal(command, 'content.read'); if (!allowed) throw Error('READ_REVOKED'); return packet; } };
   const store = { saveStructure: async (...args) => saved.push(args) };
   const record = { directory: '/tmp', scopeId: 'scope', id: 'observation', state: 'changes', consistent: true, truncated: false, sync: { state: 'complete' } };
   await captureStructure(store, record, {}, transport); assert.equal(saved.length, 1);
-  packet.current.sourceMatches = false;
+  allowed = false;
   await assert.rejects(captureStructure(store, record, {}, transport)); assert.equal(saved.length, 1);
 });
 

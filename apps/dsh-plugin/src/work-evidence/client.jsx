@@ -111,7 +111,7 @@ export function apply(ctx) {
           <option value="" disabled>选择一个工作目录</option>{scopes.items.map(({ value }) => <option key={value.id} value={value.id}>{value.directory}</option>)}
         </select></label>
         <Problems collection={scopes} title="目录记录" />
-        <p className="we-muted">只观察你选择的仓库，不切换 DSH 执行目录。Git 差异正文不存档；如已有授权且来源一致，同步会在本地保存 Logseq 已保存结构及正文，用于比较。解释与补充独立保存。</p>
+        <p className="we-muted">只观察你选择的仓库，不切换 DSH 执行目录。Git 差异正文不存档；如已有 Logseq 块范围读取授权，同步会在本地保存结构及正文，用于比较。解释与补充独立保存。</p>
         <button type="button" disabled={busy || !scope} onClick={() => void action(async () => {
           const result = await rpc('observe', { scopeId: scope }); setSaved(result); setView('new'); setSelected([]); setNotes(emptyList()); setPreview(null); setSourceChanged(false); remember(scope, result.value.id);
           setNotice(result.value.state === 'failed' ? '失败结果已记录，可重新观察。' : '观察记录已保存。');
