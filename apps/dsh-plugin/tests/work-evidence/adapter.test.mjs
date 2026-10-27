@@ -12,7 +12,7 @@ test('UI-only RPC uses real Git and disk, rejects foreign scope and invalid enve
  const foreign=await rpc('read',{scopeId:'00000000-0000-0000-0000-000000000000',observationId:o.value.id});assert.equal(foreign.ok,false);assert.equal(typeof foreign.error.message,'string');assert.deepEqual(foreign.error.details,{});
  const restricted=await rpc('diff',{scopeId:scope.id,observationId:o.value.id,path:'external.txt',side:'unstaged'});assert.deepEqual(restricted,{ok:false,error:{code:'TEXT_DIFF_RESTRICTED',message:'TEXT_DIFF_RESTRICTED',details:{}}});
  const invalid=await routes.get('/api/work-evidence/scopes').fetch(new Request('http://localhost',{method:'POST',body:'{}'}));assert.equal(invalid.status,400);
- assert.deepEqual([...routes.keys()].sort(),['scopes','select','observe','history','read','note','diff','quote','reconstruction','commitDiff','analyze','clarify','handoffDraft','saveHandoff','quoteHandoff'].map(p=>`/api/work-evidence/${p}`).sort());
+ assert.deepEqual([...routes.keys()].sort(),['scopes','select','observe','history','read','note','diff','quote','reconstruction','commitDiff','analyze','clarify','handoffDraft','saveHandoff','quoteHandoff','structure','structureSource'].map(p=>`/api/work-evidence/${p}`).sort());
 });
 test('native draft insertion preserves concurrent typing, refuses stale spans and never submits/replaces',async()=>{
  let revision=1,text='existing draft',sent=0;const native={captureInsertion:()=>({revision}),insertText:(value,span)=>{if(span.revision!==revision)return false;text+=value;return true;}};

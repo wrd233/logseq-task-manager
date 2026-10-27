@@ -1,7 +1,7 @@
 /* global window */
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { RecordDraft } from './record-draft.mjs';
-import { StructureView } from '../structure-view/view.jsx';
+import { EvidenceStructure } from './structure-view.jsx';
 const statusLabels = { pending: '待分析', 'needs-reanalysis': '说明已保存，待更新解释', analyzing: '正在分析', reanalyzing: '正在更新解释', interpreted: '已形成解释', 'needs-clarification': '有一个关键问题', interrupted: '上次分析已中断，可重试', failed: '分析未完成，可重试' };
 const active = item => ['analyzing','reanalyzing'].includes(item.state);
 const errorText = error => ({ MODEL_NOT_CONFIGURED: '尚未配置模型，观察和交接保存仍可使用。', MODEL_CONSENT_REQUIRED: '请先确认允许分析所选内容。', SOURCE_CHANGED: '来源已变化，请重新同步后读取当前差异。', INTERPRETATION_CHANGED: '解释版本已变化，输入已保留，请核对当前问题。', WORK_HISTORY_INCOMPLETE: '部分历史不可用，已保留有效记录；请先核对历史。' })[error.code] ?? `未完成：${error.code ?? '连接失败'}。输入仍保留，可重试。`;
@@ -57,7 +57,7 @@ export function reconstructionComponent({ rpc, usePanelState }) {
     const state = (name, initial) => usePanelState(`reconstruct:${base}:${name}`, initial);
     const [view, setView] = state('data', null), [notice, setNotice] = state('notice', ''), [localBusy, setLocalBusy] = state('busy', {});
     const [consent, setConsent] = state('consent', false), [sessionContext, setSessionContext] = state('sessionContext', false), [logseqContext, setLogseqContext] = state('logseqContext', false);
-    const [mode, setMode] = state('mode', 'list'), [selected, setSelected] = state('selected', ''), [diff, setDiff] = state('diff', null);
+    const [mode, setMode] = state('mode', 'list'), [diff, setDiff] = state('diff', null);
     const handoff = draftFor(`${base}:handoff`), handoffState = useSyncExternalStore(handoff.subscribe, handoff.getSnapshot);
     async function refresh() {
       const count = (counters.get(base) ?? 0) + 1; counters.set(base, count);
@@ -97,24 +97,18 @@ export function reconstructionComponent({ rpc, usePanelState }) {
     }
     const groups = new Map();
     for (const item of view?.items ?? []) { const name = item.interpretation?.interpretation.group ?? '尚未归组'; const list = groups.get(name) ?? []; list.push(item); groups.set(name,list); }
-    const nodes = [], edges = [];
-    for (const [label, items] of groups) {
-      const id = `group:${label}`; nodes.push({ id, label, detail: `${items.length} 个文件` });
-      for (const item of items) { nodes.push({ id: item.fact.id, label: item.fact.path, detail: statusLabels[item.state] }); edges.push({ from: id, to: item.fact.id }); }
-    }
     return <section aria-label="工作还原"><h4>理解这轮工作{view ? ` · ${view.items.length} 个文件` : ''}</h4>
       <details><summary>分析范围与相关上下文</summary><p>分析会把允许读取的有限 Git 差异、已保存意图和所选上下文发给当前 DSH 模型。正文不在观察历史中存档；未跟踪文件只用元数据。</p>
         <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />允许使用当前 DSH 模型分析本轮来源</label>
         {sessionId && <label><input type="checkbox" checked={sessionContext} onChange={event => setSessionContext(event.target.checked)} />结合当前会话的最近文本（仅当会话目录与所选仓库相同）</label>}
         <label><input type="checkbox" checked={logseqContext} onChange={event => setLogseqContext(event.target.checked)} />结合此目录已有授权的 Logseq 工作结构（不建立新绑定）</label>
       </details>
-      <p className="we-muted" role="status">{view?.modelConfigured === false ? '尚未配置或选择模型，分析暂不可用。' : '未配置模型时，分析不可用。'}观察、Diff、交接保存和引用仍可使用。请在独立 DSH 中配置并选择模型，再点“刷新分析状态”。</p>
+      {view?.modelConfigured === false && <p className="we-muted" role="status">尚未配置或选择模型，分析暂不可用。观察、Diff、交接保存和引用仍可使用。</p>}
       {!consent && <p className="we-muted">可先查看证据、整理交接；需要分析时在上方确认范围。</p>}
       {!view && <p>正在读取文件条目…</p>}
       {view && !view.complete && <p role="alert">部分分析记录不可用，已隔离；缺失内容保持未知。</p>}
-      <div className="we-tools"><button type="button" aria-pressed={mode === 'list'} onClick={() => setMode('list')}>条目列表</button><button type="button" aria-pressed={mode === 'structure'} onClick={() => setMode('structure')}>结构关系</button><button type="button" onClick={() => void operation('refresh', refresh)}>刷新分析状态</button></div>
-      {mode === 'structure' && <><StructureView nodes={nodes} edges={edges} selectedId={selected} onSelect={setSelected} /><p className="we-muted">归组来自 Agent 理解；选择文件可查看同一份证据。</p></>}
-      {mode === 'list' ? [...groups].map(([group,items]) => <section key={group}><h4>{group}</h4>{items.map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}</section>) : view?.items.filter(item => item.fact.id === selected).map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}
+      <div className="we-tools"><button type="button" aria-pressed={mode === 'list'} onClick={() => setMode('list')}>条目列表</button><button type="button" aria-pressed={mode === 'structure'} onClick={() => setMode('structure')}>结构变化</button>{view?.modelConfigured === false && <button type="button" onClick={() => void operation('refresh', refresh)}>刷新分析状态</button>}</div>
+      {mode === 'structure' ? <EvidenceStructure rpc={rpc} scopeId={scopeId} observationId={observation.id} /> : [...groups].map(([group,items]) => <section key={group}><h4>{group}</h4>{items.map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}</section>)}
       {view?.items.length === 0 && <p>这次没有可用的文件条目；仍可保存带范围说明的交接。</p>}
       {diff && <div className="we-preview" aria-label="还原文件差异"><h4>{diff.path} · {diff.label}</h4><p>{diff.text ? '按需读取的来源正文，不存档。' : diff.state === 'truncated' ? '差异超过上限，正文未返回。' : '没有可展示的文本，受限或无差异。'}</p>{diff.text && <pre>{diff.text}</pre>}<button type="button" onClick={() => setDiff(null)}>关闭差异</button></div>}
       <h4>工作交接</h4><p className="we-muted">随时整理，不要求回答所有问题。未分析、失败或跳过的内容保留为未知。</p>

@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+import { mkdir } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL, URL } from 'node:url';
+import { setImmediate } from 'node:timers/promises';
+import { render } from './react-harness.mjs';
+const root = fileURLToPath(new URL('../../../../', import.meta.url)), output = `${root}tmp/work-evidence/structure-tests/client.mjs`;
+await mkdir(`${root}tmp/work-evidence/structure-tests`, { recursive: true });
+await build({ entryPoints: [`${root}apps/dsh-plugin/src/work-evidence/structure-view.jsx`], outfile: output, bundle: true, platform: 'node', format: 'esm', plugins: [{ name: 'harness', setup(builder) { builder.onResolve({ filter: /^react$/ }, () => ({ path: fileURLToPath(new URL('./react-harness.mjs', import.meta.url)), external: true })); } }] });
+const { EvidenceStructure } = await import(pathToFileURL(output).href);
+const walk = n => Array.isArray(n) ? n.flatMap(walk) : n && typeof n === 'object' ? [n, ...walk(n.props?.children)] : [];
+const text = n => Array.isArray(n) ? n.map(text).join('') : n && typeof n === 'object' ? text(n.props?.children) : typeof n === 'string' || typeof n === 'number' ? String(n) : '';
+test('structure selection exposes saved positions and source; missing snapshot is explicit', async () => {
+  const old = { id: 'a', title: '节点', body: '旧正文', parentId: null, order: 0, dependencies: [], sources: [{ ref: 'source-a', version: 'v1' }] };
+  const next = { ...old, body: '新正文', sources: [{ ref: 'source-a', version: 'v2' }] };
+  let result = { state: 'comparable', before: { capturedAt: 'earlier', nodes: [old] }, after: { capturedAt: 'later', nodes: [next] }, changes: [{ id: 'a', before: old, after: next, kinds: ['正文'] }] };
+  const rpc = async method => method === 'history' ? { items: [] } : result;
+  const props = { rpc, scopeId: 'scope', observationId: 'now' }, tree = () => render(EvidenceStructure, props);
+  tree(); await setImmediate(); let view = tree();
+  walk(view).find(n => n.type === 'button' && text(n).includes('节点')).props.onClick(); view = tree();
+  assert.match(text(view), /旧正文/); assert.match(text(view), /新正文/); assert.match(text(view), /source-a/); assert.match(text(view), /第 1 层/);
+  result = { state: 'unavailable' }; props.observationId = 'missing'; tree(); await setImmediate(); assert.match(text(tree()), /没有可比较的真实结构快照/);
+});

@@ -8,13 +8,15 @@ import { validWorkEvent, reconstruction, type WorkEvent, type WorkPayload } from
 import { fileItems, commitDiff } from './items.ts';
 import { incremental, validSync } from './sync.ts';
 import { privateDirectory } from './storage-path.ts';
+import { validateSnapshot, type SourceSnapshot } from '../../../logseq-plugin/src/workspace/source-protocol.ts';
 
 type Scope = { schemaVersion: 1; id: string; directory: string; selectedAt: string; source: 'explicit-user-selection' };
 export type Note = { schemaVersion: 1; id: string; observationId: string; scopeId: string; text: string; createdAt: string; source: 'user-supplement'; supersedesId?: string };
 export type Saved<T> = { value: T; hash: string };
 export type RecordProblem = { record: string; code: 'RECORD_UNAVAILABLE'; scope: 'selected' | 'legacy-owner-unknown' | 'scope-list' };
 export type RecordList<T> = { items: Saved<T>[]; complete: boolean; problems: RecordProblem[] };
-type Kind = 'scope' | 'observation' | 'note' | 'work';
+type StructureRecord = { schemaVersion: 1; id: string; scopeId: string; source: SourceSnapshot };
+type Kind = 'scope' | 'observation' | 'note' | 'work' | 'structure';
 const uuid = '[a-f\\d]{8}-[a-f\\d]{4}-[a-f\\d]{4}-[a-f\\d]{4}-[a-f\\d]{12}';
 const idPattern = new RegExp(`^${uuid}$`, 'u'), hashPattern = /^[a-f\d]{64}$/u;
 const maximumRecords = 2000, maximumBytes = 2_097_152;
@@ -27,6 +29,7 @@ function valid(value: unknown, kind: Kind): boolean {
   if (!object(value) || value.schemaVersion !== 1 || typeof value.id !== 'string' || !idPattern.test(value.id)) return false;
   if (kind === 'scope') return text(value.directory) && date(value.selectedAt) && value.source === 'explicit-user-selection';
   if (typeof value.scopeId !== 'string' || !idPattern.test(value.scopeId)) return false;
+  if (kind === 'structure') return object(value.source);
   if (kind === 'note') return typeof value.observationId === 'string' && idPattern.test(value.observationId) && text(value.text, 2000) && value.text.trim().length > 0 && date(value.createdAt) && value.source === 'user-supplement' && (value.supersedesId === undefined || typeof value.supersedesId === 'string' && idPattern.test(value.supersedesId));
   if (!text(value.directory) || !date(value.startedAt) || !date(value.observedAt) || !['changes', 'clean', 'failed'].includes(String(value.state)) || typeof value.consistent !== 'boolean' || typeof value.truncated !== 'boolean') return false;
   for (const key of ['error', 'branch', 'head', 'sourceVersion']) if (value[key] !== null && !text(value[key])) return false;
@@ -131,6 +134,17 @@ export class EvidenceStore {
     try { saved = await this.find<Observation>('observation', observationId, scopeId); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new EvidenceError('OBSERVATION_UNAVAILABLE_OR_SCOPE_MISMATCH'); throw error; }
     if (saved.value.scopeId !== scopeId) throw new EvidenceError('SCOPE_MISMATCH'); return saved;
+  }
+  async saveStructure(scopeId: string, observationId: string, source: SourceSnapshot) {
+    await this.observation(scopeId, observationId);
+    const checked = await validateSnapshot(source);
+    return this.put('structure', observationId, { schemaVersion: 1, id: observationId, scopeId, source: checked }, scopeId);
+  }
+  async structure(scopeId: string, observationId: string) {
+    await this.observation(scopeId, observationId);
+    const saved = await this.find<StructureRecord>('structure', observationId, scopeId);
+    if (saved.value.scopeId !== scopeId) throw new EvidenceError('SCOPE_MISMATCH');
+    return { ...saved, value: { ...saved.value, source: await validateSnapshot(saved.value.source) } };
   }
   async observe(scopeId: string) {
     const scope = await this.scope(scopeId), history = await this.historyReport(scopeId), previous = history.items[0]?.value;

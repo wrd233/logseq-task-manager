@@ -2,6 +2,7 @@
 import { EvidenceStore } from '../../../task-copilot-cli/src/work-evidence/store.ts';
 import { isAbsolute } from 'node:path';
 import { reconstructionRuntime } from './runtime.mjs';
+import { captureStructure, checkStructureSource, structureComparison } from './structure.mjs';
 export const name = 'work-evidence';
 export const inject = ['connection', 'llm', 'agentDefaultModel', 'sessionController'];
 export async function apply(ctx, config = {}) {
@@ -11,12 +12,18 @@ export async function apply(ctx, config = {}) {
   ctx.on?.('dispose', () => runtime.dispose());
   const routes = {
     scopes: () => store.scopesReport(), select: p => store.select(p.directory),
-    observe: p => store.observe(p.scopeId), history: p => store.historyReport(p.scopeId),
+    observe: async p => {
+      const saved = await store.observe(p.scopeId);
+      try { await captureStructure(store, saved.value, config); } catch { /* Git observation remains usable without a trusted structure. */ }
+      return saved;
+    }, history: p => store.historyReport(p.scopeId),
     read: async p => ({ observation: await store.observation(p.scopeId, p.observationId), notes: await store.notesReport(p.scopeId, p.observationId) }),
     note: p => store.note(p.scopeId, p.observationId, p.text, p.requestId, p.supersedesId),
     diff: p => store.diff(p.scopeId, p.observationId, p.path, p.side),
     quote: p => store.quote(p.scopeId, p.observationId, p.paths),
     reconstruction: p => runtime.view(p),
+    structure: p => structureComparison(store, p.scopeId, p.observationId, p.beforeObservationId),
+    structureSource: p => checkStructureSource(store, p.scopeId, p.observationId, p.nodeId, config),
     commitDiff: p => store.commitDiff(p.scopeId, p.observationId, p.itemId, p.sha),
     analyze: p => runtime.analyze(p), clarify: p => runtime.clarify(p),
     handoffDraft: p => runtime.handoffDraft(p), saveHandoff: p => runtime.saveHandoff(p),

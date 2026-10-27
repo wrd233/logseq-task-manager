@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { analysisModel } from './analysis.mjs';
 import { contextEvidence, relatedContexts } from './contexts.mjs';
 import { handoffDraft } from '../../../task-copilot-cli/src/work-evidence/reconstruction.ts';
+import { structureComparison } from './structure.mjs';
 const failure = code => Object.assign(Error(code), { code });
 const keyOf = p => `${p.scopeId}:${p.observationId}:${p.itemId}`;
 /** One local job per selected file; no scanner, tools, session submission or automatic retries. */
@@ -121,7 +122,11 @@ export function reconstructionRuntime(store, ctx, config = {}) {
       const intents = notes.items.filter(n => !superseded.has(n.value.id)).map(n => `据用户意图（${n.value.createdAt}）：${n.value.text}\n意图来源：work-evidence:note:${n.value.id} · ${n.hash}`);
       const latestRuns = new Set(value.items.map(item => item.runId));
       const sourceProblems = value.events.filter(e => e.kind === 'analysis-started' && latestRuns.has(e.id)).flatMap(e => e.sourceProblems ?? []);
-      return { text: [handoffDraft(record.value, value.events), ...intents, ...[...new Set(sourceProblems)].map(code => `未能读取的分析来源：${code}`), ...(!notes.complete ? ['未知：部分用户意图记录不可用。'] : [])].join('\n'), sourceEventIds: value.events.filter(e => e.kind !== 'handoff').map(e => e.id) };
+      const structural = await structureComparison(store, p.scopeId, p.observationId);
+      const structureNote = structural.state === 'comparable'
+        ? `结构观察：${structural.before.capturedAt} → ${structural.after.capturedAt}，${structural.changes.length} 个节点有变化。来源：work-evidence:v1:${p.scopeId}:${structural.beforeObservationId}:structure → work-evidence:v1:${p.scopeId}:${p.observationId}:structure；采集时间可能早于同步，不能证明任务完成。`
+        : '结构观察：本轮没有可比较的可信前后快照，结构变化未知。';
+      return { text: [handoffDraft(record.value, value.events), structureNote, ...intents, ...[...new Set(sourceProblems)].map(code => `未能读取的分析来源：${code}`), ...(!notes.complete ? ['未知：部分用户意图记录不可用。'] : [])].join('\n'), sourceEventIds: value.events.filter(e => e.kind !== 'handoff').map(e => e.id) };
     },
     saveHandoff: p => store.appendWork(p.scopeId, p.observationId, { kind: 'handoff', text: p.text,
       sourceEventIds: p.sourceEventIds, supersedesId: p.supersedesId ?? null }, p.requestId),
