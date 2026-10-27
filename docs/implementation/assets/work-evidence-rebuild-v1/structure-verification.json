@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-27",
+  "runtime": "Actual DSH 0.2.1-rc.2 + Logseq 0.10.15, isolated Graph",
+  "before": {
+    "id": "643d6613-0d46-4285-86c5-2b5d4677be9c",
+    "version": "33e2cbeb49c78a19c3e70ad9d58d4e4fc09b74e789f11678a9d4926d33ee922e",
+    "structureVersion": "65f1136ca2485072ebd8972d5fa1e3e16a5410490f0f3f2a9b59402aa0264c2d",
+    "count": 4
+  },
+  "after": {
+    "id": "3ed431f4-c900-4f3a-84e1-6ca07cda84bd",
+    "version": "66f2b4a141d9225db4981ad91d88d3fc18a5bfd42c311cc3349a92c5c46ddecb",
+    "structureVersion": "f7fb5507c3b63f2ae3072fbc2b61da6d3cb9dbbd8cb87a3afaef91c05ac3895f",
+    "count": 5
+  },
+  "changes": [
+    {
+      "id": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"0861fb9f-c5e2-4bc1-8ed4-ab534d660b55\"]",
+      "title": "Second branch",
+      "kinds": [
+        "顺序"
+      ],
+      "beforeParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"9ee29513-8acf-4ea7-bb2f-0143f08be619\"]",
+      "afterParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"9ee29513-8acf-4ea7-bb2f-0143f08be619\"]"
+    },
+    {
+      "id": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"724c6ee9-7616-4aa5-97e3-b08ab5f26c66\"]",
+      "title": "First branch updated",
+      "kinds": [
+        "改名",
+        "正文",
+        "归属",
+        "来源",
+        "深度"
+      ],
+      "beforeParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"9ee29513-8acf-4ea7-bb2f-0143f08be619\"]",
+      "afterParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"0861fb9f-c5e2-4bc1-8ed4-ab534d660b55\"]"
+    },
+    {
+      "id": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"c6d49e1f-aabb-482c-af77-3f7d0d95213e\"]",
+      "title": "Descendant depth check",
+      "kinds": [
+        "深度"
+      ],
+      "beforeParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"724c6ee9-7616-4aa5-97e3-b08ab5f26c66\"]",
+      "afterParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"724c6ee9-7616-4aa5-97e3-b08ab5f26c66\"]"
+    },
+    {
+      "id": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"f52b8f66-aa9a-48e3-b60d-5e793eebc11a\"]",
+      "title": "New follow-up",
+      "kinds": [
+        "新增"
+      ],
+      "beforeParent": null,
+      "afterParent": "[\"logseq\",\"graph:logseq_local_/Users/wangrundong/.codex/worktrees/work-evidence-rebuild-v1/任务管理中心-logseq插件/tmp/logseq-sandbox/graph\",\"9ee29513-8acf-4ea7-bb2f-0143f08be619\"]"
+    }
+  ],
+  "sourceMatches": true,
+  "graphUnchangedByReading": "b919690f5abb8052941dcd45c9601fab9dfb4e76fa235690a61121d8700824d8"
+}

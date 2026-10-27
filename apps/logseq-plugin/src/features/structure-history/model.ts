@@ -1,3 +1,4 @@
+import { annotations } from './annotations.ts';
 import type { BlockSnapshot, SourceSnapshot } from '../../workspace/source-protocol.ts';
 import { composeDiff } from '../stage-workbench/diff.ts';
 import type { ReviewChange } from '../work-view/review-port.ts';
@@ -20,13 +21,7 @@ export function historyPoints(history:StageHistory):HistoryPoint[]{
     ...stage.revisions.map(r=>({id:r.id,stageId:stage.start.id,goal:stage.start.goal,at:r.at,source:r.source,parent:r.parent,accepted:stage.acceptances.some(a=>a.revisionId===r.id),revision:r,problems:[...history.problems,...stage.problems,...(stage.candidates.length?[`未采纳候选 ${stage.candidates.length} 条，未纳入回放。`]:[])]})),
   ]);
 }
-// These are literal Logseq source annotations, not Kernel status/dependency facts.
-export function annotations(block:BlockSnapshot):{status:string|null;dependencies:string[]}{
-  const text=block.content??'';
-  const status=/^(?:#{1,6}\s+)?(TODO|DOING|DONE|NOW|LATER|WAITING|CANCELED|CANCELLED)\b/u.exec(text)?.[1]??null;
-  const line=/^depends-on::[ \t]*(.*)$/mu.exec(text)?.[1]??'';
-  return {status,dependencies:[...new Set([...line.matchAll(/\(\(([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)\)/giu)].map(m=>m[1]!.toLowerCase()))].sort()};
-}
+export { annotations } from './annotations.ts';
 export function structureFrame(points:readonly HistoryPoint[],index:number):{nodes:StructureNode[];notices:string[];point:HistoryPoint|null}{
   const point=points[index];if(!point)return {nodes:[],notices:['尚无经过校验的历史快照。'],point:null};
   const previous=point.parent?points.find(p=>p.id===point.parent&&p.stageId===point.stageId):null;

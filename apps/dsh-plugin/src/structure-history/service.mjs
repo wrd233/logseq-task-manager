@@ -5,8 +5,9 @@ import { createReadStream } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { WorkspaceError } from '@task-copilot/contracts';
 import { scopedPath } from '../../../task-copilot-cli/src/workspace-files.ts';
-import { historyPoints, annotations } from '../../../logseq-plugin/src/features/structure-history/model.ts';
+import { historyPoints } from '../../../logseq-plugin/src/features/structure-history/model.ts';
 import { compare } from './model.mjs';
+import { sourceStructure } from '../structure-view/source.mjs';
 import { hash } from './store.mjs';
 import { observeGit } from './git.mjs';
 export const metadata = r => Object.fromEntries([...['id', 'project', 'sequence', 'track', 'origin', 'kind', 'title', 'summary', 'recordedAt', 'occurredAt', 'sourceRecordedAt', 'reconstructedAt', 'coverage', 'parentId'].map(k => [k, r[k]]), ['nodeCount', r.nodes.length]].filter(([, v]) => v !== undefined));
@@ -57,10 +58,7 @@ export class HistoryService {
                 issues.push(...history.problems, ...(history.storageNotes ?? []), ...historyPoints(history).flatMap(p => p.problems));
                 for (const point of historyPoints(history)) {
                     const source = point.source, track = `logseq:${hash([source.scope.graphId, source.scope.rootUuid])}`;
-                    const nodes = source.blocks.map(b => ({ id: b.sourceId, title: b.content?.split('\n')[0].slice(0, 512) ?? '原文当时不可用', body: b.content ?? '',
-                        parentId: source.blocks.some(p => p.target.blockUuid === b.parentUuid) ? JSON.stringify(['logseq', source.scope.graphId, b.parentUuid]) : null,
-                        order: b.order, depth: b.depth, status: annotations(b).status, dependencies: annotations(b).dependencies.map(uuid => JSON.stringify(['logseq', source.scope.graphId, uuid])),
-                        availability: b.availability, sources: [{ kind: 'logseq', ref: b.sourceId, version: b.contentVersion, excerpt: '' }] }));
+                    const { nodes } = sourceStructure(source);
                     await this.store.append(project.directory, { kind: 'snapshot', origin: 'observed', track, requestId: `logseq:${point.id}`, title: point.goal,
                         summary: point.parent ? '已校验 Logseq 阶段修订' : 'Logseq 阶段起点', occurredAt: source.capturedAt, sourceRecordedAt: point.at,
                         coverage: source.blocks.every(b => b.availability === 'available') ? 'complete' : 'partial', nodes,

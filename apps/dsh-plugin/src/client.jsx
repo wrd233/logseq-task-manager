@@ -1,5 +1,6 @@
 /* global window, document, AbortController, setInterval, clearInterval */
 import { applyHistoryClient } from './structure-history/client.jsx';
+import { applyEvidenceClient } from './work-evidence/client.jsx';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
@@ -16,6 +17,7 @@ const errorText = error => ({
 
 export function apply(ctx) {
   applyHistoryClient(ctx);
+  applyEvidenceClient(ctx);
   const style = document.createElement('style'); style.textContent = styles + readingStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false;

@@ -26,6 +26,12 @@ node apps/dsh-plugin/scripts/install.mjs web
 
 安装器构建插件、备份 profile manifest、调用官方 `dsh plugin --profile web add link:...`，然后选中 bundle。若正在运行的 DSH 没有重新加载，重启该 profile。默认 companion 状态目录是 `~/.task-copilot-workspace`；自定义目录可通过 DSH 进程的 `TASK_COPILOT_WORKSPACE_STATE` 或 bundle 配置 `workspaceStateDirectory` 指定。私有会话绑定保存在 `~/.dsh/logseq-workbench/bindings.json`，不保存正文或连接凭据。历史快照另存在同目录的 `history/`，包含选定工作结构及来源证据。
 
+## 工作回顾（Work Evidence）
+
+会话头部「回顾工作」或右侧栏「工作回顾」进入。首次只记同步起点；自然工作后同步，按文件查看提交和当前未提交变化。Agent 逐条解释，再按目的归组；问题可就地回答、编辑或跳过。随时形成交接，编辑保存后可重开修订，并引用到原生草稿，保留已有输入且不发送。
+
+「查看 Logseq 结构变化」按需打开，通过已有只读工作连接采集真实块范围快照。首次只建立结构起点，缺少可信前后快照时，文件与交接仍然可用。模型与项目测试的边界、真实验收和复用方式见[重建交接](../../docs/implementation/2026-10-27-work-evidence-rebuild-v1.md)。
+
 ## 工作结构历史
 
 会话头部的 **工作历史** 打开原生侧栏：浏览时间线与结构图，比较任意同投影时点，查看正文和关系变化，核对今天来源，并把选中内容追加到原生草稿。Git 和已有 Logseq 阶段修订自动记录检查点；Agent 可保存自己的工作结构并追加解释。三种归属分别显示：工具观察、Agent 整理、历史重建。所有历史功能默认只读，不修改正式任务状态。

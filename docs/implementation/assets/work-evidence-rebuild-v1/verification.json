@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-27",
+  "model": [
+    [
+      "deepseek-official",
+      "deepseek-flash"
+    ]
+  ],
+  "fileInterpretations": 2,
+  "purposeGroupings": 2,
+  "clarifications": [
+    {
+      "skipped": false,
+      "questionEdited": false,
+      "textRetained": true
+    },
+    {
+      "skipped": true,
+      "questionEdited": true,
+      "textRetained": true
+    }
+  ],
+  "handoffs": [
+    {
+      "id": "83cf1685-c501-4a3a-a90a-0641c9b24602",
+      "parent": null
+    },
+    {
+      "id": "eb10bc59-45e2-4694-83fb-291d13f986fb",
+      "parent": "83cf1685-c501-4a3a-a90a-0641c9b24602"
+    }
+  ],
+  "workspaceChecks": [
+    42,
+    12,
+    29,
+    565,
+    17,
+    11,
+    3,
+    10,
+    14,
+    19,
+    14,
+    105,
+    5,
+    12
+  ]
+}

@@ -1,6 +1,7 @@
 /* global Response */
 import process from 'node:process';
 import { installHistoryHost } from './structure-history/host.mjs';
+import { installEvidenceHost } from './work-evidence/host.mjs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
@@ -16,9 +17,10 @@ export async function apply(ctx, config = {}) {
     inspectSession: (sessionId, signal) => ctx.sessionController.inspect(sessionId, signal),
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
   ctx.on('dispose', () => service.dispose());
-  const {routes:historyRoutes}=installHistoryHost(ctx,service,store.directory);
+  const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
   const routes = {
     ...historyRoutes,
+    ...installEvidenceHost(ctx, service, history.store),
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },
@@ -42,7 +44,7 @@ export async function apply(ctx, config = {}) {
       return { ok: true, value: await route(input, signal) };
     } catch (error) {
       // Send stable diagnostics only; never serialize a companion descriptor, credential, or stack.
-      const code = typeof error.code === 'string' ? error.code : error.name === 'AbortError' ? 'REQUEST_ABORTED' : error.message?.startsWith('HISTORY_') ? error.message : 'LOGSEQ_OPERATION_FAILED';
+      const code = typeof error.code === 'string' ? error.code : error.name === 'AbortError' ? 'REQUEST_ABORTED' : /^(HISTORY_|EVIDENCE_)/.test(error.message) ? error.message : 'LOGSEQ_OPERATION_FAILED';
       return { ok: false, error: { code, message: code === 'REQUEST_ABORTED' ? '读取已取消，请重试。' : code === 'LOGSEQ_OPERATION_FAILED' ? 'Logseq 操作失败，请检查工作连接。' : code, details: {} } };
     }
   };
