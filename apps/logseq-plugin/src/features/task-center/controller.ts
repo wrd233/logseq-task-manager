@@ -6,7 +6,7 @@ import { contextActionsFor, CONTEXT_ACTION_LABELS, type BlockContextActionId, ty
 import { blockIdentityCache, type GraphScope } from "../../block-identity.ts";
 import { extractTitleFromSourceLine, formatFormalSource, taskMarkerFromContent } from "../../canonical-writing.ts";
 import { installFormalMarkerHost, type FormalMarkerHost } from "../../formal-marker-host.ts";
-import { type LogseqGraphAdapter } from "../../graph-adapter.ts";
+import { graphIdentity, type LogseqGraphAdapter } from "../../graph-adapter.ts";
 import { logseqBlock } from "../../projection-reader.ts";
 import { pluginRuntime } from "../../plugin-runtime.ts";
 import { registerOnlineDoneMarkerCommand } from "../../marker-command.ts";
@@ -912,16 +912,20 @@ async function openObjectAnchor(api: KernelClient, workObjectId: string): Promis
   await logseq.UI.showMsg("已打开 Logseq 原文。", "success");
 }
 
+let dshOpenObject: ((scope: {graphId: string; rootUuid: string}) => Promise<void>) | null = null;
+export function setDshObjectEntry(open: typeof dshOpenObject): void {dshOpenObject = open;}
+export async function dshFormalTarget(uuid: string): Promise<{objectId: string; title: string} | null> {
+  if (!taskUiActive) return null;
+  const api = await client(), entry = await revalidateBlockIdentity(api, uuid);
+  return entry ? {objectId: entry.object.id, title: entry.object.title ?? "正式工作"} : null;
+}
 async function openObjectConversation(api: KernelClient, workObjectId: string, title: string): Promise<void> {
-  await api.markObjectViewed(workObjectId).catch(() => undefined);
-  const pack = await api.objectContextPack(workObjectId);
-  const text = `Task Copilot 对象上下文：${title}
-对象 ID：${workObjectId}
-${pack.pack.reentrySummary}
-
-下一步建议在 DSH 中运行：object context ${workObjectId}`;
-  try { await navigator.clipboard.writeText(text); await logseq.UI.showMsg("对象上下文已复制；在 DSH 中运行 object context <id> 开始讨论。", "success", { timeout: 8000 }); }
-  catch { await logseq.UI.showMsg(`对象 ID：${workObjectId}；在 DSH 中运行 object context ${workObjectId}。`, "success", { timeout: 8000 }); }
+  const graphId = graphIdentity(await logseq.App.getCurrentGraph());
+  const index = await api.listObjectAnchorIndex();
+  const anchor = index.objects.find(item => item.object.id === workObjectId)?.anchor as {externalId?: string; graphId?: string} | undefined;
+  if (!anchor?.externalId || anchor.graphId !== graphId) throw new Error(`「${title}」没有当前 Graph 的真实来源入口；请先关联来源，再进入 DSH。`);
+  if (!dshOpenObject) throw new Error("DSH 工作入口尚未就绪。");
+  await dshOpenObject({graphId, rootUuid: anchor.externalId});
 }
 
 async function correctCurrentReality(): Promise<void> {

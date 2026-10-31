@@ -1,5 +1,9 @@
-/* global Response */
+/* global Response, AbortController */
 import process from 'node:process';
+import { rm, readFile } from 'node:fs/promises';
+import { DshHandoffs } from './handoff.mjs';
+import { browserDescriptor, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
 import { homedir } from 'node:os';
@@ -7,7 +11,7 @@ import { join, resolve } from 'node:path';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
 
 export const name = 'logseq-workbench';
-export const inject = ['connection', 'sessionController', 'tools', 'systemPrompt'];
+export const inject = ['connection', 'sessionController', 'workspaceController', 'workspaceRegistry', 'tools', 'systemPrompt'];
 
 /** Native DSH host plugin. RPC is carried by the authenticated Connection service. */
 export async function apply(ctx, config = {}) {
@@ -17,14 +21,44 @@ export async function apply(ctx, config = {}) {
     inspectSession: (sessionId, signal) => ctx.sessionController.inspect(sessionId, signal),
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
   ctx.on('dispose', () => service.dispose());
+  const handoffs = new DshHandoffs({service,
+    createSession: async ({cwd, title, sessionId}) => {
+      if (!cwd) {
+        const initial = config.generalDirectory ? null : await ctx.workspaceController.initializeDefault(new AbortController().signal);
+        const value = initial ?? await ctx.workspaceController.create({path: config.generalDirectory ?? process.cwd()});
+        return ctx.sessionController.create({workspaceId: value.workspace.workspaceId});
+      }
+      const value = await ctx.workspaceController.create({path: cwd});
+      if (value.created) await ctx.workspaceController.rename({workspaceId: value.workspace.workspaceId, title});
+      return ctx.sessionController.create({workspaceId: value.workspace.workspaceId, sessionId});
+    },
+    renameSession: input => ctx.sessionController.rename(input),
+    archivedSessions: async () => ctx.workspaceRegistry.archivedSessionIds,
+    listSessionIds: async signal => (await ctx.sessionController.list({}, signal ?? new AbortController().signal)).items.map(row => row.sessionId),
+  });
+  if (ctx.connection.authenticatedUrl) {
+    const url = ctx.connection.authenticatedUrl(localDshUrl(config.browserUrl ?? 'http://127.0.0.1:3080/').href);
+    const path = browserDescriptor(service.transport.stateDirectory);
+    await atomicJson(path, {schemaVersion: 1, url, pid: process.pid});
+    ctx.on('dispose', async () => {
+      try { const current = JSON.parse(await readFile(path, 'utf8')); if (current.url === url && current.pid === process.pid) await rm(path, {force: true}); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    });
+  }
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
   const routes = {
+    handoff: async (input, signal) => {const value = request(input, ['ticket']); return handoffs.open(value.ticket, signal);},
+    opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
+    newWork: async (input, signal) => {const value = request(input, ['sessionId', 'operationId']); return handoffs.newWork(value.sessionId, value.operationId, signal);},
+    reference: async (input, signal) => {const value = request(input, ['sessionId']); return service.command(value.sessionId, 'sessions.add', {platform: 'dsh', externalId: value.sessionId, description: '工作对话'}, signal);},
+    general: async (input, signal) => {request(input, []); return handoffs.general(signal);},
+    files: async (input, signal) => {const value = request(input, ['sessionId']); return service.files(value.sessionId, signal);},
     ...historyRoutes,
     ...installEvidenceHost(ctx, service, history.store),
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },
-    read: async (input, signal) => { const value = request(input, ['sessionId']); return service.view(value.sessionId, signal); },
+    read: async (input, signal) => { const value = request(input, ['sessionId']); return service.sourceView(value.sessionId, signal); },
     select: async (input, signal) => {
       const value = request(input, ['sessionId', 'mode', 'planId', 'restore']);
       if (value.mode !== undefined && value.mode !== 'report' && value.mode !== 'structure') throw Error('INVALID_READING_MODE');

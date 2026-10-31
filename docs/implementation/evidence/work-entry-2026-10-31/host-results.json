@@ -1,0 +1,725 @@
+{
+  "kind": "real-isolated-Logseq-0.10.15-and-native-DSH-0.2.1-rc.2",
+  "observedOn": "2026-10-31",
+  "baseline": "018c3368bbe764a55cce466db36c8fcc4da43e37",
+  "isolation": {
+    "pid": 55741,
+    "home": "$FIXTURE_ROOT/home",
+    "osHome": "$FIXTURE_ROOT/home",
+    "userData": "$FIXTURE_ROOT/profile",
+    "appData": "$FIXTURE_ROOT/home/Library/Application Support",
+    "capabilityInjection": false
+  },
+  "realModel": {
+    "sessionId": "session-c7948d52-aeed-438d-9581-5fec1700230a",
+    "observedAt": "2026-10-31T09:44:26.470Z",
+    "value": {
+      "kind": "sequenced",
+      "asOfSeq": 21,
+      "values": {
+        "title": "DSH TLS connection test",
+        "goal": null,
+        "tokenUsage": {
+          "uncachedInputTokens": 10023,
+          "outputTokens": 7,
+          "cacheReadTokens": 640,
+          "cacheWriteTokens": 0
+        },
+        "contextPressure": {
+          "pressureTokens": 10663,
+          "projectedTokens": 10679,
+          "contextWindow": 1000000
+        },
+        "contextBreakdown": {
+          "systemTokens": 1812,
+          "toolsTokens": 8444,
+          "messageTokens": 413
+        },
+        "inbox": {
+          "next-turn": [],
+          "next-step": []
+        },
+        "sessionStats": {
+          "turns": 1,
+          "steps": 1,
+          "llmMs": 798,
+          "toolMs": 0,
+          "ttftMs": 781,
+          "ttftSteps": 1,
+          "decodeMs": 17,
+          "decodeTokens": 7
+        },
+        "turnOutline": [
+          {
+            "turn": 1,
+            "seq": 5,
+            "prompt": "Connection test. Reply exactly DSH_KEY_TLS_OK. Do…",
+            "response": "DSH_KEY_TLS_OK"
+          }
+        ],
+        "agentPreset": "standard",
+        "userQuestions": {
+          "active": [],
+          "settled": []
+        },
+        "permissions": {
+          "currentValue": "workspace-write"
+        },
+        "workingDirectory": "$FIXTURE_ROOT/general",
+        "subagentCatalog": [],
+        "subagentTiming": {
+          "settledMs": 0
+        },
+        "subagent": null,
+        "todos": null,
+        "plan": {
+          "active": false,
+          "pending": false
+        },
+        "modelSelection": {
+          "lastUsed": {
+            "provider": "deepseek-official",
+            "model": "deepseek-flash",
+            "reasoningEffort": "high"
+          },
+          "next": {
+            "provider": "deepseek-official",
+            "model": "deepseek-flash",
+            "reasoningEffort": "high"
+          }
+        },
+        "sessionListMetadata": {
+          "blank": false,
+          "lastPromptAt": 1793439865641
+        },
+        "imageLimits": {
+          "maxImageBytes": 20971520,
+          "maxImagesPerMessage": 20,
+          "maxMessageImageBytes": 209715200,
+          "maxImagePixels": 64000000,
+          "maxImageDimension": 8192,
+          "mediaTypes": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/gif"
+          ]
+        }
+      }
+    }
+  },
+  "blankWorkWithRealCredential": {
+    "observedAt": "2026-10-31T09:47:01.475Z",
+    "sessionId": "session-0a7110f2-7018-4254-9c37-0b9bb5718dca",
+    "realCredentialAvailable": true,
+    "tlsValidationEnabled": true,
+    "modelRequestsBefore": 2,
+    "modelRequestsAfter": 2,
+    "newSessionModelRequests": 0,
+    "native": {
+      "kind": "sequenced",
+      "asOfSeq": 3,
+      "values": {
+        "title": "新的工作对话",
+        "goal": null,
+        "tokenUsage": {
+          "uncachedInputTokens": 0,
+          "outputTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0
+        },
+        "contextPressure": {},
+        "contextBreakdown": {
+          "systemTokens": 0,
+          "toolsTokens": 0,
+          "messageTokens": 0
+        },
+        "inbox": {
+          "next-turn": [],
+          "next-step": []
+        },
+        "sessionStats": {
+          "turns": 0,
+          "steps": 0,
+          "llmMs": 0,
+          "toolMs": 0,
+          "ttftMs": 0,
+          "ttftSteps": 0,
+          "decodeMs": 0,
+          "decodeTokens": 0
+        },
+        "turnOutline": [],
+        "agentPreset": "standard",
+        "userQuestions": {
+          "active": [],
+          "settled": []
+        },
+        "permissions": {
+          "currentValue": "workspace-write"
+        },
+        "workingDirectory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+        "subagentCatalog": [],
+        "subagentTiming": {
+          "settledMs": 0
+        },
+        "subagent": null,
+        "todos": null,
+        "plan": {
+          "active": false,
+          "pending": false
+        },
+        "modelSelection": {
+          "lastUsed": null,
+          "next": null
+        },
+        "sessionListMetadata": {
+          "blank": true,
+          "lastPromptAt": null
+        },
+        "imageLimits": {
+          "maxImageBytes": 20971520,
+          "maxImagesPerMessage": 20,
+          "maxMessageImageBytes": 209715200,
+          "maxImagePixels": 64000000,
+          "maxImageDimension": 8192,
+          "mediaTypes": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/gif"
+          ]
+        }
+      }
+    },
+    "association": {
+      "sessionId": "session-0a7110f2-7018-4254-9c37-0b9bb5718dca",
+      "bound": true,
+      "binding": {
+        "scope": {
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "c7310000-0000-4000-8000-000000000001"
+        },
+        "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+        "organization": "flat",
+        "provider": "workspace",
+        "workspaceId": "6a2e16a2-0037-4508-aa3f-01ba1f676b74"
+      },
+      "cwd": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "c7310000-0000-4000-8000-000000000001",
+        "sourceKind": "block"
+      }
+    }
+  },
+  "referenceFault": {
+    "kind": "real filesystem auxiliary reference fault",
+    "path": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001/.task-workspace/agent-sessions-v1-aaa7cb7bbc9c91a1f24fc9b92ac799b9b823e3473322f5e600dbeffcf8074881.json",
+    "backup": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001/.task-workspace/agent-sessions-v1-aaa7cb7bbc9c91a1f24fc9b92ac799b9b823e3473322f5e600dbeffcf8074881.json.acceptance-backup",
+    "nativeSessionCountBefore": 5,
+    "graphHash": "743b1f3901e27271ed6912d7e33505b6ea582ed910d37422d338013e5b02d147",
+    "modelAttemptsBefore": 6
+  },
+  "referenceFaultNewSession": {
+    "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d",
+    "count": 6,
+    "modelAttempts": 6
+  },
+  "guidanceFault": {
+    "kind": "owned native FileStorage corruption",
+    "exitCode": 1,
+    "stderr": "{\"error\":{\"code\":\"Unexpected token 'i', \\\"invalid-gu\\\"... is not valid JSON\",\"message\":\"Unexpected token 'i', \\\"invalid-gu\\\"... is not valid JSON\"}}\n",
+    "sourceRead": {
+      "ok": true,
+      "blockCount": 3,
+      "capturedAt": "2026-10-31T09:53:49.461Z"
+    }
+  },
+  "fileFault": {
+    "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001/unreadable-material",
+    "mode": "000"
+  },
+  "cwdFault": {
+    "kind": "deliberately inconsistent persisted association in owned host",
+    "sessionId": "session-117234c0-80f6-4635-945e-1a2f48193ac9",
+    "workBinding": {
+      "scope": {
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "c7310000-0000-4000-8000-000000000001"
+      },
+      "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+      "organization": "flat",
+      "provider": "workspace",
+      "workspaceId": "6a2e16a2-0037-4508-aa3f-01ba1f676b74"
+    },
+    "workRef": {
+      "kind": "logseq",
+      "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+      "rootUuid": "c7310000-0000-4000-8000-000000000001",
+      "sourceKind": "block"
+    }
+  },
+  "storageAudit": {
+    "observedAt": "2026-10-31T09:45:56.543Z",
+    "graphHashBefore": "743b1f3901e27271ed6912d7e33505b6ea582ed910d37422d338013e5b02d147",
+    "graphHashAfter": "743b1f3901e27271ed6912d7e33505b6ea582ed910d37422d338013e5b02d147",
+    "nativeAssociationCount": 8,
+    "storageFields": [
+      "sessionId",
+      "lastOpenedAt",
+      "workRef",
+      "binding"
+    ],
+    "nativeMessageOrDraftFields": false
+  },
+  "rpcEvidence": [
+    {
+      "time": "2026-10-31T09:18:06.451Z",
+      "method": "logseq-workbench/reference",
+      "payload": {
+        "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "c65cf7c7-5c40-4f7a-ad53-d529a20af7e0",
+        "result": {
+          "ok": false,
+          "error": {
+            "code": "SESSION_RECORD_INVALID",
+            "message": "SESSION_RECORD_INVALID",
+            "details": {}
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:18:33.440Z",
+      "method": "logseq-workbench/reference",
+      "payload": {
+        "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "1d657cef-46bc-4971-a430-11665319746a",
+        "result": {
+          "ok": true,
+          "value": {
+            "binding": {
+              "scope": {
+                "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                "rootUuid": "c7310000-0000-4000-8000-000000000001"
+              },
+              "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+              "organization": "flat",
+              "provider": "workspace",
+              "workspaceId": "6a2e16a2-0037-4508-aa3f-01ba1f676b74"
+            },
+            "references": [
+              {
+                "platform": "dsh",
+                "externalId": "session-3a138260-9f9e-4b94-b4ca-5def1bbfd4db",
+                "url": null,
+                "description": "新的工作对话"
+              },
+              {
+                "platform": "dsh",
+                "externalId": "session-2a9c6b05-fd85-4fcb-8b1b-72ff741cd979",
+                "url": null,
+                "description": "Goal 1 会话连续性"
+              },
+              {
+                "platform": "dsh",
+                "externalId": "session-a9697c47-7d4b-4352-9852-65784f55044d",
+                "url": null,
+                "description": "工作对话"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:18:34.450Z",
+      "method": "logseq-workbench/files",
+      "payload": {
+        "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "ec671d6a-d1ef-4b00-833c-887d510c6ed3",
+        "result": {
+          "ok": true,
+          "value": {
+            "files": [
+              {
+                "key": "file:WORKSPACE.md",
+                "name": "WORKSPACE.md",
+                "relativePath": "WORKSPACE.md",
+                "group": "工作目录",
+                "availability": "available",
+                "materialId": null,
+                "size": 1867,
+                "version": "2026-10-31T09:06:03.895Z"
+              }
+            ],
+            "fileTruncation": [
+              {
+                "path": "unreadable-material",
+                "reason": "EACCES"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:18:36.461Z",
+      "method": "logseq-workbench/read",
+      "payload": {
+        "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "34781f52-0510-4515-9051-50933249b01c",
+        "result": {
+          "ok": true,
+          "value": {
+            "sessionId": "session-a9697c47-7d4b-4352-9852-65784f55044d",
+            "reading": null,
+            "binding": {
+              "scope": {
+                "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                "rootUuid": "c7310000-0000-4000-8000-000000000001"
+              },
+              "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+              "organization": "flat",
+              "provider": "workspace",
+              "workspaceId": "6a2e16a2-0037-4508-aa3f-01ba1f676b74"
+            },
+            "title": "Goal 1 会话连续性",
+            "capturedAt": "2026-10-31T09:18:36.437Z",
+            "version": "8d12a85b29bfe306f1150d2d29d53f1bd9eda8291c185923afa413e8cb323775",
+            "blocks": [
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000001\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000001"
+                },
+                "content": "[事务] Goal 1 会话连续性\nid:: c7310000-0000-4000-8000-000000000001",
+                "contentVersion": "89d7879a44b00075761278b8f83e1e88a4821055fea41939e69f6f269c4c393b",
+                "parentUuid": null,
+                "order": 0,
+                "depth": 0,
+                "availability": "available",
+                "truncated": false
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000002\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000002"
+                },
+                "content": "已保存的验收正文：原生会话与 General 保持独立。\nid:: c7310000-0000-4000-8000-000000000002",
+                "contentVersion": "1f166cdbbcacaa12c04c85db8e5df8ed8da72841839f950f57beeaadc343ba81",
+                "parentUuid": "c7310000-0000-4000-8000-000000000001",
+                "order": 0,
+                "depth": 1,
+                "availability": "available",
+                "truncated": false
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000003\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000003"
+                },
+                "content": "普通子块：从这里在 DSH 继续。\nid:: c7310000-0000-4000-8000-000000000003",
+                "contentVersion": "82215caed5c39212f9b62e265be7a9a4ff40ed6da94c5b9a0522e29752b25650",
+                "parentUuid": "c7310000-0000-4000-8000-000000000001",
+                "order": 1,
+                "depth": 1,
+                "availability": "available",
+                "truncated": false
+              }
+            ],
+            "truncated": false,
+            "warnings": [],
+            "files": [],
+            "fileTruncation": [],
+            "logseqUrl": "logseq://graph/graph?block-id=c7310000-0000-4000-8000-000000000001"
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:21:15.037Z",
+      "method": "logseq-workbench/read",
+      "payload": {
+        "sessionId": "session-117234c0-80f6-4635-945e-1a2f48193ac9"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "3b785016-927f-4409-9450-590bd5f50be1",
+        "result": {
+          "ok": false,
+          "error": {
+            "code": "SESSION_CWD_MISMATCH",
+            "message": "SESSION_CWD_MISMATCH",
+            "details": {}
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:24:17.446Z",
+      "method": "logseq-workbench/newWork",
+      "payload": {
+        "sessionId": "session-117234c0-80f6-4635-945e-1a2f48193ac9",
+        "operationId": "c7310000-1000-4000-8000-000000000001"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "94d8522a-de42-4c1a-bac6-e71617a096bd",
+        "result": {
+          "ok": true,
+          "value": {
+            "sessionId": "session-545a4585-0a95-4736-806e-73851db10ca7",
+            "title": "新的工作对话",
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:45:56.494Z",
+      "method": "logseq-workbench/read",
+      "payload": {
+        "sessionId": "session-2a9c6b05-fd85-4fcb-8b1b-72ff741cd979"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "a6496e4e-8aa0-4b44-8f21-8e5dd8a53a33",
+        "result": {
+          "ok": false,
+          "error": {
+            "code": "WORKSPACE_OFFLINE",
+            "message": "WORKSPACE_OFFLINE",
+            "details": {}
+          }
+        }
+      }
+    },
+    {
+      "time": "2026-10-31T09:53:49.481Z",
+      "method": "logseq-workbench/read",
+      "payload": {
+        "sessionId": "session-2a9c6b05-fd85-4fcb-8b1b-72ff741cd979"
+      },
+      "status": 200,
+      "result": {
+        "type": "server-response",
+        "rpcId": "22e7bfdb-dc5a-4d5d-a3d1-99f353e30754",
+        "result": {
+          "ok": true,
+          "value": {
+            "sessionId": "session-2a9c6b05-fd85-4fcb-8b1b-72ff741cd979",
+            "reading": null,
+            "binding": {
+              "scope": {
+                "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                "rootUuid": "c7310000-0000-4000-8000-000000000001"
+              },
+              "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/ae45b05cc867dd7b1882/workspaces/c7310000-0000-4000-8000-000000000001",
+              "organization": "flat",
+              "provider": "workspace",
+              "workspaceId": "6a2e16a2-0037-4508-aa3f-01ba1f676b74"
+            },
+            "title": "Goal 1 会话连续性",
+            "capturedAt": "2026-10-31T09:53:49.461Z",
+            "version": "8d12a85b29bfe306f1150d2d29d53f1bd9eda8291c185923afa413e8cb323775",
+            "blocks": [
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000001\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000001"
+                },
+                "content": "[事务] Goal 1 会话连续性\nid:: c7310000-0000-4000-8000-000000000001",
+                "contentVersion": "89d7879a44b00075761278b8f83e1e88a4821055fea41939e69f6f269c4c393b",
+                "parentUuid": null,
+                "order": 0,
+                "depth": 0,
+                "availability": "available",
+                "truncated": false
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000002\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000002"
+                },
+                "content": "已保存的验收正文：原生会话与 General 保持独立。\nid:: c7310000-0000-4000-8000-000000000002",
+                "contentVersion": "1f166cdbbcacaa12c04c85db8e5df8ed8da72841839f950f57beeaadc343ba81",
+                "parentUuid": "c7310000-0000-4000-8000-000000000001",
+                "order": 0,
+                "depth": 1,
+                "availability": "available",
+                "truncated": false
+              },
+              {
+                "sourceId": "[\"logseq\",\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"c7310000-0000-4000-8000-000000000003\"]",
+                "target": {
+                  "kind": "logseq-block",
+                  "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+                  "blockUuid": "c7310000-0000-4000-8000-000000000003"
+                },
+                "content": "普通子块：从这里在 DSH 继续。\nid:: c7310000-0000-4000-8000-000000000003",
+                "contentVersion": "82215caed5c39212f9b62e265be7a9a4ff40ed6da94c5b9a0522e29752b25650",
+                "parentUuid": "c7310000-0000-4000-8000-000000000001",
+                "order": 1,
+                "depth": 1,
+                "availability": "available",
+                "truncated": false
+              }
+            ],
+            "truncated": false,
+            "warnings": [],
+            "files": [],
+            "fileTruncation": [],
+            "logseqUrl": "logseq://graph/graph?block-id=c7310000-0000-4000-8000-000000000001"
+          }
+        }
+      }
+    }
+  ],
+  "officialNetwork": [
+    {
+      "time": "2026-10-31T09:44:25.679Z",
+      "phase": "attempt",
+      "host": "api.deepseek.com",
+      "path": "/anthropic/v1/messages",
+      "allowed": true
+    },
+    {
+      "time": "2026-10-31T09:44:25.682Z",
+      "phase": "attempt",
+      "host": "api.deepseek.com",
+      "path": "/anthropic/v1/messages",
+      "allowed": true
+    },
+    {
+      "time": "2026-10-31T09:44:25.993Z",
+      "phase": "response",
+      "host": "api.deepseek.com",
+      "path": "/anthropic/v1/messages",
+      "status": 200
+    },
+    {
+      "time": "2026-10-31T09:44:26.002Z",
+      "phase": "response",
+      "host": "api.deepseek.com",
+      "path": "/anthropic/v1/messages",
+      "status": 200
+    }
+  ],
+  "checks": {
+    "workspaceTests": 849,
+    "sandboxTests": 5,
+    "boundaryTests": 12,
+    "allFailureCounts": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "boundaries": "passed",
+    "taste": "PASS; active version unchanged"
+  },
+  "pluginStoreScan": [
+    {
+      "path": "bindings/bindings.json",
+      "bytes": 5780,
+      "sha256": "d6083c19ec28640483974832034c55128e1e266d3b23c3835c402d30179c8065",
+      "containsNativeChatOrDraftMarker": false
+    },
+    {
+      "path": "bindings/history/06bcee9f1c9343217e8266e8e7deabccc4f119c33948c27c2571117fd1d2b073/425d4e33-3426-4715-af8a-f899d96b1b2a.json",
+      "bytes": 1438,
+      "sha256": "3c368232910739ffe699b47551a8ea6a230215ff0c6cf424841e8e7731a117f3",
+      "containsNativeChatOrDraftMarker": false
+    },
+    {
+      "path": "bindings/history/8ecc8501325ee240607a5692f7b9c8669eb7280f7ce4edcdf0f5bbf94a96ef3d/fbaa4efc-d43e-4b13-9e04-506f032e906e.json",
+      "bytes": 1537,
+      "sha256": "395beddcaecba648a4118e254562d15b5c26983efdde48a6947026b3d5794ff9",
+      "containsNativeChatOrDraftMarker": false
+    }
+  ],
+  "supplementarySdkChecks": {
+    "dshVersion": "0.2.1-rc.2",
+    "logseq": "Synthetic SDK with production plugin and HTTP companion",
+    "model": "Native AgentLoop with local scripted model",
+    "checks": [
+      {
+        "check": "Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter",
+        "ok": true
+      },
+      {
+        "check": "Production async context assembly refreshes saved Logseq changes",
+        "ok": true
+      },
+      {
+        "check": "Two authenticated sessions share selection, named updates retain identity, navigation survives late submission, previous view restores",
+        "ok": true
+      },
+      {
+        "check": "Native reading plan is rendered by Logseq, session ownership holds, original text unchanged",
+        "ok": true
+      },
+      {
+        "check": "Production DSH AgentLoop sees refreshed Logseq context, calls a native file tool, and records context and results in the session log",
+        "ok": true,
+        "modelAttempts": 2
+      },
+      {
+        "check": "Same DSH session automatically refreshes changed Logseq work on its next user turn",
+        "ok": true
+      },
+      {
+        "check": "Graph invalidation clears current model context rather than reusing stale source",
+        "ok": true
+      },
+      {
+        "check": "Production Cordis unload removes model-facing tools",
+        "ok": true
+      }
+    ]
+  }
+}

@@ -220,6 +220,12 @@ export class Materials {
     return {graph, sourceUuid: uuid, ...(uuid ? {ownerUuid: uuid} : {}), directory: null, organization: "flat"};
   }
   /** Trusted consumer port; preserves the existing nearest explicit binding. */
+  async prepareWorkDirectory(scope: {graphId: string; rootUuid: string}): Promise<string> {
+    const service = await this.ensureService(), epoch = this.epoch;
+    if (this.graphId !== scope.graphId) throw new Error("工作 Graph 已改变。");
+    const store = await service.destination({graph: this.graph, sourceUuid: scope.rootUuid, ownerUuid: scope.rootUuid, directory: null, organization: "flat"}, "input");
+    this.assertScope(epoch); return store.root;
+  }
   async bindDirectory(sourceUuid: string, directory: string | null, organization: "flat" | "project" = "flat"): Promise<void> {
     const service = await this.ensureService(), epoch = this.epoch;
     const root = directory ? normalizeRoot(directory.trim(), this.graph) : null;

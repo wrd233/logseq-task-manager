@@ -1,0 +1,34 @@
+{
+  "kind": "transcribed CUA observations from real native windows; no simulated UI",
+  "observedOn": "2026-10-31",
+  "observations": [
+    {
+      "action": "Logseq ordinary child -> command palette 在 DSH 继续",
+      "observed": "Handoff root is c7310000-0000-4000-8000-000000000001; native DSH work conversation opened; no directory prompt."
+    },
+    {
+      "action": "Native DSH list -> older Goal 1 conversation; Logseq child -> continue",
+      "observed": "Native message Acceptance session A: native history marker. and native draft draft-A-preserved reappeared."
+    },
+    {
+      "action": "Work -> 新建此工作对话",
+      "observed": "Blank native input and New Session row; work source remains an independent reading pane; no copied old request or draft."
+    },
+    {
+      "action": "Work -> General -> Work -> General",
+      "observed": "Native draft-A-preserved and general-draft-independent remained separate; General input and native file attachment control enabled; WorkRef absent on General."
+    },
+    {
+      "action": "Auxiliary session reference file replaced by an owned invalid directory",
+      "observed": "New native session opens; UI says 已进入原生会话；辅助引用尚未保存; 重试保存引用 succeeds after restoring file."
+    },
+    {
+      "action": "Continue a deliberately inconsistent persisted cwd association",
+      "observed": "UI refuses with 会话目录与工作目录不同; native wrong-cwd-draft-preserved remains visible; production newWork RPC creates a separate session at the registered directory."
+    },
+    {
+      "action": "Switch Logseq to graph-other containing the same root UUID",
+      "observed": "Production read returns WORKSPACE_OFFLINE; original source remains visible with 上次成功读取：2026-10-31T09:45:39.128Z; no other-graph text substituted."
+    }
+  ]
+}

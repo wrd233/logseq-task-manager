@@ -4,7 +4,8 @@ const blocks={m:{uuid:'m',content:'**[MiniProject]** #MiniProject 探针验证',
 const trace=id=>ancestry(id,async id=>blocks[id]);
 test('explicit task aliases and MiniProject titles are reading objects without a repeated tag',()=>{
   for(const alias of ['事务','事项','任务'])for(const decoration of [`**[${alias}]**`,`[${alias}]`])assert.equal(workObject(`${decoration} 标题`).type,'task');
-  for(const s of ['TODO 做事','**[现状]** 原文','**[注]** a','**[想法]** a','**[Project]** a','**[阶段性目标]** a','这里 **[任务]** 引用','> **[任务]** 引用','```\n**[事务]** 示例\n```','    **[任务]** 缩进示例'])assert.equal(workObject(s),null,s);
+  for(const s of ['TODO 做事','**[现状]** 原文','**[注]** a','**[想法]** a','**[阶段性目标]** a','这里 **[任务]** 引用','> **[任务]** 引用','```\n**[事务]** 示例\n```','    **[任务]** 缩进示例'])assert.equal(workObject(s),null,s);
+  assert.deepEqual(workObject('**[Project]** a'),{type:'project',title:'a'});
   assert.equal(workObject('**[MiniProject]** 标题 #MiniProject').title,'标题');assert.equal(workObject('**[MiniProject]** 无标签').title,'无标签');
 });
 test('ordinary context traversed, nearest wins, only object crumbs',async()=>{const a=await trace('note');assert.deepEqual(a.path,['note','t','context','m']);assert.deepEqual(a.objects.map(x=>x.uuid),['m','t']);assert.equal(clickDecision({},a).uuid,'t');assert.equal(clickDecision({},await trace('context')).uuid,'m');assert.equal(clickDecision({},await trace('m')).uuid,'m')});

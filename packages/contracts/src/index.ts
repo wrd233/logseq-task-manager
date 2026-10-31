@@ -1666,3 +1666,5 @@ export function stableHash(value: unknown): string {
   return (result >>> 0).toString(16).padStart(8, "0");
 }
 export * from "./workspace-agent.ts";
+
+export * from "./work-ref.ts";

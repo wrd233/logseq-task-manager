@@ -4,7 +4,7 @@ import { workObject } from "./focus.mjs";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 
 export interface WorkShellIdentity { scope: SourceScope; title: string; kind: string; sourceId?: string; contentVersion?: string }
-export interface WorkShellAction { group?: string; area?: "reading" | "range" | "settings" | "collaboration" | "maintenance"; selected?: boolean; label: string; run(): void | Promise<void>; description?: string; disabled?: boolean; preserveInputFocus?: boolean }
+export interface WorkShellAction { group?: string; area?: "primary" | "reading" | "range" | "settings" | "collaboration" | "maintenance"; selected?: boolean; label: string; run(): void | Promise<void>; description?: string; disabled?: boolean; preserveInputFocus?: boolean }
 export interface WorkShellState {
   identity: WorkShellIdentity | null; content: "body" | "materials"; structure: boolean;
   native: boolean; draft: boolean; historical: boolean; review: boolean; reviewLabel: string;
@@ -28,6 +28,7 @@ export class WorkViewShell {
   private readonly reading = disclosureMenu("读法：连续阅读", "选择当前正文的读法");
   private readonly readingTools = element("div", "", "wb-reading-tools");
   private readonly range = element("div", "", "wb-reading-range");
+  private readonly collaboration = element("div", "", "wb-dsh-entry");
   private actionSignature = "";
   constructor(actions: { body(): void; materials(): void; native(): void; review(): void; changed(): void; fail(error: unknown): void }) {
     this.native = button("在 Logseq 写作", actions.native); this.native.className = "wb-primary";
@@ -39,7 +40,7 @@ export class WorkViewShell {
     this.body = button("正文", actions.body); this.materials = button("材料", actions.materials);
     this.review = button("审阅与历史", actions.review); this.review.className = "wb-review-entry";
     const identity = element("div", "", "wb-work-identity"); identity.append(this.kind, this.title);
-    const line = element("div", "", "wb-work-line"); line.append(identity, this.native, this.menu.root);
+    const line = element("div", "", "wb-work-line"); line.append(identity, this.native, this.collaboration, this.menu.root);
     const tabs = element("nav", "", "wb-content-navigation"); tabs.setAttribute("aria-label", "当前工作内容");
     tabs.append(this.body, this.materials, this.parent, this.review);
     this.body.dataset.workContent = "body"; this.materials.dataset.workContent = "materials";
@@ -81,24 +82,29 @@ export class WorkViewShell {
     set(this.review, state.review ? "收起审阅" : state.reviewLabel);
     this.review.setAttribute("aria-expanded", String(state.review)); this.review.classList.toggle("wb-attention", state.attention);
     this.notice.hidden = !state.notice; set(this.notice, state.notice);
+    this.collaboration.hidden = !state.actions.some(action=>action.area==="primary");
     const signature = JSON.stringify([state.identity?.scope, state.actions.map(({ label, description, disabled, group, area, selected, preserveInputFocus }) => [label, description, disabled, group, area, selected, preserveInputFocus])]);
     if (signature !== this.actionSignature) {
       this.actionSignature = signature; const focused = document.activeElement as HTMLElement | null;
       const focusedLabel = this.root.contains(focused) ? focused?.dataset.actionLabel : null;
       const opened = new Set(Array.from(this.menu.content.querySelectorAll<HTMLDetailsElement>("details[open]")).map(group => group.querySelector("summary")?.textContent));
-      this.menu.content.replaceChildren(); this.reading.content.replaceChildren(); this.range.replaceChildren();
+      this.menu.content.replaceChildren(); this.reading.content.replaceChildren(); this.range.replaceChildren(); this.collaboration.replaceChildren();
       const groups = new Map<string, HTMLElement>();
       let readingGroup = "";
       for (const action of state.actions) {
-        const item = button(action.label, () => { void Promise.resolve().then(action.run).then(this.changed).catch(this.fail); });
+        const item = button(action.label, () => {
+          if(action.area==="primary"){item.disabled=true;item.textContent="正在进入 DSH…";}
+          void Promise.resolve().then(action.run).catch(this.fail).finally(()=>{this.actionSignature="";this.changed();});
+        });
         item.dataset.actionLabel = action.label; item.disabled = !!action.disabled;
         if (action.preserveInputFocus) {
           item.dataset.preserveInputFocus = "true";
           item.onpointerdown = event => event.preventDefault();
         }
-        if (action.description) {if (action.area === "range") item.title = action.description; else item.append(element("small", action.description));}
+        if (action.description) {if (action.area === "range" || action.area === "primary") item.title = action.description; else item.append(element("small", action.description));}
         let container: HTMLElement;
-        if (action.area === "reading") {
+        if(action.area==="primary") {container=this.collaboration;item.classList.add("wb-primary");item.disabled=!!action.disabled||state.historical;}
+        else if (action.area === "reading") {
           container = this.reading.content;
           if (action.group && action.group !== readingGroup) {container.append(element("small", action.group, "wb-menu-context")); readingGroup = action.group;}
           if (action.selected !== undefined) {item.setAttribute("role", "menuitemradio"); item.setAttribute("aria-checked", String(action.selected));}

@@ -1,3 +1,4 @@
+import { readingDocument } from "./reading-document.ts";
 import type { SourceScope, SourceSnapshot } from "../../workspace/source-protocol.ts";
 import { lensRecord, lensText, LensInputError, requireLens } from "./lens-input.ts";
 import { sameLensScope } from "./lens-source.ts";
@@ -26,7 +27,7 @@ export class ReadingPlanController {
   private selected:string|null=null; private mode:"report"|"structure";
   private selection=0; private persistenceError=false;
   private readonly store:ReadingViewStore|null;
-  readonly api={read:()=>this.read(),refresh:()=>this.refresh(),request:(input:unknown)=>this.request(input),
+  readonly api={read:()=>this.read(),refresh:()=>this.refresh(),view:()=>this.view(),request:(input:unknown)=>this.request(input),
     submit:(input:unknown)=>this.submit(input),select:(id:unknown)=>this.select(id),restore:(id:unknown)=>this.restore(id),
     setMode:(mode:"report"|"structure")=>this.setMode(mode),cancel:(id?:unknown)=>this.cancel(id),original:()=>this.select(null)};
   constructor(private readonly host:ReadingHost) {this.mode=host.defaultMode??"report";this.store=host.storage?new ReadingViewStore(host.storage):null;}
@@ -86,6 +87,19 @@ export class ReadingPlanController {
   }
   setMode(mode:"report"|"structure"):void {this.synchronize();this.mode=mode;this.selected=null;this.selection++;this.save();this.host.changed();}
   async refresh():Promise<LensResult<ReturnType<ReadingPlanController["read"]>>> {try {const scope=this.ready(),generation=this.generation;await this.fresh(scope,generation);const materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);return {ok:true,value:this.read()};}catch(error){return failed(error);}}
+  /** Saved source and verified presentation in one transport round trip. */
+  async view() {
+    try {
+      const scope=this.ready(),generation=this.generation;
+      await this.fresh(scope,generation);
+      const warnings:string[]=[];
+      try {const materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);}
+      catch {this.valid(scope,generation);warnings.push("MATERIALS_UNAVAILABLE");}
+      if(!this.source||!this.available)return {ok:false as const,reason:"source-unavailable"};
+      const active=this.active(this.source);
+      return {ok:true as const,value:{source:structuredClone(this.source),reading:{...this.read(),document:active?readingDocument(active):null},warnings}};
+    } catch(error) {return failed(error);}
+  }
   async request(input:unknown):Promise<LensResult<{requestId:string;purpose:string;source:SourceSnapshot;materialIds:string[]}>> {
     try {const raw=lensRecord(input,["schemaVersion","purpose"]);requireLens(raw.schemaVersion===1,"unsupported-reading-schema");const purpose=lensText(raw.purpose,240),scope=this.ready(),generation=this.generation;
       const source=await this.fresh(scope,generation),materialIds=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materialIds);

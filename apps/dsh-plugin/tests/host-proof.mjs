@@ -1,5 +1,5 @@
 /* global process, console, logseq, document, crypto, AbortController, Request */
-// Requires DSH 0.2.0-rc.2 and Node 22.19+. Synthetic SDK and scripted model only.
+// Requires the installed DSH SDK and Node 22.19+. Synthetic SDK and scripted model only.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile, mkdir, readdir, stat, rename, realpath, mkdtemp, rm } from "node:fs/promises";
@@ -69,7 +69,7 @@ try {
   const fallback = new WorkbenchService({ store: fallbackStore, transport: new CompanionTransport(state),
     inspectSession: async () => ({ meta: { cwd: directory } }), openPath: async () => ({ opened: true }) });
   await fallback.bind('fallback-session', directory);
-  const fallbackView = await fallback.view('fallback-session');
+  const fallbackView = await fallback.sourceView('fallback-session');
   assert.equal(fallbackView.blocks.length, 3); fallback.dispose();
   await api.open(f.root);
   await writeFile(join(directory, "proposal.md"), "# Proposal\n\nA real file in the bound directory.\n");
@@ -95,7 +95,8 @@ try {
     console.log(JSON.stringify({ directory, state }));
     await new Promise(resolve => process.once('SIGTERM', resolve));
   } else {
-  const req = createRequire(join(process.env.DSH_PACKAGE_ROOT ?? join(execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(), "@deepseek-ai/dsh"), "package.json"));
+  const dshPackageRoot = process.env.DSH_PACKAGE_ROOT ?? join(execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(), "@deepseek-ai/dsh");
+  const req = createRequire(join(dshPackageRoot, "package.json"));
   const mod = async (name) => import(req.resolve(name));
   const { Context } = await mod("@deepseek-ai/cordis");
   const { default: SystemPrompt } = await mod("@deepseek-ai/dsh-system-prompt");
@@ -109,6 +110,8 @@ try {
       assert.match(route.path, /^\/api\/logseq-workbench\//); routes.set(route.path, route);
       return host.effect(() => () => routes.delete(route.path));
     } } });
+    host.reflect.provide('workspaceController', {});
+    host.reflect.provide('workspaceRegistry', {archivedSessionIds: []});
     host.reflect.provide('sessionController', {
       inspect: async () => ({ meta: { cwd: directory } }),
       openWorkspacePath: async input => { assert.equal(input.path, join(directory, 'proposal.md')); return { opened: true }; }
@@ -136,7 +139,7 @@ try {
   const scene = await value('logseq_work_read');
   assert.equal(scene.savedSource.length, 3); assert.equal(scene.nativeDraft.included, false);
   const view = await rpc('read', { sessionId: 'proof-session' });
-  assert.equal(view.blocks.length, 3); assert.ok(view.files.some(file => file.name === 'proposal.md'));
+  assert.equal(view.blocks.length, 3); assert.ok((await rpc('files', {sessionId: 'proof-session'})).files.some(file => file.name === 'proposal.md'));
   assert.equal((await rpc('open', { sessionId: 'proof-session', key: 'file:proposal.md', reveal: false })).opened, true);
   const file = await value('logseq_file_read', { path: 'proposal.md' }); assert.match(file.content, /A real file/);
   checks.push({ check: 'Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter', ok: true });
@@ -234,7 +237,7 @@ try {
   await fiber.dispose();
   assert.equal(ctx.tools.schemas().some(t => t.name.startsWith('logseq_')), false);
   checks.push({ check: 'Production Cordis unload removes model-facing tools', ok: true });
-  console.log(JSON.stringify({ dshVersion: '0.2.0-rc.2', logseq: 'Synthetic SDK with production plugin and HTTP companion', model: 'Native AgentLoop with local scripted model', checks }, null, 2));
+  console.log(JSON.stringify({ dshVersion: JSON.parse(await readFile(join(dshPackageRoot, 'package.json'), 'utf8')).version, logseq: 'Synthetic SDK with production plugin and HTTP companion', model: 'Native AgentLoop with local scripted model', checks }, null, 2));
   }
 } finally {
   await ctx?.fiber.dispose(); await f.unload(); await server.close(); await f.cleanup(); await rm(root, { recursive: true, force: true });

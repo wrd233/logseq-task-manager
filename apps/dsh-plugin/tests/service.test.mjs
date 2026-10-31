@@ -11,10 +11,13 @@ const binding = directory => ({ scope, directory, provider: 'workspace', workspa
 function fixture(root) {
   let work = binding(root), gate, offline = false;
   const opened = [], store = { bindings: new Map(), change: async (id, value) => value ? store.bindings.set(id, value) : store.bindings.delete(id) };
-  const packet = () => ({ scene: { binding: work, savedSource: { capturedAt: '2026-10-11T00:00:00Z', sourceSetVersion: 'v1', blocks: [{ sourceId: 'source-one', content: 'A saved original paragraph', contentVersion: 'v1', depth: 0, availability: 'available' }] }, materials: [], guidance: { common: { text: '', version: 'g1' }, project: { text: '', version: 'g2' } }, sourceBundleVersion: 'v1', permissions: { read: true, bodyWrite: false } }, current: { sourceMatches: true, materialsMatch: true, guidanceMatches: true } });
+  const packet = () => ({ scene: { binding: work, savedSource: { scope, capturedAt: '2026-10-11T00:00:00Z', sourceSetVersion: 'v1', blocks: [{ sourceId: 'source-one', content: 'A saved original paragraph', contentVersion: 'v1', depth: 0, availability: 'available' }] }, materials: [], guidance: { common: { text: '', version: 'g1' }, project: { text: '', version: 'g2' } }, sourceBundleVersion: 'v1', permissions: { read: true, bodyWrite: false } }, current: { sourceMatches: true, materialsMatch: true, guidanceMatches: true } });
   const transport = { entry: async () => ({ binding: work, directory: root }), call: async (_entry, command) => {
     if (offline) throw Object.assign(Error('offline'), { code: 'WORKSPACE_OFFLINE' });
-    if (command === 'collaboration.read') { if (gate) await gate; return packet(); }
+    if (command === 'refresh') {if (gate) await gate; return {snapshot: packet().scene.savedSource};}
+    if (command === 'guidance.read') return packet().scene.guidance;
+    if (command === 'status') return {capabilities: packet().scene.permissions};
+    if (command === 'materials.list') return {materials: []};
     if (command === 'files.list') return { observation: { files: [{ path: 'proposal.md', kind: 'file', availability: 'available', change: 'same-metadata', materialId: null, size: 5, modifiedAt: 'v1' }], truncated: [] } };
     return {};
   } };
@@ -28,7 +31,7 @@ test('binding persists privately and an unrelated session cannot inherit it', as
     const restored = new BindingStore(directory); await restored.load();
     assert.deepEqual(restored.bindings.get('one'), binding('/work'));
     assert.equal(restored.bindings.has('two'), false);
-    const f = fixture('/work'); await assert.rejects(f.service.view('two'), { code: 'SESSION_NOT_BOUND' });
+    const f = fixture(tmpdir()); await assert.rejects(f.service.view('two'), { code: 'SESSION_NOT_BOUND' });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 test('a superseded binding write rolls back and does not poison later changes', async () => {
@@ -60,17 +63,17 @@ test('file opening rechecks authority and refuses arbitrary paths, symlinks and 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 test('late read after unbind is discarded and offline data cannot be opened', async () => {
-  const f = fixture('/work'); await f.service.bind('one', '/work');
+  const f = fixture(tmpdir()); await f.service.bind('one', tmpdir());
   let release; f.block(new Promise(resolve => { release = resolve; }));
   const reading = f.service.read('one'); await new Promise(resolve => setImmediate(resolve));
   await f.service.unbind('one'); release();
   await assert.rejects(reading, { code: 'BINDING_CHANGED' });
-  const second = fixture('/work'); await second.service.bind('one', '/work'); second.offline();
+  const second = fixture(tmpdir()); await second.service.bind('one', tmpdir()); second.offline();
   await assert.rejects(second.service.open('one', 'directory', false), { code: 'WORKSPACE_OFFLINE' });
   assert.deepEqual(second.opened, []);
 });
 test('model context stays bounded without breaking JSON or granting writes', async () => {
-  const f = fixture('/work'), packet = f.packet();
+  const f = fixture(tmpdir()), packet = f.packet();
   packet.scene.savedSource.blocks = Array.from({ length: 300 }, (_, index) => ({ sourceId: `source-${index}`, contentVersion: 'version', content: 'Long original '.repeat(1000) }));
   const text = modelContext(packet); assert.ok(text.length <= 24000);
   const context = JSON.parse(text); assert.equal(context.permissions.bodyWrite, false); assert.equal(context.nativeDraft.included, false); assert.equal(context.truncated, true); assert.ok(context.savedSource.length < 300);
@@ -81,7 +84,8 @@ test('external materials are resolved only from current Logseq material identiti
     await mkdir(join(root, 'work')); await writeFile(join(root, 'linked.docx'), 'synthetic');
     const f = fixture(join(root, 'work')), original = f.packet;
     f.service.transport.call = async (_entry, command) => {
-      if (command === 'collaboration.read') { const packet = original(); packet.scene.materials = [{ id: 'linked', filename: 'linked.docx', path: join(root, 'linked.docx'), availability: 'available', version: 'v1' }]; return packet; }
+      if (command === 'refresh') return {snapshot: original().scene.savedSource};
+      if (command === 'materials.list') return {materials: [{ id: 'linked', filename: 'linked.docx', path: join(root, 'linked.docx'), availability: 'available', version: 'v1' }]};
       if (command === 'files.list') return { observation: { files: [], truncated: [] } };
       return {};
     };
@@ -90,4 +94,21 @@ test('external materials are resolved only from current Logseq material identiti
     await f.service.open('one', 'material:linked', false); assert.equal(f.opened[0], join(root, 'linked.docx'));
     await assert.rejects(f.service.open('one', 'material:unrelated', false), { code: 'FILE_UNAVAILABLE' });
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+
+test('fresh body survives guidance and file failures; saved requests never enter model context', async t => {
+  const root=await realpath(await mkdtemp(join(tmpdir(),'dsh-partial-')));t.after(()=>rm(root,{recursive:true,force:true}));
+  const f=fixture(root),previous=f.service.transport.call;
+  f.service.transport.call=async(entry,command)=>{
+    if(command==='guidance.read')throw Object.assign(Error('corrupt auxiliary guidance'),{code:'GUIDANCE_INVALID'});
+    if(command==='files.list')throw Object.assign(Error('file scan denied'),{code:'EACCES'});
+    if(command==='reading.view')throw Object.assign(Error('view closed'),{code:'READING_UNAVAILABLE'});
+    return previous(entry,command);
+  };
+  await f.service.bind('one',root);
+  const packet=await f.service.read('one');assert.equal(packet.scene.savedSource.blocks.length,1);
+  assert.deepEqual(packet.warnings.map(row=>row.command),['guidance.read','files.list']);
+  const view=await f.service.sourceView('one');assert.equal(view.blocks.length,1);
+  packet.scene.request='old collaboration request';assert.equal(JSON.parse(modelContext(packet)).request,'');
 });

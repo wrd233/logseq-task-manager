@@ -2,7 +2,7 @@ import {extractObjectNavigationLabel} from '../../canonical-writing.ts';
 // Navigation labels are presentation, never proof of formal identity.
 export function workObject(content='') {
   const label=extractObjectNavigationLabel(String(content));
-  return label?{type:label.kind==='TASK'?'task':'miniproject',title:label.title}:null;
+  return label?{type:label.kind==='TASK'?'task':label.kind==='PROJECT'?'project':'miniproject',title:label.title}:null;
 }
 // Source parent IDs only. An unmarked block is traversable, never an object crumb.
 export async function ancestry(uuid,getBlock,{limit=256,resolve}={}) {

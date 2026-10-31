@@ -2,8 +2,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
-import { WorkspaceError, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
+import { WorkspaceError, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
+import { createDshHandoff, type DshMode } from "./dsh-handoff.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -203,7 +204,7 @@ export async function startWorkspaceServer(options: {
             if (call.command === "files.list") {
                 observations = await discoverFiles(root!, materials, observations);
                 check();
-                return { binding, observation: observations };
+                return { binding, observation: observations, materials };
             }
             const path = await scopedPath(root!, call.payload.path);
             check();
@@ -282,6 +283,15 @@ export async function startWorkspaceServer(options: {
             if (request.method !== "POST")
                 throw new WorkspaceError("METHOD_REJECTED");
             const input = await body(request);
+            if (request.url === "/plugin/dsh") {
+                const raw = workRecord(input, ["connectionId", "mode", "title", "workRef"]), connectionId = workText(raw.connectionId);
+                const binding = broker.assert(connectionId);
+                if (!["continue", "new"].includes(String(raw.mode))) throw new WorkspaceError("INVALID_INPUT");
+                const result = await createDshHandoff(state, {mode: raw.mode as DshMode, ...(raw.workRef ? {workRef: parseWorkRef(raw.workRef)} : {}), title: workText(raw.title, 800),
+                    entry: {instanceId, connectionId, binding, directory: binding.directory}});
+                broker.assert(connectionId);
+                send(response, 200, result); return;
+            }
             if (request.url === "/plugin/connect") {
                 const raw = workRecord(input, ["connectionId", "binding"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
                 root = await authorizedRoot(binding.directory);

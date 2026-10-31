@@ -1,3 +1,4 @@
+import { resolveDshTarget } from "./dsh-work.ts";
 import { WorkspaceError, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
@@ -41,9 +42,11 @@ export function installAgentWorkspace(options: {
     binding: WorkspaceBindingPort;
     source?: WorkspaceSourcePort;
     stage?: OptionalStagePort;
+    ensureDshWork?: (scope: ScopeLease["scope"], check: () => Promise<void>) => Promise<unknown>;
+    formalTarget?: (uuid: string) => Promise<{objectId: string; title: string} | null>;
     intervalMs?: number;
 }) {
-    let disposed = false, generation = 0, timer: ReturnType<typeof setTimeout> | null = null, busy = false, failures = 0;
+    let disposed = false, generation = 0, graphGeneration = 0, timer: ReturnType<typeof setTimeout> | null = null, busy = false, failures = 0;
     let connection: {
         descriptor: WorkspacePluginDescriptor;
         id: string;
@@ -287,7 +290,7 @@ export function installAgentWorkspace(options: {
         if(!disposed)return allow(event.uuid??event.args?.[0]?.uuid,false,true).catch(report);
     });
     const organizeMenu=logseq.App.registerCommand("block-context-menu-item",{key:"agent-workspace-organize-block",label:"工作台：允许 agent 润色并整理此工作原块"},({uuid}:{uuid:string})=>{if(!disposed)return allow(uuid,true).catch(report);});
-    const offGraph = logseq.App.onCurrentGraphChanged(()=>revoke()), disposers: Array<() => void> = [offGraph];
+    const offGraph = logseq.App.onCurrentGraphChanged(()=>{graphGeneration++;revoke();}), disposers: Array<() => void> = [offGraph];
     if(typeof readMenu==="function")disposers.push(readMenu);
     if(typeof organizeMenu==="function")disposers.push(organizeMenu);
     if (typeof menu === "function")
@@ -300,12 +303,38 @@ export function installAgentWorkspace(options: {
         if (typeof off === "function")
             disposers.push(off);
     }
+    let openSequence = 0;
+    const openWork = async (target?: string | ScopeLease["scope"], mode: "continue" | "new" = "continue") => {
+        const sequence = ++openSequence, initialGraphGeneration = graphGeneration, initialGraph = graphIdentity(await logseq.App.getCurrentGraph());
+        const check = async () => {
+            if (disposed || sequence !== openSequence || graphGeneration !== initialGraphGeneration || graphIdentity(await logseq.App.getCurrentGraph()) !== initialGraph)
+                throw new WorkspaceError("CONNECTION_REVOKED");
+        };
+        const selected = target ?? (await logseq.Editor.getCurrentBlock())?.uuid ?? options.work?.readingAPI.read().scope;
+        if (!selected) throw new WorkspaceError("SOURCE_REQUIRED");
+        const scope = typeof selected === "string" ? {graphId: initialGraph, rootUuid: selected} : selected;
+        if (scope.graphId !== initialGraph) throw new WorkspaceError("SCOPE_MISMATCH");
+        const resolved = await resolveDshTarget(scope, {getBlock: id => logseq.Editor.getBlock(id), formal: options.formalTarget ?? (async () => null), check});
+        if (!options.ensureDshWork) throw new WorkspaceError("MATERIALS_UNAVAILABLE");
+        await options.ensureDshWork(resolved.scope, check); await check();
+        if (!connection || !sameWorkScope(connection.binding.scope, resolved.scope)) await allow(resolved.scope, false, true, true);
+        const value = connection; if (!value) throw new WorkspaceError("CHANNEL_UNAVAILABLE");
+        await valid(value); await check();
+        const block = resolved.scope.kind === "page" ? null : await logseq.Editor.getBlock(resolved.scope.rootUuid);
+        const title = resolved.title ?? resolved.scope.pageName ?? block?.content?.split("\n")[0]?.slice(0, 180) ?? "Logseq 工作";
+        const result = await post(value.descriptor, "/plugin/dsh", {connectionId: value.id, mode, title, workRef: resolved.workRef}) as {url: string};
+        await valid(value); await check(); await logseq.App.openExternalLink(result.url);
+    };
+    const dshMenu = logseq.App.registerCommand("block-context-menu-item", {key: "agent-workspace-open-dsh-block", label: "在 DSH 继续"}, (event: {uuid?: string; args?: Array<{uuid?: string}>}) => openWork(event.uuid ?? event.args?.[0]?.uuid).catch(report));
+    const dshCommand = logseq.App.registerCommandPalette({key: "agent-workspace-open-dsh", label: "工作台：在 DSH 继续"}, () => openWork().catch(report));
+    if (typeof dshMenu === "function") disposers.push(dshMenu);
+    if (typeof dshCommand === "function") disposers.push(dshCommand);
     const connectRead=(target?:string|ScopeLease["scope"])=>allow(target,false,true);
     const todoCommand=logseq.App.registerCommandPalette({key:"agent-workspace-todo",label:"工作台：允许 agent 维护普通 TODO"},()=>{if(!disposed)return todoUI.open().catch(report);});
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;
