@@ -14,6 +14,7 @@ export type AgentWorkBinding = {
 };
 export const workspaceCommands = {
     "status": [], "refresh": [], "read": [], "source.read": ["sourceId"],
+    "planner.references": [],
     "guidance.read": [], "collaboration.read": [], "collaboration.refresh": [],
     "materials.list": [], "materials.read": ["id"],
     "materials.capture": ["requestKey", "text", "html", "title", "role"],

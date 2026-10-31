@@ -2,6 +2,7 @@
 import process from 'node:process';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
+import { installPlannerHost } from './planner-host.mjs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
@@ -18,8 +19,10 @@ export async function apply(ctx, config = {}) {
     openPath: (path, reveal, signal) => ctx.sessionController.openWorkspacePath({ path, ...(reveal ? { action: 'reveal' } : {}) }, signal) });
   ctx.on('dispose', () => service.dispose());
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
+  const planner = await installPlannerHost(ctx, service, resolve(config.plannerStateDirectory ?? store.directory));
   const routes = {
     ...historyRoutes,
+    ...planner.routes,
     ...installEvidenceHost(ctx, service, history.store),
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
