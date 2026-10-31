@@ -51,10 +51,13 @@ export function handoffDraft(record: Observation, events: WorkEvent[]) {
   if (record.truncated || record.sync?.truncated) lines.push('未知：来源结果截断，缺失部分尚未核对。');
   if (!record.consistent && record.state !== 'failed') lines.push('未知：观察期间来源改变，不是一致快照。');
   lines.push('来源边界：只保存观察元数据；差异正文未存档，当前来源可能已变化。');
-  const groups = [...new Set(view.items.map(item => item.interpretation?.interpretation.group ?? '尚未归组'))];
+  const internal = view.items.filter(item => item.fact.path.split('/').includes('.task-workspace') && !item.interpretation && !item.clarification);
+  const visible = view.items.filter(item => !internal.includes(item));
+  if (internal.length) lines.push(`工作区内部记录：${internal.length} 项（.task-workspace；路径与正文未在交接中展开）。`, '');
+  const groups = [...new Set(visible.map(item => item.interpretation?.interpretation.group ?? '尚未归组'))];
   for (const group of groups) {
     lines.push(`工作主题（Agent 归组）：${group}`);
-    for (const item of view.items.filter(item => (item.interpretation?.interpretation.group ?? '尚未归组') === group)) {
+    for (const item of visible.filter(item => (item.interpretation?.interpretation.group ?? '尚未归组') === group)) {
       lines.push(`文件：${JSON.stringify(item.fact.path)}`, `观察事实：${item.fact.commits.length} 个来源提交；当前工作区${item.fact.workspace ? '有变化' : '没有本次变化条目'}。`);
       if (item.interpretation) {
         const i = item.interpretation.interpretation;

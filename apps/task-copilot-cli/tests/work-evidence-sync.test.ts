@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { EvidenceStore } from '../src/work-evidence/store.ts';
+import { fileItems } from '../src/work-evidence/items.ts';
+import { textDiff } from '../src/work-evidence/git.ts';
 async function fixture() {
   const base = fileURLToPath(new URL('../../../tmp/work-evidence-reconstruction/tests/', import.meta.url)); await mkdir(base, { recursive: true });
   const root = await mkdtemp(join(base, 'sync-')), repo = join(root, '仓库 with spaces'); await mkdir(repo);
@@ -14,6 +16,29 @@ async function fixture() {
   const store = new EvidenceStore(join(root, 'state')), scope = await store.select(repo);
   return { root, repo, git, commit, store, scope };
 }
+test('internal workspace files stay observable but their bodies are restricted even for older observations', async () => {
+  const f = await fixture(); await mkdir(join(f.repo, '.task-workspace'));
+  await writeFile(join(f.repo, '.task-workspace', 'source.json'), 'initial'); f.commit('initial');
+  await writeFile(join(f.repo, '.task-workspace', 'source.json'), 'changed');
+  const record = (await f.store.observe(f.scope.id)).value;
+  const file = record.files.find(item => item.path === '.task-workspace/source.json')!;
+  assert.equal(file.restricted, true);
+  const legacy = { ...record, files: record.files.map(item => ({ ...item, restricted: false })) };
+  assert.equal(fileItems(legacy).find(item => item.path === file.path)?.restricted, true);
+  await assert.rejects(textDiff(legacy, file.path, 'unstaged'), /TEXT_DIFF_RESTRICTED/);
+  const { handoffDraft } = await import('../src/work-evidence/reconstruction.ts');
+  const draft = handoffDraft(record, []);
+  assert.match(draft, /工作区内部记录：1 项/u);
+  assert.doesNotMatch(draft, /\.task-workspace\/source\.json/u);
+});
+test('unrelated workspace churn does not invalidate a selected file diff; the selected file still must match', async () => {
+  const f = await fixture(); await writeFile(join(f.repo, 'work.txt'), 'before\n'); f.commit('baseline');
+  await writeFile(join(f.repo, 'work.txt'), 'after\n'); const record = (await f.store.observe(f.scope.id)).value;
+  await mkdir(join(f.repo, '.task-workspace')); await writeFile(join(f.repo, '.task-workspace', 'status.json'), 'new internal state');
+  assert.match((await textDiff(record, 'work.txt', 'unstaged')).text!, /after/u);
+  await writeFile(join(f.repo, 'work.txt'), 'changed again\n');
+  await assert.rejects(textDiff(record, 'work.txt', 'unstaged'), /SOURCE_CHANGED/);
+});
 test('incremental sync retains new commits and current dirty files, including a reverted intermediate change, across restart', async () => {
   const f = await fixture(); await writeFile(join(f.repo, '文件 name.txt'), 'base\n'); f.commit('base');
   const first = await f.store.observe(f.scope.id); assert.equal(first.value.sync?.state, 'initial'); assert.equal(first.value.sync?.commits.length, 0);

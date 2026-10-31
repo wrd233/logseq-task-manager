@@ -7,7 +7,7 @@ export function fileItems(record: Observation): FileItem[] {
   const add = (path: string, original: string | null, restricted: boolean) => {
     let row = rows.find(item => item.aliases.includes(path) || !!original && item.aliases.includes(original));
     if (!row) { row = { id: '', path, aliases: [], restricted, workspace: null, commits: [] }; rows.push(row); }
-    row.path = path; row.restricted ||= restricted;
+    row.path = path; row.restricted ||= restricted || sensitive(path) || !!original && sensitive(original);
     for (const alias of [path, original]) if (alias && !row.aliases.includes(alias)) row.aliases.push(alias);
     return row;
   };

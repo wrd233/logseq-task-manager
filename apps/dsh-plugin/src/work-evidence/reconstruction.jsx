@@ -4,7 +4,15 @@ import { RecordDraft } from './record-draft.mjs';
 import { EvidenceStructure } from './structure-view.jsx';
 const statusLabels = { pending: '待分析', 'needs-reanalysis': '说明已保存，待更新解释', analyzing: '正在分析', reanalyzing: '正在更新解释', interpreted: '已形成解释', 'needs-clarification': '有一个关键问题', interrupted: '上次分析已中断，可重试', failed: '分析未完成，可重试' };
 const active = item => ['analyzing','reanalyzing'].includes(item.state);
-const errorText = error => ({ MODEL_NOT_CONFIGURED: '尚未配置模型，观察和交接保存仍可使用。', MODEL_CONSENT_REQUIRED: '请先确认允许分析所选内容。', SOURCE_CHANGED: '来源已变化，请重新同步后读取当前差异。', INTERPRETATION_CHANGED: '解释版本已变化，输入已保留，请核对当前问题。', WORK_HISTORY_INCOMPLETE: '部分历史不可用，已保留有效记录；请先核对历史。' })[error.code] ?? `未完成：${error.code ?? '连接失败'}。输入仍保留，可重试。`;
+const internalFile = item => item.fact.path.split('/').includes('.task-workspace');
+const changeSummary = fact => {
+  const file = fact.workspace, codes = `${file?.staged ?? ''}${file?.unstaged ?? ''}`, changes = [];
+  if (file) changes.push(file.untracked ? '新增（未跟踪）' : /A/.test(codes) ? '新增' : /D/.test(codes) ? '删除' : /R/.test(codes) ? '重命名' : /C/.test(codes) ? '复制' : '修改');
+  if (fact.commits.length) changes.push(`${fact.commits.length} 个提交`);
+  if (fact.restricted) changes.push('正文受限');
+  return changes.join(' · ') || '暂无变化';
+};
+const errorText = error => ({ MODEL_NOT_CONFIGURED: '尚未配置模型，观察和交接保存仍可使用。', MISSING_CREDENTIAL: '模型凭据不可用，请在 DSH 中配置模型后重试；文件和交接仍可查看。', EACCES: '保存位置不可写，输入已保留；恢复权限后可重试。', MODEL_CONSENT_REQUIRED: '请先确认允许分析所选内容。', SOURCE_CHANGED: '来源已变化，请重新同步后读取当前差异。', INTERPRETATION_CHANGED: '解释版本已变化，输入已保留，请核对当前问题。', WORK_HISTORY_INCOMPLETE: '部分历史不可用，已保留有效记录；请先核对历史。' })[error.code] ?? `未完成：${error.code ?? '连接失败'}。输入仍保留，可重试。`;
 export function reconstructionComponent({ rpc, usePanelState }) {
   const drafts = new Map(), counters = new Map(), startAttempts = new Map();
   function draftFor(key) {
@@ -14,7 +22,7 @@ export function reconstructionComponent({ rpc, usePanelState }) {
     }));
     return drafts.get(key);
   }
-  function FileItem({ item, base, p, localBusy, consent, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events }) {
+  function FileItem({ item, base, p, localBusy, consent, operation, analyze, refresh, showDiff, diff, closeDiff, selectedPaths, selectFile, setNotice, events }) {
       const { fact, interpretation, clarification } = item, draft = draftFor(`${base}:answer:${fact.id}`), input = useSyncExternalStore(draft.subscribe, draft.getSnapshot);
       const busy = !!localBusy[fact.id] || active(item), answer = interpretation?.interpretation;
       async function clarify(skipped) {
@@ -25,8 +33,8 @@ export function reconstructionComponent({ rpc, usePanelState }) {
         }
       }
       return <article className="we-row" aria-label={`文件 ${fact.path}`}>
-        <div className="we-file-title"><label><input type="checkbox" checked={selectedPaths.includes(fact.path)} onChange={event => selectFile(fact.path, event.target.checked)} /> <strong>{fact.path}</strong></label><span role="status">{statusLabels[item.state] ?? item.state}</span></div>
-        <p className="we-muted">{fact.commits.length ? `${fact.commits.length} 个新提交` : ''}{fact.workspace ? `${fact.commits.length ? ' · ' : ''}当前工作区变化${fact.workspace.untracked ? '（未跟踪，仅元数据）' : ''}` : ''}{fact.restricted ? ' · 受限正文' : ''}</p>
+        <div className="we-file-title"><label><input type="checkbox" checked={selectedPaths.includes(fact.path)} onChange={event => selectFile(fact.path, event.target.checked)} /> <strong>{fact.path}</strong></label>{item.state !== 'pending' && <span role="status">{statusLabels[item.state] ?? item.state}</span>}</div>
+        <p className="we-muted">{changeSummary(fact)}</p>
         {answer && <><p>{answer.explanation}</p><p className="we-muted">主题（Agent）：{answer.group}</p></>}
         {item.error && <p role="alert">{errorText({ code: item.error })}</p>}
         <div className="we-tools"><button type="button" disabled={busy || !consent} onClick={() => void operation(fact.id, () => analyze(item))}>{interpretation ? '重新分析此条' : '分析此条'}</button></div>
@@ -43,12 +51,14 @@ export function reconstructionComponent({ rpc, usePanelState }) {
         {input.text.length > 2000 && <p role="alert">这条说明最多保存 2000 字，请精简后保存；原解释仍会保留。</p>}
         {(input.text || input.attempt) && <p className="we-muted">{input.status === 'unknown' ? '保存结果未确认，重试会核对原请求。' : '未确认文字保留在本浏览器，保存期间可以继续输入。'}{input.backupFailed ? '浏览器备份失败，请保留本页或复制文字。' : ''}</p>}
         <details><summary>差异与依据</summary>
+          <p className="we-muted">{fact.commits.length ? `${fact.commits.length} 个新提交` : '无新提交'}{fact.workspace ? ' · 工作区有变化' : ''}{fact.workspace?.untracked ? ' · 未跟踪文件仅记录元数据' : ''}</p>
           {fact.aliases.length > 1 && <p>路径来源：{fact.aliases.join(' ← ')}</p>}
           {!fact.restricted && <div className="we-tools">{fact.commits.map(sha => <button type="button" key={sha} onClick={() => void operation(`diff:${fact.id}`, () => showDiff(item, null, sha))}>提交 {sha.slice(0, 8)}</button>)}
             {fact.workspace && !fact.workspace.untracked && ['staged','unstaged'].filter(side => fact.workspace[side] !== '.').map(side => <button type="button" key={side} onClick={() => void operation(`diff:${fact.id}`, () => showDiff(item, side))}>{side === 'staged' ? '暂存差异' : '未暂存差异'}</button>)}</div>}
           {(events.find(e => e.id === item.runId)?.sourceProblems ?? []).map((code,i) => <p key={i}>上下文不可用：{code}</p>)}
           {(events.find(e => e.id === item.runId)?.sources ?? []).map(source => <p key={source.ref}><code>{source.ref}</code> · {source.hash.slice(0,12)}{source.truncated ? ' · 截断' : ''}</p>)}
           {answer && <><p>Agent 解释来源（不等于完成证明）：</p>{answer.evidenceRefs.map(ref => <p key={ref}><code>{ref}</code></p>)}{answer.uncertainties.map((u,i) => <p key={i}>未知：{u}</p>)}</>}
+          {diff?.path === fact.path && <div className="we-preview" aria-label="还原文件差异"><h4>{diff.label}</h4><p>{diff.text ? '按需读取，正文不存档。' : diff.state === 'truncated' ? '差异超过上限，正文未返回。' : '没有可展示的文本，受限或无差异。'}</p>{diff.text && <pre>{diff.text}</pre>}<button type="button" onClick={closeDiff}>关闭差异</button></div>}
         </details>
       </article>;
     }
@@ -95,22 +105,22 @@ export function reconstructionComponent({ rpc, usePanelState }) {
       const value = sha ? await rpc('commitDiff', { ...p, itemId: item.fact.id, sha }) : await rpc('diff', { ...p, path: item.fact.path, side });
       setDiff({ ...value, path: item.fact.path, label: sha ? `提交 ${sha.slice(0, 10)}` : side === 'staged' ? '暂存差异' : '未暂存差异' });
     }
-    const groups = new Map();
-    for (const item of view?.items ?? []) { const name = item.interpretation?.interpretation.group ?? '尚未归组'; const list = groups.get(name) ?? []; list.push(item); groups.set(name,list); }
-    return <section aria-label="工作还原"><h4>理解这轮工作{view ? ` · ${view.items.length} 个文件` : ''}</h4>
+    const groups = new Map(), internal = (view?.items ?? []).filter(internalFile);
+    for (const item of (view?.items ?? []).filter(item => !internalFile(item))) { const name = item.interpretation?.interpretation.group ?? '尚未归组'; const list = groups.get(name) ?? []; list.push(item); groups.set(name,list); }
+    const fileRow = item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, diff, closeDiff: () => setDiff(null), selectedPaths, selectFile, setNotice, events: view.events }} />;
+    return <section aria-label="工作还原"><div className="we-section-title"><h4>这次的变化{view ? ` · ${view.items.length - internal.length} 个文件` : ''}</h4><button type="button" onClick={() => setMode(mode === 'list' ? 'structure' : 'list')}>{mode === 'list' ? '查看结构变化' : '返回文件列表'}</button></div>
       <details><summary>分析范围与相关上下文</summary><p>分析会把允许读取的有限 Git 差异、已保存意图和所选上下文发给当前 DSH 模型。正文不在观察历史中存档；未跟踪文件只用元数据。</p>
         <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />允许使用当前 DSH 模型分析本轮来源</label>
         {sessionId && <label><input type="checkbox" checked={sessionContext} onChange={event => setSessionContext(event.target.checked)} />结合当前会话的最近文本（仅当会话目录与所选仓库相同）</label>}
         <label><input type="checkbox" checked={logseqContext} onChange={event => setLogseqContext(event.target.checked)} />结合此目录已有授权的 Logseq 工作结构（不建立新绑定）</label>
       </details>
       {view?.modelConfigured === false && <p className="we-muted" role="status">尚未配置或选择模型，分析暂不可用。观察、Diff、交接保存和引用仍可使用。</p>}
-      {!consent && <p className="we-muted">可先查看证据、整理交接；需要分析时在上方确认范围。</p>}
+      {!consent && view?.modelConfigured !== false && <p className="we-muted">需要分析时，在上方确认发送范围。</p>}
       {!view && <p>正在读取文件条目…</p>}
       {view && !view.complete && <p role="alert">部分分析记录不可用，已隔离；缺失内容保持未知。</p>}
-      <div className="we-tools"><button type="button" aria-pressed={mode === 'list'} onClick={() => setMode('list')}>条目列表</button><button type="button" aria-pressed={mode === 'structure'} onClick={() => setMode('structure')}>结构变化</button>{view?.modelConfigured === false && <button type="button" onClick={() => void operation('refresh', refresh)}>刷新分析状态</button>}</div>
-      {mode === 'structure' ? <EvidenceStructure rpc={rpc} scopeId={scopeId} observationId={observation.id} /> : [...groups].map(([group,items]) => <section key={group}><h4>{group}</h4>{items.map(item => <FileItem key={item.fact.id} item={item} {...{ base, p, localBusy, consent: canAnalyze, operation, analyze, refresh, showDiff, selectedPaths, selectFile, setNotice, events: view.events }} />)}</section>)}
+      {view?.modelConfigured === false && <button type="button" onClick={() => void operation('refresh', refresh)}>刷新分析状态</button>}
+      {mode === 'structure' ? <EvidenceStructure rpc={rpc} scopeId={scopeId} observationId={observation.id} /> : <>{[...groups].map(([group,items]) => <section key={group}>{group !== '尚未归组' && <h4>{group}</h4>}{items.map(fileRow)}</section>)}{internal.length > 0 && <details><summary>工作区内部记录（{internal.length}）</summary><p className="we-muted">这些是工作台生成的文件，观察仍保留；正文可能包含内部来源。</p>{internal.map(fileRow)}</details>}</>}
       {view?.items.length === 0 && <p>这次没有可用的文件条目；仍可保存带范围说明的交接。</p>}
-      {diff && <div className="we-preview" aria-label="还原文件差异"><h4>{diff.path} · {diff.label}</h4><p>{diff.text ? '按需读取的来源正文，不存档。' : diff.state === 'truncated' ? '差异超过上限，正文未返回。' : '没有可展示的文本，受限或无差异。'}</p>{diff.text && <pre>{diff.text}</pre>}<button type="button" onClick={() => setDiff(null)}>关闭差异</button></div>}
       <h4>工作交接</h4><p className="we-muted">随时整理，不要求回答所有问题。未分析、失败或跳过的内容保留为未知。</p>
       <button type="button" disabled={!!localBusy.handoff || handoff.hasInput()} onClick={() => void operation('handoff', async () => { const draft = await rpc('handoffDraft', p); handoff.edit(draft.text, { sourceEventIds: draft.sourceEventIds }); })}>整理交接草稿</button>
       {handoff.hasInput() && <><label>检查并编辑交接<textarea aria-label="交接文本" maxLength={24000} value={handoffState.text} onChange={event => handoff.edit(event.target.value)} rows={9} /></label><div className="we-tools">

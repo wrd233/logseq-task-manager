@@ -10,7 +10,7 @@ export const digest = (value: string | Buffer) => createHash('sha256').update(va
 export type Change = { path: string; originalPath: string | null; staged: string; unstaged: string; untracked: boolean; modes: string[]; stamp: string; restricted: boolean };
 export type Observation = { schemaVersion: 1; id: string; scopeId: string; directory: string; startedAt: string; observedAt: string; state: 'changes' | 'clean' | 'failed'; error: string | null; branch: string | null; head: string | null; sourceVersion: string | null; consistent: boolean; truncated: boolean; files: Change[]; historyIncomplete?: boolean; sync?: SyncRange; comparison: { previousId: string | null; new: string[]; existing: string[]; uncertain: string[]; absent: string[] }; limits: typeof limits; caveat: string };
 export class EvidenceError extends Error { constructor(public code: string) { super(code); } }
-export const sensitive = (path: string) => path.split('/').some(p => /^(?:\.git|\.env(?:\..*)?|\.ssh|\.aws|\.gnupg|\.npmrc|\.netrc|\.pypirc|\.kube|private|vault|certificates|config\.json|credentials?(?:\..*)?|secrets?(?:\..*)?|id_(?:rsa|ed25519)|.*\.(?:pem|key|p12|pfx|kdbx))$/iu.test(p));
+export const sensitive = (path: string) => path.split('/').some(p => /^(?:\.git|\.task-workspace|\.env(?:\..*)?|\.ssh|\.aws|\.gnupg|\.npmrc|\.netrc|\.pypirc|\.kube|private|vault|certificates|config\.json|credentials?(?:\..*)?|secrets?(?:\..*)?|id_(?:rsa|ed25519)|.*\.(?:pem|key|p12|pfx|kdbx))$/iu.test(p));
 export async function git(directory: string, args: string[], options: { milliseconds?: number; bytes?: number } = {}): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['--no-optional-locks', '--literal-pathspecs', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', ...args], { cwd: directory, env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))), GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat' }, stdio: ['ignore', 'pipe', 'ignore'] });
@@ -91,10 +91,11 @@ export async function observe(scopeId: string, directory: string, previous?: Obs
 export async function textDiff(record: Observation, path: string, side: 'staged' | 'unstaged') {
   if (!['staged', 'unstaged'].includes(side)) throw new EvidenceError('INVALID_DIFF_SIDE');
   const file = record.files.find(f => f.path === path);
-  if (!file || file.restricted || file.untracked || file.modes.includes('120000') || file.modes.includes('160000')) throw new EvidenceError('TEXT_DIFF_RESTRICTED');
+  if (!file || file.restricted || sensitive(file.path) || !!file.originalPath && sensitive(file.originalPath) || file.untracked || file.modes.includes('120000') || file.modes.includes('160000')) throw new EvidenceError('TEXT_DIFF_RESTRICTED');
   await rootDirectory(record.directory);
   const before = await source(record.directory);
-  if (!record.consistent || record.truncated || before.truncated || before.version !== record.sourceVersion) throw new EvidenceError('SOURCE_CHANGED');
+  const matches = (current: Awaited<ReturnType<typeof source>>) => !current.truncated && current.head === record.head && current.branch === record.branch && current.files.some(item => item.path === file.path && item.stamp === file.stamp);
+  if (!record.consistent || record.truncated || !matches(before)) throw new EvidenceError('SOURCE_CHANGED');
   for (const candidate of [file.path, file.originalPath].filter((p): p is string => p !== null)) {
     let current = record.directory;
     for (const part of candidate.split('/')) {
@@ -107,7 +108,7 @@ export async function textDiff(record: Observation, path: string, side: 'staged'
   try { raw = await git(record.directory, ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--no-renames', ...(side === 'staged' ? ['--cached'] : []), '--', file.path, ...(file.originalPath ? [file.originalPath] : [])], { bytes: limits.diffBytes }); }
   catch (e) { if ((e as EvidenceError).code === 'RESULT_LIMIT') return { state: 'truncated', text: null }; throw e; }
   const after = await source(record.directory);
-  if (before.version !== after.version) throw new EvidenceError('SOURCE_CHANGED');
+  if (!matches(after)) throw new EvidenceError('SOURCE_CHANGED');
   const text = raw.toString('utf8');
   if (raw.includes(0) || text.includes('\ufffd') || /(?:Binary files|GIT binary patch|PRIVATE KEY-----|(?:api[_-]?key|password|secret|token)\s*[=:]\s*\S+)/iu.test(text)) return { state: 'restricted', text: null };
   return { state: 'current-text', text, persisted: false, sourceVersion: before.version };

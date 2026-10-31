@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { treeLayout, visibleTree } from '../structure-history/layout.mjs';
 
 const labels = { unavailable: '本轮没有可比较的真实结构快照：来源未连接、未授权、已变化或读取失败。文件变化仍可使用。', baseline: '首次取得可信结构，仅建立基线；此前结构变化未知。', 'previous-unavailable': '所选同步记录没有可信结构快照，不能比较。', 'scope-changed': 'Graph 或工作范围已改变，不能比较这两个快照。', 'invalid-time': '请选择较早的同步记录。' };
+const formatTime = value => { const parsed = Date.parse(value); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString('zh-CN') : '时间未知'; };
 export function EvidenceStructure({ rpc, scopeId, observationId }) {
   const [data, setData] = useState(null), [selected, setSelected] = useState(''), [baseline, setBaseline] = useState(''), [history, setHistory] = useState([]), [source, setSource] = useState(null);
   useEffect(() => { let current = true; rpc('history', { scopeId }).then(value => { if (current) setHistory(value.items.map(item => item.value)); }, () => {}); return () => { current = false; }; }, [scopeId]);
   useEffect(() => { let current = true; setData(null); setSelected(''); rpc('structure', { scopeId, observationId, ...(baseline ? { beforeObservationId: baseline } : {}) }).then(value => { if (current) setData(value); }, () => { if (current) setData({ state: 'unavailable' }); }); return () => { current = false; }; }, [scopeId, observationId, baseline]);
   if (!data) return <p>正在读取结构快照…</p>;
   const currentObservation = history.find(item => item.id === observationId);
-  const selector = <label>比较基准 <select value={baseline} onChange={event => setBaseline(event.target.value)}><option value="">上次成功同步</option>{history.filter(item => item.id !== observationId && currentObservation && item.observedAt <= currentObservation.observedAt).map(item => <option key={item.id} value={item.id}>{item.observedAt}</option>)}</select></label>;
+  const selector = <label>比较基准 <select value={baseline} onChange={event => setBaseline(event.target.value)}><option value="">上次成功同步</option>{history.filter(item => item.id !== observationId && currentObservation && item.observedAt <= currentObservation.observedAt).map(item => <option key={item.id} value={item.id}>{formatTime(item.observedAt)}</option>)}</select></label>;
   if (data.state !== 'comparable') return <>{selector}<p role="status">{labels[data.state]}</p></>;
   const { before, after, changes } = data, tree = visibleTree(after, changes), layout = treeLayout(tree.nodes, 620);
   const byChange = new Map(changes.map(change => [change.id, change]));
