@@ -1,0 +1,52 @@
+{
+  "kind": "CUA observations of real isolated hosts; not a fixture or generated UI",
+  "observedOn": "2026-10-31 Asia/Shanghai",
+  "hosts": {
+    "Logseq": "0.10.9 copied application; independent HOME/profile/Graph",
+    "DSH": "0.2.1-rc.2; independent HOME/DSH_HOME; port 3092"
+  },
+  "observations": [
+    {
+      "case": "never-entered affair",
+      "result": "Created [事务] 首次发现验收 through real Logseq native editing; DSH search returned it and one click opened an empty native conversation without a work directory."
+    },
+    {
+      "case": "natural Project",
+      "result": "Created [Project] 自然项目验收 through native editing; search returned type Project; one click opened native chat. Final persisted UUID 6ae5c2e9-cba1-4c48-a090-a25a18378ede survived later Logseq reload."
+    },
+    {
+      "case": "Kernel identity",
+      "result": "Ran the actual Logseq formalization command on 任务标记验收 against a dedicated real Kernel. Production Kernel anchor index returned objectId fb4adb54-3bd2-45f4-831b-db5e2fa5b1ac. DSH search showed 正式 TASK with exactly that identity and entered native chat."
+    },
+    {
+      "case": "explicit page",
+      "result": "Invoked 工作台：将当前页面加入工作搜索 on Oct 31st, 2026. Persistent native anchor 6ae5c5b1-80d5-4c3f-b33b-b17a10911bed remained after Logseq reload while the native page UUID changed from 6ae5c3ec-42f5-467a-b644-e4172d123195 to 6ae5c5d5-08e6-4798-8a97-b51b9d890652. DSH retained the page result and one click opened its native conversation."
+    },
+    {
+      "case": "exclusions",
+      "result": "Searching 普通 returned no work although native Graph contained TODO 普通待办不应收录 and 普通正文. Unselected page 合成阅读与协作 was not itself a page result; marked blocks from that page were discoverable."
+    },
+    {
+      "case": "same title",
+      "result": "Two 同名验收 results displayed graph / Oct 31st, 2026 and graph / Oct 31st, 2026 / 位置乙, with distinct persistent UUIDs. Entered both through real DSH; their native conversations and drafts were separate."
+    },
+    {
+      "case": "offline",
+      "result": "Stopped only this Goal’s identity-checked Logseq and companion. DSH showed 离线快照 · 更新于 10/31 18:42. Clicking 位置乙 restored 位置乙独立草稿; clicking the other location opened an empty native chat. No body read was granted."
+    },
+    {
+      "case": "General",
+      "result": "Switched through the work picker to General, typed General 草稿单独保留, switched into work, and returned to General. The General draft was preserved; the work draft and WorkRef were unchanged."
+    },
+    {
+      "case": "no automatic model or body authorization",
+      "result": "Owned model audit contains zero network attempts. Production read RPC for a discovery-only native session returned SESSION_NOT_BOUND. BindingStore holds identities/session references/timestamps, not chats or grants."
+    }
+  ],
+  "limitations": [
+    "No real model message was sent for Goal 2; native blank creation and draft switching were tested.",
+    "No physical Chinese IME acceptance or cross-device synchronization claim.",
+    "Registry-directory cwd handling, archive skipping and lost-create-response recovery have key logic tests; Goal 2 real discovery acceptance focused on never-bound work.",
+    "Input automation briefly created an invalid overly long page title in the disposable Graph; file writes were rejected by Logseq. It never became a selected catalog page or an acceptance result."
+  ]
+}

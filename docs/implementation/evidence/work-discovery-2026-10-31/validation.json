@@ -1,0 +1,44 @@
+{
+  "workspaceTests": 855,
+  "logseqCompleteRegression": {
+    "concurrency": 2,
+    "tests": 571,
+    "passed": 571,
+    "failed": 0
+  },
+  "dshFinalRegression": {
+    "tests": 49,
+    "passed": 49,
+    "failed": 0
+  },
+  "keyLogicAndContinuity": {
+    "tests": 10,
+    "passed": 10
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "buildAndBinaryChecks": "passed",
+  "dependencyBoundaries": {
+    "tests": 12,
+    "passed": 12
+  },
+  "isolatedLauncher": {
+    "tests": 5,
+    "passed": 5
+  },
+  "taste": "PASS",
+  "hostProof": {
+    "checks": 8,
+    "passed": 8,
+    "environment": "Synthetic SDK with production plugin and HTTP companion",
+    "model": "Native AgentLoop with local scripted model"
+  },
+  "defaultFullCheck": {
+    "passed": false,
+    "reason": "Two existing material/reading UI timing tests failed at default high concurrency. The entire Logseq package was subsequently rerun with concurrency 2; all 571 passed. Other workspace packages passed. No assertions or timeouts were relaxed.",
+    "failures": [
+      "copied reference proof survives panel navigation, observes a simulated committed native paste, and never writes source or consumes composition",
+      "long MiniProject and four real files: list joining, trusted report insertion, reading return, rename, alias, history and relocation"
+    ]
+  }
+}

@@ -1668,3 +1668,5 @@ export function stableHash(value: unknown): string {
 export * from "./workspace-agent.ts";
 
 export * from "./work-ref.ts";
+
+export * from './work-catalog.ts';

@@ -1,3 +1,4 @@
+import { publishCatalog } from './work-catalog.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
@@ -257,6 +258,7 @@ export async function startWorkspaceServer(options: {
         }
         return forward();
     };
+    let catalogQueue = Promise.resolve();
     const server = createServer(async (request, response) => {
         try {
             if (request.headers.host !== baseUrl.slice(7))
@@ -283,6 +285,12 @@ export async function startWorkspaceServer(options: {
             if (request.method !== "POST")
                 throw new WorkspaceError("METHOD_REJECTED");
             const input = await body(request);
+            if (request.url === "/plugin/catalog") {
+                const pending = catalogQueue.then(() => publishCatalog(state, input));
+                catalogQueue = pending.catch(() => {});
+                await pending;
+                send(response, 200, {published: true}); return;
+            }
             if (request.url === "/plugin/dsh") {
                 const raw = workRecord(input, ["connectionId", "mode", "title", "workRef"]), connectionId = workText(raw.connectionId);
                 const binding = broker.assert(connectionId);

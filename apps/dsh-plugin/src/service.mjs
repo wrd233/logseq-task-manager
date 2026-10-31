@@ -1,3 +1,4 @@
+import { readCatalog } from '../../task-copilot-cli/src/work-catalog.ts';
 import { workObject } from '../../logseq-plugin/src/features/work-view/focus.mjs';
 /* global AbortSignal, fetch */
 import process from 'node:process';
@@ -11,6 +12,7 @@ import { WorkspaceError, parseWorkBinding, parseWorkRef, sameWorkScope, workRefF
 import { privateDescriptor, workspaceEntry } from '../../task-copilot-cli/src/workspace-cli.ts';
 import { atomicJson, authorizedRoot, scopedPath } from '../../task-copilot-cli/src/workspace-files.ts';
 
+const matchesSource = (ref, binding) => sameWorkRef(ref, workRefFromBinding(binding)) || ref?.kind === 'logseq' && ref.sourceKind === 'page' && binding.scope.kind === 'page' && ref.graphId === binding.scope.graphId;
 const identity = binding => JSON.stringify(parseWorkBinding(binding));
 export const sameBinding = (a, b) => identity(a) === identity(b);
 const unwrap = value => value && typeof value === 'object' && 'provenance' in value && 'value' in value ? value.value : value;
@@ -59,7 +61,7 @@ export class BindingStore {
       for (const item of saved.bindings) {
         const sessionId = workText(item.sessionId), binding = item.binding ? parseWorkBinding(item.binding) : undefined;
         const workRef = item.workRef ? parseWorkRef(item.workRef) : binding ? workRefFromBinding(binding) : undefined;
-        if (binding && workRef?.kind === 'logseq' && !sameWorkRef(workRef, workRefFromBinding(binding))) throw new WorkspaceError('WORK_REF_INVALID');
+        if (binding && workRef?.kind === 'logseq' && !matchesSource(workRef, binding)) throw new WorkspaceError('WORK_REF_INVALID');
         const lastOpenedAt = saved.schemaVersion === 1 ? 0 : item.lastOpenedAt;
         if (!Number.isSafeInteger(lastOpenedAt) || lastOpenedAt < 0 || this.associations.has(sessionId)) throw new WorkspaceError('BINDINGS_INVALID');
         this.associations.set(sessionId, {sessionId, ...(workRef ? {workRef} : {}), ...(binding ? {binding} : {}), lastOpenedAt});
@@ -85,7 +87,7 @@ export class BindingStore {
     return this.mutate(next => {
       const previous = next.get(sessionId);
       const ref = binding ? parseWorkRef(workRef ?? workRefFromBinding(binding)) : workRef ? parseWorkRef(workRef) : undefined;
-      if (binding && ref?.kind === 'logseq' && !sameWorkRef(ref, workRefFromBinding(binding))) throw new WorkspaceError('WORK_REF_INVALID');
+      if (binding && ref?.kind === 'logseq' && !matchesSource(ref, binding)) throw new WorkspaceError('WORK_REF_INVALID');
       if (previous?.workRef && ref && !sameWorkRef(previous.workRef, ref)) throw new WorkspaceError('SESSION_WORK_CONFLICT');
       next.set(sessionId, {sessionId, ...(ref ? {workRef: ref} : {}), ...(binding ? {binding: parseWorkBinding(binding)} : {}), lastOpenedAt: previous?.lastOpenedAt ?? 0});
     }, assertCurrent);
@@ -180,6 +182,10 @@ export class WorkbenchService {
     const entry = verifiedEntry ?? await this.transport.entry(target);
     if (!verifiedEntry) await this.transport.call(entry, 'status', {}, sessionId, signal);
     this.check(sessionId, generation, signal);
+    if (!workRef && entry.binding.scope.kind === 'page') {
+      const graphs = await readCatalog(this.transport.stateDirectory);
+      workRef = graphs.flatMap(graph => graph.works).find(work => work.workRef.kind === 'logseq' && work.workRef.graphId === entry.binding.scope.graphId && work.pageSourceUuid === entry.binding.scope.rootUuid)?.workRef;
+    }
     await this.store.change(sessionId, entry.binding, () => this.check(sessionId, generation, signal), workRef);
     this.check(sessionId, generation, signal);
     return { sessionId, bound: true, binding: entry.binding };

@@ -1,6 +1,8 @@
 import { WorkspaceError, workRecord, workText, type AgentWorkBinding } from './workspace-agent.ts';
 
-/** Navigation identity only. Never an access grant or a directory identity. */
+/** Navigation identity only. Never an access grant or a directory identity.
+ * Explicit catalog pages may use a durable native block anchor in the page namespace;
+ * their live SourceScope still carries the actual current page UUID. */
 export type WorkRef =
   | {kind: 'logseq'; graphId: string; rootUuid: string; sourceKind: 'block' | 'page'}
   | {kind: 'kernel'; objectId: string};

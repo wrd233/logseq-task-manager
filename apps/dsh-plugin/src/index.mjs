@@ -1,3 +1,5 @@
+import { readCatalog } from '../../task-copilot-cli/src/work-catalog.ts';
+import { parseWorkRef, workKey, WorkspaceError } from '@task-copilot/contracts';
 /* global Response, AbortController */
 import process from 'node:process';
 import { rm, readFile } from 'node:fs/promises';
@@ -26,7 +28,7 @@ export async function apply(ctx, config = {}) {
       if (!cwd) {
         const initial = config.generalDirectory ? null : await ctx.workspaceController.initializeDefault(new AbortController().signal);
         const value = initial ?? await ctx.workspaceController.create({path: config.generalDirectory ?? process.cwd()});
-        return ctx.sessionController.create({workspaceId: value.workspace.workspaceId});
+        return ctx.sessionController.create({workspaceId: value.workspace.workspaceId, ...(sessionId ? {sessionId} : {})});
       }
       const value = await ctx.workspaceController.create({path: cwd});
       if (value.created) await ctx.workspaceController.rename({workspaceId: value.workspace.workspaceId, title});
@@ -47,9 +49,28 @@ export async function apply(ctx, config = {}) {
   }
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
   const routes = {
+    catalog: async input => {
+      request(input, []);
+      const graphs = await readCatalog(service.transport.stateDirectory);
+      const recents = new Map();
+      for (const row of store.associations.values()) if (row.workRef && row.lastOpenedAt > 0) recents.set(workKey(row.workRef), Math.max(recents.get(workKey(row.workRef)) ?? 0, row.lastOpenedAt));
+      return {graphs, recent: [...recents].map(([key, lastOpenedAt]) => ({key, lastOpenedAt}))};
+    },
+    enterWork: async (input, signal) => {
+      const value = request(input, ['workRef', 'operationId']), ref = parseWorkRef(value.workRef);
+      const graphs = await readCatalog(service.transport.stateDirectory);
+      const work = graphs.flatMap(graph => graph.works).findLast(work => workKey(work.workRef) === workKey(ref));
+      if (!work) throw new WorkspaceError('CATALOG_WORK_MISSING');
+      return handoffs.enterCatalog(work, value.operationId, signal);
+    },
     handoff: async (input, signal) => {const value = request(input, ['ticket']); return handoffs.open(value.ticket, signal);},
     opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
-    newWork: async (input, signal) => {const value = request(input, ['sessionId', 'operationId']); return handoffs.newWork(value.sessionId, value.operationId, signal);},
+    newWork: async (input, signal) => {
+      const value = request(input, ['sessionId', 'operationId']), association = store.associations.get(value.sessionId), ref = association?.workRef;
+      const graphs = association?.binding ? [] : await readCatalog(service.transport.stateDirectory);
+      const work = ref && graphs.flatMap(graph => graph.works).findLast(work => workKey(work.workRef) === workKey(ref));
+      return handoffs.newWork(value.sessionId, value.operationId, signal, work);
+    },
     reference: async (input, signal) => {const value = request(input, ['sessionId']); return service.command(value.sessionId, 'sessions.add', {platform: 'dsh', externalId: value.sessionId, description: '工作对话'}, signal);},
     general: async (input, signal) => {request(input, []); return handoffs.general(signal);},
     files: async (input, signal) => {const value = request(input, ['sessionId']); return service.files(value.sessionId, signal);},

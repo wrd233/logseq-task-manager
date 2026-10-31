@@ -222,7 +222,7 @@ test('composition root leaves runtime disabled while work and materials remain u
     const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='查找全部材料');
     materials.click();await delay(20);
     assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
-    assert.equal(calls,0);assert.equal(subscriptions,3); // work-view, known-workspace observation and native reading entries; no task runtime
+    assert.equal(calls,0);assert.equal(subscriptions,4); // work-view, known-workspace observation, native reading entries and discovery metadata; no task runtime
     await unload();await unload();
     assert.equal(browser.taskCopilotWorkbench,undefined);
     assert.equal(subscriptions,0);

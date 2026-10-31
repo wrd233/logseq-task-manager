@@ -1,0 +1,428 @@
+{
+  "kind": "real-isolated-Logseq-0.10.9-native-DSH-0.2.1-rc.2",
+  "observedAt": "2026-10-31T10:51:46.190Z",
+  "baseline": "76d8eea226141d38a3489acffa2cc6bd5fe18722",
+  "isolation": {
+    "pid": 92820,
+    "home": "$FIXTURE_ROOT/home",
+    "osHome": "$FIXTURE_ROOT/home",
+    "userData": "$FIXTURE_ROOT/profile",
+    "appData": "$FIXTURE_ROOT/home/Library/Application Support",
+    "capabilityInjection": false
+  },
+  "catalog": {
+    "graphs": [
+      {
+        "schemaVersion": 1,
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "graphName": "graph",
+        "refreshedAt": 1793443375581,
+        "works": [
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "b7261007-0000-4000-8000-000000000052",
+              "sourceKind": "block"
+            },
+            "title": "零散记录；先保留所有来源，再决定是否明确整理格式或继续讨论。",
+            "objectType": "事务",
+            "location": "graph / 合成阅读与协作 / **[MiniProject]** 阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c16c-a039-4b21-b916-500c042c8476",
+              "sourceKind": "block"
+            },
+            "title": "首次发现验收",
+            "objectType": "事务",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c2e9-c455-4798-9d43-3a381667ae27",
+              "sourceKind": "block"
+            },
+            "title": "核对清单验收",
+            "objectType": "事项",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c2e9-33b6-4b0f-a1ee-760ca3a93fd7",
+              "sourceKind": "block"
+            },
+            "title": "同名验收",
+            "objectType": "事务",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "b7261007-0000-4000-8000-000000000077",
+              "sourceKind": "block"
+            },
+            "title": "正式边界合成样本；此锚点只用来核验自然写回保护，不代表正式 Kernel 注册。",
+            "objectType": "任务",
+            "location": "graph / 合成阅读与协作 / **[MiniProject]** 阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "b7261007-0000-4000-8000-000000000027",
+              "sourceKind": "block"
+            },
+            "title": "讨论阅读体验；保留可能、目前偏向和尚未询问，不直接变成正式承诺。",
+            "objectType": "MiniProject",
+            "location": "graph / 合成阅读与协作 / **[MiniProject]** 阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "b7261007-0000-4000-8000-000000000001",
+              "sourceKind": "block"
+            },
+            "title": "阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。",
+            "objectType": "MiniProject",
+            "location": "graph / 合成阅读与协作",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c2e9-7cc7-4785-8579-3d2ecc076be9",
+              "sourceKind": "block"
+            },
+            "title": "小项目验收",
+            "objectType": "MiniProject",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "b7261007-0000-4000-8000-000000000002",
+              "sourceKind": "block"
+            },
+            "title": "选择资料整理方式；现在只核验试用，不代表整件事已完成。",
+            "objectType": "事务",
+            "location": "graph / 合成阅读与协作 / **[MiniProject]** 阅读与协作合成验收；这里只保存合成原句和层级，材料与正式注册由真实隔离演练建立。",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "kernel",
+              "objectId": "fb4adb54-3bd2-45f4-831b-db5e2fa5b1ac"
+            },
+            "title": "任务标记验收",
+            "objectType": "正式 TASK",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c2e9-cba1-4c48-a090-a25a18378ede",
+              "sourceKind": "block"
+            },
+            "title": "自然项目验收",
+            "objectType": "Project",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c2e9-6b52-4361-890f-2ea28d331d46",
+              "sourceKind": "block"
+            },
+            "title": "同名验收",
+            "objectType": "事务",
+            "location": "graph / Oct 31st, 2026 / 位置乙",
+            "updatedAt": 1793443375581
+          },
+          {
+            "workRef": {
+              "kind": "logseq",
+              "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+              "rootUuid": "6ae5c5b1-80d5-4c3f-b33b-b17a10911bed",
+              "sourceKind": "page"
+            },
+            "title": "Oct 31st, 2026",
+            "objectType": "页面",
+            "location": "graph / Oct 31st, 2026",
+            "updatedAt": 1793443375581,
+            "pageSourceUuid": "6ae5c5d5-08e6-4798-8a97-b51b9d890652"
+          }
+        ]
+      }
+    ],
+    "recent": [
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c16c-a039-4b21-b916-500c042c8476\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793442317338
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c1f4-d0ba-430e-9e09-08a095ba9859\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793442352728
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c222-05b5-4ef1-b012-cc0c6fe14494\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793443863770
+      },
+      {
+        "key": "{\"kind\":\"kernel\",\"objectId\":\"fb4adb54-3bd2-45f4-831b-db5e2fa5b1ac\"}",
+        "lastOpenedAt": 1793443164271
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c2e9-cba1-4c48-a090-a25a18378ede\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793443214460
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c5b1-80d5-4c3f-b33b-b17a10911bed\",\"sourceKind\":\"page\"}",
+        "lastOpenedAt": 1793443330238
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c2e9-6b52-4361-890f-2ea28d331d46\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793443446258
+      },
+      {
+        "key": "{\"kind\":\"logseq\",\"graphId\":\"graph:logseq_local_$FIXTURE_ROOT/graph\",\"rootUuid\":\"6ae5c2e9-33b6-4b0f-a1ee-760ca3a93fd7\",\"sourceKind\":\"block\"}",
+        "lastOpenedAt": 1793443459200
+      }
+    ]
+  },
+  "statuses": [
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-c572ac9a-156f-47c4-ad18-d55543227574",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c16c-a039-4b21-b916-500c042c8476",
+          "sourceKind": "block"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-4d8cdd9b-b602-4668-b610-0ba6d37d2ff3",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c1f4-d0ba-430e-9e09-08a095ba9859",
+          "sourceKind": "block"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-6d8aebc6-c0fc-46b4-be47-543251820c82",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c222-05b5-4ef1-b012-cc0c6fe14494",
+          "sourceKind": "block"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-e78ed9aa-f995-45ab-9a1b-d932511f3f83",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "kernel",
+          "objectId": "fb4adb54-3bd2-45f4-831b-db5e2fa5b1ac"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-6202b056-d032-46df-b94d-173e1509d508",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c2e9-cba1-4c48-a090-a25a18378ede",
+          "sourceKind": "block"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-593ed079-d4b0-4043-8a8b-d8fc68b5e885",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c5b1-80d5-4c3f-b33b-b17a10911bed",
+          "sourceKind": "page"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-14cdc743-f019-49cc-9f0c-53634ab66970",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c2e9-6b52-4361-890f-2ea28d331d46",
+          "sourceKind": "block"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "sessionId": "session-ada93b55-2a5e-4d2b-9b41-8d61c14d9f45",
+        "bound": false,
+        "binding": null,
+        "cwd": "$FIXTURE_ROOT/general",
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "rootUuid": "6ae5c2e9-33b6-4b0f-a1ee-760ca3a93fd7",
+          "sourceKind": "block"
+        }
+      }
+    }
+  ],
+  "sourceReadFromDiscovery": {
+    "ok": false,
+    "error": {
+      "code": "SESSION_NOT_BOUND",
+      "message": "SESSION_NOT_BOUND",
+      "details": {}
+    }
+  },
+  "nativeAssociations": [
+    {
+      "sessionId": "session-93f0cdd1-98c2-4da0-9db6-07f54fb0008e",
+      "lastOpenedAt": 1793443863757
+    },
+    {
+      "sessionId": "session-c572ac9a-156f-47c4-ad18-d55543227574",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c16c-a039-4b21-b916-500c042c8476",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793442317338
+    },
+    {
+      "sessionId": "session-4d8cdd9b-b602-4668-b610-0ba6d37d2ff3",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c1f4-d0ba-430e-9e09-08a095ba9859",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793442352728
+    },
+    {
+      "sessionId": "session-6d8aebc6-c0fc-46b4-be47-543251820c82",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c222-05b5-4ef1-b012-cc0c6fe14494",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793443863770
+    },
+    {
+      "sessionId": "session-e78ed9aa-f995-45ab-9a1b-d932511f3f83",
+      "workRef": {
+        "kind": "kernel",
+        "objectId": "fb4adb54-3bd2-45f4-831b-db5e2fa5b1ac"
+      },
+      "lastOpenedAt": 1793443164271
+    },
+    {
+      "sessionId": "session-6202b056-d032-46df-b94d-173e1509d508",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c2e9-cba1-4c48-a090-a25a18378ede",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793443214460
+    },
+    {
+      "sessionId": "session-593ed079-d4b0-4043-8a8b-d8fc68b5e885",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c5b1-80d5-4c3f-b33b-b17a10911bed",
+        "sourceKind": "page"
+      },
+      "lastOpenedAt": 1793443330238
+    },
+    {
+      "sessionId": "session-14cdc743-f019-49cc-9f0c-53634ab66970",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c2e9-6b52-4361-890f-2ea28d331d46",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793443446258
+    },
+    {
+      "sessionId": "session-ada93b55-2a5e-4d2b-9b41-8d61c14d9f45",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "6ae5c2e9-33b6-4b0f-a1ee-760ca3a93fd7",
+        "sourceKind": "block"
+      },
+      "lastOpenedAt": 1793443459200
+    }
+  ],
+  "modelNetworkAttempts": 0,
+  "note": "UI actions were performed through CUA against the real hosts; UI observations are recorded separately. No fixture SDK or simulated search UI was installed."
+}

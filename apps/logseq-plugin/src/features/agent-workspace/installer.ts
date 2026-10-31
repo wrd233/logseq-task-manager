@@ -1,3 +1,4 @@
+import {pageWorkRef} from './catalog-pages.ts';
 import { resolveDshTarget } from "./dsh-work.ts";
 import { WorkspaceError, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
@@ -315,6 +316,9 @@ export function installAgentWorkspace(options: {
         const scope = typeof selected === "string" ? {graphId: initialGraph, rootUuid: selected} : selected;
         if (scope.graphId !== initialGraph) throw new WorkspaceError("SCOPE_MISMATCH");
         const resolved = await resolveDshTarget(scope, {getBlock: id => logseq.Editor.getBlock(id), formal: options.formalTarget ?? (async () => null), check});
+        if (resolved.scope.kind === 'page') resolved.workRef = await pageWorkRef(initialGraph, resolved.scope.rootUuid, () => {
+            if (disposed || sequence !== openSequence || graphGeneration !== initialGraphGeneration) throw new WorkspaceError('CONNECTION_REVOKED');
+        });
         if (!options.ensureDshWork) throw new WorkspaceError("MATERIALS_UNAVAILABLE");
         await options.ensureDshWork(resolved.scope, check); await check();
         if (!connection || !sameWorkScope(connection.binding.scope, resolved.scope)) await allow(resolved.scope, false, true, true);

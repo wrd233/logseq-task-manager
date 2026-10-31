@@ -1,9 +1,11 @@
+import { WorkDiscovery } from './discovery.jsx';
+import { workKey } from '@task-copilot/contracts';
 import { applyHistoryClient } from './structure-history/client.jsx';
 import { applyEvidenceClient } from './work-evidence/client.jsx';
 import { SingleFlight } from './single-flight.mjs';
 /* global window, document, AbortController, setInterval, clearInterval, setTimeout, clearTimeout, URLSearchParams, crypto */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { styles, readingStyles, workSwitchStyles } from './styles.mjs';
+import { styles, readingStyles, workSwitchStyles, discoveryStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
 import { reportProjection } from '../../logseq-plugin/src/features/work-view/report-body.ts';
 
@@ -22,7 +24,7 @@ const errorText = error => ({
 export function apply(ctx) {
   applyHistoryClient(ctx);
   applyEvidenceClient(ctx);
-  const style = document.createElement('style'); style.textContent = styles + readingStyles + workSwitchStyles; document.head.append(style);
+  const style = document.createElement('style'); style.textContent = styles + readingStyles + workSwitchStyles + discoveryStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false, handoff = null, handoffController = null;
   const emit = () => { for (const listener of listeners) listener(); };
@@ -37,11 +39,11 @@ export function apply(ctx) {
   };
   // Public owner snapshot changes only for on-screen navigation, not data refreshes.
   let navigationQueue = Promise.resolve();
-  let lastMounted;
+  let lastMounted, navigationGeneration = 0;
   const observeNavigation = (force = false) => {
     const sessionId = ctx.sidebarRight.mounted.getSnapshot();
     if (!force && sessionId === lastMounted) return;
-    lastMounted = sessionId;
+    lastMounted = sessionId; navigationGeneration++;
     if (document.visibilityState === 'hidden') return;
     if (sessionId) navigationQueue = navigationQueue.catch(() => {}).then(() => rpc('opened', {sessionId})).catch(error => {
       if (!disposed) update(sessionId, {error});
@@ -60,6 +62,7 @@ export function apply(ctx) {
     emit();
   }
   async function navigate(method, sessionId) {
+    const navigation = ++navigationGeneration;
     if (get(sessionId).busy) return;
     handoffController?.abort();
     update(sessionId, {busy: true, error: null});
@@ -72,24 +75,27 @@ export function apply(ctx) {
       }
       const result = await rpc(method, payload);
       await ctx.sessions.refresh();
+      if (disposed || navigation !== navigationGeneration) return;
       ctx.uiWorkspace.openSession(result.sessionId);
       clearHandoff();
-      if (method === 'newWork') {newOperations.delete(sessionId); show(result.sessionId);}
+      if (method === 'newWork') {newOperations.delete(sessionId); if(result.bound !== false) show(result.sessionId);}
       else close();
       if (result.warnings?.length) update(result.sessionId,{referencePending:true,notice:'已进入原生会话；辅助引用尚未保存。'});
-    } catch (error) {update(sessionId, {error});}
+      return true;
+    } catch (error) {update(sessionId, {error}); return false;}
     finally {update(sessionId, {busy: false});}
   }
   async function enterHandoff() {
     if(!handoff || disposed)return;
     handoffController?.abort(); const controller = handoffController = new AbortController();
-    const ticket=handoff.ticket;
+    const ticket=handoff.ticket, navigation = ++navigationGeneration;
     handoff={...handoff,busy:true,error:null};emit();
     try {
       await navigationQueue;
       const result=await rpc('handoff',{ticket},controller.signal);
       if(disposed||controller.signal.aborted)return;
       await ctx.sessions.refresh();if(disposed||controller.signal.aborted)return;
+      if(navigation !== navigationGeneration)return;
       ctx.uiWorkspace.openSession(result.sessionId);show(result.sessionId,true);
       update(result.sessionId,{referencePending:!!result.warnings?.length,notice:result.warnings?.length ? "已进入原生会话；辅助引用尚未保存，可重试。" : null});
       clearHandoff();
@@ -168,18 +174,31 @@ export function apply(ctx) {
     }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button>;
   }
   function WorkSwitch({sessionId}) {
-    const row = useRow(sessionId);
+    const row = useRow(sessionId), [open, setOpen] = useState(false), [title, setTitle] = useState('');
     useEffect(() => {
       let active = true;
-      void rpc('status', {sessionId}).then(status => {if (active && !disposed) update(sessionId, {status});}).catch(error => {if(active && !disposed) update(sessionId,{error});});
+      if(sessionId) void rpc('status', {sessionId}).then(status => {if (active && !disposed) update(sessionId, {status});}).catch(error => {if(active && !disposed) update(sessionId,{error});});
+      void rpc('catalog', {}).then(catalog => {if(active) setTitle(catalog.graphs.flatMap(graph => graph.works).find(work => row.status?.workRef && workKey(work.workRef) === workKey(row.status.workRef))?.title ?? '');}).catch(()=>{});
       return () => {active=false;};
-    },[sessionId,row.revision]);
-    return <nav className="lq-work-switch" aria-label="工作与通用对话">
-      <span>{row.status?.workRef ? '工作对话' : 'General'}</span>
+    },[sessionId,row.revision,row.status?.workRef && workKey(row.status.workRef)]);
+    useEffect(() => {
+      const key = event => {if((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'k') {event.preventDefault(); setOpen(value=>!value);}};
+      window.addEventListener('keydown',key); return ()=>window.removeEventListener('keydown',key);
+    },[]);
+    const enterWork = async (work, operations) => {
+      const navigation = ++navigationGeneration; handoffController?.abort();
+      await navigationQueue;
+      const key = workKey(work.workRef);
+      if(!operations.has(key)) operations.set(key, crypto.randomUUID());
+      const result = await rpc('enterWork', {workRef:work.workRef, operationId:operations.get(key)});
+      await ctx.sessions.refresh();
+      if(disposed || navigation !== navigationGeneration) return;
+      ctx.uiWorkspace.openSession(result.sessionId); clearHandoff(); close();
+    };
+    return <><nav className="lq-work-switch" aria-label="工作与通用对话">
+      <button type="button" className="lq-switch-trigger" aria-label="搜索和切换工作" aria-haspopup="dialog" aria-expanded={open} title="搜索工作 ⌘⇧K" onClick={()=>setOpen(true)}><span aria-hidden="true">⌕</span><span>{row.status?.workRef ? title || '当前工作' : 'General'}</span><span aria-hidden="true">⌄</span></button>
       {row.status?.workRef ? <><button type="button" disabled={row.busy} onClick={() => {void navigate('newWork',sessionId);}}>新建此工作对话</button><button type="button" onClick={() => show(sessionId)}>查看工作</button></> : null}
-      <button type="button" disabled={row.busy} onClick={() => {void navigate('general',sessionId);}}>General</button>
-      {row.error?.code === 'SESSION_CWD_MISMATCH' ? <span role="status">目录不同，请新开工作对话</span> : null}
-    </nav>;
+    </nav>{open ? <WorkDiscovery rpc={rpc} currentRef={row.status?.workRef} onEnter={enterWork} onGeneral={async()=>{if(!await navigate('general',sessionId)) throw Error('GENERAL_NAVIGATION_FAILED');}} onClose={()=>setOpen(false)}/> : null}</>;
   }
 
   function RowAction({ sessionId }) {
@@ -282,7 +301,7 @@ export function apply(ctx) {
       frame.classList.add('lq-frame-open');
       return () => frame.classList.remove('lq-frame-open');
     }, [mounted, current?.sessionId,reference?.sessionId]);
-    return <>{mounted ? <WorkSwitch key={mounted} sessionId={mounted} /> : null}{entry ? <section className="lq-source lq-handoff" aria-label="进入 DSH 协作" role="status">
+    return <><WorkSwitch sessionId={mounted} />{entry ? <section className="lq-source lq-handoff" aria-label="进入 DSH 协作" role="status">
       {entry.busy?<p>正在进入此工作的 DSH 会话…</p>:<><p>{errorText(entry.error)}</p>{entry.error?.code==='SESSION_CWD_MISMATCH'?<p>可使用“新建此工作对话”，或回 Logseq 新开。</p>:null}<button type="button" onClick={()=>{void enterHandoff();}}>重试</button></>}
       {!entry.busy?<button type="button" onClick={()=>{handoffController?.abort();handoff=null;emit();}}>关闭</button>:null}
     </section>:null}{current&&mounted&&current.sessionId===mounted&&reference?.sessionId===mounted?<div ref={seat}><props.SessionProvider session={reference}>{props.renderSlot('logseq.work.source', {})}</props.SessionProvider></div>:null}</>;

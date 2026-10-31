@@ -1,3 +1,4 @@
+import { installCatalogPublisher } from './features/agent-workspace/catalog-publisher.ts';
 import { graphIdentity } from "./graph-adapter.ts";
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
   let content: ContentInstallation | null = null;
   let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
   let stages: StageInstallation | null = null;
+  let removeCatalog: () => void = () => undefined;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
   let publishedApi: unknown = null;
@@ -47,7 +49,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -137,6 +139,7 @@ async function main(): Promise<void> {
     },
     submit:async (input,binding,origin)=>{requireStageScope(binding.scope);return origin?stages.trustedSubmit(input,origin):stageApi.submit(input);},
   }});
+  removeCatalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
   work?.setContextActions(() => {

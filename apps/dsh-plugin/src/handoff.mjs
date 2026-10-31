@@ -1,9 +1,10 @@
 import { sameBinding } from './service.mjs';
-import { realpath } from 'node:fs/promises';
+import { readFile, mkdir, realpath } from 'node:fs/promises';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { readDshHandoff, handoffPath } from '../../task-copilot-cli/src/dsh-handoff.ts';
-import { WorkspaceError, sameWorkScope, sameWorkRef, workRefFromBinding } from '@task-copilot/contracts';
+import { WorkspaceError, sameWorkScope, sameWorkRef, workRefFromBinding, workKey } from '@task-copilot/contracts';
 
 const missing = error => /^(?:session\/not-found|SESSION_NOT_FOUND|ENOENT)$/.test(error.code ?? '');
 /** Serialized native operations. No messages, drafts, model calls or runtime credentials are stored here. */
@@ -24,6 +25,16 @@ export class DshHandoffs {
     if (!session.meta?.cwd || await realpath(session.meta.cwd) !== await realpath(directory))
       throw new WorkspaceError('SESSION_CWD_MISMATCH');
   }
+  async recentSession(workRef, directory, signal) {
+    for (const row of this.service.store.recent(workRef)) {
+      const session = await this.valid(row.sessionId, signal);
+      if (!session) continue;
+      const expected = directory ?? row.binding?.directory;
+      if (expected) await this.assertCwd(session, expected);
+      return row.sessionId;
+    }
+    return null;
+  }
   opened(sessionId, signal) {
     return this.serial(async () => {
       if (!await this.valid(sessionId, signal)) throw new WorkspaceError('SESSION_NOT_FOUND');
@@ -40,14 +51,7 @@ export class DshHandoffs {
     await service.transport.call(entry, 'status', {}, 'handoff', signal);
     const workRef = request.workRef ?? workRefFromBinding(entry.binding);
     let sessionId = request.sessionId;
-    if (!sessionId && request.mode !== 'new') {
-      for (const row of service.store.recent(workRef)) {
-        const session = await this.valid(row.sessionId, signal);
-        if (!session) continue;
-        await this.assertCwd(session, entry.directory);
-        sessionId = row.sessionId; break;
-      }
-    }
+    if (!sessionId && request.mode !== 'new') sessionId = await this.recentSession(workRef, entry.directory, signal);
     if (!sessionId) {
       // Reserve a native id before creation. An uncertain response is inspected on retry.
       sessionId = `session-${randomUUID()}`;
@@ -73,10 +77,50 @@ export class DshHandoffs {
     catch { warnings.push('SESSION_REFERENCE_PENDING'); }
     return {sessionId, title: request.title, warnings};
   }
-  newWork(sessionId, operationId, signal) {
+  // The same native validity/recent-open rules, without a body connection or grant.
+  enterCatalog(work, operationId, signal, mode = 'continue') {
+    return this.serial(() => this.discover(work, operationId, signal, mode));
+  }
+  async discover(work, operationId, signal, mode) {
+    signal?.throwIfAborted();
+    const {service} = this, workRef = work.workRef;
+    if (mode !== 'new') {
+      const sessionId = await this.recentSession(workRef, work.directory, signal);
+      if (sessionId) return {sessionId, bound: service.store.bindings.has(sessionId)};
+    }
+    if (!/^[0-9a-f-]{36}$/u.test(operationId)) throw new WorkspaceError('DSH_HANDOFF_INVALID');
+    const directory = join(service.store.directory, 'discovery-operations');
+    await mkdir(directory, {recursive: true, mode: 0o700});
+    const path = join(directory, `${operationId}.json`);
+    let operation;
+    try {operation = JSON.parse(await readFile(path, 'utf8'));}
+    catch (error) {if (error.code !== 'ENOENT') throw error;}
+    if (operation && workKey(operation.workRef) !== workKey(workRef)) throw new WorkspaceError('SESSION_WORK_CONFLICT');
+    if (!operation) {
+      operation = {workRef, sessionId: `session-${randomUUID()}`};
+      await atomicJson(path, operation);
+    }
+    const previous = service.store.recent(workRef).find(row => row.binding);
+    const sessionId = operation.sessionId;
+    let session = await this.valid(sessionId, signal);
+    if (!session) {
+      if ((await this.archivedSessions()).includes(sessionId)) throw new WorkspaceError('SESSION_ARCHIVED');
+      const created = await this.createSession({sessionId, title: work.title, ...(work.directory || previous ? {cwd: work.directory ?? previous.binding.directory} : {})});
+      if (created.sessionId !== sessionId) throw new WorkspaceError('SESSION_CREATE_ID_MISMATCH');
+      session = await this.valid(sessionId, signal);
+      if (!session) throw new WorkspaceError('SESSION_NOT_FOUND');
+    }
+    if (work.directory || previous) await this.assertCwd(session, work.directory ?? previous.binding.directory);
+    // Association is navigation only: never copy a source binding or grant into a new conversation.
+    await service.store.change(sessionId, null, () => signal?.throwIfAborted(), workRef);
+    try {await this.renameSession({sessionId, title: work.title});} catch { /* Native chat is still usable. */ }
+    return {sessionId, bound: false};
+  }
+  newWork(sessionId, operationId, signal, catalogWork) {
     return this.serial(async () => {
       const association = this.service.store.associations.get(sessionId);
-      if (!association?.workRef || !association.binding) throw new WorkspaceError('SESSION_NOT_BOUND');
+      if (!association?.workRef) throw new WorkspaceError('SESSION_NOT_BOUND');
+      if (!association.binding) return this.discover(catalogWork ?? {workRef: association.workRef, title: '新的工作对话'}, operationId, signal, 'new');
       const entry = await this.service.transport.entry(association.binding.directory);
       if (!sameWorkScope(entry.binding.scope, association.binding.scope)) throw new WorkspaceError('WORK_SCOPE_CHANGED');
       // Reuse the handoff journal for native-create recovery. A retry keeps the same operationId.
