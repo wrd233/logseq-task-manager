@@ -1,0 +1,46 @@
+{
+  "phase": "cwd-recovery",
+  "observedAt": "2026-10-31T14:52:51.822Z",
+  "B": "session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+  "A": "session-03068f8e-afe5-4c3e-b5bf-08bdb3e2576f",
+  "sessions": [
+    {
+      "sessionId": "session-03068f8e-afe5-4c3e-b5bf-08bdb3e2576f",
+      "registeredDirectory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/c341b6985aaca4399459/workspaces/aaaaaaaa-0000-4000-8000-000000000001",
+      "cwdMismatch": true,
+      "directoryIssue": null,
+      "bound": false,
+      "binding": null,
+      "cwd": "$FIXTURE_ROOT/general",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "aaaaaaaa-0000-4000-8000-000000000001",
+        "sourceKind": "block"
+      }
+    },
+    {
+      "sessionId": "session-dff5564f-d61b-4e02-a7cb-4e2cfebd1df9",
+      "registeredDirectory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/c341b6985aaca4399459/workspaces/aaaaaaaa-0000-4000-8000-000000000001",
+      "cwdMismatch": false,
+      "directoryIssue": null,
+      "bound": false,
+      "binding": null,
+      "cwd": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/c341b6985aaca4399459/workspaces/aaaaaaaa-0000-4000-8000-000000000001",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "aaaaaaaa-0000-4000-8000-000000000001",
+        "sourceKind": "block"
+      }
+    }
+  ],
+  "newSessionRead": {
+    "ok": false,
+    "error": {
+      "code": "SESSION_NOT_BOUND",
+      "message": "SESSION_NOT_BOUND",
+      "details": {}
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "kind": "real-isolated-host-manual-CUA-observations",
+  "Logseq": "0.10.15, dedicated copied application, HOME/profile and Graph",
+  "DSH": "0.2.1-rc.2, native standard preset, dedicated HOME/DSH_HOME; port 3093",
+  "capabilityInjection": false,
+  "observations": [
+    {
+      "case": "independent-source",
+      "LogseqReading": "工作 A · 阅读保留 / A_ONLY_731",
+      "DSHSession": "session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+      "DSHReading": "工作 B · 来源路由 / B_ONLY_942",
+      "result": "DSH source opened without changing Logseq reading A; production read RPC contains B marker and no A marker"
+    },
+    {
+      "case": "delayed-B-read",
+      "method": "SIGSTOP only identity-checked owned companion; request B source, switch DSH to A, SIGCONT companion before request timeout",
+      "result": "A retained A draft preserved 731 and its unbound source panel; no B source rendered in A. Returning to B retained B draft preserved 942 and the same native B Session."
+    },
+    {
+      "case": "offline-native-chat",
+      "method": "Stop only this Goal Logseq and companion; submit native B draft",
+      "result": "Native message B draft preserved 942 saved in B; external model transport deliberately unavailable, retry canceled through native UI. Native history showed Git actual changes and review.txt / WORKSPACE.md. WorkEvidence showed saved sync and diff."
+    },
+    {
+      "case": "restart-permissions",
+      "result": "Before stop, explicit B body grant true. New companion instance changed, old connection DESCRIPTOR_STALE. Explicit read-only re-entry returned current B source with body/file/TODO grants false."
+    },
+    {
+      "case": "directory-conflict",
+      "method": "A originally entered discovery with general cwd and native draft A draft preserved 731; Logseq later registered A real work directory via existing entry",
+      "result": "Handoff refused SESSION_CWD_MISMATCH while DSH remained B. Targeted recovery button created a separate A native Session at its registered directory. Original A Session kept its original cwd and association; neither B nor A old Session was retargeted."
+    }
+  ],
+  "limits": [
+    "The live model endpoint was deliberately blocked; no live model-quality claim. Native chat admission/history and model-unavailable recovery were observed.",
+    "Old A draft was observed during A/B switching. Directory-recovery draft preservation also has the focused native-session continuity regression; no draft-copy code was added.",
+    "No daily personal Graph, other Goal profile/port or global Provider settings were changed."
+  ]
+}

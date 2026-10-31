@@ -1,0 +1,15 @@
+{
+  "phase": "before-reconnect",
+  "observedAt": "2026-10-31T11:10:22.879Z",
+  "B": "session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+  "A": "session-03068f8e-afe5-4c3e-b5bf-08bdb3e2576f",
+  "source": {
+    "ok": false,
+    "error": {
+      "code": "DESCRIPTOR_STALE",
+      "message": "DESCRIPTOR_STALE",
+      "details": {}
+    }
+  },
+  "instanceChanged": true
+}

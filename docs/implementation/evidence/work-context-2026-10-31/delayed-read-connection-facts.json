@@ -1,0 +1,52 @@
+[
+  {
+    "at": "2026-10-31T11:06:18.503Z",
+    "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+    "connectionId": "bdf981d5-f925-43be-9e5c-0bdcfb912394",
+    "clientId": "dsh:session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+    "requestId": "cb23a389-efd7-455d-9fbf-abf608fdec0e",
+    "command": "files.list",
+    "payloadDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "outcome": "returned"
+  },
+  {
+    "at": "2026-10-31T11:06:19.474Z",
+    "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+    "connectionId": "bdf981d5-f925-43be-9e5c-0bdcfb912394",
+    "clientId": "dsh:session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+    "requestId": "83732af3-a0cb-412f-8928-bdc4f4a8a8ae",
+    "command": "reading.view",
+    "payloadDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "outcome": "VIEW_SCOPE_MISMATCH"
+  },
+  {
+    "at": "2026-10-31T11:06:20.500Z",
+    "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+    "connectionId": "bdf981d5-f925-43be-9e5c-0bdcfb912394",
+    "clientId": "dsh:session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+    "requestId": "c739a76a-cea8-44ea-bfbd-b10e081f5c34",
+    "command": "refresh",
+    "payloadDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "outcome": "returned"
+  },
+  {
+    "at": "2026-10-31T11:06:47.512Z",
+    "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+    "connectionId": "bdf981d5-f925-43be-9e5c-0bdcfb912394",
+    "clientId": "dsh:session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+    "requestId": "09972947-11df-4375-855b-851f97e4bac9",
+    "command": "reading.view",
+    "payloadDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "outcome": "VIEW_SCOPE_MISMATCH"
+  },
+  {
+    "at": "2026-10-31T11:06:48.510Z",
+    "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+    "connectionId": "bdf981d5-f925-43be-9e5c-0bdcfb912394",
+    "clientId": "dsh:session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+    "requestId": "924be76c-e055-4254-bd7b-c6f2e3f74856",
+    "command": "refresh",
+    "payloadDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "outcome": "returned"
+  }
+]

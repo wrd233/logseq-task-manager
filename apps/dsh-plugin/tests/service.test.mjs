@@ -4,13 +4,14 @@ import { setImmediate } from 'node:timers';
 import { mkdtemp, mkdir, realpath, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {workRefFromBinding} from '@task-copilot/contracts';
 import { BindingStore, WorkbenchService, modelContext } from '../src/service.mjs';
 
 const scope = { graphId: 'Lab:/private/graph', rootUuid: 'b7261007-0000-4000-8000-000000000001' };
 const binding = directory => ({ scope, directory, provider: 'workspace', workspaceId: 'work-test', organization: 'flat' });
 function fixture(root) {
   let work = binding(root), gate, offline = false;
-  const opened = [], store = { bindings: new Map(), change: async (id, value) => value ? store.bindings.set(id, value) : store.bindings.delete(id) };
+  const opened = [], store = { bindings: new Map(), associations: new Map(), change: async (id, value) => {if(value) {store.bindings.set(id,value);store.associations.set(id,{workRef:workRefFromBinding(value)});} else {store.bindings.delete(id);store.associations.delete(id);}} };
   const packet = () => ({ scene: { binding: work, savedSource: { scope, capturedAt: '2026-10-11T00:00:00Z', sourceSetVersion: 'v1', blocks: [{ sourceId: 'source-one', content: 'A saved original paragraph', contentVersion: 'v1', depth: 0, availability: 'available' }] }, materials: [], guidance: { common: { text: '', version: 'g1' }, project: { text: '', version: 'g2' } }, sourceBundleVersion: 'v1', permissions: { read: true, bodyWrite: false } }, current: { sourceMatches: true, materialsMatch: true, guidanceMatches: true } });
   const transport = { entry: async () => ({ binding: work, directory: root }), call: async (_entry, command) => {
     if (offline) throw Object.assign(Error('offline'), { code: 'WORKSPACE_OFFLINE' });
@@ -62,15 +63,15 @@ test('file opening rechecks authority and refuses arbitrary paths, symlinks and 
     f.scopeChange(); await assert.rejects(f.service.view('one'), { code: 'WORK_SCOPE_CHANGED' });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
-test('late read after unbind is discarded and offline data cannot be opened', async () => {
+test('late read after unbind is discarded and offline native directory stays available', async () => {
   const f = fixture(tmpdir()); await f.service.bind('one', tmpdir());
   let release; f.block(new Promise(resolve => { release = resolve; }));
   const reading = f.service.read('one'); await new Promise(resolve => setImmediate(resolve));
   await f.service.unbind('one'); release();
   await assert.rejects(reading, { code: 'BINDING_CHANGED' });
   const second = fixture(tmpdir()); await second.service.bind('one', tmpdir()); second.offline();
-  await assert.rejects(second.service.open('one', 'directory', false), { code: 'WORKSPACE_OFFLINE' });
-  assert.deepEqual(second.opened, []);
+  await second.service.open('one', 'directory', false);
+  assert.deepEqual(second.opened, [await realpath(tmpdir())]);
 });
 test('model context stays bounded without breaking JSON or granting writes', async () => {
   const f = fixture(tmpdir()), packet = f.packet();
@@ -111,4 +112,35 @@ test('fresh body survives guidance and file failures; saved requests never enter
   assert.deepEqual(packet.warnings.map(row=>row.command),['guidance.read','files.list']);
   const view=await f.service.sourceView('one');assert.equal(view.blocks.length,1);
   packet.scene.request='old collaboration request';assert.equal(JSON.parse(modelContext(packet)).request,'');
+});
+
+
+test('explicit Session target survives other work reads and rejects its own superseded generation', async t => {
+  const root=await realpath(await mkdtemp(join(tmpdir(),'dsh-routing-')));t.after(()=>rm(root,{recursive:true,force:true}));
+  const f=fixture(root);await f.service.bind('B',root);
+  const captured=[],original=f.service.transport.call;
+  f.service.transport.call=async(entry,command,payload,id,signal,target)=>{
+    captured.push({command,id,target});
+    if(command==='reading.read'||command==='reading.view')throw Object.assign(Error('A is on screen'),{code:'VIEW_SCOPE_MISMATCH'});
+    return original(entry,command,payload,id,signal);
+  };
+  const packet=await f.service.read('B');assert.equal(packet.reading,null);assert.equal(packet.scene.savedSource.blocks[0].content,'A saved original paragraph');
+  for(const call of captured){assert.equal(call.target.sessionId,'B');assert.deepEqual(call.target.workRef,workRefFromBinding(binding(root)));assert.deepEqual(call.target.scope,scope);assert.equal(call.target.generation,1);}
+  await writeFile(join(root,'proposal.md'),'offline native file');f.offline();
+  const files=await f.service.files('B');assert.equal(files.files.some(file=>file.key==='file:proposal.md'),true);assert.equal(files.warning,'WORKSPACE_OFFLINE');
+  await f.service.open('B','file:proposal.md',false);assert.equal(f.opened.at(-1),join(root,'proposal.md'));
+});
+
+
+test('registered-directory mismatch is explicit and does not rebind a native Session', async t => {
+  const root=await realpath(await mkdtemp(join(tmpdir(),'dsh-cwd-')));t.after(()=>rm(root,{recursive:true,force:true}));
+  const f=fixture(root);await f.service.bind('B',root);
+  f.service.transport.stateDirectory=root;
+  const workRef=workRefFromBinding(binding(root));
+  await writeFile(join(root,'work-catalog.json'),JSON.stringify({graphs:[{schemaVersion:1,graphId:scope.graphId,graphName:'test',refreshedAt:1,works:[{workRef,title:'B',objectType:'事务',location:'test/B',updatedAt:1,directory:join(root,'moved')}]}]}));
+  const status=await f.service.status('B');assert.equal(status.cwdMismatch,true);assert.equal(status.cwd,root);
+  await assert.rejects(f.service.sourceView('B'),{code:'SESSION_CWD_MISMATCH'});
+  assert.equal(f.store.bindings.get('B').directory,root);
+  await writeFile(join(root,'work-catalog.json'),'corrupt optional discovery metadata');
+  assert.equal((await f.service.localProject('B')).directory,root);
 });

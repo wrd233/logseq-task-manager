@@ -9,6 +9,9 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { startWorkspaceServer } from "../../task-copilot-cli/src/workspace-server.ts";
 import { contentFixture, deferred } from "./fixtures/content-writeback.ts";
+// @ts-expect-error Production DSH transport is JavaScript and intentionally has no declaration file.
+import { CompanionTransport } from "../../dsh-plugin/src/service.mjs";
+import { workRefFromBinding } from "@task-copilot/contracts";
 import type { StageInstallation } from "../src/features/stage-workbench/installer.ts";
 const exec = promisify(execFile), repo = resolve(import.meta.dirname, "../../..");
 test("independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled", async () => {
@@ -121,6 +124,16 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal(status.capabilities.stage, true);
         await f.menus.get("工作台：只读连接此工作")!({uuid:f.root});
         const readStatus=await cli(["status"]);assert.equal(readStatus.capabilities.content,false);assert.equal(readStatus.capabilities.fileWrite,false);assert.equal(readStatus.contentProtocol.structureAuthorized,false);
+        // The real installed host keeps B's explicit read lease while Logseq reads A.
+        const transport=new CompanionTransport(state),entry=await transport.entry(directory);
+        const target={sessionId:"routing-B",workRef:workRefFromBinding(entry.binding),scope:entry.binding.scope,generation:1};
+        await api.open(f.b);
+        const routed=await transport.call(entry,"refresh",{},"routing-B",undefined,target);
+        assert.equal(routed.snapshot.scope.rootUuid,f.root);
+        await assert.rejects(transport.call(entry,"refresh",{},"routing-B",undefined,{...target,workRef:{...target.workRef,rootUuid:f.b}}),/WORK_REF_MISMATCH/);
+        await assert.rejects(transport.call(entry,"refresh",{},"routing-B",undefined,{...target,scope:{...target.scope,graphId:"wrong Graph"}}),/SCOPE_MISMATCH/);
+        assert.equal((await transport.call(entry,"status",{},"routing-B",undefined,target)).capabilities.content,false);
+        await api.open(f.root);
         // Upgrade from the actual work menu, tied to its real root even if the
         // native selection changes. A new body connection cannot inherit files
         // or TODO and must not grant structure maintenance.
@@ -471,7 +484,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         const pageGuide=await pageCli(["guidance","read"]);assert.equal(pageGuide.common.version,writeGuide.common.version);
         await f.commands.get("agent-workspace-files")!();const pageCapture=await pageCli(["materials","capture"],{requestKey:"page-material",title:"页面比较",text:"# 页面比较\n\n保留可能与问号。"});assert.equal(pageCapture.status,"success");assert.ok(pageCapture.material.path.startsWith(pageDirectory+"/"));
         assert.equal(f.counts().writes,beforePage.writes);assert.equal(f.counts().inserts,beforePage.inserts);assert.equal(f.counts().identities,beforePage.identities);assert.equal(f.counts().moves,beforePage.moves);assert.equal(JSON.stringify([...f.blocks]),originalBlocks);assert.equal(await readFile(join(pageDirectory,"WORKSPACE.md"),"utf8"),"用户页面入口，不能覆盖\n");
-        await api.open(f.root);await assert.rejects(pageCli(["status"]),/WORKSPACE_OFFLINE|CONNECTION_REVOKED/u);await assert.rejects(cli(["status"]),/WORKSPACE_OFFLINE|CONNECTION_REVOKED/u);
+        await api.open(f.root);assert.equal((await pageCli(["status"])).binding.scope.kind,"page");assert.equal((await pageCli(["status"])).capabilities.content,false);await assert.rejects(cli(["status"]),/CONNECTION_STALE/u);
         f.graph("B");
         await assert.rejects(cli(["refresh"]), /WORKSPACE_OFFLINE|CONNECTION_REVOKED/);
         assert.equal(api.agentWorkspace.status().connected, false);

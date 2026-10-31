@@ -1,0 +1,97 @@
+{
+  "workspace-packages": {
+    "tests": [
+      50,
+      12,
+      29,
+      571,
+      20,
+      11,
+      3,
+      10,
+      14,
+      19,
+      14,
+      105
+    ],
+    "pass": [
+      50,
+      12,
+      29,
+      571,
+      20,
+      11,
+      3,
+      10,
+      14,
+      19,
+      14,
+      105
+    ],
+    "fail": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "final-dsh": {
+    "tests": [
+      51
+    ],
+    "pass": [
+      51
+    ],
+    "fail": [
+      0
+    ]
+  },
+  "logseq-concurrency-2": {
+    "tests": [
+      571
+    ],
+    "pass": [
+      571
+    ],
+    "fail": [
+      0
+    ]
+  },
+  "boundaries": {
+    "tests": [
+      12
+    ],
+    "pass": [
+      12
+    ],
+    "fail": [
+      0
+    ]
+  },
+  "sandbox": {
+    "tests": [
+      5
+    ],
+    "pass": [
+      5
+    ],
+    "fail": [
+      0
+    ]
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed, including built binary verification",
+  "requirements-map": "passed",
+  "taste": "PASS; existing active taste version retained",
+  "workspaceFinalCount": 859,
+  "note": "Initial installation skipped native build scripts; missing SQLite binding failures were corrected by rebuilding better-sqlite3, then the full workspace suite passed. Final DSH suite has 51 tests; the earlier full workspace run has 50 DSH tests. The previous page-read revocation-on-view-change expectation was updated to the requested independent read behavior; wrong-connection and Graph rejection assertions remain."
+}

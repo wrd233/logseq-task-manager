@@ -21,7 +21,7 @@ export class HistoryService {
         const directory = status.binding?.directory ?? status.cwd;
         if (!directory || !isAbsolute(directory))
             throw new WorkspaceError('HISTORY_PROJECT_REQUIRED', '此会话尚无工作目录。');
-        return { directory: await realpath(directory), binding: status.binding, generation: this.workbench.generations.get(sessionId) ?? 0, sessionId };
+        return { directory: this.workbench.localProject ? (await this.workbench.localProject(sessionId, signal)).directory : await realpath(directory), binding: status.binding, generation: this.workbench.generations.get(sessionId) ?? 0, sessionId };
     }
     async check(project, signal) {
         const current = await this.project(project.sessionId, signal);

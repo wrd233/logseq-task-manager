@@ -67,7 +67,7 @@ export async function apply(ctx, config = {}) {
     opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
     newWork: async (input, signal) => {
       const value = request(input, ['sessionId', 'operationId']), association = store.associations.get(value.sessionId), ref = association?.workRef;
-      const graphs = association?.binding ? [] : await readCatalog(service.transport.stateDirectory);
+      const graphs = await readCatalog(service.transport.stateDirectory);
       const work = ref && graphs.flatMap(graph => graph.works).findLast(work => workKey(work.workRef) === workKey(ref));
       return handoffs.newWork(value.sessionId, value.operationId, signal, work);
     },
@@ -100,7 +100,7 @@ export async function apply(ctx, config = {}) {
     } catch (error) {
       // Send stable diagnostics only; never serialize a companion descriptor, credential, or stack.
       const code = typeof error.code === 'string' ? error.code : error.name === 'AbortError' ? 'REQUEST_ABORTED' : /^(HISTORY_|EVIDENCE_)/.test(error.message) ? error.message : 'LOGSEQ_OPERATION_FAILED';
-      return { ok: false, error: { code, message: code === 'REQUEST_ABORTED' ? '读取已取消，请重试。' : code === 'LOGSEQ_OPERATION_FAILED' ? 'Logseq 操作失败，请检查工作连接。' : code, details: {} } };
+      return { ok: false, error: { code, message: code === 'REQUEST_ABORTED' ? '读取已取消，请重试。' : code === 'LOGSEQ_OPERATION_FAILED' ? 'Logseq 操作失败，请检查工作连接。' : code, details: code === 'SESSION_CWD_MISMATCH' && typeof error.sessionId === 'string' ? {sessionId: error.sessionId} : {} } };
     }
   };
   // Exact Fetch contributions coexist with DSH's existing /api interceptor.

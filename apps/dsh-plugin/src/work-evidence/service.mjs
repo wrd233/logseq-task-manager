@@ -20,7 +20,7 @@ export class EvidenceService {
     text(sessionId, 512);
     const status = await this.workbench.status(sessionId, signal), directory = status.binding?.directory ?? status.cwd;
     if (!directory || !isAbsolute(directory)) throw fail('EVIDENCE_PROJECT_REQUIRED');
-    return { directory: await realpath(directory), binding: status.binding, generation: this.workbench.generations.get(sessionId) ?? 0, sessionId };
+    return { directory: this.workbench.localProject ? (await this.workbench.localProject(sessionId, signal)).directory : await realpath(directory), binding: status.binding, generation: this.workbench.generations.get(sessionId) ?? 0, sessionId };
   }
   async check(project, signal) {
     signal?.throwIfAborted();

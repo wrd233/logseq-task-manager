@@ -1,0 +1,93 @@
+{
+  "phase": "old-grant",
+  "observedAt": "2026-10-31T11:09:22.088Z",
+  "B": "session-9da32468-16d8-482b-bff2-dcb2782c4e1a",
+  "A": "session-03068f8e-afe5-4c3e-b5bf-08bdb3e2576f",
+  "instanceId": "9957bcf1-7f37-457a-ac2d-cd6e9344fa85",
+  "permissions": {
+    "channel": "online",
+    "binding": {
+      "scope": {
+        "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+        "rootUuid": "bbbbbbbb-0000-4000-8000-000000000002"
+      },
+      "directory": "$FIXTURE_ROOT/home/Documents/Task Copilot Materials/c341b6985aaca4399459/workspaces/bbbbbbbb-0000-4000-8000-000000000002",
+      "organization": "flat",
+      "workspaceId": "949d9108-be16-4d08-b5c3-e0f946620938",
+      "provider": "workspace"
+    },
+    "capabilities": {
+      "read": true,
+      "files": true,
+      "fileWrite": false,
+      "materials": true,
+      "focus": true,
+      "reading": true,
+      "content": true,
+      "stage": true
+    },
+    "readingProtocol": {
+      "schemaVersion": 1,
+      "units": [
+        "sequence",
+        "paragraphs",
+        "group",
+        "comparison",
+        "material"
+      ],
+      "fullSourceRequired": true,
+      "updatesNamedViews": true,
+      "sharedSelection": true,
+      "sourceText": "plugin-read",
+      "writesSource": false,
+      "authorizesTodo": false,
+      "authorizesRecognition": false
+    },
+    "formattingProtocol": {
+      "schemaVersion": 1,
+      "preview": true,
+      "externalApply": false,
+      "application": "local-user-exact-diff",
+      "defaultLabels": [
+        "目标",
+        "想法",
+        "注",
+        "说明",
+        "记录",
+        "问题"
+      ],
+      "maxChanges": 64,
+      "formalOperations": false
+    },
+    "formalWorkspace": "connected",
+    "formalKernelRequired": false,
+    "authorizesTodo": false,
+    "todoProtocol": {
+      "authorized": false,
+      "roots": [],
+      "actions": [],
+      "lifetime": "current-work-connection"
+    },
+    "contentProtocol": {
+      "patchSchemas": [
+        1,
+        2
+      ],
+      "operations": [
+        "replace-text",
+        "insert-text",
+        "insert-child",
+        "move-block"
+      ],
+      "bodyAuthorized": true,
+      "structureAuthorized": false,
+      "requiresBlockScopeForWrite": false
+    },
+    "workRef": {
+      "kind": "logseq",
+      "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+      "rootUuid": "bbbbbbbb-0000-4000-8000-000000000002",
+      "sourceKind": "block"
+    }
+  }
+}

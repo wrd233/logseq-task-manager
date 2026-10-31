@@ -1,6 +1,6 @@
 import {pageWorkRef} from './catalog-pages.ts';
 import { resolveDshTarget } from "./dsh-work.ts";
-import { WorkspaceError, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkRef, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { ScopeLease } from "../content-writeback/protocol.ts";
@@ -110,10 +110,21 @@ export function installAgentWorkspace(options: {
         let returned = false;
         try {
             await valid(value);
-            const parsed = parseWorkspaceCall({ schemaVersion: delivery.schemaVersion, instanceId: delivery.instanceId, connectionId: delivery.connectionId, clientId: delivery.clientId, requestId: delivery.requestId, command: delivery.command, payload: delivery.payload });
+            const parsed = parseWorkspaceCall({ schemaVersion: delivery.schemaVersion, instanceId: delivery.instanceId, connectionId: delivery.connectionId, clientId: delivery.clientId, requestId: delivery.requestId, command: delivery.command, payload: delivery.payload, ...(delivery.readTarget ? {readTarget: delivery.readTarget} : {}) });
             if (parsed.instanceId !== value.descriptor.instanceId || parsed.connectionId !== value.id || JSON.stringify(parseWorkBinding(delivery.binding)) !== JSON.stringify(parseWorkBinding(value.binding)))
                 throw new WorkspaceError("CONNECTION_STALE");
-            const result = await router!.handle({ ...parsed, scope: value.binding.scope, binding: value.binding }, value.lease);
+            if (parsed.readTarget && !sameWorkScope(parsed.readTarget.scope, value.binding.scope)) throw new WorkspaceError("SCOPE_MISMATCH");
+            // Resolve identity from the live host, never from discovery/cache metadata.
+            let workRef;
+            if (parsed.clientId.startsWith("dsh:")) {
+                const resolved = await resolveDshTarget(value.binding.scope, {getBlock: id => logseq.Editor.getBlock(id), formal: options.formalTarget ?? (async () => null), check: () => valid(value)});
+                workRef = resolved.scope.kind === "page" ? await pageWorkRef(resolved.scope.graphId, resolved.scope.rootUuid, () => {
+                    if (disposed || connection !== value || !options.content.valid(value.lease)) throw new WorkspaceError("CONNECTION_REVOKED");
+                }) : resolved.workRef;
+                if (!sameWorkScope(resolved.scope, value.binding.scope) || parsed.readTarget && !sameWorkRef(parsed.readTarget.workRef, workRef)) throw new WorkspaceError("WORK_REF_MISMATCH");
+            }
+            const handled = await router!.handle({ ...parsed, scope: value.binding.scope, binding: value.binding }, value.lease);
+            const result = parsed.command === "status" ? {...handled as Record<string, unknown>, ...(workRef ? {workRef} : {})} : handled;
             returned = true;
             await valid(value);
             await post(value.descriptor, "/plugin/complete", { connectionId: value.id, clientId: parsed.clientId, requestId: parsed.requestId, value: result });
@@ -188,7 +199,7 @@ export function installAgentWorkspace(options: {
         const lease = options.content.capture(selected.scope);
         if (!lease)
             throw new WorkspaceError("SCOPE_MISMATCH");
-        options.content.restrict(lease,()=>{
+        if (!readOnly) options.content.restrict(lease,()=>{
             const scope=(options.work?.snapshot() as {readingScope?:AgentWorkBinding["scope"]&{kind?:string}}|undefined)?.readingScope;
             return !scope||sameWorkScope(scope,selected.scope);
         });

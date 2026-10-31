@@ -18,6 +18,8 @@ const errorText = error => ({
   INPUT_BUSY: '输入框正在提交，请稍后再引用。', BINDING_CHANGED: '会话关联已改变，请重新读取。',
   SESSION_CWD_MISMATCH: '会话目录与工作目录不同。原对话和输入已保留，请在工作目录新开对话。',
   SESSION_WORK_CONFLICT: '此会话已属于另一件工作，请新开工作对话。',
+  WORK_REF_MISMATCH: '连接来源与此会话工作不一致，请在 Logseq 对目标工作显式只读重连。',
+  SCOPE_MISMATCH: '来源范围不一致，已停止读取。',
   DSH_HANDOFF_EXPIRED: '这次协作入口已过期，请在 Logseq 再点一次 DSH 协作。',
 }[error?.code] ?? '暂时无法读取，请检查本地服务与 Logseq 连接。');
 
@@ -34,7 +36,7 @@ export function apply(ctx) {
   const update = (sessionId, patch) => { rows.set(sessionId, { ...get(sessionId), ...patch }); emit(); };
   const rpc = async (method, payload, signal) => {
     const answer = await ctx.connection.rpc.call('/api', `logseq-workbench/${method}`, payload, signal);
-    if (!answer.ok) throw Object.assign(Error(answer.error.message), { code: answer.error.code });
+    if (!answer.ok) throw Object.assign(Error(answer.error.message), { code: answer.error.code, details: answer.error.details });
     return answer.value;
   };
   // Public owner snapshot changes only for on-screen navigation, not data refreshes.
@@ -43,7 +45,8 @@ export function apply(ctx) {
   const observeNavigation = (force = false) => {
     const sessionId = ctx.sidebarRight.mounted.getSnapshot();
     if (!force && sessionId === lastMounted) return;
-    lastMounted = sessionId; navigationGeneration++;
+    if (lastMounted && sessionId !== lastMounted) navigationGeneration++;
+    lastMounted = sessionId;
     if (document.visibilityState === 'hidden') return;
     if (sessionId) navigationQueue = navigationQueue.catch(() => {}).then(() => rpc('opened', {sessionId})).catch(error => {
       if (!disposed) update(sessionId, {error});
@@ -112,11 +115,12 @@ export function apply(ctx) {
     const controller = new AbortController(), revision = get(sessionId).revision;
     const promise = (async () => {
       try {
-        let status=get(sessionId).status;
-        if(!status){status=await rpc('status',{sessionId},controller.signal);if(get(sessionId).revision!==revision)return;update(sessionId,{status});}
-        const value=status.bound?await rpc(kind==='files'?'files':'read',{sessionId},controller.signal):null;
+        const status=await rpc('status',{sessionId},controller.signal);
+        if(get(sessionId).revision!==revision)return;update(sessionId,{status});
+        if(status.cwdMismatch)throw Object.assign(Error('SESSION_CWD_MISMATCH'),{code:'SESSION_CWD_MISMATCH'});
+        const value=kind==='files'||status.bound?await rpc(kind==='files'?'files':'read',{sessionId},controller.signal):null;
         if(!disposed && get(sessionId).revision===revision)update(sessionId,kind==='files'
-          ? {files:value?.files??[],fileTruncation:value?.fileTruncation??[],filesLoaded:true,fileError:null}
+          ? {files:value?.files??[],fileTruncation:value?.fileTruncation??[],filesLoaded:true,fileError:null,fileWarning:value?.warning??null,filesReadAt:Date.now()}
           : {view:value,error:null,...(!status.bound?{notice:null}:{})});
       }catch(error){
         // Keep the last successful content visible while it updates; it is not Agent authority.
@@ -259,7 +263,8 @@ export function apply(ctx) {
   }
   function WorkPanel({ sessionId, inputActions }) {
     const row = useRow(sessionId, true), [more, setMore] = useState(false);
-    return <section className="lq-source" aria-label="关联的 Logseq 原文"><header><span>Logseq 阅读</span><div>{row.view ? <a href={row.view.logseqUrl} aria-label="在 Logseq 打开原文">↗</a> : null}<button type="button" aria-label="更多工作操作" onClick={() => setMore(!more)}>···</button><button type="button" aria-label="收起 Logseq 原文" onClick={close}>×</button></div></header>
+    return <section className="lq-source" aria-label="关联的 Logseq 原文"><header><span>Logseq 阅读</span><div>{row.view ? <button type="button" aria-label="刷新此工作原文" onClick={() => {void refresh(sessionId);}}>↻</button> : null}<button type="button" aria-label="更多工作操作" onClick={() => setMore(!more)}>···</button><button type="button" aria-label="收起 Logseq 原文" onClick={close}>×</button></div></header>
+      {row.status?.cwdMismatch ? <p className="lq-error" role="status">会话目录与工作登记目录不同；原会话和草稿已保留。<button type="button" onClick={()=>{void navigate('newWork',sessionId);}}>在正确目录新建会话</button></p> : null}
       {row.notice ? <p className="lq-muted" role="status">{row.notice}{row.referencePending ? <button type="button" onClick={async()=>{try{await rpc('reference',{sessionId});update(sessionId,{referencePending:false,notice:'辅助引用已保存。'});}catch(error){update(sessionId,{error});}}}>重试保存引用</button> : null}</p> : null}
       {more ? <div className="lq-source-menu"><button type="button" onClick={() => { void refresh(sessionId); setMore(false); }}>刷新阅读</button><button type="button" onClick={() => { ctx.sidebarRight.openTab('logseq-files'); setMore(false); }}>工作文件</button>{row.view?.reading?.plans.find(plan => plan.planId === row.view.reading.activePlanId)?.canRestore ? <button type="button" disabled={row.busy} onClick={() => { void selectReading(sessionId, { planId: row.view.reading.activePlanId, restore: true }); setMore(false); }}>恢复当前读法上一版</button> : null}{row.status?.bound ? <button type="button" disabled={row.busy} onClick={async () => {
         invalidate(sessionId); update(sessionId, { busy: true });
@@ -267,9 +272,9 @@ export function apply(ctx) {
         catch (error) { update(sessionId, { error }); } finally { update(sessionId, { busy: false }); }
       }}>解除此会话关联</button> : null}</div> : null}
       {row.error ? <p className="lq-error" role="status">{errorText(row.error)}{row.view ? ` · 上次成功读取：${row.view.capturedAt}` : ''}</p> : null}{row.view?.warnings?.length ? <p className="lq-muted">辅助来源暂不可读；正文已保留。</p> : null}
-      {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2>{row.view.reading ? <><div className="lq-reading-picker"><select aria-label="当前工作读法" disabled={row.busy} value={row.view.reading.selectedPlanId ? `plan:${row.view.reading.selectedPlanId}` : `mode:${row.view.reading.mode ?? 'report'}`} onChange={event => {
+      {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2><p className="lq-muted">{row.error ? "上次读取副本" : "读取于"} · {new Date(row.view.capturedAt).toLocaleString()}</p>{row.view.reading ? <><div className="lq-reading-picker"><select aria-label="当前工作读法" disabled={row.busy} value={row.view.reading.selectedPlanId ? `plan:${row.view.reading.selectedPlanId}` : `mode:${row.view.reading.mode ?? 'report'}`} onChange={event => {
         const value = event.target.value; void selectReading(sessionId, value.startsWith('mode:') ? { mode: value.slice(5) } : { planId: value.slice(5) });
-      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><span className="lq-reading-version" title={row.error?"暂时离线，显示上次读取内容":row.view.reading.persistenceError?"读法同步保存失败":`与 Logseq 同步${row.view.reading.activePlanId?" · 读法 v"+(row.view.reading.plans.find(plan=>plan.planId===row.view.reading.activePlanId)?.revision??1):""}`}>{row.error?'离线':row.view.reading.persistenceError?'未保存':'同步'}</span></> : <p className="lq-muted">在 Logseq 打开此工作后，可同步读法。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
+      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><span className="lq-reading-version" title={row.error?"暂时离线，显示上次读取内容":row.view.reading.persistenceError?"读法同步保存失败":`与 Logseq 同步${row.view.reading.activePlanId?" · 读法 v"+(row.view.reading.plans.find(plan=>plan.planId===row.view.reading.activePlanId)?.revision??1):""}`}>{row.error?'离线':row.view.reading.persistenceError?'未保存':'同步'}</span></> : <p className="lq-muted">已读取此工作原文；Logseq 可以继续阅读其他工作。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
     </section>;
   }
   function Overlay(props) {
@@ -302,7 +307,7 @@ export function apply(ctx) {
       return () => frame.classList.remove('lq-frame-open');
     }, [mounted, current?.sessionId,reference?.sessionId]);
     return <><WorkSwitch sessionId={mounted} />{entry ? <section className="lq-source lq-handoff" aria-label="进入 DSH 协作" role="status">
-      {entry.busy?<p>正在进入此工作的 DSH 会话…</p>:<><p>{errorText(entry.error)}</p>{entry.error?.code==='SESSION_CWD_MISMATCH'?<p>可使用“新建此工作对话”，或回 Logseq 新开。</p>:null}<button type="button" onClick={()=>{void enterHandoff();}}>重试</button></>}
+      {entry.busy?<p>正在进入此工作的 DSH 会话…</p>:<><p>{errorText(entry.error)}</p>{entry.error?.code==='SESSION_CWD_MISMATCH'&&entry.error.details?.sessionId?<button type="button" onClick={()=>{void navigate('newWork',entry.error.details.sessionId);}}>在正确目录新建此工作会话</button>:null}<button type="button" onClick={()=>{void enterHandoff();}}>重试</button></>}
       {!entry.busy?<button type="button" onClick={()=>{handoffController?.abort();handoff=null;emit();}}>关闭</button>:null}
     </section>:null}{current&&mounted&&current.sessionId===mounted&&reference?.sessionId===mounted?<div ref={seat}><props.SessionProvider session={reference}>{props.renderSlot('logseq.work.source', {})}</props.SessionProvider></div>:null}</>;
   }
@@ -313,6 +318,7 @@ export function apply(ctx) {
     useEffect(() => { setMenu(null); }, [props.sessionId]);
     let previous = '';
     return <section className="lq-files" aria-label="Logseq 工作文件"><div className="lq-file-title"><span>{row.view?.title ?? 'Logseq 工作文件'}</span><button type="button" aria-label="打开工作目录" onClick={() => { void openFile(props.sessionId, 'directory'); }} disabled={row.opening.includes('directory')}>↗</button></div>
+      {row.fileWarning ? <p className="lq-muted">Logseq 来源暂不可用；当前会话目录文件 · 读取于 {new Date(row.filesReadAt).toLocaleTimeString()}。关联材料需重新连接。</p> : null}
       {row.fileError ? <p className="lq-error" role="status">{errorText(row.fileError)}</p> : null}
       {row.status && !row.status.bound ? <button type="button" className="lq-link" onClick={() => show(props.sessionId)}>关联 Logseq 工作</button> : null}
       {row.notice ? <p className="lq-muted" role="status">{row.notice}</p> : null}

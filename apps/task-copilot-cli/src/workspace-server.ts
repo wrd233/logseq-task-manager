@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
-import { WorkspaceError, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
 import { createDshHandoff, type DshMode } from "./dsh-handoff.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -93,7 +93,7 @@ export class WorkspaceBroker {
     request(call: WorkspaceCall): Promise<WorkspaceReply> {
         if (call.instanceId !== this.instanceId)
             throw new WorkspaceError("DESCRIPTOR_STALE");
-        const binding = this.assert(call.connectionId), key = JSON.stringify([call.connectionId, call.clientId, call.requestId]), fingerprint = digest([call.command, call.payload]), previous = this.entries.get(key);
+        const binding = this.assert(call.connectionId), key = JSON.stringify([call.connectionId, call.clientId, call.requestId]), fingerprint = digest([call.command, call.payload, call.readTarget]), previous = this.entries.get(key);
         if (previous) {
             if (previous.digest !== fingerprint)
                 throw new WorkspaceError("IDEMPOTENCY_KEY_REUSED");
@@ -167,6 +167,7 @@ export async function startWorkspaceServer(options: {
         if (call.instanceId !== instanceId)
             throw new WorkspaceError("DESCRIPTOR_STALE");
         const binding = broker.assert(call.connectionId);
+        if (call.readTarget && !sameWorkScope(call.readTarget.scope, binding.scope)) throw new WorkspaceError("SCOPE_MISMATCH");
         if (await authorizedRoot(binding.directory) !== root) {
             broker.revoke();
             throw new WorkspaceError("DIRECTORY_REBOUND");
@@ -185,8 +186,10 @@ export async function startWorkspaceServer(options: {
             const references=await sessionRecords(binding,"list",{});check();
             return {...reply,value:{...packet,files:{binding,observation:observations},sessions:{binding,references}}};
         }
-        if (call.command === "read")
+        if (call.command === "read") {
+            if (call.readTarget) await forward("status", {});
             return { freshness: "last-known", snapshot: cache, binding, sourceAvailable: false };
+        }
         if (call.command === "refresh") {
             const reply = await forward(), value = workRecord(reply.value, ["freshness", "snapshot", "binding", "workspace"]);
             if (value.freshness !== "checked")
@@ -351,7 +354,7 @@ export async function startWorkspaceServer(options: {
                     if (call.instanceId !== instanceId)
                         throw new WorkspaceError("DESCRIPTOR_STALE");
                     broker.assert(call.connectionId);
-                    const key = JSON.stringify([call.connectionId, call.clientId, call.requestId]), fingerprint = digest([call.command, call.payload]);
+                    const key = JSON.stringify([call.connectionId, call.clientId, call.requestId]), fingerprint = digest([call.command, call.payload, call.readTarget]);
                     let receipt = receipts.get(key);
                     if (receipt && receipt.digest !== fingerprint)
                         throw new WorkspaceError("IDEMPOTENCY_KEY_REUSED");

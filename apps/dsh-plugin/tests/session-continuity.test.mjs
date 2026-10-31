@@ -64,7 +64,7 @@ test('archived/missing sessions are skipped; mismatched cwd never rebinds and ex
   const two=await f.handoffs.open(await f.ticket());assert.notEqual(two.sessionId,one.sessionId);
   await f.handoffs.opened(two.sessionId);
   f.sessions.get(two.sessionId).meta.cwd=f.root;f.sessions.get(two.sessionId).draft='preserved by native host';
-  await assert.rejects(f.handoffs.open(await f.ticket()),{code:'SESSION_CWD_MISMATCH'});
+  await assert.rejects(f.handoffs.open(await f.ticket()),{code:'SESSION_CWD_MISMATCH',sessionId:two.sessionId});
   await assert.rejects(f.service.command(two.sessionId,'source.read',{}),{code:'SESSION_CWD_MISMATCH'});
   const correct=await f.handoffs.newWork(two.sessionId,randomUUID());
   assert.equal(f.sessions.get(correct.sessionId).meta.cwd,f.directory);

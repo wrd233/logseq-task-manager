@@ -10,7 +10,7 @@ import { validateReadingPlan } from '../../logseq-plugin/src/features/work-view/
 import { readingDocument } from '../../logseq-plugin/src/features/work-view/reading-document.ts';
 import { WorkspaceError, parseWorkBinding, parseWorkRef, sameWorkScope, workRefFromBinding, sameWorkRef, workRecord, workText } from '@task-copilot/contracts';
 import { privateDescriptor, workspaceEntry } from '../../task-copilot-cli/src/workspace-cli.ts';
-import { atomicJson, authorizedRoot, scopedPath } from '../../task-copilot-cli/src/workspace-files.ts';
+import { atomicJson, authorizedRoot, scopedPath, discoverFiles } from '../../task-copilot-cli/src/workspace-files.ts';
 
 const matchesSource = (ref, binding) => sameWorkRef(ref, workRefFromBinding(binding)) || ref?.kind === 'logseq' && ref.sourceKind === 'page' && binding.scope.kind === 'page' && ref.graphId === binding.scope.graphId;
 const identity = binding => JSON.stringify(parseWorkBinding(binding));
@@ -21,7 +21,7 @@ const unwrap = value => value && typeof value === 'object' && 'provenance' in va
 export class CompanionTransport {
   constructor(stateDirectory = join(homedir(), '.task-copilot-workspace')) { this.stateDirectory = resolve(stateDirectory); }
   entry(directory) { return workspaceEntry(directory); }
-  async call(entry, command, payload, client, signal) {
+  async call(entry, command, payload, client, signal, readTarget) {
     signal?.throwIfAborted();
     const descriptor = await privateDescriptor(join(this.stateDirectory, 'workspace.json'));
     if (descriptor.instanceId !== entry.instanceId) throw new WorkspaceError('DESCRIPTOR_STALE');
@@ -29,7 +29,7 @@ export class CompanionTransport {
     const response = await fetch(`${descriptor.baseUrl}/call`, { method: 'POST', redirect: 'error', signal: cancellation,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${descriptor.token}`, 'x-workspace-instance': descriptor.instanceId },
       body: JSON.stringify({ schemaVersion: 1, instanceId: descriptor.instanceId, connectionId: entry.connectionId,
-        clientId: `dsh:${client}`, requestId: randomUUID(), command, payload }) });
+        ...(readTarget ? {readTarget} : {}), clientId: `dsh:${client}`, requestId: randomUUID(), command, payload }) });
     const body = await response.json();
     if (!response.ok) throw new WorkspaceError(body.error?.code ?? 'CHANNEL_FAILED', body.error?.message);
     if (body.instanceId !== descriptor.instanceId) throw new WorkspaceError('DESCRIPTOR_STALE');
@@ -160,17 +160,35 @@ export class WorkbenchService {
     workText(sessionId);
     const binding = this.store.bindings.get(sessionId);
     if (!binding) throw new WorkspaceError('SESSION_NOT_BOUND', '请先关联此会话的 Logseq 工作目录。');
-    const session = await this.inspectSession(sessionId, signal);
-    if (!session.meta?.cwd || await realpath(session.meta.cwd) !== await realpath(binding.directory)) throw new WorkspaceError('SESSION_CWD_MISMATCH');
+    const session = await this.status(sessionId, signal);
+    if (session.cwdMismatch) throw new WorkspaceError('SESSION_CWD_MISMATCH');
+    if (!session.cwd || await realpath(session.cwd) !== await realpath(binding.directory)) throw new WorkspaceError('SESSION_CWD_MISMATCH');
     const entry = await this.transport.entry(binding.directory);
     if (!sameBinding(entry.binding, binding)) throw new WorkspaceError('WORK_SCOPE_CHANGED', '目录关联的工作已改变，请重新选择工作。');
     this.check(sessionId, this.generations.get(sessionId) ?? 0, signal);
     return entry;
   }
+  async localProject(sessionId, signal) {
+    const status = await this.status(sessionId, signal), directory = status.binding?.directory ?? status.cwd;
+    if (!directory || !isAbsolute(directory)) throw new WorkspaceError('ABSOLUTE_DIRECTORY_REQUIRED');
+    const canonical = async path => {try {return await realpath(path);} catch(error) {if(error.code !== 'ENOENT') throw error; return resolve(path);}};
+    if (status.binding && (!status.cwd || await canonical(status.cwd) !== await canonical(directory))) throw new WorkspaceError('SESSION_CWD_MISMATCH');
+    return {...status, directory: await canonical(directory)};
+  }
   async status(sessionId, signal) {
     workText(sessionId);
     const session = await this.inspectSession(sessionId, signal);
-    return { sessionId, bound: this.store.bindings.has(sessionId), binding: this.store.bindings.get(sessionId) ?? null, cwd: session.meta?.cwd ?? null, workRef: this.store.associations?.get(sessionId)?.workRef ?? null };
+    const workRef = this.store.associations?.get(sessionId)?.workRef;
+    let registeredDirectory = null, directoryIssue = null;
+    if (workRef && this.transport.stateDirectory) {
+      try {
+        const graphs = await readCatalog(this.transport.stateDirectory);
+        registeredDirectory = graphs.flatMap(graph => graph.works).find(work => sameWorkRef(work.workRef, workRef))?.directory ?? null;
+      } catch { directoryIssue = 'WORK_DIRECTORY_NOT_CHECKED'; }
+    }
+    const canonical = async path => {try {return await realpath(path);} catch(error) {if(error.code !== 'ENOENT') throw error; return resolve(path);}};
+    const cwdMismatch = !!registeredDirectory && (!session.meta?.cwd || await canonical(session.meta.cwd) !== await canonical(registeredDirectory));
+    return { sessionId, registeredDirectory, cwdMismatch, directoryIssue, bound: this.store.bindings.has(sessionId), binding: this.store.bindings.get(sessionId) ?? null, cwd: session.meta?.cwd ?? null, workRef: this.store.associations?.get(sessionId)?.workRef ?? null };
   }
   async bind(sessionId, directory, signal, verifiedEntry, workRef) {
     const session = await this.inspectSession(workText(sessionId), signal);
@@ -180,12 +198,10 @@ export class WorkbenchService {
     this.generations.set(sessionId, generation);
     if (!session.meta?.cwd || await realpath(session.meta.cwd) !== await realpath(target)) throw new WorkspaceError('SESSION_CWD_MISMATCH');
     const entry = verifiedEntry ?? await this.transport.entry(target);
-    if (!verifiedEntry) await this.transport.call(entry, 'status', {}, sessionId, signal);
+    const verified = await this.transport.call(entry, 'status', {}, sessionId, signal);
+    workRef = workRef ?? this.store.associations.get(sessionId)?.workRef ?? verified.workRef ?? workRefFromBinding(entry.binding);
+    if (verified.workRef && !sameWorkRef(workRef, verified.workRef)) throw new WorkspaceError('WORK_REF_MISMATCH');
     this.check(sessionId, generation, signal);
-    if (!workRef && entry.binding.scope.kind === 'page') {
-      const graphs = await readCatalog(this.transport.stateDirectory);
-      workRef = graphs.flatMap(graph => graph.works).find(work => work.workRef.kind === 'logseq' && work.workRef.graphId === entry.binding.scope.graphId && work.pageSourceUuid === entry.binding.scope.rootUuid)?.workRef;
-    }
     await this.store.change(sessionId, entry.binding, () => this.check(sessionId, generation, signal), workRef);
     this.check(sessionId, generation, signal);
     return { sessionId, bound: true, binding: entry.binding };
@@ -197,16 +213,24 @@ export class WorkbenchService {
     await this.store.change(sessionId, null, () => this.check(sessionId, generation, signal));
     return { sessionId, bound: false };
   }
+  call(entry, command, payload, sessionId, signal) {
+    const workRef = this.store.associations.get(sessionId)?.workRef;
+    if (!workRef) throw new WorkspaceError('SESSION_NOT_BOUND');
+    return this.transport.call(entry, command, payload, sessionId, signal, {
+      sessionId, workRef, scope: entry.binding.scope, generation: this.generations.get(sessionId) ?? 0,
+    });
+  }
   async command(sessionId, command, payload, signal) {
     const generation = this.generations.get(sessionId) ?? 0, entry = await this.binding(sessionId, signal);
-    const value = await this.transport.call(entry, command, payload, sessionId, signal);
+    const value = await this.call(entry, command, payload, sessionId, signal);
     this.check(sessionId, generation, signal);
     return value;
   }
   async read(sessionId, signal) {
     const generation = this.generations.get(sessionId) ?? 0, entry = await this.binding(sessionId, signal);
     const call = async (command) => {
-      const value = await this.transport.call(entry, command, {}, sessionId, signal);
+      this.check(sessionId, generation, signal);
+      const value = await this.call(entry, command, {}, sessionId, signal);
       this.check(sessionId, generation, signal); return value;
     };
     // Current body is mandatory. Optional inputs never revive an old collaboration request.
@@ -217,7 +241,7 @@ export class WorkbenchService {
       try { return await call(command); }
       catch (error) {
         this.check(sessionId, generation, signal);
-        if (/SCOPE|CONNECTION|DESCRIPTOR|BINDING|REVOKED|ABORT|OFFLINE/.test(error.code ?? '') || signal?.aborted) throw error;
+        if (error.code !== 'VIEW_SCOPE_MISMATCH' && /SCOPE|CONNECTION|DESCRIPTOR|BINDING|REVOKED|ABORT|OFFLINE/.test(error.code ?? '') || signal?.aborted) throw error;
         warnings.push({command, code: error.code ?? 'SOURCE_UNAVAILABLE'}); return fallback;
       }
     };
@@ -263,51 +287,65 @@ export class WorkbenchService {
   async sourceView(sessionId, signal) {
     const generation=this.generations.get(sessionId)??0,entry=await this.binding(sessionId,signal);
     let source,reading=null,warnings=[];
-    try {const value=await this.transport.call(entry,'reading.view',{},sessionId,signal);source=value.source;reading=value.reading;warnings=value.warnings??[];}
+    try {const value=await this.call(entry,'reading.view',{},sessionId,signal);source=value.source;reading=value.reading;warnings=value.warnings??[];}
     catch(error) {
       if(!['READING_UNAVAILABLE','VIEW_SCOPE_MISMATCH'].includes(error.code))throw error;
-      const value=await this.transport.call(entry,'refresh',{},sessionId,signal);source=value.snapshot;
+      const value=await this.call(entry,'refresh',{},sessionId,signal);source=value.snapshot;
     }
     this.check(sessionId,generation,signal);
     if (!sameWorkScope(source.scope, entry.binding.scope)) throw new WorkspaceError('SCOPE_MISMATCH');
     return this.projectView(sessionId,{warnings,scene:{binding:entry.binding,savedSource:source,sourceBundleVersion:source.sourceSetVersion,materials:[]},reading});
   }
   async files(sessionId,signal) {
-    const generation=this.generations.get(sessionId)??0,entry=await this.binding(sessionId,signal);
-    const result=await this.transport.call(entry,'files.list',{},sessionId,signal);
+    const generation=this.generations.get(sessionId)??0;
+    const project=await this.localProject(sessionId,signal);
+    if(project.cwdMismatch)throw new WorkspaceError('SESSION_CWD_MISMATCH');
+    let result, entry, warning;
+    try {
+      entry=await this.binding(sessionId,signal);
+      result=await this.call(entry,'files.list',{},sessionId,signal);
+    } catch(error) {
+      if (!['SESSION_NOT_BOUND','WORKSPACE_OFFLINE','WORKSPACE_NOT_BOUND','CONNECTION_STALE','DESCRIPTOR_STALE','CONNECTION_REVOKED','ENOENT','ECONNREFUSED'].includes(error.code) && error.name !== 'TypeError') throw error;
+      signal?.throwIfAborted(); warning=error.code??'WORKSPACE_OFFLINE';
+      // Native cwd remains usable independently of the Logseq connection.
+      result={observation:await discoverFiles(await authorizedRoot(project.directory),[]),materials:[]};
+    }
     this.check(sessionId,generation,signal);
-    return {files:projectFiles({scene:{binding:entry.binding,entryFile:entry.entryFile,materials:result.materials??[]},files:result}),fileTruncation:result.observation?.truncated??[]};
+    return {files:projectFiles({scene:{binding:entry?.binding??{directory:project.directory},materials:result.materials??[]},files:result}),fileTruncation:result.observation?.truncated??[],warning};
   }
   async resolveFile(sessionId, key, signal) {
-    const packet = await this.read(sessionId, signal), binding = packet.scene.binding;
-    const file = projectFiles(packet).find(file => file.key === workText(key, 8192));
-    if (!file || file.availability !== 'available') throw new WorkspaceError('FILE_UNAVAILABLE');
-    let path;
-    if (key.startsWith('file:')) path = await scopedPath(await authorizedRoot(binding.directory), file.relativePath);
-    else {
-      // Only an exact material id in the currently authorized Logseq work may resolve an external path.
-      const material = packet.scene.materials.find(m => m.id === file.materialId);
-      if (!material || !isAbsolute(material.path)) throw new WorkspaceError('FILE_OUTSIDE_SCOPE');
-      path = resolve(material.path);
-      let component = path;
-      while (true) {
-        if ((await lstat(component)).isSymbolicLink()) throw new WorkspaceError('SYMLINK_RESTRICTED');
-        const parent = dirname(component); if (parent === component) break; component = parent;
-      }
+    workText(key,8192);
+    const project=await this.localProject(sessionId,signal);
+    if (key.startsWith('file:')) {
+      const listed=await this.files(sessionId,signal),file=listed.files.find(file=>file.key===key);
+      if (!file || file.availability !== 'available') throw new WorkspaceError('FILE_UNAVAILABLE');
+      const path=await scopedPath(await authorizedRoot(project.directory),file.relativePath);
+      if (!(await lstat(path)).isFile()) throw new WorkspaceError('REGULAR_FILE_REQUIRED');
+      return {path,file};
     }
-    if (!(await lstat(path)).isFile()) throw new WorkspaceError('REGULAR_FILE_REQUIRED');
-    const current = await this.binding(sessionId, signal);
-    if (!sameBinding(current.binding, binding)) throw new WorkspaceError('BINDING_CHANGED');
-    return { path, file };
+    // Linked material paths require the live source connection and its existing policy.
+    const packet=await this.read(sessionId,signal),file=projectFiles(packet).find(file=>file.key===key);
+    const material=file&&packet.scene.materials.find(m=>m.id===file.materialId);
+    if (!material || file.availability!=='available' || !isAbsolute(material.path)) throw new WorkspaceError('FILE_UNAVAILABLE');
+    const path=resolve(material.path);
+    let component=path;
+    while(true) {
+      if((await lstat(component)).isSymbolicLink())throw new WorkspaceError('SYMLINK_RESTRICTED');
+      const parent=dirname(component);if(parent===component)break;component=parent;
+    }
+    if(!(await lstat(path)).isFile())throw new WorkspaceError('REGULAR_FILE_REQUIRED');
+    return {path,file};
   }
   async open(sessionId, key, reveal, signal) {
-    const generation = this.generations.get(sessionId) ?? 0;
-    const resolved = key === 'directory' ? { path: (await this.binding(sessionId, signal)).directory } : await this.resolveFile(sessionId, key, signal);
-    this.check(sessionId, generation, signal);
-    await this.command(sessionId, 'status', {}, signal);
-    this.check(sessionId, generation, signal);
-    return this.openPath(resolved.path, reveal, signal);
+    const generation=this.generations.get(sessionId)??0;
+    if((await this.status(sessionId,signal)).cwdMismatch)throw new WorkspaceError('SESSION_CWD_MISMATCH');
+    const resolved=key==='directory'?{path:await authorizedRoot((await this.localProject(sessionId,signal)).directory)}:await this.resolveFile(sessionId,key,signal);
+    await this.localProject(sessionId,signal);
+    if (key.startsWith('material:')) await this.command(sessionId,'status',{},signal);
+    this.check(sessionId,generation,signal);
+    return this.openPath(resolved.path,reveal,signal);
   }
+
 }
 
 export function request(input, keys) { return workRecord(input, keys); }

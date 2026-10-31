@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { readDshHandoff, handoffPath } from '../../task-copilot-cli/src/dsh-handoff.ts';
-import { WorkspaceError, sameWorkScope, sameWorkRef, workRefFromBinding, workKey } from '@task-copilot/contracts';
+import { WorkspaceError, sameWorkRef, workRefFromBinding, workKey } from '@task-copilot/contracts';
 
 const missing = error => /^(?:session\/not-found|SESSION_NOT_FOUND|ENOENT)$/.test(error.code ?? '');
 /** Serialized native operations. No messages, drafts, model calls or runtime credentials are stored here. */
@@ -30,7 +30,7 @@ export class DshHandoffs {
       const session = await this.valid(row.sessionId, signal);
       if (!session) continue;
       const expected = directory ?? row.binding?.directory;
-      if (expected) await this.assertCwd(session, expected);
+      if (expected) {try {await this.assertCwd(session, expected);} catch(error) {if(error.code==='SESSION_CWD_MISMATCH')error.sessionId=row.sessionId;throw error;}}
       return row.sessionId;
     }
     return null;
@@ -66,7 +66,8 @@ export class DshHandoffs {
       session = await this.valid(sessionId, signal);
       if (!session) throw new WorkspaceError('SESSION_NOT_FOUND');
     }
-    await this.assertCwd(session, entry.directory);
+    try { await this.assertCwd(session, entry.directory); }
+    catch(error) { if(error.code==='SESSION_CWD_MISMATCH')error.sessionId=sessionId; throw error; }
     if (!sameBinding(service.store.bindings.get(sessionId) ?? entry.binding, entry.binding) ||
         !service.store.bindings.has(sessionId) || !sameWorkRef(service.store.associations.get(sessionId)?.workRef, workRef))
       await service.bind(sessionId, entry.directory, signal, entry, workRef);
@@ -120,20 +121,9 @@ export class DshHandoffs {
     return this.serial(async () => {
       const association = this.service.store.associations.get(sessionId);
       if (!association?.workRef) throw new WorkspaceError('SESSION_NOT_BOUND');
-      if (!association.binding) return this.discover(catalogWork ?? {workRef: association.workRef, title: '新的工作对话'}, operationId, signal, 'new');
-      const entry = await this.service.transport.entry(association.binding.directory);
-      if (!sameWorkScope(entry.binding.scope, association.binding.scope)) throw new WorkspaceError('WORK_SCOPE_CHANGED');
-      // Reuse the handoff journal for native-create recovery. A retry keeps the same operationId.
-      const state = this.service.transport.stateDirectory, path = handoffPath(state, operationId);
-      try { await readDshHandoff(state, operationId); }
-      catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-        await atomicJson(path, {schemaVersion: 1, ticket: operationId, createdAt: Date.now(), mode: 'new',
-          title: '新的工作对话', entry, workRef: association.workRef});
-      }
-      const request = await readDshHandoff(state, operationId);
-      if (!sameWorkRef(request.workRef, association.workRef)) throw new WorkspaceError('SESSION_WORK_CONFLICT');
-      return this.consume(operationId, signal);
+      // Creating a native conversation needs navigation identity/cwd, never an online source grant.
+      return this.discover(catalogWork ?? {workRef: association.workRef, title: '新的工作对话',
+        ...(association.binding ? {directory: association.binding.directory} : {})}, operationId, signal, 'new');
     });
   }
   general(signal) {

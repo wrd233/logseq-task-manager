@@ -1,3 +1,4 @@
+import { parseWorkRef, type WorkRef } from "./work-ref.ts";
 /** Natural-work transport only. These capabilities never authorize Formal operations. */
 export type AgentWorkScope = {
     graphId: string;
@@ -34,6 +35,7 @@ export const workspaceCommands = {
     "stage.history": [], "stage.read": ["input"], "stage.submit": ["input"],
 } as const;
 export type WorkspaceCommand = keyof typeof workspaceCommands;
+export type WorkspaceReadTarget = {sessionId: string; workRef: WorkRef; scope: AgentWorkScope; generation: number};
 export type WorkspaceCall = {
     schemaVersion: 1;
     instanceId: string;
@@ -42,6 +44,7 @@ export type WorkspaceCall = {
     requestId: string;
     command: WorkspaceCommand;
     payload: Record<string, unknown>;
+    readTarget?: WorkspaceReadTarget;
 };
 export type WorkspaceDelivery = WorkspaceCall & {
     scope: AgentWorkScope;
@@ -86,7 +89,7 @@ export function workText(value: unknown, limit = 128): string {
 }
 export function sameWorkScope(a: AgentWorkScope, b: AgentWorkScope): boolean { return a.graphId === b.graphId && a.rootUuid === b.rootUuid && a.kind===b.kind && a.pageName===b.pageName; }
 export function parseWorkspaceCall(input: unknown): WorkspaceCall {
-    const raw = workRecord(input, ["schemaVersion", "instanceId", "connectionId", "clientId", "requestId", "command", "payload"]);
+    const raw = workRecord(input, ["schemaVersion", "instanceId", "connectionId", "clientId", "requestId", "command", "payload", "readTarget"]);
     if (raw.schemaVersion !== 1)
         throw new WorkspaceError("UNSUPPORTED_SCHEMA");
     if (typeof raw.command !== "string" || !Object.hasOwn(workspaceCommands, raw.command))
@@ -95,7 +98,16 @@ export function parseWorkspaceCall(input: unknown): WorkspaceCall {
     const payload = workRecord(raw.payload, workspaceCommands[command]);
     if (new TextEncoder().encode(JSON.stringify(payload)).length > 1048576)
         throw new WorkspaceError("INPUT_TOO_LARGE");
-    return { schemaVersion: 1, instanceId: workText(raw.instanceId), connectionId: workText(raw.connectionId), clientId: workText(raw.clientId), requestId: workText(raw.requestId), command, payload };
+    let readTarget: WorkspaceReadTarget | undefined;
+    if (raw.readTarget !== undefined) {
+        const target = workRecord(raw.readTarget, ["sessionId", "workRef", "scope", "generation"]);
+        if (!Number.isSafeInteger(target.generation) || Number(target.generation) < 0) throw new WorkspaceError("INVALID_GENERATION");
+        // Reuse the binding parser's closed scope schema.
+        const scope = parseWorkBinding({scope: target.scope, directory: "/", organization: "flat", provider: "workspace", workspaceId: null}).scope;
+        readTarget = {sessionId: workText(target.sessionId), workRef: parseWorkRef(target.workRef), scope, generation: Number(target.generation)};
+        if (raw.clientId !== `dsh:${readTarget.sessionId}`) throw new WorkspaceError("SESSION_TARGET_MISMATCH");
+    }
+    return { ...(readTarget ? {readTarget} : {}), schemaVersion: 1, instanceId: workText(raw.instanceId), connectionId: workText(raw.connectionId), clientId: workText(raw.clientId), requestId: workText(raw.requestId), command, payload };
 }
 export function parseWorkBinding(input: unknown): AgentWorkBinding {
     const raw = workRecord(input, ["scope", "directory", "organization", "provider", "workspaceId"]), scope = workRecord(raw.scope, ["graphId", "rootUuid", "kind", "pageName"]);
