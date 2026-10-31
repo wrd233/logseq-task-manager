@@ -87,3 +87,48 @@ export function outline(nodes) {
     visit(null);
     return result;
 }
+
+/** Walk stable parent links from a node to its root. Missing parents end the chain. */
+export function lineage(node, nodes) {
+    const byId = new Map(nodes.map(n => [n.id, n])), path = [], seen = new Set();
+    let current = node;
+    while (current && !seen.has(current.id)) {
+        path.unshift(current);
+        seen.add(current.id);
+        current = byId.get(current.parentId) ?? null;
+    }
+    return path;
+}
+
+/** Select the saved causal chain that ends at the newest record; never reorder by timestamp.
+ *  Logseq revisions carry their real parent revision in facts; Agent snapshots use the
+ *  append-chain parent. Unresolvable links fall back to the append parent and are flagged. */
+export function historyChain(records) {
+    if (!records.length)
+        return { records: [], omitted: [], broken: false };
+    const byId = new Map(records.map(r => [r.id, r]));
+    const byRevision = new Map(records.filter(r => r.facts?.revisionId).map(r => [r.facts.revisionId, r]));
+    let latest = records[0];
+    for (const record of records)
+        if ((record.sequence ?? -1) >= (latest.sequence ?? -1))
+            latest = record;
+    const ordered = [], seen = new Set();
+    let cursor = latest, broken = false;
+    while (cursor) {
+        if (seen.has(cursor.id)) { broken = true; break; }
+        ordered.push(cursor);
+        seen.add(cursor.id);
+        let parent = null;
+        const revisionParent = cursor.facts?.parentRevision;
+        if (revisionParent) {
+            parent = byRevision.get(revisionParent) ?? null;
+            if (!parent) broken = true;
+        }
+        if (!parent && cursor.parentId) parent = byId.get(cursor.parentId) ?? null;
+        if (!parent) break;
+        cursor = parent;
+    }
+    ordered.reverse();
+    const omitted = records.filter(r => !seen.has(r.id)).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    return { records: ordered, omitted, broken };
+}
