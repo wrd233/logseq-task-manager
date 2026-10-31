@@ -1,0 +1,10 @@
+{
+  "note": "Browser-native beforeunload dialog captured through CDP; dialogs are not part of Page.captureScreenshot.",
+  "dialogs": [
+    {
+      "type": "beforeunload",
+      "message": "",
+      "at": "2026-10-31T12:11:54.330Z"
+    }
+  ]
+}

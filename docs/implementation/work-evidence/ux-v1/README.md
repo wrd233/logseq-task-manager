@@ -7,6 +7,7 @@
 - 分支：`codex/work-evidence-ux-v1`
 - Worktree：`/Users/wangrundong/work/logseq-task-manager-work-evidence-ux`
 - 起点：`ce52552a8fb07e0018c6e91025ff8bcfd8081de5`（`fix(work-evidence): read scoped structure without mirror refresh`）
+- 与当前 main 的关系：`origin/main` 为 `018c3368`（另一套 WorkEvidence rebuild）；merge base 为 `2cb0ced7`。**`ce52552a` 不是当前 main 的祖先，main 的 WorkEvidence rebuild 没有合入本分支**；本轮按要求未 merge / rebase / cherry-pick。以下截图只代表本分支。
 - 远端：`origin/codex/work-evidence-ux-v1`，开工与交付前均核对；未合并 main，未触碰其他 Worktree 的未提交文件。
 - 修改范围：仅 `apps/dsh-plugin/src/work-evidence/`、`apps/task-copilot-cli/src/work-evidence/`、对应测试与本说明；没有改共享 contracts、workspace-agent 协议、Logseq installer/router、连接服务、Kernel、根依赖或 profile。
 
@@ -61,13 +62,34 @@
 - 原生草稿插入与消息发送：没有初始化对话和原生输入，未验证插入；也没有发送任何消息。
 - 真实人工 UI 走查：浏览器交互由 CDP 驱动，不等同于人工操作；截图见下。
 
-![目录、主按钮与仅观察边界](scope-and-primary.png)
+## 视觉验收（2026-10-31）
 
-![增量观察的文件层级与内部记录计数](file-list.png)
+以下截图来自真实隔离 DSH 宿主（1440×1000），不是静态 HTML 原型或 AI 生成图片。完整索引、逐图说明、视觉问题与证据边界见 [visual-review.md](visual-review.md)；运行事实见 [screenshots/environment.json](screenshots/environment.json)。
 
-![当前文件内展开的未暂存差异与失效边界提示](inline-diff.png)
+<table>
+<tr>
+<td><a href="screenshots/03-incremental-main.png"><img src="screenshots/03-incremental-main.png" width="300" alt="增量观察主界面"></a><br><sub>增量主界面：目录、主按钮、变化数量</sub></td>
+<td><a href="screenshots/10-fresh-sync.png"><img src="screenshots/10-fresh-sync.png" width="300" alt="刚同步状态"></a><br><sub>“刚同步”状态</sub></td>
+<td><a href="screenshots/02-first-observation.png"><img src="screenshots/02-first-observation.png" width="300" alt="首次观察"></a><br><sub>首次观察：0 个新提交</sub></td>
+</tr>
+<tr>
+<td><a href="screenshots/04-inline-diff-staged.png"><img src="screenshots/04-inline-diff-staged.png" width="300" alt="暂存内联 Diff"></a><br><sub>暂存差异内联展开</sub></td>
+<td><a href="screenshots/05-inline-diff-unstaged.png"><img src="screenshots/05-inline-diff-unstaged.png" width="300" alt="未暂存内联 Diff"></a><br><sub>未暂存差异内联展开</sub></td>
+<td><a href="screenshots/06-restricted-env-internal.png"><img src="screenshots/06-restricted-env-internal.png" width="300" alt="受限文件与内部记录"></a><br><sub>.env 与 .task-workspace 受限、折叠</sub></td>
+</tr>
+<tr>
+<td><a href="screenshots/07-history-reload.png"><img src="screenshots/07-history-reload.png" width="300" alt="历史快照重载"></a><br><sub>历史快照：非实时</sub></td>
+<td><a href="screenshots/08-structure-unavailable.png"><img src="screenshots/08-structure-unavailable.png" width="300" alt="结构视图降级"></a><br><sub>无 Logseq 连接的结构降级</sub></td>
+<td><a href="screenshots/09-handoff-editor.png"><img src="screenshots/09-handoff-editor.png" width="300" alt="交接编辑界面"></a><br><sub>完整交接编辑区</sub></td>
+</tr>
+<tr>
+<td><a href="screenshots/11-scope-primary.png"><img src="screenshots/11-scope-primary.png" width="300" alt="目录与主按钮"></a><br><sub>目录摘要与“只观察”边界</sub></td>
+<td><a href="screenshots/01-history-list.png"><img src="screenshots/01-history-list.png" width="300" alt="历史观察列表"></a><br><sub>历史观察列表</sub></td>
+<td><sub><strong>离开确认</strong><br>浏览器原生 <code>beforeunload</code> 无法进入页面截图；实际事件证据见 <a href="screenshots/leave-confirmation.json">leave-confirmation.json</a>。</sub></td>
+</tr>
+</table>
 
-![无 Logseq 连接时的结构视图回退](structure-unavailable.png)
+视频：[work-evidence-walkthrough.mp4](work-evidence-walkthrough.mp4)（约 30.7 秒，由真实页面截图序列编码，2.5–3 fps；覆盖打开面板、文件展开、暂存/未暂存 Diff、内部记录、历史记录与交接编辑）。
 
 ## 复建与检查命令
 

@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-31",
+  "branch": "codex/work-evidence-ux-v1",
+  "head": "a3cf71273cdd4ac862bacd1f72edec713c3cdde7",
+  "base": "ce52552a8fb07e0018c6e91025ff8bcfd8081de5",
+  "originMain": "018c3368",
+  "mergeBase": "2cb0ced7688b7af19ac5814b1f556ecae255f3c9",
+  "baseIsAncestorOfMain": false,
+  "mainWorkEvidenceRebuildIncluded": false,
+  "mergeOrRebasePerformed": false,
+  "worktree": "/Users/wangrundong/work/logseq-task-manager-work-evidence-ux",
+  "runId": "run-afd2d66e-f6da-4762-98fb-3d6c878e9c01",
+  "address": "http://127.0.0.1:59796",
+  "syntheticRepository": "tmp/work-evidence-ux/run-afd2d66e-f6da-4762-98fb-3d6c878e9c01/体验 仓库",
+  "isolation": {
+    "dshHome": "run-owned dsh-home-v1",
+    "profile": "run-owned profiles/work-evidence",
+    "port": "run-owned loopback port 59796",
+    "otherServices": "not started, stopped, or restarted"
+  },
+  "capture": {
+    "browser": "Google Chrome 156 headless",
+    "protocol": "Chrome DevTools Protocol",
+    "viewport": "1440x1000",
+    "screenshots": "Page.captureScreenshot",
+    "video": "real page screenshots at ~320 ms intervals, encoded with ffmpeg",
+    "leaveConfirmation": "native beforeunload dialog; page screenshot times out while it is open, event recorded in leave-confirmation.json"
+  }
+}
