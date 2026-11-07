@@ -158,10 +158,8 @@ export function applyEvidenceClient(ctx) {
     useEffect(() => info.tab.actions.bindCommands({ refresh: () => setVersion(v => v + 1) }), [info.tab.actions]);
     return initial ? <Board key={`${props.sessionId}:${initial.project}:${version}`} initial={initial} sessionId={props.sessionId} inputActions={props.inputActions}/> : <section className="we-page"><h1>回顾刚才的工作</h1><p role="status">{error ? errorText(error) : '正在读取工作记录…'}</p>{error ? <button onClick={() => setVersion(v => v + 1)}>重新读取</button> : null}</section>;
   }
-  function Header() { return <button className="wh-entry" onClick={() => ctx.sidebarRight.openTab('work-evidence')} aria-label="打开工作回顾">回顾工作</button>; }
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/work-evidence', kind: 'work-evidence', title: () => '工作回顾', priority: 'extension', guide: [{ id: 'work-evidence', order: 340, title: () => '工作回顾' }] }));
   const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
-  register('conversation.session.header.utilities', { id: 'work-evidence', order: 12 }, Header);
   register('sidebar.right.pane.tab', { key: '@task-copilot/work-evidence' }, Panel);
   ctx.on('dispose', () => style.remove());
 }

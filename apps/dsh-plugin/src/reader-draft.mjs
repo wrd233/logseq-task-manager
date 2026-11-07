@@ -17,6 +17,12 @@ export function insertReaderReferences(inputActions, references) {
   if (!references.length) return false;
   const captured = inputActions.captureInsertion();
   const span = { ...captured, start: captured.end };
-  const text = references.map(reference => `[Logseq 引用 ${JSON.stringify(reference)}]\n`).join('');
+  const text = references.map(reference => {
+    const label = reference.range ? '选段' : '整块';
+    const version = String(reference.contentVersion ?? '').slice(0, 12);
+    const quote = String(reference.excerpt ?? '').split('\n').map(line => `> ${line}`).join('\n');
+    const identity = { sourceId: reference.sourceId, contentVersion: reference.contentVersion, workRef: reference.workRef, range: reference.range ?? null };
+    return `[Logseq 引用 · ${label} · contentVersion ${version}]\n${quote}\n来源 ${JSON.stringify(identity)}\n`;
+  }).join('');
   return inputActions.insertText((span.start > 0 ? '\n' : '') + text, span);
 }

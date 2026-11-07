@@ -146,7 +146,6 @@ export function applyHistoryClient(ctx) {
     document.head.append(style);
     const refreshers = new Set();
     const rpc = async (method, payload, signal) => { const answer = await ctx.connection.rpc.call('/api', `logseq-workbench/history-${method}`, payload, signal); if (!answer.ok) throw Object.assign(Error(answer.error.message), { code: answer.error.code }); return answer.value; };
-    function Header() { return <button type="button" className="wh-entry" aria-label="打开工作历史" onClick={() => ctx.sidebarRight.openTab('work-history')}>◴ 工作历史</button>; }
     function Panel(props) {
         const info = props.useTabInfo(), sessionId = props.sessionId, root = useRef(null), rail = useRef(null), detail = useRef(null), cache = useRef(new Map()), listRequest = useRef(null), frameRequest = useRef(null), sourceRequest = useRef(null), catalogRef = useRef(null);
         const [catalog, setCatalog] = useState(null), [track, setTrack] = useState('default'), [selectedId, setSelectedId] = useState(null), [frame, setFrame] = useState(null), [parentFrame, setParentFrame] = useState(null);
@@ -327,8 +326,9 @@ export function applyHistoryClient(ctx) {
         const compact = width < 860;
         return <section ref={root} className={`sh-workbench ${compact ? 'is-compact' : ''}`} aria-label="工作结构历史" aria-busy={loadingList || loadingFrame}>
           <header className="sh-head">
-            <div className="sh-head-title"><strong>工作历史</strong><span className="sh-project" title={catalog?.project}>{projectName}</span><span className="sh-readonly">只读</span></div>
+            <div className="sh-head-title"><strong>历史回看</strong><span className="sh-project" title={catalog?.project}>{projectName}</span><span className="sh-readonly">只读</span></div>
             <div className="sh-head-actions">
+              <button type="button" className="sh-text sh-current-work" title="回到当前实时工作" onClick={() => ctx.sidebarRight.openTab('work')}>当前工作</button>
               <button type="button" className="sh-icon" onClick={refresh} disabled={loadingList} aria-label="刷新历史" title="刷新历史">↻</button>
               <button type="button" className="sh-icon" onClick={event => tryFullscreen(event.currentTarget)} aria-label={info.sidebar.fullscreen ? '退出全屏' : '进入全屏'} title={info.sidebar.fullscreen ? '退出全屏' : '全屏'}>{info.sidebar.fullscreen ? '⤡' : '⤢'}</button>
               <details className="sh-menu">
@@ -341,7 +341,7 @@ export function applyHistoryClient(ctx) {
           {error ? <div className="sh-error" role="alert"><span>{issue(error)}</span><button type="button" onClick={refresh}>重试</button></div> : null}
           {ordered.length ? <div className="sh-history">
             <div className="sh-history-head">
-              <div className="sh-history-title"><span className="sh-kicker">历史时间轴</span><span className="sh-latest">最新已记录 <b>#{latestRecord?.sequence}</b> · {time(latestRecord?.recordedAt)}</span><span className="sh-live" title="历史面板只读；实时结构请在 Logseq 中查看">实时结构未读取</span></div>
+              <div className="sh-history-title"><span className="sh-kicker">历史时间轴</span><span className="sh-latest">最新已记录 <b>#{latestRecord?.sequence}</b> · {time(latestRecord?.recordedAt)}</span><span className="sh-live" title="历史快照只读；当前实时结构请查看工作">历史快照 · 只读</span></div>
               <div className="sh-history-actions">
                 {tracks.length > 1 ? <label className="sh-track"><span>历史线</span><select aria-label="历史线" value={catalog?.track ?? track} onChange={event => { if (event.target.value !== (catalog?.track ?? track)) setTrack(event.target.value); }}>{tracks.map(value => <option key={value} value={value}>{trackName(value)}</option>)}</select></label> : null}
                 {!isLatest ? <button type="button" className="sh-latest-button" onClick={goLatest}>回到最新</button> : null}
@@ -455,9 +455,8 @@ export function applyHistoryClient(ctx) {
           </div>
         </section>;
     }
-    ctx.effect(() => ctx.sidebarRightTabs.register({ id: tabId, kind: 'work-history', title: () => '工作历史', priority: 'extension', guide: [{ id: 'work-history', order: 360, title: () => '工作结构与历史' }] }));
+    ctx.effect(() => ctx.sidebarRightTabs.register({ id: tabId, kind: 'work-history', title: () => '历史回看', priority: 'extension', guide: [{ id: 'work-history', order: 360, title: () => '历史回看' }] }));
     const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
-    register('conversation.session.header.utilities', { id: 'work-history', order: 12 }, Header);
     register('sidebar.right.pane.tab', { key: tabId }, Panel);
     ctx.on('connection/reset', () => { for (const refresh of refreshers) refresh(); });
     ctx.on('dispose', () => { style.remove(); refreshers.clear(); });

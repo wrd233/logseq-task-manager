@@ -1,15 +1,15 @@
-import { WorkDiscovery } from './discovery.jsx';
-import { workKey } from '@task-copilot/contracts';
 import { applyHistoryClient } from './structure-history/client.jsx';
 import { applyEvidenceClient } from './work-evidence/client.jsx';
 import { SingleFlight } from './single-flight.mjs';
 /* global window, document, AbortController, setInterval, clearInterval, setTimeout, clearTimeout, URLSearchParams, crypto */
 import { createPlanner } from './planner.jsx';
 import { plannerStyles } from './planner-styles.mjs';
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { styles, readingStyles, workSwitchStyles, discoveryStyles } from './styles.mjs';
-import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
-import { reportProjection } from '../../logseq-plugin/src/features/work-view/report-body.ts';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { styles, discoveryStyles } from './styles.mjs';
+import { workbenchStyles } from './work-experience/styles.mjs';
+import { createWorkbench } from './work-experience/workbench.jsx';
+import { workFocus } from './work-experience/focus-store.mjs';
+import { workKey } from '@task-copilot/contracts';
 
 export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation', 'uiWorkspace', 'sessions'];
 const errorText = error => ({
@@ -28,26 +28,34 @@ const errorText = error => ({
 export function apply(ctx) {
   applyHistoryClient(ctx);
   applyEvidenceClient(ctx);
-  const style = document.createElement('style'); style.textContent = styles + readingStyles + workSwitchStyles + discoveryStyles + plannerStyles; document.head.append(style);
+  const style = document.createElement('style');
+  style.textContent = styles + discoveryStyles + plannerStyles + workbenchStyles;
+  document.head.append(style);
   const rows = new Map(), listeners = new Set();
-  let overlay = null, disposed = false, handoff = null, handoffController = null;
+  let disposed = false, handoff = null, handoffController = null, toast = null, toastTimer = null;
   const emit = () => { for (const listener of listeners) listener(); };
-  const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
-  const get = sessionId => rows.get(sessionId) ?? empty;
-  const empty = Object.freeze({ status: null, view: null, files: [], fileTruncation: [], filesLoaded:false, error: null, busy: false, opening: [], revision: 0 });
-  const update = (sessionId, patch) => { rows.set(sessionId, { ...get(sessionId), ...patch }); emit(); };
   const rpc = async (method, payload, signal) => {
     const answer = await ctx.connection.rpc.call('/api', `logseq-workbench/${method}`, payload, signal);
     if (!answer.ok) throw Object.assign(Error(answer.error.message), { code: answer.error.code, details: answer.error.details });
     return answer.value;
   };
+  const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
+  const get = sessionId => rows.get(sessionId) ?? empty;
+  const empty = Object.freeze({ status: null, view: null, files: [], fileTruncation: [], filesLoaded:false, error: null, busy: false, opening: [], revision: 0 });
+  const update = (sessionId, patch) => { rows.set(sessionId, { ...get(sessionId), ...patch }); emit(); };
+  const flash = (text, tone = 'ok') => {
+    toast = { text, tone };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast = null; emit(); }, 3200);
+    emit();
+  };
+  const openWorkTabSoon = () => setTimeout(() => { try { ctx.sidebarRight.openTab('work'); } catch { /* The next session's sidebar may still be minting. */ } }, 60);
   // Public owner snapshot changes only for on-screen navigation, not data refreshes.
   let navigationQueue = Promise.resolve();
-  let lastMounted, navigationGeneration = 0;
+  let lastMounted;
   const observeNavigation = (force = false) => {
     const sessionId = ctx.sidebarRight.mounted.getSnapshot();
     if (!force && sessionId === lastMounted) return;
-    if (lastMounted && sessionId !== lastMounted) navigationGeneration++;
     lastMounted = sessionId;
     if (document.visibilityState === 'hidden') return;
     if (sessionId) navigationQueue = navigationQueue.catch(() => {}).then(() => rpc('opened', {sessionId})).catch(error => {
@@ -67,8 +75,7 @@ export function apply(ctx) {
     emit();
   }
   async function navigate(method, sessionId) {
-    const navigation = ++navigationGeneration;
-    if (get(sessionId).busy) return;
+    if (get(sessionId).busy) return false;
     handoffController?.abort();
     update(sessionId, {busy: true, error: null});
     try {
@@ -80,31 +87,46 @@ export function apply(ctx) {
       }
       const result = await rpc(method, payload);
       await ctx.sessions.refresh();
-      if (disposed || navigation !== navigationGeneration) return;
-      ctx.uiWorkspace.openSession(result.sessionId);
+      if (disposed) return false;
+      if (ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
       clearHandoff();
-      if (method === 'newWork') {newOperations.delete(sessionId); if(result.bound !== false) show(result.sessionId);}
-      else close();
-      if (result.warnings?.length) update(result.sessionId,{referencePending:true,notice:'已进入原生会话；辅助引用尚未保存。'});
+      if (method !== 'general') openWorkTabSoon();
+      if (method === 'newWork') {
+        newOperations.delete(sessionId);
+        if (result.bound !== false) flash('已新建此工作对话。');
+      }
+      if (result.warnings?.length) flash('已进入对话；辅助引用尚未保存，可稍后重试。', 'error');
       return true;
     } catch (error) {update(sessionId, {error}); return false;}
     finally {update(sessionId, {busy: false});}
   }
+  async function enterWork(work, operations) {
+    handoffController?.abort();
+    await navigationQueue;
+    const key = workKey(work.workRef);
+    if (!operations.has(key)) operations.set(key, crypto.randomUUID());
+    const result = await rpc('enterWork', {workRef: work.workRef, operationId: operations.get(key)});
+    await ctx.sessions.refresh();
+    if (disposed) return;
+    if (ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
+    clearHandoff();
+    openWorkTabSoon();
+    return result;
+  }
   async function enterHandoff() {
     if(!handoff || disposed)return;
     handoffController?.abort(); const controller = handoffController = new AbortController();
-    const ticket=handoff.ticket, navigation = ++navigationGeneration;
+    const ticket=handoff.ticket;
     handoff={...handoff,busy:true,error:null};emit();
     try {
       await navigationQueue;
       const result=await rpc('handoff',{ticket},controller.signal);
       if(disposed||controller.signal.aborted)return;
       await ctx.sessions.refresh();if(disposed||controller.signal.aborted)return;
-      if(navigation !== navigationGeneration)return;
-      if (ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
-      show(result.sessionId,true);
-      update(result.sessionId,{referencePending:!!result.warnings?.length,notice:result.warnings?.length ? "已进入原生会话；辅助引用尚未保存，可重试。" : null});
+      if(ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
+      openWorkTabSoon();
       clearHandoff();
+      flash(result.warnings?.length ? '已进入这件工作；辅助引用尚未保存。' : '已恢复这件工作的最近对话。', result.warnings?.length ? 'error' : 'ok');
     }catch(error){if(!controller.signal.aborted&&!disposed){handoff={ticket,busy:false,error};emit();}}
   }
   function readHandoff(){
@@ -144,7 +166,6 @@ export function apply(ctx) {
     useEffect(()=>{
       if(!active)return;
       const reread=()=>{if(document.visibilityState!=='hidden')void refresh(sessionId,kind);};
-      // Give the initial source request the first turn; a directory scan cannot delay first paint.
       const first=setTimeout(reread,kind==='files'?150:0);
       const timer=setInterval(reread,kind==='files'?15000:5000);
       window.addEventListener('focus',reread);
@@ -152,8 +173,6 @@ export function apply(ctx) {
     },[sessionId,active,kind]);
     return row;
   }
-  function show(sessionId,files=false) { overlay = { sessionId, files }; emit(); void refresh(sessionId); }
-  function close() { overlay = null; emit(); }
   const fileActions=new SingleFlight(1200);
   function openFile(sessionId,key,reveal=false) {
     const action=JSON.stringify([sessionId,get(sessionId).revision,key,reveal]);
@@ -174,145 +193,16 @@ export function apply(ctx) {
       if (!inputActions.insertText(text, span)) update(sessionId, { error: { code: 'INPUT_BUSY' } });
     }}>{title}</button>;
   }
-  function Header(props) {
-    const row = useRow(props.sessionId, true);
-    return <button type="button" className="lq-header" aria-label="查看关联的 Logseq 工作" onClick={() => {
-      show(props.sessionId); ctx.sidebarRight.openTab('logseq-files');
-    }}>↗ Logseq{row.view ? <span className="lq-dot" aria-label="已关联" /> : null}</button>;
+  function WorkHeader() {
+    return <button type="button" className="lq-header" aria-label="打开当前工作" title="当前工作、原文与结构" onClick={openWorkTabSoon}>◈ 工作</button>;
   }
-  function WorkSwitch({sessionId}) {
-    const row = useRow(sessionId), [open, setOpen] = useState(false), [title, setTitle] = useState('');
-    useEffect(() => {
-      let active = true;
-      if(sessionId) void rpc('status', {sessionId}).then(status => {if (active && !disposed) update(sessionId, {status});}).catch(error => {if(active && !disposed) update(sessionId,{error});});
-      void rpc('catalog', {}).then(catalog => {if(active) setTitle(catalog.graphs.flatMap(graph => graph.works).find(work => row.status?.workRef && workKey(work.workRef) === workKey(row.status.workRef))?.title ?? '');}).catch(()=>{});
-      return () => {active=false;};
-    },[sessionId,row.revision,row.status?.workRef && workKey(row.status.workRef)]);
-    useEffect(() => {
-      const key = event => {if((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'k') {event.preventDefault(); setOpen(value=>!value);}};
-      window.addEventListener('keydown',key); return ()=>window.removeEventListener('keydown',key);
-    },[]);
-    const enterWork = async (work, operations) => {
-      const navigation = ++navigationGeneration; handoffController?.abort();
-      await navigationQueue;
-      const key = workKey(work.workRef);
-      if(!operations.has(key)) operations.set(key, crypto.randomUUID());
-      const result = await rpc('enterWork', {workRef:work.workRef, operationId:operations.get(key)});
-      await ctx.sessions.refresh();
-      if(disposed || navigation !== navigationGeneration) return;
-      ctx.uiWorkspace.openSession(result.sessionId); clearHandoff(); close();
-    };
-    return <><nav className="lq-work-switch" aria-label="工作与通用对话">
-      <button type="button" className="lq-switch-trigger" aria-label="搜索和切换工作" aria-haspopup="dialog" aria-expanded={open} title="搜索工作 ⌘⇧K" onClick={()=>setOpen(true)}><span aria-hidden="true">⌕</span><span>{row.status?.workRef ? title || '当前工作' : 'General'}</span><span aria-hidden="true">⌄</span></button>
-      {row.status?.workRef ? <><button type="button" disabled={row.busy} onClick={() => {void navigate('newWork',sessionId);}}>新建此工作对话</button><button type="button" onClick={() => show(sessionId)}>查看工作</button></> : null}
-    </nav>{open ? <WorkDiscovery rpc={rpc} currentRef={row.status?.workRef} onEnter={enterWork} onGeneral={async()=>{if(!await navigate('general',sessionId)) throw Error('GENERAL_NAVIGATION_FAILED');}} onClose={()=>setOpen(false)}/> : null}</>;
+  function PlannerHeader() {
+    return <button type="button" className="lq-header" aria-label="打开时间规划" onClick={() => ctx.sidebarRight.openTab('semantic-planner')}>◷ 规划</button>;
   }
-
   function RowAction({ sessionId }) {
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
     if (sessionId !== mounted) return null;
-    return <button type="button" className="lq-row-action" aria-label="查看此会话的 Logseq 工作" onClick={event => { event.stopPropagation(); show(sessionId); }}>↗</button>;
-  }
-  function Binding({ sessionId, row }) {
-    const [directory, setDirectory] = useState('');
-    return <form className="lq-binding" onSubmit={async event => {
-      event.preventDefault(); invalidate(sessionId); update(sessionId, { busy: true });
-      try {
-        await rpc('bind', { sessionId, directory: directory.trim() || row.status?.cwd || '' });
-        await refresh(sessionId);
-      } catch (error) { update(sessionId, { error }); }
-      finally { update(sessionId, { busy: false }); }
-    }}><label htmlFor={`lq-directory-${sessionId}`}>Logseq 工作目录</label><input id={`lq-directory-${sessionId}`} value={directory} onChange={event => setDirectory(event.target.value)} placeholder={row.status?.cwd ?? '/工作目录'} disabled={row.busy} /><button type="submit" disabled={row.busy}>关联当前会话</button><p>使用已在 Logseq 允许连接的工作目录。</p></form>;
-  }
-  async function selectReading(sessionId, selection) {
-    cancelReads(sessionId);
-    const revision = get(sessionId).revision + 1;
-    update(sessionId, { revision, busy: true, opening: [], error: null });
-    try {
-      const view = await rpc('select', { sessionId, ...selection });
-      if (get(sessionId).revision === revision) update(sessionId, { view });
-    } catch (error) { if (get(sessionId).revision === revision) update(sessionId, { error }); }
-    finally { if (get(sessionId).revision === revision) update(sessionId, { busy: false }); }
-  }
-  function ReadingBody({ sessionId, inputActions, view }) {
-    const [selection,setSelection]=useState(null);
-    useEffect(()=>setSelection(null),[view.version]);
-    const selectedText=()=>{
-      const selected=window.getSelection();
-      const element=selected?.anchorNode?.parentElement?.closest('[data-source-id]');
-      const end=selected?.focusNode?.parentElement?.closest('[data-source-id]');
-      const text=selected?.toString().trim();
-      setSelection(text&&element===end?{text:text.slice(0,4000),sourceId:element?.dataset.sourceId}:null);
-    };
-    const blocks = new Map(view.blocks.map(block => [block.sourceId, block]));
-    const reading = view.reading, files=get(sessionId).files;
-    const block = (id, context = false) => {
-      const value = blocks.get(id); if (!value) return null;
-      const projection = reportProjection(value.content ?? '来源暂不可用');
-      return <div key={id} className="lq-block" data-source-id={id} style={!reading?.document && reading?.mode === 'structure' ? { marginInlineStart: Math.min(value.depth, 6) * 10 } : undefined}>
-        {projection.label || projection.task ? <span className="lq-marker">{[projection.task, projection.label].filter(Boolean).join(' · ')}</span> : null}
-        <div className="lq-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(projection.markdown) }} />
-        {!context ? <span className="lq-block-action"><Quote sessionId={sessionId} inputActions={inputActions} item={{ sourceId: id, contentVersion: value.contentVersion }} title="引用" /></span> : null}
-      </div>;
-    };
-    const context = ids => ids?.length ? <aside className="lq-reading-context"><span>来源上下文</span>{ids.map(id => block(id, true))}</aside> : null;
-    const unit = value => <section key={value.key} className="lq-reading-unit" data-reading-unit={value.key}>
-      {value.title ? <h3>{value.title}</h3> : null}{context(value.contextSourceIds)}
-      {value.sourceIds?.map(id => block(id))}{value.children?.map(unit)}
-      {value.columns?.map(column => <section key={column.key} className="lq-reading-unit"><h3>{column.title}</h3>{context(column.contextSourceIds)}{column.children.map(unit)}</section>)}
-      {value.materialId ? <button type="button" className="lq-reading-material" onClick={() => { void openFile(sessionId, files.find(file => file.materialId === value.materialId)?.key ?? `material:${value.materialId}`); }}>{files.find(file => file.materialId === value.materialId)?.name ?? '打开关联材料'}</button> : null}
-    </section>;
-    return <div onMouseUp={selectedText} onKeyUp={selectedText} className={`lq-body ${reading?.mode === 'structure' ? 'lq-structure' : ''}`}>{selection?<div className="lq-selection-action"><Quote sessionId={sessionId} inputActions={inputActions} item={{sourceId:selection.sourceId,contentVersion:blocks.get(selection.sourceId)?.contentVersion,selectedText:selection.text}} title="引用选中文字" /></div>:null}{reading?.document ? reading.document.map(unit) : view.blocks.map(value => block(value.sourceId))}</div>;
-  }
-  function WorkPanel({ sessionId, inputActions }) {
-    const row = useRow(sessionId, true), [more, setMore] = useState(false);
-    return <section className="lq-source" aria-label="关联的 Logseq 原文"><header><span>Logseq 阅读</span><div>{row.view ? <button type="button" aria-label="刷新此工作原文" onClick={() => {void refresh(sessionId);}}>↻</button> : null}<button type="button" aria-label="更多工作操作" onClick={() => setMore(!more)}>···</button><button type="button" aria-label="收起 Logseq 原文" onClick={close}>×</button></div></header>
-      {row.status?.cwdMismatch ? <p className="lq-error" role="status">会话目录与工作登记目录不同；原会话和草稿已保留。<button type="button" onClick={()=>{void navigate('newWork',sessionId);}}>在正确目录新建会话</button></p> : null}
-      {row.notice ? <p className="lq-muted" role="status">{row.notice}{row.referencePending ? <button type="button" onClick={async()=>{try{await rpc('reference',{sessionId});update(sessionId,{referencePending:false,notice:'辅助引用已保存。'});}catch(error){update(sessionId,{error});}}}>重试保存引用</button> : null}</p> : null}
-      {more ? <div className="lq-source-menu"><button type="button" onClick={() => { void refresh(sessionId); setMore(false); }}>刷新阅读</button><button type="button" onClick={() => { ctx.sidebarRight.openTab('logseq-files'); setMore(false); }}>工作文件</button>{row.view?.reading?.plans.find(plan => plan.planId === row.view.reading.activePlanId)?.canRestore ? <button type="button" disabled={row.busy} onClick={() => { void selectReading(sessionId, { planId: row.view.reading.activePlanId, restore: true }); setMore(false); }}>恢复当前读法上一版</button> : null}{row.status?.bound ? <button type="button" disabled={row.busy} onClick={async () => {
-        invalidate(sessionId); update(sessionId, { busy: true });
-        try { await rpc('unbind', { sessionId }); await refresh(sessionId); }
-        catch (error) { update(sessionId, { error }); } finally { update(sessionId, { busy: false }); }
-      }}>解除此会话关联</button> : null}</div> : null}
-      {row.error ? <p className="lq-error" role="status">{errorText(row.error)}{row.view ? ` · 上次成功读取：${row.view.capturedAt}` : ''}</p> : null}{row.view?.warnings?.length ? <p className="lq-muted">辅助来源暂不可读；正文已保留。</p> : null}
-      {!row.status ? <p className="lq-muted">正在检查工作连接…</p> : !row.status.bound ? <Binding sessionId={sessionId} row={row} /> : row.view ? <><h2>{row.view.title}</h2><p className="lq-muted">{row.error ? "上次读取副本" : "读取于"} · {new Date(row.view.capturedAt).toLocaleString()}</p>{row.view.reading ? <><div className="lq-reading-picker"><select aria-label="当前工作读法" disabled={row.busy} value={row.view.reading.selectedPlanId ? `plan:${row.view.reading.selectedPlanId}` : `mode:${row.view.reading.mode ?? 'report'}`} onChange={event => {
-        const value = event.target.value; void selectReading(sessionId, value.startsWith('mode:') ? { mode: value.slice(5) } : { planId: value.slice(5) });
-      }}><option value="mode:report">连续阅读</option><option value="mode:structure">原结构</option>{row.view.reading.plans.map(plan => <option key={plan.planId} value={`plan:${plan.planId}`} disabled={plan.status !== 'current'}>{plan.name}{plan.status === 'current' ? '' : ' · 需重新整理'}</option>)}</select></div><span className="lq-reading-version" title={row.error?"暂时离线，显示上次读取内容":row.view.reading.persistenceError?"读法同步保存失败":`与 Logseq 同步${row.view.reading.activePlanId?" · 读法 v"+(row.view.reading.plans.find(plan=>plan.planId===row.view.reading.activePlanId)?.revision??1):""}`}>{row.error?'离线':row.view.reading.persistenceError?'未保存':'同步'}</span></> : <p className="lq-muted">已读取此工作原文；Logseq 可以继续阅读其他工作。</p>}<ReadingBody sessionId={sessionId} inputActions={inputActions} view={row.view} />{row.view.truncated ? <p className="lq-muted">较长原文已截断，可在 Logseq 查看完整内容。</p> : null}</> : <p className="lq-muted">等待 Logseq 原文…</p>}
-    </section>;
-  }
-  function Overlay(props) {
-    const seat = useRef(null);
-    const [reference,setReference]=useState(null);
-    const current = useSyncExternalStore(subscribe, () => overlay, () => null);
-    const entry = useSyncExternalStore(subscribe, () => handoff, () => null);
-    const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
-    useEffect(()=>{
-      if(!current||mounted!==current.sessionId){setReference(null);return;}
-      const held=ctx.sessions.retain(current.sessionId,{source:'controllerOperation'});setReference(held);
-      return ()=>held.release();
-    },[mounted,current?.sessionId]);
-    useEffect(() => { if (current && !current.files && mounted && current.sessionId !== mounted) show(mounted); }, [mounted, current?.sessionId,current?.files]);
-    useEffect(()=>{
-      if(current?.files&&mounted===current.sessionId){
-        ctx.sidebarRight.openTab('logseq-files');
-        overlay={...current,files:false};emit();
-        void ctx.sessions.using(mounted,{source:'controllerOperation'},async reference=>{const binding=await reference.ready;ctx.conversation.input.for(binding.ctx).focus();}).catch(()=>{});
-      }
-    },[mounted,current]);
-    useEffect(() => { const escape = event => { if (event.key === 'Escape') close(); }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, []);
-    useEffect(() => {
-      if (!current || !mounted || current.sessionId !== mounted) return;
-      // The additive overlay has no public left-column geometry setter in DSH rc.2.
-      // This temporary adapter uses the frame landmark and cleans up on close.
-      const frame = seat.current?.closest('[data-shell-overlay]')?.parentElement;
-      if (!frame?.style.gridTemplateColumns) return;
-      frame.classList.add('lq-frame-open');
-      return () => frame.classList.remove('lq-frame-open');
-    }, [mounted, current?.sessionId,reference?.sessionId]);
-    return <><WorkSwitch sessionId={mounted} />{entry ? <section className="lq-source lq-handoff" aria-label="进入 DSH 协作" role="status">
-      {entry.busy?<p>正在进入此工作的 DSH 会话…</p>:<><p>{errorText(entry.error)}</p>{entry.error?.code==='SESSION_CWD_MISMATCH'&&entry.error.details?.sessionId?<button type="button" onClick={()=>{void navigate('newWork',entry.error.details.sessionId);}}>在正确目录新建此工作会话</button>:null}<button type="button" onClick={()=>{void enterHandoff();}}>重试</button></>}
-      {!entry.busy?<button type="button" onClick={()=>{handoffController?.abort();handoff=null;emit();}}>关闭</button>:null}
-    </section>:null}{current&&mounted&&current.sessionId===mounted&&reference?.sessionId===mounted?<div ref={seat}><props.SessionProvider session={reference}>{props.renderSlot('logseq.work.source', {})}</props.SessionProvider></div>:null}</>;
+    return <button type="button" className="lq-row-action" aria-label="查看此会话的当前工作" onClick={event => { event.stopPropagation(); openWorkTabSoon(); }}>◈</button>;
   }
   function Files(props) {
     const tab = props.useTabInfo();
@@ -323,24 +213,36 @@ export function apply(ctx) {
     return <section className="lq-files" aria-label="Logseq 工作文件"><div className="lq-file-title"><span>{row.view?.title ?? 'Logseq 工作文件'}</span><button type="button" aria-label="打开工作目录" onClick={() => { void openFile(props.sessionId, 'directory'); }} disabled={row.opening.includes('directory')}>↗</button></div>
       {row.fileWarning ? <p className="lq-muted">Logseq 来源暂不可用；当前会话目录文件 · 读取于 {new Date(row.filesReadAt).toLocaleTimeString()}。关联材料需重新连接。</p> : null}
       {row.fileError ? <p className="lq-error" role="status">{errorText(row.fileError)}</p> : null}
-      {row.status && !row.status.bound ? <button type="button" className="lq-link" onClick={() => show(props.sessionId)}>关联 Logseq 工作</button> : null}
+      {row.status && !row.status.bound ? <button type="button" className="lq-link" onClick={() => ctx.sidebarRight.openTab('work')}>关联 Logseq 工作</button> : null}
       {row.notice ? <p className="lq-muted" role="status">{row.notice}</p> : null}
       {row.files.map(file => { const group = previous !== file.group ? <h3>{file.group}</h3> : null; previous = file.group; return <React.Fragment key={file.key}>{group}<div className="lq-file-row"><button type="button" className="lq-file-open" title={file.relativePath} disabled={file.availability !== 'available'||row.opening.includes(file.key)} aria-busy={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}><span aria-hidden="true">▤</span><span>{file.name}</span>{row.opening.includes(file.key)?<small className="lq-opening" role="status">正在打开…</small>:null}</button><button type="button" className="lq-more" aria-label={`${file.name}的更多操作`} aria-expanded={menu === file.key} onClick={() => setMenu(menu === file.key ? null : file.key)}>···</button></div>{menu === file.key ? <div className="lq-file-menu"><button type="button" disabled={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key); }}>外部打开</button><button type="button" disabled={row.opening.includes(file.key)} onClick={() => { setMenu(null); void openFile(props.sessionId, file.key, true); }}>在访达显示</button><Quote sessionId={props.sessionId} inputActions={props.inputActions} item={{ file: file.key, path: file.relativePath, materialId: file.materialId, version: file.version }} /></div> : null}</React.Fragment>; })}
       {!row.filesLoaded&&!row.fileError?<p className="lq-muted">正在读取文件列表…</p>:null}{row.filesLoaded && !row.files.length ? <p className="lq-muted">此工作暂无文件。</p> : null}{row.fileTruncation.length ? <p className="lq-muted">部分文件或目录暂未列出，请检查权限或范围限制。</p> : null}
     </section>;
   }
-  function PlannerHeader() {
-    return <button type="button" className="lq-header" aria-label="打开时间规划" onClick={() => ctx.sidebarRight.openTab('semantic-planner')}>◷ 规划</button>;
+  function HandoffHost() {
+    const entry = useSyncExternalStore(subscribe, () => handoff, () => null);
+    const message = useSyncExternalStore(subscribe, () => toast, () => null);
+    if (!entry && !message) return null;
+    if (entry) return <section className={`wx-toast${entry.error ? ' is-error' : ''}`} role="status" aria-label="进入 DSH 协作">
+      <span>{entry.busy ? '正在进入这件工作的最近对话…' : errorText(entry.error)}</span>
+      {!entry.busy && entry.error?.code==='SESSION_CWD_MISMATCH'&&entry.error.details?.sessionId?<button type="button" onClick={()=>{void navigate('newWork',entry.error.details.sessionId);}}>在正确目录新建</button>:null}
+      {!entry.busy?<button type="button" onClick={()=>{void enterHandoff();}}>重试</button>:null}
+      {!entry.busy?<button type="button" onClick={()=>{handoffController?.abort();handoff=null;emit();}}>关闭</button>:null}
+    </section>;
+    return <section className={`wx-toast${message.tone === 'error' ? ' is-error' : ''}`} role="status"><span>{message.text}</span></section>;
   }
-  const Planner = createPlanner({ rpc });
-  ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', guide: [{ id: 'semantic-planner', order: 330, title: () => '个人时间规划' }] }));
+  const focusWork = (sessionId, uuid) => { workFocus.request(sessionId, uuid); openWorkTabSoon(); };
+  const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork });
+  const Planner = createPlanner({ rpc, focusWork });
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/work', kind: 'work', title: () => '工作', priority: 'extension', keepMounted: true, guide: [{ id: 'work', order: 300, title: () => '当前工作' }] }));
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', keepMounted: true, guide: [{ id: 'semantic-planner', order: 330, title: () => '个人时间规划' }] }));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/dsh-logseq-workbench', kind: 'logseq-files', title: () => '工作文件', priority: 'extension', guide: [{ id: 'logseq-files', order: 350, title: () => 'Logseq 工作文件' }] }));
   const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
-  register('conversation.session.header.utilities', { id: 'semantic-planner', order: 9 }, PlannerHeader);
-  register('conversation.session.header.utilities', { id: 'logseq-workbench', order: 10 }, Header);
-  register('sidebar.workspaces.session.row.action', { id: 'logseq-workbench', order: 100 }, RowAction);
-  register('shell.overlay', { id: 'logseq-workbench', children: { 'logseq.work.source': { kind: 'single', scope: 'session' } } }, Overlay);
-  register('logseq.work.source', { id: 'logseq-workbench' }, WorkPanel);
+  register('conversation.session.header.utilities', { id: '@task-copilot/work', order: 9 }, WorkHeader);
+  register('conversation.session.header.utilities', { id: 'semantic-planner', order: 10 }, PlannerHeader);
+  register('sidebar.workspaces.session.row.action', { id: '@task-copilot/work', order: 100 }, RowAction);
+  register('shell.overlay', { id: 'logseq-workbench' }, HandoffHost);
+  register('sidebar.right.pane.tab', { key: '@task-copilot/work' }, Workbench);
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
   register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, Planner);
   window.addEventListener('hashchange',readHandoff);readHandoff();
@@ -359,7 +261,7 @@ export function apply(ctx) {
     } catch { /* When disconnected, Logseq falls back to opening its ticket URL. */ }
     finally { checkingHandoff = false; }
   }, 650);
-  ctx.on('dispose', () => { pendingHandoff.abort(); clearInterval(handoffTimer); });
-  ctx.on('dispose', () => { disposed = true; stopNavigation(); window.removeEventListener('focus', observeFocus); document.removeEventListener('visibilitychange', observeFocus); handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
-  ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
+  ctx.on('dispose', () => { pendingHandoff.abort(); clearInterval(handoffTimer); clearTimeout(toastTimer); });
+  ctx.on('dispose', () => { disposed = true; stopNavigation(); window.removeEventListener('focus', observeFocus); document.removeEventListener('visibilitychange', observeFocus); handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); workFocus.dispose(); });
+  ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
 }

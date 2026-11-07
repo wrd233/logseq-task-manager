@@ -10,7 +10,7 @@ export function observeCurrentStructure(rpc, {sessionId, focusUuid}, onEvent, in
     active = true;
     try {
       const value = await rpc('currentStructure', {sessionId, ...(focusUuid ? {focusUuid} : {})}, controller.signal);
-      const next = JSON.stringify([value.sourceSetVersion, value.structureVersion, value.path, value.root, value.children]);
+      const next = JSON.stringify([value.sourceSetVersion, value.structureVersion, value.path, value.root, value.children, value.content]);
       if (!controller.signal.aborted && next !== version) {
         version = next;
         onEvent({type: 'currentStructure.changed', value});
