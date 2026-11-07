@@ -1,0 +1,79 @@
+{
+  "environment": "Real isolated DSH + Logseq Desktop + production companion. Step 1 seeded Agent history snapshots; Planner entries created through UI.",
+  "observedAt": "2026-11-07T12:11:09.490Z",
+  "planner": {
+    "entries": [
+      {
+        "id": "c156b29d-cbb2-408a-a29e-6f615667b933",
+        "title": "核对工作 B 的结构历史",
+        "date": "2026-11-07",
+        "slotId": "slot-morning",
+        "reference": {
+          "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+          "blockUuid": "bbbbbbbb-0000-4000-8000-000000000002",
+          "objectId": null,
+          "kind": "TASK",
+          "title": "工作 B · 来源路由"
+        },
+        "plannedMinutes": 60,
+        "actualMinutes": 45,
+        "dueAt": "2026-11-08T18:30"
+      },
+      {
+        "id": "b5bd37fc-a80e-4457-90c3-056783b33dea",
+        "title": "自由阅读与散步",
+        "date": "2026-11-07",
+        "slotId": "slot-morning",
+        "reference": null,
+        "plannedMinutes": 30,
+        "actualMinutes": null,
+        "dueAt": null
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot-morning",
+        "name": "上午专注与阅读",
+        "start": "09:00",
+        "end": "12:00"
+      },
+      {
+        "id": "slot-afternoon",
+        "name": "午休后",
+        "start": "14:00",
+        "end": "16:00"
+      },
+      {
+        "id": "slot-evening",
+        "name": "晚间自由时间",
+        "start": "20:00",
+        "end": "22:00"
+      },
+      {
+        "id": "slot-flex",
+        "name": "临时碎片时间",
+        "start": null,
+        "end": null
+      }
+    ],
+    "diskReloadEqual": true,
+    "undoAndReorderRestored": true
+  },
+  "references": [
+    {
+      "graphId": "graph:logseq_local_$FIXTURE_ROOT/graph",
+      "blockUuid": "bbbbbbbb-0000-4000-8000-000000000002",
+      "objectId": null,
+      "kind": "TASK",
+      "title": "工作 B · 来源路由"
+    }
+  ],
+  "currentSource": {
+    "content": "B_ONLY_942：只属于工作 B 的原文，不能混入 A。",
+    "version": "44f67626d801c5ec699aaec58011b38ccfb84184aa1a6d429ffc5424379e3e27",
+    "availability": "available"
+  },
+  "historicalBody": "B_HISTORICAL_SNAPSHOT_V2：第二版历史正文。",
+  "historyBytesUnchanged": true,
+  "graphFilesUnchanged": true
+}

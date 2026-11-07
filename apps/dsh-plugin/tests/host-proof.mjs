@@ -143,6 +143,42 @@ try {
   assert.equal((await rpc('open', { sessionId: 'proof-session', key: 'file:proposal.md', reveal: false })).opened, true);
   const file = await value('logseq_file_read', { path: 'proposal.md' }); assert.match(file.content, /A real file/);
   checks.push({ check: 'Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter', ok: true });
+  const plannerBefore = f.counts();
+  let personal = await rpc('planner-read', { sessionId: 'planner-unbound' });
+  assert.equal(personal.entries.length, 0);
+  personal = await rpc('planner-change', { sessionId: 'planner-unbound', revision: personal.revision,
+    action: 'save', entry: { title: '合成自由活动', date: '2026-10-22', slotId: personal.slots[0].id, plannedMinutes: 45 } });
+  assert.equal(personal.entries.length, 1);
+  assert.equal(personal.entries[0].reference, null);
+  const { blockIdentityCache } = await import('../../logseq-plugin/src/block-identity.ts');
+  const identityScope = blockIdentityCache.activate(view.binding.scope.graphId);
+  for (const [i, block] of view.blocks.entries()) blockIdentityCache.setFormal(block.target.blockUuid,
+    { kind: 'FORMAL', objectKind: ['PROJECT', 'MINI_PROJECT', 'TASK'][i], workObjectId: `synthetic-planner-${i}`, title: `规划引用 ${i}` }, identityScope);
+  const references = await rpc('planner-references', { sessionId: 'proof-session' });
+  assert.deepEqual(references.map(r => r.kind), ['PROJECT', 'MINI_PROJECT', 'TASK']);
+  const reference = references[0];
+  personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision,
+    action: 'save', entry: { title: reference.title, date: '2026-10-23', slotId: personal.slots[1].id,
+      reference: { ...reference, title: '被篡改的标题' }, plannedMinutes: 60, dueAt: '2026-10-30T18:00' } });
+  const workId = personal.entries.at(-1).id;
+  assert.equal(personal.entries.at(-1).reference.title, reference.title);
+  assert.equal(reference.title, references[0].title);
+  personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'record', id: workId, minutes: 25 });
+  assert.equal(personal.entries.find(entry => entry.id === workId).actualMinutes, 25);
+  personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'move', id: workId, date: '2026-10-24', slotId: personal.slots[0].id, beforeId: null });
+  assert.equal(personal.entries.find(entry => entry.id === workId).slotId, personal.slots[0].id);
+  assert.equal(personal.entries.find(entry => entry.id === workId).dueAt, '2026-10-30T18:00');
+  personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'delete', id: workId });
+  assert.equal(personal.entries.some(entry => entry.id === workId), false);
+  personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'undo' });
+  assert.equal(personal.entries.some(entry => entry.id === workId), true);
+  assert.equal((await rpc('planner-read', { sessionId: 'planner-other' })).entries.length, personal.entries.length);
+  const { PlannerStore } = await import('../src/planner-store.mjs');
+  const reloadedPlanner = new PlannerStore(join(root, 'bindings')); await reloadedPlanner.load();
+  assert.equal(reloadedPlanner.read().entries.length, personal.entries.length);
+  assert.equal(reloadedPlanner.read().entries.find(entry => entry.id === workId).actualMinutes, 25);
+  assert.equal(f.counts().writes, plannerBefore.writes);
+  checks.push({ check: 'Personal planner saves free time without a Logseq binding, shares one local plan across sessions, validates read-only work references, persists reloads and never writes Graph', ok: true });
   const context1 = await ctx.systemPrompt.assemble({ scope: agent });
   const first = JSON.parse(context1.contexts.find(c => c.name === 'logseq-workbench:current').text);
   f.blocks.get(f.a).content += '\nNew saved source after the first step.'; f.changed();

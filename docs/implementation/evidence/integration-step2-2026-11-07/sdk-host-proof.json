@@ -1,0 +1,44 @@
+{
+  "dshVersion": "0.2.1-rc.2",
+  "logseq": "Synthetic SDK with production plugin and HTTP companion",
+  "model": "Native AgentLoop with local scripted model",
+  "checks": [
+    {
+      "check": "Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter",
+      "ok": true
+    },
+    {
+      "check": "Personal planner saves free time without a Logseq binding, shares one local plan across sessions, validates read-only work references, persists reloads and never writes Graph",
+      "ok": true
+    },
+    {
+      "check": "Production async context assembly refreshes saved Logseq changes",
+      "ok": true
+    },
+    {
+      "check": "Two authenticated sessions share selection, named updates retain identity, navigation survives late submission, previous view restores",
+      "ok": true
+    },
+    {
+      "check": "Native reading plan is rendered by Logseq, session ownership holds, original text unchanged",
+      "ok": true
+    },
+    {
+      "check": "Production DSH AgentLoop sees refreshed Logseq context, calls a native file tool, and records context and results in the session log",
+      "ok": true,
+      "modelAttempts": 2
+    },
+    {
+      "check": "Same DSH session automatically refreshes changed Logseq work on its next user turn",
+      "ok": true
+    },
+    {
+      "check": "Graph invalidation clears current model context rather than reusing stale source",
+      "ok": true
+    },
+    {
+      "check": "Production Cordis unload removes model-facing tools",
+      "ok": true
+    }
+  ]
+}

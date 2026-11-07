@@ -4,6 +4,8 @@ import { applyHistoryClient } from './structure-history/client.jsx';
 import { applyEvidenceClient } from './work-evidence/client.jsx';
 import { SingleFlight } from './single-flight.mjs';
 /* global window, document, AbortController, setInterval, clearInterval, setTimeout, clearTimeout, URLSearchParams, crypto */
+import { createPlanner } from './planner.jsx';
+import { plannerStyles } from './planner-styles.mjs';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { styles, readingStyles, workSwitchStyles, discoveryStyles } from './styles.mjs';
 import { renderMarkdown } from '../../logseq-plugin/src/features/work-view/markdown.ts';
@@ -26,7 +28,7 @@ const errorText = error => ({
 export function apply(ctx) {
   applyHistoryClient(ctx);
   applyEvidenceClient(ctx);
-  const style = document.createElement('style'); style.textContent = styles + readingStyles + workSwitchStyles + discoveryStyles; document.head.append(style);
+  const style = document.createElement('style'); style.textContent = styles + readingStyles + workSwitchStyles + discoveryStyles + plannerStyles; document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let overlay = null, disposed = false, handoff = null, handoffController = null;
   const emit = () => { for (const listener of listeners) listener(); };
@@ -326,13 +328,20 @@ export function apply(ctx) {
       {!row.filesLoaded&&!row.fileError?<p className="lq-muted">正在读取文件列表…</p>:null}{row.filesLoaded && !row.files.length ? <p className="lq-muted">此工作暂无文件。</p> : null}{row.fileTruncation.length ? <p className="lq-muted">部分文件或目录暂未列出，请检查权限或范围限制。</p> : null}
     </section>;
   }
+  function PlannerHeader() {
+    return <button type="button" className="lq-header" aria-label="打开时间规划" onClick={() => ctx.sidebarRight.openTab('semantic-planner')}>◷ 规划</button>;
+  }
+  const Planner = createPlanner({ rpc });
+  ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', guide: [{ id: 'semantic-planner', order: 330, title: () => '个人时间规划' }] }));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/dsh-logseq-workbench', kind: 'logseq-files', title: () => '工作文件', priority: 'extension', guide: [{ id: 'logseq-files', order: 350, title: () => 'Logseq 工作文件' }] }));
   const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
+  register('conversation.session.header.utilities', { id: 'semantic-planner', order: 9 }, PlannerHeader);
   register('conversation.session.header.utilities', { id: 'logseq-workbench', order: 10 }, Header);
   register('sidebar.workspaces.session.row.action', { id: 'logseq-workbench', order: 100 }, RowAction);
   register('shell.overlay', { id: 'logseq-workbench', children: { 'logseq.work.source': { kind: 'single', scope: 'session' } } }, Overlay);
   register('logseq.work.source', { id: 'logseq-workbench' }, WorkPanel);
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
+  register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, Planner);
   window.addEventListener('hashchange',readHandoff);readHandoff();
   ctx.on('dispose', () => { disposed = true; stopNavigation(); window.removeEventListener('focus', observeFocus); document.removeEventListener('visibilitychange', observeFocus); handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
   ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
