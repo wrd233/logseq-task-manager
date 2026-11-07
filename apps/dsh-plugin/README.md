@@ -1,22 +1,18 @@
 # DSH × Logseq 工作台
 
-可安装的 DSH 插件。工作结构历史已在 DSH **0.2.1-rc.2** 的独立 profile 中验收。最新结构树/时间轴体验与验证范围见[Structure History UX v1](../../docs/implementation/structure-history/ux-v1/README.md)。
+可安装的 DSH 插件。**Unified Work Experience UX v1** 把工作入口、当前结构、Reader、引用、历史与时间规划放进同一个 DSH 工作界面；最新的真实界面、接口接入和验收记录见 [Unified Work Experience UX v1](../../docs/implementation/unified-work-experience-ux-v1/README.md)。
 
 - 原生 DSH 对话、输入框、模型选择和轨迹继续使用宿主实现。
-- 点会话头部 **↗ Logseq** 关联已授权的 Logseq 工作目录。
-- 宽屏原文栏预留 **360px**，文件栏 **280px**，中间留给对话；原文滚动阅读，随时收起。文件按目录密集排列，点击交给系统打开，菜单可在访达显示或引用。
-- 每个 DSH 会话独立保存工作身份。换会话同步面板；连接失效清掉原文；模型每次组装上下文重新核验已保存来源。
-- 段落和文件引用插入原生草稿，不自动发送。首版使用带版本的文本引用，不使用自定义引用 chip。
-- 两端共用命名读法：DSH 左侧选择器和 Logseq 原有阅读菜单同步，DSH 约两秒内跟随本地选择。对照在窄栏上下排列，Logseq 继续使用已有阅读器。
-- Agent 可列出、新增、调整和选择读法。更新复用 planId，保留上一版；生成期间切换读法不会被新结果切回。正文行首标记和 Markdown 渲染由两端共用，本插件不改写正文。
-- 读法及选择保存在 Logseq 当前插件的本机存储中，按 Graph 与工作区分；不缓存正文副本。原句更新沿用编排，新段落出现在“新增 · 尚未归类”。
+- 会话头部只保留 **工作** 与 **规划**。工作入口不再依赖旧的左侧浮层；阅读、结构和引用都使用 DSH 原生右侧栏，可拖动、全屏和分栏。
+- 每个 DSH 会话独立保存工作身份。换会话同步右侧栏；连接恢复由 Logseq/companion 已有的只读授权恢复，不需要重新关联。
+- Work tab 与 Planner tab 保持挂载；在历史、规划之间切换再回来，当前工作对象、阅读/结构模式和滚动位置保留。
 
-## 开始使用
+## 使用入口
 
-1. 保持本项目的 workspace companion 运行。Logseq 工作先关联目录，再通过 **带当前工作去协作** 准备现场，或 **允许 agent 只读连接**。DSH 复用这份连接，不新增读写许可。首次连接配置见 [工作台使用说明](../../docs/user-guide/workbench-usage.md#agent-接入附录)。
-2. 打开 DSH 会话，点 **↗ Logseq**，填入上述工作目录。若 DSH 会话工作目录正是该目录，直接点 **关联当前会话**。
-3. 用左侧选择器切换“连续阅读”“原结构”或命名读法。Logseq 仍使用已有阅读菜单，无需更换界面。
-4. 在对话中说“新增一个讨论对照读法”或“把当前读法的问题放前面”。Agent 使用 reading.request 后提交完整布局；调整已有读法复用 planId，新增读法用新的 planId。更多操作中可恢复当前读法上一版。切到其他工作需先在 Logseq 建立对应连接，再关联该会话。
+1. 保持 workspace companion 运行。Logseq 工作先关联目录，再在 Logseq 对工作入口块允许 **agent 只读连接**。DSH 复用这份连接，不新增读写许可。首次连接配置见 [工作台使用说明](../../docs/user-guide/workbench-usage.md#agent-接入附录)。
+2. 打开 DSH 会话，点会话头部 **工作**，或右侧栏 guide 的 **当前工作**。未关联时 Work tab 会给出「选择一件工作 / 关联当前目录 / 在 Logseq 允许只读连接」的简短引导。
+3. 已有可响应的 DSH 页面时，在 Logseq 点 **在 DSH 继续** 会在当前页面恢复目标工作的最近有效 Session；同一件工作重复进入不会重复打开页面或 Session。只有 Logseq 的「在新标签页打开 DSH」才交给系统新开页面。Work 菜单还提供切换工作、新建此工作对话、工作文件和解除关联；解除关联保留原对话和草稿。
+4. 从 Work tab 顶部的 **历史回看**、**变更回顾** 进入次级能力；从 **规划** 或 guide 的 **个人时间规划** 进入时间安排。
 
 在项目安装依赖后，要向目标 profile 安装当前工作树的版本，用 Node **22.19+**（DSH 所需）执行：
 
@@ -24,25 +20,47 @@
 node apps/dsh-plugin/scripts/install.mjs web
 ```
 
-安装器构建插件、备份 profile manifest、调用官方 `dsh plugin --profile web add link:...`，然后选中 bundle。若正在运行的 DSH 没有重新加载，重启该 profile。默认 companion 状态目录是 `~/.task-copilot-workspace`；自定义目录可通过 DSH 进程的 `TASK_COPILOT_WORKSPACE_STATE` 或 bundle 配置 `workspaceStateDirectory` 指定。私有会话绑定保存在 `~/.dsh/logseq-workbench/bindings.json`，不保存正文或连接凭据。历史快照另存在同目录的 `history/`，包含选定工作结构及来源证据。
+安装器构建插件、备份 profile manifest、调用官方 `dsh plugin --profile web add link:...`，然后选中 bundle。若正在运行的 DSH 没有重新加载，重启该 profile。默认 companion 状态目录是 `~/.task-copilot-workspace`；自定义目录可通过 DSH 进程的 `TASK_COPILOT_WORKSPACE_STATE` 或 bundle 配置 `workspaceStateDirectory` 指定。私有会话绑定保存在 `~/.dsh/logseq-workbench/bindings.json`，不保存正文或连接凭据。历史快照另存在同目录的 `history/`，包含选定工作结构及来源证据。Planner 默认保存在同一状态目录的 `semantic-planner.json`，可通过 `plannerStateDirectory` 单独指定。
 
-## 工作回顾（Work Evidence）
+## 当前工作结构
 
-会话头部「回顾工作」或右侧栏「工作回顾」进入。首次只记同步起点；自然工作后同步，按文件查看提交和当前未提交变化。Agent 逐条解释，再按目的归组；问题可就地回答、编辑或跳过。随时形成交接，编辑保存后可重开修订，并引用到原生草稿，保留已有输入且不发送。
+Work tab 默认读取保存后的当前 Logseq 来源结构：
 
-「查看 Logseq 结构变化」按需打开，通过已有只读工作连接采集真实块范围快照。首次只建立结构起点，缺少可信前后快照时，文件与交接仍然可用。模型与项目测试的边界、真实验收和复用方式见[重建交接](../../docs/implementation/2026-10-27-work-evidence-rebuild-v1.md)。
+- 根节点是当前聚焦的事务、TODO 工作对象或 MiniProject；默认只显示直接下级工作对象。
+- 点下级进入它自己的内部；顶部面包屑和返回按钮回到上级。
+- 只有当前根节点下没有更低级工作对象时才展示普通内容；纯标题工作有简短空状态。
+- 结构每 5 秒定向刷新，Logseq 保存后的修改会自动出现；刷新不会创建 Stage 历史记录。
+- **原文** 模式始终可切到完整来源 Reader；**结构** 模式保持当前工作对象优先。
+- 当前结构只使用 Logseq 来源树，不把 Git 文件变化混进来；历史回看和 Git 变更回顾在独立入口中。
 
-## 个人时间规划
+## Reader 与引用
 
-会话头部「规划」或右侧栏「个人时间规划」进入今天、明天、本周视图。可编辑语义时间段，自由记录活动，或引用当前会话已只读连接范围内的工作；计划投入、实际投入与截止时间各自保存。修改安排只写个人 `semantic-planner.json`，不更改正式工作状态，也不扩大 Logseq 权限。默认文件位于会话绑定状态目录，可通过 `plannerStateDirectory` 单独指定。
+- Reader 保留 Logseq 原始父子层级、顺序和缩进，支持折叠/展开、长文阅读。
+- TODO/DOING/DONE 等状态原词显示；`[注]`、`[结论]`、`[待确认]`、`[风险]` 作为语义标签；`[Project]`、`[MiniProject]`、`[任务]` 作为对象类型 chip，正文不显示这些行首标记。
+- Markdown、链接、页面引用、代码与表格按服务端 Marked tokens 渲染；用户属性单独展示，`id::` 不进入普通正文，代码块内的 `id::` 原样保留。
+- 不再为每个块放常驻引用按钮。悬停/键盘焦点时最近块出现 **＋**（加入引用）和 **↗**（Logseq 打开）；选中文字出现紧凑的「引用选中文字」。
+- 已选引用进入底部 tray，可逐条移除或清空。加入对话前通过 `reader-references` 校验真实 sourceId、版本和范围；成功后用原生 inputActions 插入草稿，保留已有输入，不自动发送。
+- 引用文本包含人类可读引文和紧凑来源身份行（sourceId、contentVersion、WorkRef、range）；不伪造来源，不使用自定义 chip。
 
-可与工作历史在原生分栏中并排查看。带入安排会保留已有草稿（包括选中文字），只插入文字，不自动发送。JSON 兼容与本轮验收范围见[统一版本 Step 2](../../docs/implementation/2026-11-07-dsh-product-integration-step2.md)。
+## 连接恢复
 
-## 工作结构历史
+正常连接不显示连接控件。连接断开时只显示一句具体状态和最简单的下一步：等 Logseq 自动恢复、在 Logseq 允许只读连接、重新关联移动后的目录，或切回原 Graph。每 8 秒静默重试；不会向用户显示 descriptor、lease、binding、scope 等内部术语。恢复成功后自动重新读取当前结构、原文和文件列表，不需要重新关联。
 
-会话头部的 **工作历史** 打开原生侧栏：默认以结构树为主视图，顶部离散时间轴按时点回看；选择时点后，结构树与真实变化列表同步更新。点击节点查看历史正文、当时路径、字段差异和来源核对；结构图保留为辅助视图。Git 和已有 Logseq 阶段修订自动记录检查点；Agent 可保存自己的工作结构。变化默认只来自保存快照与真实父修订的确定性比较。「解释本阶段」只把解释请求带入原生草稿，不自动调用模型。三种归属分别显示：工具观察、Agent 整理、历史重建。所有历史浏览只读，不修改正式任务状态或 Graph；来源无法核验时不提供跳转。
+## 时间规划
 
-Logseq 可右键工作入口块选择 **工作台：只读连接此工作**，然后在 DSH 关联该工作目录。结构历史的原始工具与存储契约见 [历史工作台](../../docs/implementation/2026-10-22-dsh-history-workbench.md)。
+- 会话头部 **规划** 或右侧栏 **个人时间规划** 进入；默认 **现在** 使用 `planner-current` 的当前语义时段。
+- 当前时段内显示灵活安排；正在进行和即将到来的固定安排用紧凑区段保留；没有匹配语义时段时回退到全天安排，不显示空白。
+- 仍保留今天、明天、本周视图和语义时间段编辑。
+- 固定安排有明确开始/结束和固定 badge，不进入语义时间段；没有拖动把手，后端普通 move/reorder 也会拒绝；只能通过显式编辑修改时间。灵活安排仍可拖动、排序、编辑。
+- 计划投入、实际投入、截止时间、固定时间分别保存和展示。
+- 有工作引用的安排可从菜单 **在工作结构中查看** 或 **在 Logseq 打开原文**。前者在当前 DSH 会话的 Work tab 中定位对应工作对象，不创建新 Session；后者使用 `planner-navigate` 生成可核验的原文入口。
+- 带入安排会保留已有草稿（包括选中文字），只插入文字，不自动发送。
+
+## 历史回看与变更回顾
+
+**历史回看** 是 Work tab 的次级入口，不再占据会话头部：顶部保留离散时间轴、结构树/图和真实父修订差异；快照与当前结构的实时状态在文字和颜色上明确区分。点击节点查看历史标题、路径、声明状态、历史正文、字段差异和来源核对；「解释本阶段」只带解释请求入草稿，不自动调用模型。顶部 **当前工作** 返回 Work tab，并保留当前工作对象和滚动位置。
+
+**变更回顾** 打开原有 Work Evidence tab：按文件查看真实 Git 提交和未提交变化、Diff、Agent 解释与交接。它和 Logseq 来源结构是不同观察维度，不共享树或时间轴。所有历史与证据浏览只读，不修改正式任务状态或 Graph。
 
 ## 构建和验证
 
@@ -50,19 +68,30 @@ Logseq 可右键工作入口块选择 **工作台：只读连接此工作**，�
 
 ```sh
 node apps/dsh-plugin/scripts/build.mjs
-node --import tsx --test apps/dsh-plugin/tests/service.test.mjs
+node --import tsx --test apps/dsh-plugin/tests/*.test.mjs
 node --import tsx apps/dsh-plugin/tests/host-proof.mjs
 ```
 
-服务测试覆盖会话隔离、私有绑定、解绑竞态、越界和符号链接拒绝、失联以及上下文预算。宿主验证使用生产插件、真实 HTTP companion、原生 Cordis / Tools / SystemPrompt / AgentLoop、合成 Logseq SDK 和本地脚本模型，覆盖来源刷新、文件读取、阅读方案归属、Graph 失效和卸载，不调用远端模型。
+本轮实际运行：
 
-原有 DSH 浏览器验收覆盖关联、原文/文件列表、原生草稿引用、系统访达定位、收起和会话切换。共享读法原有验收见 [共享读法记录](shared-reading.md)。本轮历史工作台另完成真实 DSH 与 Logseq Desktop 的隔离测试图谱联合验收，详见上面的历史工作台记录；没有使用真实用户 Graph 或远端模型。
+- `node --import tsx --test apps/dsh-plugin/tests/*.test.mjs`：**73/73 pass**
+- `node apps/dsh-plugin/scripts/build.mjs`：通过
+- `node apps/logseq-plugin/scripts/build.mjs`：通过（隔离 Logseq + companion 实机验收）
+- `eslint apps/dsh-plugin/src apps/dsh-plugin/tests`：通过
+- `git diff --check`：通过
+
+没有运行全仓 `npm run check`；本轮为前端与只读呈现改动，优先真实 DSH + Logseq 走查。
 
 ## 当前边界
 
-- 左栏用官方 `shell.overlay` 增量挂载。rc.2 没有左栏宽度设置接口；宽屏采用局部、可撤销的 CSS 几何适配，收起/卸载恢复原生布局。原文打开时暂时覆盖左栏会话列表下半部；收起可继续导航。窄屏保留浮层；DSH 升级需复验这一适配。
-- 文件显示当前工作目录扫描结果及显式关联的材料。外部关联目录的未登记文件不自动扫描；扫描截断会提示。没有增加上传、文件内嵌预览或全 Graph 对象目录。
-- 文件外部打开不表示模型已读取。二进制 PDF/图片/Word 的内容理解取决于既有 companion 能力；本插件不会自行上传文件或伪装成已完成二进制解析。
+- 浏览器后台标签页的定时器会被节流；核心 handoff offer 的 2.5 秒认领窗口过后，Logseq 仍可能走系统打开票据 URL。本轮没有改核心票据协议，也没有跨标签页 leader election。
+- 无法强制 macOS 浏览器窗口置顶；只能请求 focus。
+- 当前结构只提供树，历史仍提供树/图；这是有意的，避免维护第二套结构过滤投影。
+- 命名读法仍由 Logseq 原有阅读菜单和 Agent 工具维护；统一工作面的默认阅读是当前来源 Reader，不再在 DSH 左侧浮层重复旧读法选择器。需要在 DSH 内切换命名读法的旧流程不在本轮入口中。
+- 引用在草稿中是「引文 + 紧凑身份行」，没有自定义引用 chip；表格选区偏移为近似映射。
+- 变更回顾的模型理解需要用户明确点击并配置模型；验收环境没有调用外部模型。
+- 文件页仍显示当前工作目录和显式关联材料；没有增加上传、内嵌预览或全 Graph 对象目录。
 - 只提供读取与阅读方案工具，没有正文、文件或 TODO 写入工具。DSH 自身通用终端工具的权限仍由 DSH 管理。
+- 本轮实机验收使用隔离 Logseq 副本、测试 Graph 和测试工作区，没有使用真实用户 Graph；具体截图、测试数据和未完成项见 [Unified Work Experience UX v1](../../docs/implementation/unified-work-experience-ux-v1/README.md)。
 
 `src/` 是正式宿主和 React 客户端，`cordis.patch.yml` 是 bundle，`scripts/` 是构建/安装器，`tests/` 是验证程序。`prototype/` 保留交互样例，`research/` 保留前期宿主实验，见 [设计记录](design.md)。
