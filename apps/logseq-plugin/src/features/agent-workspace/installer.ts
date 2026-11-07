@@ -1,6 +1,6 @@
 import {pageWorkRef} from './catalog-pages.ts';
 import { resolveDshTarget } from "./dsh-work.ts";
-import { WorkspaceError, sameWorkRef, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkRef, sameWorkScope, parseWorkspaceDescriptor, parseWorkspaceCall, parseWorkBinding, type AgentWorkBinding, type WorkspacePluginDescriptor, type WorkspaceDelivery, type WorkRef } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import type { ContentInstallation } from "../content-writeback/installer.ts";
 import type { ScopeLease } from "../content-writeback/protocol.ts";
@@ -56,7 +56,9 @@ export function installAgentWorkspace(options: {
         epoch: number;
         fileWrite: boolean;
         descriptorPath:string;
+        workRef: WorkRef | undefined;
     } | null = null;
+    let recovery: { binding: AgentWorkBinding; workRef: WorkRef; previousId: string } | null = null;
     const binding = options.binding;
     const todo=new OrdinaryTodoService({...options.content.trustedTodo,valid:options.content.valid});
     const formatting=new WritingFormatService({...options.content.trustedFormatting,valid:options.content.valid});
@@ -83,7 +85,8 @@ export function installAgentWorkspace(options: {
             throw new WorkspaceError(result.error?.code ?? "CHANNEL_FAILED", result.error?.message);
         return result;
     };
-    const revoke = (closeUI=true, preserveFormatUI=false) => {
+    const revoke = (closeUI=true, preserveFormatUI=false, keepRecovery=false) => {
+        if (!keepRecovery) recovery = null;
         const previous = connection;
         connection = null;
         generation++;
@@ -141,8 +144,10 @@ export function installAgentWorkspace(options: {
         }
     };
     const tick = async (value: NonNullable<typeof connection>) => {
+        let verified = false;
         try {
             await valid(value);
+            verified = true;
             // Poll keeps the lease online while an SDK operation is in flight. Busy polls
             // intentionally do not pick up another delivery.
             const result = await post(value.descriptor, "/plugin/poll", { connectionId: value.id, busy });
@@ -153,9 +158,11 @@ export function installAgentWorkspace(options: {
         catch (error) {
             if (disposed || connection !== value)
                 return;
-            if (error instanceof WorkspaceError && ["CONNECTION_REVOKED", "CONNECTION_STALE", "DESCRIPTOR_STALE"].includes(error.code) || ++failures >= 3) {
+            if (error instanceof WorkspaceError && ["CONNECTION_REVOKED", "CONNECTION_STALE", "DESCRIPTOR_STALE", "WORKSPACE_OFFLINE"].includes(error.code) || ++failures >= 3) {
                 revoke();
-                report(new Error("外部连接已停止；本地阅读、材料与历史仍可使用。"));
+                // A transport loss after local authority was checked may reuse
+                // that exact read scope. A local revocation ends the grant.
+                if (verified && value.workRef) scheduleRecovery(recovery = {binding: value.binding, workRef: value.workRef, previousId: value.id});
                 return;
             }
         }
@@ -168,17 +175,20 @@ export function installAgentWorkspace(options: {
         const target=explicitTarget??(scope?.kind==="page"?scope:(await logseq.Editor.getCurrentBlock())?.uuid);
         if(disposed||epoch!==generation)throw new WorkspaceError("CONNECTION_REVOKED");return target;
     };
-    const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false) => {
+    const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
         const targetValue=await targetFor(explicitTarget);
         if(typeof targetValue!=="string"&&targetValue?.kind==="page"&&(!readOnly||organize))throw new WorkspaceError("BLOCK_SCOPE_REQUIRED","页面连接提供读取与读法；写作需另选真实块范围。");
-        revoke(!preserveUI);
+        if (resume && recovery !== resume) throw new WorkspaceError("CONNECTION_REVOKED");
+        revoke(!preserveUI, false, !!resume);
         const epoch = generation;
         const target=typeof targetValue==="string"?targetValue:targetValue?.rootUuid;
         if (!target)
             throw new WorkspaceError("SOURCE_REQUIRED");
         const selected = await binding.selected(target,typeof targetValue!=="string"?targetValue:undefined);
+        if (resume && JSON.stringify(parseWorkBinding(selected)) !== JSON.stringify(parseWorkBinding(resume.binding)))
+            throw new WorkspaceError("WORK_SCOPE_CHANGED");
         let path = String(logseq.settings?.agentWorkspaceDescriptor ?? "").trim();
         if (!path) {
           const dot=await desktopBridge().doAction(["getLogseqDotDirRoot"]);
@@ -204,19 +214,49 @@ export function installAgentWorkspace(options: {
             return !scope||sameWorkScope(scope,selected.scope);
         });
         if(disposed||epoch!==generation){if(options.content.valid(lease))options.content.api.revoke();throw new WorkspaceError("CONNECTION_REVOKED");}
-        const value = { descriptor, descriptorPath:path, id: crypto.randomUUID(), binding: selected, lease, epoch, fileWrite:false };
+        const value = { descriptor, descriptorPath:path, id: crypto.randomUUID(), binding: selected, lease, epoch, fileWrite:false, workRef: undefined as WorkRef | undefined };
         try{
+            const check = () => {
+                if (disposed || epoch !== generation || !options.content.valid(lease)) throw new WorkspaceError("CONNECTION_REVOKED");
+            };
             await router.assert(selected, lease);
-            await post(descriptor, "/plugin/connect", { connectionId: value.id, binding: selected });
+            try {
+                const {scope} = selected;
+                const formal = scope.kind === "page" ? null : await options.formalTarget?.(scope.rootUuid);
+                value.workRef = scope.kind === "page" ? await pageWorkRef(scope.graphId, scope.rootUuid, check) :
+                    formal ? {kind: "kernel", objectId: formal.objectId} :
+                    {kind: "logseq", graphId: scope.graphId, rootUuid: scope.rootUuid, sourceKind: "block"};
+            } catch (error) {
+                if (resume) throw error;
+            }
+            check();
+            if (resume && !sameWorkRef(resume.workRef, value.workRef)) throw new WorkspaceError("WORK_REF_MISMATCH");
+            await post(descriptor, "/plugin/connect", { connectionId: value.id, binding: selected, ...(resume ? {recoverFrom: resume.previousId} : {}) });
             if (disposed || epoch !== generation || !options.content.valid(lease)) throw new WorkspaceError("CONNECTION_REVOKED");
         }catch(error){
             void post(descriptor, "/plugin/revoke", { connectionId: value.id }).catch(() => undefined);
             if(options.content.valid(lease))options.content.api.revoke();throw error;
         }
         connection = value;
+        recovery = null;
         failures = 0;
         void tick(value);
+        if (resume) return;
         await logseq.UI.showMsg(readOnly?"已连接这份工作，可读取和设计读法。正文、文件写作及 TODO 需分别授权。":organize?"已连接，允许润色正文及同一对象内整理原块位置；TODO 文本及材料权限保持。":"已连接这份工作，允许维护此处正文。材料权限与 TODO 保护继续有效。", "success");
+    };
+    const scheduleRecovery = (resume: NonNullable<typeof recovery>) => {
+        timer = setTimeout(async () => {
+            if (disposed || recovery !== resume) return;
+            try { await allow(resume.binding.scope, false, true, true, resume); }
+            catch (error) {
+                if (disposed || recovery !== resume) return;
+                if (error instanceof WorkspaceError && ["WORK_SCOPE_CHANGED", "WORK_REF_MISMATCH", "SCOPE_MISMATCH", "WORKSPACE_BINDING_REQUIRED", "CONNECTION_REVOKED", "RECOVERY_SUPERSEDED"].includes(error.code)) {
+                    recovery = null;
+                    return;
+                }
+                scheduleRecovery(resume);
+            }
+        }, 2500);
     };
     const localCall = async (command: "files.list" | "files.read" | "files.associate" | "collaboration.refresh", payload: Record<string, unknown>): Promise<unknown> => {
         const value = connection;
@@ -316,7 +356,7 @@ export function installAgentWorkspace(options: {
             disposers.push(off);
     }
     let openSequence = 0;
-    const openWork = async (target?: string | ScopeLease["scope"], mode: "continue" | "new" = "continue") => {
+    const openWork = async (target?: string | ScopeLease["scope"], mode: "continue" | "new" = "continue", newTab = false) => {
         const sequence = ++openSequence, initialGraphGeneration = graphGeneration, initialGraph = graphIdentity(await logseq.App.getCurrentGraph());
         const check = async () => {
             if (disposed || sequence !== openSequence || graphGeneration !== initialGraphGeneration || graphIdentity(await logseq.App.getCurrentGraph()) !== initialGraph)
@@ -337,12 +377,14 @@ export function installAgentWorkspace(options: {
         await valid(value); await check();
         const block = resolved.scope.kind === "page" ? null : await logseq.Editor.getBlock(resolved.scope.rootUuid);
         const title = resolved.title ?? resolved.scope.pageName ?? block?.content?.split("\n")[0]?.slice(0, 180) ?? "Logseq 工作";
-        const result = await post(value.descriptor, "/plugin/dsh", {connectionId: value.id, mode, title, workRef: resolved.workRef}) as {url: string};
-        await valid(value); await check(); await logseq.App.openExternalLink(result.url);
+        const result = await post(value.descriptor, "/plugin/dsh", {connectionId: value.id, mode, title, workRef: resolved.workRef, ...(newTab ? {newTab: true} : {})}) as {url: string | null};
+        await valid(value); await check(); if (result.url) await logseq.App.openExternalLink(result.url);
     };
     const dshMenu = logseq.App.registerCommand("block-context-menu-item", {key: "agent-workspace-open-dsh-block", label: "在 DSH 继续"}, (event: {uuid?: string; args?: Array<{uuid?: string}>}) => openWork(event.uuid ?? event.args?.[0]?.uuid).catch(report));
     const dshCommand = logseq.App.registerCommandPalette({key: "agent-workspace-open-dsh", label: "工作台：在 DSH 继续"}, () => openWork().catch(report));
     if (typeof dshMenu === "function") disposers.push(dshMenu);
+    const dshNewTab = logseq.App.registerCommandPalette({key: "agent-workspace-open-dsh-tab", label: "工作台：在新标签页打开 DSH"}, () => openWork(undefined, "continue", true).catch(report));
+    if (typeof dshNewTab === "function") disposers.push(dshNewTab);
     if (typeof dshCommand === "function") disposers.push(dshCommand);
     const connectRead=(target?:string|ScopeLease["scope"])=>allow(target,false,true);
     const todoCommand=logseq.App.registerCommandPalette({key:"agent-workspace-todo",label:"工作台：允许 agent 维护普通 TODO"},()=>{if(!disposed)return todoUI.open().catch(report);});

@@ -143,6 +143,18 @@ try {
   assert.equal((await rpc('open', { sessionId: 'proof-session', key: 'file:proposal.md', reveal: false })).opened, true);
   const file = await value('logseq_file_read', { path: 'proposal.md' }); assert.match(file.content, /A real file/);
   checks.push({ check: 'Production plugin RPC, session binding, native tools, actual HTTP companion and external-opener adapter', ok: true });
+  const reader = await rpc('reader', {sessionId: 'proof-session'});
+  assert.equal(reader.nodes.length, view.blocks.length);
+  assert.equal(reader.nodes[1].parentUuid, reader.nodes[0].blockUuid);
+  const source = reader.nodes[1];
+  const [quote] = await rpc('reader-references', {sessionId: 'proof-session',
+    selections: [{sourceId: source.sourceId, contentVersion: source.contentVersion}]});
+  assert.deepEqual(quote.workRef, reader.workRef);
+  assert.equal(quote.blockUuid, source.blockUuid);
+  const current = await rpc('currentStructure', {sessionId: 'proof-session'});
+  assert.equal(current.root.uuid, reader.scope.rootUuid);
+  assert.equal((await rpc('connection', {sessionId: 'proof-session'})).state, 'connected');
+  checks.push({check: 'Structured Reader, scoped quote, current structure and connection RPCs', ok: true});
   const plannerBefore = f.counts();
   let personal = await rpc('planner-read', { sessionId: 'planner-unbound' });
   assert.equal(personal.entries.length, 0);

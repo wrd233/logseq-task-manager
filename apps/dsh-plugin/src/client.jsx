@@ -101,7 +101,8 @@ export function apply(ctx) {
       if(disposed||controller.signal.aborted)return;
       await ctx.sessions.refresh();if(disposed||controller.signal.aborted)return;
       if(navigation !== navigationGeneration)return;
-      ctx.uiWorkspace.openSession(result.sessionId);show(result.sessionId,true);
+      if (ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
+      show(result.sessionId,true);
       update(result.sessionId,{referencePending:!!result.warnings?.length,notice:result.warnings?.length ? "已进入原生会话；辅助引用尚未保存，可重试。" : null});
       clearHandoff();
     }catch(error){if(!controller.signal.aborted&&!disposed){handoff={ticket,busy:false,error};emit();}}
@@ -343,6 +344,22 @@ export function apply(ctx) {
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
   register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, Planner);
   window.addEventListener('hashchange',readHandoff);readHandoff();
+  const pendingHandoff = new AbortController();
+  let checkingHandoff = false;
+  const handoffTimer = setInterval(async () => {
+    if (checkingHandoff || handoff?.busy) return;
+    checkingHandoff = true;
+    try {
+      const {ticket} = await rpc('handoff-pending', {}, pendingHandoff.signal);
+      if (!ticket || disposed) return;
+      handoff = {ticket, busy: true};
+      emit();
+      void enterHandoff();
+      window.focus();
+    } catch { /* When disconnected, Logseq falls back to opening its ticket URL. */ }
+    finally { checkingHandoff = false; }
+  }, 650);
+  ctx.on('dispose', () => { pendingHandoff.abort(); clearInterval(handoffTimer); });
   ctx.on('dispose', () => { disposed = true; stopNavigation(); window.removeEventListener('focus', observeFocus); document.removeEventListener('visibilitychange', observeFocus); handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); });
   ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if (overlay) void refresh(overlay.sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
 }

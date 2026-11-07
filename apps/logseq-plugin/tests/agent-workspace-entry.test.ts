@@ -440,11 +440,28 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.equal((await cli(["content","apply"],movePatch)).record.digest,moved.record.digest);assert.equal(f.counts().moves,beforeMove+1);
         await cli(["sessions", "add", "--platform", "codex", "--session-id", "chosen"]);
         assert.equal((await cli(["sessions", "list"])).references[0].url, null);
-        // A full bridge restart rotates descriptors and requires a fresh local grant.
+        // A bridge restart rotates credentials. The installed host restores only its
+        // original read scope, even when the prior live grant permitted structure writes.
+        const beforeRestart = await transport.entry(directory);
         await server.close();
         assert.equal((await cli(["read"])).freshness, "last-known");
         server = await startWorkspaceServer({ stateDirectory: state });
-        await assert.rejects(cli(["status"]), /DESCRIPTOR_STALE/);
+        await assert.rejects(transport.call(beforeRestart,"status",{},"routing-B",undefined,target), /DESCRIPTOR_STALE/);
+        const deadline = Date.now() + 10000;
+        let recoveredEntry = await transport.entry(directory);
+        while (recoveredEntry.instanceId !== server.descriptor.instanceId && Date.now() < deadline) {
+            await delay(100);
+            recoveredEntry = await transport.entry(directory);
+        }
+        assert.equal(recoveredEntry.instanceId, server.descriptor.instanceId);
+        assert.notEqual(recoveredEntry.connectionId, beforeRestart.connectionId);
+        assert.deepEqual(recoveredEntry.binding, beforeRestart.binding);
+        const recoveredStatus = await transport.call(recoveredEntry,"status",{},"routing-B",undefined,target);
+        assert.equal(recoveredStatus.capabilities.read, true);
+        assert.equal(recoveredStatus.capabilities.content, false);
+        assert.equal(recoveredStatus.capabilities.fileWrite, false);
+        assert.equal(recoveredStatus.contentProtocol.structureAuthorized, false);
+        assert.equal(recoveredStatus.authorizesTodo, false);
         await f.commands.get("agent-workspace-allow")!();
         assert.equal((await cli(["content", "result", "patch-1"])).record.digest, applied.record.digest);
         assert.equal((await cli(["content", "result", "stage-patch"])).record.digest, stageResult.record.digest);

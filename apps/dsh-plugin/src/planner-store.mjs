@@ -1,3 +1,4 @@
+import { parseWorkRef } from '@task-copilot/contracts';
 /* global structuredClone */
 import { readFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -20,7 +21,8 @@ const reference = value => {
   if (typeof value !== 'object' || Array.isArray(value)) fail('PLANNER_INVALID');
   if (!['PROJECT', 'MINI_PROJECT', 'TASK'].includes(value.kind)) fail('PLANNER_INVALID');
   return {
-    graphId: text(value.graphId, 500),
+    ...(value.workRef ? {workRef: parseWorkRef(value.workRef)} : {}),
+    graphId: text(value.graphId, 2048),
     blockUuid: text(value.blockUuid, 200),
     objectId: value.objectId === null || value.objectId === undefined ? null : text(value.objectId, 200),
     kind: value.kind,
@@ -42,14 +44,21 @@ const slot = (value, used = new Set()) => {
 
 const entry = (value, slots) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail('PLANNER_INVALID');
-  const slotId = text(value.slotId, 200);
-  if (!slots.some(item => item.id === slotId)) fail('PLANNER_INVALID');
-  if (!validDate(value.date)) fail('PLANNER_INVALID');
+  const schedule = value.schedule ?? 'flexible';
+  if (schedule !== 'flexible' && schedule !== 'fixed') fail('PLANNER_INVALID');
+  const fixed = schedule === 'fixed', startAt = value.startAt, endAt = value.endAt;
+  if (fixed && (!startAt || !endAt || !validDueAt(startAt) || !validDueAt(endAt) || startAt >= endAt)) fail('PLANNER_INVALID');
+  if (!fixed && (startAt != null || endAt != null)) fail('PLANNER_INVALID');
+  const date = fixed ? startAt.slice(0, 10) : value.date;
+  const slotId = fixed ? null : text(value.slotId, 200);
+  if (!fixed && (!validDate(date) || !slots.some(item => item.id === slotId))) fail('PLANNER_INVALID');
   if (!validDueAt(value.dueAt ?? null)) fail('PLANNER_INVALID');
   return {
     id: typeof value.id === 'string' && value.id.trim() ? text(value.id, 200) : randomUUID(),
     title: text(value.title, 300),
-    date: value.date,
+    schedule,
+    ...(fixed ? {startAt, endAt} : {}),
+    date,
     slotId,
     reference: reference(value.reference),
     plannedMinutes: minutes(value.plannedMinutes),
@@ -111,7 +120,7 @@ export class PlannerStore {
 
   read() {
     const undo = this.state.undo.at(-1);
-    return { version: this.state.version, revision: this.state.revision, slots: this.state.slots, entries: this.state.entries,
+    return { version: this.state.version, revision: this.state.revision, slots: this.state.slots, entries: this.state.entries.map(item => ({schedule: 'flexible', ...item})),
       canUndo: this.state.undo.length > 0, undoLabel: undo?.label ?? '' };
   }
 
@@ -127,11 +136,13 @@ export class PlannerStore {
       } else {
         if (input.action === 'save') {
           const current = next.entries.find(item => item.id === input.entry?.id);
-          const value = entry(input.entry, next.slots);
+          const previousTiming = current?.schedule === 'fixed' && input.entry.schedule === undefined
+            ? {schedule: current.schedule, startAt: current.startAt, endAt: current.endAt} : {};
+          const value = entry({ ...input.entry, ...previousTiming }, next.slots);
           if (input.entry.id && !current) fail('PLANNER_MISSING');
           if (current && next.entries.some(item => item.id === value.id && item !== current)) fail('PLANNER_INVALID');
           if (current) {
-            if (current.date !== value.date || current.slotId !== value.slotId) {
+            if (value.schedule === 'flexible' && (current.date !== value.date || current.slotId !== value.slotId)) {
               next.entries = moveEntries(next.entries, { id: value.id, date: value.date, slotId: value.slotId, beforeId: null });
             }
             next.entries[next.entries.findIndex(item => item.id === value.id)] = value;
@@ -140,12 +151,14 @@ export class PlannerStore {
         } else if (input.action === 'move') {
           const current = next.entries.find(item => item.id === input.id);
           if (!current) fail('PLANNER_MISSING');
+          if (current.schedule === 'fixed') fail('PLANNER_FIXED_EDIT_REQUIRED');
           if (!validDate(input.date) || !next.slots.some(item => item.id === input.slotId)) fail('PLANNER_INVALID');
           next.entries = moveEntries(next.entries, { id: input.id, date: input.date, slotId: input.slotId, beforeId: input.beforeId ?? null });
           label = `移动「${current.title}」`;
         } else if (input.action === 'reorder') {
           const current = next.entries.find(item => item.id === input.id);
           if (!current) fail('PLANNER_MISSING');
+          if (current.schedule === 'fixed') fail('PLANNER_FIXED_EDIT_REQUIRED');
           if (input.direction !== -1 && input.direction !== 1) fail('PLANNER_INVALID');
           next.entries = reorderEntries(next.entries, input.id, input.direction);
           label = `调整「${current.title}」顺序`;
@@ -165,7 +178,7 @@ export class PlannerStore {
           const used = new Set();
           next.slots = input.slots.map(value => slot(value, used));
           // Keep plans when a period is removed: move them to the first period. The UI says so before saving.
-          for (const item of next.entries) if (!next.slots.some(value => value.id === item.slotId)) item.slotId = next.slots[0].id;
+          for (const item of next.entries) if (item.schedule !== 'fixed' && !next.slots.some(value => value.id === item.slotId)) item.slotId = next.slots[0].id;
           label = '更新时间段';
         } else fail('PLANNER_INVALID');
         next.undo.push({ label, slots: previous.slots, entries: previous.entries });

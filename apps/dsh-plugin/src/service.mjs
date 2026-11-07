@@ -1,3 +1,5 @@
+import { readerModel, readerReferences } from './reader-model.mjs';
+import { currentStructure } from './current-structure.mjs';
 import { readCatalog } from '../../task-copilot-cli/src/work-catalog.ts';
 import { workObject } from '../../logseq-plugin/src/features/work-view/focus.mjs';
 /* global AbortSignal, fetch */
@@ -158,6 +160,7 @@ export class WorkbenchService {
   dispose() { this.stopped = true; }
   async binding(sessionId, signal) {
     workText(sessionId);
+    const generation = this.generations.get(sessionId) ?? 0;
     const binding = this.store.bindings.get(sessionId);
     if (!binding) throw new WorkspaceError('SESSION_NOT_BOUND', '请先关联此会话的 Logseq 工作目录。');
     const session = await this.status(sessionId, signal);
@@ -165,7 +168,7 @@ export class WorkbenchService {
     if (!session.cwd || await realpath(session.cwd) !== await realpath(binding.directory)) throw new WorkspaceError('SESSION_CWD_MISMATCH');
     const entry = await this.transport.entry(binding.directory);
     if (!sameBinding(entry.binding, binding)) throw new WorkspaceError('WORK_SCOPE_CHANGED', '目录关联的工作已改变，请重新选择工作。');
-    this.check(sessionId, this.generations.get(sessionId) ?? 0, signal);
+    this.check(sessionId, generation, signal);
     return entry;
   }
   async localProject(sessionId, signal) {
@@ -295,6 +298,53 @@ export class WorkbenchService {
     this.check(sessionId,generation,signal);
     if (!sameWorkScope(source.scope, entry.binding.scope)) throw new WorkspaceError('SCOPE_MISMATCH');
     return this.projectView(sessionId,{warnings,scene:{binding:entry.binding,savedSource:source,sourceBundleVersion:source.sourceSetVersion,materials:[]},reading});
+  }
+  async connection(sessionId, signal) {
+    const status = await this.status(sessionId, signal);
+    const result = (state, action) => ({ state, action, workRef: status.workRef, directory: status.registeredDirectory ?? status.binding?.directory ?? null });
+    if (!status.binding) return result(status.workRef ? 'read_confirmation_required' : 'unassociated', status.workRef ? 'confirm_read_in_logseq' : null);
+    try {
+      await realpath(status.binding.directory);
+      if (status.cwdMismatch) return result('directory_moved', 'locate_work_directory');
+      await this.command(sessionId, 'status', {}, signal);
+      return result('connected', null);
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (['ENOENT', 'ENOTDIR'].includes(error.code)) {
+        const exists = await realpath(status.binding.directory).then(() => true, () => false);
+        if (!exists) return result('directory_moved', 'locate_work_directory');
+      }
+      if (['WORK_REF_MISMATCH', 'WORK_SCOPE_CHANGED', 'SCOPE_MISMATCH', 'WORKSPACE_MANIFEST_MISMATCH'].includes(error.code))
+        return result('source_mismatch', 'check_graph_in_logseq');
+      if (error.code === 'SESSION_CWD_MISMATCH') return result('directory_moved', 'locate_work_directory');
+      if (['CONNECTION_STALE', 'DESCRIPTOR_STALE', 'WORKSPACE_OFFLINE', 'WORKSPACE_TIMEOUT'].includes(error.code))
+        return result('waiting_for_logseq', 'open_logseq_and_retry');
+      if (['WORKSPACE_NOT_BOUND', 'CONNECTION_REVOKED'].includes(error.code))
+        return result('read_confirmation_required', 'confirm_read_in_logseq');
+      if (['ENOENT', 'CHANNEL_UNAVAILABLE', 'ECONNREFUSED'].includes(error.code) || ['TypeError', 'TimeoutError'].includes(error.name))
+        return result('companion_unavailable', 'start_companion_and_retry');
+      throw error;
+    }
+  }
+  async currentSource(sessionId, signal) {
+    const generation = this.generations.get(sessionId) ?? 0, entry = await this.binding(sessionId, signal);
+    const workRef = this.store.associations.get(sessionId)?.workRef;
+    const value = await this.call(entry, 'structure.current', {}, sessionId, signal);
+    this.check(sessionId, generation, signal);
+    if (!sameWorkScope(value.source.scope, entry.binding.scope)) throw new WorkspaceError('SCOPE_MISMATCH');
+    return { ...value, workRef };
+  }
+  async reader(sessionId, signal) {
+    const {source, workRef} = await this.currentSource(sessionId, signal);
+    return readerModel(source, workRef);
+  }
+  async references(sessionId, selections, signal) {
+    const {source, workRef} = await this.currentSource(sessionId, signal);
+    return readerReferences(readerModel(source, workRef, {includeTokens: false}), selections);
+  }
+  async currentStructure(sessionId, focusUuid, signal) {
+    const {source, workRef, objects} = await this.currentSource(sessionId, signal);
+    return currentStructure(source, workRef, objects, focusUuid);
   }
   async files(sessionId,signal) {
     const generation=this.generations.get(sessionId)??0;

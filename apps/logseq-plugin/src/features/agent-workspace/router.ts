@@ -115,17 +115,23 @@ export class AgentWorkspaceRouter {
             const reading=await this.ports.source.refresh(binding.scope);await check();
             if(reading.freshness!=="checked"||!reading.observed)throw new WorkspaceError("SOURCE_UNAVAILABLE");return reading.observed.primary;
         };
-        if(command==="planner.references"){
-            const source=await sourceRead();await check();
-            return source.blocks.flatMap(block=>{
+        if(command==="planner.references"||command==="structure.current"){
+            const source=this.ports.source
+                ? (await this.handle({...call,command:"refresh"},lease) as {snapshot: Awaited<ReturnType<typeof sourceRead>>}).snapshot
+                : await sourceRead();
+            await check();
+            const objects=source.blocks.flatMap(block=>{
                 const identity=lookupBlockIdentity(block.target.blockUuid,binding.scope.graphId);
                 const label=workObject(block.content??"");
                 if(identity.kind!=="FORMAL"&&!label)return [];
-                return [{graphId:binding.scope.graphId,blockUuid:block.target.blockUuid,
+                const blockUuid=block.target.blockUuid, graphId=binding.scope.graphId;
+                return [{graphId,blockUuid,
+                    workRef:identity.kind==="FORMAL"?{kind:"kernel",objectId:identity.workObjectId}:{kind:"logseq",graphId,rootUuid:blockUuid,sourceKind:"block"},
                     objectId:identity.kind==="FORMAL"?identity.workObjectId:null,
                     kind:identity.kind==="FORMAL"?identity.objectKind:label!.type==="project"?"PROJECT":label!.type==="task"?"TASK":"MINI_PROJECT",
-                    title:identity.kind==="FORMAL"?identity.title??block.content?.split("\n")[0]??"工作":label!.title}];
+                    title:identity.kind==="FORMAL"?(command==="structure.current"?label?.title:undefined)??identity.title??block.content?.split("\n")[0]??"工作":label!.title}];
             });
+            return command==="structure.current"?{source,objects}:objects;
         }
         if(command.startsWith("formatting.")){
             const formatting=this.ports.formatting;if(!formatting)throw new WorkspaceError("FORMATTING_UNAVAILABLE");

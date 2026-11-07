@@ -50,7 +50,8 @@ export class WorkspaceBroker {
     poll(connectionId: string, busy = false): WorkspaceDelivery | null {
         if (connectionId !== this.connectionId || !this.binding)
             throw new WorkspaceError("CONNECTION_STALE");
-        // Heartbeat resumes an existing grant; it never restores a revoked grant after restart.
+        // Expired grants cannot revive old write authority through a heartbeat.
+        if (!this.online()) throw new WorkspaceError("WORKSPACE_OFFLINE");
         this.lastSeen = Date.now();
         if (busy)
             return null;
@@ -163,6 +164,7 @@ export async function startWorkspaceServer(options: {
     const descriptorPath = join(state, "workspace.json"), pluginDescriptorPath = join(state, "workspace-plugin.json");
     const cachePath = (directory: string) => join(state, `last-known-${digest(directory)}.json`);
     const audit = async (call: WorkspaceCall, outcome: string) => appendFile(join(state, "connection-facts.jsonl"), JSON.stringify({ at: new Date().toISOString(), instanceId, connectionId: call.connectionId, clientId: call.clientId, requestId: call.requestId, command: call.command, payloadDigest: digest(call.payload), outcome }) + "\n", { mode: 0o600 });
+    let connectionQueue: Promise<unknown> = Promise.resolve();
     const operation = async (call: WorkspaceCall): Promise<unknown> => {
         if (call.instanceId !== instanceId)
             throw new WorkspaceError("DESCRIPTOR_STALE");
@@ -295,23 +297,31 @@ export async function startWorkspaceServer(options: {
                 send(response, 200, {published: true}); return;
             }
             if (request.url === "/plugin/dsh") {
-                const raw = workRecord(input, ["connectionId", "mode", "title", "workRef"]), connectionId = workText(raw.connectionId);
+                const raw = workRecord(input, ["connectionId", "mode", "title", "workRef", "newTab"]), connectionId = workText(raw.connectionId);
                 const binding = broker.assert(connectionId);
                 if (!["continue", "new"].includes(String(raw.mode))) throw new WorkspaceError("INVALID_INPUT");
                 const result = await createDshHandoff(state, {mode: raw.mode as DshMode, ...(raw.workRef ? {workRef: parseWorkRef(raw.workRef)} : {}), title: workText(raw.title, 800),
-                    entry: {instanceId, connectionId, binding, directory: binding.directory}});
+                    entry: {instanceId, connectionId, binding, directory: binding.directory}}, raw.newTab === true);
                 broker.assert(connectionId);
                 send(response, 200, result); return;
             }
             if (request.url === "/plugin/connect") {
-                const raw = workRecord(input, ["connectionId", "binding"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
-                root = await authorizedRoot(binding.directory);
-                observations = undefined;
-                cache = null;
-                const metadata = await metadataDirectory(root);
-                await atomicJson(join(metadata, "agent-connection.json"), { schemaVersion: 1, instanceId, connectionId, binding });
-                // Only Registry owns the reading entry; the bridge publishes a derived locator.
-                broker.grant(connectionId, binding);
+                const raw = workRecord(input, ["connectionId", "binding", "recoverFrom"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
+                const recoverFrom = raw.recoverFrom === undefined ? undefined : workText(raw.recoverFrom);
+                const pending = connectionQueue.then(async () => {
+                    if (recoverFrom && broker.connectionId && broker.connectionId !== recoverFrom)
+                        throw new WorkspaceError("RECOVERY_SUPERSEDED");
+                    const directory = await authorizedRoot(binding.directory);
+                    const metadata = await metadataDirectory(directory);
+                    await atomicJson(join(metadata, "agent-connection.json"), { schemaVersion: 1, instanceId, connectionId, binding });
+                    // Only Registry owns the reading entry; the bridge publishes a derived locator.
+                    root = directory;
+                    observations = undefined;
+                    cache = null;
+                    broker.grant(connectionId, binding);
+                });
+                connectionQueue = pending.catch(() => {});
+                await pending;
                 send(response, 200, { instanceId, connectionId, status: "connected" });
                 return;
             }

@@ -1,7 +1,8 @@
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir, readdir, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 import { WorkspaceError, parseWorkBinding, workRecord, workText, parseWorkRef, type WorkRef, type AgentWorkBinding } from "@task-copilot/contracts";
 import { atomicJson } from "./workspace-files.ts";
 
@@ -16,6 +17,46 @@ export const handoffPath = (state: string, ticket: string) => {
   if (!/^[0-9a-f-]{36}$/u.test(ticket)) throw new WorkspaceError("DSH_HANDOFF_INVALID");
   return join(state, "dsh-handoffs", `${ticket}.json`);
 };
+const offerDirectory = (state: string) => join(state, "dsh-browser-offers");
+
+/** One authenticated existing browser consumes an offer. Explicit new-tab entries bypass this. */
+export async function claimDshBrowserOffer(state: string): Promise<string | null> {
+  const directory = offerDirectory(state);
+  const names = await readdir(directory).catch(error => {if (error.code === "ENOENT") return []; throw error;});
+  for (const name of names) {
+    const match = /^(\d+)-([0-9a-f-]{36})(\.claimed)?$/u.exec(name);
+    if (!match) continue;
+    const path = join(directory, name);
+    if (Date.now() - Number(match[1]) > (match[3] ? 30_000 : 2500)) {
+      await unlink(path).catch(error => {if (error.code !== "ENOENT") throw error;});
+      continue;
+    }
+    if (match[3]) continue;
+    try {
+      await rename(path, `${path}.claimed`);
+      return match[2]!;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
+  return null;
+}
+
+async function offerDshBrowser(state: string, ticket: string): Promise<boolean> {
+  const directory = offerDirectory(state);
+  await mkdir(directory, {recursive: true, mode: 0o700});
+  const path = join(directory, `${Date.now()}-${ticket}`);
+  await atomicJson(path, {});
+  const claimed = async () => {
+    try {await unlink(`${path}.claimed`); return true;}
+    catch (error) {if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error;}
+  };
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await delay(100);
+    if (await claimed()) return true;
+  }
+  try {await unlink(path); return false;}
+  catch (error) {if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; return claimed();}
+}
+
 export function localDshUrl(value: string): URL {
   const url = new URL(value);
   if (url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) || url.username || url.password)
@@ -23,7 +64,7 @@ export function localDshUrl(value: string): URL {
   return url;
 }
 /** Local click creates a short-lived locator, never an Agent prompt or a new grant. */
-export async function createDshHandoff(state: string, input: Omit<DshHandoff, "schemaVersion" | "ticket" | "createdAt">): Promise<{url: string; ticket: string}> {
+export async function createDshHandoff(state: string, input: Omit<DshHandoff, "schemaVersion" | "ticket" | "createdAt">, newTab = false): Promise<{url: string | null; ticket: string}> {
   let browser: {url: string; pid: number};
   try {
     browser = JSON.parse(await readFile(browserDescriptor(state), "utf8"));
@@ -32,6 +73,7 @@ export async function createDshHandoff(state: string, input: Omit<DshHandoff, "s
   const url = localDshUrl(browser.url), ticket = randomUUID();
   await mkdir(join(state, "dsh-handoffs"), {recursive: true, mode: 0o700});
   await atomicJson(handoffPath(state, ticket), {...input, schemaVersion: 1, ticket, createdAt: Date.now()});
+  if (!newTab && input.mode === "continue" && await offerDshBrowser(state, ticket)) return {url: null, ticket};
   url.hash = `logseq-work=${ticket}`;
   return {url: url.href, ticket};
 }

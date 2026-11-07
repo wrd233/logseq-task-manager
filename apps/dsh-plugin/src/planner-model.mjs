@@ -20,16 +20,14 @@ export function visibleDates(mode, today) {
 
 export function validDate(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-    new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
+    Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
 }
 
 export function validDueAt(value) {
   if (value === null) return true;
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && date.getFullYear() === Number(value.slice(0, 4)) &&
-    date.getMonth() + 1 === Number(value.slice(5, 7)) && date.getDate() === Number(value.slice(8, 10)) &&
-    date.getHours() === Number(value.slice(11, 13)) && date.getMinutes() === Number(value.slice(14, 16));
+  const date = new Date(`${value}Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 16) === value;
 }
 
 const weekday = key => new Date(`${key}T12:00:00`).toLocaleDateString('zh-CN', { weekday: 'short' });
@@ -75,8 +73,8 @@ export const referenceKindLabel = kind => kind === 'PROJECT' ? 'Project' : kind 
 
 /** Text placed in the native DSH composer. Human-meaningful only: no planner store, Graph path or formal-write instruction. */
 export function handoffText(entry, slot, today) {
-  const range = slotRangeLabel(slot);
-  const lines = [`【时间规划】${dateLabel(entry.date)} · ${slot?.name ?? '未分时段'}${range ? `（${range}）` : ''}`, entry.title];
+  const range = entry.schedule === 'fixed' ? `${entry.startAt.slice(11)}–${entry.endAt.slice(11)}` : slotRangeLabel(slot);
+  const lines = [`【时间规划】${dateLabel(entry.date)} · ${entry.schedule === 'fixed' ? '固定安排' : slot?.name ?? '未分时段'}${range ? `（${range}）` : ''}`, entry.title];
   if (entry.plannedMinutes !== null && entry.plannedMinutes !== undefined) lines.push(`计划投入 ${durationLabel(entry.plannedMinutes)}`);
   if (entry.actualMinutes) lines.push(`实际投入 ${durationLabel(entry.actualMinutes)}`);
   if (entry.dueAt) lines.push(`截止时间 ${dueLabel(entry.dueAt, today)}`);
@@ -90,7 +88,7 @@ export function moveEntries(entries, { id, date, slotId, beforeId }) {
   if (!entry) return entries;
   const next = entries.filter(item => item.id !== id);
   const moved = { ...entry, date, slotId };
-  let index = beforeId ? next.findIndex(item => item.id === beforeId) : -1;
+  let index = beforeId ? next.findIndex(item => item.id === beforeId && item.schedule !== 'fixed' && item.date === date && item.slotId === slotId) : -1;
   if (index < 0) {
     let last = -1;
     next.forEach((item, position) => { if (item.date === date && item.slotId === slotId) last = position; });
@@ -103,7 +101,7 @@ export function moveEntries(entries, { id, date, slotId, beforeId }) {
 export function reorderEntries(entries, id, direction) {
   const entry = entries.find(item => item.id === id);
   if (!entry) return entries;
-  const group = entries.filter(item => item.date === entry.date && item.slotId === entry.slotId);
+  const group = entries.filter(item => item.schedule !== 'fixed' && item.date === entry.date && item.slotId === entry.slotId);
   const position = group.findIndex(item => item.id === id);
   const neighbour = group[position + direction];
   if (!neighbour) return entries;
@@ -124,4 +122,15 @@ export function insertPlanDraft(inputActions, entry, slot, today) {
   const captured = inputActions.captureInsertion();
   const span = { ...captured, start: captured.end };
   return inputActions.insertText((span.start > 0 ? '\n' : '') + handoffText(entry, slot, today), span);
+}
+
+/** Evaluate the user's local wall clock. Fixed entries can overlap a slot or one another. */
+export function currentPlanning(state, localAt) {
+  if (!localAt || !validDueAt(localAt)) throw Object.assign(Error('PLANNER_INVALID'), { code: 'PLANNER_INVALID' });
+  const time = localAt.slice(11);
+  return {
+    localAt,
+    slot: state.slots.find(item => item.start && item.start <= time && time < item.end) ?? null,
+    fixed: state.entries.filter(item => item.schedule === 'fixed' && item.startAt <= localAt && localAt < item.endAt),
+  };
 }

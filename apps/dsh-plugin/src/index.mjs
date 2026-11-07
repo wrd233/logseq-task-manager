@@ -4,7 +4,7 @@ import { parseWorkRef, workKey, WorkspaceError } from '@task-copilot/contracts';
 import process from 'node:process';
 import { rm, readFile } from 'node:fs/promises';
 import { DshHandoffs } from './handoff.mjs';
-import { browserDescriptor, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { browserDescriptor, claimDshBrowserOffer, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
@@ -49,7 +49,7 @@ export async function apply(ctx, config = {}) {
     });
   }
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
-  const planner = await installPlannerHost(ctx, service, resolve(config.plannerStateDirectory ?? store.directory));
+  const planner = await installPlannerHost(ctx, service, resolve(config.plannerStateDirectory ?? store.directory), handoffs);
   const routes = {
     catalog: async input => {
       request(input, []);
@@ -64,6 +64,10 @@ export async function apply(ctx, config = {}) {
       const work = graphs.flatMap(graph => graph.works).findLast(work => workKey(work.workRef) === workKey(ref));
       if (!work) throw new WorkspaceError('CATALOG_WORK_MISSING');
       return handoffs.enterCatalog(work, value.operationId, signal);
+    },
+    'handoff-pending': async input => {
+      request(input, []);
+      return {ticket: await claimDshBrowserOffer(service.transport.stateDirectory)};
     },
     handoff: async (input, signal) => {const value = request(input, ['ticket']); return handoffs.open(value.ticket, signal);},
     opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
@@ -83,6 +87,22 @@ export async function apply(ctx, config = {}) {
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
     unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },
     read: async (input, signal) => { const value = request(input, ['sessionId']); return service.sourceView(value.sessionId, signal); },
+    connection: async (input, signal) => {
+      const {sessionId} = request(input, ['sessionId']);
+      return service.connection(sessionId, signal);
+    },
+    reader: async (input, signal) => {
+      const {sessionId} = request(input, ['sessionId']);
+      return service.reader(sessionId, signal);
+    },
+    'reader-references': async (input, signal) => {
+      const {sessionId, selections} = request(input, ['sessionId', 'selections']);
+      return service.references(sessionId, selections, signal);
+    },
+    currentStructure: async (input, signal) => {
+      const {sessionId, focusUuid} = request(input, ['sessionId', 'focusUuid']);
+      return service.currentStructure(sessionId, focusUuid, signal);
+    },
     select: async (input, signal) => {
       const value = request(input, ['sessionId', 'mode', 'planId', 'restore']);
       if (value.mode !== undefined && value.mode !== 'report' && value.mode !== 'structure') throw Error('INVALID_READING_MODE');
