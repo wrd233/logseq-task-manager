@@ -4,7 +4,7 @@ import { observeCurrentStructure } from '../current-structure-client.mjs';
 import { WorkDiscovery } from '../discovery.jsx';
 import { insertReaderReferences } from '../reader-draft.mjs';
 import { Reader } from './reader.jsx';
-import { workFocus } from './focus-store.mjs';
+import { workFocus, readWorkFocus, saveWorkFocus } from './focus-store.mjs';
 import {
   connectionCopy, mergeSelections, previewText,
   selectionKey, statusLabel, statusTone, workTypeLabel,
@@ -104,7 +104,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     useEffect(() => {
       setStatus(null); setConnection(null); setStructure(null); setStructureError(null); setReader(null); setReaderError(null);
-      setFocus(null); setView('structure'); setSelected([]); setNotice(null); setLoading(true); setDiscovery(false); setMenu(false);
+      setFocus(readWorkFocus(sessionId)); setView('structure'); setSelected([]); setNotice(null); setLoading(true); setDiscovery(false); setMenu(false);
       setBinding(false); setBindingError(''); setDirectory(''); setConfirmUnbind(false); scrollPositions.current = new Map();
     }, [sessionId]);
     useEffect(() => {
@@ -159,6 +159,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
           return;
         }
         if (event.error?.code === 'STRUCTURE_FOCUS_MISSING') {
+          saveWorkFocus(sessionId, null);
           setFocus(null);
           setNotice({ text: '这件工作已不在当前结构中，已回到工作根。', tone: 'info' });
           return;
@@ -202,7 +203,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     const selectionVersions = useMemo(() => new Map((reader?.nodes ?? []).map(node => [node.sourceId, node.contentVersion])), [reader]);
     const saveScroll = () => { if (scroll.current) scrollPositions.current.set(`${view}:${focus ?? 'root'}`, scroll.current.scrollTop); };
     const rememberScroll = event => { if (visible) scrollPositions.current.set(`${view}:${focus ?? 'root'}`, event.currentTarget.scrollTop); };
-    const changeFocus = uuid => { if (uuid === focus) return; saveScroll(); setFocus(uuid ?? null); setStructure(null); setStructureError(null); };
+    const changeFocus = uuid => { if (uuid === focus) return; saveScroll(); saveWorkFocus(sessionId, uuid); setFocus(uuid ?? null); setStructure(null); setStructureError(null); };
     const changeView = next => { if (next === view) return; saveScroll(); setView(next); setMenu(false); };
 
     useEffect(() => {
@@ -210,12 +211,13 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       workFocus.take(sessionId);
       const rootUuid = structure?.scope?.rootUuid;
       const next = requestedFocus === rootUuid ? null : requestedFocus;
+      setView('structure');
       if (next === focus) return;
       saveScroll();
+      saveWorkFocus(sessionId, next);
       setFocus(next);
       setStructure(null);
       setStructureError(null);
-      setView('structure');
     }, [requestedFocus, sessionId, structure?.scope?.rootUuid]);
 
     const addSelection = items => {
@@ -272,6 +274,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
         await rpc('unbind', { sessionId });
         if (sessionRef.current !== currentSession) return;
         invalidate(sessionId);
+        saveWorkFocus(sessionId, null);
         setConfirmUnbind(false); setMenu(false); setFocus(null); setReader(null); setStructure(null); setSelected([]);
         setReload(value => value + 1);
         setNotice({ text: '已解除关联；原对话和草稿保留。', tone: 'ok' });

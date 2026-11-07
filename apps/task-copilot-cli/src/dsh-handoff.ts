@@ -40,6 +40,17 @@ export async function claimDshBrowserOffer(state: string): Promise<string | null
   return null;
 }
 
+/** Keep an authenticated browser request waiting on the server, independent of background JS timers. */
+export async function waitDshBrowserOffer(state: string, signal?: AbortSignal): Promise<string | null> {
+  const until = Date.now() + 20_000;
+  while (!signal?.aborted) {
+    const ticket = await claimDshBrowserOffer(state);
+    if (ticket || Date.now() >= until) return ticket;
+    await delay(150, undefined, {signal});
+  }
+  return null;
+}
+
 async function offerDshBrowser(state: string, ticket: string): Promise<boolean> {
   const directory = offerDirectory(state);
   await mkdir(directory, {recursive: true, mode: 0o700});

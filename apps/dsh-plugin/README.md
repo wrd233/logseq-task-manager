@@ -74,7 +74,7 @@ node --import tsx apps/dsh-plugin/tests/host-proof.mjs
 
 本轮实际运行：
 
-- `node --import tsx --test apps/dsh-plugin/tests/*.test.mjs`：**73/73 pass**
+- `node --import tsx --test apps/dsh-plugin/tests/*.test.mjs`：**77/77 pass**
 - `node apps/dsh-plugin/scripts/build.mjs`：通过
 - `node apps/logseq-plugin/scripts/build.mjs`：通过（隔离 Logseq + companion 实机验收）
 - `eslint apps/dsh-plugin/src apps/dsh-plugin/tests`：通过
@@ -84,14 +84,16 @@ node --import tsx apps/dsh-plugin/tests/host-proof.mjs
 
 ## 当前边界
 
-- 浏览器后台标签页的定时器会被节流；核心 handoff offer 的 2.5 秒认领窗口过后，Logseq 仍可能走系统打开票据 URL。本轮没有改核心票据协议，也没有跨标签页 leader election。
+- 已打开页面通过认证长等待请求接收 handoff，后台计时节流不再依赖 650ms 轮询；页面被彻底冻结/丢弃或断线时仍保留系统打开票据 URL 的兜底。没有跨标签页 leader election。
 - 无法强制 macOS 浏览器窗口置顶；只能请求 focus。
 - 当前结构只提供树，历史仍提供树/图；这是有意的，避免维护第二套结构过滤投影。
 - 命名读法仍由 Logseq 原有阅读菜单和 Agent 工具维护；统一工作面的默认阅读是当前来源 Reader，不再在 DSH 左侧浮层重复旧读法选择器。需要在 DSH 内切换命名读法的旧流程不在本轮入口中。
-- 引用在草稿中是「引文 + 紧凑身份行」，没有自定义引用 chip；表格选区偏移为近似映射。
+- 引用在草稿中是「引文 + 紧凑身份行」，没有自定义引用 chip；表格按实际行/单元格映射；无法精确映射的转义管道单元格提示改用整块引用。
 - 变更回顾的模型理解需要用户明确点击并配置模型；验收环境没有调用外部模型。
 - 文件页仍显示当前工作目录和显式关联材料；没有增加上传、内嵌预览或全 Graph 对象目录。
 - 只提供读取与阅读方案工具，没有正文、文件或 TODO 写入工具。DSH 自身通用终端工具的权限仍由 DSH 管理。
 - 本轮实机验收使用隔离 Logseq 副本、测试 Graph 和测试工作区，没有使用真实用户 Graph；具体截图、测试数据和未完成项见 [Unified Work Experience UX v1](../../docs/implementation/unified-work-experience-ux-v1/README.md)。
 
 `src/` 是正式宿主和 React 客户端，`cordis.patch.yml` 是 bundle，`scripts/` 是构建/安装器，`tests/` 是验证程序。`prototype/` 保留交互样例，`research/` 保留前期宿主实验，见 [设计记录](design.md)。
+
+最终整合另完成 97 项关键回归（DSH 77、Logseq 18、读取目标 2）。最终整合与本轮真实宿主验收见 [Final Work Experience v1](../../docs/implementation/final-work-experience-v1/README.md)。

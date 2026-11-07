@@ -62,3 +62,16 @@ test('native reader insertion keeps source identity and never replaces the captu
   assert.match(inserted.text, /"sourceId":"source-1"/);
   assert.deepEqual(inserted.span, { start: 6, end: 6, draftRev: 4 });
 });
+
+test('work locations survive reload per native Session and clearing a missing focus leaves other work alone', async () => {
+  const { readWorkFocus, saveWorkFocus } = await import('../src/work-experience/focus-store.mjs');
+  const data = new Map();
+  const storage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) };
+  saveWorkFocus('s1', 'child-a', storage);
+  saveWorkFocus('s2', 'child-b', storage);
+  assert.equal(readWorkFocus('s1', storage), 'child-a');
+  assert.equal(readWorkFocus('s2', storage), 'child-b');
+  saveWorkFocus('s1', null, storage);
+  assert.equal(readWorkFocus('s1', storage), null);
+  assert.equal(readWorkFocus('s2', storage), 'child-b');
+});

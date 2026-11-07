@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-07",
+  "main": "4acc2699a5740e54b6875b30ad3052a8aa89d625",
+  "integratedUX": "4b53591a22d2716c511dcee81525f3ab0d0bc4ea",
+  "tests": {
+    "dsh": 77,
+    "logseq": 18,
+    "readTarget": 2,
+    "totalPassed": 97,
+    "failed": 0,
+    "skipped": 0
+  },
+  "host": {
+    "dsh": "0.2.1-rc.2",
+    "logseq": "0.10.9",
+    "realDesktop": true,
+    "isolatedSyntheticGraph": true,
+    "fixtureCompanion": false,
+    "externalModelCalled": false
+  },
+  "background": {
+    "backgroundSeconds": 75,
+    "hiddenAtEntry": true,
+    "tabCounts": [
+      4,
+      4
+    ],
+    "dshTabs": 1,
+    "sameSession": true,
+    "draftPreserved": true
+  },
+  "companion": {
+    "offlineObserved": "Logseq 工作服务还没启动",
+    "automaticRecovery": true
+  },
+  "reader": {
+    "selected": "nlin",
+    "verifiedRange": {
+      "start": 54,
+      "end": 58
+    },
+    "sourceWorkRoot": "11111111-1111-4111-8111-111111111111",
+    "existingDraftPreserved": true,
+    "sent": false
+  },
+  "planner": {
+    "fixedEndSaved": "2026-11-07T22:50",
+    "flexiblePlannedMinutesSaved": 50,
+    "sameFocusNavigationReturnsToStructure": true,
+    "refreshRetainsWorkFocus": true
+  },
+  "workIsolation": {
+    "BContainsOnlyOwnVisibleBody": true,
+    "BIndependentDraft": true,
+    "returnToAPreservesDraftAndReferences": true
+  },
+  "history": {
+    "snapshots": [
+      {
+        "id": "3c484ced-2633-4085-89eb-fa1d75cf13d0",
+        "title": "阶段二 · 当前结构优先",
+        "nodeCount": 4
+      },
+      {
+        "id": "c133ef37-c970-408c-a069-827e0dab23e3",
+        "title": "阶段一 · 统一入口",
+        "nodeCount": 3
+      }
+    ],
+    "currentChangesDidNotReplaceHistory": true,
+    "recordsUnchangedDuringWalkthrough": true
+  },
+  "limitations": [
+    "Current structure graph view deferred; history graph retained",
+    "No forced OS foreground activation",
+    "Fully frozen/discarded pages and long duration suspension not covered",
+    "Normalized escaped-pipe cells require whole-block citation",
+    "Saved Agent test snapshots used; new Stage recording not reaccepted",
+    "Physical drag/drop, touch and external-model response quality not reaccepted"
+  ]
+}

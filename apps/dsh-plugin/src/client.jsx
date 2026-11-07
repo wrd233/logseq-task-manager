@@ -247,21 +247,25 @@ export function apply(ctx) {
   register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, Planner);
   window.addEventListener('hashchange',readHandoff);readHandoff();
   const pendingHandoff = new AbortController();
-  let checkingHandoff = false;
-  const handoffTimer = setInterval(async () => {
-    if (checkingHandoff || handoff?.busy) return;
-    checkingHandoff = true;
+  // A waiting RPC survives background timer throttling. Retry timers are only needed after disconnection.
+  let handoffRetry;
+  const checkHandoff = async () => {
     try {
       const {ticket} = await rpc('handoff-pending', {}, pendingHandoff.signal);
-      if (!ticket || disposed) return;
-      handoff = {ticket, busy: true};
-      emit();
-      void enterHandoff();
-      window.focus();
-    } catch { /* When disconnected, Logseq falls back to opening its ticket URL. */ }
-    finally { checkingHandoff = false; }
-  }, 650);
-  ctx.on('dispose', () => { pendingHandoff.abort(); clearInterval(handoffTimer); clearTimeout(toastTimer); });
+      if (disposed || pendingHandoff.signal.aborted) return;
+      if (ticket) {
+        handoff = {ticket, busy: true};
+        emit();
+        await enterHandoff();
+        window.focus();
+      }
+      if (!disposed) void checkHandoff();
+    } catch {
+      if (!disposed && !pendingHandoff.signal.aborted) handoffRetry = setTimeout(checkHandoff, 1000);
+    }
+  };
+  void checkHandoff();
+  ctx.on('dispose', () => { pendingHandoff.abort(); clearTimeout(handoffRetry); clearTimeout(toastTimer); });
   ctx.on('dispose', () => { disposed = true; stopNavigation(); window.removeEventListener('focus', observeFocus); document.removeEventListener('visibilitychange', observeFocus); handoffController?.abort();window.removeEventListener('hashchange',readHandoff);style.remove(); for (const request of pending.values()) request.controller.abort(); pending.clear(); listeners.clear(); rows.clear(); workFocus.dispose(); });
   ctx.on('connection/reset', () => { for (const sessionId of rows.keys()) invalidate(sessionId); if(handoff&&!handoff.busy)void enterHandoff(); });
 }

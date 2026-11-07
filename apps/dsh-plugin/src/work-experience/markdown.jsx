@@ -67,7 +67,7 @@ function renderToken(token, source, position, key, skipBefore = 0) {
       return <span key={key} className="wx-md-page" data-ms={position ? position.start + 2 : undefined}
         data-me={position ? position.start + 2 + String(token.page ?? '').length : undefined}>{token.page}</span>;
     case 'codespan':
-      return <code key={key} className="wx-md-code">{mappedText({ ...token, raw: token.raw, text: token.text }, position ? { start: position.start + Math.max(0, token.raw.indexOf(token.text)), end: position.end } : null, `${key}.code`, skipBefore)}</code>;
+      return <code key={key} className="wx-md-code">{mappedText({ ...token, raw: token.raw, text: token.text }, position, `${key}.code`, skipBefore)}</code>;
     case 'br':
       return <br key={key} />;
     case 'image':
@@ -105,18 +105,35 @@ function renderToken(token, source, position, key, skipBefore = 0) {
 }
 
 function renderTable(token, source, position, key) {
-  let cursor = position?.start ?? null;
-  const cell = (value, prefix) => {
-    if (!value) return null;
-    let start = null;
-    if (cursor !== null && typeof value.text === 'string' && value.text) {
-      const at = source.indexOf(value.text, cursor);
-      if (at >= 0) { start = at; cursor = at + value.text.length; }
+  const lines = token.raw.split('\n');
+  let offset = position?.start ?? null;
+  const rows = lines.map(line => {
+    const start = offset;
+    if (offset !== null) offset += line.length + 1;
+    const cells = [];
+    // Escaped pipes belong to a cell. Optional outer pipes do not create empty cells.
+    let from = /^\s*\|/u.test(line) ? line.indexOf('|') + 1 : 0;
+    for (let i = from; i <= line.length; i++) {
+      if (i < line.length && line[i] !== '|') continue;
+      let slashes = 0;
+      for (let j = i - 1; j >= from && line[j] === '\\'; j--) slashes++;
+      if (i < line.length && slashes % 2) continue;
+      const raw = line.slice(from, i);
+      if (i < line.length || raw.trim()) cells.push({raw, start: start === null ? null : start + from});
+      from = i + 1;
     }
-    return renderSequence(value.tokens?.length ? value.tokens : [{ type: 'text', text: value.text ?? '', raw: value.text ?? '' }], source, start, prefix);
+    return cells;
+  });
+  const cell = (value, location, prefix) => {
+    if (!value) return null;
+    const raw = location?.raw ?? '', text = value.text ?? '';
+    const at = raw.indexOf(text);
+    // Marked normalizes escaped pipes. Leave these unmapped rather than inventing an offset.
+    const start = location?.start != null && at >= 0 ? location.start + at : null;
+    return renderSequence(value.tokens?.length ? value.tokens : [{ type: 'text', text, raw: text }], source, start, prefix);
   };
-  return <table key={key}><thead><tr>{(token.header ?? []).map((value, index) => <th key={index}>{cell(value, `${key}.h${index}`)}</th>)}</tr></thead>
-    <tbody>{(token.rows ?? []).map((row, rowIndex) => <tr key={rowIndex}>{row.map((value, index) => <td key={index}>{cell(value, `${key}.r${rowIndex}c${index}`)}</td>)}</tr>)}</tbody></table>;
+  return <table key={key}><thead><tr>{(token.header ?? []).map((value, index) => <th key={index}>{cell(value, rows[0]?.[index], `${key}.h${index}`)}</th>)}</tr></thead>
+    <tbody>{(token.rows ?? []).map((row, rowIndex) => <tr key={rowIndex}>{row.map((value, index) => <td key={index}>{cell(value, rows[rowIndex + 2]?.[index], `${key}.r${rowIndex}c${index}`)}</td>)}</tr>)}</tbody></table>;
 }
 
 export function Markdown({ tokens, source, className = '', skip = 0 }) {

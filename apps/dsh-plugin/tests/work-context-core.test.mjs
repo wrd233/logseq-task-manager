@@ -1,3 +1,4 @@
+/* global AbortController */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -5,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { snapshot, sha256, sourceId } from '../../logseq-plugin/src/workspace/source-protocol.ts';
-import { createDshHandoff, browserDescriptor, claimDshBrowserOffer } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { createDshHandoff, browserDescriptor, claimDshBrowserOffer, waitDshBrowserOffer } from '../../task-copilot-cli/src/dsh-handoff.ts';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { readerModel, readerReferences } from '../src/reader-model.mjs';
 import { changeReaderSelection, insertReaderReferences } from '../src/reader-draft.mjs';
@@ -119,4 +120,21 @@ test('one existing DSH browser claims a continue offer, while explicit new-tab n
   assert.equal(result.url, null);
   assert.match((await createDshHandoff(directory, input, true)).url, /#logseq-work=/);
   assert.equal(await claimDshBrowserOffer(directory), null);
+});
+
+
+test('a waiting browser RPC claims a later handoff without a browser polling timer, and abort stops the wait', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'browser-wait-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  await atomicJson(browserDescriptor(directory), {url: 'http://127.0.0.1:3088/', pid: process.pid});
+  const controller = new AbortController();
+  const waiting = waitDshBrowserOffer(directory, controller.signal);
+  await delay(200);
+  const result = await createDshHandoff(directory, {mode: 'continue', title: 'Demo', workRef,
+    entry: {directory, instanceId: 'i', connectionId: 'c', binding: {directory, scope, organization: 'flat', provider: 'workspace', workspaceId: 'w'}}});
+  assert.equal(await waiting, result.ticket);
+  assert.equal(result.url, null);
+  const cancelled = waitDshBrowserOffer(directory, controller.signal);
+  controller.abort();
+  await assert.rejects(cancelled, {name: 'AbortError'});
 });

@@ -10,3 +10,14 @@ export const workFocus = {
   subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   dispose() { requests.clear(); listeners.clear(); },
 };
+
+const focusKey = sessionId => `task-copilot:work-focus:${sessionId}`;
+export function readWorkFocus(sessionId, storage = globalThis.sessionStorage) {
+  try { return storage?.getItem(focusKey(sessionId)) || null; } catch { return null; }
+}
+export function saveWorkFocus(sessionId, uuid, storage = globalThis.sessionStorage) {
+  try {
+    if (uuid) storage?.setItem(focusKey(sessionId), uuid);
+    else storage?.removeItem(focusKey(sessionId));
+  } catch { /* Location persistence is optional when browser storage is unavailable. */ }
+}

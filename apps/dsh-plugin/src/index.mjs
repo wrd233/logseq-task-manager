@@ -4,7 +4,7 @@ import { parseWorkRef, workKey, WorkspaceError } from '@task-copilot/contracts';
 import process from 'node:process';
 import { rm, readFile } from 'node:fs/promises';
 import { DshHandoffs } from './handoff.mjs';
-import { browserDescriptor, claimDshBrowserOffer, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { browserDescriptor, waitDshBrowserOffer, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
@@ -65,9 +65,9 @@ export async function apply(ctx, config = {}) {
       if (!work) throw new WorkspaceError('CATALOG_WORK_MISSING');
       return handoffs.enterCatalog(work, value.operationId, signal);
     },
-    'handoff-pending': async input => {
+    'handoff-pending': async (input, signal) => {
       request(input, []);
-      return {ticket: await claimDshBrowserOffer(service.transport.stateDirectory)};
+      return {ticket: await waitDshBrowserOffer(service.transport.stateDirectory, signal)};
     },
     handoff: async (input, signal) => {const value = request(input, ['ticket']); return handoffs.open(value.ticket, signal);},
     opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
