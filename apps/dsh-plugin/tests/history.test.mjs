@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { HistoryStore } from '../src/structure-history/store.mjs';
 import { HistoryService } from '../src/structure-history/service.mjs';
-import { structure, compare, quote } from '../src/structure-history/model.mjs';
+import { structure, compare, quote, historyChain, lineage } from '../src/structure-history/model.mjs';
 import { observeGit } from '../src/structure-history/git.mjs';
 const node = (id, extra = {}) => ({ id, title: id, body: 'saved text', ...extra });
 const snapshot = (nodes, extra = {}) => ({ kind: 'snapshot', track: 'work-structure', origin: 'agent', requestId: randomUUID(), title: 'Test', ...structure({ nodes }), ...extra });
@@ -117,6 +117,8 @@ test('existing production Stage recorder/store revisions import once with source
     const a = records.find(r => r.facts.revisionId === first.start.id), b = records.find(r => r.facts.revisionId === revision.id);
     assert.ok(a, JSON.stringify({ ids: records.map(r => r.facts), first: first.start.id, revision: revision.id }));
     assert.ok(b, JSON.stringify({ ids: records.map(r => r.facts), first: first.start.id, revision: revision.id }));
+    assert.equal(list.records.find(r => r.id === a.id).facts.revisionId, first.start.id);
+    assert.equal(list.records.find(r => r.id === b.id).facts.parentRevision, first.start.id);
     const changed = compare(a, b).find(c => c.after?.status === 'DONE');
     assert.ok(changed.kinds.includes('正文'));
     assert.ok(changed.kinds.includes('归属'));
@@ -151,12 +153,12 @@ test('large actual source bodies and five thousand stable nodes remain exact', a
 test('removed Logseq source stays historical; no read outside current authorized scope', async (t) => {
     const directory = await temporary(t), store = new HistoryStore(join(directory, 'history')), scope = { graphId: 'g', rootUuid: 'r' };
     const service = new HistoryService({ store, workbench: { generations: new Map(), status: async () => ({ binding: { directory, scope } }), command: async () => { throw Object.assign(Error('gone'), { code: 'SOURCE_OUTSIDE_SCOPE' }); } } });
-    const listProject = await service.project('s'), frame = await store.append(listProject.directory, snapshot([node('deleted', { sources: [{ kind: 'logseq', ref: 'saved-source', version: 'v1' }] })], { facts: { scope }, track: 'logseq:g' }));
+    const listProject = await service.project('s'), frame = await store.append(listProject.directory, snapshot([node('deleted', { sources: [{ kind: 'logseq', ref: JSON.stringify(['logseq', scope.graphId, 'b7261007-0000-4000-8000-000000000001']), version: 'v1' }] })], { facts: { scope }, track: 'logseq:g' }));
     const result = await service.source('s', { snapshotId: frame.id, nodeId: 'deleted' });
     assert.equal(result.current.availability, 'outside-scope');
     assert.match(result.notice, /删除或移出/);
     assert.equal((await service.read('s', frame.id)).nodes[0].body, 'saved text');
-    assert.match(quote({ snapshot: frame, node: frame.nodes[0], source: result }), /saved-source/);
+    assert.match(quote({ snapshot: frame, node: frame.nodes[0], source: result }), /history/);
 });
 test('a repository replaced inside the same project starts a new Git observation without a false commit range', async (t) => {
     const directory = await temporary(t);
@@ -248,4 +250,88 @@ test('partial frames joined with removed parents cannot create a display cycle o
     const view = visibleTree(after, changes);
     assert.equal(treeLayout(view.nodes, 600).positions.size, 2);
     assert.equal(JSON.stringify({ before, after, changes }), saved);
+});
+
+test('timeline follows saved Stage revision parents, not timestamps or the append chain', () => {
+    const stageStart = { id: 'record-start', parentId: null, sequence: 1, recordedAt: '2026-03-03T00:00:00Z', facts: { revisionId: 'stage-one', parentRevision: null } };
+    const decoy = { id: 'record-decoy', parentId: 'record-start', sequence: 2, recordedAt: '2026-03-02T00:00:00Z', facts: { revisionId: 'stage-two', parentRevision: null } };
+    const revision = { id: 'record-revision', parentId: 'record-decoy', sequence: 3, recordedAt: '2026-01-01T00:00:00Z', facts: { revisionId: 'revision-a', parentRevision: 'stage-one' } };
+    const chain = historyChain([decoy, revision, stageStart]);
+    assert.deepEqual(chain.records.map(record => record.id), ['record-start', 'record-revision']);
+    assert.deepEqual(chain.omitted.map(record => record.id), ['record-decoy']);
+    assert.equal(chain.broken, false);
+    const agent = [{ id: 'a', parentId: null, sequence: 1, recordedAt: '2026-05-01T00:00:00Z' }, { id: 'b', parentId: 'a', sequence: 2, recordedAt: '2026-04-01T00:00:00Z' }];
+    assert.deepEqual(historyChain(agent).records.map(record => record.id), ['a', 'b']);
+    const missing = historyChain([{ id: 'later', parentId: 'missing', sequence: 2, facts: { revisionId: 'r2', parentRevision: 'r1' } }]);
+    assert.equal(missing.broken, true);
+});
+test('lineage stops safely at missing parents and returns root-first paths', () => {
+    const nodes = [{ id: 'root', title: 'Root', parentId: null }, { id: 'child', title: 'Child', parentId: 'root' }, { id: 'orphan', title: 'Orphan', parentId: 'missing' }];
+    assert.deepEqual(lineage(nodes[1], nodes).map(node => node.id), ['root', 'child']);
+    assert.deepEqual(lineage(nodes[2], nodes).map(node => node.id), ['orphan']);
+});
+
+test('Logseq source navigation is offered only after binding, identity and version checks', async (t) => {
+    const directory = await temporary(t), store = new HistoryStore(join(directory, 'history')), scope = { graphId: 'Lab:/private/graph', rootUuid: 'root-uuid' };
+    const blockUuid = 'b7261007-0000-4000-8000-000000000001';
+    let current = { content: 'today source', contentVersion: 'v1', availability: 'available' };
+    const service = new HistoryService({ store, workbench: { generations: new Map(), status: async () => ({ binding: { directory, scope } }),
+        command: async (_session, command, payload) => { assert.equal(command, 'source.read'); assert.equal(payload.sourceId, JSON.stringify(['logseq', scope.graphId, blockUuid])); return { source: current }; } } });
+    const project = await service.project('s');
+    const frame = await store.append(project.directory, snapshot([node('node', { sources: [{ kind: 'logseq', ref: JSON.stringify(['logseq', scope.graphId, blockUuid]), version: 'v1' }] })], { facts: { scope }, track: 'logseq:g' }));
+    const checked = await service.source('s', { snapshotId: frame.id, nodeId: 'node' });
+    assert.match(checked.notice, /一致/);
+    assert.match(checked.navigation.url, /^logseq:\/\/graph\/Lab\?block-id=b7261007/);
+    current = { content: 'changed source', contentVersion: 'v2', availability: 'available' };
+    const changed = await service.source('s', { snapshotId: frame.id, nodeId: 'node' });
+    assert.match(changed.notice, /已变化/);
+    assert.ok(changed.navigation, 'a changed but verified source can still locate today\'s block');
+    const unknown = await store.append(project.directory, snapshot([node('unknown', { sources: [{ kind: 'logseq', ref: JSON.stringify(['logseq', scope.graphId, blockUuid]), version: null }] })], { facts: { scope }, track: 'logseq:g' }));
+    const unknownResult = await service.source('s', { snapshotId: unknown.id, nodeId: 'unknown' });
+    assert.equal(unknownResult.navigation, null);
+    const other = new HistoryService({ store, workbench: { generations: new Map(), status: async () => ({ binding: { directory, scope: { ...scope, rootUuid: 'other-root' } } }), command: async () => ({ source: current }) } });
+    await assert.rejects(other.source('s', { snapshotId: frame.id, nodeId: 'node' }), /CONNECTION_CHANGED/);
+    const stranger = await store.append(project.directory, snapshot([node('stranger', { sources: [{ kind: 'logseq', ref: JSON.stringify(['logseq', 'Other:/graph', blockUuid]), version: 'v1' }] })], { facts: { scope }, track: 'logseq:g' }));
+    await assert.rejects(service.source('s', { snapshotId: stranger.id, nodeId: 'stranger' }), /SOURCE_INVALID/);
+});
+
+test('history consumes Goal 3 session-targeted reads and rejects scope changes and late results', async t => {
+    const { BindingStore, WorkbenchService } = await import('../src/service.mjs');
+    const { workRefFromBinding } = await import('@task-copilot/contracts');
+    const directory = await realpath(await temporary(t)), store = new HistoryStore(join(directory, 'history'));
+    const scope = { graphId: 'Integration:/test-graph', rootUuid: randomUUID() };
+    const binding = { scope, directory, provider: 'workspace', workspaceId: 'integration', organization: 'flat' };
+    const bindings = new BindingStore(join(directory, 'bindings')); await bindings.load();
+    const blockUuid = randomUUID(), sourceId = JSON.stringify(['logseq', scope.graphId, blockUuid]);
+    let release, entered;
+    const calls = [], workbench = new WorkbenchService({ store: bindings, inspectSession: async () => ({ meta: { cwd: directory } }), transport: {
+        entry: async () => ({ binding, directory }),
+        call: async (_entry, command, payload, sessionId, _signal, readTarget) => {
+            if (command === 'status') return { workRef: workRefFromBinding(binding), capabilities: { read: true, bodyWrite: false } };
+            calls.push(command);
+            assert.equal(command, 'source.read'); assert.equal(payload.sourceId, sourceId);
+            assert.deepEqual(readTarget, { sessionId: 'B', workRef: workRefFromBinding(binding), scope, generation: 1 });
+            assert.equal(sessionId, 'B');
+            if (entered) { entered(); await new Promise(resolve => { release = resolve; }); }
+            return { source: { sourceId, content: 'B current source', contentVersion: 'v2', availability: 'available' } };
+        },
+    } });
+    await workbench.bind('B', directory);
+    const service = new HistoryService({ store, workbench });
+    const frame = await store.append(directory, snapshot([node('b', { body: 'B historical body', sources: [{ kind: 'logseq', ref: sourceId, version: 'v1' }] })], { facts: { scope } }));
+    const path = join(store.folder(directory), frame.id + '.json'), bytes = await readFile(path);
+    const result = await service.source('B', { snapshotId: frame.id, nodeId: 'b' });
+    assert.equal(result.current.content, 'B current source'); assert.match(result.navigation.url, /block-id=/);
+    assert.equal((await service.read('B', frame.id)).nodes[0].body, 'B historical body');
+    await assert.rejects(service.source('A', { snapshotId: frame.id, nodeId: 'b' }), /CONNECTION_CHANGED/);
+    for (const changedScope of [{ ...scope, kind: 'page', pageName: 'Other' }, { ...scope, graphId: 'Other:/graph' }, { ...scope, rootUuid: randomUUID() }]) {
+        const other = await store.append(directory, snapshot(frame.nodes, { facts: { scope: changedScope } }));
+        await assert.rejects(service.source('B', { snapshotId: other.id, nodeId: 'b' }), /CONNECTION_CHANGED/);
+    }
+    assert.deepEqual(calls, ['source.read'], 'scope rejection must happen before any source read');
+    const arrived = new Promise(resolve => { entered = resolve; });
+    const pending = service.source('B', { snapshotId: frame.id, nodeId: 'b' });
+    await arrived; await workbench.unbind('B'); release();
+    await assert.rejects(pending, { code: 'BINDING_CHANGED' });
+    assert.deepEqual(await readFile(path), bytes);
 });

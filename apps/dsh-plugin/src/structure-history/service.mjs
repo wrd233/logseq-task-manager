@@ -3,7 +3,7 @@ import { realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { WorkspaceError } from '@task-copilot/contracts';
+import { WorkspaceError, sameWorkScope } from '@task-copilot/contracts';
 import { scopedPath } from '../../../task-copilot-cli/src/workspace-files.ts';
 import { historyPoints } from '../../../logseq-plugin/src/features/structure-history/model.ts';
 import { compare } from './model.mjs';
@@ -84,7 +84,8 @@ export class HistoryService {
         const limit = Math.min(200, Math.max(1, input.limit ?? 80)), page = visible.slice(-limit).reverse();
         return { project: project.directory, track: track ?? null, preferredTrack, preferredId, activity: snapshots.filter(r => r.origin === 'observed').slice(-3).reverse().map(metadata), issues: problems.map(p => p.message),
             tracks: [...new Set(records.filter(r => r.kind === 'snapshot').map(r => r.track))],
-            records: page.map(r => ({ ...metadata(r), explanations: records.filter(e => e.kind === 'explanation' && e.targetId === r.id).map(e => ({ text: e.summary, sessionId: e.sessionId, recordedAt: e.recordedAt })) })),
+            records: page.map(r => ({ ...metadata(r), facts: r.facts ? { provider: r.facts.provider ?? null, stageId: r.facts.stageId ?? null, revisionId: r.facts.revisionId ?? null, parentRevision: r.facts.parentRevision ?? null } : null,
+                explanations: records.filter(e => e.kind === 'explanation' && e.targetId === r.id).map(e => ({ text: e.summary, sessionId: e.sessionId, recordedAt: e.recordedAt })) })),
             more: visible.length > limit, next: page.at(-1)?.sequence ?? null };
     }
     async read(sessionId, id, signal) {
@@ -135,10 +136,16 @@ export class HistoryService {
         const node = record.nodes.find(n => n.id === input.nodeId), source = node?.sources[input.sourceIndex ?? 0];
         if (!source)
             throw Error('HISTORY_SOURCE_MISSING');
-        let current;
+        let current, navigation = null;
         if (source.kind === 'logseq') {
-            if (!project.binding || record.facts.scope && (project.binding.scope.graphId !== record.facts.scope.graphId || project.binding.scope.rootUuid !== record.facts.scope.rootUuid))
+            const scope = record.facts?.scope;
+            if (!project.binding || !scope || !sameWorkScope(project.binding.scope, scope))
                 throw Error('HISTORY_LOGSEQ_CONNECTION_CHANGED');
+            let saved = null;
+            try { saved = JSON.parse(source.ref); }
+            catch { /* malformed identity is rejected below, never read */ }
+            if (!Array.isArray(saved) || saved[0] !== 'logseq' || saved[1] !== scope.graphId || typeof saved[2] !== 'string' || !/^[\da-f-]{36}$/i.test(saved[2]))
+                throw Error('HISTORY_SOURCE_INVALID');
             try {
                 const result = await this.workbench.command(sessionId, 'source.read', { sourceId: source.ref }, signal);
                 const block = result.source;
@@ -162,8 +169,18 @@ export class HistoryService {
             current = { content: Buffer.concat(chunks).toString('utf8'), version: digest.digest('hex'), truncated: size > 262144, availability: 'available' };
         }
         else
-            return { source, current: null, notice: '这是历史证据定位，不包含当前来源读取。' };
+            return { source, current: null, navigation: null, notice: '这是历史证据定位，不包含当前来源读取。' };
+        // A jump needs a verified identity/scope and known versions; changed text may locate today’s block.
+        if (source.kind === 'logseq' && source.version && current.version && current.availability === 'available') {
+            try {
+                const [kind, graphId, blockUuid] = JSON.parse(source.ref);
+                if (kind === 'logseq' && typeof graphId === 'string' && typeof blockUuid === 'string' &&
+                    graphId === record.facts?.scope?.graphId && /^[\da-f-]{36}$/i.test(blockUuid))
+                    navigation = { kind: 'logseq', url: `logseq://graph/${encodeURIComponent(graphId.split(':')[0])}?block-id=${encodeURIComponent(blockUuid)}` };
+            }
+            catch { /* A malformed saved ref stays visible but cannot become a jump. */ }
+        }
         await this.check(project, signal);
-        return { source, current, notice: current.availability === 'outside-scope' ? '当前来源已删除或移出已授权工作范围；不扩大读取范围，保存的历史正文保持原样。' : current.availability !== 'available' ? '当前来源已删除或不可用；保存的历史正文保持原样。' : !source.version ? '历史未保存此来源的正文版本，不能判断是否一致。' : source.version === current.version ? '刚读取的来源版本一致。' : '来源已变化；下面是今天的内容，历史快照保持不变。' };
+        return { source, current, navigation, notice: current.availability === 'outside-scope' ? '当前来源已删除或移出已授权工作范围；不扩大读取范围，保存的历史正文保持原样。' : current.availability !== 'available' ? '当前来源已删除或不可用；保存的历史正文保持原样。' : !source.version ? '历史未保存此来源的正文版本，不能判断是否一致，也不提供原文跳转。' : source.version === current.version ? '刚读取的来源版本一致。历史正文仍来自所选快照。' : '来源已变化；下面是今天的内容，历史快照保持不变。' };
     }
 }

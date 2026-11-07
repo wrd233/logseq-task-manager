@@ -1,4 +1,4 @@
-export { structure, compare, outline, origins } from '../structure-view/model.mjs';
+export { structure, compare, outline, origins, historyChain, lineage } from '../structure-view/model.mjs';
 export function quote({ snapshot, node, baseline, changes, source }) {
     const ref = { history: snapshot.id, project: snapshot.project, origin: snapshot.origin, title: snapshot.title,
         occurredAt: snapshot.occurredAt, recordedAt: snapshot.recordedAt, reconstructedAt: snapshot.reconstructedAt,

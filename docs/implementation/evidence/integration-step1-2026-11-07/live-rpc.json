@@ -1,0 +1,21 @@
+{
+  "fixture": "Agent snapshots seeded for UI; real Logseq Desktop, production companion and DSH",
+  "source": {
+    "current": {
+      "content": "B_ONLY_942：只属于工作 B 的原文，不能混入 A。",
+      "version": "44f67626d801c5ec699aaec58011b38ccfb84184aa1a6d429ffc5424379e3e27",
+      "availability": "available"
+    },
+    "navigation": {
+      "kind": "logseq",
+      "url": "logseq://graph/graph?block-id=6aef10a9-0575-4156-a388-8a0d83122f3c"
+    },
+    "notice": "刚读取的来源版本一致。历史正文仍来自所选快照。"
+  },
+  "historyIds": [
+    "1859b184-3edd-4433-95cb-a1229d5726e7",
+    "dd51aa7a-ac21-4ae0-8aca-691ba9063454"
+  ],
+  "historicalBody": "B_HISTORICAL_SNAPSHOT_V2：第二版历史正文。",
+  "evidenceViewOk": true
+}
