@@ -38,6 +38,8 @@ test('offline discovery enters never-bound work, recovers lost create replies, k
   await assert.rejects(handoffs.enterCatalog({...registered,directory:root},randomUUID()),{code:'SESSION_CWD_MISMATCH'});
   const corrected=await handoffs.newWork(inDirectory.sessionId,randomUUID(),undefined,{...registered,directory:root});
   assert.equal(sessions.get(corrected.sessionId).meta.cwd,root);assert.equal(sessions.get(inDirectory.sessionId).meta.cwd,directory);
+  await handoffs.opened(inDirectory.sessionId);
+  assert.equal((await handoffs.enterCatalog({...registered,directory:root},randomUUID())).sessionId,corrected.sessionId);
 });
 
 test('derived snapshots replace only their Graph and retain explicit pages across refreshes', async t=>{

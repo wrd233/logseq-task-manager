@@ -146,11 +146,11 @@ try {
   const reader = await rpc('reader', {sessionId: 'proof-session'});
   assert.equal(reader.nodes.length, view.blocks.length);
   assert.equal(reader.nodes[1].parentUuid, reader.nodes[0].blockUuid);
-  const source = reader.nodes[1];
+  const readerNode = reader.nodes[1];
   const [quote] = await rpc('reader-references', {sessionId: 'proof-session',
-    selections: [{sourceId: source.sourceId, contentVersion: source.contentVersion}]});
+    selections: [{sourceId: readerNode.sourceId, contentVersion: readerNode.contentVersion}]});
   assert.deepEqual(quote.workRef, reader.workRef);
-  assert.equal(quote.blockUuid, source.blockUuid);
+  assert.equal(quote.blockUuid, readerNode.blockUuid);
   const current = await rpc('currentStructure', {sessionId: 'proof-session'});
   assert.equal(current.root.uuid, reader.scope.rootUuid);
   assert.equal((await rpc('connection', {sessionId: 'proof-session'})).state, 'connected');
@@ -174,7 +174,14 @@ try {
       reference: { ...reference, title: '被篡改的标题' }, plannedMinutes: 60, dueAt: '2026-10-30T18:00' } });
   const workId = personal.entries.at(-1).id;
   assert.equal(personal.entries.at(-1).reference.title, reference.title);
-  assert.equal(reference.title, references[0].title);
+  const location = await rpc('planner-navigate', {sessionId: 'proof-session', id: workId, action: 'logseq'});
+  assert.deepEqual(location.workRef, reference.workRef);
+  assert.match(location.logseqUrl, /block-id=/);
+  personal = await rpc('planner-change', {sessionId: 'proof-session', revision: personal.revision, action: 'save',
+    entry: {title: '固定会议', schedule: 'fixed', startAt: '2026-10-24T09:15', endAt: '2026-10-24T09:45'}});
+  const planning = await rpc('planner-current', {sessionId: 'proof-session', localAt: '2026-10-24T09:30'});
+  assert.equal(planning.slot.id, personal.slots[0].id);
+  assert.equal(planning.fixed[0].title, '固定会议');
   personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'record', id: workId, minutes: 25 });
   assert.equal(personal.entries.find(entry => entry.id === workId).actualMinutes, 25);
   personal = await rpc('planner-change', { sessionId: 'proof-session', revision: personal.revision, action: 'move', id: workId, date: '2026-10-24', slotId: personal.slots[0].id, beforeId: null });
@@ -276,6 +283,10 @@ try {
   assert.equal(live.status, "idle");
   assert.match(JSON.stringify(model.requests[2].messages), /Second user turn sees an external saved edit/);
   checks.push({ check: "Same DSH session automatically refreshes changed Logseq work on its next user turn", ok: true });
+  const refreshed = await rpc('currentStructure', {sessionId: 'proof-session', focusUuid: f.a});
+  assert.notEqual(refreshed.sourceSetVersion, current.sourceSetVersion);
+  assert.match(refreshed.root.body.markdown, /Second user turn sees an external saved edit/);
+  checks.push({check: 'Current structure projects a later saved Logseq edit through the existing Session', ok: true});
   f.graph('B'); await delay(200);
   assert.equal((await execute('logseq_work_read')).isError, true);
   const dead = await ctx.systemPrompt.assemble({ scope: agent });

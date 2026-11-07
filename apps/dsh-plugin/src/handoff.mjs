@@ -26,13 +26,26 @@ export class DshHandoffs {
       throw new WorkspaceError('SESSION_CWD_MISMATCH');
   }
   async recentSession(workRef, directory, signal) {
+    let mismatch;
     for (const row of this.service.store.recent(workRef)) {
       const session = await this.valid(row.sessionId, signal);
       if (!session) continue;
       const expected = directory ?? row.binding?.directory;
-      if (expected) {try {await this.assertCwd(session, expected);} catch(error) {if(error.code==='SESSION_CWD_MISMATCH')error.sessionId=row.sessionId;throw error;}}
+      if (expected) {
+        try { await this.assertCwd(session, expected); }
+        catch (error) {
+          if (error.code !== 'SESSION_CWD_MISMATCH' && error.code !== 'ENOENT') throw error;
+          // Try older Sessions in the correct directory before reporting a move.
+          if (!mismatch) {
+            mismatch = new WorkspaceError('SESSION_CWD_MISMATCH');
+            mismatch.sessionId = row.sessionId;
+          }
+          continue;
+        }
+      }
       return row.sessionId;
     }
+    if (mismatch) throw mismatch;
     return null;
   }
   opened(sessionId, signal) {
