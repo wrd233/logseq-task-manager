@@ -7,20 +7,27 @@ import {mkdtemp, realpath, readFile, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {randomUUID} from 'node:crypto';
+import {randomUUID, createHash} from 'node:crypto';
 import * as plugin from '../src/index.mjs';
 
 const [phase, root] = process.argv.slice(2);
+const checksum = content => createHash('sha256').update(content).digest('hex');
+// An optional local-only sample file permits acceptance with real records without
+// committing their contents or printing them in the proof report.
+const samples = process.env.PERSONAL_INBOX_ACCEPTANCE_INPUT
+  ? JSON.parse(await readFile(process.env.PERSONAL_INBOX_ACCEPTANCE_INPUT,'utf8')) : null;
+if(samples) assert.ok(Array.isArray(samples) && samples.length>=10 && samples.length<=20);
+const count = samples?.length ?? 15;
 if (!phase) {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'inbox-dsh-sdk-')));
   try {
-    for (const step of ['seed', 'restart']) execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(import.meta.url), step, directory], {
-      env:{...process.env, DSH_HOME:directory, PERSONAL_INBOX_HOME:join(directory,'personal')}, stdio:'inherit', timeout:30000,
+    for (const step of ['seed', 'restart', 'restore']) execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(import.meta.url), step, directory], {
+      env:{...process.env, DSH_HOME:directory, PERSONAL_INBOX_HOME:join(directory,step==='restore'?'recovered':'personal')}, stdio:'inherit', timeout:30000,
     });
-    process.stdout.write('PASS: isolated DSH Cordis SDK process restart; 15 test records retained; no Session/Work/Graph dependency.\n');
+    process.stdout.write(`PASS: isolated DSH Cordis SDK restart and backup restore; ${count} ${samples?'local acceptance':'test'} records retained; no Session/Work/Graph dependency.\n`);
   } finally {await rm(directory,{recursive:true,force:true});}
 } else {
-  assert.ok(['seed','restart'].includes(phase));
+  assert.ok(['seed','restart','restore'].includes(phase));
   const packageRoot = process.env.DSH_PACKAGE_ROOT ?? join(execFileSync('npm',['root','-g'],{encoding:'utf8'}).trim(),'@deepseek-ai/dsh');
   const require = createRequire(join(packageRoot,'package.json'));
   const load = name => import(require.resolve(name));
@@ -51,26 +58,38 @@ if (!phase) {
       return answer.result.value;
     };
     if(phase==='seed') {
-      const ids=[];
-      for(let index=0;index<15;index++) {
-        const item=await rpc('inbox-create',{id:randomUUID(),originalContent:`测试记录 ${index}：保留原文`,source:{type:index%2?'flomo':'dsh'}});
-        ids.push(item.id);
+      const ids=[], hashes=[];
+      for(let index=0;index<count;index++) {
+        const sample=samples?.[index] ?? {originalContent:`测试记录 ${index}：保留原文`,source:{type:index%2?'flomo':'dsh'}};
+        const item=await rpc('inbox-create',{id:randomUUID(),originalContent:sample.originalContent,source:sample.source});
+        ids.push(item.id);hashes.push(checksum(item.originalContent));
       }
       const first=await rpc('inbox-get',{id:ids[0]});
       await rpc('inbox-update',{id:first.id,revision:first.revision,patch:{context:'进程重启前保存的补充背景'}});
       const second=await rpc('inbox-get',{id:ids[1]});
       const resolved=await rpc('inbox-update',{id:second.id,revision:second.revision,patch:{status:'resolved'}});
       await rpc('inbox-archive',{id:resolved.id,revision:resolved.revision});
-      await writeFile(join(root,'expected.json'),JSON.stringify(ids));
+      await writeFile(join(root,'expected.json'),JSON.stringify({ids,hashes}));
     } else {
-      const ids=JSON.parse(await readFile(join(root,'expected.json'),'utf8'));
-      assert.equal((await rpc('inbox-list',{status:'all'})).items.length,15);
-      assert.equal((await rpc('inbox-list',{})).items.length,14);
+      const {ids,hashes}=JSON.parse(await readFile(join(root,'expected.json'),'utf8'));
+      if(phase==='restore') {
+        assert.equal((await rpc('inbox-list',{status:'all'})).items.length,0);
+        const backup=JSON.parse(await readFile(join(root,'backup.json'),'utf8'));
+        assert.equal((await rpc('inbox-import',{backup})).imported.length,count);
+        assert.equal((await rpc('inbox-import',{backup})).skipped.length,count);
+      }
+      assert.equal((await rpc('inbox-list',{status:'all'})).items.length,count);
+      assert.equal((await rpc('inbox-list',{})).items.length,phase==='restart'?count-1:count);
+      for(let index=0;index<count;index++) assert.equal(checksum((await rpc('inbox-get',{id:ids[index]})).originalContent),hashes[index]);
       const first=await rpc('inbox-get',{id:ids[0]});
-      assert.equal(first.originalContent,'测试记录 0：保留原文');assert.equal(first.context,'进程重启前保存的补充背景');
+      assert.equal(first.context,'进程重启前保存的补充背景');
+      assert.ok((await rpc('inbox-list',{query:first.originalContent.slice(0,12)})).items.some(item=>item.id===first.id));
+      assert.ok((await rpc('inbox-list',{sourceType:first.source.type})).items.some(item=>item.id===first.id));
       const archived=await rpc('inbox-get',{id:ids[1]});
-      assert.equal((await rpc('inbox-restore',{id:archived.id,revision:archived.revision})).status,'resolved');
-      assert.equal((await rpc('inbox-export',{})).items.length,15);
+      if(phase==='restart') assert.equal((await rpc('inbox-restore',{id:archived.id,revision:archived.revision})).status,'resolved');
+      else assert.equal(archived.status,'resolved');
+      const backup=await rpc('inbox-export',{});assert.equal(backup.items.length,count);
+      if(phase==='restart') await writeFile(join(root,'backup.json'),JSON.stringify(backup),{mode:0o600});
       assert.equal((await rpc('inbox-list',{query:'补充背景'})).items.length,1);
     }
     assert.equal(sessionReads,0,'independent CRUD must not inspect a Session or its Work');
@@ -78,7 +97,7 @@ if (!phase) {
     assert.equal(routes.has('/api/logseq-workbench/inbox-list'),false,'host unload releases RPC routes');
     const reloaded = await ctx.plugin(plugin,{bindingStateDirectory:join(root,`profile-${phase}`),workspaceStateDirectory:join(root,'companion-offline')});
     await reloaded.await();
-    assert.equal((await rpc('inbox-list',{status:'all'})).items.length,15,'plugin reload retains application records');
+    assert.equal((await rpc('inbox-list',{status:'all'})).items.length,count,'plugin reload retains application records');
     await reloaded.dispose();
     assert.equal(routes.has('/api/logseq-workbench/inbox-list'),false);
     process.stdout.write(`PASS: ${phase}, DSH SDK ${JSON.parse(await readFile(join(packageRoot,'package.json'),'utf8')).version}\n`);

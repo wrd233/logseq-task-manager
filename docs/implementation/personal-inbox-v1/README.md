@@ -1,7 +1,7 @@
 # Personal Inbox v1 实现与接入
 
 本分支从 `origin/main` 的 `fbdb03c1` 创建，不包含旧 Capture Inbox 分支或原工作区的未提交修改。
-本轮 Codex 提供独立存储、宿主 API、Planner/Kernel 出口和原生引用接口。页面由 DSH 按 [UI 契约](ui-contract.md) 开发；当前没有声称页面或真实数据验收已完成。
+本轮 Codex 提供独立存储、宿主 API、Planner/Kernel 出口和原生引用接口。页面由 DSH 按 [UI 契约](ui-contract.md) 开发；已完成真实个人记录的数据层验收，页面与完整交互验收尚未完成。
 
 ## 存储规则
 
@@ -50,4 +50,4 @@ DSH 页面集中放在新的 personal-inbox 目录中；不要编辑旧 Capture 
 
 ## 可选原生宿主证明
 
-使用已有 DSH SDK 和 Node 22.19+ 执行 `node --import tsx apps/dsh-plugin/tests/personal-inbox-host-proof.mjs`。脚本在隔离应用数据目录启动两次独立进程，并验证插件热重载。结果与证明边界见 [验收记录](acceptance.md)。
+使用已有 DSH SDK 和 Node 22.19+ 执行 `node --import tsx apps/dsh-plugin/tests/personal-inbox-host-proof.mjs`。脚本在隔离应用数据目录启动三个独立进程，验证重启、备份恢复与插件热重载。可通过 PERSONAL_INBOX_ACCEPTANCE_INPUT 指定本地真实样本 JSON，正文不会打印或进入仓库。结果与证明边界见 [验收记录](acceptance.md)。

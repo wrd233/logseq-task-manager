@@ -40,11 +40,11 @@ Kernel 集成使用实际 KernelClient、HTTP 服务、Formal Kernel 和 SQLite�
 | 搜索恢复导出 | 全文、多条件、归档恢复、备份导入测试通过 | 下载和导入交互 |
 | 独立于 Session/Profile | 默认路径和两份宿主/Profile 配置共享文件测试通过 | 现用 Profile 切换 |
 
-## 仍需用户提供或安排
+## 仍需安排
 
-已经在聊天中询问：指定 10～20 条真实个人记录的可用范围，并明确 DSH 页面开发安排。尚未收到这两项信息。
+DSH 页面开发与接入安排尚未明确。真实记录已补充本地数据层验收（见下文），不再将记录范围作为后端验证的等待项。
 
-不把测试生成的 15 条记录算作真实个人记录；不把模拟宿主的重新安装算作现用 DSH 重启。
+测试生成记录、真实记录的数据层验证、现用 DSH 页面验收分开记录。隔离 SDK 进程重启不等于现用 DSH 应用完整重启。
 本次未改变现用 DSH bundle，未重启现用服务，未将个人 Graph 内容复制进仓库或发送给外部模型。
 
 ## 限制
@@ -58,7 +58,7 @@ Kernel 集成使用实际 KernelClient、HTTP 服务、Formal Kernel 和 SQLite�
 
 ## 补充：原生 Cordis SDK 跨进程证明
 
-使用本机实际安装的 DSH `0.2.1-rc.2` / Cordis `4.0.5`，在隔离临时 User Data 根启动两次独立进程：第一进程通过生产宿主 RPC 保存 15 条测试记录、背景、resolved + archived 状态；退出后第二进程读取、搜索、恢复与导出全部记录。每个进程还执行一次插件卸载/重新挂载，确认记录继续存在且路由释放。
+使用本机实际安装的 DSH `0.2.1-rc.2` / Cordis `4.0.5`，启动三个独立进程：第一进程保存 15 条记录、背景、resolved + archived 状态；第二进程重启后逐条核对原文哈希、搜索、恢复归档并导出；第三进程在全新数据根恢复备份，重复导入不重复创建，并再次逐条核对原文哈希。每个进程还执行一次插件卸载/重新挂载，确认记录继续存在且路由释放。
 
 本验证发现宿主 RPC 注册返回的注销函数原先没有纳入插件生命周期。已改为通过 Cordis effect 执行注销，避免热重载留下旧路由；没有修改现用 DSH 服务。
 
@@ -68,4 +68,16 @@ Kernel 集成使用实际 KernelClient、HTTP 服务、Formal Kernel 和 SQLite�
 node --import tsx apps/dsh-plugin/tests/personal-inbox-host-proof.mjs
 ```
 
-可用 DSH_PACKAGE_ROOT 指定已有 DSH npm 包目录。脚本只在临时目录保存示例记录，结束后清理；未调用模型、未读取个人 Graph 或会话消息。它验证实际 Cordis SDK 加载生产插件与文件持久化，Connection/Session 外壳为测试适配器，仍不是完整 DSH 应用或页面验收。
+可用 DSH_PACKAGE_ROOT 指定已有 DSH npm 包目录。脚本默认使用示例记录，支持 PERSONAL_INBOX_ACCEPTANCE_INPUT 指向本地 10～20 条样本 JSON（originalContent/source），验收时不打印正文。数据根均为临时目录，结束后清理；不调用模型、不读取会话消息。它验证实际 Cordis SDK 加载生产插件与文件持久化，Connection/Session 外壳为测试适配器，仍不是完整 DSH 应用或页面验收。
+
+## 补充：15 条真实个人记录的数据层验收
+
+在指定的本机 Logseq Graph 中，以历史 bridge 导出为索引，从当前 9 份原始日记 Markdown 文件逐条核对选取 15 条简短工作记录。只选取原文件中有唯一精确文本匹配的记录；bridge 的历史快照本身不作为当前内容证明。
+
+样本整体 SHA-256：`b5e47acaf9d417d6d4fad827758f20e70da9fa40d7642055ec36e52ae3a16cba`。
+
+通过上述三个真实 Cordis SDK 进程，验证了：15 条真实原文保存与逐条哈希保护、补充背景分离、全文与来源筛选、resolved 后归档及恢复、重启后读回、导出到新数据根恢复、重复导入跳过、插件热重载。全过程未检查 Session 或 Work；Logseq 未参与这些 CRUD 调用。
+
+数据来源标为 other + 离线原文件定位；这是实际个人内容的本地文件捕获，不是通过真实 Logseq SDK 的块导入。真实块接口、Work 选择器、Flomo 粘贴 UI、Planner/Kernel 页面确认及现用 DSH 应用重启仍待页面接入后验收。
+
+样本正文、原文件内容及逐条身份没有写入仓库；样本及备份仅在权限受限的本机临时目录使用，结束后清理。原 Graph 未写入。公开说明仅保留数量、核对方法与整体校验摘要。
