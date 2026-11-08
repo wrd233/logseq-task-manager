@@ -137,7 +137,7 @@ export function applyEvidenceClient(ctx) {
     const draftKey = `work-evidence:${view.project}:${view.sync?.id ?? 'start'}`;
     const files = new Map(view.items.map(i => [i.id, i])), grouped = new Set(view.groups.flatMap(g => g.itemIds));
     const file = item => <File key={`${view.sync.id}:${item.id}`} item={item} act={act} draftKey={draftKey}/>;
-    return <section className="we-page" aria-label="工作回顾"><header className="we-heading"><span className="we-eyebrow">WORK EVIDENCE</span><h1>回顾刚才的工作</h1><p title={view.project}>{view.project.split('/').at(-1)}</p>
+    return <section className="we-page" aria-label="工作回顾"><header className="we-heading"><span className="we-eyebrow">WORK EVIDENCE</span><h1>回顾刚才的工作</h1><p title={view.project}>{view.sync?.source?.blocks?.find(block => block.target.blockUuid === view.sync.source.scope.rootUuid)?.content?.split('\n')[0].replace(/^\[(?:Project|MiniProject)\]\s*/u, '') || '当前工作'}</p>
       <button className="we-primary" disabled={busy || analyzing} onClick={async () => { setBusy(true); const result = await act('sync'); if (result) { setRecord(null); setStructureOpen(false); } setBusy(false); }}>{busy ? '正在同步…' : view.sync ? '同步刚才的工作' : '建立同步起点'}</button>
       {!view.sync ? <p className="we-muted">先记住现在。从下一次同步起，回顾此后的提交和文件变化。</p> : null}</header>
       {error ? <div className="we-error" role="alert">{errorText(error)}{error.code === 'EVIDENCE_HISTORY_DIVERGED' ? <button onClick={() => void act('sync', { resetBaseline: true })}>保留旧记录，重新建立起点</button> : null}</div> : null}{view.issues.map((s, i) => <p className="we-error" key={i}>{s}</p>)}

@@ -8,10 +8,11 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { styles, discoveryStyles } from './styles.mjs';
 import { workbenchStyles } from './work-experience/styles.mjs';
 import { createWorkbench } from './work-experience/workbench.jsx';
+import { readerReferenceSource, readerReferenceCodec } from './reader-draft.mjs';
 import { workFocus } from './work-experience/focus-store.mjs';
 import { workKey } from '@task-copilot/contracts';
 
-export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation', 'uiWorkspace', 'sessions'];
+export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'conversation', 'uiWorkspace', 'sessions', 'inputTriggers'];
 const errorText = error => ({
   SESSION_NOT_BOUND: '先关联此会话的 Logseq 工作目录。', WORKSPACE_NOT_BOUND: '此目录没有 Logseq 连接。请在 Logseq 关联目录并允许 agent 连接当前工作。',
   WORKSPACE_OFFLINE: 'Logseq 工作连接已离线，请在 Logseq 重新连接。', CONNECTION_STALE: '连接已改变，请在 Logseq 重新连接。',
@@ -232,7 +233,15 @@ export function apply(ctx) {
     return <section className={`wx-toast${message.tone === 'error' ? ' is-error' : ''}`} role="status"><span>{message.text}</span></section>;
   }
   const focusWork = (sessionId, uuid) => { workFocus.request(sessionId, uuid); openWorkTabSoon(); };
-  const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork });
+  ctx.effect(() => ctx.inputTriggers.registerSource({
+    trigger: '@', name: readerReferenceSource, showGroupTitle: false,
+    candidates: async () => [], onPick: () => 'handled', codec: readerReferenceCodec,
+  }));
+  const insertReference = (sessionId, reference, span) => ctx.sessions.using(sessionId, {source: 'controllerOperation'}, async retained => {
+    const binding = await retained.ready;
+    return binding.ctx.bail(binding.ctx, 'slash/input-insert-reference', {reference, span}) === true;
+  });
+  const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference });
   const Planner = createPlanner({ rpc, focusWork });
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/work', kind: 'work', title: () => '工作', priority: 'extension', keepMounted: true, guide: [{ id: 'work', order: 300, title: () => '当前工作' }] }));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', keepMounted: true, guide: [{ id: 'semantic-planner', order: 330, title: () => '个人时间规划' }] }));

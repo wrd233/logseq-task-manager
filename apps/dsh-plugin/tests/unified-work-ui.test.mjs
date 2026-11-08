@@ -50,18 +50,21 @@ test('the Work tab receives one in-memory focus request per session without crea
   assert.equal(seen.length, 1);
 });
 
-test('native reader insertion keeps source identity and never replaces the captured draft span', () => {
+test('native reader chip preserves exact source identity while composer and clipboard stay readable', async () => {
   let inserted;
-  const result = insertReaderReferences({ captureInsertion: () => ({ start: 2, end: 6, draftRev: 4 }), insertText(text, span) {
-    inserted = { text, span };
-    return span.start === 6 && span.end === 6 && span.draftRev === 4;
-  } }, [{ sourceId: 'source-1', contentVersion: 'version-1', workRef: { kind: 'logseq', graphId: 'g', rootUuid: 'r' }, range: { start: 0, end: 4 }, excerpt: '引用正文' }]);
+  const references = [{ sourceId: 'source-1', graphId: 'graph-private', blockUuid: 'block-1', contentVersion: 'version-1', workTitle: '核对方案', workRef: { kind: 'logseq', graphId: 'g', rootUuid: 'r' }, range: { start: 0, end: 4 }, excerpt: '引用正文' }];
+  const result = await insertReaderReferences({ captureInsertion: () => ({ start: 2, end: 6, draftRev: 4 }) }, references, (reference, span) => {
+    inserted = {reference, span}; return true;
+  });
   assert.equal(result, true);
-  assert.match(inserted.text, /Logseq 引用 · 选段 · contentVersion version-1/);
-  assert.match(inserted.text, /> 引用正文/);
-  assert.match(inserted.text, /"sourceId":"source-1"/);
-  assert.deepEqual(inserted.span, { start: 6, end: 6, draftRev: 4 });
+  assert.deepEqual(JSON.parse(inserted.reference.ref), references);
+  assert.match(inserted.reference.label, /引用正文.*Logseq/);
+  assert.match(inserted.reference.clipboardText, /> 引用正文/);
+  assert.match(inserted.reference.clipboardText, /核对方案/);
+  assert.doesNotMatch(inserted.reference.label + inserted.reference.clipboardText, /sourceId|graph-private|version-1|rootUuid|\{/);
+  assert.deepEqual(inserted.span, {start: 6, end: 6, draftRev: 4});
 });
+
 
 test('work locations survive reload per native Session and clearing a missing focus leaves other work alone', async () => {
   const { readWorkFocus, saveWorkFocus } = await import('../src/work-experience/focus-store.mjs');

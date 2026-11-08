@@ -1,0 +1,128 @@
+{
+  "version": 2,
+  "revision": 7,
+  "slots": [
+    {
+      "id": "slot-morning",
+      "name": "上午核心时间",
+      "start": "09:00",
+      "end": "12:00"
+    },
+    {
+      "id": "slot-afternoon",
+      "name": "午休后",
+      "start": "14:00",
+      "end": "16:00"
+    },
+    {
+      "id": "slot-evening",
+      "name": "晚间自由时间",
+      "start": "20:00",
+      "end": "22:00"
+    },
+    {
+      "id": "slot-flex",
+      "name": "临时碎片时间",
+      "start": null,
+      "end": null
+    }
+  ],
+  "entries": [
+    {
+      "schedule": "flexible",
+      "id": "6a248c43-b05c-465c-af78-20a10b16be92",
+      "title": "检查来源引用",
+      "date": "2026-11-07",
+      "slotId": "slot-morning",
+      "reference": {
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+          "rootUuid": "22222222-2222-4222-8222-222222222222",
+          "sourceKind": "block"
+        },
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "blockUuid": "22222222-2222-4222-8222-222222222222",
+        "objectId": null,
+        "kind": "TASK",
+        "title": "核对交付方案"
+      },
+      "plannedMinutes": 30,
+      "actualMinutes": null,
+      "dueAt": null
+    },
+    {
+      "schedule": "flexible",
+      "id": "220d5ea0-8c87-41d3-ae11-fb7e6e6f55c2",
+      "title": "验证历史回看",
+      "date": "2026-11-07",
+      "slotId": "slot-afternoon",
+      "reference": {
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+          "rootUuid": "22222222-2222-4222-8222-222222222222",
+          "sourceKind": "block"
+        },
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "blockUuid": "22222222-2222-4222-8222-222222222222",
+        "objectId": null,
+        "kind": "TASK",
+        "title": "核对交付方案"
+      },
+      "plannedMinutes": 30,
+      "actualMinutes": null,
+      "dueAt": null
+    },
+    {
+      "schedule": "flexible",
+      "id": "e627898e-82b7-4e9b-98d2-bbf954a03efa",
+      "title": "核对交付方案",
+      "date": "2026-11-07",
+      "slotId": "slot-afternoon",
+      "reference": {
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+          "rootUuid": "22222222-2222-4222-8222-222222222222",
+          "sourceKind": "block"
+        },
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "blockUuid": "22222222-2222-4222-8222-222222222222",
+        "objectId": null,
+        "kind": "TASK",
+        "title": "核对交付方案"
+      },
+      "plannedMinutes": 30,
+      "actualMinutes": null,
+      "dueAt": null
+    },
+    {
+      "schedule": "fixed",
+      "id": "ab65e658-48ac-40f8-8f27-6e0652da163e",
+      "title": "固定评审会议",
+      "startAt": "2026-11-07T22:00",
+      "endAt": "2026-11-07T22:31",
+      "date": "2026-11-07",
+      "slotId": null,
+      "reference": {
+        "workRef": {
+          "kind": "logseq",
+          "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+          "rootUuid": "22222222-2222-4222-8222-222222222222",
+          "sourceKind": "block"
+        },
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "blockUuid": "22222222-2222-4222-8222-222222222222",
+        "objectId": null,
+        "kind": "TASK",
+        "title": "核对交付方案"
+      },
+      "plannedMinutes": 30,
+      "actualMinutes": null,
+      "dueAt": null
+    }
+  ],
+  "canUndo": true,
+  "undoLabel": "调整「固定评审会议」"
+}

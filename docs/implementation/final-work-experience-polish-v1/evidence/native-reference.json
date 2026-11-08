@@ -1,0 +1,55 @@
+{
+  "visibleText": "保留我的原有草稿。\n保留来源，阅读保持清爽。 · Logseq\n \n2 处引用 · inline · Logseq · 最终体验收尾\n ",
+  "retainedReferences": [
+    {
+      "sourceId": "[\"logseq\",\"polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph\",\"33333333-3333-4333-8333-333333333333\"]",
+      "blockUuid": "33333333-3333-4333-8333-333333333333",
+      "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "rootUuid": "11111111-1111-4111-8111-111111111111",
+        "sourceKind": "block"
+      },
+      "contentVersion": "656e08611eb8d6a35961fec5ee19aaf525262f6331852ebfedadccf4a7088752",
+      "logseqUrl": "logseq://graph/polish-graph?block-id=33333333-3333-4333-8333-333333333333",
+      "range": null,
+      "excerpt": "保留来源，阅读保持清爽。"
+    },
+    {
+      "workTitle": "最终体验收尾",
+      "sourceId": "[\"logseq\",\"polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph\",\"77777777-7777-4777-8777-777777777777\"]",
+      "blockUuid": "77777777-7777-4777-8777-777777777777",
+      "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "rootUuid": "11111111-1111-4111-8111-111111111111",
+        "sourceKind": "block"
+      },
+      "contentVersion": "06e13fe6110ba8114c9bff7bda174cca9b6ae4790ea1cb06a9ed8ed91c9a0631",
+      "logseqUrl": "logseq://graph/polish-graph?block-id=77777777-7777-4777-8777-777777777777",
+      "range": {
+        "start": 35,
+        "end": 41
+      },
+      "excerpt": "inline"
+    },
+    {
+      "workTitle": "最终体验收尾",
+      "sourceId": "[\"logseq\",\"polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph\",\"33333333-3333-4333-8333-333333333333\"]",
+      "blockUuid": "33333333-3333-4333-8333-333333333333",
+      "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+      "workRef": {
+        "kind": "logseq",
+        "graphId": "polish-graph:logseq_local_/Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/任务管理中心-logseq插件/tmp/polish/polish-graph",
+        "rootUuid": "11111111-1111-4111-8111-111111111111",
+        "sourceKind": "block"
+      },
+      "contentVersion": "2f54f0e8cd3f3b206bb2600b1c77a88523ccb65a8a1498b685459080e23ccd79",
+      "logseqUrl": "logseq://graph/polish-graph?block-id=33333333-3333-4333-8333-333333333333",
+      "range": null,
+      "excerpt": "当前正文继续推进，不替换阶段历史。"
+    }
+  ]
+}

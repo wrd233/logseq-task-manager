@@ -1,0 +1,26 @@
+{
+  "baseline": "bdd08ac8f7f83aa6a9ab253e8e303573ea00ca3f",
+  "main": "4acc2699a5740e54b6875b30ad3052a8aa89d625",
+  "branch": "codex/final-work-experience-polish-v1",
+  "tests": {
+    "passed": 97,
+    "failed": 0,
+    "skipped": 0
+  },
+  "builds": [
+    "dsh-plugin",
+    "logseq-plugin"
+  ],
+  "realHost": [
+    "native-reference-with-metadata",
+    "physical-cross-slot-drag",
+    "physical-reorder-and-reload",
+    "real-stage-recording",
+    "system-logseq-activation",
+    "deleted-source-blocked",
+    "companion-readonly-recovery",
+    "work-draft-isolation"
+  ],
+  "protocolHandlerRestored": "com.electron.logseq",
+  "mainMerged": false
+}

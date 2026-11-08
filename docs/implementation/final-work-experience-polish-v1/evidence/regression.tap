@@ -1,0 +1,495 @@
+TAP version 13
+# Subtest: unbound private capture uses only host context without any project or model read
+ok 1 - unbound private capture uses only host context without any project or model read
+  ---
+  duration_ms: 1.138958
+  ...
+# Subtest: root, context, guessed lease and wrong session are rejected before Store access
+ok 2 - root, context, guessed lease and wrong session are rejected before Store access
+  ---
+  duration_ms: 0.292542
+  ...
+# Subtest: binding, connection and host restart invalidate old leases without migrating private data
+ok 3 - binding, connection and host restart invalidate old leases without migrating private data
+  ---
+  duration_ms: 0.42625
+  ...
+# Subtest: remembered bound work permits private capture offline and reconnect preserves its partition identity
+ok 4 - remembered bound work permits private capture offline and reconnect preserves its partition identity
+  ---
+  duration_ms: 0.303042
+  ...
+# Subtest: client source metadata is verified against an authorized host read, never trusted by shape
+ok 5 - client source metadata is verified against an authorized host read, never trusted by shape
+  ---
+  duration_ms: 0.262917
+  ...
+# Subtest: an offline private draft keeps pending source input without reading or authorizing the source
+ok 6 - an offline private draft keeps pending source input without reading or authorizing the source
+  ---
+  duration_ms: 0.305666
+  ...
+# Subtest: a late reply after connection replacement is discarded and never retargeted
+ok 7 - a late reply after connection replacement is discarded and never retargeted
+  ---
+  duration_ms: 0.192459
+  ...
+# Subtest: private filesystem diagnostics are not returned through Capture receipts
+ok 8 - private filesystem diagnostics are not returned through Capture receipts
+  ---
+  duration_ms: 0.117708
+  ...
+# Subtest: host disposal prevents all subsequent context and Store operations
+ok 9 - host disposal prevents all subsequent context and Store operations
+  ---
+  duration_ms: 0.190042
+  ...
+# Subtest: span capture is synchronous and subsequent native typing is never replaced
+ok 10 - span capture is synchronous and subsequent native typing is never replaced
+  ---
+  duration_ms: 0.741833
+  ...
+# Subtest: native insertion uses one original span once and does not access replace or submit
+ok 11 - native insertion uses one original span once and does not access replace or submit
+  ---
+  duration_ms: 0.097958
+  ...
+# Subtest: session, generation and formal version changes reject late insertion and focus return
+ok 12 - session, generation and formal version changes reject late insertion and focus return
+  ---
+  duration_ms: 0.126709
+  ...
+# Subtest: complete page scope and binding fields participate in the UI fence
+ok 13 - complete page scope and binding fields participate in the UI fence
+  ---
+  duration_ms: 0.175292
+  ...
+# Subtest: locked or unavailable native editor preserves the caller quote
+ok 14 - locked or unavailable native editor preserves the caller quote
+  ---
+  duration_ms: 0.086667
+  ...
+# Subtest: return focuses only the original connected control while context is still current
+ok 15 - return focuses only the original connected control while context is still current
+  ---
+  duration_ms: 0.073542
+  ...
+# Subtest: source requests delegate to host verification and a stale context never reaches the opener
+ok 16 - source requests delegate to host verification and a stale context never reaches the opener
+  ---
+  duration_ms: 0.607792
+  ...
+# Subtest: host teardown and an untrusted stale argument cannot revive an interaction
+ok 17 - host teardown and an untrusted stale argument cannot revive an interaction
+  ---
+  duration_ms: 0.729083
+  ...
+# Subtest: offline discovery enters never-bound work, recovers lost create replies, keeps General and same-title works separate
+ok 18 - offline discovery enters never-bound work, recovers lost create replies, keeps General and same-title works separate
+  ---
+  duration_ms: 28.726
+  ...
+# Subtest: derived snapshots replace only their Graph and retain explicit pages across refreshes
+ok 19 - derived snapshots replace only their Graph and retain explicit pages across refreshes
+  ---
+  duration_ms: 8.724125
+  ...
+# Subtest: immutable storage, concurrent append, request identity and corruption
+ok 20 - immutable storage, concurrent append, request identity and corruption
+  ---
+  duration_ms: 29.243791
+  ...
+# Subtest: identity, content, relations, inherited depth and unknown content
+ok 21 - identity, content, relations, inherited depth and unknown content
+  ---
+  duration_ms: 3.742
+  ...
+# Subtest: Agent records, explanation, explicit reconstruction and source attribution
+ok 22 - Agent records, explanation, explicit reconstruction and source attribution
+  ---
+  duration_ms: 20.257417
+  ...
+# Subtest: Git checkpoints capture edits, untracked changes, commits, nested scope and credential exclusion
+ok 23 - Git checkpoints capture edits, untracked changes, commits, nested scope and credential exclusion
+  ---
+  duration_ms: 1304.3875
+  ...
+# Subtest: existing production Stage recorder/store revisions import once with source identities and no Graph writes
+ok 24 - existing production Stage recorder/store revisions import once with source identities and no Graph writes
+  ---
+  duration_ms: 298.549542
+  ...
+# Subtest: sibling order is local; directory follows stored hierarchy and persisted IDs do not alter body
+ok 25 - sibling order is local; directory follows stored hierarchy and persisted IDs do not alter body
+  ---
+  duration_ms: 0.637375
+  ...
+# Subtest: large actual source bodies and five thousand stable nodes remain exact
+ok 26 - large actual source bodies and five thousand stable nodes remain exact
+  ---
+  duration_ms: 71.115208
+  ...
+# Subtest: removed Logseq source stays historical; no read outside current authorized scope
+ok 27 - removed Logseq source stays historical; no read outside current authorized scope
+  ---
+  duration_ms: 1.882875
+  ...
+# Subtest: a repository replaced inside the same project starts a new Git observation without a false commit range
+ok 28 - a repository replaced inside the same project starts a new Git observation without a false commit range
+  ---
+  duration_ms: 279.294542
+  ...
+# Subtest: canceling one checkpoint caller does not cancel collection needed by another caller
+ok 29 - canceling one checkpoint caller does not cancel collection needed by another caller
+  ---
+  duration_ms: 14.072792
+  ...
+# Subtest: native RPC failure always keeps string diagnostics when cancellation has a numeric DOM code
+ok 30 - native RPC failure always keeps string diagnostics when cancellation has a numeric DOM code
+  ---
+  duration_ms: 27.408792
+  ...
+# Subtest: browse, arbitrary comparison and source checks leave history byte-for-byte unchanged
+ok 31 - browse, arbitrary comparison and source checks leave history byte-for-byte unchanged
+  ---
+  duration_ms: 4.594042
+  ...
+# Subtest: top-down tree wraps wide siblings without overlap and keeps search/change ancestry
+ok 32 - top-down tree wraps wide siblings without overlap and keeps search/change ancestry
+  ---
+  duration_ms: 8.736417
+  ...
+# Subtest: partial frames joined with removed parents cannot create a display cycle or mutate history
+ok 33 - partial frames joined with removed parents cannot create a display cycle or mutate history
+  ---
+  duration_ms: 0.918666
+  ...
+# Subtest: timeline follows saved Stage revision parents, not timestamps or the append chain
+ok 34 - timeline follows saved Stage revision parents, not timestamps or the append chain
+  ---
+  duration_ms: 0.317167
+  ...
+# Subtest: lineage stops safely at missing parents and returns root-first paths
+ok 35 - lineage stops safely at missing parents and returns root-first paths
+  ---
+  duration_ms: 0.105458
+  ...
+# Subtest: Logseq source navigation is offered only after binding, identity and version checks
+ok 36 - Logseq source navigation is offered only after binding, identity and version checks
+  ---
+  duration_ms: 5.557375
+  ...
+# Subtest: history consumes Goal 3 session-targeted reads and rejects scope changes and late results
+ok 37 - history consumes Goal 3 session-targeted reads and rejects scope changes and late results
+  ---
+  duration_ms: 6.334625
+  ...
+# Subtest: local calendar, Monday weeks, leap days and duration language
+ok 38 - local calendar, Monday weeks, leap days and duration language
+  ---
+  duration_ms: 2.635959
+  ...
+# Subtest: plan, actual and deadline stay distinct; order is a direct-manipulation array
+ok 39 - plan, actual and deadline stay distinct; order is a direct-manipulation array
+  ---
+  duration_ms: 12.884625
+  ...
+# Subtest: durable create, edit, move, reorder, record, delete, undo and reload
+ok 40 - durable create, edit, move, reorder, record, delete, undo and reload
+  ---
+  duration_ms: 20.382333
+  ...
+# Subtest: semantic slots edit names, order and optional ranges without losing plans
+ok 41 - semantic slots edit names, order and optional ranges without losing plans
+  ---
+  duration_ms: 7.310292
+  ...
+# Subtest: stale revisions and failed writes preserve the last successful state
+ok 42 - stale revisions and failed writes preserve the last successful state
+  ---
+  duration_ms: 4.066042
+  ...
+# Subtest: a damaged planner file stays untouched and does not disable the host
+ok 43 - a damaged planner file stays untouched and does not disable the host
+  ---
+  duration_ms: 149.42625
+  ...
+# Subtest: an existing version 1 planner file keeps its plans and undo history
+ok 44 - an existing version 1 planner file keeps its plans and undo history
+  ---
+  duration_ms: 5.2785
+  ...
+# Subtest: native handoff preserves selected draft text and revision, and never submits
+ok 45 - native handoff preserves selected draft text and revision, and never submits
+  ---
+  duration_ms: 2.924417
+  ...
+# Subtest: planner references use Goal 3 WorkRef-targeted reads; personal edits preserve saved references
+ok 46 - planner references use Goal 3 WorkRef-targeted reads; personal edits preserve saved references
+  ---
+  duration_ms: 62.038291
+  ...
+# Subtest: table citations map to actual cells rather than matching alignment separators or repeated text
+ok 47 - table citations map to actual cells rather than matching alignment separators or repeated text
+  ---
+  duration_ms: 8.820625
+  ...
+# Subtest: normalized escaped-pipe cells never guess an offset in another cell
+ok 48 - normalized escaped-pipe cells never guess an offset in another cell
+  ---
+  duration_ms: 3.627042
+  ...
+# Subtest: binding persists privately and an unrelated session cannot inherit it
+ok 49 - binding persists privately and an unrelated session cannot inherit it
+  ---
+  duration_ms: 50.475666
+  ...
+# Subtest: a superseded binding write rolls back and does not poison later changes
+ok 50 - a superseded binding write rolls back and does not poison later changes
+  ---
+  duration_ms: 9.817542
+  ...
+# Subtest: file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+ok 51 - file opening rechecks authority and refuses arbitrary paths, symlinks and changed work
+  ---
+  duration_ms: 33.835667
+  ...
+# Subtest: late read after unbind is discarded and offline native directory stays available
+ok 52 - late read after unbind is discarded and offline native directory stays available
+  ---
+  duration_ms: 10.477709
+  ...
+# Subtest: model context stays bounded without breaking JSON or granting writes
+ok 53 - model context stays bounded without breaking JSON or granting writes
+  ---
+  duration_ms: 3.602542
+  ...
+# Subtest: external materials are resolved only from current Logseq material identities
+ok 54 - external materials are resolved only from current Logseq material identities
+  ---
+  duration_ms: 101.389083
+  ...
+# Subtest: fresh body survives guidance and file failures; saved requests never enter model context
+ok 55 - fresh body survives guidance and file failures; saved requests never enter model context
+  ---
+  duration_ms: 5.253583
+  ...
+# Subtest: explicit Session target survives other work reads and rejects its own superseded generation
+ok 56 - explicit Session target survives other work reads and rejects its own superseded generation
+  ---
+  duration_ms: 13.447
+  ...
+# Subtest: registered-directory mismatch is explicit and does not rebind a native Session
+ok 57 - registered-directory mismatch is explicit and does not rebind a native Session
+  ---
+  duration_ms: 5.758666
+  ...
+# Subtest: actual opens override binding insertion and survive restart; General stays independent
+ok 58 - actual opens override binding insertion and survive restart; General stays independent
+  ---
+  duration_ms: 31.976083
+  ...
+# Subtest: auxiliary reference failure and lost native-create reply retry without duplicates
+ok 59 - auxiliary reference failure and lost native-create reply retry without duplicates
+  ---
+  duration_ms: 14.924458
+  ...
+# Subtest: archived/missing sessions are skipped; mismatched cwd never rebinds and explicit new preserves old input
+ok 60 - archived/missing sessions are skipped; mismatched cwd never rebinds and explicit new preserves old input
+  ---
+  duration_ms: 26.783541
+  ...
+# Subtest: v1 binding migration derives identity, never invents an opened timestamp
+ok 61 - v1 binding migration derives identity, never invents an opened timestamp
+  ---
+  duration_ms: 6.070416
+  ...
+# Subtest: reader tree keeps real parents and promotes nodes whose parent is outside the slice
+ok 62 - reader tree keeps real parents and promotes nodes whose parent is outside the slice
+  ---
+  duration_ms: 1.927875
+  ...
+# Subtest: a whole-block reference supersedes ranged references of the same source, and vice versa
+ok 63 - a whole-block reference supersedes ranged references of the same source, and vice versa
+  ---
+  duration_ms: 0.394292
+  ...
+# Subtest: display previews remove object markers and Markdown punctuation without changing source
+ok 64 - display previews remove object markers and Markdown punctuation without changing source
+  ---
+  duration_ms: 0.508917
+  ...
+# Subtest: the Work tab receives one in-memory focus request per session without creating navigation
+ok 65 - the Work tab receives one in-memory focus request per session without creating navigation
+  ---
+  duration_ms: 0.178833
+  ...
+# Subtest: native reader chip preserves exact source identity while composer and clipboard stay readable
+ok 66 - native reader chip preserves exact source identity while composer and clipboard stay readable
+  ---
+  duration_ms: 0.396084
+  ...
+# Subtest: work locations survive reload per native Session and clearing a missing focus leaves other work alone
+ok 67 - work locations survive reload per native Session and clearing a missing focus leaves other work alone
+  ---
+  duration_ms: 4.903666
+  ...
+# Subtest: Reader preserves topology, parses Logseq and Markdown, and inserts scoped references after the native selection
+ok 68 - Reader preserves topology, parses Logseq and Markdown, and inserts scoped references after the native selection
+  ---
+  duration_ms: 115.072083
+  ...
+# Subtest: current structure hides ordinary intermediates and follows saved object moves and deletions
+ok 69 - current structure hides ordinary intermediates and follows saved object moves and deletions
+  ---
+  duration_ms: 5.113375
+  ...
+# Subtest: fixed timing survives storage, blocks drag, and resolves independently of semantic slots
+ok 70 - fixed timing survives storage, blocks drag, and resolves independently of semantic slots
+  ---
+  duration_ms: 11.90475
+  ...
+# Subtest: one existing DSH browser claims a continue offer, while explicit new-tab navigation returns the ticket URL
+ok 71 - one existing DSH browser claims a continue offer, while explicit new-tab navigation returns the ticket URL
+  ---
+  duration_ms: 115.390917
+  ...
+# Subtest: a waiting browser RPC claims a later handoff without a browser polling timer, and abort stops the wait
+ok 72 - a waiting browser RPC claims a later handoff without a browser polling timer, and abort stops the wait
+  ---
+  duration_ms: 308.648917
+  ...
+# Subtest: real Git: initial dirty/unborn baseline; commits, reverted work, rename, staged/unstaged and saved Diff
+ok 73 - real Git: initial dirty/unborn baseline; commits, reverted work, rename, staged/unstaged and saved Diff
+  ---
+  duration_ms: 1982.539083
+  ...
+# Subtest: nested directory stays scoped; divergent history fails without advancing baseline and explicit restart preserves records
+ok 74 - nested directory stays scoped; divergent history fails without advancing baseline and explicit restart preserves records
+  ---
+  duration_ms: 681.103833
+  ...
+# Subtest: local explanation, grouping, clarification versions, skip, restart and handoff revision protection
+ok 75 - local explanation, grouping, clarification versions, skip, restart and handoff revision protection
+  ---
+  duration_ms: 362.304208
+  ...
+# Subtest: validated real-shape block snapshots: node/content/order/ancestor depth, scope isolation and invalid-version refusal
+ok 76 - validated real-shape block snapshots: node/content/order/ancestor depth, scope isolation and invalid-version refusal
+  ---
+  duration_ms: 347.359458
+  ...
+# Subtest: host model uses actual stream protocol and refuses invented evidence references
+ok 77 - host model uses actual stream protocol and refuses invented evidence references
+  ---
+  duration_ms: 0.356542
+  ...
+# Subtest: independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled
+ok 78 - independent CLI processes use installed plugin data, real filesystem and persistent content Journal with Kernel disabled
+  ---
+  duration_ms: 43290.777917
+  ...
+# Subtest: lenses can consume actual SDK snapshots rooted below a parent or at a later page sibling
+ok 79 - lenses can consume actual SDK snapshots rooted below a parent or at a later page sibling
+  ---
+  duration_ms: 18.310875
+  ...
+# Subtest: actual nested-root provider supports descendant focus without including its outside parent
+ok 80 - actual nested-root provider supports descendant focus without including its outside parent
+  ---
+  duration_ms: 100.584583
+  ...
+# Subtest: provider root compatibility still rejects cycles, negative order and invalid descendant topology with truthful hashes
+ok 81 - provider root compatibility still rejects cycles, negative order and invalid descendant topology with truthful hashes
+  ---
+  duration_ms: 6.7265
+  ...
+# Subtest: a real page scope publishes only its blocks, preserves user entry and survives empty-page refresh without native writes
+ok 82 - a real page scope publishes only its blocks, preserves user entry and survives empty-page refresh without native writes
+  ---
+  duration_ms: 84.522042
+  ...
+# Subtest: binding witnesses remain specific and revoked even after selecting another work or the same rebound identity
+ok 83 - binding witnesses remain specific and revoked even after selecting another work or the same rebound identity
+  ---
+  duration_ms: 57.754541
+  ...
+# Subtest: source contract hashes full UTF-8 body, preserves preorder/order, maps every UTF-16 span and never persists IDs on read
+ok 84 - source contract hashes full UTF-8 body, preserves preorder/order, maps every UTF-16 span and never persists IDs on read
+  ---
+  duration_ms: 3.876292
+  ...
+# Subtest: binding is idempotent, protects user entry/manifests, separates same names and Graphs, and explicitly creates directories
+ok 85 - binding is idempotent, protects user entry/manifests, separates same names and Graphs, and explicitly creates directories
+  ---
+  duration_ms: 46.839334
+  ...
+# Subtest: mechanical updates keep natural annotations, unchanged display/draft state does not publish a new body version, offline/restart preserves good mirrors
+ok 86 - mechanical updates keep natural annotations, unchanged display/draft state does not publish a new body version, offline/restart preserves good mirrors
+  ---
+  duration_ms: 61.57475
+  ...
+# Subtest: mirror temporary write, readback and pointer failures retain the old verified publication, including recovery after current corruption
+ok 87 - mirror temporary write, readback and pointer failures retain the old verified publication, including recovery after current corruption
+  ---
+  duration_ms: 38.134292
+  ...
+# Subtest: Graph change, unbind and directory rebind invalidate late reads and late file jobs without publishing to a new target
+ok 88 - Graph change, unbind and directory rebind invalidate late reads and late file jobs without publishing to a new target
+  ---
+  duration_ms: 136.350708
+  ...
+# Subtest: moving the whole directory explicitly recovers identity, missing directory never writes to global, and unbind retains all records
+ok 89 - moving the whole directory explicitly recovers identity, missing directory never writes to global, and unbind retains all records
+  ---
+  duration_ms: 26.014125
+  ...
+# Subtest: real MaterialService consumes the single binding, preserves legacy locations/fallback and exposes explicit block/page/material readings
+ok 90 - real MaterialService consumes the single binding, preserves legacy locations/fallback and exposes explicit block/page/material readings
+  ---
+  duration_ms: 63.438125
+  ...
+# Subtest: source change during a read causes re-read instead of publishing an inconsistent observation
+ok 91 - source change during a read causes re-read instead of publishing an inconsistent observation
+  ---
+  duration_ms: 24.966375
+  ...
+# Subtest: Desktop missing-parent shape is confirmed as absent, but an unreadable existing record fails closed
+ok 92 - Desktop missing-parent shape is confirmed as absent, but an unreadable existing record fails closed
+  ---
+  duration_ms: 3.29975
+  ...
+# Subtest: external unavailable readings retain separately labeled old content across repeated refreshes and restart
+ok 93 - external unavailable readings retain separately labeled old content across repeated refreshes and restart
+  ---
+  duration_ms: 42.91025
+  ...
+# Subtest: concurrent different sources cannot replace one directory identity; interrupted entry publication retries the saved manifest
+ok 94 - concurrent different sources cannot replace one directory identity; interrupted entry publication retries the saved manifest
+  ---
+  duration_ms: 17.283166
+  ...
+# Subtest: shared live-source port works without a directory and expires on unbind without returning mirror bytes
+ok 95 - shared live-source port works without a directory and expires on unbind without returning mirror bytes
+  ---
+  duration_ms: 27.978458
+  ...
+# Subtest: read target has closed identity/scope/generation fields and is tied to the sending Session
+ok 96 - read target has closed identity/scope/generation fields and is tied to the sending Session
+  ---
+  duration_ms: 2.24775
+  ...
+# Subtest: broker delivers the exact target and includes it in idempotency identity
+ok 97 - broker delivers the exact target and includes it in idempotency identity
+  ---
+  duration_ms: 2.929917
+  ...
+1..97
+# tests 97
+# suites 0
+# pass 97
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 44427.813708

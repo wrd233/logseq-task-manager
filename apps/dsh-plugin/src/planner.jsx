@@ -1,4 +1,4 @@
-/* global window, setInterval, clearInterval, setTimeout, clearTimeout */
+/* global document, window, setInterval, clearInterval, setTimeout, clearTimeout */
 import React, { useEffect, useRef, useState } from 'react';
 import {
   compactMinutes, dateKey, dateLabel, dayTotals, dueLabel, durationLabel, insertPlanDraft,
@@ -251,11 +251,11 @@ function EntryActions({ entry, sessionId, rpc, onEdit, onFocus, onHandoff }) {
   </details>;
 }
 
-function EntryCard({ entry, today, canDrag, dragging, busy, onEdit, onHandoff, onFocus, onRecord, onDragStart, onDragEnd, onDragOver, onDrop, sessionId, rpc }) {
+function EntryCard({ entry, today, canDrag, dragging, busy, onEdit, onHandoff, onFocus, onRecord, onPointerDown, sessionId, rpc }) {
   const planned = entry.plannedMinutes, actual = entry.actualMinutes ?? 0;
   const ratio = planned && actual ? Math.min(100, (actual / planned) * 100) : 0;
-  return <article className={`sp-entry ${isFree(entry) ? 'sp-free' : 'sp-work'}${dragging ? ' sp-dragging' : ''}`} data-entry-schedule="flexible" data-entry-id={entry.id} onDragOver={onDragOver} onDrop={onDrop}>
-    <button type="button" className="sp-grip" draggable={canDrag} disabled={busy} aria-label="拖动安排" title="拖动调整时段或顺序" onDragStart={onDragStart} onDragEnd={onDragEnd}>⠿</button>
+  return <article className={`sp-entry ${isFree(entry) ? 'sp-free' : 'sp-work'}${dragging ? ' sp-dragging' : ''}`} data-entry-schedule="flexible" data-entry-id={entry.id}>
+    <button type="button" className="sp-grip" draggable={false} aria-disabled={!canDrag} disabled={busy} aria-label="拖动安排" title="拖动调整时段或顺序" onPointerDown={onPointerDown}>⠿</button>
     <div className="sp-entry-body">
       <div className="sp-entry-head">
         <button type="button" className="sp-entry-title" onClick={() => onEdit(entry)}>{entry.title}</button>
@@ -320,6 +320,7 @@ export function createPlanner({ rpc, focusWork }) {
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(null);
     const [editor, setEditor] = useState(null), [settingsOpen, setSettingsOpen] = useState(false), [fixedComposer, setFixedComposer] = useState(null);
     const [drag, setDrag] = useState(null), [over, setOver] = useState(null);
+    const pointerDrag = useRef(null);
 
     const refreshCurrent = async () => {
       try { setCurrent(await rpc('planner-current', { sessionId, localAt: localNow() })); }
@@ -384,14 +385,37 @@ export function createPlanner({ rpc, focusWork }) {
     async function undo() { if (locked) return; await change({ action: 'undo' }, '已撤销'); }
     async function saveSlots(slots) { if (await change({ action: 'slots', slots }, '时间段已更新')) setSettingsOpen(false); }
     const canDragEntry = entry => !busy && !editor && !settingsOpen && !fixedComposer && entry.schedule !== 'fixed';
-    function startDrag(event, entry) {
-      if (!canDragEntry(entry)) { event.preventDefault(); return; }
-      setDrag(entry.id); setOver(null); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.id);
+    function beginPointerDrag(event, entry) {
+      if (event.button !== 0 || !canDragEntry(entry)) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      pointerDrag.current = {id: entry.id, x: event.clientX, y: event.clientY, started: false};
     }
-    function endDrag() { setDrag(null); setOver(null); }
-    async function drop(event, date, slotId, beforeId) {
+    function pointerTarget(event) {
+      const element = document.elementFromPoint(event.clientX, event.clientY);
+      const slot = element?.closest('[data-planner-slot]');
+      if (!slot || !event.currentTarget.contains(slot)) return null;
+      return {date: slot.dataset.plannerDate, slotId: slot.dataset.plannerSlot,
+        beforeId: element.closest('[data-entry-id]')?.dataset.entryId ?? null};
+    }
+    function movePointerDrag(event) {
+      const active = pointerDrag.current;
+      if (!active) return;
+      if (!active.started && Math.hypot(event.clientX - active.x, event.clientY - active.y) < 4) return;
+      active.started = true;
+      setDrag(active.id);
+      setOver(pointerTarget(event));
+    }
+    function finishPointerDrag(event) {
+      const active = pointerDrag.current, target = pointerTarget(event);
+      pointerDrag.current = null;
+      setDrag(null); setOver(null);
+      if (active?.started && target) void drop(event, target.date, target.slotId, target.beforeId, active.id);
+    }
+    function cancelPointerDrag() { pointerDrag.current = null; setDrag(null); setOver(null); }
+    async function drop(event, date, slotId, beforeId, draggedId) {
       event?.preventDefault(); event?.stopPropagation();
-      const id = drag; setDrag(null); setOver(null);
+      const id = draggedId; setDrag(null); setOver(null);
       if (!id || busy || !state) return;
       const entry = state.entries.find(item => item.id === id);
       if (!entry || isFixed(entry)) return;
@@ -431,12 +455,11 @@ export function createPlanner({ rpc, focusWork }) {
 
     function renderSlot(date, slot, entries, compact, now = false) {
       const composing = editor?.isNew && editor.entry.date === date && editor.entry.slotId === slot.id;
-      const overHere = drag && over?.slotId === slot.id;
+      const overHere = drag && over?.date === date && over?.slotId === slot.id;
       const range = slotRangeLabel(slot);
       const empty = !entries.length && !composing;
       return <section key={slot.id} className={`sp-slot${empty ? ' sp-slot-empty' : ''}${now ? ' sp-slot-now' : ''}${overHere ? ' sp-over' : ''}`} aria-label={`${dateLabel(date)} ${slot.name}`}
-        onDragOver={event => { if (drag) { event.preventDefault(); setOver({ slotId: slot.id, beforeId: null }); } }}
-        onDrop={event => void drop(event, date, slot.id, null)}>
+        data-planner-slot={slot.id} data-planner-date={date}>
         {empty ? <button type="button" className={`sp-empty-slot${drag ? ' sp-drop-target' : ''}`} disabled={locked} aria-label={`在${slot.name}留出时间`} onClick={() => openNew(date, slot.id)}>
           <span className="sp-slot-name">{slot.name}</span>{range ? <span className="sp-range">{range}</span> : null}<span className="sp-slot-cta">{drag ? '放到这里' : '＋ 留出时间'}</span>
         </button> : <header className="sp-slot-head"><h3>{slot.name}</h3>{range ? <span className="sp-range">{range}</span> : null}{now ? <span className="sp-now-chip">正在进行</span> : null}{!compact ? <button type="button" className="sp-add" disabled={locked} aria-label={`添加到${slot.name}`} onClick={() => openNew(date, slot.id)}>＋</button> : null}</header>}
@@ -447,9 +470,7 @@ export function createPlanner({ rpc, focusWork }) {
             {overHere && over.beforeId === entry.id ? <div className="sp-drop-line" aria-hidden="true" /> : null}
             {editing ? <EntryEditor key={entry.id} entry={entry} slots={state.slots} today={today} sessionId={sessionId} rpc={rpc} busy={busy} onSave={saveEntry} onDelete={deleteEntry} onReorder={reorder} onClose={() => setEditor(null)} /> : <EntryCard entry={entry} today={today} canDrag={canDragEntry(entry)} dragging={drag === entry.id} busy={busy}
               onEdit={openEdit} onHandoff={handoff} onFocus={focusEntryWork} onRecord={() => void record(entry, 15)} sessionId={sessionId} rpc={rpc}
-              onDragStart={event => startDrag(event, entry)} onDragEnd={endDrag}
-              onDragOver={event => { if (!drag) return; event.preventDefault(); event.stopPropagation(); setOver({ slotId: slot.id, beforeId: entry.id }); }}
-              onDrop={event => void drop(event, date, slot.id, entry.id)} />}
+              onPointerDown={event => beginPointerDrag(event, entry)} />}
           </React.Fragment>;
         })}
         {overHere && !over.beforeId ? <div className="sp-drop-line" aria-hidden="true" /> : null}
@@ -504,7 +525,7 @@ export function createPlanner({ rpc, focusWork }) {
       </>;
     }
 
-    return <section className="sp" aria-label="个人时间规划">
+    return <section className="sp" aria-label="个人时间规划" onPointerMove={movePointerDrag} onPointerUp={finishPointerDrag} onPointerCancel={cancelPointerDrag}>
       <header className="sp-head">
         <div className="sp-head-row">
           <div className="sp-head-title"><span className="sp-eyebrow">个人时间规划</span><h1>{title}</h1></div>

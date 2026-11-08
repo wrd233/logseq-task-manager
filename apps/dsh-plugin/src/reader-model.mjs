@@ -72,7 +72,8 @@ export function readerReferences(reader, selections) {
     const excerpt = range ? markdown.slice(range.start, range.end) : markdown;
     total += excerpt.length;
     if (total > 64_000) throw new WorkspaceError('REFERENCE_SELECTION_INVALID');
-    return { sourceId, blockUuid: node.blockUuid, graphId: reader.scope.graphId, workRef: reader.workRef, contentVersion,
+    const workTitle = reader.nodes.find(item => item.blockUuid === reader.scope.rootUuid)?.body.markdown.replace(/^\[[^\]]+\]\s*/u, '').split('\n')[0] ?? '当前工作';
+    return { workTitle, sourceId, blockUuid: node.blockUuid, graphId: reader.scope.graphId, workRef: reader.workRef, contentVersion,
       logseqUrl: node.logseqUrl, range: range ? {start: range.start, end: range.end} : null, excerpt };
   });
 }

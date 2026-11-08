@@ -83,7 +83,7 @@ function Onboarding({ status, busy, directory, setDirectory, error, onBind, onCh
   </div>;
 }
 
-export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork }) {
+export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference }) {
   return function Workbench(props) {
     const info = props.useTabInfo(), sessionId = props.sessionId, visible = info.tab.visible;
     const [status, setStatus] = useState(null), [connection, setConnection] = useState(null);
@@ -237,7 +237,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
           sourceId: item.sourceId, contentVersion: item.contentVersion, ...(item.range ? { range: item.range } : {}),
         })) });
         if (sessionRef.current !== currentSession) return;
-        if (!insertReaderReferences(actions, references)) throw Object.assign(Error('busy'), { code: 'INPUT_BUSY' });
+        if (!await insertReaderReferences(actions, references, (reference, span) => insertReference(currentSession, reference, span))) throw Object.assign(Error('busy'), { code: 'INPUT_BUSY' });
         setSelected([]);
         setNotice({ text: `已把 ${references.length} 处引用加入草稿，未发送。`, tone: 'ok' });
       } catch (error) {
@@ -307,7 +307,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       {discovery ? <WorkDiscovery rpc={rpc} currentRef={status?.workRef} onEnter={onEnterWork} onGeneral={onGeneral} onClose={() => setDiscovery(false)} /> : null}
       <header className="wx-head">
         <div className="wx-head-top">
-          <span className="wx-eyebrow"><span className={`wx-live-dot${connected ? ' is-on' : ''}`} />当前工作 · Logseq 来源结构</span>
+          <span className="wx-eyebrow"><span className={`wx-live-dot${connected ? ' is-on' : ''}`} />当前工作</span>
           <div className="wx-head-actions">
             {root?.source?.logseqUrl ? <a className="wx-icon" href={root.source.logseqUrl} target="_blank" rel="noreferrer" title="在 Logseq 打开这件工作" aria-label="在 Logseq 打开这件工作">↗</a> : null}
             <button type="button" className="wx-icon" aria-label="刷新当前结构与原文" title="刷新" onClick={() => setReload(value => value + 1)}>↻</button>
@@ -337,7 +337,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
         {showWork ? <div className="wx-subline">
           <span>{headerTime ? `读取于 ${headerTime}` : '正在读取'}</span>
           <span className="wx-subline-sep">·</span>
-          <span>保存后的修改会自动出现</span>
+          <span>实时更新</span>
         </div> : null}
       </header>
 

@@ -1,0 +1,2 @@
+There has been no change in the accessibility tree for Window: "DOING [任务] 核对交付方案 id:: 22222222-2222-4222-8222-2...".
+The focused UI element is 1 HTML 内容 DOING [任务] 核对交付方案 id:: 22222222-2222-4222-8222-2..., URL: file:///Users/wangrundong/.codex/worktrees/final-work-experience-polish-v1/%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86%E4%B8%AD%E5%BF%83-logseq%E6%8F%92%E4%BB%B6/tmp/polish/Logseq%20Polish.app/Contents/Resources/app/electron.html#/page/22222222-2222-4222-8222-222222222222

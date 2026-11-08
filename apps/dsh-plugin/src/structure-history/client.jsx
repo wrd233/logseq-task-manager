@@ -252,7 +252,7 @@ export function applyHistoryClient(ctx) {
         }, [changes]);
         const tracks = useMemo(() => [...new Set([catalog?.track, ...(catalog?.tracks ?? [])])].filter(Boolean), [catalog]);
         const issues = useMemo(() => [...new Set(catalog?.issues ?? [])], [catalog]);
-        const projectName = catalog?.project?.split('/').filter(Boolean).at(-1) ?? '当前工作';
+        const projectName = frame?.nodes?.find(node => node.parentId === null)?.title.replace(/^(?:\[Project\]|\[MiniProject\])\s*/u, '') ?? '当前工作';
         const selectTime = id => { if (id && id !== selectedId) setSelectedId(id); };
         const goLatest = () => latestRecord && selectTime(latestRecord.id);
         const selectNode = useCallback(id => {

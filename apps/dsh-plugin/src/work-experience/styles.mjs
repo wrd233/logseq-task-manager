@@ -81,7 +81,7 @@ export const workbenchStyles = `
 .wx-kind.is-task{color:var(--wx-green);background:var(--wx-green-soft);border-color:color-mix(in srgb,var(--wx-green) 24%,transparent)}
 .wx-kind.is-mini_project{color:var(--wx-amber);background:var(--wx-amber-soft);border-color:color-mix(in srgb,var(--wx-amber) 24%,transparent)}
 .wx-child-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.wx-child-title{font-size:12.5px;line-height:1.45;font-weight:550;color:var(--wx-text);overflow-wrap:anywhere}
+.wx-child-title{font-size:14px;line-height:1.5;font-weight:550;color:var(--wx-text);overflow-wrap:anywhere}
 .wx-child-preview{font-size:10.5px;line-height:1.45;color:var(--wx-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wx-child-arrow{flex:none;color:var(--wx-faint);font-size:15px;line-height:1;margin-left:2px}
 .wx-hint{font-size:10.5px;color:var(--wx-muted);line-height:1.6;margin:12px 0 0}
@@ -120,7 +120,10 @@ export const workbenchStyles = `
 .wx-prop{display:inline-flex;align-items:baseline;gap:4px;max-width:100%;background:var(--wx-surface);border:1px solid var(--wx-line);border-radius:4px;padding:0 5px;overflow:hidden}
 .wx-prop-name{color:var(--wx-faint);white-space:nowrap}
 .wx-prop-value{color:var(--wx-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:30ch}
-.wx-md{font-size:13px;line-height:1.72;color:var(--wx-text);overflow-wrap:anywhere;min-width:0}
+.wx-md{font-size:14px;line-height:1.75;color:var(--wx-text);overflow-wrap:anywhere;min-width:0}
+.wx-reader .wx-block-head{gap:4px}
+.wx-reader .wx-semantic{background:transparent;border-color:transparent;padding-left:0;font-weight:500}
+.wx-reader .wx-type{background:transparent;border-color:transparent;font-weight:500}
 .wx-md p{margin:0 0 5px;white-space:pre-wrap}
 .wx-md p:last-child{margin-bottom:0}
 .wx-md strong{font-weight:650}

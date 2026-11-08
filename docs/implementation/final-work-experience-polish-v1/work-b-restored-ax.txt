@@ -1,0 +1,104 @@
+Window: "独立引用复核 B — DeepSeek Harness", App: Safari浏览器.
+0 标准窗口 独立引用复核 B — DeepSeek Harness, ID: SafariWindow?UsingUnifiedBar=false&IsSecure=false&UUID=D11F68DE-B186-4CD8-A936-E2727381BF61, Secondary Actions: Raise
+	1 分离组
+		2 分离器 (disabled, settable, float) -1
+		3 标签组
+			4 滚动区
+				5 HTML内容 Description: 独立引用复核 B — DeepSeek Harness, URL: 127.0.0.1:50305/
+					6 container
+						7 按钮 新建会话
+						8 按钮 收起侧边栏
+						9 按钮 新建会话
+						10 container 全局面板
+							11 按钮 插件
+							12 按钮 自动化任务
+						13 container
+							14 文本 工作区
+							15 按钮 (collapsed) 搜索会话, Secondary Actions: Expand
+							16 文本栏 (settable) 搜索会话名称
+							17 按钮 视图选项
+							18 按钮 添加工作区
+							19 container 会话
+								20 文本 独立引用复核 B
+								21 文本 新会话
+								22 文本 最终体验收尾
+								23 文本 默认工作区
+						24 弹出式按钮 账号菜单
+						25 container
+							26 container
+								27 text 探索未至之境 预览版
+								28 弹出式按钮 选择工作区
+								29 弹出式按钮 标准模式, Help: 选择新任务使用的 Agent 预设
+								30 文本输入区 (settable) 描述你想要构建的内容, / 调用指令, @ 文件或对话, Value: B 的草稿应保留。
+B
+									31 container (settable)
+										32 text (settable) B 的草稿应保留。 B_ONLY：独立正文与空白草稿。 · Logseq · 独立引用复核 B
+								33 弹出式按钮 添加文件或调用指令
+								34 按钮 访问模式，当前：工作区内修改
+								35 弹出式按钮 选择模型，当前 DeepSeek-V4.1-Flash，推理等级 High, Help: DeepSeek-V4.1-Flash · High
+								36 按钮 发送消息
+						37 container
+							38 container
+								39 标签组 (selectable)
+									40 标签 (selected) 工作 关闭
+									41 按钮 新标签页
+									42 按钮 分栏
+									43 按钮 全屏
+									44 按钮 收起右侧边栏
+								45 container 当前工作
+									46 文本 当前工作
+									47 link 在 Logseq 打开这件工作, Value: logseq://graph/polish-graph?block-id=6aefc4e3-4ca2-4df6-abd0-e92f0491d30a
+									48 按钮 刷新当前结构与原文, Help: 刷新
+									49 弹出式按钮 更多工作操作
+									50 标题 独立引用复核 B, Value: 1
+										51 文本 独立引用复核 B
+									52 text Project 读取于 08:55 · 实时更新
+									53 container 工作查看方式
+										54 container 当前工作视图
+											55 开关按钮 结构, Value: on
+											56 开关按钮 原文, Value: off
+										57 按钮 历史回看
+										58 按钮 变更回顾
+									59 container
+										60 按钮 把这一段加入引用, Help: 加入引用
+										61 link 在 Logseq 打开这一段, Help: 在 Logseq 打开, Value: logseq://graph/polish-graph?block-id=6aefc4ea-5279-4df4-be79-68bf096eda4c
+										62 文本 B_ONLY：独立正文与空白草稿。
+	63 工具栏
+		64 container
+			65 按钮 Description: 显示边栏, ID: SidebarButton
+			66 菜单按钮 Description: 标签页组选择器, ID: TabGroupPickerButton?TabGroup=
+		67 container BackForwardSegmentedControl
+			68 按钮 Description: 返回, Help: 显示上一页, ID: BackButton
+			69 按钮 (disabled) Description: 前进, Help: 显示下一页, ID: ForwardButton
+		70 container
+			71 按钮 页面菜单, ID: AssistantButton
+			72 按钮 将页面添加到阅读列表, ID: OneStepBookmarkingButton
+			73 文本栏 (settable) Description: 智能搜索栏, Value: 127.0.0.1:50305, ID: WEB_BROWSER_ADDRESS_AND_SEARCH_FIELD
+			74 按钮 翻译可用, ID: TranslationButton
+			75 按钮 重新载入此页面, ID: ReloadButton
+		76 按钮 Description: 共享, ID: ShareButton
+		77 按钮 Description: 新建标签页, ID: NewTabButton
+			78 按钮 Description: 新建标签页, ID: NewTabButton
+				79 按钮 Description: 添加, Help: 新建标签页
+		80 按钮 Description: 标签页概览, ID: TabOverviewButton
+	81 container (settable, unknown) 标签页栏, Description: 标签页栏，2个标签页, ID: TabBar
+		82 标签页 起始页, Value: off, ID: TabBarTab?isNarrow=false&isPinned=false, Secondary Actions: 关闭标签页
+			83 按钮 关闭标签页, Description: 关闭, ID: CloseTabBarItemButton
+			84 图像 Description: 个人收藏, ID: FaviconImageView
+		85 标签页 独立引用复核 B — DeepSeek Harness, Value: on, ID: TabBarTab?isNarrow=false&isPinned=false, Secondary Actions: 关闭标签页
+			86 按钮 关闭标签页, Description: 关闭, ID: CloseTabBarItemButton
+			87 图像 FaviconImageView
+	88 关闭按钮
+	89 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	90 最小化按钮
+91 menu bar
+	92 Safari浏览器
+	93 文件
+	94 编辑
+	95 显示, ID: SafariViewMenu
+	96 历史记录
+	97 书签, ID: SafariBookmarksMenu
+	98 窗口
+	99 帮助
+
+The focused UI element is 5 HTML内容 Description: 独立引用复核 B — DeepSeek Harness, URL: 127.0.0.1:50305/

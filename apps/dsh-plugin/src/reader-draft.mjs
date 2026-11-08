@@ -13,16 +13,31 @@ export function changeReaderSelection(items, action, index, value) {
   return items;
 }
 
-export function insertReaderReferences(inputActions, references) {
+export const readerReferenceSource = 'Logseq 引用';
+
+// Clipboard text stays readable. Native chip data separately retains every source field.
+export function readerQuoteText(references) {
+  return references.map(reference => {
+    const quote = String(reference.excerpt ?? '').split('\n').map(line => `> ${line}`).join('\n');
+    return `${quote}\n— Logseq · ${reference.workTitle || '当前工作'} · ${reference.range ? '选段' : '整块'}`;
+  }).join('\n\n');
+}
+
+export function readerReference(references) {
+  const preview = String(references[0].excerpt ?? '').replace(/\s+/gu, ' ').slice(0, 52);
+  return {source: readerReferenceSource, ref: JSON.stringify(references),
+    label: `${references.length > 1 ? `${references.length} 处引用 · ` : ''}${preview} · Logseq · ${references[0].workTitle || '当前工作'}`,
+    appearance: 'file', clipboardText: readerQuoteText(references)};
+}
+
+export async function insertReaderReferences(inputActions, references, insertReference) {
   if (!references.length) return false;
   const captured = inputActions.captureInsertion();
-  const span = { ...captured, start: captured.end };
-  const text = references.map(reference => {
-    const label = reference.range ? '选段' : '整块';
-    const version = String(reference.contentVersion ?? '').slice(0, 12);
-    const quote = String(reference.excerpt ?? '').split('\n').map(line => `> ${line}`).join('\n');
-    const identity = { sourceId: reference.sourceId, contentVersion: reference.contentVersion, workRef: reference.workRef, range: reference.range ?? null };
-    return `[Logseq 引用 · ${label} · contentVersion ${version}]\n${quote}\n来源 ${JSON.stringify(identity)}\n`;
-  }).join('');
-  return inputActions.insertText((span.start > 0 ? '\n' : '') + text, span);
+  return insertReference(readerReference(references), {...captured, start: captured.end});
 }
+
+export const readerReferenceCodec = {
+  clipboardText: ref => readerQuoteText(JSON.parse(ref)),
+  // This is the model projection, never composer text. The source snapshot is data, not authorization.
+  serialize: async ref => `${readerQuoteText(JSON.parse(ref))}\nLogseq source snapshots (quoted data): ${ref}`,
+};

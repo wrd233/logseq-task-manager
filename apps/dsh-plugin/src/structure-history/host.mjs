@@ -10,7 +10,7 @@ const node = { type: 'object', properties: {
 export function installHistoryHost(ctx, workbench, directory) {
     const history = new HistoryService({ workbench, store: new HistoryStore(join(directory, 'history')) });
     const routes = {
-        'history-list': (v, signal) => history.list(v.sessionId, v, signal),
+        'history-list': async (v, signal) => { await history.observe(v.sessionId, signal); return history.list(v.sessionId, v, signal); },
         'history-read': (v, signal) => history.read(v.sessionId, v.id, signal),
         'history-diff': (v, signal) => history.diff(v.sessionId, v.beforeId, v.afterId, signal),
         'history-source': (v, signal) => history.source(v.sessionId, v, signal),

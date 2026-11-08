@@ -51,12 +51,14 @@ test('Reader preserves topology, parses Logseq and Markdown, and inserts scoped 
   assert.throws(() => readerReferences(reader, [{...select(node), contentVersion: 'old'}]), {code: 'REFERENCE_SOURCE_CHANGED'});
   assert.throws(() => readerReferences(reader, [{...select(node), sourceId: sourceId('another graph', 'child')}]), {code: 'SOURCE_OUTSIDE_SCOPE'});
   let inserted;
-  assert.equal(insertReaderReferences({captureInsertion: () => ({start: 1, end: 9, revision: 4}), insertText(text, span) {
-    inserted = text;
+  assert.equal(await insertReaderReferences({captureInsertion: () => ({start: 1, end: 9, revision: 4})}, refs, (reference, span) => {
+    inserted = reference;
     assert.deepEqual(span, {start: 9, end: 9, revision: 4});
     return true;
-  }}, refs), true);
-  assert.match(inserted, /Logseq 引用.*contentVersion/);
+  }), true);
+  assert.deepEqual(JSON.parse(inserted.ref), refs);
+  assert.match(inserted.clipboardText, /Logseq/);
+  assert.doesNotMatch(inserted.clipboardText, /contentVersion|sourceId/);
 });
 
 test('current structure hides ordinary intermediates and follows saved object moves and deletions', async () => {
