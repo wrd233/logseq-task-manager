@@ -127,7 +127,7 @@ test('host offline CRUD, verified Logseq import, explicit formal confirmation an
   const result=await route['inbox-convert']({...formal,confirmed:true});assert.equal(kernelCalls,1);assert.equal(result.originalContent,imported.originalContent);
   assert.equal(result.outcomes[0].reference.workRef.objectId,'task-1');assert.equal(result.status,'open');
   const developed=await route['inbox-convert']({id:result.id,revision:result.revision,operationId:randomUUID(),kind:'work',confirmed:true,parameters:{}});
-  assert.equal(developed.workRef.rootUuid,'block-uuid');assert.equal(navigations[0].work.workRef.graphId,'图 A');
+  assert.deepEqual(developed.workRef,{kind:'kernel',objectId:'task-1'});assert.deepEqual(navigations[0].work.workRef,{kind:'kernel',objectId:'task-1'});
 });
 
 test('selected Inbox native reference quotes original and context, never submits or replaces the native draft',async()=>{

@@ -1,7 +1,7 @@
 # Personal Inbox v1 实现与接入
 
 本分支从 `origin/main` 的 `fbdb03c1` 创建，不包含旧 Capture Inbox 分支或原工作区的未提交修改。
-本轮 Codex 提供独立存储、宿主 API、Planner/Kernel 出口和原生引用接口。页面由 DSH 按 [UI 契约](ui-contract.md) 开发；已完成真实个人记录的数据层验收，页面与完整交互验收尚未完成。
+本轮完成独立存储、宿主 API、Planner/Kernel 出口、原生讨论引用与完整 Inbox 页面。用户于 2026-11-08 明确改由 Codex 继续页面开发；未委派 DSH Flash，未外发个人记录。已用 15 条真实日常工作记录副本，在隔离的真实 DSH / Logseq / Kernel 中完成交互验收，详见 [验收记录](acceptance.md)。
 
 ## 存储规则
 
@@ -42,11 +42,17 @@ JSON 包含 `item`、一个可撤销的 `previous` 快照、少量 `operations` 
 
 inbox-export 返回全部 item，包含归档项和 outcomes。UI 下载为 JSON；inbox-import 只新增不存在的 ID，相同项跳过，冲突返回 conflicts，不覆盖原文或较新的记录。未完成转化不能导出成“完整备份”，需先重试确认结果。单步撤销快照和临时转化意图不作为可迁移业务数据导出。
 
-## 开发边界与接入
+## 页面与接入
 
-DSH 页面集中放在新的 personal-inbox 目录中；不要编辑旧 Capture 页面。宿主路由、模型和共享协议由 Codex 维护；页面开发只消费契约。现有 client.jsx 仅增加 Personal Inbox 原生引用 codec 注册，不改变现有页面布局。
+从 DSH 右侧面板的“个人收集箱”入口或对话页“收集箱”按钮进入。不需要先创建 Session 或连接 Work。一句话即可保存；来源折叠为可选项，纯 URL 自动保留网页定位。
 
-参考 UI 的数据源、参数、错误恢复和例子见 ui-contract.md。页面完成后才部署到现用 DSH 并开展真实记录验收；目前没有替换正在使用的 DSH bundle，也未重启用户现有会话。
+页面复用应用级个人视图：捕获内容、选中记录、筛选以及未保存背景可跨 Session 继续。窄面板使用列表/详情切换，宽面板并排显示。详情支持原文保护的显示文字编辑、背景和材料、单个 Work 关联、处理状态、归档/恢复/单步撤销。三个转化出口均需明确确认；未明结果保留同一请求重试。保存失败保留输入，重试不重复创建。
+
+“带入当前讨论”只插入所选记录的原生引用，保留现有对话草稿，不自动发送。未保存页面草稿仅保留在本次浏览器运行中；需要跨重启保留的内容必须点击保存。详情默认隐藏 Logseq 内部属性行，最初原文和备份仍完整保留。
+
+实现位于 `apps/dsh-plugin/src/personal-inbox/`，现有 `client.jsx` 仅增加原生页签、入口和样式安装。没有修改旧 Capture 页面。宿主 API 与错误恢复见 [UI 契约](ui-contract.md)。
+
+部署须更新 DSH 插件 bundle；正式任务还须更新 Kernel Service。本轮仅安装到独立验收 Profile，没有替换用户现用 bundle、Profile 或 Graph。代表性截图仅含人工验收文字：[窄面板](screenshots/01-detail-dark.jpg)、[宽面板](screenshots/02-wide-dark.jpg)。
 
 ## 可选原生宿主证明
 

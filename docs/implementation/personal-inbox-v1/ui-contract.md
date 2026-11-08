@@ -1,7 +1,7 @@
 # Personal Inbox v1 — UI 契约
 
 本功能使用全新 Personal Data Store；不调用旧 Capture Inbox。
-Codex 负责此契约、存储和宿主 API，DSH 负责页面。入口使用已有认证 RPC：
+Codex 负责此契约、存储和宿主 API；用户后续授权由 Codex 一并完成页面。入口使用已有认证 RPC：
 `rpc('inbox-…', payload)`，宿主返回已有 `{ok,value}` / `{ok:false,error:{code,message}}` 封装。
 所有记录 API **不需要 sessionId、Work、Graph 或 Profile**。仅来源读取和工作导航需要处理现场。
 

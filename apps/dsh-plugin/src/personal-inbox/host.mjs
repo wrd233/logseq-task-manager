@@ -43,7 +43,7 @@ export async function installPersonalInboxHost({service, planner, handoffs, dire
     }
     if(input.kind === 'work') {
       object(parameters, ['workRef', 'title']);
-      const ref = parameters.workRef ?? item.workRef ?? (item.source?.type === 'logseq' ? {
+      const ref = parameters.workRef ?? item.workRef ?? item.outcomes.findLast(result=>result.kind==='formal-task')?.reference.workRef ?? (item.source?.type === 'logseq' ? {
         kind:'logseq', graphId:item.source.graphId, rootUuid:item.source.blockUuid, sourceKind:'block'} : null);
       if (!ref) fail('INBOX_WORK_SOURCE_REQUIRED');
       return {...input, parameters:{workRef:parseWorkRef(ref), title:text(parameters.title ?? item.content.slice(0,300), 300)}};
