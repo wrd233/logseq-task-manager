@@ -47,3 +47,7 @@ inbox-export 返回全部 item，包含归档项和 outcomes。UI 下载为 JSON
 DSH 页面集中放在新的 personal-inbox 目录中；不要编辑旧 Capture 页面。宿主路由、模型和共享协议由 Codex 维护；页面开发只消费契约。现有 client.jsx 仅增加 Personal Inbox 原生引用 codec 注册，不改变现有页面布局。
 
 参考 UI 的数据源、参数、错误恢复和例子见 ui-contract.md。页面完成后才部署到现用 DSH 并开展真实记录验收；目前没有替换正在使用的 DSH bundle，也未重启用户现有会话。
+
+## 可选原生宿主证明
+
+使用已有 DSH SDK 和 Node 22.19+ 执行 `node --import tsx apps/dsh-plugin/tests/personal-inbox-host-proof.mjs`。脚本在隔离应用数据目录启动两次独立进程，并验证插件热重载。结果与证明边界见 [验收记录](acceptance.md)。

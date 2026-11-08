@@ -13,18 +13,18 @@
 
 Kernel 集成使用实际 KernelClient、HTTP 服务、Formal Kernel 和 SQLite；Graph Adapter 使用项目的 FakeGraphAdapter。没有调用外部模型。不能据此声称真实 Graph 或 UI 通过验收。
 
-另外，早期执行的现有 History 18 项回归通过（增加 Inbox 宿主路由后）；最终针对测试不重复跑庞大矩阵。
+现有 History 18 项与 Personal Inbox 9 项在生命周期修正后合计 27 项回归通过。
 
 通过的静态检查：Kernel Service 与 Client 类型检查、所有修改代码的 ESLint、DSH 插件宿主及浏览器 bundle 构建、git diff --check。
 
-本机默认 Node 启动器缺少 simdjson 动态库，验证使用已有 Node 20 安装；未修改系统 Node 或用户登录/Provider。依赖仅安装在新工作区。没有 task-owned 常驻进程。
+本机默认 Node 启动器缺少 simdjson 动态库，仓库检查使用已有 Node 20 安装，原生 SDK 证明使用已有 Node 24 安装；未修改系统 Node 或用户登录/Provider。依赖仅安装在新工作区。没有 task-owned 常驻进程。
 
 ## 必要验收逐项状态
 
 | 要求 | 当前证据 | 尚需真实验证 |
 | --- | --- | --- |
 | 一句话创建 | API 创建测试通过，不需要标题、类型、Work、日期 | DSH 页面保存操作 |
-| DSH 重启后保留 | 文件持久化、新 Store 实例和独立宿主实例重读通过 | 现用 DSH 完整重启 |
+| DSH 重启后保留 | 文件持久化、新 Store 实例、原生 Cordis SDK 的独立进程重启及热重载通过 | 现用 DSH 完整重启 |
 | 切换 Session 保留 | CRUD 路由不接受所有权 sessionId，跨处理现场读写通过 | 原生 UI 切换 Session |
 | 切换 Work 保留 | 存储根不含 Work；引用修改/解除测试通过 | 原生 UI 切换 Work |
 | Logseq 离线可创建搜索编辑 | 宿主测试让 Logseq 读取抛错，独立 CRUD 仍通过 | 现用 Logseq 断开场景 |
@@ -55,3 +55,17 @@ Kernel 集成使用实际 KernelClient、HTTP 服务、Formal Kernel 和 SQLite�
 - 文件/网页/讨论作为引用保存；不复制附件，不保证外部材料永久有效。
 - 单步编辑撤销；没有永久删除、复杂版本控制、跨设备同步或自动分类。
 - 多宿主同时写入时短期竞争会返回 BUSY；调用方需保留输入并重试。Planner 仍沿用其已有配置和存储位置。
+
+## 补充：原生 Cordis SDK 跨进程证明
+
+使用本机实际安装的 DSH `0.2.1-rc.2` / Cordis `4.0.5`，在隔离临时 User Data 根启动两次独立进程：第一进程通过生产宿主 RPC 保存 15 条测试记录、背景、resolved + archived 状态；退出后第二进程读取、搜索、恢复与导出全部记录。每个进程还执行一次插件卸载/重新挂载，确认记录继续存在且路由释放。
+
+本验证发现宿主 RPC 注册返回的注销函数原先没有纳入插件生命周期。已改为通过 Cordis effect 执行注销，避免热重载留下旧路由；没有修改现用 DSH 服务。
+
+复现（Node 22.19+，需本机已安装 DSH）：
+
+```sh
+node --import tsx apps/dsh-plugin/tests/personal-inbox-host-proof.mjs
+```
+
+可用 DSH_PACKAGE_ROOT 指定已有 DSH npm 包目录。脚本只在临时目录保存示例记录，结束后清理；未调用模型、未读取个人 Graph 或会话消息。它验证实际 Cordis SDK 加载生产插件与文件持久化，Connection/Session 外壳为测试适配器，仍不是完整 DSH 应用或页面验收。

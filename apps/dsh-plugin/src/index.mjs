@@ -131,7 +131,8 @@ export async function apply(ctx, config = {}) {
   };
   // Exact Fetch contributions coexist with DSH's existing /api interceptor.
   // Connection owns the authentication fence and transport body limit.
-  for (const endpoint of Object.keys(routes)) ctx.connection.fetch.register({
+  for (const endpoint of Object.keys(routes)) {
+    const unregister = ctx.connection.fetch.register({
     path: `/api/logseq-workbench/${endpoint}`, methods: ['POST'], requestBody: 'buffered',
     fetch: async incoming => {
       let envelope;
@@ -141,7 +142,9 @@ export async function apply(ctx, config = {}) {
       return Response.json({ type: 'server-response', rpcId: envelope.rpcId,
         result: await dispatch(endpoint, envelope.payload, incoming.signal) });
     },
-  });
+    });
+    if (typeof unregister === 'function') ctx.effect(() => unregister);
+  }
 
   const contexts = new WeakMap();
   ctx.systemPrompt.section({ name: 'logseq-workbench:instructions', order: 4500, interpolate: false,
