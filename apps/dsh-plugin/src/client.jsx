@@ -9,6 +9,7 @@ import { styles, discoveryStyles } from './styles.mjs';
 import { workbenchStyles } from './work-experience/styles.mjs';
 import { createWorkbench } from './work-experience/workbench.jsx';
 import { readerReferenceSource, readerReferenceCodec } from './reader-draft.mjs';
+import { inboxReferenceSource, inboxReferenceCodec } from './personal-inbox/reference.mjs';
 import { workFocus } from './work-experience/focus-store.mjs';
 import { workKey } from '@task-copilot/contracts';
 
@@ -236,6 +237,10 @@ export function apply(ctx) {
   ctx.effect(() => ctx.inputTriggers.registerSource({
     trigger: '@', name: readerReferenceSource, showGroupTitle: false,
     candidates: async () => [], onPick: () => 'handled', codec: readerReferenceCodec,
+  }));
+  ctx.effect(() => ctx.inputTriggers.registerSource({
+    trigger: '@', name: inboxReferenceSource, showGroupTitle: false,
+    candidates: async () => [], onPick: () => 'handled', codec: inboxReferenceCodec,
   }));
   const insertReference = (sessionId, reference, span) => ctx.sessions.using(sessionId, {source: 'controllerOperation'}, async retained => {
     const binding = await retained.ready;

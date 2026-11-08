@@ -170,6 +170,9 @@ export class KernelClient {
   listFeedback(): Promise<{ feedback: FeedbackEvent[] }> { return this.#request("GET", "/v1/feedback"); }
   recordStrongPositive(commitId: string, actor: Actor, userComment?: string | null): Promise<{ recorded: true }> { return this.#request("POST", "/v1/feedback/strong-positive", { commitId, actor, ...(userComment === undefined ? {} : { userComment }) }); }
   commitFormal(operation: SemanticOperation, snapshot?: GraphSnapshot | null): Promise<FormalCommitResult> { return this.#formalRequest(operation.operationId, "/v1/commits/commit", { operation, ...(snapshot ? { snapshot } : {}) }); }
+  createInboxTask(input: { inboxId: string; operationId: string; title: string; graphId: string; blockUuid: string; confirmed: true }): Promise<FormalCommitResult> {
+    return this.#formalRequest(`inbox:${input.inboxId}:${input.operationId}`, "/v1/personal-inbox/task", input);
+  }
   formalReceipt(operationId: string): Promise<{ receipt: FormalCommitResult | null }> { return this.#request("GET", `/v1/operations/${encodeURIComponent(operationId)}/receipt`); }
   applyProposalFormal(id: string, input: { operationId: string; snapshot: GraphSnapshot; evidence: ReadonlyArray<{ evidenceId: string } & TrustedGraphEvidenceMaterial> }): Promise<FormalCommitResult> { return this.#formalRequest(input.operationId, `/v1/proposals/${encodeURIComponent(id)}/commit`, input); }
   undoFormal(commitId: string, input: { operationId: string; actor: Actor; snapshot: GraphSnapshot }): Promise<FormalCommitResult> { return this.#formalRequest(input.operationId, `/v1/commits/${encodeURIComponent(commitId)}/undo/commit`, input); }

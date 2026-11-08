@@ -3,6 +3,7 @@ import { parseWorkRef } from '@task-copilot/contracts';
 import { readFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { moveEntries, reorderEntries, validDate, validDueAt } from './planner-model.mjs';
 
@@ -113,7 +114,7 @@ export class PlannerStore {
     }
     if (saved.version !== 2) fail('PLANNER_VERSION');
     this.state = { version: 2, revision: Number.isInteger(saved.revision) ? saved.revision : 0,
-      slots: saved.slots, entries: saved.entries, undo: Array.isArray(saved.undo) ? saved.undo : [] };
+      slots: saved.slots, entries: saved.entries, undo: Array.isArray(saved.undo) ? saved.undo : [], inboxReceipts: saved.inboxReceipts ?? {} };
   }
 
   #fresh() { return { version: 2, revision: 0, slots: defaultSlots(), entries: [], undo: [] }; }
@@ -128,13 +129,28 @@ export class PlannerStore {
     const operation = this.queue.then(async () => {
       if (!input || input.revision !== this.state.revision) fail('PLANNER_CONFLICT');
       const previous = this.state, next = structuredClone(previous);
-      let label = '', undoneLabel = '';
+      let label = '', undoneLabel = '', inboxEntryId;
       if (input.action === 'undo') {
         const saved = next.undo.pop();
         if (!saved) return this.read();
         next.slots = saved.slots; next.entries = saved.entries; undoneLabel = saved.label;
       } else {
-        if (input.action === 'save') {
+        if (input.action === 'fromInbox') {
+          const source = input.inboxRef;
+          const uuid = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/iu;
+          if (!source || !uuid.test(source.inboxId) || !uuid.test(source.operationId)) fail('PLANNER_INVALID');
+          next.inboxReceipts ??= {};
+          const existing = next.inboxReceipts[source.operationId];
+          if (existing) {
+            if (existing.inboxId !== source.inboxId || !isDeepStrictEqual(existing.input, input.entry)) fail('PLANNER_INVALID');
+            return {...this.read(), inboxEntryId:existing.entryId};
+          }
+          const value = entry({...input.entry, id: undefined, reference: null}, next.slots);
+          next.entries.push({...value, inboxRef: {inboxId: source.inboxId, operationId: source.operationId}});
+          next.inboxReceipts[source.operationId] = {...source, entryId:value.id, input:input.entry};
+          inboxEntryId = value.id;
+          label = `从 Inbox 添加「${value.title}」`;
+        } else if (input.action === 'save') {
           const current = next.entries.find(item => item.id === input.entry?.id);
           const previousTiming = current?.schedule === 'fixed' && input.entry.schedule === undefined
             ? {schedule: current.schedule, startAt: current.startAt, endAt: current.endAt} : {};
@@ -142,6 +158,7 @@ export class PlannerStore {
           if (input.entry.id && !current) fail('PLANNER_MISSING');
           if (current && next.entries.some(item => item.id === value.id && item !== current)) fail('PLANNER_INVALID');
           if (current) {
+            if (current.inboxRef) value.inboxRef = current.inboxRef;
             if (value.schedule === 'flexible' && (current.date !== value.date || current.slotId !== value.slotId)) {
               next.entries = moveEntries(next.entries, { id: value.id, date: value.date, slotId: value.slotId, beforeId: null });
             }
@@ -188,7 +205,7 @@ export class PlannerStore {
       next.revision++;
       await atomicJson(this.path, next);
       this.state = next;
-      return { ...this.read(), ...(undoneLabel ? { undoneLabel } : {}) };
+      return { ...this.read(), ...(undoneLabel ? { undoneLabel } : {}), ...(inboxEntryId ? {inboxEntryId} : {}) };
     });
     this.queue = operation.catch(() => {});
     return operation;

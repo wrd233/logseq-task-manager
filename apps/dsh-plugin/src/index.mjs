@@ -9,6 +9,7 @@ import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
 import { installPlannerHost } from './planner-host.mjs';
+import { installPersonalInboxHost } from './personal-inbox/host.mjs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BindingStore, CompanionTransport, WorkbenchService, modelContext, request } from './service.mjs';
@@ -50,6 +51,7 @@ export async function apply(ctx, config = {}) {
   }
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
   const planner = await installPlannerHost(ctx, service, resolve(config.plannerStateDirectory ?? store.directory), handoffs);
+  const inbox = await installPersonalInboxHost({service, planner, handoffs});
   const routes = {
     catalog: async input => {
       request(input, []);
@@ -82,6 +84,7 @@ export async function apply(ctx, config = {}) {
     files: async (input, signal) => {const value = request(input, ['sessionId']); return service.files(value.sessionId, signal);},
     ...historyRoutes,
     ...planner.routes,
+    ...inbox.routes,
     ...installEvidenceHost(ctx, service, history.store),
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
     bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
