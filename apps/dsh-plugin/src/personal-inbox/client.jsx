@@ -1,32 +1,85 @@
-import React, {useEffect, useId, useRef, useState, useSyncExternalStore} from 'react';
+import React, {useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore} from 'react';
 import {insertInboxReference} from './reference.mjs';
 import {blockUrl} from '../reader-model.mjs';
-import {captureSource, errorMessage, isDirty, itemDraft, localDate, safeLink, sourceNames, statusNames, visibleContent, workIdentity} from './client-model.mjs';
+import {captureSource, errorMessage, localDate, safeLink, sourceNames, statusNames, visibleContent, workIdentity} from './client-model.mjs';
 /* global crypto, window, document, Blob, URL, setTimeout, clearTimeout, setInterval, clearInterval */
 
 const when = value => new Date(value).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-const titleOf = item => item.content.split('\n').find(line=>line.trim())?.slice(0,300) ?? '';
+const titleOf = item => visibleContent(item).split('\n').find(line=>line.trim())?.trim().slice(0,300) ?? '';
 
-export function createPersonalInbox({rpc,insertReference,onOpenSession,onOpenPlanner}) {
+export function createPersonalInbox({rpc,insertReference,onOpenSession,onOpenPlanner,registerEffect}) {
   // One personal UI, including drafts, across the host's Session-mounted tab instances.
-  const memory = {capture:'',source:'',captureAttempt:null,selection:null,query:'',status:'',sourceFilter:'',linked:'',workFilter:null,drafts:new Map(),edits:new Map(),conversions:new Map(),importAttempts:new Map()};
+  const memory = {capture:'',source:'',captureAttempt:null,selection:null,query:'',status:'open',sourceFilter:'',linked:'',workFilter:null,drafts:new Map(),edits:new Map(),conversions:new Map(),importAttempts:new Map(),change:null};
   const listeners=new Set();
+  const timers=new Map();
+  let disposed=false;
+  const beforeUnload=event=>{event.preventDefault();event.returnValue='';};
+  function saveDraft(id,draft) {
+    if(draft)memory.drafts.set(id,draft);
+    else memory.drafts.delete(id);
+    if(memory.drafts.size)window.addEventListener('beforeunload',beforeUnload);
+    else window.removeEventListener('beforeunload',beforeUnload);
+    for(const listener of listeners)listener();
+  }
+  registerEffect(()=>()=>{
+    disposed=true;
+    window.removeEventListener('beforeunload',beforeUnload);
+    for(const timer of timers.values())clearTimeout(timer);
+  });
+  function queueNote(id) {
+    clearTimeout(timers.get(id));
+    timers.set(id,setTimeout(()=>{timers.delete(id);void saveNote(id);},650));
+  }
+  async function saveNote(id) {
+    const sent=memory.drafts.get(id);
+    if(!sent||sent.state==='saving')return;
+    saveDraft(id,{...sent,state:'saving',error:null});
+    try{
+      const result=await rpc('inbox-update',{id,revision:sent.revision,patch:{context:sent.context}});
+      if(disposed)return;
+      const latest=memory.drafts.get(id);
+      const more=latest.context!==sent.context;
+      memory.change={result};
+      saveDraft(id,more?{...latest,revision:result.revision,state:'queued'}:null);
+      if(more)queueNote(id);
+    }catch(error){
+      if(disposed)return;
+      memory.change={result:null};
+      saveDraft(id,{...memory.drafts.get(id),state:'error',error});
+    }
+  }
   const subscribe=listener=>{listeners.add(listener);return()=>listeners.delete(listener);};
   function usePersonal(key) {
     const value=useSyncExternalStore(subscribe,()=>memory[key],()=>memory[key]);
     return [value,next=>{memory[key]=typeof next==='function'?next(memory[key]):next;for(const listener of listeners)listener();}];
   }
-  function WorkPicker({value,onChange,disabled=false,allowEmpty=true,naturalOnly=false}) {
-    const [works,setWorks]=useState([]),[problem,setProblem]=useState(''),[loaded,setLoaded]=useState(false);
-    const load=async()=>{try{const catalog=await rpc('catalog',{});const unique=new Map();for(const graph of catalog.graphs)for(const work of graph.works)unique.set(workIdentity(work.workRef),work);setWorks([...unique.values()]);setLoaded(true);setProblem('');}catch{setProblem('工作目录暂不可读，已有的关联仍会保留。');}};
+  function useWorkCatalog() {
+    const [works,setWorks]=useState(null),[problem,setProblem]=useState('');
+    const load=async()=>{
+      try{
+        const catalog=await rpc('catalog',{});
+        const unique=new Map();
+        for(const graph of catalog.graphs)for(const work of graph.works)unique.set(workIdentity(work.workRef),work);
+        setWorks([...unique.values()]);setProblem('');
+      }catch{setProblem('工作目录暂不可读，已有的关联仍会保留。');}
+    };
     useEffect(()=>{void load();},[]);
-    const rows=works.filter(work=>!naturalOnly||work.workRef.kind==='logseq');
+    return {works,problem,load};
+  }
+  function WorkLink({workRef,onClick}) {
+    const {works}=useWorkCatalog();
+    const work=works?.find(row=>workIdentity(row.workRef)===workIdentity(workRef));
+    return <button type="button" className="pi-work-chip" onClick={onClick}>{work?.title??'关联工作'} ↗</button>;
+  }
+  function WorkPicker({value,onChange,disabled=false,emptyLabel='不关联工作',label='关联工作',naturalOnly=false}) {
+    const {works,problem,load}=useWorkCatalog();
+    const rows=(works??[]).filter(work=>!naturalOnly||work.workRef.kind==='logseq');
     const current=workIdentity(value);
-    return <div className="pi-field"><label>关联工作<select aria-label={naturalOnly?'选择 Logseq 来源工作':'关联工作'} disabled={disabled} value={current} onChange={event=>onChange(event.target.value?JSON.parse(event.target.value):null)}>
-      <option value="">{allowEmpty?'不关联工作':'选择一件工作'}</option>
+    return <div className="pi-field"><label>{label}<select aria-label={naturalOnly?'选择 Logseq 来源工作':label} disabled={disabled} value={current} onChange={event=>onChange(event.target.value?JSON.parse(event.target.value):null)}>
+      <option value="">{emptyLabel}</option>
       {current&&!rows.some(work=>workIdentity(work.workRef)===current)?<option value={current}>已保存的工作关联</option>:null}
       {rows.map(work=><option key={workIdentity(work.workRef)} value={workIdentity(work.workRef)}>{work.title} · {work.location}</option>)}
-    </select></label>{problem?<p className="pi-hint">{problem} <button type="button" onClick={()=>void load()}>重试</button></p>:loaded&&!rows.length?<p className="pi-hint">工作目录还没有可选项目，可稍后再关联。</p>:null}</div>;
+    </select></label>{problem?<p className="pi-hint">{problem} <button type="button" onClick={()=>void load()}>重试</button></p>:works&&!rows.length?<p className="pi-hint">工作目录还没有可选项目，可稍后再关联。</p>:null}</div>;
   }
   function SourcePicker({sessionId,onPick,onClose}) {
     const [reader,setReader]=useState(null),[problem,setProblem]=useState(''),[busy,setBusy]=useState(false);
@@ -40,105 +93,209 @@ export function createPersonalInbox({rpc,insertReference,onOpenSession,onOpenPla
       {reader&&problem?<p role="alert" className="pi-error">{problem}</p>:null}
     </section>;
   }
-  function Conversion({item,kind,onDone,onClose}) {
+  function Conversion({item,kind,busy,setBusy,onDone,onClose}) {
     const saved=memory.conversions.get(item.id);
-    const [form,setForm]=useState(()=>saved?.kind===kind?saved.form:{title:titleOf(item),date:localDate(),slotId:'',workRef:item.workRef??item.outcomes.findLast(result=>result.kind==='formal-task')?.reference.workRef??null,resolve:true});
-    const [options,setOptions]=useState(null),[problem,setProblem]=useState(''),[busy,setBusy]=useState(false);
+    const [form,setForm]=useState(()=>saved?.kind===kind?saved.form:{title:titleOf(item),date:localDate(),slotId:'',workRef:item.workRef??(kind==='work'?item.outcomes.findLast(result=>result.kind==='formal-task')?.reference.workRef:null)??null});
+    const [options,setOptions]=useState(null),[problem,setProblem]=useState('');
     const attempt=useRef(saved?.kind===kind?saved.attempt:null);
     const set=patch=>{const next={...form,...patch};setForm(next);if(!attempt.current)memory.conversions.set(item.id,{kind,form:next,attempt:null});};
-    useEffect(()=>{if(kind==='planner')rpc('inbox-options',{}).then(value=>{setOptions(value);setForm(current=>({...current,slotId:current.slotId||value.slots[0]?.id||''}));}).catch(error=>setProblem(errorMessage(error)));},[]);
+    useEffect(()=>{if(kind==='planner')rpc('inbox-options',{}).then(value=>{setOptions(value);setForm(current=>({...current,slotId:current.slotId||value.slots.find(slot=>!slot.start)?.id||value.slots[0]?.id||''}));}).catch(error=>setProblem(errorMessage(error)));},[]);
     const sourceAnchor=item.source?.type==='logseq'?{graphId:item.source.graphId,blockUuid:item.source.blockUuid}:null;
     const anchor=sourceAnchor??(form.workRef?.kind==='logseq'?{graphId:form.workRef.graphId,blockUuid:form.workRef.rootUuid}:null);
     const workRef=form.workRef??(sourceAnchor?{kind:'logseq',graphId:sourceAnchor.graphId,rootUuid:sourceAnchor.blockUuid,sourceKind:'block'}:null);
-    const label=kind==='planner'?'安排到规划':kind==='work'?'发展为工作':'创建正式任务';
+    const needsTitle=kind!=='work'||(!form.workRef&&Boolean(sourceAnchor));
+    const label=kind==='planner'?'安排时间':kind==='work'?'发展为工作':'创建正式任务';
     return <form className="pi-conversion" aria-label={label} onSubmit={async event=>{
-      event.preventDefault();setBusy(true);setProblem('');
-      if(!attempt.current){attempt.current={id:item.id,revision:item.revision,operationId:crypto.randomUUID(),kind,confirmed:true,resolve:form.resolve,
-        parameters:kind==='planner'?{entry:{title:form.title,date:form.date,slotId:form.slotId}}:kind==='work'?{title:form.title,workRef}:{title:form.title,anchor}};memory.conversions.set(item.id,{kind,form,attempt:attempt.current});}
+      event.preventDefault();if(busy)return;setBusy(true);setProblem('');
+      if(!attempt.current){attempt.current={id:item.id,revision:item.revision,operationId:crypto.randomUUID(),kind,confirmed:true,resolve:true,
+        parameters:kind==='planner'?{entry:{title:form.title,date:form.date,slotId:form.slotId}}:kind==='work'?{...(needsTitle?{title:form.title}:{}),workRef}:{title:form.title,anchor}};memory.conversions.set(item.id,{kind,form,attempt:attempt.current});}
       try{const result=await rpc('inbox-convert',{...attempt.current,revision:item.revision});memory.conversions.delete(item.id);await onDone(result);onClose();}catch(error){setProblem(errorMessage(error));await onDone(null);}finally{setBusy(false);}
     }}><div className="pi-row"><h3>{label}</h3><button type="button" disabled={busy} onClick={onClose}>关闭</button></div>
-      <label>处理后的名称<input required maxLength={300} value={form.title} disabled={busy||Boolean(attempt.current)} onChange={event=>set({title:event.target.value})}/></label>
-      {kind==='planner'?<div className="pi-row pi-fields"><label>日期<input type="date" required value={form.date} disabled={busy||Boolean(attempt.current)} onChange={event=>set({date:event.target.value})}/></label><label>时间段<select required value={form.slotId} disabled={busy||Boolean(attempt.current)} onChange={event=>set({slotId:event.target.value})}><option value="">选择时间段</option>{options?.slots.map(slot=><option key={slot.id} value={slot.id}>{slot.name}</option>)}</select></label></div>:kind==='work'||!sourceAnchor?<WorkPicker value={form.workRef} onChange={ref=>set({workRef:ref})} naturalOnly={kind==='formal-task'} disabled={busy||Boolean(attempt.current)}/>:<p className="pi-hint">使用已导入的 Logseq 原文作为来源。</p>}
-      {kind==='formal-task'?<p className="pi-hint">确认后通过现有正式任务服务创建任务，原始记录继续保留。需要来源所在的 Logseq 图保持连接。</p>:kind==='work'?<p className="pi-hint">进入所选工作继续发展，原始记录继续保留。</p>:<p className="pi-hint">创建一条个人安排，原始记录继续保留。</p>}
-      <label className="pi-check"><input type="checkbox" checked={form.resolve} disabled={busy||Boolean(attempt.current)} onChange={event=>set({resolve:event.target.checked})}/>处理成功后标为已处理</label>
+      {needsTitle?(kind==='planner'?<details><summary>{form.title||'设置安排名称'}</summary><label>安排名称<input required maxLength={300} value={form.title} disabled={busy||Boolean(attempt.current)} onChange={event=>set({title:event.target.value})}/></label></details>:<label>名称<input required maxLength={300} value={form.title} disabled={busy||Boolean(attempt.current)} onChange={event=>set({title:event.target.value})}/></label>):null}
+      {kind==='planner'?<details className="pi-schedule"><summary>{form.date===localDate()?'今天':form.date} · {options?.slots.find(slot=>slot.id===form.slotId)?.name??'读取时间段…'}</summary><div className="pi-row pi-fields"><label>日期<input type="date" required value={form.date} disabled={busy||Boolean(attempt.current)} onChange={event=>set({date:event.target.value})}/></label><label>时间段<select required value={form.slotId} disabled={busy||Boolean(attempt.current)} onChange={event=>set({slotId:event.target.value})}><option value="">选择时间段</option>{options?.slots.map(slot=><option key={slot.id} value={slot.id}>{slot.name}</option>)}</select></label></div></details>:(kind==='work'&&!item.workRef)||(kind==='formal-task'&&!sourceAnchor&&item.workRef?.kind!=='logseq')?<WorkPicker label={kind==='work'?'在哪件工作中继续':'选择任务来源'} emptyLabel={kind==='work'&&sourceAnchor?'使用已导入的原文':'选择一件现有工作'} value={form.workRef} onChange={ref=>set({workRef:ref})} naturalOnly={kind==='formal-task'} disabled={busy||Boolean(attempt.current)}/>:<p className="pi-hint">{kind==='work'?'在关联工作中继续。':'使用已关联的 Logseq 原文。创建任务需要图谱在线。'}</p>}
       {problem?<p role="alert" className="pi-error">{problem}</p>:null}
-      <div className="pi-actions">{attempt.current?<button type="button" disabled={busy||Boolean(item.pendingConversion)} onClick={()=>{attempt.current=null;memory.conversions.delete(item.id);setProblem('');}}>重新填写</button>:null}<button className="pi-primary" disabled={busy||!form.title.trim()||(kind==='planner'&&!form.slotId)||(kind==='work'&&!workRef)||(kind==='formal-task'&&!anchor)}>{busy?'正在处理…':attempt.current?'重试同一操作':`确认${label}`}</button></div>
+      <div className="pi-actions">{attempt.current?<button type="button" disabled={busy||Boolean(item.pendingConversion)} onClick={()=>{attempt.current=null;memory.conversions.delete(item.id);setProblem('');}}>重新填写</button>:null}<button className="pi-primary" disabled={busy||(needsTitle&&!form.title.trim())||(kind==='planner'&&!form.slotId)||(kind==='work'&&!workRef)||(kind==='formal-task'&&!anchor)}>{busy?'正在处理…':attempt.current?'重试同一操作':kind==='planner'?'创建安排':`确认${label}`}</button></div>
     </form>;
   }
   function Detail({item,sessionId,inputActions,onSaved,onBack}) {
-    const [draft,setDraft]=useState(()=>memory.drafts.get(item.id)??itemDraft(item));
-    const [editing,setEditing]=useState(()=>memory.edits.has(item.id)),[editText,setEditText]=useState(()=>memory.edits.get(item.id)?.content??item.content);
-    const [busy,setBusy]=useState(false),[problem,setProblem]=useState(''),[notice,setNotice]=useState(''),[conversion,setConversion]=useState(null);
+    const draft=useSyncExternalStore(subscribe,()=>memory.drafts.get(item.id),()=>undefined);
+    const [panel,setPanel]=useState(()=>draft?'note':null);
+    const [material,setMaterial]=useState(null);
+    const [editing,setEditing]=useState(()=>memory.edits.has(item.id));
+    const [editText,setEditText]=useState(()=>memory.edits.get(item.id)?.content??item.content);
+    const [busy,setBusy]=useState(false),[problem,setProblem]=useState(''),[notice,setNotice]=useState('');
     const operation=useRef(null),editRevision=useRef(memory.edits.get(item.id)?.revision??item.revision);
-    const dirty=isDirty(draft,item),locked=Boolean(item.pendingConversion),actionDisabled=busy||locked||dirty||editing;
-    const updateDraft=patch=>{const next={...draft,...patch};setDraft(next);memory.drafts.set(item.id,next);};
-    useEffect(()=>{if(!memory.drafts.has(item.id)){setDraft(itemDraft(item));}if(!editing&&!memory.edits.has(item.id))setEditText(item.content);},[item.revision]);
-    const accept=result=>{memory.drafts.delete(item.id);setDraft(itemDraft(result));return onSaved(result);};
-    const run=async(method,payload,message)=>{setBusy(true);setProblem('');setNotice('');try{const result=await rpc(method,payload);await accept(result);setNotice(message);}catch(error){setProblem(errorMessage(error));await onSaved(null);}finally{setBusy(false);}};
-    return <article className="pi-detail" aria-label="记录详情"><div className="pi-row"><button type="button" className="pi-back" onClick={onBack}>‹ 返回记录</button><span className="pi-meta">{sourceNames[item.source?.type]??'直接记录'} · {when(item.createdAt)}</span></div>
-      <div className="pi-row"><span className="pi-badge">{statusNames[item.status]}</span><span className="pi-meta">{['open','waiting'].includes(item.status)?(item.stage==='developing'?'正在发展':'新记录'):'原始记录已保留'}</span></div>
+    const locked=Boolean(item.pendingConversion),disabled=busy||locked||Boolean(draft)||editing;
+    const active=item.status==='open'||item.status==='waiting';
+    const conflict=draft?.error?.code==='INBOX_CONFLICT';
+    const note=draft?.context??item.context;
+    const toggle=key=>setPanel(current=>current===key?null:key);
+    const run=async(method,payload,message)=>{
+      setBusy(true);setProblem('');setNotice('');
+      try{const result=await rpc(method,payload);await onSaved(result);setNotice(message);return true;}
+      catch(error){setProblem(errorMessage(error));await onSaved(null);return false;}
+      finally{setBusy(false);}
+    };
+    const update=(patch,message)=>run('inbox-update',{id:item.id,revision:item.revision,patch},message);
+    const move=async(status,message)=>{if(await update({status},message))setPanel(null);};
+    const archive=async()=>{
+      const restoring=item.status==='archived';
+      if(await run(restoring?'inbox-restore':'inbox-archive',{id:item.id,revision:item.revision},restoring?'记录已恢复。':'已归档，可随时恢复。'))setPanel(null);
+    };
+    const openWork=async()=>{
+      try{
+        const key=workIdentity(item.workRef);
+        if(operation.current?.key!==key)operation.current={key,id:crypto.randomUUID()};
+        const result=await rpc('inbox-open-work',{id:item.id,operationId:operation.current.id});
+        await onOpenSession(result.sessionId);
+      }catch(error){setProblem(errorMessage(error));}
+    };
+    const discuss=async()=>{
+      setProblem('');
+      try{
+        if(!await insertInboxReference(inputActions,item,(ref,span)=>insertReference(sessionId,ref,span)))throw Error('busy');
+        setNotice('已放入当前输入框，尚未发送。');
+      }catch{setProblem('当前输入框暂不可用，请稍后重试。');}
+    };
+    const saveMaterials=async materials=>{
+      if(await update({materials},'材料已更新。')){setPanel(null);setMaterial(null);}
+    };
+    return <article className="pi-detail" aria-label="记录详情">
+      <div className="pi-row"><button type="button" className="pi-back" onClick={onBack}>‹ 返回记录</button><span className="pi-meta">{sourceNames[item.source?.type]??'直接记录'} · {when(item.createdAt)}{item.status!=='open'?<> · {statusNames[item.status]}</>:null}</span></div>
       <div className="pi-content">{visibleContent(item)}</div>
       {item.editedContent!==null||visibleContent(item)!==item.originalContent?<details><summary>查看最初原文</summary><pre className="pi-original">{item.originalContent}</pre></details>:null}
-      {item.source?.type==='logseq'?<a className="pi-link" href={blockUrl(item.source.graphId,item.source.blockUuid)}>在 Logseq 打开来源 ↗</a>:item.source?.locator?<p className="pi-hint">来源：{safeLink(item.source.locator)?<a href={safeLink(item.source.locator)} target="_blank" rel="noreferrer">{item.source.locator}</a>:item.source.locator}</p>:null}
-      <div className="pi-actions pi-start"><button type="button" disabled={actionDisabled} onClick={()=>{setEditing(true);editRevision.current=item.revision;memory.edits.set(item.id,{content:editText,revision:item.revision});}}>编辑显示文字</button><button type="button" disabled={busy||!sessionId||!inputActions} onClick={async()=>{setProblem('');try{if(!await insertInboxReference(inputActions,item,(ref,span)=>insertReference(sessionId,ref,span)))throw Error('busy');setNotice('已放入当前输入框，尚未发送。');}catch{setProblem('当前输入框暂不可用，请稍后重试。');}}}>带入当前讨论</button></div>
-      {editing?<form className="pi-subform" onSubmit={async event=>{event.preventDefault();setBusy(true);setProblem('');try{const result=await rpc('inbox-edit',{id:item.id,revision:editRevision.current,content:editText,confirmed:true});memory.edits.delete(item.id);setEditing(false);await accept(result);}catch(error){setProblem(errorMessage(error));await onSaved(null);}finally{setBusy(false);}}}><label>显示文字<textarea value={editText} required disabled={busy} onChange={event=>{setEditText(event.target.value);memory.edits.set(item.id,{content:event.target.value,revision:editRevision.current});}}/></label><p className="pi-hint">最初原文始终保留。</p><div className="pi-actions"><button type="button" disabled={busy} onClick={()=>{memory.edits.delete(item.id);setEditing(false);setEditText(item.content);}}>取消编辑</button><button className="pi-primary" disabled={busy||!editText.trim()}>保存显示文字</button></div></form>:null}
-      {editing&&editRevision.current!==item.revision?<div className="pi-warning"><p>显示文字已有新版本，你的编辑已保留。</p><details><summary>查看最新显示文字</summary><pre>{item.content}</pre></details><button type="button" onClick={()=>{editRevision.current=item.revision;memory.edits.set(item.id,{content:editText,revision:item.revision});setProblem('');setNotice('已采用当前版本继续编辑。');}}>已比较，继续保存我的编辑</button></div>:null}
-      <form className="pi-development" onSubmit={event=>{event.preventDefault();void run('inbox-update',{id:item.id,revision:draft.revision,patch:{context:draft.context,materials:draft.materials,workRef:draft.workRef,...(item.status==='archived'?{}:{status:draft.status})}},'补充内容已保存。');}}>
-        <h2>继续补充</h2><label>背景与想法<textarea placeholder="补充一点背景、下一步想法，或讨论结论…" value={draft.context} disabled={busy||locked||editing} onChange={event=>updateDraft({context:event.target.value})}/></label>
-        <details className="pi-materials" open={draft.materials.length>0||undefined}><summary>相关材料 {draft.materials.length?`· ${draft.materials.length}`:''}</summary>
-          {draft.materials.map((material,index)=><div className="pi-material" key={index}><label>名称<input aria-label={`材料 ${index+1} 名称`} required value={material.label} disabled={busy||locked||editing} onChange={event=>updateDraft({materials:draft.materials.map((row,i)=>i===index?{...row,label:event.target.value}:row)})}/></label><label>网页或文件位置<input aria-label={`材料 ${index+1} 位置`} required value={material.locator} disabled={busy||locked||editing} onChange={event=>updateDraft({materials:draft.materials.map((row,i)=>i===index?{...row,locator:event.target.value}:row)})}/></label><button type="button" aria-label={`移除材料 ${index+1}`} disabled={busy||locked||editing} onClick={()=>updateDraft({materials:draft.materials.filter((_,i)=>i!==index)})}>移除</button>{safeLink(material.locator)?<a href={safeLink(material.locator)} target="_blank" rel="noreferrer">打开 ↗</a>:null}</div>)}
-          <button type="button" disabled={busy||locked||editing} onClick={()=>updateDraft({materials:[...draft.materials,{label:'',locator:''}]})}>＋ 添加材料</button>
-        </details>
-        <details><summary>{draft.workRef?'已关联一件工作':'关联工作 · 可稍后再选'}</summary><WorkPicker value={draft.workRef} onChange={ref=>updateDraft({workRef:ref})} disabled={busy||locked||editing}/>{item.workRef?<button type="button" disabled={actionDisabled} onClick={async()=>{try{const key=workIdentity(item.workRef);if(operation.current?.key!==key)operation.current={key,id:crypto.randomUUID()};const result=await rpc('inbox-open-work',{id:item.id,operationId:operation.current.id});await onOpenSession(result.sessionId);}catch(error){setProblem(errorMessage(error));}}}>进入关联工作 ↗</button>:null}</details>
-        <div className="pi-row pi-fields"><label>处理状态<select aria-label="处理状态" value={item.status==='archived'?'archived':draft.status} disabled={busy||locked||editing||item.status==='archived'} onChange={event=>updateDraft({status:event.target.value})}>{Object.entries(statusNames).filter(([status])=>status!=='archived'||item.status==='archived').map(([status,label])=><option key={status} value={status}>{label}</option>)}</select></label><button className="pi-primary" disabled={busy||locked||editing||!dirty}>{busy?'正在保存…':'保存补充'}</button></div>
-        {dirty?<p className="pi-hint">有未保存的补充内容，切换记录后仍会保留。</p>:null}
-      </form>
-      {draft.revision!==item.revision&&dirty?<div className="pi-warning"><p>已读到更新版本。你的输入仍保留，请先比较再决定是否保存。</p><details><summary>查看最新保存的背景</summary><pre>{item.context||'没有补充背景'}</pre></details><button type="button" onClick={()=>updateDraft({revision:item.revision})}>已比较，使用当前输入继续保存</button><button type="button" onClick={()=>{memory.drafts.delete(item.id);setDraft(itemDraft(item));}}>改用最新保存内容</button></div>:null}
+      {item.source?.type==='logseq'?<a className="pi-link" href={blockUrl(item.source.graphId,item.source.blockUuid)}>在 Logseq 打开来源 ↗</a>:item.source?.locator?<p className="pi-hint">{safeLink(item.source.locator)?<a href={safeLink(item.source.locator)} target="_blank" rel="noreferrer">打开来源 ↗</a>:item.source.locator}</p>:null}
+      {item.outcomes.length?<section className="pi-outcomes"><h2>处理结果</h2>{item.outcomes.map(outcome=><div className="pi-row" key={outcome.operationId}><span>{outcome.kind==='planner'?'已加入规划':outcome.kind==='work'?'已发展为工作':'已创建正式任务'} · {when(outcome.createdAt)}</span>{outcome.kind==='planner'?<button type="button" onClick={()=>onOpenPlanner?.(outcome.reference.entryId,sessionId)}>查看安排 ↗</button>:outcome.reference.logseqUrl?<a href={outcome.reference.logseqUrl}>在 Logseq 查看任务 ↗</a>:outcome.reference.sessionId?<button type="button" onClick={()=>void onOpenSession(outcome.reference.sessionId)}>继续工作 ↗</button>:null}</div>)}</section>:null}
+      {panel==='note'?<section className="pi-note">
+        <label>补充背景<textarea autoFocus maxLength={100000} value={note} disabled={busy||locked||editing} placeholder="写下一点背景、想法或讨论结论…" onChange={event=>{
+          const pending=memory.drafts.get(item.id);
+          saveDraft(item.id,{context:event.target.value,revision:pending?.revision??item.revision,state:pending?.state??'queued',error:pending?.error});
+          if(!pending||pending.state==='queued')queueNote(item.id);
+        }}/></label>
+        <div className="pi-row"><span role="status" className="pi-hint">{draft?.state==='error'?'输入已保留':draft?'正在保存…':note?'已保存':'输入后自动保存'}</span><button type="button" className="pi-link" onClick={()=>setPanel(null)}>收起</button></div>
+      </section>:note?<section className="pi-note"><h2>补充背景</h2><p>{note}</p>{active?<button type="button" className="pi-link" disabled={busy||locked||editing} onClick={()=>toggle('note')}>继续补充</button>:null}</section>:null}
+      {draft?.state==='error'?<div className="pi-warning" role="alert"><p>{errorMessage(draft.error)}</p>
+        {conflict?<details><summary>查看最新保存的背景</summary><pre>{item.context||'没有补充背景'}</pre></details>:null}
+        <button type="button" disabled={locked||(conflict&&item.revision===draft.revision)} onClick={()=>{if(conflict)saveDraft(item.id,{...draft,revision:item.revision});void saveNote(item.id);}}>{conflict?'已比较，保存我的背景':'重试保存'}</button>
+        <button type="button" onClick={()=>saveDraft(item.id,null)}>放弃本次修改</button>
+      </div>:null}
+      {item.workRef?<WorkLink workRef={item.workRef} onClick={()=>void openWork()}/>:null}
+      {item.materials.length?<section className="pi-materials"><h2>相关材料</h2><ul>{item.materials.map((row,index)=><li key={index}>
+        {safeLink(row.locator)?<a href={safeLink(row.locator)} target="_blank" rel="noreferrer">{row.label} ↗</a>:<details><summary>{row.label}</summary><p className="pi-hint">{row.locator}</p></details>}
+        {panel==='materials'?<button type="button" className="pi-link" disabled={disabled} onClick={()=>setMaterial({...row,index})}>编辑</button>:null}
+      </li>)}</ul></section>:null}
+      <div className="pi-actions pi-start pi-detail-actions">
+        {active&&!note&&panel!=='note'?<button type="button" className="pi-link" disabled={busy||locked||editing} onClick={()=>toggle('note')}>＋ 补充背景</button>:null}
+        {active&&!item.workRef?<button type="button" className="pi-link" disabled={disabled} aria-expanded={panel==='work'} onClick={()=>toggle('work')}>关联工作</button>:null}
+        {active?<button type="button" disabled={disabled} aria-expanded={['next','work-conversion','planner','formal-task'].includes(panel)} onClick={()=>toggle('next')}>决定下一步</button>:<button type="button" disabled={disabled} onClick={()=>void (item.status==='archived'?archive():move('open','记录已重新打开。'))}>{item.status==='archived'?'恢复记录':'重新打开'}</button>}
+        <details className="pi-menu"><summary>更多操作</summary><div className="pi-menu-items" onClick={event=>{if(event.target.closest('button'))event.currentTarget.parentElement.open=false;}}>
+          {sessionId&&inputActions?<button type="button" disabled={busy} onClick={()=>void discuss()}>带入当前讨论</button>:null}
+          {!active?<button type="button" disabled={busy||locked||editing} onClick={()=>toggle('note')}>补充背景</button>:null}
+          <button type="button" disabled={disabled} onClick={()=>{setMaterial(null);toggle('materials');}}>添加材料{item.materials.length?'或编辑':''}</button>
+          {item.workRef||!active?<button type="button" disabled={disabled} onClick={()=>toggle('work')}>{item.workRef?'更改关联工作':'关联工作'}</button>:null}
+          <button type="button" disabled={disabled} onClick={()=>{setPanel(null);setEditText(item.content);setEditing(true);editRevision.current=item.revision;memory.edits.set(item.id,{content:item.content,revision:item.revision});}}>修改记录文字</button>
+          {item.status==='resolved'?<button type="button" disabled={disabled} onClick={()=>toggle('next')}>再次安排下一步</button>:null}
+          {item.canUndo?<button type="button" disabled={disabled} onClick={()=>void run('inbox-undo',{id:item.id,revision:item.revision},'已撤销最近一次修改。')}>撤销上次修改</button>:null}
+          {item.status!=='archived'?<button type="button" disabled={disabled} onClick={()=>void archive()}>归档记录</button>:null}
+        </div></details>
+      </div>
+      {panel==='work'?<div className="pi-subform"><WorkPicker value={item.workRef} disabled={disabled} onChange={async workRef=>{if(await update({workRef},workRef?'已关联工作。':'已移除工作关联。'))setPanel(null);}}/></div>:null}
+      {panel==='materials'?<form className="pi-subform" onSubmit={event=>{
+        event.preventDefault();
+        const locator=material?.locator.trim();
+        if(!locator)return;
+        const row={label:material.label.trim()||locator.slice(0,300),locator};
+        void saveMaterials(material.index==null?[...item.materials,row]:item.materials.map((value,index)=>index===material.index?row:value));
+      }}><label>链接或文件位置<input autoFocus required maxLength={4096} placeholder="网页、文件路径或 Logseq 链接" value={material?.locator??''} disabled={disabled} onChange={event=>setMaterial({...material,locator:event.target.value,label:material?.label??''})}/></label>
+        <label>名称（可选）<input maxLength={300} value={material?.label??''} disabled={disabled} onChange={event=>setMaterial({...material,label:event.target.value,locator:material?.locator??''})}/></label>
+        <div className="pi-actions">{material?.index!=null?<button type="button" disabled={disabled} onClick={()=>void saveMaterials(item.materials.filter((_,index)=>index!==material.index))}>移除材料</button>:null}<button type="button" onClick={()=>setPanel(null)}>取消</button><button className="pi-primary" disabled={disabled||!material?.locator.trim()}>保存材料</button></div>
+      </form>:null}
+      {editing?<form className="pi-subform" onSubmit={async event=>{event.preventDefault();setBusy(true);setProblem('');try{const result=await rpc('inbox-edit',{id:item.id,revision:editRevision.current,content:editText,confirmed:true});memory.edits.delete(item.id);setEditing(false);await onSaved(result);}catch(error){setProblem(errorMessage(error));await onSaved(null);}finally{setBusy(false);}}}><label>记录文字<textarea value={editText} required disabled={busy} onChange={event=>{setEditText(event.target.value);memory.edits.set(item.id,{content:event.target.value,revision:editRevision.current});}}/></label><p className="pi-hint">最初原文始终保留。</p><div className="pi-actions"><button type="button" disabled={busy} onClick={()=>{memory.edits.delete(item.id);setEditing(false);setEditText(item.content);}}>取消编辑</button><button className="pi-primary" disabled={busy||!editText.trim()}>保存记录文字</button></div></form>:null}
+      {editing&&editRevision.current!==item.revision?<div className="pi-warning"><p>记录文字已有新版本，你的编辑已保留。</p><details><summary>查看最新记录文字</summary><pre>{item.content}</pre></details><button type="button" onClick={()=>{editRevision.current=item.revision;memory.edits.set(item.id,{content:editText,revision:item.revision});setProblem('');setNotice('已采用当前版本继续编辑。');}}>已比较，继续保存我的编辑</button></div>:null}
+      {panel==='next'?<div className="pi-actions pi-start pi-next" aria-label="决定下一步">
+        {[['work-conversion','发展为工作'],['planner','安排时间'],['formal-task','创建正式任务']].map(([kind,label])=><button key={kind} type="button" disabled={disabled} onClick={()=>setPanel(kind)}>{label}</button>)}
+        {active?<button type="button" disabled={disabled} onClick={()=>void (item.status==='waiting'?move('open','已恢复处理。'):move('waiting','已标记为等待中。'))}>{item.status==='waiting'?'继续处理':'标记等待中'}</button>:null}
+        {active?<button type="button" disabled={disabled} onClick={()=>void move('resolved','已标为处理完成。')}>标记完成</button>:null}
+      </div>:null}
+      {['work-conversion','planner','formal-task'].includes(panel)?<Conversion key={panel} item={item} kind={panel==='work-conversion'?'work':panel} busy={busy} setBusy={setBusy} onDone={async result=>{await onSaved(result);if(result)setPanel(null);}} onClose={()=>setPanel(null)}/>:null}
       {problem?<p role="alert" className="pi-error">{problem}</p>:null}{notice?<p role="status" className="pi-notice">{notice}</p>:null}
-      {locked?<section className="pi-warning"><h3>上次处理结果尚未确认</h3><p>原始记录已保存，可找回同一次操作的结果。</p><button type="button" disabled={busy} onClick={()=>void run('inbox-convert',{id:item.id,revision:item.revision,...item.pendingConversion,confirmed:true},'处理结果已找回。')}>找回处理结果</button></section>:null}
-      {item.status!=='archived'?<div className="pi-exits"><h2>决定下一步</h2><div className="pi-actions pi-start">{[['work','发展为工作'],['planner','安排到规划'],['formal-task','创建正式任务']].map(([kind,label])=><button key={kind} type="button" disabled={actionDisabled} onClick={()=>setConversion(kind)}>{label}</button>)}</div></div>:null}
-      {conversion?<Conversion key={conversion} item={item} kind={conversion} onDone={result=>result?accept(result):onSaved(null)} onClose={()=>setConversion(null)}/>:null}
-      {item.outcomes.length?<section className="pi-outcomes"><h2>处理去向</h2>{item.outcomes.map(outcome=><div className="pi-row" key={outcome.operationId}><span>{outcome.kind==='planner'?'已加入规划':outcome.kind==='work'?'已发展为工作':'已创建正式任务'} · {when(outcome.createdAt)}</span>{outcome.kind==='planner'?<button type="button" onClick={()=>onOpenPlanner?.()}>查看规划 ↗</button>:outcome.reference.logseqUrl?<a href={outcome.reference.logseqUrl}>查看来源 ↗</a>:outcome.reference.sessionId?<button type="button" onClick={()=>void onOpenSession(outcome.reference.sessionId)}>继续工作 ↗</button>:null}</div>)}</section>:null}
-      <footer className="pi-detail-foot"><span>更新于 {when(item.updatedAt)}</span><div className="pi-actions">{item.canUndo?<button type="button" disabled={actionDisabled} onClick={()=>void run('inbox-undo',{id:item.id,revision:item.revision},'已撤销最近一次修改。')}>撤销上次修改</button>:null}<button type="button" disabled={actionDisabled} onClick={()=>void run(item.status==='archived'?'inbox-restore':'inbox-archive',{id:item.id,revision:item.revision},item.status==='archived'?'已恢复。':'已归档，可随时恢复。')}>{item.status==='archived'?'恢复记录':'归档记录'}</button></div></footer>
+      {locked?<section className="pi-warning"><h3>上次处理结果尚未确认</h3><button type="button" disabled={busy||Boolean(draft)} onClick={()=>void run('inbox-convert',{id:item.id,revision:item.revision,...item.pendingConversion,confirmed:true},'处理结果已找回。')}>找回处理结果</button></section>:null}
     </article>;
   }
   return function Inbox({sessionId,inputActions}) {
+    const [change]=usePersonal('change');
+    useSyncExternalStore(subscribe,()=>memory.drafts.size,()=>0);
     const captureId=useId();
     const [capture,setCapture]=usePersonal('capture'),[source,setSource]=usePersonal('source'),[selection,setSelection]=usePersonal('selection');
     const [query,setQuery]=usePersonal('query'),[status,setStatus]=usePersonal('status'),[sourceFilter,setSourceFilter]=usePersonal('sourceFilter'),[linked,setLinked]=usePersonal('linked'),[workFilter,setWorkFilter]=usePersonal('workFilter');
     const [items,setItems]=useState([]),[detail,setDetail]=useState(null),[problem,setProblem]=useState(''),[captureError,setCaptureError]=useState(''),[notice,setNotice]=useState('');
+    const [captureFocused,setCaptureFocused]=useState(false);
     const [saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[importing,setImporting]=useState(false),[backup,setBackup]=useState(null),[problems,setProblems]=useState([]);
-    const request=useRef(0),alive=useRef(true),file=useRef(null),captureInput=useRef(null),latestSelection=useRef(selection);
+    const request=useRef(0),alive=useRef(true),file=useRef(null),captureInput=useRef(null),scroll=useRef(null),browser=useRef(null),listScroll=useRef(0),latestSelection=useRef(selection);
     latestSelection.current=selection;
     const refresh=async()=>{
       const ticket=++request.current;
+      const {query,status,sourceFilter,linked,workFilter}=memory;
       try{const result=await rpc('inbox-list',{...(query?{query}:{}),...(status?{status}:{}),...(sourceFilter?{sourceType:sourceFilter}:{}),...(linked?{linked:linked==='yes'}:{}),...(workFilter?{workRef:workFilter}:{})});if(alive.current&&ticket===request.current){setItems(result.items);setProblems(result.problems);setProblem('');}}
       catch(error){if(alive.current&&ticket===request.current)setProblem(errorMessage(error));}finally{if(alive.current&&ticket===request.current)setLoading(false);}
     };
     const readDetail=async(id=latestSelection.current)=>{if(!id)return;try{const value=await rpc('inbox-get',{id});if(alive.current&&latestSelection.current===id)setDetail(current=>current?.id===id&&current.revision>value.revision?current:value);}catch(error){if(alive.current&&latestSelection.current===id)setProblem(errorMessage(error));}};
-    const saved=async result=>{if(result&&latestSelection.current===result.id)setDetail(result);else if(!result)await readDetail();await refresh();};
+    const saved=async result=>{if(!alive.current)return;if(result&&latestSelection.current===result.id)setDetail(current=>current?.id===result.id&&current.revision>result.revision?current:result);else if(!result)await readDetail();await refresh();};
+    useEffect(()=>{if(change)void saved(change.result);},[change]);
     useEffect(()=>{alive.current=true;return()=>{alive.current=false;request.current++;};},[]);
     useEffect(()=>{const timer=setTimeout(()=>void refresh(),150);return()=>clearTimeout(timer);},[query,status,sourceFilter,linked,workFilter]);
-    useEffect(()=>{setDetail(null);void readDetail(selection);},[selection]);
+    useEffect(()=>{void readDetail(selection);},[selection]);
     useEffect(()=>{const update=()=>{if(document.visibilityState!=='hidden'){void refresh();void readDetail();}};const timer=setInterval(update,10000);window.addEventListener('focus',update);return()=>{clearInterval(timer);window.removeEventListener('focus',update);};},[query,status,sourceFilter,linked,workFilter]);
-    const choose=item=>{setSelection(item.id);setDetail(item);setNotice('');};
-    return <section className={`pi${selection?' pi-has-detail':''}`} aria-label="个人收集箱"><header className="pi-head"><div><span className="pi-eyebrow">Personal Inbox</span><h1>收集箱</h1><p>先留下，再慢慢发展。</p></div><details className="pi-backup-menu"><summary>备份与恢复</summary><button type="button" onClick={async()=>{try{const value=await rpc('inbox-export',{});const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`personal-inbox-${localDate()}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice(`已导出 ${value.items.length} 条记录，包含归档。`);}catch(error){setProblem(errorMessage(error));}}}>导出全部记录</button><button type="button" onClick={()=>file.current.click()}>从备份恢复</button></details><input ref={file} hidden type="file" accept=".json,application/json" onChange={async event=>{const input=event.target;try{const data=JSON.parse(await input.files[0].text());if(data.schemaVersion!==1||!Array.isArray(data.items))throw Error('invalid');setBackup(data);}catch{setProblem('无法读取这份 Inbox 备份，请检查文件。');}finally{input.value='';}}}/></header>
+    useLayoutEffect(()=>{
+      const input=captureInput.current;
+      if(!input)return;
+      input.style.height='';
+      if(capture||captureFocused)input.style.height=Math.min(156,input.scrollHeight)+'px';
+    },[capture,captureFocused]);
+    useLayoutEffect(()=>{
+      if(!scroll.current||!browser.current)return;
+      if(selection&&window.getComputedStyle(browser.current).display==='none')scroll.current.scrollTop=0;
+      if(!selection)scroll.current.scrollTop=listScroll.current;
+    },[selection]);
+    const choose=item=>{
+      if(!selection)listScroll.current=scroll.current?.scrollTop??0;
+      setSelection(item.id);setDetail(item);setNotice('');
+    };
+    return <div className="pi-scroll" ref={scroll}><section className={`pi${selection?' pi-has-detail':''}`} aria-label="个人收集箱"><div className="pi-overview"><header className="pi-head"><h1>收集箱</h1><details className="pi-menu pi-backup-menu"><summary>更多</summary><div className="pi-menu-items" onClick={event=>{if(event.target.closest('button'))event.currentTarget.parentElement.open=false;}}><button type="button" onClick={()=>setImporting(!importing)}>从 Logseq 导入</button><button type="button" onClick={async()=>{try{const value=await rpc('inbox-export',{});const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`personal-inbox-${localDate()}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice(`已导出 ${value.items.length} 条记录，包含归档。`);}catch(error){setProblem(errorMessage(error));}}}>导出全部记录</button><button type="button" onClick={()=>file.current.click()}>从备份恢复</button></div></details><input ref={file} hidden type="file" accept=".json,application/json" onChange={async event=>{const input=event.target;try{const data=JSON.parse(await input.files[0].text());if(data.schemaVersion!==1||!Array.isArray(data.items))throw Error('invalid');setBackup(data);}catch{setProblem('无法读取这份 Inbox 备份，请检查文件。');}finally{input.value='';}}}/></header>
       <form className="pi-capture" onSubmit={async event=>{
         event.preventDefault();if(saving||!capture.trim())return;setSaving(true);setCaptureError('');
         memory.captureAttempt??={id:crypto.randomUUID(),originalContent:capture,source:captureSource(capture,source,sessionId)};
-        try{const item=await rpc('inbox-create',memory.captureAttempt);memory.captureAttempt=null;if(memory.capture===item.originalContent){setCapture('');setSource('');}setSelection(item.id);setDetail(item);setNotice('已保存。');await refresh();captureInput.current?.focus();}catch(error){setCaptureError(errorMessage(error));}finally{setSaving(false);}
-      }}><label htmlFor={captureId} className="pi-visually-hidden">记录值得保留的信息</label><textarea id={captureId} ref={captureInput} placeholder="一句话、一个链接，或一段值得保留的原文…" value={capture} disabled={saving||Boolean(memory.captureAttempt)} onChange={event=>setCapture(event.target.value)} onKeyDown={event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&!event.nativeEvent.isComposing){event.preventDefault();event.currentTarget.form.requestSubmit();}}}/>
-        <div className="pi-row"><details><summary>补充来源</summary><select aria-label="捕获来源" value={source} disabled={saving||Boolean(memory.captureAttempt)} onChange={event=>setSource(event.target.value)}><option value="">自动保留来源</option>{Object.entries(sourceNames).filter(([key])=>key!=='logseq').map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></details><button type="button" className="pi-link" onClick={()=>setImporting(!importing)}>从 Logseq 导入</button><button className="pi-primary" disabled={saving||!capture.trim()}>{saving?'正在保存…':memory.captureAttempt?'重试保存':'保存'}</button></div>
+        try{const item=await rpc('inbox-create',memory.captureAttempt);memory.captureAttempt=null;if(memory.capture===item.originalContent){setCapture('');setSource('');}listScroll.current=0;setSelection(null);setDetail(null);setStatus('open');setQuery('');setSourceFilter('');setLinked('');setWorkFilter(null);setNotice('已存入收集箱。');await refresh();captureInput.current?.focus();}catch(error){setCaptureError(errorMessage(error));}finally{setSaving(false);}
+      }}><div className="pi-capture-entry"><label htmlFor={captureId} className="pi-visually-hidden">记录值得保留的信息</label><textarea id={captureId} ref={captureInput} rows={1} maxLength={100000} placeholder="记一句话，或粘贴一个链接…" onFocus={()=>setCaptureFocused(true)} onBlur={()=>setCaptureFocused(false)} value={capture} disabled={saving||Boolean(memory.captureAttempt)} onChange={event=>setCapture(event.target.value)} onKeyDown={event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&!event.nativeEvent.isComposing){event.preventDefault();event.currentTarget.form.requestSubmit();}}}/>
+        <button className="pi-primary" disabled={saving||!capture.trim()}>{saving?'保存中…':memory.captureAttempt?'重试':'记下'}</button></div>
+        {capture?<details className="pi-capture-source"><summary>补充来源</summary><select aria-label="捕获来源" value={source} disabled={saving||Boolean(memory.captureAttempt)} onChange={event=>setSource(event.target.value)}><option value="">自动保留来源</option>{Object.entries(sourceNames).filter(([key])=>key!=='logseq').map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></details>:null}
         {captureError?<p role="alert" className="pi-error">{captureError}</p>:null}{memory.captureAttempt&&!saving?<p className="pi-hint">保留了上次保存请求，重试会找回同一条记录。</p>:null}
       </form>
       {importing?<SourcePicker key={sessionId??'general'} sessionId={sessionId} onClose={()=>setImporting(false)} onPick={async item=>{choose(item);setImporting(false);await refresh();}}/>:null}
       {backup?<section className="pi-warning"><h2>恢复备份</h2><p>包含 {backup.items.length} 条记录。已有记录不会被覆盖。</p><div className="pi-actions"><button type="button" disabled={saving} onClick={()=>setBackup(null)}>取消</button><button className="pi-primary" disabled={saving} onClick={async()=>{setSaving(true);try{const result=await rpc('inbox-import',{backup});setNotice(`已恢复 ${result.imported.length} 条，跳过 ${result.skipped.length} 条，冲突 ${result.conflicts.length} 条。${result.conflicts.length?'冲突记录保持原样。':''}`);setBackup(null);await refresh();}catch(error){setProblem(errorMessage(error));}finally{setSaving(false);}}}>确认恢复</button></div></section>:null}
-      {notice?<p role="status" className="pi-notice">{notice}</p>:null}{problem?<p role="alert" className="pi-error">{problem} <button type="button" onClick={()=>void refresh()}>刷新</button></p>:null}{problems.length?<p className="pi-error">有 {problems.length} 条记录暂不可读，其他记录仍可查看。</p>:null}
-      <div className="pi-layout"><aside className="pi-browser" aria-label="浏览记录"><nav className="pi-views" aria-label="记录范围">{[['','最近'],['resolved','已处理'],['archived','归档']].map(([value,label])=><button key={value} type="button" aria-pressed={status===value} onClick={()=>setStatus(value)}>{label}</button>)}</nav>
-        <input type="search" aria-label="搜索记录" placeholder="搜索原文、背景和材料…" value={query} onChange={event=>setQuery(event.target.value)}/>
-        <div className="pi-filters"><select aria-label="按来源筛选" value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="">所有来源</option>{Object.entries(sourceNames).map(([key,name])=><option key={key} value={key}>{name}</option>)}</select><select aria-label="按状态筛选" value={status} onChange={event=>setStatus(event.target.value)}><option value="">默认列表</option><option value="all">全部记录</option>{Object.entries(statusNames).map(([key,name])=><option key={key} value={key}>{name}</option>)}</select><select aria-label="按工作关联筛选" value={linked} onChange={event=>{setLinked(event.target.value);if(event.target.value!=='yes')setWorkFilter(null);}}><option value="">所有工作关联</option><option value="yes">已关联工作</option><option value="no">未关联工作</option></select></div>
-        <details className="pi-work-filter"><summary>{workFilter?'已按指定工作筛选':'按指定工作筛选'}</summary><WorkPicker value={workFilter} onChange={ref=>{setWorkFilter(ref);if(ref)setLinked('yes');}}/></details><div className="pi-list" aria-busy={loading}>{items.map(item=><button className={`pi-card${selection===item.id?' is-selected':''}`} type="button" key={item.id} aria-pressed={selection===item.id} onClick={()=>choose(item)}><span>{visibleContent(item).replace(/\s+/gu,' ').slice(0,160)}</span><small><span>{sourceNames[item.source?.type]??'直接记录'} · {when(item.updatedAt)}</span><span>{statusNames[item.status]}{memory.drafts.has(item.id)||memory.edits.has(item.id)?' · 有草稿':''}</span></small></button>)}{!items.length?<p className="pi-empty">{loading?'正在读取…':query||sourceFilter||linked?'没有找到匹配的记录。':status==='archived'?'还没有归档记录。':status==='resolved'?'还没有已处理记录。':'还没有记录。在上方留下一句话即可。'}</p>:null}</div><p className="pi-count">{items.length} 条记录</p>
-      </aside><div className="pi-reading">{detail&&detail.id===selection?<Detail key={detail.id} item={detail} sessionId={sessionId} inputActions={inputActions} onSaved={saved} onBack={()=>setSelection(null)}/>:selection?<p className="pi-empty">正在读取这条记录…</p>:<div className="pi-welcome"><span aria-hidden="true">↳</span><h2>让信息有一个落脚处</h2><p>选一条记录，逐渐补充背景、关联工作，或决定下一步。</p></div>}</div></div>
-    </section>;
+      {notice?<p role="status" className="pi-notice">{notice}</p>:null}</div>{problem?<p role="alert" className="pi-error">{problem} <button type="button" onClick={()=>{void refresh();void readDetail();}}>刷新</button></p>:null}{problems.length?<p className="pi-error">有 {problems.length} 条记录暂不可读，其他记录仍可查看。</p>:null}
+      <div className="pi-layout"><aside ref={browser} className="pi-browser" aria-label="浏览记录">
+        <div className="pi-search"><input type="search" maxLength={1000} aria-label="搜索记录" placeholder="搜索记录" value={query} onChange={event=>setQuery(event.target.value)}/>
+          <details className="pi-menu"><summary>{sourceFilter||linked?'已筛选':'筛选'}</summary><div className="pi-filter-items">
+            <label>来源<select value={sourceFilter} onChange={event=>setSourceFilter(event.target.value)}><option value="">不限</option>{Object.entries(sourceNames).map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></label>
+            <label>工作关联<select value={linked} onChange={event=>{setLinked(event.target.value);if(event.target.value!=='yes')setWorkFilter(null);}}><option value="">不限</option><option value="yes">已关联工作</option><option value="no">未关联工作</option></select></label>
+            <details><summary>{workFilter?'已按指定工作筛选':'按指定工作筛选'}</summary><WorkPicker value={workFilter} onChange={ref=>{setWorkFilter(ref);if(ref)setLinked('yes');}}/></details>
+          </div></details>
+        </div>
+        <nav className="pi-views" aria-label="记录范围">
+          {[['open','待处理'],['waiting','等待中'],['resolved','已处理']].map(([value,label])=><button key={value} type="button" aria-pressed={status===value} onClick={()=>setStatus(value)}>{label}</button>)}
+          <details className="pi-menu"><summary>{status==='archived'?'归档':status==='all'?'全部':'更多'}</summary><div className="pi-menu-items">
+            <button type="button" onClick={event=>{setStatus('archived');event.currentTarget.closest('details').open=false;}}>归档</button>
+            <button type="button" onClick={event=>{setStatus('all');event.currentTarget.closest('details').open=false;}}>全部记录</button>
+          </div></details>
+        </nav>
+        <div className="pi-list" aria-busy={loading}>{items.map(item=><button className={`pi-card${selection===item.id?' is-selected':''}`} type="button" key={item.id} aria-pressed={selection===item.id} onClick={()=>choose(item)}>
+          <span>{visibleContent(item).replace(/\s+/gu,' ').slice(0,160)}</span>
+          {item.context?<span className="pi-preview">{item.context.replace(/\s+/gu,' ').slice(0,120)}</span>:null}
+          <small>{item.source?.type&&item.source.type!=='dsh'&&item.source.type!=='manual'?`${sourceNames[item.source.type]} · `:''}{when(item.createdAt)}{item.workRef?' · 关联工作':''}{item.materials.length?` · ${item.materials.length} 份材料`:''}{memory.drafts.has(item.id)||memory.edits.has(item.id)?' · 有草稿':''}</small>
+        </button>)}</div>
+        {!items.length?<div className="pi-empty">{loading?'正在读取…':query||sourceFilter||linked?'没有找到匹配的记录。':status==='archived'?'还没有归档记录。':status==='resolved'?'还没有已处理记录。':status==='waiting'?'还没有等待中的记录。':<><h2>先记下来，之后再整理</h2><p>想法、提醒和链接都可以放在这里，随时记下，无需分类。</p><button type="button" className="pi-link" onClick={()=>captureInput.current?.focus()}>试着记下「整理一下研究报告」</button></>}</div>:null}
+      </aside><div className="pi-reading">{detail&&detail.id===selection?<Detail key={detail.id} item={detail} sessionId={sessionId} inputActions={inputActions} onSaved={saved} onBack={()=>setSelection(null)}/>:selection?<div className="pi-empty"><button type="button" className="pi-link" onClick={()=>setSelection(null)}>‹ 返回记录</button><p>正在读取这条记录…</p></div>:null}</div></div>
+    </section></div>;
   };
 }

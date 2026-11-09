@@ -4,8 +4,6 @@ export const sourceNames = {manual:'手动', flomo:'Flomo', logseq:'Logseq', dsh
 export const statusNames = {open:'未处理', waiting:'等待中', resolved:'已处理', archived:'已归档'};
 export const localDate = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 export const workIdentity = ref => ref ? JSON.stringify(ref) : '';
-export const itemDraft = item => ({revision:item.revision, context:item.context, materials:item.materials.map(value=>({...value})), workRef:item.workRef, status:item.status});
-export const isDirty = (draft,item) => JSON.stringify([draft.context,draft.materials,draft.workRef,draft.status]) !== JSON.stringify([item.context,item.materials,item.workRef,item.status]);
 export const captureSource = (content,type,sessionId) => {
   if(type) return {type, ...(type==='dsh' && sessionId ? {sessionId}:{}), ...(type==='browser' && /^https?:\/\/\S+$/u.test(content.trim()) ? {locator:content.trim()}: {})};
   if(/^https?:\/\/\S+$/u.test(content.trim())) return {type:'browser',locator:content.trim()};

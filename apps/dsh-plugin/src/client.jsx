@@ -252,8 +252,9 @@ export function apply(ctx) {
     return binding.ctx.bail(binding.ctx, 'slash/input-insert-reference', {reference, span}) === true;
   });
   const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference });
-  const Planner = createPlanner({ rpc, focusWork });
-  const Inbox = createPersonalInbox({rpc, insertReference, onOpenPlanner: () => ctx.sidebarRight.openTab('semantic-planner'),
+  let plannerEntryRequest=null;
+  const Planner = createPlanner({ rpc, focusWork, subscribe, readEntryRequest:()=>plannerEntryRequest });
+  const Inbox = createPersonalInbox({rpc, insertReference, registerEffect: effect => ctx.effect(effect), onOpenPlanner: (id,sessionId) => {plannerEntryRequest={id,sessionId};emit();ctx.sidebarRight.openTab('semantic-planner');},
     onOpenSession: async sessionId => {await ctx.sessions.refresh();if (ctx.sidebarRight.mounted.getSnapshot() !== sessionId) ctx.uiWorkspace.openSession(sessionId);openWorkTabSoon();} });
   ctx.effect(() => ctx.sidebarRightTabs.register({id:'@task-copilot/personal-inbox',kind:'personal-inbox',title:()=>'收集箱',priority:'extension',keepMounted:true,guide:[{id:'personal-inbox',order:320,title:()=>'个人收集箱'}]}));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/work', kind: 'work', title: () => '工作', priority: 'extension', keepMounted: true, guide: [{ id: 'work', order: 300, title: () => '当前工作' }] }));

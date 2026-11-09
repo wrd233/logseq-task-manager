@@ -1,5 +1,5 @@
 /* global document, window, setInterval, clearInterval, setTimeout, clearTimeout */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   compactMinutes, dateKey, dateLabel, dayTotals, dueLabel, durationLabel, insertPlanDraft,
   referenceKindLabel, relativeDateLabel, shortDateLabel, slotRangeLabel, visibleDates,
@@ -313,14 +313,16 @@ function FixedSection({ label, entries, today, localAt, busy, compact, sessionId
   </section>;
 }
 
-export function createPlanner({ rpc, focusWork }) {
+export function createPlanner({ rpc, focusWork, subscribe, readEntryRequest }) {
   return function Planner(props) {
     const tab = props.useTabInfo(), sessionId = props.sessionId;
     const [state, setState] = useState(null), [current, setCurrent] = useState(null), [mode, setMode] = useState('focus'), [today, setToday] = useState(dateKey);
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(null);
     const [editor, setEditor] = useState(null), [settingsOpen, setSettingsOpen] = useState(false), [fixedComposer, setFixedComposer] = useState(null);
     const [drag, setDrag] = useState(null), [over, setOver] = useState(null);
-    const pointerDrag = useRef(null);
+    const pointerDrag = useRef(null), plan = useRef(null), handledRequest = useRef(null);
+    const entryRequest = useSyncExternalStore(subscribe, readEntryRequest, () => null);
+    const [focusedEntry, setFocusedEntry] = useState(null);
 
     const refreshCurrent = async () => {
       try { setCurrent(await rpc('planner-current', { sessionId, localAt: localNow() })); }
@@ -333,7 +335,21 @@ export function createPlanner({ rpc, focusWork }) {
       } catch (failure) { setError(errorMessage(failure.code)); }
     }
     useEffect(() => { const timer = setInterval(() => setToday(dateKey()), 30000); return () => clearInterval(timer); }, []);
-    useEffect(() => { if (tab.tab.visible) void load(); }, [tab.tab.visible, sessionId]);
+    useEffect(() => {
+      if (!tab.tab.visible) return;
+      if (entryRequest && entryRequest.sessionId === sessionId && handledRequest.current !== entryRequest) {
+        handledRequest.current = entryRequest;
+        setEditor(null); setSettingsOpen(false); setFixedComposer(null);
+        setFocusedEntry(entryRequest.id); setMode('entry');
+      }
+      void load();
+    }, [tab.tab.visible, sessionId, entryRequest]);
+    const focusedDate = state?.entries.find(entry => entry.id === focusedEntry)?.date;
+    useEffect(() => {
+      if (!tab.tab.visible || mode !== 'entry' || !focusedDate) return;
+      const card = [...(plan.current?.querySelectorAll('[data-entry-id]') ?? [])].find(node => node.dataset.entryId === focusedEntry);
+      card?.scrollIntoView({block:'nearest'});
+    }, [tab.tab.visible, mode, focusedDate, focusedEntry, entryRequest]);
     useEffect(() => {
       if (!tab.tab.visible) return;
       const timer = setInterval(() => { setToday(dateKey()); void refreshCurrent(); }, 30000);
@@ -445,11 +461,11 @@ export function createPlanner({ rpc, focusWork }) {
 
     if (!state) return <section className="sp" aria-label="个人时间规划"><header className="sp-head"><h1>时间规划</h1></header><p className="sp-muted" role="status">{error || '正在打开你的时间规划…'}</p>{error ? <button type="button" className="sp-primary" onClick={() => void load()}>重新读取</button> : null}</section>;
 
-    const dates = visibleDates(mode === 'focus' ? 'today' : mode, today), week = mode === 'week';
+    const dates = mode === 'entry' ? [focusedDate ?? today] : visibleDates(mode === 'focus' ? 'today' : mode, today), week = mode === 'week';
     const focusFallback = mode === 'focus' && !current?.slot && !current?.fixed?.length;
     const shown = mode === 'focus' ? state.entries.filter(entry => entry.date === today) : state.entries.filter(entry => dates.includes(entry.date));
     const summary = dayTotals(shown);
-    const title = mode === 'focus' ? '现在' : week ? '本周' : mode === 'tomorrow' ? '明天' : '今天';
+    const title = mode === 'focus' ? '现在' : week ? '本周' : mode === 'tomorrow' ? '明天' : mode === 'entry' ? '收集箱安排' : '今天';
     const subtitle = mode === 'focus' ? dateLabel(today) : week ? `${shortDateLabel(dates[0])} – ${shortDateLabel(dates[6])}` : dateLabel(dates[0]);
     const currentSlotName = current?.slot?.name ?? '';
 
@@ -525,7 +541,7 @@ export function createPlanner({ rpc, focusWork }) {
       </>;
     }
 
-    return <section className="sp" aria-label="个人时间规划" onPointerMove={movePointerDrag} onPointerUp={finishPointerDrag} onPointerCancel={cancelPointerDrag}>
+    return <section ref={plan} className="sp" aria-label="个人时间规划" onPointerMove={movePointerDrag} onPointerUp={finishPointerDrag} onPointerCancel={cancelPointerDrag}>
       <header className="sp-head">
         <div className="sp-head-row">
           <div className="sp-head-title"><span className="sp-eyebrow">个人时间规划</span><h1>{title}</h1></div>
@@ -540,6 +556,7 @@ export function createPlanner({ rpc, focusWork }) {
       {error ? <p className="sp-error" role="alert">{error}<button type="button" onClick={() => void load()}>重新读取</button></p> : null}
       {busy || notice ? <div className="sp-status" role="status"><span>{busy ? '保存中…' : notice?.text}</span>{notice?.undo && !locked ? <button type="button" onClick={() => void undo()}>撤销</button> : null}</div> : null}
       {settingsOpen ? <SlotSettings slots={state.slots} busy={busy} onSave={saveSlots} onClose={() => setSettingsOpen(false)} /> : null}
+      {mode === 'entry' && !focusedDate ? <p className="sp-muted">这条安排已找不到。</p> : null}
       {mode === 'focus' ? renderFocus() : <div className={week ? 'sp-week' : 'sp-days'}>{dates.map(date => renderDay(date, week))}</div>}
       {week ? <p className="sp-hint sp-week-hint">固定安排按真实时间显示；灵活安排可以在时间段之间拖动。</p> : null}
     </section>;
