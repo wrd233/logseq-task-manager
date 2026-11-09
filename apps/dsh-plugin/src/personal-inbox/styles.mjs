@@ -41,7 +41,6 @@ export const personalInboxStyles = `
 .pi-capture-entry{display:flex;align-items:flex-start;gap:7px;max-width:100%}
 .pi-capture-entry>textarea{min-height:36px;height:36px;resize:none;flex:1;padding:7px 9px}
 .pi-capture-entry>.pi-primary{min-height:36px;flex:none}
-.pi-capture-source{margin:4px 0}
 .pi-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .pi-layout{display:grid;grid-template-columns:minmax(0,1fr)}
 .pi-has-detail .pi-layout{grid-template-columns:minmax(210px,31%) minmax(0,1fr)}
@@ -100,7 +99,15 @@ export const personalInboxStyles = `
   margin-top:9px;padding:10px;border-radius:7px;background:var(--pi-soft);
 }
 .pi-subform,.pi-conversion{display:flex;flex-direction:column;gap:9px}
-.pi-field select{width:100%}
+.pi-field input,.pi-location-picker>input{width:100%}
+.pi-choice-list{display:grid;gap:3px;max-height:220px;overflow:auto;margin:6px 0}
+.pi-choice-list>button{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 9px;text-align:left;overflow-wrap:anywhere}
+.pi-choice-list small{color:var(--pi-muted);font-size:11px}
+.pi-material-picker form,.pi-location-picker{display:grid;gap:8px}
+.pi-material-picker form>.pi-primary,.pi-location-picker>button{justify-self:start}
+.pi-material-picker .pi-actions{margin-top:0}
+.pi-material-picker [aria-pressed=true]{border-color:var(--pi-accent);color:var(--pi-accent)}
+.pi-materials li>.pi-link:first-child{padding-inline:0;min-height:26px}
 .pi-fields{align-items:end;justify-content:flex-start}
 .pi-fields>label{flex:1;min-width:120px}
 .pi-hint{color:var(--pi-muted);font-size:11px;overflow-wrap:anywhere}

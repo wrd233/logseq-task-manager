@@ -51,7 +51,14 @@ export async function apply(ctx, config = {}) {
   }
   const { history, routes: historyRoutes } = installHistoryHost(ctx, service, store.directory);
   const planner = await installPlannerHost(ctx, service, resolve(config.plannerStateDirectory ?? store.directory), handoffs);
-  const inbox = await installPersonalInboxHost({service, planner, handoffs});
+  const inbox = await installPersonalInboxHost({
+    service, planner, handoffs,
+    workspaces:()=>ctx.workspaceRegistry.list(),
+    nativePicker:()=>{
+      const capability=ctx.get('directoryPicker')?.capability();
+      return capability?.kind==='native'?capability:null;
+    },
+  });
   const routes = {
     catalog: async input => {
       request(input, []);

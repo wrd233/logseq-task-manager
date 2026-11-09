@@ -7,6 +7,7 @@ import {parseWorkRef, sameWorkRef} from '@task-copilot/contracts';
 import {readCatalog} from '../../../task-copilot-cli/src/work-catalog.ts';
 import {PersonalInboxStore} from './store.mjs';
 import {object, text, uuid, fail, sourceTypes} from './model.mjs';
+import {inboxMaterialRoutes} from './material-host.mjs';
 import {blockUrl} from '../reader-model.mjs';
 
 async function localKernel() {
@@ -19,7 +20,7 @@ async function localKernel() {
   } catch(error) {if (error.code?.startsWith('INBOX_')) throw error; fail('INBOX_KERNEL_UNAVAILABLE');}
 }
 
-export async function installPersonalInboxHost({service, planner, handoffs, directory, kernelClient = localKernel}) {
+export async function installPersonalInboxHost({service, planner, handoffs, directory, workspaces = () => [], nativePicker = () => null, kernelClient = localKernel}) {
   const store = new PersonalInboxStore(directory);
   const catalog = async () => (await readCatalog(service.transport.stateDirectory)).flatMap(graph => graph.works);
   const chooseWork = async parameters => {
@@ -57,7 +58,22 @@ export async function installPersonalInboxHost({service, planner, handoffs, dire
     }
     fail('INBOX_INVALID');
   };
+  async function readLogseqBlock(input,signal) {
+    const packet = await service.command(text(input.sessionId, 200), 'source.read', {sourceId:text(input.sourceId, 4096)}, signal);
+    const block = packet?.source;
+    if (packet?.freshness !== 'checked' || block?.availability !== 'available' || block.sourceId !== input.sourceId || block.target?.kind !== 'logseq-block') fail('INBOX_SOURCE_UNAVAILABLE');
+    return block;
+  }
   const routes = {
+    ...inboxMaterialRoutes({store,catalog,workspaces,nativePicker,openPath:service.openPath}),
+    'inbox-logseq-material': async (input,signal) => {
+      object(input,['sessionId','sourceId']);
+      const block = await readLogseqBlock(input,signal);
+      return {
+        label:block.content.split('\n').find(line=>line.trim())?.trim().slice(0,300) || 'Logseq 内容',
+        locator:blockUrl(block.target.graphId,block.target.blockUuid),
+      };
+    },
     'inbox-options': async input => {
       object(input, []);
       return {schemaVersion:1, sourceTypes, slots:planner.store.read().slots, formalTaskRequiresAnchor:true,
@@ -85,9 +101,7 @@ export async function installPersonalInboxHost({service, planner, handoffs, dire
         if (existing.source?.type !== 'logseq' || existing.source.sessionId !== input.sessionId || existing.source.locator !== input.sourceId) fail('INBOX_ID_REUSED');
         return existing;
       } catch(error) {if(error.code !== 'INBOX_MISSING') throw error;}
-      const packet = await service.command(text(input.sessionId, 200), 'source.read', {sourceId:text(input.sourceId, 4096)}, signal);
-      const block = packet?.source;
-      if (packet?.freshness !== 'checked' || block?.availability !== 'available' || block.sourceId !== input.sourceId || block.target?.kind !== 'logseq-block') fail('INBOX_SOURCE_UNAVAILABLE');
+      const block = await readLogseqBlock(input,signal);
       const pageName = service.store?.bindings?.get(input.sessionId)?.scope?.pageName;
       return store.create({id:input.id, originalContent:text(block.content), source:{type:'logseq',
         sessionId:input.sessionId, locator:input.sourceId, graphId:block.target.graphId, blockUuid:block.target.blockUuid,

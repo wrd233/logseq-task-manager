@@ -1,11 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, rm, writeFile, readFile, realpath} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, writeFile, readFile, realpath, symlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {PersonalInboxStore, personalInboxDirectory} from '../src/personal-inbox/store.mjs';
 import {installPersonalInboxHost} from '../src/personal-inbox/host.mjs';
+import {inboxMaterialRoutes} from '../src/personal-inbox/material-host.mjs';
 import {PlannerStore} from '../src/planner-store.mjs';
 
 async function scene(t) {
@@ -131,14 +132,53 @@ test('host offline CRUD, verified Logseq import, explicit formal confirmation an
 });
 
 test('selected Inbox native reference quotes original and context, never submits or replaces the native draft',async()=>{
-  const {inboxReference,inboxReferenceCodec,insertInboxReference}=await import('../src/personal-inbox/reference.mjs');
-  const item={id:randomUUID(),revision:2,originalContent:'原始记录',editedContent:'用户编辑',context:'补充背景',source:{type:'flomo'},workRef:null,materials:[]};
+  const {hasInboxReference,inboxReference,inboxReferenceCodec,insertInboxReference}=await import('../src/personal-inbox/reference.mjs');
+  const item={id:randomUUID(),revision:2,originalContent:'原始记录',editedContent:'用户编辑',context:'补充背景',source:{type:'flomo'},workRef:ref('private-id'),materials:[{label:'private file',locator:'/private/material.txt'}]};
   const reference=inboxReference(item), saved=JSON.parse(reference.ref);
   assert.equal(saved.originalContent,'原始记录');assert.equal(saved.context,'补充背景');
-  assert.match(await inboxReferenceCodec.serialize(reference.ref),/quoted user data/);
+  const quote=await inboxReferenceCodec.serialize(reference.ref);
+  assert.match(quote,/quoted user data/);
+  assert.doesNotMatch(quote,/private-id|private file|\/private\/material/);
+  assert.equal(hasInboxReference([{...reference,ref:JSON.stringify({...saved,revision:1})}],item.id),true);
+  assert.equal(hasInboxReference([reference],randomUUID()),false);
   let inserted;
   const result=await insertInboxReference({captureInsertion:()=>({start:1,end:5,revision:7})},item,async(ref,span)=>{inserted={ref,span};return true;});
   assert.equal(result,true);assert.deepEqual(inserted.span,{start:5,end:5,revision:7});assert.equal(inserted.ref.source,'Personal Inbox');
+});
+
+test('existing workspace materials are chosen by name and opened from the saved reference', async t=>{
+  const {root,store}=await scene(t);
+  const folder=join(root,'files'), document=join(folder,'验收.txt'), outside=join(root,'outside.txt');
+  await mkdir(folder);
+  await writeFile(document,'synthetic material');
+  await writeFile(outside,'outside workspace');
+  await symlink(outside,join(folder,'outside-link.txt'));
+  const opened=[];
+  let native=null;
+  const routes=inboxMaterialRoutes({
+    store, catalog:async()=>[], workspaces:()=>[{id:'workspace',title:'网络材料',path:folder}],
+    nativePicker:()=>native, openPath:async path=>opened.push(path),
+  });
+  assert.deepEqual(await routes['inbox-locations']({}),{rows:[{key:'workspace',title:'网络材料',context:'DSH 工作区'}],native:false});
+  await assert.rejects(routes['inbox-pick-folder']({}),{code:'INBOX_NATIVE_PICKER_UNAVAILABLE'});
+  native={pick:async()=>null};
+  assert.equal(await routes['inbox-pick-folder']({}),null);
+  native={pick:async()=>folder};
+  assert.deepEqual(await routes['inbox-pick-folder']({}),{label:'files',locator:folder});
+  const location=await routes['inbox-location-material']({key:'workspace'});
+  const files=await routes['inbox-location-files']({key:'workspace'});
+  assert.deepEqual(files.rows,[{key:'验收.txt',title:'验收.txt',context:''}]);
+  await assert.rejects(routes['inbox-location-material']({key:'workspace',file:'../outside.txt'}),{code:'INBOX_LOCATION_UNAVAILABLE'});
+  await assert.rejects(routes['inbox-location-material']({key:'workspace',file:'outside-link.txt'}),{code:'INBOX_LOCATION_UNAVAILABLE'});
+  const file=await routes['inbox-location-material']({key:'workspace',file:files.rows[0].key});
+  const item=await change(store,await create(store),'update',{patch:{materials:[location,file]}});
+  assert.deepEqual(await routes['inbox-material-status']({id:item.id,revision:item.revision}),['folder','file']);
+  await routes['inbox-open-material']({id:item.id,revision:item.revision,index:1});
+  assert.deepEqual(opened,[document]);
+  await rm(document);
+  assert.deepEqual(await routes['inbox-material-status']({id:item.id,revision:item.revision}),['folder',null]);
+  await assert.rejects(routes['inbox-open-material']({id:item.id,revision:item.revision,index:1}),{code:'INBOX_LOCATION_UNAVAILABLE'});
+  assert.equal(await readFile(outside,'utf8'),'outside workspace');
 });
 
 test('a rejected conversion allows editing, but cannot be retried on an archived record or over another pending result',async t=>{
