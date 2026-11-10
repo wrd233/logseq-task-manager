@@ -9,6 +9,9 @@ import { styles, discoveryStyles } from './styles.mjs';
 import { workbenchStyles } from './work-experience/styles.mjs';
 import { createWorkbench } from './work-experience/workbench.jsx';
 import { readerReferenceSource, readerReferenceCodec } from './reader-draft.mjs';
+import { inboxReferenceSource, inboxReferenceCodec } from './personal-inbox/reference.mjs';
+import { createPersonalInbox } from './personal-inbox/client.jsx';
+import { personalInboxStyles } from './personal-inbox/styles.mjs';
 import { workFocus } from './work-experience/focus-store.mjs';
 import { workKey } from '@task-copilot/contracts';
 
@@ -30,7 +33,7 @@ export function apply(ctx) {
   applyHistoryClient(ctx);
   applyEvidenceClient(ctx);
   const style = document.createElement('style');
-  style.textContent = styles + discoveryStyles + plannerStyles + workbenchStyles;
+  style.textContent = styles + discoveryStyles + plannerStyles + workbenchStyles + personalInboxStyles;
   document.head.append(style);
   const rows = new Map(), listeners = new Set();
   let disposed = false, handoff = null, handoffController = null, toast = null, toastTimer = null;
@@ -200,6 +203,9 @@ export function apply(ctx) {
   function PlannerHeader() {
     return <button type="button" className="lq-header" aria-label="打开时间规划" onClick={() => ctx.sidebarRight.openTab('semantic-planner')}>◷ 规划</button>;
   }
+  function InboxHeader() {
+    return <button type="button" className="lq-header" aria-label="打开个人收集箱" onClick={() => ctx.sidebarRight.openTab('personal-inbox')}>▤ 收集箱</button>;
+  }
   function RowAction({ sessionId }) {
     const mounted = useSyncExternalStore(listener => ctx.sidebarRight.mounted.subscribe(listener), () => ctx.sidebarRight.mounted.getSnapshot(), () => undefined);
     if (sessionId !== mounted) return null;
@@ -237,23 +243,33 @@ export function apply(ctx) {
     trigger: '@', name: readerReferenceSource, showGroupTitle: false,
     candidates: async () => [], onPick: () => 'handled', codec: readerReferenceCodec,
   }));
+  ctx.effect(() => ctx.inputTriggers.registerSource({
+    trigger: '@', name: inboxReferenceSource, showGroupTitle: false,
+    candidates: async () => [], onPick: () => 'handled', codec: inboxReferenceCodec,
+  }));
   const insertReference = (sessionId, reference, span) => ctx.sessions.using(sessionId, {source: 'controllerOperation'}, async retained => {
     const binding = await retained.ready;
     return binding.ctx.bail(binding.ctx, 'slash/input-insert-reference', {reference, span}) === true;
   });
   const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference });
-  const Planner = createPlanner({ rpc, focusWork });
+  let plannerEntryRequest=null;
+  const Planner = createPlanner({ rpc, focusWork, subscribe, readEntryRequest:()=>plannerEntryRequest });
+  const Inbox = createPersonalInbox({rpc, insertReference, registerEffect: effect => ctx.effect(effect), onOpenPlanner: (id,sessionId) => {plannerEntryRequest={id,sessionId};emit();ctx.sidebarRight.openTab('semantic-planner');},
+    onOpenSession: async sessionId => {await ctx.sessions.refresh();if (ctx.sidebarRight.mounted.getSnapshot() !== sessionId) ctx.uiWorkspace.openSession(sessionId);openWorkTabSoon();} });
+  ctx.effect(() => ctx.sidebarRightTabs.register({id:'@task-copilot/personal-inbox',kind:'personal-inbox',title:()=>'收集箱',priority:'extension',keepMounted:true,guide:[{id:'personal-inbox',order:320,title:()=>'个人收集箱'}]}));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/work', kind: 'work', title: () => '工作', priority: 'extension', keepMounted: true, guide: [{ id: 'work', order: 300, title: () => '当前工作' }] }));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/semantic-planner', kind: 'semantic-planner', title: () => '时间规划', priority: 'extension', keepMounted: true, guide: [{ id: 'semantic-planner', order: 330, title: () => '个人时间规划' }] }));
   ctx.effect(() => ctx.sidebarRightTabs.register({ id: '@task-copilot/dsh-logseq-workbench', kind: 'logseq-files', title: () => '工作文件', priority: 'extension', guide: [{ id: 'logseq-files', order: 350, title: () => 'Logseq 工作文件' }] }));
   const register = (slot, spec, component) => ctx.slots.inject(slot, () => ctx.slots.register({ name: slot, ...spec }, component));
   register('conversation.session.header.utilities', { id: '@task-copilot/work', order: 9 }, WorkHeader);
   register('conversation.session.header.utilities', { id: 'semantic-planner', order: 10 }, PlannerHeader);
+  register('conversation.session.header.utilities', { id: 'personal-inbox', order: 11 }, InboxHeader);
   register('sidebar.workspaces.session.row.action', { id: '@task-copilot/work', order: 100 }, RowAction);
   register('shell.overlay', { id: 'logseq-workbench' }, HandoffHost);
   register('sidebar.right.pane.tab', { key: '@task-copilot/work' }, Workbench);
   register('sidebar.right.pane.tab', { key: '@task-copilot/dsh-logseq-workbench' }, Files);
   register('sidebar.right.pane.tab', { key: '@task-copilot/semantic-planner' }, Planner);
+  register('sidebar.right.pane.tab', {key:'@task-copilot/personal-inbox'}, Inbox);
   window.addEventListener('hashchange',readHandoff);readHandoff();
   const pendingHandoff = new AbortController();
   // A waiting RPC survives background timer throttling. Retry timers are only needed after disconnection.

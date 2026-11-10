@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-11-08T00:00:00.000Z",
+  "items": [
+    {
+      "schemaVersion": 1,
+      "id": "10000000-0000-4000-8000-000000000001",
+      "revision": 1,
+      "originalContent": "示例：下次整理插件时，回头看一下快速捕获的保存反馈。",
+      "editedContent": null,
+      "context": "",
+      "source": null,
+      "materials": [],
+      "workRef": null,
+      "status": "open",
+      "archivedFrom": null,
+      "createdAt": "2026-11-08T00:00:00.000Z",
+      "updatedAt": "2026-11-08T00:00:00.000Z",
+      "outcomes": []
+    },
+    {
+      "schemaVersion": 1,
+      "id": "10000000-0000-4000-8000-000000000002",
+      "revision": 1,
+      "originalContent": "https://example.com/",
+      "editedContent": null,
+      "context": "示例背景：等阅读后再决定是否关联工作。",
+      "source": {
+        "type": "browser",
+        "locator": "https://example.com/"
+      },
+      "materials": [],
+      "workRef": null,
+      "status": "waiting",
+      "archivedFrom": null,
+      "createdAt": "2026-11-08T00:00:00.000Z",
+      "updatedAt": "2026-11-08T00:00:00.000Z",
+      "outcomes": []
+    },
+    {
+      "schemaVersion": 1,
+      "id": "10000000-0000-4000-8000-000000000003",
+      "revision": 1,
+      "originalContent": "示例 Flomo 手动粘贴：信息可以先保留，再逐渐补充上下文。",
+      "editedContent": null,
+      "context": "示例处理：已阅读，保留作参考。",
+      "source": {
+        "type": "flomo"
+      },
+      "materials": [],
+      "workRef": null,
+      "status": "resolved",
+      "archivedFrom": null,
+      "createdAt": "2026-11-08T00:00:00.000Z",
+      "updatedAt": "2026-11-08T00:00:00.000Z",
+      "outcomes": []
+    }
+  ]
+}

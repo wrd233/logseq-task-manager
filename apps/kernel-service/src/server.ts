@@ -582,6 +582,32 @@ export async function startKernelServer(options: StartKernelOptions): Promise<{ 
         afterFormalChange(result.commit.targetId);
         send(response, 200, result); return;
       }
+      // UI-only adapter: use the existing trusted channel, live Graph snapshot and Formal Kernel.
+      // The operation ID keeps a durable backlink without making Inbox a Kernel-owned object.
+      if (request.method === "POST" && url.pathname === "/v1/personal-inbox/task") {
+        assertTrustedUserChannel(request);
+        const value = await body(request) as { inboxId: string; operationId: string; title: string; graphId: string; blockUuid: string; confirmed: boolean };
+        const idPattern = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/iu;
+        if (!value || value.confirmed !== true || !idPattern.test(value.inboxId) || !idPattern.test(value.operationId) ||
+            typeof value.title !== "string" || !value.title.trim() || value.title.length > 300 ||
+            typeof value.graphId !== "string" || !value.graphId || typeof value.blockUuid !== "string" || !value.blockUuid)
+          throw new KernelError("INBOX_INVALID", "Explicit confirmation, stable Inbox identity and source anchor are required.");
+        const operationId = `inbox:${value.inboxId}:${value.operationId}`;
+        const prior = kernel.formalReceipt(operationId);
+        if (prior) {
+          const operation = parseSemanticOperation(prior.commit.operation);
+          if (operation.type !== "CREATE_WORK_OBJECT" || operation.input.kind !== "TASK" || operation.input.title !== value.title ||
+              operation.input.anchor.graphId !== value.graphId || operation.input.anchor.blockUuid !== value.blockUuid)
+            throw new KernelError("INBOX_OPERATION_REUSED", "Inbox conversion parameters changed.");
+          send(response, 200, prior); return;
+        }
+        const read = await broker.request({kind:"READ_TARGET_SNAPSHOT", input:{graphId:value.graphId, sourceBlockUuid:value.blockUuid}});
+        if (read.kind !== "READ_TARGET_SNAPSHOT") throw new KernelError("GRAPH_RESPONSE_INVALID", "Expected a live source snapshot.");
+        const result = kernel.commitFormal(parseSemanticOperation({operationId, type:"CREATE_WORK_OBJECT", actor:{type:"USER", id:"local-user"},
+          input:{kind:"TASK", title:value.title, anchor:{graphId:value.graphId, blockUuid:value.blockUuid, sourceContentHash:read.snapshot.sourceContentHash}}}), read.snapshot);
+        afterFormalChange(result.commit.targetId);
+        send(response, 200, result); return;
+      }
       const projectionVerifyMatch = /^\/v1\/commits\/([^/]+)\/projection\/verify$/u.exec(url.pathname);
       if (request.method === "POST" && projectionVerifyMatch) {
         assertTrustedUserChannel(request);
