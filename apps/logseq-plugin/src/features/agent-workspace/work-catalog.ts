@@ -3,6 +3,11 @@ import { type CatalogWork, type CatalogSnapshot, workKey } from '@task-copilot/c
 
 export interface CatalogBlock {uuid: string; content: string; parent?: {id?: number; uuid?: string}; page?: {id?: number; name?: string; originalName?: string}; 'updated-at'?: number}
 export interface CatalogFormal {object: {id: string; title: string; kind: string; updatedAt: string}; anchor: unknown}
+/** Shared local discovery for the publisher and briefing reader; reading does not assign IDs. */
+export async function readCatalogBlocks():Promise<CatalogBlock[]> {
+  const rows=await logseq.DB.datascriptQuery(String.raw`[:find (pull ?b [:block/uuid :block/content :block/properties :block/updated-at {:block/parent [:db/id :block/uuid]} {:block/page [:db/id :block/name :block/original-name]}]) :where [?b :block/content ?content] [(clojure.string/includes? ?content "[")]]`) as Array<[Record<string,unknown>]>;
+  return rows.map(([row])=>({...row,page:row.page?{...row.page as object,originalName:(row.page as Record<string,unknown>)["original-name"]}:undefined} as CatalogBlock));
+}
 /** Reuses navigation recognition; no TODO or prose fallback. */
 export async function collectCatalog(input: {
   graphId: string; graphName: string; blocks: CatalogBlock[]; pages: Array<{uuid: string; title: string; sourceUuid?: string}>; formal: CatalogFormal[];

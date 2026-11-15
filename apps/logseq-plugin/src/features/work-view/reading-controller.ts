@@ -5,6 +5,7 @@ import { sameLensScope } from "./lens-source.ts";
 import type { LensResult } from "./lens-controller.ts";
 import { decodeReadingPlan, readingBasisChanged, validateReadingPlan, refreshReadingPlan, type ReadingPlan, type VerifiedReadingPlan } from "./reading-plan.ts";
 import { ReadingViewStore, type ReadingStorage, type SavedReadingView } from "./reading-store.ts";
+import { latestBriefing } from "./briefing-model.ts";
 
 interface ReadingHost {
   scope():SourceScope|null; version?():string; unavailable():string|null;
@@ -76,13 +77,17 @@ export class ReadingPlanController {
   active(source:SourceSnapshot):VerifiedReadingPlan|null {this.synchronize();const view=this.selected?this.plans.get(this.selected):null;return this.available&&view?.verified&&!readingBasisChanged(view.verified,source)?view.verified:null;}
   read() {
     this.synchronize();const active=this.source?this.active(this.source):null;
+    const brief=latestBriefing([...this.plans.values()].map(view=>view.plan));
     return {schemaVersion:1,scope:this.bound?{...this.bound}:null,mode:this.mode,activePlanId:active?this.selected:null,selectedPlanId:this.selected,
-      activePlan:active?structuredClone(active.plan):null,sourceAvailability:this.available?"available":this.source?"unavailable":"unverified",
+      activePlan:active?structuredClone(active.plan):null,
+      briefing:brief?{planId:brief.planId,...structuredClone(brief.briefing!),status:!this.available?"unverified":brief.briefing!.basisVersion===this.source?.sourceSetVersion?"current":"stale"}:null,
+      sourceAvailability:this.available?"available":this.source?"unavailable":"unverified",
       plans:[...this.plans.values()].map(view=>({planId:view.plan.planId,name:view.plan.name,revision:view.revision,canRestore:!!view.previous,
         status:!this.available?"unverified":view.verified?"current":this.materialScope&&this.materialIds(view.plan).some(id=>!this.materialScope!.has(id))?"material-unavailable":"stale",
         structureVersion:view.plan.structureVersion,sourceSetVersion:view.plan.sourceSetVersion})),
       pendingRequests:[...this.invitations.keys()],sourceSetVersion:this.source?.sourceSetVersion??null,persistenceError:this.persistenceError,
       capabilities:{schemaVersion:1,units:["sequence","paragraphs","group","comparison","material"],fullSourceRequired:true,updatesNamedViews:true,sharedSelection:true,
+        briefing:{paragraphs:true,sourceIds:"required",kinds:["fact","inference","suggestion"],tones:["progress","attention"]},
         sourceText:"plugin-read",writesSource:false,authorizesTodo:false,authorizesRecognition:false}};
   }
   setMode(mode:"report"|"structure"):void {this.synchronize();this.mode=mode;this.selected=null;this.selection++;this.save();this.host.changed();}
@@ -112,6 +117,7 @@ export class ReadingPlanController {
   async submit(input:unknown):Promise<LensResult<{planId:string;status:"selected"|"already-selected"|"saved";revision:number}>> {
     try {
       const plan=decodeReadingPlan(input),scope=this.ready(),generation=this.generation,invitation=this.invitations.get(plan.requestId);requireLens(invitation,"reading-request-not-found");
+      requireLens(!plan.briefing||plan.briefing.basisVersion===plan.sourceSetVersion,"stale-briefing");
       requireLens(same(invitation.scope,scope),"scope-mismatch");requireLens(invitation.structureVersion===plan.structureVersion&&invitation.sourceSetVersion===plan.sourceSetVersion,"reading-request-basis-mismatch");
       const source=await this.fresh(scope,generation),materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);
       requireLens(this.available,"source-unavailable");requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");requireLens(this.invitations.get(plan.requestId)===invitation,"reading-request-revoked");

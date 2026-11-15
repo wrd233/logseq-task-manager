@@ -5,6 +5,7 @@ import { WorkDiscovery } from '../discovery.jsx';
 import { insertReaderReferences } from '../reader-draft.mjs';
 import { Reader } from './reader.jsx';
 import { workFocus, readWorkFocus, saveWorkFocus } from './focus-store.mjs';
+import { workBriefingRequest } from '../../../logseq-plugin/src/features/work-view/briefing-model.ts';
 import {
   connectionCopy, mergeSelections, previewText,
   selectionKey, statusLabel, statusTone, workTypeLabel,
@@ -371,6 +372,13 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
             <button type="button" aria-pressed={view === 'reader'} onClick={() => changeView('reader')}>原文</button>
           </div>
           <span className="wx-modes-spacer" />
+          <button type="button" className="wx-text" onClick={() => {
+            const actions=props.inputActions;
+            if(!actions){setNotice({text:'先打开对话，再准备简报请求。',tone:'info'});return;}
+            const insertion=actions.captureInsertion();
+            if(actions.insertText(`\n${workBriefingRequest}\n`,{...insertion,start:insertion.end}))setNotice({text:'简报请求已加入对话草稿。发送后，Agent 会整理并更新 Logseq 中的简报。',tone:'info'});
+            else setNotice({text:'输入框正在提交，请稍后再试。',tone:'info'});
+          }}>写工作简报</button>
           <button type="button" className="wx-text" onClick={() => openTab('work-history')}>历史回看</button>
           <button type="button" className="wx-text" onClick={() => openTab('work-evidence')}>变更回顾</button>
         </nav>

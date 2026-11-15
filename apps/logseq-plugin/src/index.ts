@@ -7,6 +7,7 @@ import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapte
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
 import { WorkView } from "./features/work-view/controller.ts";
+import { WorkBriefingReader, locateBriefingSource } from "./features/work-view/briefing-reader.ts";
 import type { CaptureRequest } from "./features/materials/service.ts";
 import { Materials } from "./features/materials/controller.ts";
 import { installMaterialTransfers } from "./features/materials/install-transfer.ts";
@@ -35,6 +36,7 @@ logseq.useSettingsSchema([
 async function main(): Promise<void> {
   installWorkbenchStyle();
   let materials: Materials | null = null, work: WorkView | null = null;
+  let briefings:WorkBriefingReader|null=null;
   const workspace = installWorkspaceContext(id => { if (!materials) throw new Error("材料模块未启用。"); return materials.readMaterial(id); },()=>work?.readingAPI.read().scope??null);
   let stopTasks: (() => Promise<void>) | null = null;
   let content: ContentInstallation | null = null;
@@ -49,7 +51,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    briefings?.dispose();removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -65,6 +67,10 @@ async function main(): Promise<void> {
       throw new Error("材料模块未启用。");
     }, {source: workspace.source}); } catch (error) { report(error); }
   }
+  if(work)briefings=new WorkBriefingReader({source:scope=>workspace.source.read(scope),current:()=>work!.readingAPI.read().scope,
+    resume:async scope=>{if(scope.kind==="page")await work!.openPage(scope.pageName);else {await work!.open(scope.rootUuid);await locateBriefingSource(scope.rootUuid);}},
+    agent:async scope=>{if(scope.kind==="page")await work!.openPage(scope.pageName);else await work!.open(scope.rootUuid);await agentWorkspace!.local.openWork(scope);},
+  });
   const activateTasks = async () => {
     if (stopTasks || disposed) return;
     await pluginRuntime.start();
@@ -78,6 +84,7 @@ async function main(): Promise<void> {
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
   if (work) actions["阅读当前工作或继续阅读"] = () => void work?.openToolbar().catch(report);
+  if (briefings) actions["工作简报"] = () => void briefings?.open().catch(report);
   if (work) actions["打开当前块的工作"] = () => void work?.openCurrentWork().catch(report);
   if (materials) actions["查找全部材料"] = () => void materials?.library(null).catch(report);
   actions["正式任务"] = () => { void (async()=>{
@@ -89,14 +96,15 @@ async function main(): Promise<void> {
   actions["插件设置"] = () => void panels.closeActive().then(() => logseq.showSettingsUI()).catch(report);
   if (disposed) return;
   removeNavigation = installNavigation(actions);
-  logseq.provideModel({ workbenchDsh: () => {if (!disposed) void agentWorkspace?.local.openWork().catch(report);}, workbenchOpen: () => { if (disposed) return; if (work) void work.openToolbar().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
+  logseq.provideModel({workbenchBriefing:()=>{if(!disposed)void briefings?.open().catch(report);}, workbenchDsh: () => {if (!disposed) void agentWorkspace?.local.openWork().catch(report);}, workbenchOpen: () => { if (disposed) return; if (work) void work.openToolbar().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" style="font-size:13px;line-height:1.5;width:auto;padding:4px 8px" data-workbench-toolbar="true" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
   logseq.App.registerUIItem("toolbar", {key:"workbench-dsh",template:'<a class="button" data-on-click="workbenchDsh" title="在 DSH 继续">DSH</a>'});
+  if(briefings)logseq.App.registerUIItem("toolbar",{key:"workbench-briefing",template:'<a class="button" data-workbench-toolbar="true" data-on-click="workbenchBriefing" title="打开工作简报" aria-label="打开工作简报">简报</a>'});
   if(work){const entries=installReadingEntries(uuid=>work!.open(uuid),()=>work!.openPage(),report,{block:uuid=>agentWorkspace!.local.openWork(uuid),page:async()=>{
     const graph=await logseq.App.getCurrentGraph(),page=await logseq.Editor.getCurrentPage();
     if(!page?.uuid)throw new Error("页面暂不可用。");
     await agentWorkspace!.local.openWork({graphId:graphIdentity(graph),rootUuid:page.uuid,kind:"page",pageName:String(page.originalName??page.name)});
-  }});removeReadingEntries=entries.dispose;}
+  }},target=>briefings!.open(target));removeReadingEntries=entries.dispose;}
   const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
   const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
   if(work&&materials)work.setReadingMaterials({
@@ -202,6 +210,7 @@ async function main(): Promise<void> {
     lenses: work?.lensesAPI ?? null,
     report: work?.reportAPI ?? null,
     reading: work?.readingAPI ?? null,
+    briefing:briefings?{open:(target?:string|AgentWorkScope)=>briefings!.open(target),close:()=>briefings!.close()}:null,
   };
   publishedApi = api;
   host.taskCopilotWorkbench = api;

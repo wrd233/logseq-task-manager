@@ -264,7 +264,7 @@ export class AgentWorkspaceRouter {
             if(command==="reading.submit") {
                 // These two fields are inspected without accessing a caller getter;
                 // the reading controller owns the complete closed schema validation.
-                const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"]);
+                const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout","briefing"]);
                 if(this.readingRequests.get(workText(raw.requestId))!==owner)throw new WorkspaceError("READING_REQUEST_NOT_OWNED");
                 await checked();const result=await work.readingAPI.submit(payload.plan);await checked();
                 return result;

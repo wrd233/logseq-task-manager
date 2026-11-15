@@ -6,7 +6,7 @@ import { desktopBridge, desktopFiles } from '../../host/desktop-files.ts';
 import { graphIdentity } from '../../graph-adapter.ts';
 import {readSelectedPages, saveSelectedPages, resolveSelectedPage, selectPage} from './catalog-pages.ts';
 import type {SourceScope} from '../../workspace/source-protocol.ts';
-import { collectCatalog, type CatalogBlock, type CatalogFormal } from './work-catalog.ts';
+import { collectCatalog, readCatalogBlocks, type CatalogBlock, type CatalogFormal } from './work-catalog.ts';
 
 /** Independent of the active body lease. Publishes navigation metadata only. */
 export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, resolveDirectory: (scope: SourceScope) => Promise<string | undefined>) {
@@ -29,8 +29,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
       const descriptor = parseWorkspaceDescriptor(JSON.parse(await desktopFiles(() => graphId).read(path)), true) as WorkspacePluginDescriptor; check();
       const selected = await readSelectedPages(graphId, check);
       // Narrow candidate query; text is used locally for existing object recognition only.
-      const rows = await logseq.DB.datascriptQuery(String.raw`[:find (pull ?b [:block/uuid :block/content :block/properties :block/updated-at {:block/parent [:db/id :block/uuid]} {:block/page [:db/id :block/name :block/original-name]}]) :where [?b :block/content ?content] [(clojure.string/includes? ?content "[")]]`) as Array<[Record<string, unknown>]>; check();
-      const blocks: CatalogBlock[] = rows.map(([row]) => ({...row, page: row.page ? {...row.page as object, originalName: (row.page as Record<string, unknown>)['original-name']} : undefined} as CatalogBlock));
+      const blocks=await readCatalogBlocks();check();
       const isDbGraph = await currentGraphIsDb({getCurrentGraph: () => logseq.App.getCurrentGraph(), checkCurrentIsDbGraph: async () => {
         try {return await logseq.App.checkCurrentIsDbGraph();}
         catch (error) {throw new Error(error instanceof Error ? error.message : String((error as {message?: unknown})?.message ?? error), {cause:error});}

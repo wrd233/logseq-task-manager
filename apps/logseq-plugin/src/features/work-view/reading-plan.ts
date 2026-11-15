@@ -3,6 +3,7 @@ import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-i
 import { sameLensScope } from "./lens-source.ts";
 import { reportCategory } from "./report-model.ts";
 import { workObject } from "./focus.mjs";
+import type { WorkBriefing, BriefingParagraph } from "./briefing-model.ts";
 
 /** A closed reading vocabulary. Bodies, styles, executable markup and authority
  * never travel in a layout. The plugin supplies source text and material views. */
@@ -17,6 +18,7 @@ export interface ReadingPlan {
   structureVersion:string; sourceSetVersion:string;
   sourceVersions:Array<{sourceId:string; contentVersion:string}>;
   layout:ReadingUnit[];
+  briefing?:WorkBriefing;
 }
 export interface ReadingHeading {
   key:string; title:string;
@@ -37,7 +39,7 @@ function text(value:unknown,limit:number):string {
   return result;
 }
 export function decodeReadingPlan(input:unknown):ReadingPlan {
-  const raw=lensRecord(input,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"],"invalid-reading-plan");
+  const raw=lensRecord(input,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout","briefing"],"invalid-reading-plan");
   requireLens(raw.schemaVersion===1,"unsupported-reading-schema");
   const rawScope=lensRecord(raw.scope,["graphId","rootUuid","kind","pageName"]);
   let units=0,sources=0;const keys=new Set<string>();
@@ -78,6 +80,19 @@ export function decodeReadingPlan(input:unknown):ReadingPlan {
       const version=lensRecord(value,["sourceId","contentVersion"]);
       return {sourceId:text(version.sourceId,4096),contentVersion:lensHash(version.contentVersion)};
     }),layout:lensArray(raw.layout,MAX_UNITS).map(value=>unit(value,0))};
+  if(raw.briefing) {
+    const brief=lensRecord(raw.briefing,["basisVersion","createdAt","paragraphs","followUps"]);
+    const paragraph=(input:unknown):BriefingParagraph=>{
+      const value=lensRecord(input,["markdown","sourceIds","kind","tone"]);
+      requireLens(["fact","inference","suggestion"].includes(String(value.kind)),"invalid-briefing-kind");
+      requireLens(value.tone===undefined||value.tone==="progress"||value.tone==="attention","invalid-briefing-tone");
+      return {markdown:lensText(value.markdown,12000),sourceIds:lensArray(value.sourceIds,MAX_SOURCES,1).map(id=>text(id,4096)),
+        kind:value.kind as BriefingParagraph["kind"],...(value.tone?{tone:value.tone as "progress"|"attention"}:{})};
+    };
+    plan.briefing={basisVersion:lensHash(brief.basisVersion),createdAt:text(brief.createdAt,64),
+      paragraphs:lensArray(brief.paragraphs,32,1).map(paragraph),
+      ...(brief.followUps?{followUps:lensArray(brief.followUps,5).map(paragraph)}:{})};
+  }
   requireLens(new TextEncoder().encode(JSON.stringify(plan)).length<=1_048_576,"reading-plan-too-large");
   return plan;
 }
@@ -170,6 +185,8 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
   requireLens(plan.sourceSetVersion===source.sourceSetVersion,"stale-source-set");
   requireLens((source.page?source.page.availability==="available":source.blocks.length>0)&&source.blocks.every(b=>b.availability==="available"&&b.contentVersion),"source-unavailable");
   const byId=new Map(source.blocks.map(b=>[b.sourceId,b])),byUuid=new Map(source.blocks.map(b=>[b.target.blockUuid,b])),versions=new Set<string>();
+  if(plan.briefing?.basisVersion===source.sourceSetVersion)for(const paragraph of [...plan.briefing.paragraphs,...plan.briefing.followUps??[]])
+    requireLens(paragraph.sourceIds.every(id=>byId.has(id)),"source-not-in-scope");
   for(const version of plan.sourceVersions) {
     requireLens(!versions.has(version.sourceId),"duplicate-source-version");versions.add(version.sourceId);
     const block=byId.get(version.sourceId);requireLens(block,"source-not-in-scope");

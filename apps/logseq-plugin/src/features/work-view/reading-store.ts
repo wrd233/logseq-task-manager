@@ -4,7 +4,7 @@ import type { ReadingPlan } from "./reading-plan.ts";
 export interface SavedReadingView { plan:ReadingPlan; revision:number; previous?:ReadingPlan }
 export interface SavedReadingViews { schemaVersion:1; mode:"report"|"structure"; selected:string|null; views:SavedReadingView[] }
 export interface ReadingStorage { getItem(key:string):string|null; setItem(key:string,value:string):void }
-/** Local presentation metadata only: source text stays in Logseq. */
+/** Local presentation only: layouts and generated briefings; original text stays in Logseq. */
 export class ReadingViewStore {
   constructor(private readonly storage:ReadingStorage) {}
   private key(scope:SourceScope):string {return `workbench:reading-views:${JSON.stringify([scope.graphId,scope.rootUuid,scope.kind??"block",scope.pageName??null])}`;}
@@ -13,5 +13,8 @@ export class ReadingViewStore {
       return value.schemaVersion===1&&Array.isArray(value.views)?value:null;
     }catch{return null;}
   }
-  save(scope:SourceScope,value:SavedReadingViews):void {this.storage.setItem(this.key(scope),JSON.stringify(value));}
+  save(scope:SourceScope,value:SavedReadingViews):void {
+    this.storage.setItem(this.key(scope),JSON.stringify(value));
+    if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("workbench-reading-views-changed",{detail:scope}));
+  }
 }

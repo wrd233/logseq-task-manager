@@ -182,7 +182,7 @@ export async function apply(ctx, config = {}) {
       return service.selectReading(exec.agent.session.id, args, exec.signal);
     }],
     ['logseq_reading_request', 'Request an agent-designed finite reading arrangement without changing original Logseq text.', { purpose: { type: 'string' } }, ['purpose'], (args, exec) => service.command(exec.agent.session.id, 'reading.request', args, exec.signal)],
-    ['logseq_reading_submit', 'Add or update a named work reading view using a request owned by this DSH session. Reuse planId to update; selection is shared and user navigation is preserved.', { plan: { type: 'object', additionalProperties: true } }, ['plan'], (args, exec) => service.command(exec.agent.session.id, 'reading.submit', args, exec.signal)],
+    ['logseq_reading_submit', 'Add or update a named work reading view using a request owned by this DSH session. Reuse planId to update; selection is shared and user navigation is preserved. A plan may include briefing: {basisVersion: sourceSetVersion, createdAt: ISO time, paragraphs: [{markdown, sourceIds, kind: fact|inference|suggestion, tone?: progress|attention}], followUps?: same paragraph shape}. Every paragraph cites original source IDs. Briefing prose is an AI reading projection, never a source edit. For work-resume-briefing retain all sources in a sequence layout.', { plan: { type: 'object', additionalProperties: true } }, ['plan'], (args, exec) => service.command(exec.agent.session.id, 'reading.submit', args, exec.signal)],
   ]) ctx.tools.register({ name: toolName, description, parameters: { type: 'object', properties, required, additionalProperties: false },
     output: { schema: {}, render: (_args, value) => {
       const text = JSON.stringify(value);

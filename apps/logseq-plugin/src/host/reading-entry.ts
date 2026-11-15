@@ -1,15 +1,17 @@
 import { extractObjectNavigationLabel } from "../canonical-writing.ts";
 import { hostDocument } from "./panel-host.ts";
+import type { SourceScope } from "../workspace/source-protocol.ts";
+import { graphIdentity } from "../graph-adapter.ts";
 
 /** Navigation-only controls beside saved work titles. Never slot/replace a native body. */
-export function installReadingEntries(open: (uuid: string) => Promise<void>, openPage: () => Promise<void>, fail: (error: unknown) => void, dsh?: {block(uuid: string): Promise<void>; page(): Promise<void>}) {
+export function installReadingEntries(open: (uuid: string) => Promise<void>, openPage: () => Promise<void>, fail: (error: unknown) => void, dsh?: {block(uuid: string): Promise<void>; page(): Promise<void>}, briefing?:(target:string|SourceScope)=>Promise<void>) {
   const doc = hostDocument();
   let disposed = false, generation = 0, scheduled: ReturnType<typeof setTimeout> | null = null, scanning = false, again = false;
   const saved = new Map<string, string | null>();
   const controls = new Set<HTMLElement>();
   const style = doc?.createElement("style");
   if (style) { style.dataset.workReadingStyle = "true"; style.textContent = "[data-work-reading],[data-work-dsh]{flex:none;font:inherit;font-size:12px;line-height:1.5;padding:0 6px;margin:0 6px;border:1px solid var(--ls-border-color,#ddd);border-radius:4px;color:var(--ls-link-text-color,#567969);background:transparent;cursor:pointer;align-self:flex-start}[data-work-reading]:focus-visible{outline:2px solid currentColor;outline-offset:2px}"; doc!.head.append(style); }
-  const remove = (node: Element) => { node.querySelectorAll<HTMLElement>(":scope > [data-work-reading], :scope > [data-work-dsh]").forEach(control => { controls.delete(control); control.remove(); }); };
+  const remove = (node: Element) => { node.querySelectorAll<HTMLElement>(":scope > [data-work-reading], :scope > [data-work-dsh], :scope > [data-work-briefing]").forEach(control => { controls.delete(control); control.remove(); }); };
   const add = (parent: Element, key: string, title: string, run: () => Promise<void>) => {
     const existing = parent.querySelector<HTMLElement>(":scope > [data-work-reading]");
     if (existing?.dataset.workReading === key) { existing.setAttribute("aria-label", `阅读：${title}`); return; }
@@ -20,6 +22,18 @@ export function installReadingEntries(open: (uuid: string) => Promise<void>, ope
     for (const type of ["pointerdown", "mousedown"]) control.addEventListener(type, event => { event.preventDefault(); event.stopPropagation(); });
     control.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); if (!disposed) void run().catch(fail); });
     parent.append(control); controls.add(control);
+    if(briefing) {
+      const entry=parent.ownerDocument.createElement("button");entry.type="button";entry.dataset.workBriefing=key;entry.textContent="简报";entry.title=`工作简报：${title}`;
+      entry.style.cssText="flex:none;font:inherit;font-size:12px;line-height:1.5;padding:0 6px;margin:0 6px;border:1px solid var(--ls-border-color,#ddd);border-radius:4px;color:var(--ls-link-text-color,#567969);background:transparent;cursor:pointer;align-self:flex-start";
+      for(const type of ["pointerdown","mousedown"])entry.addEventListener(type,event=>{event.preventDefault();event.stopPropagation();});
+      entry.onclick=event=>{event.preventDefault();event.stopPropagation();void (async()=>{
+        if(key.startsWith("page:")) {
+          const graph=await logseq.App.getCurrentGraph(),page=await logseq.Editor.getCurrentPage();
+          await briefing({graphId:graphIdentity(graph),rootUuid:key.slice(5),kind:"page",pageName:String(page?.originalName??page?.name)});
+        } else await briefing(key);
+      })().catch(fail);};
+      parent.append(entry);controls.add(entry);
+    }
     if (dsh && !parent.querySelector(':scope > [data-work-dsh]')) {
       const entry = parent.ownerDocument.createElement('button'); entry.type = 'button'; entry.dataset.workDsh = key; entry.textContent = '在 DSH 继续';
       for (const type of ['pointerdown', 'mousedown']) entry.addEventListener(type, event => {event.preventDefault();event.stopPropagation();});
@@ -58,7 +72,7 @@ export function installReadingEntries(open: (uuid: string) => Promise<void>, ope
   };
   function schedule() { if (!disposed && !scheduled) scheduled=setTimeout(()=>{scheduled=null;void scan();},60); }
   const observer = doc ? new doc.defaultView!.MutationObserver(records => {
-    if (records.some(record => !((record.target as Element).closest?.("[data-work-reading],[data-work-dsh]") || [...Array.from(record.addedNodes),...Array.from(record.removedNodes)].every(node => node instanceof doc.defaultView!.Element && (node as Element).matches("[data-work-reading],[data-work-dsh]"))))) schedule();
+    if (records.some(record => !((record.target as Element).closest?.("[data-work-reading],[data-work-dsh],[data-work-briefing]") || [...Array.from(record.addedNodes),...Array.from(record.removedNodes)].every(node => node instanceof doc.defaultView!.Element && (node as Element).matches("[data-work-reading],[data-work-dsh],[data-work-briefing]"))))) schedule();
   }) : null;
   observer?.observe(doc!.body,{childList:true,subtree:true});
   const offDB=logseq.DB.onChanged(event=>{
