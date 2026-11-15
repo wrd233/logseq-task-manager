@@ -87,7 +87,7 @@ export class ReadingPlanController {
         structureVersion:view.plan.structureVersion,sourceSetVersion:view.plan.sourceSetVersion})),
       pendingRequests:[...this.invitations.keys()],sourceSetVersion:this.source?.sourceSetVersion??null,persistenceError:this.persistenceError,
       capabilities:{schemaVersion:1,units:["sequence","paragraphs","group","comparison","material"],fullSourceRequired:true,updatesNamedViews:true,sharedSelection:true,
-        briefing:{paragraphs:true,sourceIds:"required",kinds:["fact","inference","suggestion"],tones:["progress","attention"]},
+        briefing:{paragraphs:true,sourceIds:"required",kinds:["fact","inference","suggestion"],tones:["progress","attention"],selectsLayout:false},
         sourceText:"plugin-read",writesSource:false,authorizesTodo:false,authorizesRecognition:false}};
   }
   setMode(mode:"report"|"structure"):void {this.synchronize();this.mode=mode;this.selected=null;this.selection++;this.save();this.host.changed();}
@@ -123,7 +123,7 @@ export class ReadingPlanController {
       requireLens(this.available,"source-unavailable");requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");requireLens(this.invitations.get(plan.requestId)===invitation,"reading-request-revoked");
       const verified=validateReadingPlan(plan,source,materials),existing=this.plans.get(plan.planId),identical=existing&&JSON.stringify(existing.plan)===JSON.stringify(plan);
       requireLens(identical||(existing?.revision??0)===(invitation.revisions.get(plan.planId)??0),"reading-view-changed");
-      const selected=!!identical&&this.selected===plan.planId||invitation.selection===this.selection&&(!existing||this.selected===plan.planId),revision=identical?existing.revision:(existing?.revision??0)+1;
+      const selected=plan.briefing?this.selected===plan.planId:!!identical&&this.selected===plan.planId||invitation.selection===this.selection&&(!existing||this.selected===plan.planId),revision=identical?existing.revision:(existing?.revision??0)+1;
       if(!identical)this.plans.set(plan.planId,{plan,verified,revision,...(existing?{previous:existing.plan}:{})});
       if(selected&&!identical){this.selected=plan.planId;this.mode="report";}
       if(this.plans.size>8)this.plans.delete([...this.plans.keys()].find(id=>id!==this.selected)!);

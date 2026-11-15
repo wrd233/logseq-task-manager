@@ -4,7 +4,9 @@
 
 当前已接通数据校验、独立阅读控制器、界面和既有本机 CLI。隔离 Logseq 0.10.15 与随构建生成的 companion 已完成阅读局部演练；最终安装包与其余协作路径仍在实施。这不构成整项生产交付声明。
 
-`features/work-view/reading-plan.ts` 的 schema v1 引用真实 `SourceSnapshot`：requestId、planId、名称、scope、structureVersion、sourceSetVersion，以及完整 sourceId/contentVersion 集合。正文由插件获取，不允许替代正文、HTML、脚本、样式、actor 或权限字段。来源只有一次主要展示，重复句保留不同身份；必要上下文另列实际来源。
+`features/work-view/reading-plan.ts` 的 schema v1 引用真实 `SourceSnapshot`：requestId、planId、名称、scope、structureVersion、sourceSetVersion，以及完整 sourceId/contentVersion 集合。原文正文由插件获取，不允许替代原文、脚本、样式、actor 或权限字段。来源只有一次主要展示，重复句保留不同身份；必要上下文另列实际来源。
+
+2026-11-15 增补：可选 `briefing` 用于独立工作简报阅览器，详见[情境化渲染设计](contextual-work-rendering.md)。它保存 `basisVersion`、ISO `createdAt`、`paragraphs` 与可选 `followUps`；每段包含 `markdown`、实际 `sourceIds`、`kind: fact|inference|suggestion` 与可选 `tone: progress|attention`。这是 Agent 撰写的阅读投影，不会替代下述 layout 中的原文；沿用已有 Markdown 渲染。提交时简报基准必须对应本次来源版本，逐段引用须在原始来源集合内。原文变更后 layout 使用最新原句，简报保留旧基准并显示过期提示，不对旧摘要自动续期。简报提交不自动切换当前 Reader 的选择或模式，返回 `saved` 后不需要另行选择。`fact` 仅表示原文依据，不表示用户已确认。旧方案无需增加此字段。
 
 布局可组合，不是固定模板选择：
 

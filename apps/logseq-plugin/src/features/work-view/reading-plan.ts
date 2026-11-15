@@ -3,10 +3,10 @@ import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-i
 import { sameLensScope } from "./lens-source.ts";
 import { reportCategory } from "./report-model.ts";
 import { workObject } from "./focus.mjs";
-import type { WorkBriefing, BriefingParagraph } from "./briefing-model.ts";
+import type { WorkBriefing } from "./briefing-model.ts";
 
-/** A closed reading vocabulary. Bodies, styles, executable markup and authority
- * never travel in a layout. The plugin supplies source text and material views. */
+/** Layouts reference original text; optional briefing prose is a separate reading
+ * projection. The plugin supplies source text and material views. */
 export type ReadingUnit =
   | {kind:"sequence"; key:string; sourceIds:string[]}
   | {kind:"paragraphs"; key:string; sourceIds:string[]}
@@ -80,19 +80,7 @@ export function decodeReadingPlan(input:unknown):ReadingPlan {
       const version=lensRecord(value,["sourceId","contentVersion"]);
       return {sourceId:text(version.sourceId,4096),contentVersion:lensHash(version.contentVersion)};
     }),layout:lensArray(raw.layout,MAX_UNITS).map(value=>unit(value,0))};
-  if(raw.briefing) {
-    const brief=lensRecord(raw.briefing,["basisVersion","createdAt","paragraphs","followUps"]);
-    const paragraph=(input:unknown):BriefingParagraph=>{
-      const value=lensRecord(input,["markdown","sourceIds","kind","tone"]);
-      requireLens(["fact","inference","suggestion"].includes(String(value.kind)),"invalid-briefing-kind");
-      requireLens(value.tone===undefined||value.tone==="progress"||value.tone==="attention","invalid-briefing-tone");
-      return {markdown:lensText(value.markdown,12000),sourceIds:lensArray(value.sourceIds,MAX_SOURCES,1).map(id=>text(id,4096)),
-        kind:value.kind as BriefingParagraph["kind"],...(value.tone?{tone:value.tone as "progress"|"attention"}:{})};
-    };
-    plan.briefing={basisVersion:lensHash(brief.basisVersion),createdAt:text(brief.createdAt,64),
-      paragraphs:lensArray(brief.paragraphs,32,1).map(paragraph),
-      ...(brief.followUps?{followUps:lensArray(brief.followUps,5).map(paragraph)}:{})};
-  }
+  if(raw.briefing)plan.briefing=structuredClone(raw.briefing) as WorkBriefing;
   requireLens(new TextEncoder().encode(JSON.stringify(plan)).length<=1_048_576,"reading-plan-too-large");
   return plan;
 }

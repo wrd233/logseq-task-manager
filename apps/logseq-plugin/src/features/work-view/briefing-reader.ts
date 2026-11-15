@@ -34,6 +34,7 @@ export class WorkBriefingReader {
   private index=0;
   private request=0;
   private scroll:HTMLElement|null=null;
+  private rendered="";
   private readonly positions=new Map<string,number>();
   private readonly disposers:Array<()=>void>=[];
   private refreshTimer:ReturnType<typeof setTimeout>|undefined;
@@ -42,7 +43,7 @@ export class WorkBriefingReader {
     this.dialog.className="work-briefing";
     this.dialog.setAttribute("aria-label","工作简报");
     this.style.textContent=briefingStyle;this.doc.head.append(this.style);this.doc.body.append(this.dialog);
-    this.dialog.addEventListener("close",()=>{this.remember();this.request++;});
+    this.dialog.addEventListener("cancel",event=>{event.preventDefault();this.close();});
     this.dialog.addEventListener("click",event=>{if(event.target===this.dialog&&!(event.clientX>=this.dialog.getBoundingClientRect().left&&event.clientX<=this.dialog.getBoundingClientRect().right&&event.clientY>=this.dialog.getBoundingClientRect().top&&event.clientY<=this.dialog.getBoundingClientRect().bottom))this.close();});
     this.dialog.addEventListener("keydown",event=>{
       if(event.isComposing||event.altKey||event.ctrlKey||event.metaKey||this.doc.getSelection()?.toString()||(event.target as Element).closest("input,textarea,[contenteditable=true],summary,a"))return;
@@ -69,7 +70,7 @@ export class WorkBriefingReader {
   private remember() {
     const work=this.works[this.index];if(work&&this.scroll)this.positions.set(scopeKey(work.scope),this.scroll.scrollTop);
   }
-  close():void {this.dialog.close();}
+  close():void {this.remember();this.request++;this.dialog.close();}
   dispose():void {this.close();clearTimeout(this.refreshTimer);for(const dispose of this.disposers)dispose();this.dialog.remove();this.style.remove();}
 
   async open(target?:string|SourceScope):Promise<void> {
@@ -83,7 +84,6 @@ export class WorkBriefingReader {
         const trace=await ancestry(native,id=>logseq.Editor.getBlock(id));
         if(trace.objects.length)scope={graphId,rootUuid:trace.objects.at(-1)!.uuid};
       }
-      scope??=this.host.current()??undefined;
     }
     const check=()=>{if(request!==this.request)throw new Error("简报已关闭或已切换工作。");};
     const pages=[];
@@ -101,6 +101,7 @@ export class WorkBriefingReader {
       const page=await logseq.Editor.getCurrentPage(),name=String(page?.originalName??page?.name??"");
       if(page?.uuid&&/(?:^|[\s/])(?:Project|Area)(?:[\s/:]|$)/iu.test(name))scope={graphId,rootUuid:page.uuid,kind:"page",pageName:name};
     }
+    scope??=this.host.current()??undefined;
     if(scope&&!this.works.some(work=>scopeKey(work.scope)===scopeKey(scope!))) {
       const block=scope.kind==="page"?null:await logseq.Editor.getBlock(scope.rootUuid);
       this.works.unshift({scope,title:scope.pageName??workObject(block?.content??"")?.title??reportProjection(block?.content??"当前工作").markdown.split("\n")[0]!,location:graph?.name||graphId});
@@ -141,13 +142,18 @@ export class WorkBriefingReader {
     navigation.append(prev,this.node("span",`${work?this.index+1:0} / ${this.works.length}`,"brief-counter"),next);
     const close=this.button("关闭",()=>this.close());
     header.append(this.node("span","工作简报"),navigation,close);
-    if(loading){this.scroll=null;this.dialog.replaceChildren(header,this.node("p","正在读取已保存的工作…","brief-scroll"));}
+    if(loading){this.scroll=null;this.dialog.replaceChildren(header,this.node("p","正在读取已保存的工作…","brief-scroll"));this.dialog.focus();}
     if(!work) {this.dialog.replaceChildren(header,this.node("p","还没有收录工作。照常在 Logseq 记录 [事务]、[MiniProject]，或将页面加入工作搜索后再来。","brief-scroll"));return;}
     try {
       const source=await this.host.source(work.scope);
       if(request!==this.request||!this.dialog.open)return;
       const saved=this.store.load(work.scope),plan=latestBriefing(saved?.views.map(view=>view.plan)??[]),brief=plan?.briefing;
+      const signature=JSON.stringify([scopeKey(work.scope),source.structureVersion,source.sourceSetVersion,brief]);
+      if(!loading&&signature===this.rendered)return;
+      const expanded=this.scroll?Array.from(this.dialog.querySelectorAll<HTMLDetailsElement>(".brief-citations")).map(node=>node.open):[];
+      const rawWasOpen=this.scroll?this.dialog.querySelector<HTMLElement>(".brief-raw")?.hidden===false:!brief;
       const content=this.node("article","","brief-scroll"),title=this.node("h1",work.title),meta=this.node("p",work.location,"brief-meta");
+      title.tabIndex=-1;
       content.append(title,meta);
       if(source.blocks.some(block=>block.availability!=="available")||source.page?.availability==="missing"||source.page?.availability==="unavailable") {
         content.append(this.node("p","原文暂不可读。请回到 Logseq 检查这件工作，再重新打开简报。","brief-notice"));
@@ -162,13 +168,18 @@ export class WorkBriefingReader {
       } else {
         content.append(this.node("p","尚未生成工作简报。先读已保存的原文，也可以到 DSH 请 Agent 整理一份工作说明。","brief-notice"));
       }
-      const raw=this.node("section","","brief-raw");raw.hidden=!!brief;raw.append(this.node("p","原始记录 · 仅包含已保存内容"));
-      for(const block of source.blocks) {const row=this.sourceNode(source,block.sourceId);row.style.setProperty("--depth",String(block.depth));raw.append(row);}
-      if(!source.blocks.length)raw.append(this.node("p","这件工作还没有正文记录。"));
+      const raw=this.node("section","","brief-raw");raw.hidden=!rawWasOpen;raw.append(this.node("p","原始记录 · 仅包含已保存内容"));
+      let rawReady=false;
+      const populateRaw=()=>{
+        if(rawReady)return;rawReady=true;
+        for(const block of source.blocks) {const row=this.sourceNode(source,block.sourceId);row.style.setProperty("--depth",String(block.depth));raw.append(row);}
+        if(!source.blocks.length)raw.append(this.node("p","这件工作还没有正文记录。"));
+      };
+      if(!raw.hidden)populateRaw();
       content.append(raw);
-      const footer=this.node("footer","","brief-footer"),original=this.button(brief?"查看原始记录":"收起原始记录",()=>{
+      const footer=this.node("footer","","brief-footer"),original=this.button(raw.hidden?"查看原始记录":"收起原始记录",()=>{
         raw.hidden=!raw.hidden;original.textContent=raw.hidden?"查看原始记录":"收起原始记录";
-        if(!raw.hidden)raw.scrollIntoView({block:"start",behavior:"smooth"});
+        if(!raw.hidden){populateRaw();raw.scrollIntoView({block:"start",behavior:"smooth"});}
       });
       original.setAttribute("aria-expanded",String(!raw.hidden));
       original.addEventListener("click",()=>original.setAttribute("aria-expanded",String(!raw.hidden)));
@@ -180,6 +191,9 @@ export class WorkBriefingReader {
       const resume=this.button("恢复工作 ↗",()=>{this.close();void this.host.resume(work.scope).catch(error=>logseq.UI.showMsg(String(error),"warning"));});resume.className="brief-resume";
       footer.append(original,agent,resume,message);
       this.dialog.replaceChildren(header,content,footer);this.scroll=content;content.scrollTop=this.positions.get(scopeKey(work.scope))??0;
+      Array.from(content.querySelectorAll<HTMLDetailsElement>(".brief-citations")).forEach((node,index)=>{node.open=expanded[index]??false;});
+      this.rendered=signature;
+      if(!this.dialog.contains(this.doc.activeElement))title.focus({preventScroll:true});
     } catch(error) {
       if(request!==this.request||!this.dialog.open)return;
       const message=this.node("div","","brief-scroll");message.append(this.node("p",`这次未能读取工作：${error instanceof Error?error.message:String(error)}`,"brief-notice"),this.button("重试",()=>{void this.load(true);}));
