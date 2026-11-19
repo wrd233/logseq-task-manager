@@ -154,13 +154,20 @@ export class WorkView {
     logseq.App.registerCommandPalette({key:"workbench-return-report",label:"工作台：返回当前正文",keybinding:{binding:"mod+alt+r"}},() => {
       if (!this.disposed) void this.report.api.resume().then(result => { if (!result.ok) this.fail(new Error(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`)); }).catch(this.fail);
     });
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.isComposing || this.renderer.composing || (event.target as HTMLElement).closest("input,textarea,[contenteditable=true]") || this.lensBar.root.hidden) return;
-      event.preventDefault(); event.stopPropagation();
-      if (this.lenses.read().pending) this.lenses.api.cancel(); else this.lenses.api.exit();
+    const readingKey = (event: KeyboardEvent) => {
+      if (event.isComposing || this.renderer.composing || (event.target as HTMLElement).closest("input,textarea,select,[contenteditable=true]")) return;
+      if (event.key === "ArrowLeft" && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey &&
+          this.panel.visible && this.fromSearch && this.discoverWorks) {
+        event.preventDefault(); event.stopPropagation();
+        void this.returnToSearch().catch(this.fail);
+      }
+      if (event.key === "Escape" && !this.lensBar.root.hidden) {
+        event.preventDefault(); event.stopPropagation();
+        if (this.lenses.read().pending) this.lenses.api.cancel(); else this.lenses.api.exit();
+      }
     };
-    this.panel.root.addEventListener("keydown", escape);
-    this.disposers.push(() => this.panel.root.removeEventListener("keydown", escape));
+    this.panel.root.addEventListener("keydown", readingKey);
+    this.disposers.push(() => this.panel.root.removeEventListener("keydown", readingKey));
     const doc = hostDocument();
     const clicked = (event: MouseEvent) => {
       if (!this.followClicks || !this.panel.visible || this.disposed || this.report.nativeActive || this.report.composing) return;

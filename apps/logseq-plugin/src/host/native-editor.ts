@@ -96,16 +96,15 @@ export class NativeEditorHost {
     if (!await this.available() || !valid()) throw new Error("NATIVE_EDITING_OR_SCOPE_CHANGED");
     // Avoid resetting an already rendered page. SDK routing acknowledgements precede its native DOM.
     if (!this.block(uuid)) {
-      // SDK 0.3.4 scrollToBlockInPage discards pushState's promise; await the actual routing API.
+      // SDK routing acknowledgements precede its native DOM.
       await logseq.App.pushState("page",{name:page},{anchor:`block-content-${uuid}`});
-      // pushState is typed void by SDK 0.3.4. Its acknowledgement does not mean
-      // that the installed Desktop has mounted the destination native page.
-      for (let attempt=0; !this.block(uuid) && attempt<60; attempt++) {
-        if (!valid()) throw new Error("NATIVE_SCOPE_EXPIRED");
-        if (!await this.available()) throw new Error("NATIVE_EDITING_OR_SCOPE_CHANGED");
-        await new Promise<void>(resolve=>setTimeout(resolve,25));
+      if (!await this.waitForBlock(uuid,valid)) {
+        // A native collapsed ancestor may keep a source off the page entirely.
+        // Zoom into that exact block without changing any native fold properties.
+        if (!valid() || !await this.available() || !await verify() || !valid()) throw new Error("NATIVE_SOURCE_EXPIRED");
+        await logseq.App.pushState("page",{name:uuid});
+        if (!await this.waitForBlock(uuid,valid)) throw new Error("NATIVE_INPUT_UNAVAILABLE");
       }
-      if (!this.block(uuid)) throw new Error("NATIVE_INPUT_UNAVAILABLE");
     }
     await this.frames();
     this.block(uuid)?.scrollIntoView?.({block:"nearest",inline:"nearest"});
@@ -117,6 +116,14 @@ export class NativeEditorHost {
     if (!valid() || !await this.available() || !await verify() || !valid()) throw new Error("NATIVE_INPUT_UNAVAILABLE");
     await logseq.Editor.editBlock(uuid);
     if (!await this.inputReady(uuid,valid)) throw new Error("NATIVE_INPUT_UNAVAILABLE");
+  }
+  private async waitForBlock(uuid: string, valid: () => boolean): Promise<boolean> {
+    for (let attempt=0; !this.block(uuid) && attempt<60; attempt++) {
+      if (!valid()) throw new Error("NATIVE_SCOPE_EXPIRED");
+      if (!await this.available()) throw new Error("NATIVE_EDITING_OR_SCOPE_CHANGED");
+      await new Promise<void>(resolve=>setTimeout(resolve,25));
+    }
+    return !!this.block(uuid);
   }
   dispose(): void {
     this.disposed=true;

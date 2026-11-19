@@ -38,6 +38,7 @@ export class WorkViewShell {
     this.reading.root.classList.add("wb-reading-menu");
     this.backSearch = button("返回工作搜索", actions.backSearch); this.backSearch.className = "wb-back-search";
     this.backSearch.onpointerdown = event => event.preventDefault();
+    this.backSearch.title = "返回工作搜索 · Alt+←"; this.backSearch.setAttribute("aria-keyshortcuts", "Alt+ArrowLeft");
     this.body = button("正文", actions.body); this.body.onpointerdown = event => { if (this.body.textContent === "返回正文") event.preventDefault(); };
     this.materials = button("材料", actions.materials);
     this.review = button("审阅与历史", actions.review); this.review.className = "wb-review-entry";
