@@ -22,6 +22,7 @@ import type { ReadingBookmark } from "./renderer.ts";
 import type { BodyPosition } from "./report-target.ts";
 import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import type { ReadingMaterialPort } from "./reading-layout.ts";
+import { existingWorkPageMark } from "../../canonical-writing.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
 
@@ -58,7 +59,8 @@ export class WorkView {
   private reviewOpen = false;
   private followClicks = false;
   private failure = "";
-  private continuation: {title:string;run:()=>Promise<void>} | null = null;
+  private discoverWorks: (() => void) | null = null;
+  private continuation: {title:string;isCurrentPage:boolean;run:()=>Promise<void>} | null = null;
   private contextActions: () => WorkShellAction[] = () => [];
   private readonly reviewHost = element("section", "", "wb-review-host");
   private readonly shell = new WorkViewShell({
@@ -426,7 +428,7 @@ export class WorkView {
       if(trace.objects.length){await this.open(trace.objects.at(-1)!.uuid);return;}
     }
     const name=String(page?.originalName??page?.name??"");
-    if(name && /(?:^|[\s/])(?:Project|Area)(?:[\s/:]|$)/iu.test(name)){await this.openPage(name);return;}
+    if(existingWorkPageMark(name)){await this.openPage(name);return;}
     this.saveReadingSession(this.panel.visible || this.report.nativeActive);
     this.invalidate();this.rootUuid=null;this.pageName=null;this.graph=graph;this.state=emptyPresentation();
     this.shell.mount(this.panel.root);this.renderHeading();this.renderEmpty();
@@ -437,7 +439,7 @@ export class WorkView {
     if(ticket!==this.navigationEpoch || this.disposed)return;
     if(source?.uuid && (savedScope?.kind==="page" || source.uuid===last)) {
       const title=savedScope?.kind==="page" ? String(savedScope.pageName) : "content" in source && typeof source.content==="string" ? workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title : "上次工作";
-      this.continuation={title,run:()=>savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)};
+      this.continuation={title,isCurrentPage:savedScope?.kind==="page" && source.uuid===page?.uuid,run:()=>savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)};
       this.renderEmpty();
     }
     await this.panel.open();
@@ -480,10 +482,24 @@ export class WorkView {
     if (!open) this.shell.focusReview();
   }
   private renderEmpty(): void {
-    const guide = element("div", "", "wb-empty");
-    guide.append(element("h2", "从 Logseq 的一份工作开始"), element("p", "先选中工作标题或任意正文块，再打开这里。正文在 Logseq 写作，材料和改动按需查看。"), button("打开当前块的工作", () => void this.openCurrentWork().catch(this.fail)));
-    if(this.continuation){const entry=this.continuation;guide.append(button(`继续阅读：${entry.title}`,()=>void entry.run().catch(this.fail)));}
+    this.status.textContent = "";
+    const guide = element("div", "", "wb-empty wb-start-reading");
+    const current = button("阅读当前页", () => void this.openPage().then(() => this.focusReading()).catch(this.fail));
+    const entry = this.continuation;
+    if (entry) {
+      const resume = button(`继续阅读：${entry.title}`, () => void entry.run().then(() => this.focusReading()).catch(this.fail));
+      resume.className = "wb-primary";
+      guide.append(resume);
+    } else current.className = "wb-primary";
+    if (!entry?.isCurrentPage) guide.append(current);
+    if (this.discoverWorks) guide.append(button("发现已有工作", this.discoverWorks));
     this.content.replaceChildren(guide);
+  }
+  setWorkSearch(open: () => void): void { this.discoverWorks = open; }
+  focusReading(): void {
+    if (!this.panel.visible) return;
+    const title = this.panel.root.querySelector<HTMLElement>(".wb-work-title");
+    if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
   }
   private renderHeading(): void {
     const rows = this.report.active ? this.report.rows ?? this.sourceRows : this.rows;
@@ -519,6 +535,8 @@ export class WorkView {
     for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid, "breadcrumb"), disabled: !this.rootUuid || this.historical });
     actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...this.contextActions());
     const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";
+    this.shell.root.hidden = !work;
+    this.shell.root.classList.toggle("wb-ordinary-page", !!this.pageName && !existingWorkPageMark(this.pageName));
     this.shell.render({ parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid,"breadcrumb")} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
       review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: (reading.persistenceError?"读法未能保存到本机，请检查浏览器存储。":"") || notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), readingLabel: reading.activePlan?.name ?? (this.report.active ? "连续阅读" : "原结构"), actions });
   }

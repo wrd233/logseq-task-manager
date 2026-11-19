@@ -53,6 +53,34 @@ html,body{margin:0;height:100%;overflow:hidden}
 .wb-row>.wb-body{grid-column:3}
 .wb-row>.wb-grip,.wb-row>button{border:0;padding:0;min-height:30px}.wb-grip{touch-action:none;cursor:grab!important}.wb-row-menu{grid-column:4;grid-row:1}.wb-row-menu>summary{list-style:none;text-align:center;cursor:pointer;min-height:30px;border-radius:6px;color:var(--wb-muted)}.wb-row-menu>summary::-webkit-details-marker{display:none}.wb-row-menu>summary:after{content:none}.wb-row-menu[open]>summary{background:var(--wb-soft)}.wb-controls select{width:100%}.wb-drop{outline:2px solid var(--wb-focus)}
 .wb-root-title-in-heading,.wb-root-heading-row{display:none}.wb-empty{max-width:34em;margin:24px auto;padding:0 12px}.wb-empty h2{font-size:18px;margin:0 0 8px}.wb-empty p{margin:6px 0 12px}.wb-review-host{flex:none;max-height:42%;overflow:auto;background:var(--wb-soft)}.wb-review-host>.wb-stage-bar{font-size:13px}.wb-review-host .wb-collaboration-entry{display:none}
+
+.wb-ordinary-page .wb-work-kind{display:none}
+.wb-ordinary-page .wb-work-line .wb-primary{background:transparent;color:var(--wb-muted);font-weight:500}
+.wb-ordinary-page .wb-work-line .wb-primary:hover{background:var(--wb-soft);color:var(--wb-ink);filter:none}
+.wb-ordinary-page .wb-reading-range button:disabled{display:none}
+.wb-ordinary-page .wb-reading-tools{padding-block:7px}
+.wb-ordinary-page .wb-reading-menu>summary{border:0;color:var(--wb-muted);padding-inline:5px}
+.wb-start-reading{display:grid;justify-items:start;gap:7px;padding-block:16px;margin-block:10px}
+.wb-start-reading>button{max-width:100%;text-align:left}
+.wb-work-search{display:flex;flex-direction:column;flex:1;min-height:0;font:14px/1.55 system-ui}
+.wb-search-heading{padding:15px 18px 3px}
+.wb-search-list{padding-block:0 8px}
+.wb-search-footer{padding:5px 18px 12px}
+.wb-work-search h2{font-size:17px;font-weight:650;margin:3px 0 14px}
+.wb-search-help p{max-width:32em;margin:0 0 12px;color:var(--wb-muted)}
+.wb-search-help:not(:empty){margin-bottom:18px}
+.wb-search-heading>input{width:100%;margin-bottom:8px}
+.wb-search-results{list-style:none;padding:0;margin:0}
+.wb-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:2px;border-bottom:1px solid var(--wb-edge)}
+.wb-search-row>button{padding:5px 7px;margin:2px 0}
+.wb-search-row>.wb-search-entry{text-align:left;min-width:0;padding:8px 7px;font-weight:600}
+.wb-search-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wb-search-entry small{display:block;color:var(--wb-muted);font-size:12px;font-weight:400;margin-top:2px}
+.wb-search-row>button:not(.wb-search-entry){color:var(--wb-muted);font-size:12px;white-space:nowrap}
+.wb-search-empty,.wb-search-status,.wb-search-shortcuts{color:var(--wb-muted);font-size:13px}
+.wb-search-empty{padding:9px 2px}
+.wb-search-status:empty{display:none}
+.wb-search-status{margin-top:10px}
 .wb-materials-in-work .wb-material-return,.wb-materials-in-work .wb-material-close,.wb-materials-in-work .wb-material-work{display:none}.wb-materials-in-work .wb-heading>strong{display:none}.wb-material{display:block;width:100%;text-align:left}.wb-material small{display:block;color:var(--wb-muted);white-space:normal;overflow-wrap:anywhere}.wb-editor{flex:1;min-height:0;overflow:auto}.wb-conflict{padding:12px 16px;background:var(--wb-soft);border-left:3px solid var(--wb-attention)}.wb-reading{font-size:15px;line-height:1.8;overflow-wrap:anywhere}.wb-reading pre{overflow:auto;background:var(--wb-soft);padding:10px;border-radius:7px}.wb-reading img{max-width:100%}.wb-reading table{display:block;max-width:100%;overflow:auto;border-collapse:collapse}.wb-reading :is(td,th){border:1px solid var(--wb-edge);padding:4px 8px}
 .wb-material-form{display:flex;flex-wrap:wrap;gap:8px}.wb-material-form label,.wb-material-form small{width:100%}.wb-material-form :is(input,textarea){display:block;width:100%;margin-top:6px}
 @media(max-width:480px){.wb-work-title{font-size:17px}.wb-work-identity{flex-basis:100%;min-width:0}.wb-work-line{gap:6px}.wb-work-line>.wb-menu{margin-left:auto}.wb-content-navigation{gap:12px}.wb-review-host{max-height:38%}.wb-scroll{padding:12px 14px 24px}}

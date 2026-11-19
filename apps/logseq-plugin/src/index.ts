@@ -1,4 +1,5 @@
 import { installCatalogPublisher } from './features/agent-workspace/catalog-publisher.ts';
+import { WorkCatalogView } from './features/agent-workspace/catalog-view.ts';
 import { graphIdentity } from "./graph-adapter.ts";
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
@@ -20,7 +21,12 @@ import { installStageWorkbench, type StageInstallation } from "./features/stage-
 import { fileName } from "./features/materials/names.ts";
 import { sameLensScope } from "./features/work-view/lens-source.ts";
 
+declare const __WORKBENCH_BUILD__: string;
+const loadedBuild = typeof __WORKBENCH_BUILD__ === "string" ? __WORKBENCH_BUILD__ : "开发源码";
+
 logseq.useSettingsSchema([
+  { key: "workbenchBuildInfo", type: "heading", default: null, title: "当前加载版本", description: loadedBuild },
+  { key: "workCatalogProjectTags", type: "string", default: "", title: "已有项目标签", description: "自动发现会识别页面的「项目」和「Project」标签。可补充你已经在用的标签，用逗号分隔。" },
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
   { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。通过“带当前工作去协作”建立只读连接；正文、文件与 TODO 分别允许。停止连接不影响本地阅读。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
@@ -41,6 +47,7 @@ async function main(): Promise<void> {
   let agentWorkspace: ReturnType<typeof installAgentWorkspace> | null = null;
   let stages: StageInstallation | null = null;
   let removeCatalog: () => void = () => undefined;
+  let workSearch: WorkCatalogView | null = null;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
   let publishedApi: unknown = null;
@@ -49,7 +56,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -77,7 +84,8 @@ async function main(): Promise<void> {
   logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
-  if (work) actions["阅读当前工作或继续阅读"] = () => void work?.openToolbar().catch(report);
+  if (work) actions["阅读当前页"] = () => void work?.openPage().then(() => work?.focusReading()).catch(report);
+  if (work) actions["发现已有工作"] = () => void workSearch?.open().catch(report);
   if (work) actions["打开当前块的工作"] = () => void work?.openCurrentWork().catch(report);
   if (materials) actions["查找全部材料"] = () => void materials?.library(null).catch(report);
   actions["正式任务"] = () => { void (async()=>{
@@ -90,7 +98,7 @@ async function main(): Promise<void> {
   if (disposed) return;
   removeNavigation = installNavigation(actions);
   logseq.provideModel({ workbenchDsh: () => {if (!disposed) void agentWorkspace?.local.openWork().catch(report);}, workbenchOpen: () => { if (disposed) return; if (work) void work.openToolbar().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
-  logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<a class="button" style="font-size:13px;line-height:1.5;width:auto;padding:4px 8px" data-workbench-toolbar="true" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</a>' });
+  logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<button type="button" class="button" style="font-size:13px;line-height:1.5;width:auto;padding:4px 8px" data-workbench-toolbar="true" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</button>' });
   logseq.App.registerUIItem("toolbar", {key:"workbench-dsh",template:'<a class="button" data-on-click="workbenchDsh" title="在 DSH 继续">DSH</a>'});
   if(work){const entries=installReadingEntries(uuid=>work!.open(uuid),()=>work!.openPage(),report,{block:uuid=>agentWorkspace!.local.openWork(uuid),page:async()=>{
     const graph=await logseq.App.getCurrentGraph(),page=await logseq.Editor.getCurrentPage();
@@ -139,7 +147,12 @@ async function main(): Promise<void> {
     },
     submit:async (input,binding,origin)=>{requireStageScope(binding.scope);return origin?stages.trustedSubmit(input,origin):stageApi.submit(input);},
   }});
-  removeCatalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
+  const catalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
+  removeCatalog = catalog.dispose;
+  if (work) {
+    workSearch = new WorkCatalogView(catalog, work);
+    work.setWorkSearch(actions["发现已有工作"]!);
+  }
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
   work?.setContextActions(() => {

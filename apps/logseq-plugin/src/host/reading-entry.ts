@@ -1,4 +1,4 @@
-import { extractObjectNavigationLabel } from "../canonical-writing.ts";
+import { existingWorkPageMark, extractObjectNavigationLabel } from "../canonical-writing.ts";
 import { hostDocument } from "./panel-host.ts";
 
 /** Navigation-only controls beside saved work titles. Never slot/replace a native body. */
@@ -51,7 +51,7 @@ export function installReadingEntries(open: (uuid: string) => Promise<void>, ope
         const page = await logseq.Editor.getCurrentPage();
         if (disposed || ticket !== generation || !heading.isConnected) return;
         const name = String(page?.originalName ?? page?.name ?? "");
-        if (page?.uuid && /(?:^|[\s/])(?:Project|Area)(?:[\s/:]|$)/iu.test(name)) add(heading,`page:${page.uuid}`,name,openPage); else remove(heading);
+        if (page?.uuid && existingWorkPageMark(name)) add(heading,`page:${page.uuid}`,name,openPage); else remove(heading);
       }
     } catch (error) { if (!disposed && ticket === generation) fail(error); }
     finally { scanning = false; if (again) { again=false; schedule(); } }
