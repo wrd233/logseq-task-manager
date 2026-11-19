@@ -8,7 +8,7 @@ const array=items=>({type:'array',items});
 const kind={type:'string',enum:['fact','inference','suggestion']};
 const detail=object({key:string,markdown:string,sourceIds:strings,heading:string,kind,display:{type:'string',enum:['quote','table','chart']},materialIds:strings,materialQuotes:array(object({materialId:string,quote:string},['materialId','quote']))},['key','markdown','sourceIds']);
 const paragraph=object({key:string,markdown:string,cue:string,sourceIds:strings,kind,tone:{type:'string',enum:['progress','attention']},details:array(detail)},['key','markdown','sourceIds','kind']);
-const article=object({paragraphs:array(paragraph),followUps:array(paragraph)},['paragraphs']);
+const article=object({paragraphs:array(paragraph)},['paragraphs']);
 const answer=object({answer:string,sourceIds:strings,materialIds:strings},['answer','sourceIds']);
 const tools=['logseq_reading_request','logseq_source_read','logseq_file_read','logseq_reading_submit'];
 const render=(_args,value)=>[{type:'text',text:JSON.stringify(value)}];
