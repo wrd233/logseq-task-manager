@@ -67,9 +67,10 @@ test('narrow window yields the panel, really invokes native editing and restores
     assert.deepEqual(f.hidden.at(-1),{restoreEditingCursor:false});
     assert.ok(f.browser.document.querySelector('[data-native-report-return]'));
     const input=f.browser.document.querySelector('textarea');input.value='保留原生草稿';input.setSelectionRange(2,4);
-    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留原生草稿');assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,4);assert.equal(f.work.panel.visible,true);
+    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留原生草稿');assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,4);assert.equal(f.work.panel.visible,false);
     assert.notEqual(f.browser.getComputedStyle(input).visibility,'hidden');
     f.content('b3','[想法] 原生写作，报告阅读。\n原生提交的新句。');f.editing(false);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);
     await f.tick();
     for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native,null);
@@ -153,7 +154,7 @@ test('resizing beside native composition to a narrow window yields the report wi
     f.browser.dispatchEvent(new f.browser.Event('resize'));await delay(15);
     assert.equal(f.work.panel.visible,false);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
     assert.equal(f.work.reportAPI.read().native.mode,'switch');assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'正在组合的原生草稿');
-    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);
+    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(f.work.panel.visible,false);
     assert.notEqual(f.browser.getComputedStyle(input).visibility,'hidden');
     input.dispatchEvent(new f.browser.Event('compositionend',{bubbles:true}));f.editing(false);
     assert.equal((await f.work.reportAPI.resume()).ok,true);
@@ -384,9 +385,10 @@ test('opening a host sidebar without a window resize yields native input and add
     assert.equal(f.work.panel.visible,false);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留侧栏变化时的草稿');
     assert.deepEqual([input.selectionStart,input.selectionEnd],[3,6]);assert.equal(f.hidden.length,0);assert.equal(f.mainStyles.at(-1).display,'none');
     const controls=f.browser.document.querySelectorAll('[data-native-report-return]');assert.equal(controls.length,1);assert.equal(controls[0].type,'button');
-    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
+    assert.equal((await f.work.reportAPI.resume()).reason,'editing-in-progress');assert.equal(f.browser.document.querySelector('[data-native-report-return]'),controls[0]);
     assert.equal(f.browser.document.querySelector('textarea'),input);assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'保留侧栏变化时的草稿');assert.deepEqual([input.selectionStart,input.selectionEnd],[3,6]);
     f.editing(false);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);assert.equal(f.browser.document.querySelector('[data-native-report-return]'),null);
     assert.ok(f.mainStyles.some(style=>style.display===''));
     await f.work.panel.close();assert.equal(f.browser.document.querySelector('[data-workbench-host-layout]'),null);
   } finally {await f.close();}

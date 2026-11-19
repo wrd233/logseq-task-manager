@@ -150,7 +150,7 @@ export class WorkReadingAI {
     try{
       await check();
       if(replace&&answer.rewrite){const before=answer.rewrite,current=await logseq.Editor.getBlock(before.target.blockUuid);if(typeof current?.content!=="string"||!ordinary(before,scope)||await sha256(current.content)!==before.contentVersion)throw new Error("原块已变化，请重新改写。原文未修改。");await check();await logseq.Editor.updateBlock(before.target.blockUuid,answer.text);if((await logseq.Editor.getBlock(before.target.blockUuid))?.content!==answer.text)throw new Error("写入结果尚未核验，请查看原块。");}
-      else {const last=scope.kind==="page"?(await logseq.Editor.getPageBlocksTree(scope.pageName!)).at(-1):null;await check();const inserted=scope.kind==="page"?(last?await logseq.Editor.insertBlock(last.uuid,answer.text,{sibling:true,focus:false}):await logseq.Editor.appendBlockInPage(scope.pageName!,answer.text)):await logseq.Editor.insertBlock(scope.rootUuid,answer.text,{sibling:false,focus:false});if(!inserted?.uuid)throw new Error("新块写入尚未核验，请查看 Logseq 原页。");}
+      else {const last=scope.kind==="page"?(await logseq.Editor.getPageBlocksTree(scope.pageName!))?.at(-1):null;const options={sibling:scope.kind==="page",focus:false};await check();const inserted=scope.kind==="page"?(last?await logseq.Editor.insertBlock(last.uuid,answer.text,options):await logseq.Editor.appendBlockInPage(scope.pageName!,answer.text)):await logseq.Editor.insertBlock(scope.rootUuid,answer.text,options);if(!inserted?.uuid)throw new Error("新块写入尚未核验，请查看 Logseq 原页。");}
       state.notice=replace?"普通原块已按你的确认修改。":"已插入为新块；旧原文保留。";state.confirm=false;await this.actions.refresh();
     }catch(error){state.notice=text(error);}
     if(this.same(scope,state))this.paint();

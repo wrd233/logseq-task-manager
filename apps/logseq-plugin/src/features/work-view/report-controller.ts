@@ -451,16 +451,21 @@ export class WorkViewReport {
     const native=this.native, scope=this.host.scope(), lifetime=this.lifetime;
     if (!scope || (native && !sameLensScope(native.scope,scope))) return deny("scope-mismatch");
     if (await this.host.currentGraph() !== scope.graphId || !this.valid(scope,lifetime)) return deny("scope-mismatch");
+    const editing=await this.editor.editing();
+    if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
+    if (native && !this.host.visible() && (editing || this.editor.isComposing)) {
+      if (typeof editing === "string") this.editor.focusExisting(editing,()=>this.valid(scope,lifetime));
+      return deny("editing-in-progress");
+    }
     await this.host.open(scope.rootUuid);
     if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
     if (this.active) { const source=await this.capture(true); if (!source.ok) return source; }
-    // The sidebar can reopen while Logseq keeps a live editor. Restore the reading
-    // position in either case, and only transfer focus when native input has ended.
     const restoreFocus = await this.editor.available();
     if (!this.valid(scope,lifetime) || !this.host.visible()) return deny("scope-mismatch");
     this.native=null; this.editor.hideReturn();
     this.host.changed();
     if (native) this.host.renderer.restore(native.bookmark, [], restoreFocus);
+    if (!restoreFocus && typeof editing === "string" && await this.editor.editing() === editing) this.editor.focusExisting(editing,()=>this.valid(scope,lifetime));
     return {ok:true,value:null};
     } catch (error) { return reportFailure(error); }
   }
