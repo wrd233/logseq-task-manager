@@ -22,6 +22,7 @@ import type {DirectoryLocation} from "./directory.ts";
 import {MaterialPreviewReader} from "./preview/reader.ts";
 import {MaterialPreviews, previewCSS} from "./preview/session.ts";
 import {parsePreviewLink, previewFormat} from "./preview/paths.ts";
+import {previewImageInfo} from "./preview/images.ts";
 import type {MaterialPreviewTarget} from "./preview/types.ts";
 
 interface MarkdownEditor { getValue(): string; setValue(text: string, clearStack?: boolean): void; destroy(): void }
@@ -608,6 +609,15 @@ export class Materials {
     this.assertScope(epoch); return result;
   }
   async readMaterial(id: string): Promise<Awaited<ReturnType<MaterialService["read"]>>> { return (await this.ensureService()).read(id); }
+  async readingImage(id:string,ownerUuid:string):Promise<{version:string;image:string}|null>{
+    const service=await this.ensureService(),reader=new MaterialPreviewReader(service),target=await reader.material(id,{graph:service.graph,ownerUuid});
+    if(target.format!=="image")return null;
+    const stat=await service.io.stat?.(target.path);if(!stat||stat.size>240000)return null;
+    const snapshot=await reader.read(target,new AbortController().signal);if(snapshot.bytes.byteLength>240000)return null;
+    const info=previewImageInfo(snapshot.bytes),bytes=new Uint8Array(snapshot.bytes);let binary="";
+    for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+    return {version:snapshot.version,image:`data:${info.type};base64,${btoa(binary)}`};
+  }
   async saveMaterial(id: string, expectedVersion: string, expectedContent: string, next: string): Promise<MaterialResult> {
     return (await this.ensureService()).save(id, expectedVersion, expectedContent, next, "agent");
   }

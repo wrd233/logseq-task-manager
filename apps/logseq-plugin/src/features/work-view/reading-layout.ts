@@ -1,11 +1,15 @@
 import { renderMarkdown } from "./review-renderer.ts";
 import { reportProjection } from "./report-body.ts";
 import type { ReadingUnit, VerifiedReadingPlan } from "./reading-plan.ts";
+import type { SourceScope } from "../../workspace/source-protocol.ts";
 
 /** Narrow adapter to the material owner's real list/open service. */
 export interface ReadingMaterial {
   id:string; filename:string; reference:string; availability:"available" | "unavailable";
-  version?:string|null; excerpt?:string;
+  version?:string|null; excerpt?:string; text?:string; truncated?:boolean;
+  note?:SourceScope;
+  media?:"image";
+  image?:string;
 }
 export interface ReadingMaterialPort {
   list(scope:VerifiedReadingPlan["plan"]["scope"]):Promise<readonly ReadingMaterial[]>;

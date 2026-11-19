@@ -91,6 +91,11 @@ export class WorkViewReport {
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.submit(input);
       if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}
       return result;
+    },prepare:(input:unknown)=>this.plans.api.prepare(input),
+    adopt:async()=>{
+      const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.adopt();
+      if(result.ok){this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      return result;
     },select:async(id:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.select(id);
       if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}
@@ -107,7 +112,16 @@ export class WorkViewReport {
     if(!scope||!port||this.host.historical())throw new Error("READING_MATERIAL_UNAVAILABLE");
     const materials=await port.list(scope);
     if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id&&view.availability==="available"))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
-    this.materialViews=new Map(materials.map(view=>[view.id,view]));await port.open(id,scope);
+    this.materialViews=new Map(materials.map(view=>[view.id,view]));
+    const note=this.materialViews.get(id)?.note;
+    if(note){
+      if(note.kind==="page"&&note.pageName)await this.openPageReference(note.pageName);
+      else{
+        if(!await this.editor.available())throw Error("请先结束原生输入，再打开关联笔记。");
+        const shown=await this.showNative();if(!shown.ok)throw Error(shown.reason);
+        if(this.valid(scope,lifetime)&&await this.editor.available())await logseq.App.pushState("page",{name:note.rootUuid});
+      }
+    }else await port.open(id,scope);
   }
   private remember(): void {
     const scope=this.boundScope;

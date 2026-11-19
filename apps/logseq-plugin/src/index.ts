@@ -20,6 +20,9 @@ import { installAgentWorkspace, workspaceBindingPort } from "./features/agent-wo
 import { installStageWorkbench, type StageInstallation } from "./features/stage-workbench/installer.ts";
 import { fileName } from "./features/materials/names.ts";
 import { sameLensScope } from "./features/work-view/lens-source.ts";
+import { sha256,sourceAvailability,type SourceScope } from "./workspace/source-protocol.ts";
+import type { ReadingMaterial } from "./features/work-view/reading-layout.ts";
+import { previewFormat } from "./features/materials/preview/paths.ts";
 
 declare const __WORKBENCH_BUILD__: string;
 const loadedBuild = typeof __WORKBENCH_BUILD__ === "string" ? __WORKBENCH_BUILD__ : "开发源码";
@@ -114,7 +117,22 @@ async function main(): Promise<void> {
       const binding=await workspace.service.resolve(scope);
       for(const association of binding?.manifest.associations??[])if(association.kind==="material"&&!list.materials.some(view=>view.id===association.id))list.materials.push(await module.readMaterial(association.id));
       if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
-      return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability,version:view.version,...(view.content?{excerpt:view.content.slice(0,4000)}:{})}));
+      const reading:ReadingMaterial[]=list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability,version:view.version,...(view.content?{excerpt:view.content.slice(0,4000),text:view.content.slice(0,64000),truncated:view.content.length>64000}:{})}));
+      for(const view of list.materials.filter(item=>item.availability==="available"&&previewFormat(item.path)==="image")){
+        const item=reading.find(material=>material.id===view.id)!;item.media="image";
+        try{const preview=await module.readingImage(view.id,scope.rootUuid);if(preview)Object.assign(item,preview);}catch{ /* An unpreviewable image still has its original material entry. */ }
+      }
+      for(const association of binding?.manifest.associations??[]){
+        if(association.kind==="material"||association.graphId!==scope.graphId)continue;
+        const note:SourceScope=association.kind==="logseq-page"?{graphId:association.graphId,rootUuid:association.pageUuid,kind:"page",pageName:association.pageName}:{graphId:association.graphId,rootUuid:association.blockUuid};
+        if(sameLensScope(note,scope)||reading.some(item=>item.id===`note:${note.rootUuid}`))continue;
+        const snapshot=await workspace.service.readSource(note,valid),content=snapshot.blocks.map(block=>block.content??"").join("\n\n");
+        const filename=note.pageName??snapshot.blocks[0]?.content?.split("\n")[0]?.slice(0,80)??"关联笔记";
+        reading.push({id:`note:${note.rootUuid}`,filename,reference:note.kind==="page"?`[[${filename}]]`:`((${note.rootUuid}))`,note,
+          availability:sourceAvailability(snapshot)==="available"?"available":"unavailable",version:await sha256(JSON.stringify([snapshot.structureVersion,snapshot.sourceSetVersion])),excerpt:content.slice(0,4000),text:content.slice(0,64000),truncated:content.length>64000});
+      }
+      if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
+      return reading;
     },delegateFileClick:(event,scope)=>requireMaterials().delegateFileClick(event,scope.rootUuid),open:async(id,scope)=>{
       requireActive();const actual=work?.readingAPI.read().scope;if(actual&&sameLensScope(actual,scope))await requireMaterials().openDoc(id,scope.rootUuid);
       else throw new Error("READING_MATERIAL_SCOPE_CHANGED");
@@ -152,7 +170,7 @@ async function main(): Promise<void> {
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
     work.setWorkSearch(actions["发现已有工作"]!);
-    work.setReadingAI({complete:input=>agentWorkspace!.local.generateReading(input),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
+    work.setReadingAI({complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
   }
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});

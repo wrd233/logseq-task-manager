@@ -1,190 +1,269 @@
-import { button, element } from "../../host/panel-host.ts";
+import { button, element,hostDocument } from "../../host/panel-host.ts";
 import type { BlockSnapshot, SourceSnapshot } from "../../workspace/source-protocol.ts";
-import { briefingParagraphs, paragraphDetails, readingMaterialChanged as materialChanged, readingMaterialsChanged, type BriefingDetail, type BriefingParagraph, type ProgressiveReading } from "./briefing-model.ts";
+import { briefingParagraphs,paragraphDetails,readingBlockChanged as blockChanged,readingMaterialChanged as materialChanged,readingChanges,type BriefingDetail,type BriefingParagraph,type ProgressiveReading } from "./briefing-model.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { numericSeries, sourceTable } from "./source-table.ts";
+import { reportMarkdown } from "./report-body.ts";
+import { numericSeries,sourceTable } from "./source-table.ts";
 
-interface ReaderActions { locate(uuid: string): void; material(id: string): void }
-const version = (value: string | null | undefined) => value ? value.slice(0, 10) : "未核验";
-const byId = (source: SourceSnapshot | null) => new Map(source?.blocks.map(block => [block.sourceId, block]) ?? []);
-const blockChanged = (before?: BlockSnapshot, after?: BlockSnapshot) => !before || !after || before.contentVersion !== after.contentVersion || before.parentUuid !== after.parentUuid || before.depth !== after.depth || before.order !== after.order;
-const kindLabel = (kind: string | undefined) => kind === "inference" ? "推断" : kind === "suggestion" ? "建议" : "";
-const stamp = (date: string) => new Date(date).toLocaleString("zh-CN", {month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
-
-function rich(markdown: string, original = false): HTMLElement {
-  const body = element("div", "", "wb-progressive-markdown");
-  body.innerHTML = renderMarkdown(markdown, original);
-  if (!original) for (const link of Array.from(body.querySelectorAll("a"))) link.replaceWith(...Array.from(link.childNodes));
+interface ReaderActions {locate(uuid:string):void;material(id:string):void;candidate?(anchor:HTMLElement):void}
+const byId=(source:SourceSnapshot|null)=>new Map(source?.blocks.map(block=>[block.sourceId,block])??[]);
+const stamp=(date:string)=>new Date(date).toLocaleDateString("zh-CN",{month:"long",day:"numeric"});
+const rich=(markdown:string,original=false)=>{
+  const body=element("div","","wb-progressive-markdown");body.innerHTML=renderMarkdown(markdown,original);
+  if(!original)for(const link of Array.from(body.querySelectorAll("a")))link.replaceWith(...Array.from(link.childNodes));
   return body;
+};
+function icon(glyph:string,label:string,action:()=>void):HTMLButtonElement{
+  const control=button(glyph,action);control.className="wb-progressive-icon";control.setAttribute("aria-label",label);control.title=label;return control;
 }
-function inline(markdown: string): HTMLElement {
-  const body = rich(markdown), span = element("span");
-  for (const node of Array.from(body.querySelectorAll("*:not(strong,em,b,i,code,br,s)"))) {
-    node.replaceWith(...Array.from(node.childNodes), ...(node.tagName === "P" && node.nextSibling ? [document.createTextNode(" ")] : []));
+function appendInline(body:HTMLElement,control:HTMLElement):void{
+  const last=body.lastElementChild;
+  if(last&&/^(P|H[1-6]|LI|BLOCKQUOTE)$/u.test(last.tagName))last.append(control);else body.append(control);
+}
+function placeCue(body:HTMLElement,phrase:string|undefined,control:HTMLButtonElement):void{
+  const cue=phrase??body.querySelector("strong")?.textContent?.trim();
+  if(cue&&cue.length<=100&&cue.length<body.textContent!.trim().length){
+    const walker=document.createTreeWalker(body,NodeFilter.SHOW_TEXT);
+    let node:Node|null;
+    while((node=walker.nextNode())){
+      const text=node.textContent??"",at=text.indexOf(cue);
+      if(at<0||node.parentElement?.closest("a,code,pre"))continue;
+      const fragment=document.createDocumentFragment();
+      fragment.append(document.createTextNode(text.slice(0,at)),control,document.createTextNode(text.slice(at+cue.length)));
+      control.textContent=cue;control.setAttribute("aria-label",`${cue}，展开或收起细读`);node.parentNode!.replaceChild(fragment,node);return;
+    }
   }
-  span.append(...Array.from(body.childNodes)); return span;
+  control.textContent="⌄";control.classList.add("wb-progressive-branch");appendInline(body,control);
+}
+function difference(before:string,after:string):HTMLElement{
+  const old=reportMarkdown(before),next=reportMarkdown(after),node=element("div","","wb-progressive-diff");
+  let start=0,end=0;
+  while(start<old.length&&start<next.length&&old[start]===next[start])start++;
+  while(end<old.length-start&&end<next.length-start&&old[old.length-end-1]===next[next.length-end-1])end++;
+  const changed=next.slice(start,next.length-end);
+  node.append(document.createTextNode(next.slice(0,start)));
+  if(changed)node.append(element("mark",changed));else if(old!==next)node.append(element("mark","…"));
+  if(end)node.append(document.createTextNode(next.slice(next.length-end)));
+  return node;
 }
 
 export class ProgressiveReader {
-  readonly root = element("section", "", "wb-progressive");
-  private readonly meta = element("div", "", "wb-progressive-meta");
-  private readonly units = element("div", "", "wb-progressive-units");
-  private readonly extra = element("div", "", "wb-progressive-extra");
-  private nodes = new Map<string, {node:HTMLElement; signature:string}>();
-  private expanded = new Set<string>();
-  private storageKey = "";
-  private extraSignature = "";
-  constructor(private readonly actions: ReaderActions) { this.root.append(this.meta, this.units, this.extra); }
-
-  private bind(view: ProgressiveReading) {
-    const scope = view.current.scope, key = `workbench:progressive-open:${JSON.stringify([scope.graphId,scope.rootUuid,scope.kind??"block",view.planId])}`;
-    if (key === this.storageKey) return;
-    this.storageKey = key; this.nodes.clear(); this.units.replaceChildren(); this.extra.replaceChildren(); this.extraSignature = "";
-    try { this.expanded = new Set(JSON.parse(localStorage.getItem(key) ?? "[]")); } catch { this.expanded.clear(); }
+  readonly root=element("section","","wb-progressive");
+  private readonly meta=element("div","","wb-progressive-meta");
+  private readonly date=element("span");
+  private readonly status=button("",()=>this.openStatus());
+  private readonly units=element("article","","wb-progressive-units");
+  private readonly extra=element("div","","wb-progressive-extra");
+  private readonly all=icon("☷ 原文","完整原始记录",()=>this.openRecords());
+  private readonly popup=element("aside","","wb-progressive-popup");
+  private readonly popupTitle=element("strong");
+  private readonly popupBody=element("div","","wb-progressive-popup-body");
+  private readonly close=icon("×","关闭依据",()=>this.closePopup(true));
+  private nodes=new Map<string,{node:HTMLElement;signature:string}>();
+  private expanded=new Set<string>();
+  private storageKey="";
+  private view:ProgressiveReading|null=null;
+  private anchor:HTMLElement|null=null;
+  private stopPopup:(()=>void)|null=null;
+  constructor(private readonly actions:ReaderActions){
+    this.status.className="wb-progressive-status";this.status.dataset.progressiveAnchor="status";
+    this.all.dataset.progressiveAnchor="all-records";this.extra.append(this.all);
+    this.popup.id=`wb-progressive-source-${crypto.randomUUID()}`;this.popup.hidden=true;this.popup.setAttribute("role","dialog");this.popup.setAttribute("aria-modal","false");this.popup.setAttribute("aria-label","阅读依据");
+    const heading=element("div","","wb-progressive-popup-head");heading.append(this.popupTitle,this.close);this.popup.append(heading,this.popupBody);
+    this.meta.append(this.date,this.status);this.root.append(this.meta,this.units,this.extra,this.popup);
   }
-  private remember() { try { localStorage.setItem(this.storageKey, JSON.stringify([...this.expanded])); } catch { /* Live disclosures remain usable. */ } }
-  private disclose(key: string, label: string | HTMLElement, content: HTMLElement, fill: () => void, className = "") {
-    const control = button("", () => {
-      if (document.getSelection()?.isCollapsed === false && control.contains(document.getSelection()?.anchorNode ?? null)) return;
-      const scroller=control.closest<HTMLElement>(".wb-scroll"), offset=control.getBoundingClientRect().top;
-      const open = content.hidden;
-      if (open) { this.expanded.add(key); fill(); } else this.expanded.delete(key);
-      content.hidden = !open; control.setAttribute("aria-expanded", String(open)); caret.textContent = open ? "▾" : "▸";
+  private bind(view:ProgressiveReading):void{
+    const scope=view.current.scope,key=`workbench:progressive-open:${JSON.stringify([scope.graphId,scope.rootUuid,scope.kind??"block",view.planId])}`;
+    if(key===this.storageKey)return;
+    this.closePopup(false);this.storageKey=key;this.nodes.clear();this.units.replaceChildren();
+    try{this.expanded=new Set(JSON.parse(localStorage.getItem(key)??"[]"));}catch{this.expanded.clear();}
+  }
+  private remember():void{localStorage.setItem(this.storageKey,JSON.stringify([...this.expanded]));}
+  private disclose(key:string,content:HTMLElement):HTMLButtonElement{
+    const control=button("",()=>{
+      if(document.getSelection()?.isCollapsed===false&&control.contains(document.getSelection()?.anchorNode??null))return;
+      const scroller=control.closest<HTMLElement>(".wb-scroll"),offset=control.getBoundingClientRect().top,open=content.hidden;
+      if(!open&&this.anchor&&content.contains(this.anchor))this.closePopup(false);
+      if(open)this.expanded.add(key);else this.expanded.delete(key);
+      content.hidden=!open;control.setAttribute("aria-expanded",String(open));
       if(scroller)scroller.scrollTop+=control.getBoundingClientRect().top-offset;
-      this.remember();
+      this.remember();this.position();
     });
-    control.className = `wb-progressive-disclose ${className}`; control.dataset.progressiveAnchor = key;
-    const caret = element("span", "▸", "wb-progressive-caret"); caret.setAttribute("aria-hidden", "true");
-    control.append(typeof label === "string" ? document.createTextNode(label) : label, caret);
-    content.hidden = !this.expanded.has(key); content.id = `wb-progressive-${crypto.randomUUID()}`;
-    control.setAttribute("aria-expanded", String(!content.hidden)); control.setAttribute("aria-controls", content.id);
-    if (!content.hidden) { caret.textContent = "▾"; fill(); }
-    return control;
+    control.className="wb-progressive-phrase";control.dataset.progressiveAnchor=key;content.id=`wb-progressive-detail-${crypto.randomUUID()}`;
+    content.hidden=!this.expanded.has(key);control.setAttribute("aria-expanded",String(!content.hidden));control.setAttribute("aria-controls",content.id);
+    control.setAttribute("aria-label","展开或收起细读");control.title="细读";return control;
   }
-  private original(block: BlockSnapshot, display?: BriefingDetail["display"]): HTMLElement {
-    const content = block.content ?? "来源暂不可用", node = element("div", "", "wb-progressive-original");
-    const table = display === "chart" || display === "table" ? sourceTable(content) : null;
-    const series = display === "chart" && table ? numericSeries(table) : [];
-    if (table && (series.length || display === "table") && table.rows.length <= 12 && table.headers.length <= 5) {
-      if (series.length) for (const column of series) {
-        const chart = element("div", "", "wb-progressive-chart"); chart.append(element("small", column.label, "wb-progressive-label"));
-        for (const point of column.points) {
-          const row = element("div", "", "wb-progressive-measure"), track = element("div", "", "wb-progressive-track"), bar = element("span");
-          bar.style.width = `${point.ratio * 100}%`; track.append(bar);
-          const labels = element("div", "", "wb-progressive-chart-label"); labels.append(element("span", point.label), element("strong", point.value)); row.append(labels, track); chart.append(row);
-        }
-        node.append(chart);
-      } else {
-        const tableNode = element("table"), header = element("tr"), head = element("thead"), body = element("tbody");
-        header.append(...table.headers.map(value => element("th", value))); head.append(header); tableNode.append(head, body);
-        for (const row of table.rows) { const line=element("tr"); line.append(...row.map(value=>element("td",value))); body.append(line); }
-        node.append(tableNode);
+  private position():void{
+    if(!this.anchor||this.popup.hidden)return;
+    if(!this.anchor.isConnected||this.anchor.closest("[hidden]")){this.closePopup(false);return;}
+    const area=this.root.closest<HTMLElement>(".wb-scroll")?.getBoundingClientRect(),bounds={left:Math.max(0,area?.left??0),top:Math.max(0,area?.top??0),right:Math.min(window.innerWidth,area?.right??window.innerWidth),bottom:Math.min(window.innerHeight,area?.bottom??window.innerHeight)};
+    const rect=this.anchor.getBoundingClientRect(),margin=8;
+    this.popup.style.width=`${Math.max(0,Math.min(390,bounds.right-bounds.left-margin*2))}px`;
+    this.popup.style.maxHeight=`${Math.max(100,bounds.bottom-bounds.top-margin*2)}px`;
+    const height=this.popup.offsetHeight,width=this.popup.offsetWidth;
+    const left=Math.max(bounds.left+margin,Math.min(rect.right-width+18,bounds.right-width-margin));
+    const below=rect.bottom+6,above=rect.top-height-6;
+    const top=Math.max(bounds.top+margin,Math.min(below+height<=bounds.bottom-margin?below:above,bounds.bottom-height-margin));
+    this.popup.style.left=`${left}px`;this.popup.style.top=`${top}px`;
+  }
+  private closePopup(focus:boolean):void{
+    const previous=this.anchor;this.anchor=null;this.popup.hidden=true;this.stopPopup?.();this.stopPopup=null;
+    previous?.setAttribute("aria-expanded","false");
+    if(focus&&previous?.isConnected&&!previous.closest("[hidden]"))previous.focus({preventScroll:true});
+  }
+  private showPopup(anchor:HTMLElement,title:string,content:HTMLElement):void{
+    if(this.anchor===anchor&&!this.popup.hidden){this.closePopup(true);return;}
+    this.closePopup(false);this.anchor=anchor;anchor.setAttribute("aria-expanded","true");anchor.setAttribute("aria-haspopup","dialog");anchor.setAttribute("aria-controls",this.popup.id);
+    this.popupTitle.textContent=title;this.popupBody.replaceChildren(content);this.popup.scrollTop=0;this.popup.hidden=false;this.position();this.close.focus({preventScroll:true});
+    const outside=(event:PointerEvent)=>{const target=event.target as Node;if(!this.popup.contains(target)&&!anchor.contains(target))this.closePopup(false);};
+    const escape=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!this.popup.hidden){event.preventDefault();event.stopPropagation();this.closePopup(true);}};
+    const move=()=>this.position(),host=hostDocument(),scroll=this.root.closest(".wb-scroll");
+    document.addEventListener("pointerdown",outside,true);document.addEventListener("keydown",escape,true);scroll?.addEventListener("scroll",move,{passive:true});window.addEventListener("resize",move);
+    if(host&&host!==document)host.addEventListener("pointerdown",outside,true);
+    this.stopPopup=()=>{document.removeEventListener("pointerdown",outside,true);document.removeEventListener("keydown",escape,true);scroll?.removeEventListener("scroll",move);window.removeEventListener("resize",move);if(host&&host!==document)host.removeEventListener("pointerdown",outside,true);};
+  }
+  private navigate(action:()=>void):void{this.closePopup(true);action();}
+  private original(block:BlockSnapshot,display?:BriefingDetail["display"]):HTMLElement{
+    const content=block.content??"来源暂不可用",node=element("div","","wb-progressive-original");
+    const table=display==="chart"||display==="table"?sourceTable(content):null,series=display==="chart"&&table?numericSeries(table):[];
+    if(table&&(series.length||display==="table")&&table.rows.length<=12&&table.headers.length<=5){
+      if(series.length)for(const column of series){
+        const chart=element("div","","wb-progressive-chart");chart.append(element("small",column.label,"wb-progressive-label"));
+        for(const point of column.points){
+          const row=element("div","","wb-progressive-measure"),track=element("div","","wb-progressive-track"),bar=element("span");
+          bar.style.width=`${point.ratio*100}%`;track.append(bar);
+          const labels=element("div","","wb-progressive-chart-label");labels.append(element("span",point.label),element("strong",point.value));row.append(labels,track);chart.append(row);
+        }node.append(chart);
+      }else{
+        const tableNode=element("table"),head=element("thead"),header=element("tr"),body=element("tbody");
+        header.append(...table.headers.map(value=>element("th",value)));head.append(header);tableNode.append(head,body);
+        for(const row of table.rows){const line=element("tr");line.append(...row.map(value=>element("td",value)));body.append(line);}node.append(tableNode);
       }
-      const exact = element("details"); exact.append(element("summary", "查看完整原句"),rich(content, true)); node.append(exact);
-    } else node.append(rich(content, true));
-    const raw = element("details", "", "wb-progressive-raw"); raw.append(element("summary", "原始 Markdown"), element("pre", content)); node.append(raw);
+    }else node.append(rich(content,true));
     return node;
   }
-  private sourceCard(before: BlockSnapshot | undefined, current: BlockSnapshot | undefined, key: string, display?: BriefingDetail["display"], historical = true): HTMLElement {
-    const node = element("section", "", "wb-progressive-source"), block = current ?? before;
-    node.dataset.progressiveAnchor = key; if (block) {node.dataset.progressiveSource = block.sourceId;node.dataset.progressiveUuid=block.target.blockUuid;}
-    const header = element("div", "", "wb-progressive-source-head"), identity = element("small", block ? `原块 · ${block.target.blockUuid.slice(0,8)}` : "原块", "wb-progressive-label");
-    if (block) identity.title = block.target.blockUuid;
-    header.append(identity);
-    if (current?.availability === "available") {const open=button("打开原块", () => this.actions.locate(current.target.blockUuid));open.dataset.progressiveAnchor=`${key}/open`;header.append(open);}
+  private sourceCard(before:BlockSnapshot|undefined,current:BlockSnapshot|undefined,display?:BriefingDetail["display"],historical=true):HTMLElement{
+    const node=element("section","","wb-progressive-source"),block=current??before,changed=historical&&blockChanged(before,current);
+    if(block){node.dataset.progressiveSource=block.sourceId;node.dataset.progressiveUuid=block.target.blockUuid;}
+    const controls=element("div","","wb-progressive-source-tools"),raw=element("pre",before?.content??current?.content??"","wb-progressive-raw");raw.hidden=true;
+    const rawButton=icon("…","原始 Markdown 与来源版本",()=>{raw.hidden=!raw.hidden;rawButton.setAttribute("aria-expanded",String(!raw.hidden));});
+    rawButton.setAttribute("aria-expanded","false");
+    raw.append(document.createTextNode(`\n\n来源版本：${(historical?before:current)?.contentVersion??"未保存"}`));
+    controls.append(rawButton);
+    if(current?.availability==="available")controls.append(icon("↗","打开原块",()=>this.navigate(()=>this.actions.locate(current.target.blockUuid))));
+    node.append(controls);
+    if(historical){
+      if(changed)node.append(element("small","整理时所引","wb-progressive-label"));
+      node.append(before?this.original(before,display):element("p","旧版原文未留存。","wb-progressive-label"));
+      if(changed){
+        node.append(element("small","当前原文","wb-progressive-change-label"));
+        node.append(current?before&&display!=="chart"&&display!=="table"?difference(before.content??"",current.content??""):this.original(current,display):element("p","原记录已移除或不可用。","wb-progressive-label"));
+      }
+    }else if(current)node.append(this.original(current,display));
+    node.append(raw);
+    return node;
+  }
+  private materialCard(view:ProgressiveReading,id:string,quote?:string):HTMLElement{
+    const old=view.materialBasis.find(item=>item.id===id),current=view.materials.find(item=>item.id===id),material=current??old;
+    const node=element("section","","wb-progressive-source"),header=element("div","","wb-progressive-source-head");
+    header.append(element("strong",material?.filename??"关联资料"));
+    if(current?.availability==="available")header.append(icon("↗",current.note?"打开关联笔记":"打开材料",()=>this.navigate(()=>this.actions.material(id))));
     node.append(header);
-    if (historical) {
-      const caption = element("small", `当时依据 · ${version(before?.contentVersion)}`, "wb-progressive-version"); caption.title = before?.contentVersion ?? "未保存当时原句"; node.append(caption);
-      node.append(before ? this.original(before, display) : element("p", "此旧版未保存当时原句。", "wb-progressive-label"));
-      if (!blockChanged(before,current)) return node;
-    }
-    const caption = element("small", `当前原文 · ${version(current?.contentVersion)}${historical?" · 有变化":""}`, historical ? "wb-progressive-changed" : "wb-progressive-version"); caption.title=current?.contentVersion??"当前来源不存在";
-    node.append(caption,current ? this.original(current, display) : element("p","当前工作范围已无此块。","wb-progressive-label"));
-    return node;
-  }
-  private materialCard(id: string, view: ProgressiveReading,key:string): HTMLElement {
-    const before=view.materialBasis.find(material=>material.id===id),current=view.materials.find(material=>material.id===id), material=current??before;
-    const node=element("section","","wb-progressive-source"),head=element("div","","wb-progressive-source-head");
-    head.append(element("strong",material?.filename??"关联材料"));
-    const open=button("查看材料",()=>this.actions.material(id));open.dataset.progressiveAnchor=`${key}/open`;node.dataset.progressiveAnchor=key;head.append(open); node.append(head);
-    if(before){const label=element("small",`当时材料 · ${version(before.version)}`,"wb-progressive-version");label.title=before.version??"未取得内容版本";node.append(label);if(before.excerpt)node.append(rich(before.excerpt,true));}
-    if(materialChanged(before,current)){
-      const label=element("small",`当前材料 · ${current?version(current.version):"需重新核验"}`,"wb-progressive-changed");label.title=current?.version??"未取得当前版本";node.append(label);if(current?.excerpt)node.append(rich(current.excerpt,true));
-    }
-    if(!before?.excerpt&&!current?.excerpt)node.append(element("small","打开完整文件或图片查看内容。","wb-progressive-label"));
-    return node;
-  }
-  private unit(paragraph: BriefingParagraph, key: string, view: ProgressiveReading, old: Map<string,BlockSnapshot>, current: Map<string,BlockSnapshot>): HTMLElement {
-    const detailList=paragraphDetails(paragraph),refs=[...new Set([...paragraph.sourceIds,...detailList.flatMap(detail=>detail.sourceIds)])];
-    const materials=[...new Set(detailList.flatMap(detail=>detail.materialIds??[]))];
-    const changed=refs.some(id=>blockChanged(old.get(id),current.get(id))) || materials.some(id=>materialChanged(view.materialBasis.find(item=>item.id===id),view.materials.find(item=>item.id===id)));
-    const sig=JSON.stringify([paragraph,refs.map(id=>[old.get(id),current.get(id)]),materials.map(id=>[view.materialBasis.find(item=>item.id===id),view.materials.find(item=>item.id===id)])]);
-    const existing=this.nodes.get(key); if(existing?.signature===sig)return existing.node;
-    const article=existing?.node??element("article","","wb-progressive-unit");
-    article.dataset.tone=paragraph.tone??"";
-    article.dataset.progressiveUuid=(current.get(paragraph.sourceIds[0]!)??old.get(paragraph.sourceIds[0]!))?.target.blockUuid??"";
-    const line=element("p","","wb-progressive-line"),context=element("div","","wb-progressive-context");
-    const fill=()=>{
-      if(context.childElementCount)return;
-      for(const detail of detailList){
-        const detailKey=`${key}/detail/${detail.key}`,item=element("section","","wb-progressive-detail"),evidence=element("div","","wb-progressive-evidence");
-        const loadEvidence=()=>{
-          if(evidence.childElementCount)return;
-          for(const id of detail.sourceIds){
-            const before=old.get(id),after=current.get(id);
-            evidence.append(this.sourceCard(before,after,`${detailKey}/source/${id}`,detail.display));
-            const parent=before?.parentUuid,ancestor=view.basis?.blocks.find(block=>block.target.blockUuid===parent);
-            if(ancestor&&!detail.sourceIds.includes(ancestor.sourceId)){
-              const context=element("details","","wb-progressive-parent");context.append(element("summary","当时上层语境"),rich(ancestor.content??"",true));evidence.append(context);
-            }
-          }
-          for(const id of detail.materialIds??[])evidence.append(this.materialCard(id,view,`${detailKey}/material/${id}`));
-        };
-        item.dataset.progressiveUuid=(current.get(detail.sourceIds[0]!)??old.get(detail.sourceIds[0]!))?.target.blockUuid??"";
-        if(detail.heading)item.append(element("h3",detail.heading));
-        if(detail.kind&&kindLabel(detail.kind))item.append(element("small",kindLabel(detail.kind),"wb-progressive-tag"));
-        const description=rich(detail.markdown);
-        const simple=description.childElementCount===1&&description.firstElementChild?.tagName==="P";
-        if(detail.markdown&&!simple)item.append(description);
-        const label=detail.markdown&&simple?inline(detail.markdown):"查看原句与依据";
-        item.append(this.disclose(detailKey,label,evidence,loadEvidence,"wb-progressive-detail-link"),evidence);context.append(item);
-      }
+    const body=(text:string|undefined,image:string|undefined)=>{
+      if(text)node.append(rich(text,true));
+      if(image){const img=element("img");img.alt=material?.filename??"来源图片";img.src=image;img.className="wb-progressive-image";node.append(img);}
+      if(!text&&!image)node.append(element("small","完整内容请打开来源。","wb-progressive-label"));
     };
-    if(kindLabel(paragraph.kind))line.append(element("small",kindLabel(paragraph.kind),"wb-progressive-tag"));
-    line.append(this.disclose(key,inline(paragraph.markdown),context,fill,"wb-progressive-phrase"));
-    article.replaceChildren(line);
-    if(changed)article.append(element("small","相关依据有变化","wb-progressive-changed"));
-    article.append(context);this.nodes.set(key,{node:article,signature:sig});return article;
+    const changed=materialChanged(old,current);
+    if(old){if(changed)node.append(element("small","整理时所引","wb-progressive-label"));body(quote??old.excerpt,old.image);}
+    if(changed){node.append(element("small",current?"当前来源":"来源已不可用","wb-progressive-change-label"));if(current)body(quote&&(current.text??current.excerpt??"").includes(quote)?quote:current.excerpt,current.image);}
+    return node;
   }
-  render(container: HTMLElement, view: ProgressiveReading): void {
-    this.bind(view);
+  private evidence(detail:BriefingDetail):HTMLElement{
+    const view=this.view!,old=byId(view.basis),current=byId(view.current),group=element("div");
+    for(const id of detail.sourceIds){
+      const before=old.get(id),after=current.get(id);group.append(this.sourceCard(before,after,detail.display));
+      const parent=before?.parentUuid,ancestor=view.basis?.blocks.find(block=>block.target.blockUuid===parent);
+      if(ancestor&&!detail.sourceIds.includes(ancestor.sourceId)){
+        const context=element("details","","wb-progressive-parent");context.append(element("summary","上下文"),rich(ancestor.content??"",true));group.append(context);
+      }
+    }
+    for(const id of detail.materialIds??[])group.append(this.materialCard(view,id,detail.materialQuotes?.find(quote=>quote.materialId===id)?.quote));
+    return group;
+  }
+  private cite(key:string,number:number,detail:BriefingDetail,changed:boolean):HTMLButtonElement{
+    const control=button(String(number),()=>this.showPopup(control,this.view?.current.scope.pageName??"工作依据",this.evidence(detail)));
+    control.className=`wb-progressive-citation${changed?" wb-progressive-citation-changed":""}`;control.dataset.progressiveAnchor=key;
+    control.setAttribute("aria-label",`查阅依据 ${number}${changed?"，有变化":""}`);control.title=changed?"依据有变化":"查阅依据";
+    control.setAttribute("aria-haspopup","dialog");control.setAttribute("aria-expanded","false");return control;
+  }
+  private unit(paragraph:BriefingParagraph,key:string,firstNumber:number,view:ProgressiveReading,old:Map<string,BlockSnapshot>,current:Map<string,BlockSnapshot>):HTMLElement{
+    const details=paragraph.details??[],references=[...new Set([...paragraph.sourceIds,...details.flatMap(detail=>detail.sourceIds)])],materials=details.flatMap(detail=>detail.materialIds??[]);
+    const changed=(detail:Pick<BriefingDetail,"sourceIds"|"materialIds">)=>detail.sourceIds.some(id=>blockChanged(old.get(id),current.get(id)))||(detail.materialIds??[]).some(id=>materialChanged(view.materialBasis.find(item=>item.id===id),view.materials.find(item=>item.id===id)));
+    const signature=JSON.stringify([paragraph,references.map(id=>[old.get(id)?.contentVersion,current.get(id)?.contentVersion,blockChanged(old.get(id),current.get(id))]),materials.map(id=>[view.materialBasis.find(item=>item.id===id)?.version,view.materials.find(item=>item.id===id)?.version])]);
+    const existing=this.nodes.get(key);if(existing?.signature===signature){
+      Array.from(existing.node.querySelectorAll<HTMLButtonElement>(".wb-progressive-citation")).forEach((control,index)=>{const number=String(firstNumber+index);if(control.textContent!==number){control.textContent=number;control.setAttribute("aria-label",`查阅依据 ${number}${control.classList.contains("wb-progressive-citation-changed")?"，有变化":""}`);}});
+      return existing.node;
+    }
+    const article=existing?.node??element("section","","wb-progressive-unit");article.dataset.progressiveAnchor=`${key}/text`;
+    article.dataset.progressiveUuid=(current.get(paragraph.sourceIds[0]!)??old.get(paragraph.sourceIds[0]!))?.target.blockUuid??"";
+    const line=rich(paragraph.markdown);line.classList.add("wb-progressive-line");
+    if(details.length){
+      const context=element("div","","wb-progressive-context"),control=this.disclose(key,context);
+      placeCue(line,paragraph.cue,control);
+      if(changed({sourceIds:references,materialIds:materials})){control.classList.add("wb-progressive-phrase-changed");control.title="细读 · 依据有变化";}
+      for(const [index,detail] of details.entries()){
+        const detailKey=`${key}/detail/${detail.key}`,item=element("section","","wb-progressive-detail"),body=rich(detail.markdown);
+        item.dataset.progressiveAnchor=`${detailKey}/text`;item.dataset.progressiveUuid=(current.get(detail.sourceIds[0]!)??old.get(detail.sourceIds[0]!))?.target.blockUuid??"";
+        if(detail.heading)item.append(element("h3",detail.heading));
+        appendInline(body,this.cite(detailKey,firstNumber+index,detail,changed(detail)));item.append(body);context.append(item);
+      }
+      article.replaceChildren(line,context);
+    }else{
+      const detail=paragraphDetails(paragraph)[0]!;
+      appendInline(line,this.cite(`${key}/source`,firstNumber,detail,changed(detail)));article.replaceChildren(line);
+    }
+    this.nodes.set(key,{node:article,signature});return article;
+  }
+  private recordGroup(label:string,blocks:readonly BlockSnapshot[],historical:boolean):HTMLElement{
+    const view=this.view!,current=byId(view.current),details=element("details","","wb-progressive-record-group"),body=element("div");details.append(element("summary",label),body);
+    details.ontoggle=()=>{if(details.open&&!body.childElementCount)for(const block of blocks)body.append(this.sourceCard(historical?block:undefined,historical?current.get(block.sourceId):block,undefined,historical));};return details;
+  }
+  private openRecords():void{
+    if(!this.view)return;const view=this.view,content=element("div");
+    content.append(this.recordGroup(`当前原文 · ${view.current.blocks.length} 条`,view.current.blocks,false));
+    if(view.basis)content.append(this.recordGroup(`整理时原文 · ${view.basis.blocks.length} 条`,view.basis.blocks,true));
+    if(view.materials.length){const materials=element("details"),body=element("div");materials.append(element("summary","关联资料"),body);materials.ontoggle=()=>{if(materials.open&&!body.childElementCount)for(const material of view.materials)body.append(this.materialCard(view,material.id));};content.append(materials);}
+    this.showPopup(this.all,"工作记录",content);
+  }
+  private openStatus():void{
+    const view=this.view;if(!view)return;
+    if(view.candidate&&this.actions.candidate){this.closePopup(false);this.actions.candidate(this.status);return;}
+    const changes=readingChanges(view),old=byId(view.basis),current=byId(view.current),content=element("div");
+    for(const id of changes.sourceIds){
+      if(!old.has(id))content.append(element("small","新增记录","wb-progressive-change-label"));
+      content.append(this.sourceCard(old.get(id),current.get(id),undefined,old.has(id)));
+    }
+    for(const id of changes.materialIds){if(!view.materialBasis.some(item=>item.id===id))content.append(element("small","新增资料","wb-progressive-change-label"));content.append(this.materialCard(view,id));}
+    if(!content.childElementCount)content.append(element("p","原始记录未变化。"));
+    this.showPopup(this.status,"记录更新",content);
+  }
+  render(container:HTMLElement,view:ProgressiveReading):void{
+    this.bind(view);this.view=view;
     if(this.root.parentElement!==container)container.replaceChildren(this.root);
-    const old=byId(view.basis),current=byId(view.current),newBlocks=view.current.blocks.filter(block=>view.basis&&!old.has(block.sourceId));
-    const newMaterials=view.basis?view.materials.filter(material=>!view.materialBasis.some(item=>item.id===material.id)):[];
-    const stale=view.briefing.basisVersion!==view.current.sourceSetVersion||!!view.basis&&(view.basis.structureVersion!==view.current.structureVersion||readingMaterialsChanged(view.materialBasis,view.materials));
-    const title=`${stamp(view.briefing.createdAt)} 整理 · ${version(view.briefing.basisVersion)}`;
-    const meta=stale?`${title} · 依据有更新`:`${title} · ${view.basis?"生成时依据已保存":"旧版依据未留存"}`;
-    if(this.meta.textContent!==meta)this.meta.textContent=meta;
-    this.meta.classList.toggle("wb-progressive-changed",stale);this.meta.title=`生成依据：${view.briefing.basisVersion}\n当前记录：${view.current.sourceSetVersion}`;
-    const wanted=new Set<string>();let cursor=this.units.firstElementChild;
+    const old=byId(view.basis),current=byId(view.current),changes=readingChanges(view);
+    this.date.textContent=`${stamp(view.briefing.createdAt)} 整理`;
+    const count=changes.sourceIds.length+changes.materialIds.length;
+    this.status.hidden=!count&&!view.candidate;this.status.textContent=view.candidate==="ready"?"待采用修订":view.candidate==="stale"?"修订需更新":`${count} 处更新`;
+    const wanted=new Set<string>();let cursor=this.units.firstElementChild,number=1;
     for(const [index,paragraph] of briefingParagraphs(view.briefing).entries()){
-      const key=`unit/${paragraph.key??`${paragraph.sourceIds[0]}/${index}`}`,node=this.unit(paragraph,key,view,old,current);wanted.add(key);
+      const key=`unit/${paragraph.key??`${paragraph.sourceIds[0]}/${index}`}`,node=this.unit(paragraph,key,number,view,old,current);number+=paragraph.details?.length||1;wanted.add(key);
       if(node!==cursor)this.units.insertBefore(node,cursor);cursor=node.nextElementSibling;
     }
     for(const [key,entry] of this.nodes)if(!wanted.has(key)){entry.node.remove();this.nodes.delete(key);}
-    const extraSignature=JSON.stringify([view.current.sourceSetVersion,view.current.structureVersion,view.briefing.basisVersion,view.basis?.structureVersion,stale,newMaterials]);
-    if(this.extraSignature!==extraSignature){
-      this.extraSignature=extraSignature;this.extra.replaceChildren();
-      const group=(key:string,label:string,blocks:readonly BlockSnapshot[],historical=false)=>{
-        const section=element("section","","wb-progressive-full"),body=element("div","","wb-progressive-evidence");
-        section.append(this.disclose(key,label,body,()=>{if(!body.childElementCount)for(const block of blocks)body.append(this.sourceCard(historical?block:undefined,historical?current.get(block.sourceId):block,`${key}/${block.sourceId}`,undefined,historical));}),body);this.extra.append(section);
-      };
-      if(newBlocks.length)group("new",`新增记录 · ${newBlocks.length} 条（尚未整理）`,newBlocks);
-      if(newMaterials.length){const section=element("section","","wb-progressive-full"),body=element("div","","wb-progressive-evidence");section.append(this.disclose("new-materials",`新增材料 · ${newMaterials.length} 份（尚未整理）`,body,()=>{if(!body.childElementCount)for(const material of newMaterials)body.append(this.materialCard(material.id,view,`new-materials/${material.id}`));}),body);this.extra.append(section);}
-      group("full",`查看全部当前原始记录 · ${view.current.blocks.length} 条`,view.current.blocks);
-      if(stale&&view.basis)group("basis",`查看生成时完整原始记录 · ${view.basis.blocks.length} 条`,view.basis.blocks,true);
-    }
+    if(this.anchor&&!this.anchor.isConnected){const key=this.anchor.dataset.progressiveAnchor,focused=this.popup.contains(document.activeElement);this.closePopup(false);if(focused)Array.from(this.root.querySelectorAll<HTMLElement>("[data-progressive-anchor]")).find(node=>node.dataset.progressiveAnchor===key)?.focus({preventScroll:true});}
+    this.position();
   }
-  detach():void {this.root.remove();}
-  clear():void {this.detach();this.nodes.clear();this.units.replaceChildren();this.extra.replaceChildren();this.storageKey="";this.extraSignature="";}
+  detach():void{this.closePopup(false);this.root.remove();}
+  clear():void{this.detach();this.nodes.clear();this.units.replaceChildren();this.storageKey="";this.view=null;}
 }

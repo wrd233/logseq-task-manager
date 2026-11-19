@@ -7,12 +7,12 @@ import { WorkspaceError, parseWorkBinding, workRecord, workText, parseWorkRef, t
 import { atomicJson } from "./workspace-files.ts";
 
 export type DshMode = "continue" | "new";
-export interface DshReadingIntent { request:string; sourceIds:string[]; selection?:string; basisVersion?:string }
+export interface DshReadingIntent { request:string; sourceIds:string[]; selection?:string; basisVersion?:string; result?:string }
 export function dshReadingIntent(input:unknown):DshReadingIntent {
-  const raw=workRecord(input,["request","sourceIds","selection","basisVersion"]);
+  const raw=workRecord(input,["request","sourceIds","selection","basisVersion","result"]);
   if(!Array.isArray(raw.sourceIds)||raw.sourceIds.length>128)throw new WorkspaceError("DSH_HANDOFF_INVALID");
   const text=(value:unknown,limit:number)=>{if(typeof value!=="string"||!value.trim()||value.includes("\0")||value.length>limit)throw new WorkspaceError("DSH_HANDOFF_INVALID");return value;};
-  return {request:text(raw.request,4000),sourceIds:raw.sourceIds.map(id=>workText(id,4096)),...(raw.selection?{selection:text(raw.selection,8000)}:{}),...(raw.basisVersion?{basisVersion:workText(raw.basisVersion,64)}:{})};
+  return {request:text(raw.request,4000),sourceIds:raw.sourceIds.map(id=>workText(id,4096)),...(raw.selection?{selection:text(raw.selection,8000)}:{}),...(raw.basisVersion?{basisVersion:workText(raw.basisVersion,64)}:{}),...(raw.result?{result:text(raw.result,8000)}:{})};
 }
 export interface DshHandoff {
   schemaVersion: 1; ticket: string; createdAt: number; mode: DshMode; title: string;
@@ -82,11 +82,11 @@ export function localDshUrl(value: string): URL {
     throw new WorkspaceError("DSH_LOCAL_URL_REQUIRED");
   return url;
 }
-export async function callDshReadingModel(state:string,input:unknown):Promise<unknown> {
+export async function callDshReadingModel(state:string,input:unknown,cancellation?:AbortSignal):Promise<unknown> {
   let browser:{url:string;pid:number};
   try {browser=JSON.parse(await readFile(browserDescriptor(state),"utf8"));process.kill(browser.pid,0);}
   catch {throw new WorkspaceError("DSH_NOT_RUNNING","请先启动配置好模型的 DSH 和工作台协作服务。");}
-  const url=localDshUrl(browser.url),signal=AbortSignal.timeout(85000);
+  const url=localDshUrl(browser.url),signal=AbortSignal.any([AbortSignal.timeout(180000),...(cancellation?[cancellation]:[])]);
   const auth=await fetch(url,{redirect:"manual",signal});
   const cookie=auth.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
   if(!cookie)throw new WorkspaceError("READING_MODEL_DSH_AUTH_REQUIRED");

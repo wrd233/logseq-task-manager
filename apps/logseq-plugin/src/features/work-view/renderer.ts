@@ -24,6 +24,7 @@ interface Actions {
   sources?(ids:readonly string[],context:boolean,contextIds?:readonly string[]):void;
   clearSources?():void;
   material?(id:string):void;
+  candidate?(anchor:HTMLElement):void;
   fileClick?(event:MouseEvent):boolean;
 }
 interface Entry {
@@ -64,7 +65,7 @@ export class WorkViewRenderer {
       if (container.contains(target) && (this.sourceRow(target)===target || [...this.headings.values()].includes(target) || target.closest(".wb-progressive"))) this.lastReadingFocus=target;
     });
     this.readingLayout=new ReadingLayoutRenderer({sources:(ids,context,contextIds)=>this.actions.sources?.(ids,context,contextIds),material:id=>this.actions.material?.(id)});
-    this.progressive=new ProgressiveReader({locate:uuid=>this.actions.locate(uuid,"row"),material:id=>this.actions.material?.(id)});
+    this.progressive=new ProgressiveReader({locate:uuid=>this.actions.locate(uuid,"row"),material:id=>this.actions.material?.(id),candidate:anchor=>this.actions.candidate?.(anchor)});
     container.addEventListener("keydown",event=>{
       const target = event.target as HTMLElement;
       if (event.isComposing || this.composing || this.historical || target.closest("input,textarea,[contenteditable=true]")) return;

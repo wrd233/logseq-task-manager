@@ -98,6 +98,7 @@ export class WorkView {
     repaint: () => { if (!this.disposed) { this.report.sourceChanged(); this.render(); } },
     reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
     material:id=>{void this.report.openReadingMaterial(id).catch(this.fail);},
+    candidate:anchor=>this.readingAI?.reviewCandidate(anchor),
     fileClick:event=>this.report.delegateFileClick(event),
     clearSources:()=>this.report.api.clearHighlight(),
     sources:(ids,context,contextIds)=>{void this.report.highlightFromView(ids,context,contextIds).then(result=>{
@@ -377,7 +378,7 @@ export class WorkView {
   }
   setContextActions(actions: () => WorkShellAction[]): void { this.contextActions = actions; this.renderHeading(); }
   setReadingAI(port:ReadingAiPort):void {
-    this.readingAI?.root.remove();this.readingAI=new WorkReadingAI(this.report.readingAPI,port,{locate:uuid=>void this.locate(uuid).catch(this.fail),material:id=>void this.report.openReadingMaterial(id).catch(this.fail),refresh:()=>this.refresh()});
+    this.readingAI?.dispose();this.readingAI=new WorkReadingAI(this.report.readingAPI,port,{locate:uuid=>void this.locate(uuid).catch(this.fail),material:id=>void this.report.openReadingMaterial(id).catch(this.fail),refresh:()=>this.refresh()});
     this.panel.root.insertBefore(this.readingAI.root,this.content);this.renderHeading();
   }
   /** A native material link inside this work retains its root; an explicit other source keeps its own work. */
@@ -563,7 +564,7 @@ export class WorkView {
     const parent=this.trace.objects.filter(crumb=>crumb.uuid!==this.rootUuid && ["miniproject","mini_project"].includes(crumb.type)).at(-1);
     const disabled = !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
     const reading=this.report.readingAPI.read();
-    this.readingAI?.render(this.readingScope(),this.contentChoice==="body"&&!this.historical,!!reading.briefing,!!this.draft||this.report.composing||this.renderer.composing);
+    this.readingAI?.render(this.readingScope(),this.panel.visible&&this.contentChoice==="body"&&!this.historical,!!reading.briefing,!!this.draft||this.report.composing||this.renderer.composing);
     const setReadingMode = async (mode: "report" | "structure") => {
       const original = await this.report.readingAPI.select(null); if (!original.ok) throw new Error(original.reason);
       const result = await this.report.api.setMode(mode); if (!result.ok) throw new Error(result.reason);
@@ -646,7 +647,7 @@ export class WorkView {
     if (this.disposed) return;
     this.saveReadingSession(this.panel.visible || this.report.nativeActive);
     this.disposed = true; this.navigationEpoch++; this.invalidate();
-    this.report.dispose(); this.shell.dispose();
+    this.readingAI?.dispose();this.report.dispose(); this.shell.dispose();
     if (this.timer !== null) window.clearInterval(this.timer);
     for (const off of this.disposers) off(); void this.panel.close(true,"close",false).then(()=>this.panel.dispose());
   }

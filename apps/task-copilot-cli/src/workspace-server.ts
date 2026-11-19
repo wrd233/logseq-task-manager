@@ -297,7 +297,10 @@ export async function startWorkspaceServer(options: {
                 send(response, 200, {published: true}); return;
             }
             if (request.url === "/plugin/reading-model") {
-                send(response,200,{value:await callDshReadingModel(state,input)});return;
+                const cancellation=new AbortController();
+                response.once("close",()=>{if(!response.writableEnded)cancellation.abort();});
+                const value=await callDshReadingModel(state,input,cancellation.signal);
+                if(!response.destroyed)send(response,200,{value});return;
             }
             if (request.url === "/plugin/dsh") {
                 const raw = workRecord(input, ["connectionId", "mode", "title", "workRef", "newTab", "intent"]), connectionId = workText(raw.connectionId);

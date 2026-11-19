@@ -1,4 +1,4 @@
-/* global document, setTimeout, clearTimeout, requestAnimationFrame, cancelAnimationFrame, AbortController */
+/* global document, window, localStorage, setTimeout, clearTimeout, requestAnimationFrame, cancelAnimationFrame, AbortController */
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { observeCurrentStructure } from '../current-structure-client.mjs';
 import { WorkDiscovery } from '../discovery.jsx';
@@ -6,6 +6,8 @@ import { insertReaderReferences } from '../reader-draft.mjs';
 import { Reader } from './reader.jsx';
 import { Markdown } from './markdown.jsx';
 import { marked } from '../../../logseq-plugin/src/features/work-view/vendor/marked.js';
+import { reportMarkdown } from '../../../logseq-plugin/src/features/work-view/report-body.ts';
+import { sourceTable,numericSeries } from '../../../logseq-plugin/src/features/work-view/source-table.ts';
 import { workFocus, readWorkFocus, saveWorkFocus } from './focus-store.mjs';
 import {
   connectionCopy, mergeSelections, previewText,
@@ -349,7 +351,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       {readingIntent ? <aside className="wx-recovery" aria-label="来自 Logseq 的协作请求"><div className="wx-recovery-copy"><strong>来自 Logseq 的请求</strong><p style={{whiteSpace:'pre-wrap'}}>{readingIntent.request}</p>{readingIntent.selection?<p>{readingIntent.selection}</p>:null}<small>{readingIntent.sourceIds.length} 处来源 · 只加入草稿，不发送</small></div><div className="wx-recovery-actions"><button type="button" className="wx-button" onClick={()=>{
         if(!props.inputActions)return;
         const captured=props.inputActions.captureInsertion(),span={...captured,start:captured.end};
-        const text=[readingIntent.request,readingIntent.selection?`选中原文：\n${readingIntent.selection}`:'',readingIntent.sourceIds.length?`Logseq 来源 ID：\n${readingIntent.sourceIds.join('\n')}`:'',readingIntent.basisVersion?`阅读依据版本：${readingIntent.basisVersion}`:''].filter(Boolean).join('\n\n');
+        const text=[readingIntent.request,readingIntent.selection?`选中原文：\n${readingIntent.selection}`:'',readingIntent.result?`当前阅读成果（此前的整理或回答，需核对当前依据）：\n${readingIntent.result}`:'',readingIntent.sourceIds.length?`Logseq 来源 ID：\n${readingIntent.sourceIds.join('\n')}`:'',readingIntent.basisVersion?`阅读依据版本：${readingIntent.basisVersion}`:''].filter(Boolean).join('\n\n');
         if(props.inputActions.insertText((span.start>0?'\n':'')+text,span)){clearIntent(sessionId);props.inputActions.focus?.();}else setNotice({text:'输入框正在提交，请稍后再加入。',tone:'error'});
       }}>加入对话草稿</button><button type="button" className="wx-text" onClick={()=>clearIntent(sessionId)}>关闭</button></div></aside>:null}
 
@@ -395,7 +397,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
             ? <Reader nodes={reader.nodes} focusUuid={root?.uuid} workTypes={workTypes} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} resetKey={`${sessionId}:${root?.uuid ?? 'root'}:reader`} />
             : readerError ? <div className="wx-empty" role="alert"><p>{errorText(readerError)}</p><button type="button" className="wx-button" onClick={() => setReaderTick(value => value + 1)}>重试</button></div>
               : <Skeleton />) : null}
-          {structure && view === 'briefing' ? (progressive ? <ProgressiveBriefing value={progressive} /> : <div className="wx-empty">尚无阅读简报。可在 Logseq 中整理当前工作。</div>) : null}
+          {structure && view === 'briefing' ? (progressive ? <ProgressiveBriefing value={progressive} onOriginal={()=>changeView('reader')} /> : <div className="wx-empty">尚无阅读简报。可在 Logseq 中整理当前工作。</div>) : null}
         </div>
         {selected.length ? <aside className="wx-tray" aria-label="已选引用">
           <div className="wx-tray-head"><strong>{selected.length} 处引用</strong>{staleCount ? <span className="wx-warn">{staleCount} 处已变化</span> : null}<span className="wx-tray-note">加入草稿，不发送</span><button type="button" className="wx-text" onClick={() => setSelected([])}>清空</button><button type="button" className="wx-button wx-button-primary" disabled={busy} onClick={insertSelection}>{busy ? '加入中…' : '加入对话'}</button></div>
@@ -412,20 +414,58 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
   };
 }
 
-function ProgressiveBriefing({value}) {
+const articleMarkdown=(text,props={})=><Markdown tokens={marked.lexer(text??'')} source={text??''} {...props}/>;
+function BriefingSource({content,display}){
+  const original=reportMarkdown(content??'来源不可用'),table=display==='chart'?sourceTable(original):null,series=table?numericSeries(table):[];
+  return series.length?<div>{series.map(column=><div className="wx-brief-chart" key={column.label}><small>{column.label}</small>{column.points.map(point=><div key={point.label}><div className="wx-brief-chart-label"><span>{point.label}</span><strong>{point.value}</strong></div><div className="wx-brief-track"><span style={{width:`${point.ratio*100}%`}}/></div></div>)}</div>)}</div>:articleMarkdown(original);
+}
+function ProgressiveBriefing({value,onOriginal}) {
   const {briefing,basis,current,materialBasis,materials}=value;
   const old=new Map((basis?.blocks??[]).map(block=>[block.sourceId,block])),now=new Map(current.blocks.map(block=>[block.sourceId,block]));
-  return <article className="wx-briefing">
-    <small>整理于 {briefing.createdAt.slice(0,10)} · {briefing.basisVersion===current.sourceSetVersion&&basis?.structureVersion===current.structureVersion?'来源未变化':'存在新版本，请核对依据'}</small>
-    {[...briefing.paragraphs,...(briefing.followUps??[])].map((paragraph,index)=><details key={paragraph.key??index}>
-      <summary><Markdown tokens={marked.lexer(paragraph.markdown)} source={paragraph.markdown} /></summary>
-      {(paragraph.details?.length?paragraph.details:[{key:'original',markdown:'当时依据',sourceIds:paragraph.sourceIds}]).map(detail=><details key={detail.key}>
-        <summary>{detail.heading?<strong>{detail.heading} · </strong>:null}<Markdown tokens={marked.lexer(detail.markdown)} source={detail.markdown} /></summary>
-        {detail.sourceIds.map(id=>{const before=old.get(id),after=now.get(id);return <div className="wx-briefing-source" key={id}><small>当时依据 · {before?.contentVersion?.slice(0,8)??'未保存'}</small><p>{before?.content??'历史原文不可用，请核对当前原文。'}</p>{before?.contentVersion!==after?.contentVersion?<><small>当前原文 · {after?.contentVersion?.slice(0,8)??'已移除'}</small><p>{after?.content??'来源已不可用'}</p></>:null}</div>;})}
-        {(detail.materialIds??[]).map(id=>{const before=materialBasis.find(material=>material.id===id),after=materials.find(material=>material.id===id);return <div className="wx-briefing-source" key={id}><small>材料 · {before?.filename??after?.filename??id} · {before?.version?.slice(0,8)??'版本未确认'}</small><p>{before?.excerpt??'在 Logseq 打开完整材料'}</p>{before?.version!==after?.version?<small>材料已变化，请在 Logseq 核对</small>:null}</div>;})}
-      </details>)}
-    </details>)}
-    <small>完整当前记录请切换「原文」。</small>
+  const storageKey=`wx-briefing-open:${JSON.stringify([current.scope.graphId,current.scope.rootUuid,value.planId])}`;
+  const load=()=>{try{return JSON.parse(localStorage.getItem(storageKey)??'[]');}catch{return [];}};
+  const [expanded,setExpanded]=useState(load),[popup,setPopup]=useState(null);
+  const root=useRef(null),popover=useRef(null);
+  useEffect(()=>{setExpanded(load());setPopup(null);},[storageKey]);
+  const close=(focus=false)=>{if(focus&&popup?.anchor.isConnected)popup.anchor.focus({preventScroll:true});setPopup(null);};
+  useEffect(()=>{
+    if(!popup)return;
+    const move=()=>{const panel=popover.current,anchor=popup.anchor;if(!panel||!anchor.isConnected){setPopup(null);return;}const area=root.current?.closest('.wx-scroll')?.getBoundingClientRect(),rect=anchor.getBoundingClientRect(),left=Math.max(0,area?.left??0),right=Math.min(window.innerWidth,area?.right??window.innerWidth),top=Math.max(0,area?.top??0),bottom=Math.min(window.innerHeight,area?.bottom??window.innerHeight);panel.style.width=`${Math.max(0,Math.min(390,right-left-16))}px`;panel.style.maxHeight=`${Math.max(90,bottom-top-16)}px`;const height=panel.offsetHeight;panel.style.left=`${Math.max(left+8,Math.min(rect.right-panel.offsetWidth+12,right-panel.offsetWidth-8))}px`;panel.style.top=`${Math.max(top+8,Math.min(rect.bottom+height+6<=bottom?rect.bottom+6:rect.top-height-6,bottom-height-8))}px`;};
+    const outside=event=>{if(!popover.current?.contains(event.target)&&!popup.anchor.contains(event.target))close();};
+    const key=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);}};
+    move();popover.current?.querySelector('button')?.focus({preventScroll:true});
+    document.addEventListener('pointerdown',outside,true);document.addEventListener('keydown',key,true);window.addEventListener('resize',move);root.current?.closest('.wx-scroll')?.addEventListener('scroll',move);
+    const scroller=root.current?.closest('.wx-scroll');
+    return()=>{document.removeEventListener('pointerdown',outside,true);document.removeEventListener('keydown',key,true);window.removeEventListener('resize',move);scroller?.removeEventListener('scroll',move);};
+  },[popup]);
+  const toggle=key=>{const next=expanded.includes(key)?expanded.filter(item=>item!==key):[...expanded,key];setExpanded(next);localStorage.setItem(storageKey,JSON.stringify(next));};
+  const materialChanged=id=>{const before=materialBasis.find(item=>item.id===id),after=materials.find(item=>item.id===id);return !before||!after||before.version!==after.version||before.availability!==after.availability;};
+  const changed=detail=>detail.sourceIds.some(id=>old.get(id)?.contentVersion!==now.get(id)?.contentVersion)||(detail.materialIds??[]).some(materialChanged);
+  const stale=briefing.basisVersion!==current.sourceSetVersion||basis?.structureVersion!==current.structureVersion||materials.some(item=>materialChanged(item.id))||materialBasis.some(item=>materialChanged(item.id));
+  const citation=(detail,number,key)=><button type="button" className={`wx-brief-cite${changed(detail)?' is-changed':''}`} aria-label={`查阅依据 ${number}`} aria-haspopup="dialog" aria-expanded={popup?.key===key} title="查阅依据" onClick={event=>popup?.key===key?close(true):setPopup({detail,key,anchor:event.currentTarget})}>{number}</button>;
+  let number=1;
+  return <article className="wx-briefing" ref={root}>
+    <div className="wx-brief-meta">{new Date(briefing.createdAt).toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 整理{stale||value.candidate?<span className="wx-brief-change"> · {value.candidate==='ready'?'修订待在 Logseq 采用':'依据有更新'}</span>:null}</div>
+    {[...briefing.paragraphs,...(briefing.followUps??[])].map((paragraph,index)=>{
+      const key=paragraph.key??String(index),details=paragraph.details??[],open=expanded.includes(key),label=paragraph.cue??'细读';
+      const control=<button type="button" className="wx-brief-phrase" aria-expanded={open} aria-label={`${label}，${open?'收起':'展开'}细读`} onClick={()=>toggle(key)}>{label}</button>;
+      const fallback=<button type="button" className="wx-brief-branch" aria-expanded={open} aria-label="细读" onClick={()=>toggle(key)}>⌄</button>;
+      const read=details.length?null:citation({key:'original',sourceIds:paragraph.sourceIds},number++,`${key}/original`);
+      const passes=details.map(detail=>({detail,cite:citation(detail,number++,`${key}/${detail.key}`)}));
+      return <section className="wx-brief-unit" key={key}>
+        {articleMarkdown(paragraph.markdown,details.length?{cue:{text:paragraph.cue,control,fallback}}:{suffix:read})}
+        {details.length&&open?<div className="wx-brief-context">{passes.map(({detail,cite})=><section key={detail.key}>{detail.heading?<h4>{detail.heading}</h4>:null}{articleMarkdown(detail.markdown,{suffix:cite})}</section>)}</div>:null}
+      </section>;
+    })}
+    <button type="button" className="wx-brief-original" title="完整原始记录" aria-label="完整原始记录" onClick={onOriginal}>☷</button>
+    {popup?<aside className="wx-brief-popover" ref={popover} role="dialog" aria-label="查阅依据">
+      <header><strong>{current.scope.pageName??'工作依据'}</strong><button type="button" aria-label="关闭依据" title="关闭" onClick={()=>close(true)}>×</button></header>
+      {popup.detail.sourceIds.map(id=>{const before=old.get(id),after=now.get(id),different=before?.contentVersion!==after?.contentVersion;return <section className="wx-briefing-source" key={id}>
+        {different?<small>整理时所引</small>:null}<BriefingSource content={before?.content??'旧版依据不可用'} display={popup.detail.display}/>{different?<><small className="wx-brief-change">当前原文</small><BriefingSource content={after?.content} display={popup.detail.display}/></>:null}
+      </section>;})}
+      {(popup.detail.materialIds??[]).map(id=>{const before=materialBasis.find(item=>item.id===id),after=materials.find(item=>item.id===id),quote=popup.detail.materialQuotes?.find(item=>item.materialId===id)?.quote;return <section className="wx-briefing-source" key={id}><strong>{before?.filename??after?.filename??'关联资料'}</strong>{before?.image?<img src={before.image} alt={before.filename}/>:null}{articleMarkdown(quote??before?.excerpt??'在 Logseq 查看完整来源。')}{materialChanged(id)?<><small className="wx-brief-change">来源已有变化</small>{after?.image?<img src={after.image} alt={after.filename}/>:null}{articleMarkdown(after?.excerpt??'来源暂不可用')}</>:null}</section>;})}
+      <button type="button" className="wx-brief-original" title="打开完整原始记录" aria-label="打开完整原始记录" onClick={()=>{close(true);onOriginal();}}>↗</button>
+    </aside>:null}
   </article>;
 }
 

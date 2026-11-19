@@ -71,8 +71,8 @@ export function installAgentWorkspace(options: {
         if (!disposed)
             void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
     };
-    const post = async (descriptor: WorkspacePluginDescriptor, path: string, input: unknown, timeout=30000) => {
-        const response = await fetch(`${descriptor.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId }, body: JSON.stringify(input), signal: AbortSignal.timeout(timeout) });
+    const post = async (descriptor: WorkspacePluginDescriptor, path: string, input: unknown, timeout=30000,signal?:AbortSignal) => {
+        const response = await fetch(`${descriptor.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId }, body: JSON.stringify(input), signal: signal?AbortSignal.any([signal,AbortSignal.timeout(timeout)]):AbortSignal.timeout(timeout) });
         const result = await response.json() as {
             error?: {
                 code: string;
@@ -183,11 +183,11 @@ export function installAgentWorkspace(options: {
         let descriptorText:string;try{descriptorText=await desktopFiles(()=>graphId).read(path);}catch{throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED","请先运行协作启动器，启动工作台服务和 DSH。");}
         return {path,descriptor:parseWorkspaceDescriptor(JSON.parse(descriptorText),true) as WorkspacePluginDescriptor};
     };
-    const generateReading=async(input:ReadingModelInput)=>{
+    const generateReading=async(input:ReadingModelInput,signal?:AbortSignal)=>{
         const epoch=graphGeneration,scope=input.source.scope;
         const check=async()=>{const work=options.work?.readingAPI.read().scope;if(disposed||graphGeneration!==epoch||graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||!work||!sameWorkScope(work,scope))throw new WorkspaceError("SCOPE_MISMATCH");};
         await check();const {descriptor}=await readDescriptor(scope.graphId);await check();
-        const response=await post(descriptor,"/plugin/reading-model",input,90000);await check();return response.value;
+        const response=await post(descriptor,"/plugin/reading-model",input,190000,signal);await check();return response.value;
     };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)

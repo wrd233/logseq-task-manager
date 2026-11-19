@@ -3,7 +3,8 @@ import type { ReadingPlan } from "./reading-plan.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
 
 export interface SavedReadingView { plan:ReadingPlan; revision:number; previous?:ReadingPlan; basis?:SourceSnapshot|undefined; previousBasis?:SourceSnapshot|undefined; materialBasis?:ReadingMaterial[]|undefined; previousMaterialBasis?:ReadingMaterial[]|undefined }
-export interface SavedReadingViews { schemaVersion:1; mode:"report"|"structure"; selected:string|null; views:SavedReadingView[] }
+export interface SavedReadingCandidate {plan:ReadingPlan; baseRevision:number; basis:SourceSnapshot; materialBasis:ReadingMaterial[]}
+export interface SavedReadingViews { schemaVersion:1; mode:"report"|"structure"; selected:string|null; views:SavedReadingView[]; candidate?:SavedReadingCandidate }
 export interface ReadingStorage { getItem(key:string):string|null; setItem(key:string,value:string):void }
 export class ReadingViewStore {
   constructor(private readonly storage:ReadingStorage) {}
