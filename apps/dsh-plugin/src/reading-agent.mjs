@@ -29,7 +29,7 @@ export async function readingAgent(ctx,task,instructions,signal){
       agentCtx.tools.presentAs('native');
       agentCtx.tools.guard(exec=>!tools.includes(exec.name)?'Only scoped reading tools are available for this job.':captured?'Reading result already submitted.':undefined);
       agentCtx.systemPrompt.section({name:'logseq-workbench:reading-job',order:9000,interpolate:false,text:`${instructions}
-这是独立后台阅读任务，仅有以下受限工具：先调用 logseq_reading_request 查看实际工作及索引；用 logseq_source_read 读取所引的保存原文（可批量），用 logseq_file_read 按需查阅关联文件和笔记。依据任务需要查证，不凭索引摘要想象内容。更新时核对 changes 和 previous，保留无关段落。最终调用 logseq_reading_submit 一次提交阅读成果，工具成功即结束任务，不再聊天。所引用的每个 s/m 编号须经过对应读取工具。没有写作或其他工具权限。`});
+这是独立后台阅读任务，仅有以下受限工具：先调用 logseq_reading_request 查看实际工作及索引；用 logseq_source_read 读取所引的保存原文（可批量），用 logseq_file_read 按需查阅关联文件和笔记。依据任务需要查证，不凭索引摘要想象内容。有 previous 时核对 changes，按请求区分局部更新与重新整理，尽量保留仍适用的语义键。最终调用 logseq_reading_submit 一次提交阅读成果，工具成功即结束任务，不再聊天。所引用的每个 s/m 编号须经过对应读取工具。没有写作或其他工具权限。`});
       const register=(name,description,parameters,execute)=>agentCtx.tools.register({name,description,parameters,output:{schema:{},render},execute:async(args,exec)=>JSON.parse(JSON.stringify(await execute(args,exec)))});
       register('logseq_reading_request','Inspect the current saved work, versions, source and associated material index, and previous article if any. Paginate the source index.',object({offset:integer}),args=>{
         const offset=args.offset??0,rows=packet.blocks.slice(offset,offset+100);

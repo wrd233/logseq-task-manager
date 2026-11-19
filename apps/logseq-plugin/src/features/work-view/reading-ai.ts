@@ -146,7 +146,9 @@ export class WorkReadingAI {
       job.signal.throwIfAborted();
       if(mode==="organize"){
         if(!result.paragraphs?.length)throw Error("READING_MODEL_OUTPUT");
-        const paragraphs=previous&&changes&&!custom&&(changes.sourceIds.length||changes.materialIds.length)?retainUnchangedParagraphs(previous,[...result.paragraphs??[],...result.followUps??[]],changes):result.paragraphs;
+        // An explicit reorganization may move old top-level prose into details. Only
+        // background source updates merge unchanged units back into the proposal.
+        const paragraphs=background&&previous&&changes&&(changes.sourceIds.length||changes.materialIds.length)?retainUnchangedParagraphs(previous,[...result.paragraphs,...result.followUps??[]],changes):result.paragraphs;
         const plan={schemaVersion:1,requestId,planId,name:before.plans.find(plan=>plan.planId===planId)?.name??"文章式阅读",scope:source.scope,structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion,
           sourceVersions:source.blocks.map(block=>({sourceId:block.sourceId,contentVersion:block.contentVersion})),layout:source.blocks.length?[{kind:"sequence",key:"original-source",sourceIds:source.blocks.map(block=>block.sourceId)}]:[],
           briefing:{basisVersion:source.sourceSetVersion,createdAt:new Date().toISOString(),paragraphs,...(paragraphs===result.paragraphs&&result.followUps?{followUps:result.followUps}:{})}};

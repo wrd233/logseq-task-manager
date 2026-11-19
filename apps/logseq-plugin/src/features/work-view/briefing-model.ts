@@ -133,4 +133,4 @@ export function retainUnchangedParagraphs(previous:WorkBriefing,next:BriefingPar
 }
 
 export const progressivePlanId = "work-resume-briefing";
-export const progressivePurpose = "整理为渐进式阅读：恢复工作并理解原始思路与依据";
+export const progressivePurpose = "重新组织渐进式阅读：顶层只保留几秒内恢复工作所需的最少信息，将原始思路、细节和依据放到细读与脚注";

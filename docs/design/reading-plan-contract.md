@@ -40,7 +40,7 @@ NativeSourceSetHost 不调用 editBlock/updateBlock/setBlockCollapsed，不设�
 
 复用 `codex/contextual-work-briefing` 的 `briefing` 概念：`basisVersion` 等于邀请的 `sourceSetVersion`，`createdAt`、`paragraphs`（及可选 `followUps`）。段落含 `key`（稳定语义键，旧格式可省略）、`markdown`、`kind: fact|inference|suggestion`、`sourceIds`、可选 `tone: progress|attention` 和 `details`。每个 detail 包含唯一 `key`、`markdown`、真实 `sourceIds`，可选 `heading`、`kind`、`display: quote|table|chart` 和真实 `materialIds`。不要求固定章节或固定段落数。
 
-- 顶层可轻微概括；第一层描述可组织思路、条件、历史与冗余；第二层引用对应的原始内容。`layout` 仍需完整覆盖原文，未被简报概括的记录有独立可达入口。
+- 顶层只概括数秒内恢复工作所需的最少信息，不要求概括所有记录；第一层描述是丰富的连贯文章，组织思路、条件、历史与必要冗余；第二层引用对应的原始内容。`layout` 仍需完整覆盖原文，未被简报概括的记录有独立可达入口。
 - `ReadingViewStore` 按工作持久化方案和生成时的 `basis: SourceSnapshot`、`materialBasis`（可用版本和有界摘录），显式更新保存上一次修订及依据。旧简报不随当前快照重新贴版本；缺少旧快照的迁移数据标记未保存。比较 sourceId/contentVersion、结构和 material version，新增及移除来源不消失。
 - 允许模型建议表格/图表形式，数值只由真实来源中的 Markdown 表解出；不接收模型制造的数值数组、HTML、可执行样式或任意文件路径。渲染器拥有交互、主题、宽窄布局。完整材料仍由材料 owner 打开。
 - 历史第一轮的 Logseq「AI 整理」/「提问」以控制器 `request`、companion `/plugin/reading-model` 与配置模型完成；组织结果直接回到 `submit`。文章式 Agent 后续契约在下节描述，路径名称保留。
@@ -53,5 +53,5 @@ NativeSourceSetHost 不调用 editBlock/updateBlock/setBlockCollapsed，不设�
 - schema v1 增加可选 `paragraph.cue`：可见 Markdown 中连续、无标记的短语。渲染器验证可定位性，找不到则使用轻量细读入口；没有描述的段落可以直接带脚注。旧方案无需迁移。detail 的 `materialQuotes` 为 `{materialId,quote}[]`，必须属于已关联资料并在真实捕获文本中逐字存在；不接受模型自造图表数值。
 - 读取邀请保留完整主来源快照、实际关联材料版本和有界文本。已明确关联的 Logseq 页/块作为关联资料（`note` scope），仍区分主工作与临时浏览。文本资料可由工具分次读取，超出摘要的关联 Markdown 在捕获上限内可读；小型图片以材料 owner 的真实字节与版本提供本地预览，不虚构视觉理解。
 - 复杂请求通过 DSH `agents.create` 创建独立原生任务，限制可见和可执行工具为范围索引、精确原块读取、关联资料读取、结构化成果提交。模型不直接接收整个固定文本包，而经实际工具按需读取已保存邀请；任务结束释放 handle，不占用户既有聊天。短且资料充分的请求、选中普通块的改写可使用快速生成。取消传播至 companion/DSH。
-- 已有文章的 `prepare` 验证邀请、来源集合/结构、关联资料版本与原方案修订，保存单独候选，不改变已选方案；`adopt` 重读并核对实际来源和修订，再写入同一 planId，保留上一修订及依据。DSH 同名文章工具提交也准备候选。候选可保留待查看、暂不采用；主动准备须用户逐工作开启，已保存变更稳定后发起。实际未变化单元和稳定语义键尽量复用。
+- 已有文章的 `prepare` 验证邀请、来源集合/结构、关联资料版本与原方案修订，保存单独候选，不改变已选方案；`adopt` 重读并核对实际来源和修订，再写入同一 planId，保留上一修订及依据。DSH 同名文章工具提交也准备候选。候选可保留待查看、暂不采用；主动准备须用户逐工作开启，已保存变更稳定后发起。后台局部修订复用未变化的单元；显式重新整理允许合并或下沉过长的顶层段落，尽量沿用仍适用的语义键。旧 `followUps` 兼容读取但也是顶层，不作为细读的替代。
 - 版本标识、scope 和 UUID 保留于内部契约/历史，不是正文显示字段。现有 reading.view 共享已采用文章，候选状态独立；无模型时原文和已有成果可继续阅读。
