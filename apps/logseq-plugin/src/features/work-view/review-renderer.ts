@@ -8,9 +8,9 @@ import { renderMarkdown } from "./markdown.ts";
 export { renderMarkdown } from "./markdown.ts";
 
 /** Decorate safe rendered text nodes without replacing links, code or emphasis. */
-export function highlightReview(body:HTMLElement, change:ReviewChange | undefined, content:string, projected = false):void {
+export function highlightReview(body:HTMLElement, change:ReviewChange | undefined, content:string, projected = false,pageReferences = false):void {
   if (!change || change.before===null || change.after!==content || change.kind!=="modified") return;
-  const previous=element("div"); previous.innerHTML=renderMarkdown(projected ? reportProjection(change.before).markdown : change.before);
+  const previous=element("div"); previous.innerHTML=renderMarkdown(projected ? reportProjection(change.before).markdown : change.before,pageReferences);
   const hunks=textHunks(previous.textContent??"",body.textContent??"");
   if (!hunks) return;
   const ranges=hunks.filter(h=>h.afterEnd>h.afterStart), walker=document.createTreeWalker(body,4);

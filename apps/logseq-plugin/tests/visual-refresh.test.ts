@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {setTimeout as delay} from "node:timers/promises";
 import {Window} from "happy-dom";
-import {reportProjection} from "../src/features/work-view/report-body.ts";
+import {reportCollapsed, reportProjection} from "../src/features/work-view/report-body.ts";
 import {visualRefreshRows} from "./fixtures/visual-refresh.ts";
 import expected from "./fixtures/visual-refresh-expected.json" with {type:"json"};
 import {sha256,snapshot,sourceId} from "../src/workspace/source-protocol.ts";
@@ -39,6 +39,12 @@ test("leading projection has reversible raw spans and preserves every literal or
   assert.equal(reportProjection("TODO 普通待办").marker,null);assert.equal(reportProjection("TODO 普通待办").task,"TODO");
   assert.equal(reportProjection("[记录] 事实").label,"记录");
   assert.equal(reportProjection("**[目标]** 保留\nid:: real").markdown,"保留\n");
+  const metadata = "## 备用步骤\ncollapsed:: true";
+  const literal = "```edn\ncollapsed:: true\n```";
+  assert.equal(reportCollapsed(metadata), true);
+  assert.equal(reportProjection(metadata).markdown, "## 备用步骤\n");
+  assert.equal(reportCollapsed(literal), false);
+  assert.equal(reportProjection(literal).markdown, literal);
 });
 
 test("all 102 source bodies match frozen prose, retain raw versions and nested identity, and expose no writable heading UUID",async()=>{

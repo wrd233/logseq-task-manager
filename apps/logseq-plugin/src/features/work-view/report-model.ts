@@ -45,9 +45,6 @@ export function reportFragments(source: SourceSnapshot): ReportFragment[] {
   return source.blocks.map(block=>fragmentForBlock(source.scope,block)).filter((fragment):fragment is ReportFragment=>!!fragment);
 }
 
-/** Entering report reading never inherits personal collapse preferences. Consumers own explicit session folds. */
-export const defaultReportFolds = (): Set<string> => new Set();
-
 /** Group only explicit sibling runs in work objects. Explanatory subtrees and ambiguous neighbors remain intact. */
 export function composeReport(source: SourceSnapshot, personal: ViewPresentation, lens: LensSelection | null, folds: ReadonlySet<string>, overlay?: ComposedView): ReportComposition {
   const byUuid = new Map(source.blocks.map(block => [block.target.blockUuid, block]));

@@ -67,7 +67,7 @@ export class ReadingLayoutRenderer {
         const block=source.get(id)!,node=this.node(`context:${key}:${id}`,"div","wb-reading-context-body",wanted);
         node.dataset.readingContextSourceId=id;
         if(node.dataset.contentVersion!==block.contentVersion) {
-          node.innerHTML=renderMarkdown(reportProjection(block.content!).markdown);node.dataset.contentVersion=block.contentVersion!;
+          node.innerHTML=renderMarkdown(reportProjection(block.content!).markdown, true);node.dataset.contentVersion=block.contentVersion!;
         }
         interaction(node,[id],false);return node;
       });

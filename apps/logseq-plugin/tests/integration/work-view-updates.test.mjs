@@ -65,7 +65,7 @@ test('compact row actions remain discoverable, source updates retain their focus
     const first = row(f, 'b1'), menu = first.querySelector('.wb-row-menu'), summary = menu.querySelector('summary');
     assert.equal(summary.getAttribute('aria-label'), '条目操作'); assert.equal(menu.open, false); assert.equal(first.tabIndex, -1);
     assert.equal(first.querySelector('[aria-label="折叠子项"]').disabled, true);
-    assert.equal(first.querySelector('[aria-label="折叠子项"]').style.visibility, 'hidden');
+    assert.equal(first.querySelector('[aria-label="折叠子项"]').hidden, true);
     menu.open = true; const select = menu.querySelector('select'); select.focus();
     f.content('b1', '来源更新后仍可调整显示'); await delay(70);
     assert.equal(first.querySelector('.wb-row-menu'), menu); assert.equal(menu.open, true); assert.equal(f.browser.document.activeElement, select);

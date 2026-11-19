@@ -5,7 +5,8 @@ import {setTimeout as schedule} from 'node:timers';
 import {fixture,deferred} from '../fixtures/work-view.mjs';
 
 const row=(f,uuid)=>f.browser.document.querySelector(`.wb-row[data-uuid="${uuid}"]`);
-const edit=(f,uuid)=>[...row(f,uuid).querySelectorAll('button')].find(button=>button.textContent==='编辑原文').click();
+const editButton=(f,uuid)=>row(f,uuid).querySelector('button.wb-edit-block[aria-label="编辑此块"]');
+const edit=(f,uuid)=>editButton(f,uuid).click();
 async function nativeReady(f,uuid) {
   for(let i=0;i<400;i++){
     const input=f.browser.document.querySelector('textarea');
@@ -59,7 +60,7 @@ test('narrow window yields the panel, really invokes native editing and restores
   try {
     const node=row(f,'b3'),scroll=node.parentElement;scroll.scrollTop=125;
     const menu=node.querySelector('details');menu.open=true;
-    [...menu.querySelectorAll('button')].find(b=>b.textContent==='编辑原文').click();
+    edit(f,'b3');
     assert.equal(menu.open,false);
     for(let i=0;i<60&&!f.nativeCalls.some(c=>c[0]==='edit');i++)await delay(5);
     assert.deepEqual(f.nativeCalls,[['locate','b3','fixture'],['edit','b3']]);assert.equal(f.work.panel.visible,false);
@@ -72,7 +73,7 @@ test('narrow window yields the panel, really invokes native editing and restores
     await f.tick();
     for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native,null);
-    assert.equal(f.work.panel.root.querySelector('.wb-work-shell .wb-primary').textContent,'在 Logseq 写作');
+    assert.equal(f.work.panel.root.querySelector('.wb-work-shell .wb-primary').textContent,'编辑工作主块');
     assert.ok(row(f,'b3').querySelector('.wb-body').textContent.includes('原生提交的新句。'));
     assert.equal(row(f,'b3'),node);assert.equal(scroll.scrollTop,125);assert.equal(f.work.snapshot().root,'root');
   }finally{await f.close();}
@@ -106,6 +107,7 @@ test('wide docked window retains the report and native input, while report refle
     const fragment=f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0');
     assert.equal(fragment.contentVersion,(await f.work.lensesAPI.source()).value.blocks.find(b=>b.target.blockUuid==='b0').contentVersion);
     f.editing(false);assert.equal((await f.work.reportAPI.resume()).ok,true);
+    assert.equal(f.browser.document.activeElement,editButton(f,'b0'));
   }finally{await f.close();}
 });
 test('returning to the same native editor preserves its draft, input node and exact selection instead of reloading source',async()=>{

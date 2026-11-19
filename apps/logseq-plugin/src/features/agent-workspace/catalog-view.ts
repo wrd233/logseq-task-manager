@@ -126,8 +126,8 @@ export class WorkCatalogView {
       if (missing) { await this.notes.selectCurrentPage(false, work); return; }
       const source = await this.notes.resolve(work);
       if (!source) throw new Error("暂时找不到原笔记，请刷新后再试。");
-      if (source.kind === "page") await this.work.openPage(source.name);
-      else await this.work.open(source.uuid);
+      if (source.kind === "page") await this.work.openPage(source.name, true);
+      else await this.work.open(source.uuid, true);
       this.work.focusReading();
     }));
     open.className = "wb-search-entry";
