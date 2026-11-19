@@ -1,0 +1,238 @@
+{
+  "code": "33cb360f5266d9b72da388a5aae134e892fbc8ea",
+  "build": "0.2.0 · 预览 2026-11-19T14:47:57.239Z · 06Bedc",
+  "verifiedFiles": 616,
+  "zipSha256": "3b90e9b24d5dd67e077656fd9ddecf4b90a0ae316613f6c9f9504c7c53f91198",
+  "dshZipSha256": "5877b9fdca3e75f5eb82025009cc356ada0f9f445fe97bcde12d2b1c93922c7d",
+  "environment": {
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "reloadSameBasis": true
+  },
+  "long": {
+    "fixture": "验收交接计划",
+    "sourceBlocks": 17,
+    "oldTopCount": 9,
+    "oldTopChars": 791,
+    "firstIterationTopChars": 205,
+    "finalTopCount": 2,
+    "finalTopChars": 57,
+    "detailChars": 971,
+    "followUps": 0,
+    "article": [
+      {
+        "key": "handover-lead",
+        "markdown": "**机房交接仍在等待复核，北侧机架标签差异尚未确认。**",
+        "cue": "机房交接仍在等待复核",
+        "sourceUuids": [
+          "1aa10000-1111-4111-8111-000000000001",
+          "1aa10000-1111-4111-8111-000000000003",
+          "6aff0961-9a5f-4e80-803e-c58e0ed5771f"
+        ],
+        "details": [
+          {
+            "key": "handover-status-detail",
+            "heading": "当前状态",
+            "markdown": "11 月 18 日复核后，结论从“已核验”改为等待复核：北侧机架标签与记录不符。11 月 19 日南侧取得了值班签字回执，北侧仍未确认。复核表把北侧 2 台、南侧 1 台列在待核验，不能并入已完成项，所以当前仍是未完成状态。",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000001",
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000008",
+              "6aff0961-9a5f-4e80-803e-c58e0ed5771f"
+            ]
+          },
+          {
+            "key": "handover-history-detail",
+            "heading": "从初查到复核",
+            "markdown": "11 月 12 日现场初查曾认为三处标签都已核验，依据是旧照片，原表还没查过；后续核查也注明仅凭旧照片仍有三台待核验，所以那次判断不能当最终事实。11 月 18 日复核拿原表对照，北侧机架标签不符暴露出来，处理顺序是先保留旧编号和原表截图，再安排现场确认。同一次复核还留下一个反例：南侧设备有签字，但照片日期晚于签字时间，能确认的只有签字记录存在，不能据此认定当时标签一致。11 月 19 日南侧回执到手，说明“等回执”这一步走完了；北侧未确认，南侧的标签一致性也没有因回执自动成立。",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000002",
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000005",
+              "6aff0961-9a5f-4e80-803e-c58e0ed5771f"
+            ],
+            "quotes": [
+              "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。",
+              "签字与核验是不同事项，不得宣告全部完成。"
+            ]
+          },
+          {
+            "key": "handover-count-table",
+            "heading": "实际复核计数",
+            "markdown": "复核表按区域分列，合计 16 台：已核验 13 台、待核验 3 台。北侧 4 台已核验、2 台待核验；南侧 6 台已核验、1 台待核验；东侧 3 台全部核验完毕。这组数只表示 11 月 18 日的计数，不代表签字完成；尚待核对的台数要单列，不能合并进已完成项。",
+            "display": "table",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000007",
+              "1aa10000-1111-4111-8111-000000000008"
+            ]
+          },
+          {
+            "key": "handover-options-detail",
+            "heading": "方案与代价",
+            "markdown": "方案甲：先复核差异、再补签。能保留完整的追溯链，代价是交付窗口可能推迟。方案乙：只就已核验设备办理部分交接，其余作为待确认记录保留。两条路的区别在于要不要等北侧差异查清；如果选乙，交付范围只覆盖已核验部分，仍不能对外说成全部交接完成。",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000010",
+              "1aa10000-1111-4111-8111-000000000011"
+            ]
+          },
+          {
+            "key": "handover-id-quote",
+            "heading": "附件末尾的唯一编号",
+            "markdown": "11 月 19 日的记录把附件编号的用途限定清楚了：QPA-9472 只是原始附件末尾的查找线索，不是签字回执，引用时不能把它当成验收凭据。长附件前 130 行是合成校验行，每行都注明仅为隔离演练记录，同样不构成签字或验收。",
+            "display": "quote",
+            "sourceUuids": [
+              "6aff0961-9a5f-4e80-803e-c58e0ed5771f"
+            ],
+            "quotes": [
+              "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+            ]
+          },
+          {
+            "key": "handover-contact-detail",
+            "heading": "联络窗口",
+            "markdown": "临时联络指向验收参考笔记。笔记本身是另一处临时阅读页（B），不属于 A 工作现场；它提供的窗口是工作日 14:00–16:00，与 11 月 18 日复核的时段一致。这个时间可以用来约现场值班人，不能替代现场签字。",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000012"
+            ],
+            "quotes": [
+              "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-next",
+        "markdown": "下次从北侧两台的标签差异入手，联络前备好原表与旧编号截图。",
+        "cue": "联络前备好原表与旧编号截图",
+        "sourceUuids": [
+          "1aa10000-1111-4111-8111-000000000014",
+          "6aff0b2f-d234-4e81-9ff7-ed498cff5e29"
+        ],
+        "details": [
+          {
+            "key": "handover-stop-detail",
+            "heading": "停点与 TODO",
+            "markdown": "下回的起点是北侧两台标签差异与南侧一台待核验。TODO 仍是联系现场值班人复核北侧机架并等签字回执，尚未完成。设备未通电时复核无法进行，不能宣告验收完成；工作记录也不以消息已发出作为签字证明。",
+            "sourceUuids": [
+              "1aa10000-1111-4111-8111-000000000004",
+              "1aa10000-1111-4111-8111-000000000014",
+              "6aff0961-9a5f-4e80-803e-c58e0ed5771f"
+            ]
+          },
+          {
+            "key": "handover-prep-detail",
+            "heading": "联络前的准备",
+            "markdown": "联络前先把原表与旧编号截图准备好。现场比对要用旧编号对照原表，材料在手才便于当场确认北侧两台的差异，再谈补签。",
+            "sourceUuids": [
+              "6aff0b2f-d234-4e81-9ff7-ed498cff5e29",
+              "1aa10000-1111-4111-8111-000000000003"
+            ]
+          }
+        ]
+      }
+    ],
+    "expanded": 2,
+    "actualEvidence": "验收交接计划\n×\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n上下文\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n上下文",
+    "unchangedUntilAdopt": true,
+    "beforeBasis": "648b76c8bad43a2ea374ea9ba4c63f0659b79e99a564d483f5523c6dab925d96",
+    "adoptedBasis": "850f9ac94b7dae6059818c760a073ff85d03570abc28d8ba8a5e432d2ffeba90",
+    "changedSources": 1,
+    "previousArticleRebound": true
+  },
+  "nativeAgent": {
+    "sessionId": "7d461a94-eb97-4da7-a52a-b4f15fbe65d3",
+    "origin": "subagent",
+    "question": "重新组织渐进式阅读：先整理丰富的细读，再提炼一两句几秒内即可读完的工作主线，其他信息下沉到细读和脚注",
+    "mode": "organize",
+    "models": [
+      "deepseek-flash"
+    ],
+    "toolSurface": [
+      "logseq_file_read",
+      "logseq_reading_request",
+      "logseq_reading_submit",
+      "logseq_source_read"
+    ],
+    "steps": 4,
+    "results": [
+      {
+        "name": "logseq_reading_request",
+        "success": true,
+        "attachmentTail": true,
+        "noteTime": true,
+        "imageName": true
+      },
+      {
+        "name": "logseq_source_read",
+        "success": true,
+        "attachmentTail": true,
+        "noteTime": false,
+        "imageName": false
+      },
+      {
+        "name": "logseq_file_read",
+        "success": true,
+        "attachmentTail": true,
+        "noteTime": false,
+        "imageName": false
+      },
+      {
+        "name": "logseq_file_read",
+        "success": true,
+        "attachmentTail": false,
+        "noteTime": false,
+        "imageName": false
+      },
+      {
+        "name": "logseq_file_read",
+        "success": true,
+        "attachmentTail": false,
+        "noteTime": true,
+        "imageName": false
+      },
+      {
+        "name": "logseq_file_read",
+        "success": true,
+        "attachmentTail": false,
+        "noteTime": false,
+        "imageName": true
+      },
+      {
+        "name": "logseq_reading_submit",
+        "success": true,
+        "attachmentTail": false,
+        "noteTime": false,
+        "imageName": false
+      }
+    ],
+    "turns": [
+      "completed"
+    ]
+  },
+  "short": {
+    "sourceBlocks": 2,
+    "top": [
+      "仍需提醒值班同事签字，收到回执后再确认。"
+    ],
+    "topChars": 20,
+    "detailChars": 0
+  },
+  "cleanup": {
+    "temporaryPorts": [
+      19455,
+      3098,
+      60801
+    ],
+    "listenersAfter": [],
+    "dailyPort3080StillListening": true,
+    "credentialCopyRemoved": true,
+    "unexpectedForegroundEvents": false
+  },
+  "checks": {
+    "focusedTests": 16,
+    "typecheck": true,
+    "build": true,
+    "scopedLint": true
+  }
+}

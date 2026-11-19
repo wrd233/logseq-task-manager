@@ -119,3 +119,33 @@ Logseq 通过 Electron 的实际离屏窗运行（不可见、不可获前台焦
 - 候选重新变更的拒绝有定向回归，真实体验以一次完整保存变化 → 自动准备 → 忽略 → 采用 → 恢复历史为证据；未穷举所有并发变更/多设备和重启组合。DSH 复杂协作验收止于正确会话及未发送草稿，无自动发消息或执行工具操作。
 
 **验收结论：** 在上述隔离环境中，找工作 → Agent 真正读取依据整理文章 → 文内细读和脚注查证 → 原生写作/临时浏览 → 自动候选、显式采用 → Logseq 实际问答与 DSH 草稿协作 → 离线读与最终包重载的正常路径均已实测。文章不取代事实原文，用户保有阅读深度、版本采用及写作权；交付为可加载的独立预览，不意味已覆盖所有平台、模型和材料格式。
+
+## 9. 后续用户反馈：顶层真正做到「简」
+
+用户指出原实测顶层 8 段、627 字符仍像详细文章，且反复澄清限定。确定新的编辑策略（[决策 D-31](../product-design/DECISION-REGISTER.md)）：顶层只是数秒内恢复工作的最少信息，长内容在细读中生长。不是用字符截断、固定字段或 UI 折叠旧摘要实现。Agent 先组织细读，再提炼一两句主线；相同限制合并表述，附件由脚注承担追溯。旧方案兼容读取，但新 Agent 文章不再单独输出顶层 followUps。手动「AI 更新整理」允许重新组织层次，只有后台局部更新才强制合并未受影响段落；采用候选前仍保持旧文章。
+
+- 代码 `ed0a22e`、`33cb360f5266d9b72da388a5aae134e892fbc8ea`。共享编辑要求位于 [reading-model.mjs](../../apps/dsh-plugin/src/reading-model.mjs)，同时用于普通 DSH 提交及原生后台 Agent；[reading-ai.ts](../../apps/logseq-plugin/src/features/work-view/reading-ai.ts) 区分手动重组与后台局部修订。未改阅读渲染、来源契约或历史存储。
+- 新 Logseq ZIP：`tmp/deliverables/task-copilot-workbench-brief.zip`，构建 `0.2.0 · 预览 2026-11-19T14:47:57.239Z · 06Bedc`，SHA-256 `3b90e9b24d5dd67e077656fd9ddecf4b90a0ae316613f6c9f9504c7c53f91198`；配套 DSH ZIP：`tmp/deliverables/task-copilot-dsh-brief.zip`，SHA-256 `5877b9fdca3e75f5eb82025009cc356ada0f9f445fe97bcde12d2b1c93922c7d`。两端均需更新，已有简报点击「AI 更新整理」然后采用候选。
+
+实际复用前次机房交接合成样本与四份关联来源。原宿主冷启动后文件 Graph 的页面 UUID 重新生成，因此在独立测试页用真实读取邀请和上一轮真实模型文稿重新提交旧文章作为对照，**不声称旧页面 UUID 的自动迁移已验证**。实际新增一个合成记录，使旧稿陈旧；在同一运行中恢复旧稿并重载最终包，全部 616 个内容哈希通过，旧文章及依据恢复，再通过 UI 执行手动整理及采用。
+
+| 实际样本 | 顶层（Markdown 字符数） | 细读 |
+| --- | --- | --- |
+| 上轮已采用的长文稿 | 791 字符、9 段 | 730 字符 |
+| 本轮第一次整理 | 205 字符、4 段 | 1108 字符 |
+| 最终真实 Agent 结果 | **57 字符、2 段**，无 followUps | 971 字符、8 个描述 |
+| 新短事项（标签 + TODO 两条实际原块） | **20 字符、1 句** | 无需细读 |
+
+最终长文的实际顶层为：
+
+> **机房交接仍在等待复核，北侧机架标签差异尚未确认。**
+>
+> 下次从北侧两台的标签差异入手，联络前备好原表与旧编号截图。
+
+点击细读还能找到 17 条实际来源中的关键历史判断、复核数字、南侧回执、两种方案、联络时段与附件编号。实际数据脚注仍读取原表，非模型生成表值。原生 DSH 任务 `7d461a94-eb97-4da7-a52a-b4f15fbe65d3` 为 subagent / deepseek-flash，4 步、7 个成功工具结果（读取索引、源块、四次关联资料及提交）；旧文章 791 字符在采用前保持原样。短事项走真实快速生成，输出「仍需提醒值班同事签字，收到回执后再确认。」不再解释项目标签。
+
+![新的实际顶层：覆盖态两句](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-compact.png)
+
+[旧顶层](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-before.png) · [宽窗新顶层](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-wide-clean.png) · [展开后文章](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-compact-detail.png) · [来源脚注](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-evidence.png) · [短事项](assets/logseq-agent-article-reading-validation/brief-revision/brief-final-short.png) · [实测数据与原生任务记录](assets/logseq-agent-article-reading-validation/brief-revision/observations.json)
+
+本轮定向回归 16/16、类型检查、构建及变更范围 ESLint 通过。篇幅是实测效果而非硬上限；细读仍如实体现原记录中的真实限制，具体措辞随模型和来源而变，不用关键词过滤来删除实质条件。验收结束后再次停止全部独立实例、移除临时模型凭据，日常 3080 未触动。
