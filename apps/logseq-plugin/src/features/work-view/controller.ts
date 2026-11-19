@@ -411,7 +411,7 @@ export class WorkView {
       void logseq.UI.showMsg("请先结束原生输入，再返回工作搜索。", "warning");
       return;
     }
-    if (this.valid(epoch) && this.panel.visible && this.fromSearch) this.discoverWorks?.();
+    if (this.valid(epoch) && !this.shell.root.closest("[hidden]") && this.fromSearch) this.discoverWorks?.();
   }
   async returnToBody(uuid = this.rootUuid): Promise<void> {
     if (!uuid || this.disposed) return;

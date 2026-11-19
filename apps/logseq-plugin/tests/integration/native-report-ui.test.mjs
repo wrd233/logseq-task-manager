@@ -95,6 +95,24 @@ test('navigation acknowledgement precedes the native route render; success requi
     f.editing(false);
   }finally{await f.close();}
 });
+test('a source hidden by a native fold opens as a zoomed block without changing its source',async()=>{
+  const f=await reportFixture(1400);
+  try {
+    const input=f.browser.document.querySelector('textarea'), block=input.closest('.ls-block');
+    const source=f.blocks.get('b0').content;
+    globalThis.logseq.App.pushState=async(_type,{name},options)=>{
+      f.nativeCalls.push(['route',name,options?.anchor]);
+      if(name==='b0')block.setAttribute('blockid','b0');
+    };
+    edit(f,'b0');
+    await nativeReady(f,'b0');
+    assert.deepEqual(f.nativeCalls,[['route','fixture','block-content-b0'],['route','b0',undefined],['edit','b0']]);
+    assert.equal(f.blocks.get('b0').content,source);
+    f.editing(false);
+    assert.equal((await f.work.reportAPI.resume()).ok,true);
+    assert.equal(f.browser.document.activeElement,editButton(f,'b0'));
+  }finally{await f.close();}
+});
 test('wide docked window retains the report and native input, while report reflects only committed source',async()=>{
   const f=await reportFixture(1400);
   try {
