@@ -10,7 +10,7 @@ const pageMarkdown = new Marked({ extensions: [{
   start: source => source.indexOf("[["),
   tokenizer(source) {
     if (this.lexer.state.inLink) return;
-    const match = /^\[\[([^\[\]\r\n]+)\]\]/u.exec(source);
+    const match = /^\[\[([^[\]\r\n]+)\]\]/u.exec(source);
     const name = match?.[1]?.trim();
     if (match && name) return { type: "logseqPageReference", raw: match[0], text: name };
   },
