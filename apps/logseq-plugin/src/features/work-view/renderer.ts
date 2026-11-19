@@ -366,11 +366,20 @@ export class WorkViewRenderer {
     return bottom <= top || (rect.height > 0 && rect.bottom > top && rect.top < bottom);
   }
   private keepTabInView(event: KeyboardEvent, target: HTMLElement): void {
-    if (!this.sourceRow(target) || this.isInView(target)) return;
-    const rows = this.sourceNodes();
+    const current = this.sourceRow(target);
+    if (!current) return;
+    const bounds = this.container.getBoundingClientRect();
+    const startInView = (row: HTMLElement) => {
+      const rect = row.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.top + Math.min(rect.height, 28) <= bounds.bottom;
+    };
+    if (target === current ? startInView(current) : this.isInView(target)) return;
+    const rows = this.sourceNodes().filter(row => row.tabIndex === 0);
     if (event.shiftKey) rows.reverse();
-    const first = rows.find(row => this.isInView(row) && row.tabIndex === 0);
-    if (!first) return;
+    // Start where the row's controls are visible as well as its prose, so the
+    // following Tab won't scroll back to the clipped top of a long paragraph.
+    const first = rows.find(startInView) ?? rows.find(row => this.isInView(row));
+    if (!first || first === target) return;
     event.preventDefault();
     first.focus({ preventScroll: true });
   }
