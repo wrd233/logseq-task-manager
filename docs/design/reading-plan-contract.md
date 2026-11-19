@@ -2,7 +2,7 @@
 
 历史 B 共同 BASE：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。下文保留无损原文布局契约；2026-11-19 的渐进式阅读扩展见末节，仍使用 schema v1，补充而非替换原文方案。
 
-当前已接通数据校验、独立阅读控制器、界面和既有本机 CLI。隔离 Logseq 0.10.15 与随构建生成的 companion 已完成阅读局部演练；最终安装包与其余协作路径仍在实施。这不构成整项生产交付声明。
+以下记录的是原文布局方案的历史基线：当时已接通数据校验、独立阅读控制器、界面和既有本机 CLI，隔离 Logseq 0.10.15 完成局部演练，尚未完成最终安装包及其余协作路径验收。新分支的安装包与真实模型验收另见 [渐进式工作台实施记录](../implementation/logseq-progressive-workspace-validation.md)。
 
 `features/work-view/reading-plan.ts` 的 schema v1 引用真实 `SourceSnapshot`：requestId、planId、名称、scope、structureVersion、sourceSetVersion，以及完整 sourceId/contentVersion 集合。正文由插件获取，不允许替代正文、HTML、脚本、样式、actor 或权限字段。来源只有一次主要展示，重复句保留不同身份；必要上下文另列实际来源。
 
@@ -26,7 +26,7 @@
 
 ReadingPlanController 拥有实际请求、基础版本及当前生命周期，最多保留 32 个请求/8 个方案。提交检查请求存在、基础版本和真实来源；同 ID 的相同重试幂等，显式更新可替换同名视图并保留上一版本。切换到缓存方案重新读取来源及核验材料范围；取消/切换/卸载使晚到结果失效。仅重排的原文方案按旧机制重新核验，带简报的方案保留旧依据并标记变化；来源失联不冒充已读取。
 
-通道的阅读请求归属包含 instanceId、connectionId 和 clientId，提交必须匹配实际邀请；clientId 是调用者提供的会话关联标签，不是独立认证凭据。真正的信任来自既有本机私有连接、受信本地许可、绑定范围和 ScopeLease，外部不能指定 actor/root/权限。撤销连接同时使控制器中等待来源读取的请求/选择及原生高亮失效。页面来源保持真实 page scope，空页面不伪造可写根块；当前外部连接基线仍是块范围，页面外部协作入口尚待实施。
+通道的阅读请求归属包含 instanceId、connectionId 和 clientId，提交必须匹配实际邀请；clientId 是调用者提供的会话关联标签，不是独立认证凭据。真正的信任来自既有本机私有连接、受信本地许可、绑定范围和 ScopeLease，外部不能指定 actor/root/权限。撤销连接同时使控制器中等待来源读取的请求/选择及原生高亮失效。页面来源保持真实 page scope，空页面不伪造可写根块；渐进式工作台已将页范围用于阅读交接，并不因此扩大任何原文或正式工作的写入权限。
 
 界面复用每个主要来源的实际节点，标题和上下文副本没有可写 UUID。正文点击与 Enter/Space 保留展示焦点后调用独立 NativeSourceSetHost；显式“编辑原文”才调用原生编辑入口。标题使用成员后代与确切上下文的并集，祖先上下文不扩展无关兄弟内容。文字选择/复制、链接和材料按钮不触发整行定位；Esc 取消，组合输入期间不执行取消或布局切换。
 
@@ -34,7 +34,7 @@ NativeSourceSetHost 不调用 editBlock/updateBlock/setBlockCollapsed，不设�
 
 实际 CLI 入口：`workspace reading request --purpose <要求>` 返回已保存完整来源和材料 ID；`reading submit --input-file <方案>`、`read`、`select <planId>`、`original`、`cancel <requestId>`；`highlight --input-file <来源集合>` 和 `clear` 是只读来源定位。JSON 由 Agent 根据实际请求/版本生成，日常界面只展示方案名称、过期状态和返回原结构。
 
-当前回归使用 101 个来源、4,041 个中文字符和四层关系的冻结合成样本。函数、DOM、独立 CLI 进程和真实隔离 Desktop 证据分别记录，不能互相替代。真实 Desktop 局部结果及未完成范围见实施 handoff；材料预览、Journal 写作、普通 TODO、共同指导和最终 ZIP 的整项验收仍未完成。
+历史回归使用 101 个来源、4,041 个中文字符和四层关系的冻结合成样本。函数、DOM、独立 CLI 进程和真实隔离 Desktop 证据分别记录，不能互相替代，历史整项验收边界见原实施 handoff。渐进式工作台已经另行复验材料返回、阅读与原生写作、真实模型和 ZIP 重载；Journal、普通 TODO、共同指导的独立整项验收不在本轮范围内。
 
 ## 渐进式扩展（2026-11-19）
 

@@ -1,0 +1,230 @@
+{
+  "date": "2026-11-19",
+  "environment": {
+    "os": "macOS 15.2 x86_64",
+    "logseq": "0.10.9",
+    "dsh": "0.2.1-rc.2",
+    "node": "22.23.2",
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "offscreen": true,
+    "visible": false,
+    "focused": false
+  },
+  "artifact": {
+    "commit": "9427dd23264ef9bf301d231f7eeab43fc264ad6b",
+    "build": "0.2.0 · 预览 2026-11-19T10:22:27.074Z · 86Kz0E",
+    "sha256": "044ac73ae3c09be5ed3dc8a3737d5bc4e884f10703c5ef784886d8faaf8f9aed",
+    "reload": {
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 1479.5,
+      "scrollAfter": 1479.5,
+      "expandedBefore": 6,
+      "expandedAfter": 6,
+      "sameExpansion": true
+    }
+  },
+  "records": {
+    "ordinary": 2,
+    "shortOriginal": 2,
+    "shortTop": 1,
+    "longInitialTop": 3,
+    "longDescriptions": 10,
+    "longSections": [
+      "handover-status",
+      "evidence-and-counts",
+      "options-and-limits"
+    ],
+    "initialBasis": "614414f135a63044af36268f369a48648b743d446a8b51a93cd1523e4f969bce",
+    "material": {
+      "captureStatus": "partial",
+      "version": "69c0ccfca343d80604ab6280e476bff3a705b8b8493a86506a8f10cee1b76e27"
+    },
+    "table": "区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台",
+    "chart": [
+      "已核验（台）\n北侧\n4 台\n南侧\n6 台\n东侧\n3 台",
+      "待核验（台）\n北侧\n2 台\n南侧\n1 台\n东侧\n0 台"
+    ]
+  },
+  "context": {
+    "materialReturn": {
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 1404,
+      "scrollAfter": 1404,
+      "expandedBefore": 5,
+      "expandedAfter": 5,
+      "sameExpansion": true
+    },
+    "materialFocus": {
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 1775.5,
+      "scrollAfter": 1775.5,
+      "expandedBefore": 6,
+      "expandedAfter": 6,
+      "sameExpansion": true,
+      "focusRestored": true
+    },
+    "browse": {
+      "notice": "浏览：验收参考笔记 · 当前工作不变",
+      "temporaryPage": "验收参考笔记",
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 1404,
+      "scrollAfter": 1404,
+      "expandedBefore": 5,
+      "expandedAfter": 5,
+      "sameExpansion": true
+    },
+    "workReopen": {
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 0,
+      "scrollAfter": 0,
+      "expandedBefore": 6,
+      "expandedAfter": 6,
+      "sameExpansion": true,
+      "focusRestored": true
+    }
+  },
+  "versions": {
+    "change": [
+      "原块 · 1aa10000\n打开原块\n当时依据 · da4b3ed38e\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n原始 Markdown\n当前原文 · db4e8db16d · 有变化\n\n11 月 12 日现场初查：认为三处标签均已核验（后续确认：仅为旧照片推测，尚有三台待核验）。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n原始 Markdown"
+    ],
+    "newRecord": "新增记录 · 1 条（尚未整理）▸",
+    "updated": {
+      "status": "current",
+      "previousMeta": "11/19 16:47 整理 · 614414f135 · 依据有更新",
+      "currentMeta": "11/19 16:57 整理 · ec1917703b · 生成时依据已保存",
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 154,
+      "scrollAfter": 141,
+      "expandedBefore": 6,
+      "expandedAfter": 6,
+      "sameExpansion": true
+    },
+    "restoredOldBasis": "614414f135a63044af36268f369a48648b743d446a8b51a93cd1523e4f969bce"
+  },
+  "ai": {
+    "providerHosts": [
+      "api.deepseek.com"
+    ],
+    "http200": 6,
+    "initialTransportError": "SELF_SIGNED_CERT_IN_CHAIN",
+    "answer": "不能宣告全部交接完成，因为仍有未核验和未确认项：11 月 18 日复核发现北侧机架标签不符，北侧还有 2 台待核验、南侧还有 1 台待核验；11 月 19 日虽收到南侧签字回执，但北侧仍未确认，联系现场值班人复核并等签字回执的 TODO 尚未完成。记录也明确，待核对数据不得合并成已完成项；在设备未通电等限制下，不得宣告验收完成，南侧签字也不能证明当时标签一致。因此目前只能按已核验范围做部分交接，不能宣告全部完成。\n",
+    "refs": 7,
+    "answerInsert": true,
+    "rewrite": {
+      "preview": {
+        "selection": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。",
+        "before": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。",
+        "answer": "这是一篇两年前归档的普通随记，并非正式任务。下次借阅资料时，只需核对编号，不改动旧台账。",
+        "basis": "11a8539a8b7538d24f1ba75e37f8bef9963545476902440187325935a21350f2",
+        "sourceUnchanged": true
+      },
+      "confirmed": {
+        "before": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。",
+        "after": "这是一篇两年前归档的普通随记，并非正式任务。下次借阅资料时，只需核对编号，不改动旧台账。",
+        "editing": false
+      },
+      "insert": {
+        "oldBlockCount": 2,
+        "newBlockCount": 3,
+        "actualContent": "这是一篇两年前归档的普通随记，并非正式任务。下次借阅资料时，只需核对编号，不改动旧台账。",
+        "editing": false,
+        "originalUnchanged": true
+      }
+    },
+    "handoff": {
+      "initialQuestionInDraft": true,
+      "initialOriginalDraftPreserved": true,
+      "final": {
+        "title": "验收交接计划 — DeepSeek Harness",
+        "request": true,
+        "sourceCount": 17,
+        "briefing": true,
+        "originalDraft": true
+      },
+      "finalDraft": {
+        "title": "验收交接计划 — DeepSeek Harness",
+        "originalDraft": true,
+        "previousAsk": true,
+        "latestIntent": true,
+        "basis": true,
+        "requestBannerVisible": false,
+        "draftLength": 4428,
+        "briefingMarkdown": true
+      }
+    },
+    "modelOffline": {
+      "before": {
+        "scope": "验收交接计划",
+        "plan": "work-resume-briefing",
+        "basis": "ec1917703b3e6c3a487f53b925a6db1b05f64fb7720475642bc7c0e63e78baa5",
+        "expanded": 6
+      },
+      "after": {
+        "notice": "请先启动 DSH 与工作台协作服务。",
+        "scope": "验收交接计划",
+        "plan": "work-resume-briefing",
+        "basis": "ec1917703b3e6c3a487f53b925a6db1b05f64fb7720475642bc7c0e63e78baa5",
+        "expanded": 6,
+        "originalRecordCount": 17,
+        "shown": true
+      }
+    }
+  },
+  "native": {
+    "keyboard": {
+      "before": "true",
+      "after": "false",
+      "focus": "unit/handover-status/detail/initial-impression-11-12",
+      "work": "验收交接计划"
+    },
+    "compactDraft": {
+      "denied": {
+        "ok": false,
+        "reason": "editing-in-progress"
+      },
+      "selectionBefore": [
+        2,
+        5
+      ],
+      "selectionAfter": [
+        2,
+        5
+      ],
+      "sameText": true,
+      "stillFocused": true
+    },
+    "return": {
+      "workBefore": "验收交接计划",
+      "workAfter": "验收交接计划",
+      "scrollBefore": 0,
+      "scrollAfter": 0,
+      "expandedBefore": 6,
+      "expandedAfter": 6,
+      "sameExpansion": true,
+      "focusRestored": true,
+      "committed": "（最终包焦点复验）（离屏草稿验证）11 月 12 日现场初查：认为三处标签均已核验（后续确认：仅为旧照片推测，尚有三台待核验）。当时依据是旧照片，尚未查原表；这个判断不应作为最终事"
+    },
+    "compactOverflow": {
+      "client": 506,
+      "scroll": 506
+    },
+    "narrowOverflow": {
+      "width": 760,
+      "theme": "dark",
+      "content": 296,
+      "scroll": 296
+    }
+  },
+  "cleanup": {
+    "isolatedListenersRemaining": 0,
+    "isolatedCredentialFilesRemaining": 0,
+    "dailyDsh3080": "still listening (read-only check)"
+  }
+}
