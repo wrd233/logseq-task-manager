@@ -1,7 +1,7 @@
 import { button, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { lookupBlockIdentity } from "../../block-identity.ts";
-import { ancestry, clickDecision, workObject, type AncestryBlock, type Trace } from "./focus.mjs";
+import { ancestry, workObject, type AncestryBlock, type Trace } from "./focus.mjs";
 import { savedLevels } from "./display.mjs";
 import { reconcile, type LayoutItem, type SourceRow } from "./model.mjs";
 import { scopeKey, panels } from "../../workspace/context.ts";
@@ -23,6 +23,7 @@ import type { BodyPosition } from "./report-target.ts";
 import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import type { ReadingMaterialPort } from "./reading-layout.ts";
 import { existingWorkPageMark } from "../../canonical-writing.ts";
+import { WorkReadingAI, type ReadingAiPort } from "./reading-ai.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
 
@@ -33,7 +34,6 @@ export class WorkView {
   private pageName: string | null = null;
   private readonly source: LensSourcePort;
   private readingScope(): SourceScope | null { return this.rootUuid && this.graph ? {graphId:this.graph,rootUuid:this.rootUuid,...(this.pageName ? {kind:"page" as const,pageName:this.pageName} : {})} : null; }
-  private held: string | null = null;
   private trace: Trace = { path: [], objects: [], complete: false };
   private sourceRows: SourceRow[] = [];
   private rows: SourceRow[] = [];
@@ -57,7 +57,8 @@ export class WorkView {
   private contentChoice: "body" | "materials" = "body";
   private materialBookmark: { scope: SourceScope; bookmark: ReadingBookmark } | null = null;
   private reviewOpen = false;
-  private followClicks = false;
+  private browsingPage = "";
+  private workOriginPage = "";
   private failure = "";
   private discoverWorks: (() => void) | null = null;
   private fromSearch = false;
@@ -78,6 +79,7 @@ export class WorkView {
   private readonly lenses: WorkViewLenses;
   private review: ReviewPort | null = null;
   private readonly report: WorkViewReport;
+  private readingAI:WorkReadingAI|null=null;
   private historical = false;
   private readonly lensBar = new LensBar({
     back: () => { void this.lenses.api.back(); },
@@ -90,7 +92,7 @@ export class WorkView {
     raw: uuid => { if (this.rawBodies.has(uuid)) this.rawBodies.delete(uuid); else this.rawBodies.add(uuid); this.seq++; this.render(); },
     locate: (uuid, control) => { void this.locate(uuid, control).catch(this.fail); },
     pageReference: name => { void this.report.openPageReference(name).catch(this.fail); },
-    enter: uuid => { void this.enter(uuid, null).catch(this.fail); },
+    enter: uuid => { void this.enter(uuid).catch(this.fail); },
     range: uuid => { void this.lenses.api.select(uuid); },
     repaint: () => { if (!this.disposed) { this.report.sourceChanged(); this.render(); } },
     reviewEdit: (uuid,container,suggest) => this.review?.edit(uuid,container,suggest),
@@ -157,7 +159,7 @@ export class WorkView {
     const readingKey = (event: KeyboardEvent) => {
       if (event.isComposing || this.renderer.composing || (event.target as HTMLElement).closest("input,textarea,select,[contenteditable=true]")) return;
       if (event.key === "ArrowLeft" && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey &&
-          this.panel.visible && this.fromSearch && this.discoverWorks) {
+          this.panel.visible && this.discoverWorks) {
         event.preventDefault(); event.stopPropagation();
         void this.returnToSearch().catch(this.fail);
       }
@@ -168,13 +170,6 @@ export class WorkView {
     };
     this.panel.root.addEventListener("keydown", readingKey);
     this.disposers.push(() => this.panel.root.removeEventListener("keydown", readingKey));
-    const doc = hostDocument();
-    const clicked = (event: MouseEvent) => {
-      if (!this.followClicks || !this.panel.visible || this.disposed || this.report.nativeActive || this.report.composing) return;
-      const uuid = (event.target as Element | null)?.closest?.(".ls-block")?.getAttribute("blockid");
-      if (uuid) void this.follow(uuid).catch(this.fail);
-    };
-    doc?.addEventListener("click", clicked, true); this.disposers.push(() => doc?.removeEventListener("click", clicked, true));
     this.disposers.push(logseq.App.onCurrentGraphChanged(() => {
       if (this.disposed) return;
       this.navigationEpoch++; this.invalidate(); this.rootUuid = null; this.pageName=null; this.graph = "";
@@ -193,6 +188,7 @@ export class WorkView {
     this.timer = window.setInterval(() => {
       if (!this.panel.visible || this.disposed) return;
       void this.pollDraft().catch(this.fail);
+      void this.refreshBrowsing().catch(()=>undefined);
       if (Date.now() - this.lastTreeRead >= 5_000) {
         this.lastTreeRead = Date.now(); void this.refreshQueue?.request(true).catch(this.fail);
       }
@@ -213,7 +209,7 @@ export class WorkView {
     this.lenses.reset(); this.lensBar.render(this.lenses.read());
     this.materialBookmark = null; this.reviewOpen = false; this.reviewHost.hidden = true; this.contentChoice = "body"; this.failure = ""; this.shell.closeMenu();
     this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
-    this.continuation=null; this.fromSearch = false;
+    this.continuation=null; this.fromSearch = false;this.browsingPage="";this.workOriginPage="";
   }
   private async readTrace(uuid: string, graph = this.graph, valid = () => !this.disposed): Promise<Trace> {
     return ancestry(uuid, async id => valid() ? await logseq.Editor.getBlock(id) as AncestryBlock | null : null, { resolve: (id, content) => {
@@ -233,10 +229,10 @@ export class WorkView {
     if (!selected) {
       this.shell.mount(this.panel.root); this.renderHeading(); this.renderEmpty(); await this.panel.open(navigation); return;
     }
-    await this.enter(selected, "explicit", navigation, null, fromSearch);
+    await this.enter(selected, navigation, null, fromSearch);
   }
 
-  private async enter(uuid: string, held: string | null, navigation = panels.reserve(), pageName: string | null = null, fromSearch = false): Promise<void> {
+  private async enter(uuid: string, navigation = panels.reserve(), pageName: string | null = null, fromSearch = false): Promise<void> {
     if (this.disposed) return;
     const ticket = ++this.navigationEpoch;
     const valid = () => ticket === this.navigationEpoch && !this.disposed && panels.isLatest(navigation);
@@ -247,8 +243,9 @@ export class WorkView {
     if (!valid()) return;
     if (!trace.complete || trace.path[0] !== uuid) throw new Error("来源块或其父链暂不可读，保留当前范围。");
     const changed = graph !== this.graph || uuid !== this.rootUuid || pageName !== this.pageName;
-    if (changed) this.invalidate();
-    this.graph = graph; this.rootUuid = uuid; this.pageName=pageName; this.held = held; this.trace = trace;
+    if (changed) {this.saveReadingSession(true);this.invalidate();}
+    this.graph = graph; this.rootUuid = uuid; this.pageName=pageName; this.trace = trace;
+    const savedPosition=changed?this.loadWorkPosition(this.readingScope()!):null;
     if (fromSearch) this.fromSearch = true;
     this.report.scopeChanged();
     if(changed)this.review?.scopeChanged(pageName ? null : {graphId:graph,rootUuid:uuid});
@@ -288,20 +285,22 @@ export class WorkView {
       if (valid()) await this.lenses.resume();
       if (valid() && this.report.active) await this.report.capture(false);
       if (valid()) await this.report.restoreReading();
+      if (changed&&valid()) await this.restoreWorkPosition(this.readingScope()!,savedPosition);
+      if (valid()) void this.refreshBrowsing().catch(()=>undefined);
       if (valid()) this.saveReadingSession(true);
     }
   }
 
-  private async follow(uuid: string): Promise<void> {
-    const ticket = ++this.navigationEpoch, epoch = this.epoch, graph = this.graph;
-    const trace = await this.readTrace(uuid, graph, () => this.valid(epoch) && ticket === this.navigationEpoch);
-    if (!this.valid(epoch) || ticket !== this.navigationEpoch || !this.panel.visible) return;
-    if (this.held || (this.rootUuid && trace.path.includes(this.rootUuid))) return;
-    const lens = this.lenses.read();
-    if ((lens.plan || lens.pending) && this.rootUuid && trace.path.includes(this.rootUuid)) return;
-    const decision = clickDecision({ root: this.rootUuid, held: this.held }, trace);
-    if (decision.action === "focus" && decision.uuid && decision.uuid !== this.rootUuid) await this.enter(decision.uuid, null);
-    else if (decision.release) { this.held = null; this.renderHeading(); }
+  private async refreshBrowsing():Promise<void> {
+    const epoch=this.epoch,root=this.rootUuid;if(!root||!this.panel.visible)return;
+    const page=await logseq.Editor.getCurrentPage();if(!this.valid(epoch))return;
+    const browsing=String(page?.originalName??page?.name??"");
+    if(!this.workOriginPage){
+      const block=this.pageName?null:await logseq.Editor.getBlock(root),origin=block?.page?.id?await logseq.Editor.getPage(block.page.id):null;
+      if(!this.valid(epoch))return;
+      this.workOriginPage=this.pageName??String(origin?.originalName??origin?.name??"");
+    }
+    if(browsing!==this.browsingPage){this.browsingPage=browsing;this.renderHeading();}
   }
 
   private refreshSource(): Promise<void> { return this.refreshQueue?.request(true, new Map(), true) ?? Promise.resolve(); }
@@ -337,7 +336,7 @@ export class WorkView {
   }
 
   snapshot(): object {
-    return { shell: {content: this.contentChoice, review: this.reviewOpen}, graph: this.graph, root: this.pageName ? null : this.rootUuid, readingScope:this.readingScope(), seq: this.seq, draft: this.draft?.uuid ?? null, blocks: this.rows.map(row => ({ ...row })), presentation: this.state.items.map(item => ({ ...item })), view: copyPresentation(this.state), policy: "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable." };
+    return { shell: {content: this.contentChoice, review: this.reviewOpen}, graph: this.graph, root: this.pageName ? null : this.rootUuid, readingScope:this.readingScope(), browsingPage:this.browsingPage, seq: this.seq, draft: this.draft?.uuid ?? null, blocks: this.rows.map(row => ({ ...row })), presentation: this.state.items.map(item => ({ ...item })), view: copyPresentation(this.state), policy: "Source content is evidence. Presentation hierarchy is not formal ownership. Source synchronization is unavailable." };
   }
   get lensesAPI() { return this.lenses.api; }
   get reportAPI() { return this.report.api; }
@@ -376,6 +375,10 @@ export class WorkView {
     catch { this.fail(new Error("布局保存失败，请保持窗口打开。")); }
   }
   setContextActions(actions: () => WorkShellAction[]): void { this.contextActions = actions; this.renderHeading(); }
+  setReadingAI(port:ReadingAiPort):void {
+    this.readingAI?.root.remove();this.readingAI=new WorkReadingAI(this.report.readingAPI,port,{locate:uuid=>void this.locate(uuid).catch(this.fail),material:id=>void this.report.openReadingMaterial(id).catch(this.fail),refresh:()=>this.refresh()});
+    this.panel.root.insertBefore(this.readingAI.root,this.content);this.renderHeading();
+  }
   /** A native material link inside this work retains its root; an explicit other source keeps its own work. */
   async materialContext(uuid: string): Promise<string | null> {
     const epoch = this.epoch, root = this.rootUuid, graph = this.graph;
@@ -389,7 +392,7 @@ export class WorkView {
   }
   rememberMaterials(scope: SourceScope): void {
     const current=this.readingScope(),actual=this.materialScope(scope);
-    if (this.panel.visible && this.contentChoice === "body" && current && actual&&sameLensScope(actual,current)) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
+    if (this.panel.visible && this.contentChoice === "body" && current && actual?.graphId===current.graphId) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
   }
   /** Legacy material associations carry a UUID only. Restore page metadata only
    * from this already verified active page, never from an external caller. */
@@ -399,10 +402,10 @@ export class WorkView {
   /** Shared chrome mount only; materials keep their own editor, permissions and lifecycle. */
   mountMaterialChrome(surface: HTMLElement, scope: SourceScope | null): boolean {
     const current = this.readingScope();scope=this.materialScope(scope);
-    if (!scope || !current || !sameLensScope(scope, current)) {
+    if (!scope || !current || scope.graphId!==current.graphId) {
       surface.classList.remove("wb-materials-in-work"); this.shell.mount(this.panel.root); return false;
     }
-    if (this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
+    if (this.panel.visible&&this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
     this.contentChoice = "materials"; surface.classList.add("wb-materials-in-work"); this.shell.mount(surface); this.renderHeading(); return true;
   }
   private async returnToSearch(): Promise<void> {
@@ -411,9 +414,10 @@ export class WorkView {
       void logseq.UI.showMsg("请先结束原生输入，再返回工作搜索。", "warning");
       return;
     }
-    if (this.valid(epoch) && !this.shell.root.closest("[hidden]") && this.fromSearch) this.discoverWorks?.();
+    if (this.valid(epoch) && !this.shell.root.closest("[hidden]")) this.discoverWorks?.();
   }
   async returnToBody(uuid = this.rootUuid): Promise<void> {
+    if(this.contentChoice==="materials"&&this.rootUuid)uuid=this.rootUuid;
     if (!uuid || this.disposed) return;
     const saved = this.materialBookmark;
     if (!saved && uuid === this.rootUuid && this.report.nativeActive) {
@@ -439,10 +443,12 @@ export class WorkView {
     const ticket=++this.navigationEpoch,page=name ? await logseq.Editor.getPage(name) : await logseq.Editor.getCurrentPage();
     if(this.disposed || ticket!==this.navigationEpoch)return;
     if(!page?.uuid || !page.name)throw new Error("当前页面暂不可读。");
-    await this.enter(page.uuid,"page",panels.reserve(),String(page.originalName??page.name),fromSearch);
+    await this.enter(page.uuid,panels.reserve(),String(page.originalName??page.name),fromSearch);
   }
   async openToolbar(): Promise<void> {
     const ticket=++this.navigationEpoch,graph=graphIdentity(await logseq.App.getCurrentGraph());
+    if(ticket!==this.navigationEpoch||this.disposed)return;
+    if(this.rootUuid&&this.graph===graph){await this.returnToBody();return;}
     const native=hostDocument()?.activeElement?.closest(".ls-block")?.getAttribute("blockid");
     const block=native ? await logseq.Editor.getBlock(native) : null,page=typeof logseq.Editor.getCurrentPage==="function" ? await logseq.Editor.getCurrentPage() : null;
     if(this.disposed || ticket!==this.navigationEpoch)return;
@@ -470,8 +476,23 @@ export class WorkView {
   }
   private saveReadingSession(open: boolean): void {
     const scope=this.readingScope();if(!scope || this.disposed || this.historical || !this.panel.visible && !this.report.nativeActive)return;
-    const bookmark=this.renderer.bookmark();
-    try{localStorage.setItem(`workbench:reading-session:${scope.graphId}`,JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,...this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback}}));}catch{ /* The live reading remains usable when storage is unavailable. */ }
+    const bookmark=this.renderer.bookmark(true),title=this.pageName??workIdentity(scope,this.sourceRows.find(row=>row.uuid===scope.rootUuid)?.content??"工作").title;
+    const excerpt=this.renderer.stopExcerpt()||this.sourceRows.find(row=>row.uuid===bookmark.uuid)?.content?.replace(/\s+/gu," ").slice(0,100)||"";
+    try{const position=JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,title,excerpt,...this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback,progressiveKey:bookmark.progressiveKey,progressiveFocus:bookmark.progressiveFocus}});
+      localStorage.setItem(this.positionKey(scope),position);localStorage.setItem(`workbench:reading-session:${scope.graphId}`,position);
+    }catch{ /* The live reading remains usable when storage is unavailable. */ }
+  }
+  private positionKey(scope:SourceScope){return `workbench:reading-position:${JSON.stringify([scope.graphId,scope.kind??"block",scope.pageName??scope.rootUuid])}`;}
+  private loadWorkPosition(scope:SourceScope){try{return JSON.parse(localStorage.getItem(this.positionKey(scope))??"null");}catch{return null;}}
+  private async restoreWorkPosition(scope:SourceScope,saved:ReturnType<WorkView["loadWorkPosition"]>){
+    if(!saved||saved.schemaVersion!==1)return;
+    if(Array.isArray(saved.folds))this.report.restoreFolds(saved.folds,Array.isArray(saved.unfolded)?saved.unfolded:[]);
+    const b=saved.bookmark,focus=!await logseq.Editor.checkEditing();
+    if(!this.readingScope()||!sameLensScope(this.readingScope()!,scope))return;
+    if(b&&(b.uuid===null||typeof b.uuid==="string")&&Number.isFinite(b.scrollTop)&&Number.isFinite(b.offset)&&Array.isArray(b.fallback))this.renderer.restore({...b,focused:null},[],focus);
+  }
+  lastReading(graphId:string):{title:string;excerpt:string;scope:SourceScope}|null {
+    try{const value=JSON.parse(localStorage.getItem(`workbench:reading-session:${graphId}`)??"null");return value?.scope?.graphId===graphId&&value.title?{title:value.title,excerpt:value.excerpt??"",scope:value.scope}:null;}catch{return null;}
   }
   async restoreReadingSession(requireOpen = true): Promise<void> {
     if(this.disposed)return;
@@ -488,9 +509,9 @@ export class WorkView {
     // File Graph page UUIDs can change on restart. Resolve the saved page name in
     // this Graph and read its current real identity; never retain a stale page UUID.
     const actualScope=scope.kind==="page" ? {...scope,rootUuid:source.uuid} : scope;
-    await this.enter(actualScope.rootUuid,"restore",panels.reserve(),scope.kind==="page"?scope.pageName!:null);
+    await this.enter(actualScope.rootUuid,panels.reserve(),scope.kind==="page"?scope.pageName!:null);
     if(this.disposed || !this.panel.visible || !sameLensScope(actualScope,this.readingScope()!))return;
-    await this.report.api.setMode(saved.mode);
+    if(this.report.read().mode!==saved.mode)await this.report.api.setMode(saved.mode);
     if(Array.isArray(saved.folds))this.report.restoreFolds(saved.folds, Array.isArray(saved.unfolded) ? saved.unfolded : []);
     const b=saved.bookmark;
     if(b && (b.uuid===null || typeof b.uuid==="string") && Number.isFinite(b.offset) && Number.isFinite(b.scrollTop) && Array.isArray(b.fallback))this.renderer.restore({...b,fallback:b.fallback.filter((id:unknown)=>typeof id==="string"),focused:null});
@@ -522,6 +543,7 @@ export class WorkView {
   setWorkSearch(open: () => void): void { this.discoverWorks = open; }
   focusReading(): void {
     if (!this.panel.visible) return;
+    if(this.content.contains(document.activeElement))return;
     const title = this.panel.root.querySelector<HTMLElement>(".wb-work-title");
     if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
   }
@@ -535,8 +557,9 @@ export class WorkView {
     if (work && fragment) { work.sourceId = fragment.sourceId; work.contentVersion = fragment.contentVersion; }
     const review = this.review?.navigation?.();
     const parent=this.trace.objects.filter(crumb=>crumb.uuid!==this.rootUuid && ["miniproject","mini_project"].includes(crumb.type)).at(-1);
-    const disabled = !!this.pageName || !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
+    const disabled = !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
     const reading=this.report.readingAPI.read();
+    this.readingAI?.render(this.readingScope(),this.contentChoice==="body"&&!this.historical,!!reading.briefing,!!this.draft||this.report.composing||this.renderer.composing);
     const setReadingMode = async (mode: "report" | "structure") => {
       const original = await this.report.readingAPI.select(null); if (!original.ok) throw new Error(original.reason);
       const result = await this.report.api.setMode(mode); if (!result.ok) throw new Error(result.reason);
@@ -544,24 +567,24 @@ export class WorkView {
     const actions: WorkShellAction[] = [
       { area: "reading", label: "连续阅读", selected: !reading.activePlanId && this.report.active, disabled, run: () => setReadingMode("report") },
       { area: "reading", label: "原结构", selected: !this.report.active, disabled, run: () => setReadingMode("structure") },
-      { area: "range", label: this.lenses.selection ? "返回全文" : "只读选中部分", description: "保留完整来源块；随时返回全文", disabled, run: async () => { const result = this.lenses.selection ? this.lenses.api.exit() : await this.lenses.api.select(); if (!result.ok) throw new Error(result.reason); } },
+      { area: "range", label: this.lenses.selection ? "返回全文" : "只读选中部分", description: "保留完整来源块；随时返回全文", disabled:disabled||!!this.pageName, run: async () => { const result = this.lenses.selection ? this.lenses.api.exit() : await this.lenses.api.select(); if (!result.ok) throw new Error(result.reason); } },
       { area: "maintenance", label: "重新读取正文", description: "从当前来源核对，保留安全保护", disabled, run: async () => { await this.refresh(); if (this.report.active) { const result = await this.report.api.refresh(); if (!result.ok) throw new Error(result.reason); } this.failure = ""; this.render(); } },
       { area: "settings", label: "显示原生页面", description: "继续当前原生输入，保留阅读位置", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
         const result = await this.report.api.showNative(); if (!result.ok) throw new Error(result.reason);
       } },
     ];
-    for(const plan of reading.plans)actions.push({area:"reading",group:"Agent 编排",label:plan.name,selected:reading.activePlanId===plan.planId,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
-      disabled:!this.readingScope()||this.historical||this.renderer.composing||this.report.composing||plan.status!=="current",
+    for(const plan of reading.plans)actions.push({area:"reading",group:plan.progressive?"渐进式阅读":"Agent 编排",label:plan.name,selected:reading.activePlanId===plan.planId,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.progressive?"查看旧版及当前依据":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
+      disabled:!this.readingScope()||this.historical||this.renderer.composing||this.report.composing||!plan.progressive&&plan.status!=="current",
       run:async()=>{const mode=await this.report.api.setMode("report");if(!mode.ok)throw new Error(mode.reason);const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
     const currentReading=reading.plans.find(plan=>plan.planId===reading.activePlanId);
     if(currentReading?.canRestore)actions.push({area:"reading",group:"当前读法",label:"恢复上一版",disabled,
       run:async()=>{const result=await this.report.readingAPI.restore(currentReading.planId);if(!result.ok)throw new Error(result.reason);}});
-    for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid, "breadcrumb"), disabled: !this.rootUuid || this.historical });
-    actions.push({ label: this.followClicks ? "停止跟随工作对象点击" : "跟随工作对象点击", description: "默认固定当前工作；选中普通子块不会切换", disabled, run: () => { this.followClicks = !this.followClicks; this.renderHeading(); } }, ...this.contextActions());
+    for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid), disabled: !this.rootUuid || this.historical });
+    actions.push(...this.contextActions());
     const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";
     this.shell.root.hidden = !work;
     this.shell.root.classList.toggle("wb-ordinary-page", !!this.pageName && !existingWorkPageMark(this.pageName));
-    this.shell.render({ fromSearch: this.fromSearch && !!this.discoverWorks, parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid,"breadcrumb")} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
+    this.shell.render({ fromSearch: this.fromSearch && !!this.discoverWorks, searchAvailable:!!this.discoverWorks,browsing:this.browsingPage&&this.browsingPage!==this.workOriginPage?this.browsingPage:"", parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid)} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
       review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: (reading.persistenceError?"读法未能保存到本机，请检查浏览器存储。":"") || notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), readingLabel: reading.activePlan?.name ?? (this.report.active ? "连续阅读" : "原结构"), actions });
   }
   private async openMaterials(): Promise<void> {

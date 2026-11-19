@@ -71,6 +71,7 @@ export const workbenchStyles = `
 .wx-notice span{flex:1;min-width:0}
 .wx-notice button{width:18px;height:18px;padding:0;line-height:1;font-size:13px;color:inherit;opacity:.7;flex:none}
 .wx-scroll{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:14px 18px 40px}
+.wx-briefing{font-size:14px;line-height:1.65;overflow-wrap:anywhere}.wx-briefing details{margin:9px 0}.wx-briefing details details{margin-left:12px;padding-left:9px;border-left:1px solid currentColor}.wx-briefing summary{cursor:pointer;white-space:pre-wrap}.wx-briefing small{opacity:.65}.wx-briefing-source{margin:8px 0 12px;font-size:12px}.wx-briefing-source p{white-space:pre-wrap;margin:3px 0 9px}
 .wx-structure,.wx-reader{max-width:820px;margin:0 auto}
 .wx-section-head{display:flex;align-items:baseline;gap:7px;margin:2px 0 4px;font-size:11px;font-weight:600;color:var(--wx-secondary)}
 .wx-section-count{font-size:10px;font-weight:400;color:var(--wx-muted)}

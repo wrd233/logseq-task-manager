@@ -114,7 +114,7 @@ async function main(): Promise<void> {
       const binding=await workspace.service.resolve(scope);
       for(const association of binding?.manifest.associations??[])if(association.kind==="material"&&!list.materials.some(view=>view.id===association.id))list.materials.push(await module.readMaterial(association.id));
       if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
-      return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability}));
+      return list.materials.map(view=>({id:view.id,filename:fileName(view.path),reference:view.reference,availability:view.availability,version:view.version,...(view.content?{excerpt:view.content.slice(0,4000)}:{})}));
     },delegateFileClick:(event,scope)=>requireMaterials().delegateFileClick(event,scope.rootUuid),open:async(id,scope)=>{
       requireActive();const actual=work?.readingAPI.read().scope;if(actual&&sameLensScope(actual,scope))await requireMaterials().openDoc(id,scope.rootUuid);
       else throw new Error("READING_MATERIAL_SCOPE_CHANGED");
@@ -152,6 +152,7 @@ async function main(): Promise<void> {
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
     work.setWorkSearch(actions["发现已有工作"]!);
+    work.setReadingAI({complete:input=>agentWorkspace!.local.generateReading(input),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
   }
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});

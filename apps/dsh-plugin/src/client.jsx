@@ -128,6 +128,7 @@ export function apply(ctx) {
       if(disposed||controller.signal.aborted)return;
       await ctx.sessions.refresh();if(disposed||controller.signal.aborted)return;
       if(ctx.sidebarRight.mounted.getSnapshot() !== result.sessionId) ctx.uiWorkspace.openSession(result.sessionId);
+      if(result.intent)update(result.sessionId,{handoffIntent:result.intent});
       openWorkTabSoon();
       clearHandoff();
       flash(result.warnings?.length ? '已进入这件工作；辅助引用尚未保存。' : '已恢复这件工作的最近对话。', result.warnings?.length ? 'error' : 'ok');
@@ -251,7 +252,7 @@ export function apply(ctx) {
     const binding = await retained.ready;
     return binding.ctx.bail(binding.ctx, 'slash/input-insert-reference', {reference, span}) === true;
   });
-  const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference });
+  const Workbench = createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference, subscribe, readSession:get, clearIntent:sessionId=>update(sessionId,{handoffIntent:null}) });
   let plannerEntryRequest=null;
   const Planner = createPlanner({ rpc, focusWork, subscribe, readEntryRequest:()=>plannerEntryRequest });
   const Inbox = createPersonalInbox({rpc, insertReference, registerEffect: effect => ctx.effect(effect), onOpenPlanner: (id,sessionId) => {plannerEntryRequest={id,sessionId};emit();ctx.sidebarRight.openTab('semantic-planner');},

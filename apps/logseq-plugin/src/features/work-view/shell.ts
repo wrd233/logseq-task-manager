@@ -12,6 +12,7 @@ export interface WorkShellState {
   reviewAvailable: boolean; attention: boolean; notice: string; actions: WorkShellAction[];
   readingLabel?: string;
   fromSearch: boolean;
+  searchAvailable?:boolean; browsing?:string;
 }
 
 /** Work-level chrome only. The existing modules retain source, bookmarks, drafts and permissions. */
@@ -19,6 +20,7 @@ export class WorkViewShell {
   readonly root = element("header", "", "wb-work-shell");
   private readonly title = element("strong", "选择一份工作", "wb-work-title");
   private readonly kind = element("small", "", "wb-work-kind");
+  private readonly browsing = element("small", "", "wb-work-browsing");
   private readonly native: HTMLButtonElement;
   private readonly body: HTMLButtonElement;
   private readonly backSearch: HTMLButtonElement;
@@ -48,7 +50,7 @@ export class WorkViewShell {
     tabs.append(this.backSearch, this.body, this.materials, this.reading.root, this.parent, this.review);
     this.body.dataset.workContent = "body"; this.materials.dataset.workContent = "materials";
     this.notice.setAttribute("role", "status"); this.notice.hidden = true;
-    this.root.append(line, tabs, this.notice);
+    this.root.append(line, tabs, this.browsing, this.notice);
     for (const menu of [this.menu, this.reading]) menu.content.addEventListener("click", event => {
       const target = (event.target as Element).closest("button"); if (!target || target.disabled) return;
       menu.close(target.dataset.preserveInputFocus !== "true");
@@ -71,7 +73,9 @@ export class WorkViewShell {
     this.materials.title=state.identity?.scope.kind === "page" ? "当前页面的材料" : "当前工作的材料";
     this.parent.hidden=!state.parent;set(this.parent,state.parent ? `返回：${state.parent.title}` : "");
     this.parent.onclick=()=>{if(state.parent)void state.parent.run().catch(this.fail);};
-    this.backSearch.hidden = !state.fromSearch;
+    this.backSearch.hidden = !state.searchAvailable&&!state.fromSearch;
+    set(this.backSearch,state.fromSearch?"返回工作搜索":"找工作");
+    this.browsing.hidden=!state.browsing;set(this.browsing,state.browsing?`浏览：${state.browsing} · 当前工作不变`:"");
     this.body.setAttribute("aria-current", String(state.content === "body"));
     this.materials.setAttribute("aria-current", String(state.content === "materials"));
     set(this.body, state.native && state.content === "body" ? "返回正文" : "正文");

@@ -13,6 +13,7 @@ export class WorkCatalogView {
   private readonly results = element("div", "", "wb-scroll wb-search-list");
   private readonly input = element("input");
   private readonly help = element("div", "", "wb-search-help");
+  private readonly recent = element("div", "", "wb-search-recent");
   private readonly rows = element("ul", "", "wb-search-results");
   private readonly status = element("div", "", "wb-search-status");
   private readonly shortcuts = element("div", "", "wb-search-shortcuts");
@@ -38,7 +39,7 @@ export class WorkCatalogView {
     };
     this.status.setAttribute("role", "status");
     const heading = element("div", "", "wb-search-heading");
-    heading.append(element("h2", "工作搜索"), this.help, this.input);
+    heading.append(element("h2", "工作搜索"), this.recent, this.help, this.input);
     this.results.append(this.rows);
     const footer = element("div", "", "wb-search-footer");
     this.shortcuts.append(button("加入当前页", () => void this.perform(() => notes.selectCurrentPage())));
@@ -89,6 +90,13 @@ export class WorkCatalogView {
 
   private renderRows(): void {
     const query = this.input.value.trim().toLocaleLowerCase();
+    const last=this.catalog?this.work.lastReading(this.catalog.graphId):null;
+    const recentSignature=JSON.stringify(last);
+    if(this.recent.dataset.signature!==recentSignature){
+      this.recent.dataset.signature=recentSignature;this.recent.replaceChildren();
+      if(last){const resume=button(`继续：${last.title}`,()=>void this.perform(()=>this.work.restoreReadingSession(false)));resume.className="wb-search-entry";resume.append(element("small",last.excerpt?`上次读到：${last.excerpt}`:"恢复上次阅读现场"));this.recent.append(resume);}
+    }
+    this.recent.hidden=!!query||!last;
     const works = (this.catalog?.works ?? []).filter(work =>
       query.split(/\s+/u).every(word => `${work.title} ${work.location} ${work.reason ?? ""}`.toLocaleLowerCase().includes(word)));
     works.sort((a, b) => b.updatedAt - a.updatedAt || a.title.localeCompare(b.title, "zh-CN"));

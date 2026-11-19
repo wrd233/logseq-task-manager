@@ -5,13 +5,16 @@ import { sameLensScope } from "./lens-source.ts";
 import type { LensResult } from "./lens-controller.ts";
 import { decodeReadingPlan, readingBasisChanged, validateReadingPlan, refreshReadingPlan, type ReadingPlan, type VerifiedReadingPlan } from "./reading-plan.ts";
 import { ReadingViewStore, type ReadingStorage, type SavedReadingView } from "./reading-store.ts";
+import { briefingMaterialIds, briefingStatus, latestBriefing, type ProgressiveReading } from "./briefing-model.ts";
+import type { ReadingMaterial } from "./reading-layout.ts";
 
 interface ReadingHost {
   scope():SourceScope|null; version?():string; unavailable():string|null;
   source():Promise<LensResult<SourceSnapshot>>; materials():Promise<ReadonlySet<string>>; changed():void;
+  materialSnapshots?():ReadingMaterial[];
   storage?:ReadingStorage; defaultMode?:"report"|"structure";
 }
-interface Invitation {scope:SourceScope; purpose:string; structureVersion:string; sourceSetVersion:string; selection:number; revisions:Map<string,number>}
+interface Invitation {scope:SourceScope; purpose:string; structureVersion:string; sourceSetVersion:string; selection:number; revisions:Map<string,number>; materials:ReadingMaterial[]}
 interface View extends SavedReadingView {verified?:VerifiedReadingPlan}
 const same=(a:SourceScope,b:SourceScope)=>sameLensScope(a,b)&&a.kind===b.kind&&a.pageName===b.pageName;
 const failed=(error:unknown):LensResult<never>=>({ok:false,reason:error instanceof LensInputError?error.reason:"reading-unavailable"});
@@ -34,7 +37,7 @@ export class ReadingPlanController {
   private save():void {
     if(!this.bound||!this.store)return;
     try {this.store.save(this.bound,{schemaVersion:1,mode:this.mode,selected:this.selected,
-      views:[...this.plans.values()].map(({plan,revision,previous})=>({plan,revision,...(previous?{previous}:{})}))});this.persistenceError=false;}
+      views:[...this.plans.values()].map(view=>({plan:view.plan,revision:view.revision,previous:view.previous,basis:view.basis,previousBasis:view.previousBasis,materialBasis:view.materialBasis,previousMaterialBasis:view.previousMaterialBasis}))});this.persistenceError=false;}
     catch {this.persistenceError=true;}
   }
   private synchronize():void {
@@ -47,7 +50,7 @@ export class ReadingPlanController {
     this.plans.clear();this.selected=null;this.mode=this.host.defaultMode??"report";this.selection++;
     const saved=scope?this.store?.load(scope):null;
     if(saved) {
-      for(const value of saved.views.slice(-8))try {const plan=decodeReadingPlan(value.plan);if(same(plan.scope,scope!))this.plans.set(plan.planId,{plan,revision:value.revision??1,...(value.previous?{previous:value.previous}:{})});}catch{ /* An unreadable view does not block the work. */ }
+      for(const value of saved.views.slice(-8))try {const plan=decodeReadingPlan(value.plan);if(same(plan.scope,scope!))this.plans.set(plan.planId,{...value,plan,revision:value.revision??1});}catch{ /* An unreadable view does not block the work. */ }
       this.mode=saved.mode==="structure"?"structure":"report";
       this.selected=saved.selected&&this.plans.has(saved.selected)?saved.selected:null;
     }
@@ -64,6 +67,11 @@ export class ReadingPlanController {
     this.source=structuredClone(source);this.available=(source.page?source.page.availability==="available":source.blocks.length>0)&&source.blocks.every(b=>b.availability==="available");
     if(!this.available){this.host.changed();return;}
     for(const view of this.plans.values()) {
+      if(view.plan.briefing) {
+        if(briefingStatus(view.plan,source)==="current"&&!view.basis){view.basis=structuredClone(source);this.save();}
+        delete view.verified;
+        continue;
+      }
       try {
         const plan=refreshReadingPlan(view.plan,source),materials=this.materialScope??new Set(this.materialIds(plan));
         view.verified=validateReadingPlan(plan,source,materials);
@@ -74,15 +82,26 @@ export class ReadingPlanController {
   private materialIds(plan:ReadingPlan):string[] {const ids:string[]=[];const walk=(units:ReadingPlan["layout"])=>{for(const unit of units)if(unit.kind==="material")ids.push(unit.materialId);else if(unit.kind==="group")walk(unit.children);else if(unit.kind==="comparison")unit.columns.forEach(column=>walk(column.children));};walk(plan.layout);return ids;}
   private noteMaterials(ids:ReadonlySet<string>):void {this.materialScope=new Set(ids);if(this.source)this.noteSource(this.source);this.host.changed();}
   active(source:SourceSnapshot):VerifiedReadingPlan|null {this.synchronize();const view=this.selected?this.plans.get(this.selected):null;return this.available&&view?.verified&&!readingBasisChanged(view.verified,source)?view.verified:null;}
+  progressive(current=this.source,planId=this.selected):ProgressiveReading|null {
+    this.synchronize();const view=planId?this.plans.get(planId):null;
+    if(!current||!view?.plan.briefing||!this.bound||!same(current.scope,this.bound))return null;
+    return {planId:view.plan.planId,briefing:view.plan.briefing,basis:view.basis??null,current,materialBasis:view.materialBasis??[],materials:this.host.materialSnapshots?.()??[]};
+  }
   read() {
-    this.synchronize();const active=this.source?this.active(this.source):null;
-    return {schemaVersion:1,scope:this.bound?{...this.bound}:null,mode:this.mode,activePlanId:active?this.selected:null,selectedPlanId:this.selected,
-      activePlan:active?structuredClone(active.plan):null,sourceAvailability:this.available?"available":this.source?"unavailable":"unverified",
+    this.synchronize();const active=this.source?this.active(this.source):null,selected=this.selected?this.plans.get(this.selected):null;
+    const brief=latestBriefing([...this.plans.values()].map(view=>view.plan));
+    const status=(plan:ReadingPlan)=>this.available&&this.source?briefingStatus(plan,this.source):"unverified";
+    return {schemaVersion:1,scope:this.bound?{...this.bound}:null,mode:this.mode,activePlanId:active||selected?.plan.briefing?this.selected:null,selectedPlanId:this.selected,
+      activePlan:active?structuredClone(active.plan):selected?.plan.briefing?structuredClone(selected.plan):null,
+      briefing:brief?{planId:brief.planId,...structuredClone(brief.briefing!),status:status(brief)}:null,
+      sourceAvailability:this.available?"available":this.source?"unavailable":"unverified",
       plans:[...this.plans.values()].map(view=>({planId:view.plan.planId,name:view.plan.name,revision:view.revision,canRestore:!!view.previous,
-        status:!this.available?"unverified":view.verified?"current":this.materialScope&&this.materialIds(view.plan).some(id=>!this.materialScope!.has(id))?"material-unavailable":"stale",
+        status:view.plan.briefing?status(view.plan):!this.available?"unverified":view.verified?"current":this.materialScope&&this.materialIds(view.plan).some(id=>!this.materialScope!.has(id))?"material-unavailable":"stale",
+        progressive:!!view.plan.briefing,
         structureVersion:view.plan.structureVersion,sourceSetVersion:view.plan.sourceSetVersion})),
       pendingRequests:[...this.invitations.keys()],sourceSetVersion:this.source?.sourceSetVersion??null,persistenceError:this.persistenceError,
       capabilities:{schemaVersion:1,units:["sequence","paragraphs","group","comparison","material"],fullSourceRequired:true,updatesNamedViews:true,sharedSelection:true,
+        briefing:{paragraphs:true,details:true,sourceIds:"required",immutableBasis:true,selectsLayout:false},
         sourceText:"plugin-read",writesSource:false,authorizesTodo:false,authorizesRecognition:false}};
   }
   setMode(mode:"report"|"structure"):void {this.synchronize();this.mode=mode;this.selected=null;this.selection++;this.save();this.host.changed();}
@@ -96,17 +115,17 @@ export class ReadingPlanController {
       try {const materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);}
       catch {this.valid(scope,generation);warnings.push("MATERIALS_UNAVAILABLE");}
       if(!this.source||!this.available)return {ok:false as const,reason:"source-unavailable"};
-      const active=this.active(this.source);
-      return {ok:true as const,value:{source:structuredClone(this.source),reading:{...this.read(),document:active?readingDocument(active):null},warnings}};
+      const active=this.active(this.source),reading=this.read();
+      return {ok:true as const,value:{source:structuredClone(this.source),reading:{...reading,document:active?readingDocument(active):null,progressive:this.progressive()??this.progressive(this.source,reading.briefing?.planId??null)},warnings}};
     } catch(error) {return failed(error);}
   }
-  async request(input:unknown):Promise<LensResult<{requestId:string;purpose:string;source:SourceSnapshot;materialIds:string[]}>> {
+  async request(input:unknown):Promise<LensResult<{requestId:string;purpose:string;source:SourceSnapshot;materialIds:string[];materials:ReadingMaterial[]}>> {
     try {const raw=lensRecord(input,["schemaVersion","purpose"]);requireLens(raw.schemaVersion===1,"unsupported-reading-schema");const purpose=lensText(raw.purpose,240),scope=this.ready(),generation=this.generation;
       const source=await this.fresh(scope,generation),materialIds=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materialIds);
       requireLens(this.available,"source-unavailable");requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");
-      const requestId=crypto.randomUUID();this.invitations.set(requestId,{scope,purpose,structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion,selection:this.selection,revisions:new Map([...this.plans].map(([id,view])=>[id,view.revision]))});
+      const requestId=crypto.randomUUID(),materials=structuredClone(this.host.materialSnapshots?.()??[]);this.invitations.set(requestId,{scope,purpose,structureVersion:source.structureVersion,sourceSetVersion:source.sourceSetVersion,selection:this.selection,revisions:new Map([...this.plans].map(([id,view])=>[id,view.revision])),materials});
       if(this.invitations.size>32)this.invitations.delete(this.invitations.keys().next().value!);
-      return {ok:true,value:{requestId,purpose,source:structuredClone(source),materialIds:[...materialIds]}};
+      return {ok:true,value:{requestId,purpose,source:structuredClone(source),materialIds:[...materialIds],materials}};
     }catch(error){return failed(error);}
   }
   async submit(input:unknown):Promise<LensResult<{planId:string;status:"selected"|"already-selected"|"saved";revision:number}>> {
@@ -117,8 +136,9 @@ export class ReadingPlanController {
       requireLens(this.available,"source-unavailable");requireLens(this.source?.sourceSetVersion===source.sourceSetVersion,"source-changed-during-read");requireLens(this.invitations.get(plan.requestId)===invitation,"reading-request-revoked");
       const verified=validateReadingPlan(plan,source,materials),existing=this.plans.get(plan.planId),identical=existing&&JSON.stringify(existing.plan)===JSON.stringify(plan);
       requireLens(identical||(existing?.revision??0)===(invitation.revisions.get(plan.planId)??0),"reading-view-changed");
-      const selected=!!identical&&this.selected===plan.planId||invitation.selection===this.selection&&(!existing||this.selected===plan.planId),revision=identical?existing.revision:(existing?.revision??0)+1;
-      if(!identical)this.plans.set(plan.planId,{plan,verified,revision,...(existing?{previous:existing.plan}:{})});
+      const selected=plan.briefing?this.selected===plan.planId:!!identical&&this.selected===plan.planId||invitation.selection===this.selection&&(!existing||this.selected===plan.planId),revision=identical?existing.revision:(existing?.revision??0)+1;
+      if(!identical)this.plans.set(plan.planId,{plan,revision,...(plan.briefing?{basis:structuredClone(source),materialBasis:invitation.materials.filter(material=>briefingMaterialIds(plan.briefing!).includes(material.id))}:{verified}),
+        ...(existing?{previous:existing.plan,previousBasis:existing.basis,previousMaterialBasis:existing.materialBasis}:{})});
       if(selected&&!identical){this.selected=plan.planId;this.mode="report";}
       if(this.plans.size>8)this.plans.delete([...this.plans.keys()].find(id=>id!==this.selected)!);
       this.save();this.host.changed();return {ok:true,value:{planId:plan.planId,status:selected?identical?"already-selected":"selected":"saved",revision}};
@@ -127,15 +147,16 @@ export class ReadingPlanController {
   async select(input:unknown):Promise<LensResult> {
     try {const scope=this.ready(),generation=this.generation;if(input===null){this.selected=null;this.mode="report";this.selection++;this.save();this.host.changed();return {ok:true,value:null};}
       const id=lensText(input,128);requireLens(this.plans.has(id),"reading-plan-not-found");await this.fresh(scope,generation);const materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);
-      requireLens(this.available,"source-unavailable");const view=this.plans.get(id)!;validateReadingPlan(view.plan,this.source!,materials);
+      requireLens(this.available,"source-unavailable");const view=this.plans.get(id)!;if(!view.plan.briefing)validateReadingPlan(view.plan,this.source!,materials);
       this.selected=id;this.mode="report";this.selection++;this.save();this.host.changed();return {ok:true,value:null};
     }catch(error){return failed(error);}
   }
   async restore(input:unknown):Promise<LensResult> {
     try {const id=lensText(input,128),scope=this.ready(),generation=this.generation,view=this.plans.get(id);requireLens(view?.previous,"reading-history-unavailable");
       const source=await this.fresh(scope,generation),materials=await this.host.materials();this.valid(scope,generation);
-      const plan=refreshReadingPlan(view.previous,source),verified=validateReadingPlan(plan,source,materials);
-      this.plans.set(id,{plan,verified,revision:view.revision+1,previous:view.plan});this.save();this.host.changed();return {ok:true,value:null};
+      const plan=refreshReadingPlan(view.previous,source);
+      const projection=plan.briefing?{basis:view.previousBasis,materialBasis:view.previousMaterialBasis}:{verified:validateReadingPlan(plan,source,materials)};
+      this.plans.set(id,{plan,...projection,revision:view.revision+1,previous:view.plan,previousBasis:view.basis,previousMaterialBasis:view.materialBasis});this.save();this.host.changed();return {ok:true,value:null};
     }catch(error){return failed(error);}
   }
   cancel(requestId?:unknown):LensResult {if(this.disposed)return {ok:false,reason:"reading-disposed"};if(requestId!==undefined){try {const id=lensText(requestId,128);requireLens(this.invitations.has(id),"reading-request-not-found");this.invitations.delete(id);return {ok:true,value:null};}catch(error){return failed(error);}}this.generation++;this.invitations.clear();return {ok:true,value:null};}

@@ -48,6 +48,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .wb-work-identity{flex:1 1 120px;min-width:0;overflow-wrap:anywhere}
 .wb-work-title{display:block;font-size:17px;font-weight:650;line-height:1.35}
 .wb-work-kind{font-size:11px;color:var(--wb-muted)}
+.wb-work-browsing{display:block;color:var(--wb-muted);font-size:11px;padding:2px 0 5px;overflow-wrap:anywhere}.wb-work-browsing[hidden]{display:none}
 .wb-work-line>button,.wb-work-line>.wb-menu>summary{white-space:nowrap;font-size:12px;padding:3px 6px;min-height:26px}
 .wb-content-navigation{display:flex;gap:2px 8px;align-items:center;margin-top:3px;min-height:29px;flex-wrap:wrap}
 .wb-content-navigation>button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:3px 0;min-height:28px;font-size:12px}
@@ -89,6 +90,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .wb-search-row>.wb-search-entry{text-align:left;min-width:0;padding:8px 7px;font-weight:600}
 .wb-search-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .wb-search-entry small{display:block;color:var(--wb-muted);font-size:12px;font-weight:400;margin-top:2px}
+.wb-search-recent{margin-bottom:10px;border:1px solid var(--wb-edge);border-radius:6px;background:var(--wb-paper)}.wb-search-recent[hidden]{display:none}.wb-search-recent button{padding:7px 9px;text-align:start;width:100%;font-weight:600}.wb-search-recent small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .wb-search-row>button:not(.wb-search-entry){color:var(--wb-muted);font-size:12px;white-space:nowrap}
 .wb-search-empty,.wb-search-status,.wb-search-shortcuts{color:var(--wb-muted);font-size:13px}
 .wb-search-empty{padding:9px 2px}

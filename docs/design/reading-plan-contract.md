@@ -1,6 +1,6 @@
 # 可组合阅读方案：数据及完整性边界
 
-本轮 B 共同 BASE：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。执行依据为 `docs/implementation/prompts/2026-10-07-agent-collaboration/` 中的共同契约和两支 prompt。
+历史 B 共同 BASE：`5b05d156cc03b37956d6f77de2d10213a6cb58e3`。下文保留无损原文布局契约；2026-11-19 的渐进式阅读扩展见末节，仍使用 schema v1，补充而非替换原文方案。
 
 当前已接通数据校验、独立阅读控制器、界面和既有本机 CLI。隔离 Logseq 0.10.15 与随构建生成的 companion 已完成阅读局部演练；最终安装包与其余协作路径仍在实施。这不构成整项生产交付声明。
 
@@ -24,7 +24,7 @@
 
 输入上限：2,000 个布局/列节点、16 层布局、10,000 个主要来源、序列化方案 1 MiB；含上下文的实际正文展示不超过 20,000 份来源/8 MiB 原文，按继承上下文去重后计算。文字、键和哈希各有界。未知字段、访问器、稀疏数组、重复 key 等不进入展示。读取大范围并不保证能生成超过这些上限的方案。
 
-ReadingPlanController 拥有实际请求、基础版本及当前生命周期，最多保留 32 个请求/8 个方案。提交检查请求存在、基础版本和真实来源；同 ID 的相同重试幂等，不同方案不能替换同 ID。切换到缓存方案重新读取来源及核验材料范围；取消/切换/卸载使晚到结果失效。来源变化撤销当前方案，旧方案仍可辨认过期状态；来源失联也不冒充仍可呈现。
+ReadingPlanController 拥有实际请求、基础版本及当前生命周期，最多保留 32 个请求/8 个方案。提交检查请求存在、基础版本和真实来源；同 ID 的相同重试幂等，显式更新可替换同名视图并保留上一版本。切换到缓存方案重新读取来源及核验材料范围；取消/切换/卸载使晚到结果失效。仅重排的原文方案按旧机制重新核验，带简报的方案保留旧依据并标记变化；来源失联不冒充已读取。
 
 通道的阅读请求归属包含 instanceId、connectionId 和 clientId，提交必须匹配实际邀请；clientId 是调用者提供的会话关联标签，不是独立认证凭据。真正的信任来自既有本机私有连接、受信本地许可、绑定范围和 ScopeLease，外部不能指定 actor/root/权限。撤销连接同时使控制器中等待来源读取的请求/选择及原生高亮失效。页面来源保持真实 page scope，空页面不伪造可写根块；当前外部连接基线仍是块范围，页面外部协作入口尚待实施。
 
@@ -35,3 +35,15 @@ NativeSourceSetHost 不调用 editBlock/updateBlock/setBlockCollapsed，不设�
 实际 CLI 入口：`workspace reading request --purpose <要求>` 返回已保存完整来源和材料 ID；`reading submit --input-file <方案>`、`read`、`select <planId>`、`original`、`cancel <requestId>`；`highlight --input-file <来源集合>` 和 `clear` 是只读来源定位。JSON 由 Agent 根据实际请求/版本生成，日常界面只展示方案名称、过期状态和返回原结构。
 
 当前回归使用 101 个来源、4,041 个中文字符和四层关系的冻结合成样本。函数、DOM、独立 CLI 进程和真实隔离 Desktop 证据分别记录，不能互相替代。真实 Desktop 局部结果及未完成范围见实施 handoff；材料预览、Journal 写作、普通 TODO、共同指导和最终 ZIP 的整项验收仍未完成。
+
+## 渐进式扩展（2026-11-19）
+
+复用 `codex/contextual-work-briefing` 的 `briefing` 概念：`basisVersion` 等于邀请的 `sourceSetVersion`，`createdAt`、`paragraphs`（及可选 `followUps`）。段落含 `key`（稳定语义键，旧格式可省略）、`markdown`、`kind: fact|inference|suggestion`、`sourceIds`、可选 `tone: progress|attention` 和 `details`。每个 detail 包含唯一 `key`、`markdown`、真实 `sourceIds`，可选 `heading`、`kind`、`display: quote|table|chart` 和真实 `materialIds`。不要求固定章节或固定段落数。
+
+- 顶层可轻微概括；第一层描述可组织思路、条件、历史与冗余；第二层引用对应的原始内容。`layout` 仍需完整覆盖原文，未被简报概括的记录有独立可达入口。
+- `ReadingViewStore` 按工作持久化方案和生成时的 `basis: SourceSnapshot`、`materialBasis`（可用版本和有界摘录），显式更新保存上一次修订及依据。旧简报不随当前快照重新贴版本；缺少旧快照的迁移数据标记未保存。比较 sourceId/contentVersion、结构和 material version，新增及移除来源不消失。
+- 允许模型建议表格/图表形式，数值只由真实来源中的 Markdown 表解出；不接收模型制造的数值数组、HTML、可执行样式或任意文件路径。渲染器拥有交互、主题、宽窄布局。完整材料仍由材料 owner 打开。
+- Logseq 的「AI 整理」/「提问」调用控制器 `request`，通过 companion `/plugin/reading-model` 使用 DSH 已配置模型。组织结果回到 `submit`（同名 `work-resume-briefing`，完整来源序列），问答只展示，用户可复制、明确插入或确认替换符合条件的普通块。无模型依然可读原文。
+- DSH 继续使用同一份 `reading.view` 投影及 reading request/submit 工具。交接请求与来源版本只随明确用户动作进入对应 session，默认加入草稿由用户发送。
+
+实现边界与场景见 [渐进式工作台](progressive-workspace.md)、[情境化阅读渲染](contextual-work-rendering.md)。本节描述本分支契约，真实宿主和模型验证结果以实施记录为准。

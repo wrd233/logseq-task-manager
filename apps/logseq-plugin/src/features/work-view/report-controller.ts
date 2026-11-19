@@ -77,7 +77,7 @@ export class WorkViewReport {
         if(!this.valid(scope,lifetime)||port!==this.materialPort)throw new Error("READING_MATERIAL_SCOPE_CHANGED");
         requireLens(views.length<=2000&&new Set(views.map(view=>view.id)).size===views.length,"invalid-reading-material-list");
         this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(views.filter(view=>view.availability==="available").map(view=>view.id));
-      },changed:()=>this.host.changed(),defaultMode,...(typeof localStorage!=="undefined"?{storage:localStorage}:{})});
+      },materialSnapshots:()=>[...this.materialViews.values()],changed:()=>this.host.changed(),defaultMode,...(typeof localStorage!=="undefined"?{storage:localStorage}:{})});
   }
   readonly readingAPI={
     setMode:async(mode:"report"|"structure")=>{
@@ -104,10 +104,10 @@ export class WorkViewReport {
   }
   async openReadingMaterial(id:string):Promise<void> {
     const scope=this.host.scope(),port=this.materialPort,lifetime=this.lifetime;
-    if(!scope||!port||this.host.historical()||!this.materialViews.has(id))throw new Error("READING_MATERIAL_UNAVAILABLE");
+    if(!scope||!port||this.host.historical())throw new Error("READING_MATERIAL_UNAVAILABLE");
     const materials=await port.list(scope);
     if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id&&view.availability==="available"))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
-    await port.open(id,scope);
+    this.materialViews=new Map(materials.map(view=>[view.id,view]));await port.open(id,scope);
   }
   private remember(): void {
     const scope=this.boundScope;
@@ -167,6 +167,11 @@ export class WorkViewReport {
       if (!sameLensScope(result.value.scope,scope)) return deny("scope-mismatch");
       if ((result.value.page?.availability ?? result.value.blocks[0]?.availability) !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
       this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null;this.plans.noteSource(this.source); this.host.changed();
+      if(this.plans.progressive(this.source)&&this.materialPort){
+        const port=this.materialPort;
+        try {const materials=await port.list(scope);if(this.valid(scope,lifetime)&&ticket===this.readTicket&&port===this.materialPort){this.materialViews=new Map(materials.map(view=>[view.id,view]));this.host.changed();}}
+        catch {if(this.valid(scope,lifetime)&&ticket===this.readTicket){this.materialViews.clear();this.host.changed();}}
+      }
       return {ok:true,value:structuredClone(this.source)};
     })();
     this.reading=reading;
@@ -246,6 +251,8 @@ export class WorkViewReport {
       if (this.folds.get(uuid) ?? (!reading && reportCollapsed(block.content ?? ""))) folds.add(uuid);
     }
     const report = composeReport(this.source, personal, lens, folds, overlay);
+    const progressive=!overlay&&!lens?this.plans.progressive(this.source):null;
+    if(progressive)return {...report,headings:[],progressive};
     if(!reading)return report;
     const byUuid=new Map(report.view.items.map(item=>[item.uuid,item])),byId=new Map(this.source.blocks.map(block=>[block.sourceId,block]));
     return {...report,headings:[],view:{...report.view,items:reading.primarySourceIds.map(id=>byUuid.get(byId.get(id)!.target.blockUuid)!)},reading:{verified:reading,materials:this.materialViews}};

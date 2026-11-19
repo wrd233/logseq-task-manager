@@ -5,6 +5,7 @@ import type { ReadingUnit, VerifiedReadingPlan } from "./reading-plan.ts";
 /** Narrow adapter to the material owner's real list/open service. */
 export interface ReadingMaterial {
   id:string; filename:string; reference:string; availability:"available" | "unavailable";
+  version?:string|null; excerpt?:string;
 }
 export interface ReadingMaterialPort {
   list(scope:VerifiedReadingPlan["plan"]["scope"]):Promise<readonly ReadingMaterial[]>;

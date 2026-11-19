@@ -83,7 +83,7 @@ function Onboarding({ status, busy, directory, setDirectory, error, onBind, onCh
   </div>;
 }
 
-export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference }) {
+export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enterWork, insertReference, subscribe, readSession, clearIntent }) {
   return function Workbench(props) {
     const info = props.useTabInfo(), sessionId = props.sessionId, visible = info.tab.visible;
     const [status, setStatus] = useState(null), [connection, setConnection] = useState(null);
@@ -100,6 +100,8 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     sessionRef.current = sessionId;
     const connected = connection?.state === 'connected';
     const requestedFocus = useSyncExternalStore(workFocus.subscribe, () => workFocus.peek(sessionId), () => undefined);
+    const readingIntent=useSyncExternalStore(subscribe,()=>readSession(sessionId).handoffIntent??null,()=>null);
+    const progressive=useSyncExternalStore(subscribe,()=>readSession(sessionId).view?.reading?.progressive??null,()=>null);
 
     useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     useEffect(() => {
@@ -204,7 +206,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     const saveScroll = () => { if (scroll.current) scrollPositions.current.set(`${view}:${focus ?? 'root'}`, scroll.current.scrollTop); };
     const rememberScroll = event => { if (visible) scrollPositions.current.set(`${view}:${focus ?? 'root'}`, event.currentTarget.scrollTop); };
     const changeFocus = uuid => { if (uuid === focus) return; saveScroll(); saveWorkFocus(sessionId, uuid); setFocus(uuid ?? null); setStructure(null); setStructureError(null); };
-    const changeView = next => { if (next === view) return; saveScroll(); setView(next); setMenu(false); };
+    const changeView = next => { if (next === view) return; saveScroll(); setView(next); setMenu(false); if(next==='briefing')void refresh(sessionId); };
 
     useEffect(() => {
       if (!requestedFocus) return;
@@ -342,6 +344,12 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       </header>
 
       <Notice notice={notice} onClose={() => setNotice(null)} />
+      {readingIntent ? <aside className="wx-recovery" aria-label="来自 Logseq 的协作请求"><div className="wx-recovery-copy"><strong>来自 Logseq 的请求</strong><p style={{whiteSpace:'pre-wrap'}}>{readingIntent.request}</p>{readingIntent.selection?<p>{readingIntent.selection}</p>:null}<small>{readingIntent.sourceIds.length} 处来源 · 只加入草稿，不发送</small></div><div className="wx-recovery-actions"><button type="button" className="wx-button" onClick={()=>{
+        if(!props.inputActions)return;
+        const captured=props.inputActions.captureInsertion(),span={...captured,start:captured.end};
+        const text=[readingIntent.request,readingIntent.selection?`选中原文：\n${readingIntent.selection}`:'',readingIntent.sourceIds.length?`Logseq 来源 ID：\n${readingIntent.sourceIds.join('\n')}`:'',readingIntent.basisVersion?`阅读依据版本：${readingIntent.basisVersion}`:''].filter(Boolean).join('\n\n');
+        if(props.inputActions.insertText((span.start>0?'\n':'')+text,span)){clearIntent(sessionId);props.inputActions.focus?.();}else setNotice({text:'输入框正在提交，请稍后再加入。',tone:'error'});
+      }}>加入对话草稿</button><button type="button" className="wx-text" onClick={()=>clearIntent(sessionId)}>关闭</button></div></aside>:null}
 
       {cwdMismatch ? <div className="wx-recovery" role="status">
         <div className="wx-recovery-copy"><strong>这个对话的目录已经变化</strong><p>原对话和草稿会保留。可在工作目录中新开一个对话继续这件工作。</p></div>
@@ -369,6 +377,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
           <div className="wx-seg" role="group" aria-label="当前工作视图">
             <button type="button" aria-pressed={view === 'structure'} onClick={() => changeView('structure')}>结构</button>
             <button type="button" aria-pressed={view === 'reader'} onClick={() => changeView('reader')}>原文</button>
+            <button type="button" aria-pressed={view === 'briefing'} onClick={() => changeView('briefing')}>简报</button>
           </div>
           <span className="wx-modes-spacer" />
           <button type="button" className="wx-text" onClick={() => openTab('work-history')}>历史回看</button>
@@ -384,6 +393,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
             ? <Reader nodes={reader.nodes} focusUuid={root?.uuid} workTypes={workTypes} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} resetKey={`${sessionId}:${root?.uuid ?? 'root'}:reader`} />
             : readerError ? <div className="wx-empty" role="alert"><p>{errorText(readerError)}</p><button type="button" className="wx-button" onClick={() => setReaderTick(value => value + 1)}>重试</button></div>
               : <Skeleton />) : null}
+          {structure && view === 'briefing' ? (progressive ? <ProgressiveBriefing value={progressive} /> : <div className="wx-empty">尚无阅读简报。可在 Logseq 中整理当前工作。</div>) : null}
         </div>
         {selected.length ? <aside className="wx-tray" aria-label="已选引用">
           <div className="wx-tray-head"><strong>{selected.length} 处引用</strong>{staleCount ? <span className="wx-warn">{staleCount} 处已变化</span> : null}<span className="wx-tray-note">加入草稿，不发送</span><button type="button" className="wx-text" onClick={() => setSelected([])}>清空</button><button type="button" className="wx-button wx-button-primary" disabled={busy} onClick={insertSelection}>{busy ? '加入中…' : '加入对话'}</button></div>
@@ -398,6 +408,23 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       </> : null}
     </section>;
   };
+}
+
+function ProgressiveBriefing({value}) {
+  const {briefing,basis,current,materialBasis,materials}=value;
+  const old=new Map((basis?.blocks??[]).map(block=>[block.sourceId,block])),now=new Map(current.blocks.map(block=>[block.sourceId,block]));
+  return <article className="wx-briefing">
+    <small>整理于 {briefing.createdAt.slice(0,10)} · {briefing.basisVersion===current.sourceSetVersion?'来源未变化':'存在新版本，请核对依据'}</small>
+    {[...briefing.paragraphs,...(briefing.followUps??[])].map((paragraph,index)=><details key={paragraph.key??index}>
+      <summary>{paragraph.markdown}</summary>
+      {(paragraph.details?.length?paragraph.details:[{key:'original',markdown:'当时依据',sourceIds:paragraph.sourceIds}]).map(detail=><details key={detail.key}>
+        <summary>{detail.heading?<strong>{detail.heading} · </strong>:null}{detail.markdown}</summary>
+        {detail.sourceIds.map(id=>{const before=old.get(id),after=now.get(id);return <div className="wx-briefing-source" key={id}><small>当时依据 · {before?.contentVersion?.slice(0,8)??'未保存'}</small><p>{before?.content??'历史原文不可用，请核对当前原文。'}</p>{before?.contentVersion!==after?.contentVersion?<><small>当前原文 · {after?.contentVersion?.slice(0,8)??'已移除'}</small><p>{after?.content??'来源已不可用'}</p></>:null}</div>;})}
+        {(detail.materialIds??[]).map(id=>{const before=materialBasis.find(material=>material.id===id),after=materials.find(material=>material.id===id);return <div className="wx-briefing-source" key={id}><small>材料 · {before?.filename??after?.filename??id} · {before?.version?.slice(0,8)??'版本未确认'}</small><p>{before?.excerpt??'在 Logseq 打开完整材料'}</p>{before?.version!==after?.version?<small>材料已变化，请在 Logseq 核对</small>:null}</div>;})}
+      </details>)}
+    </details>)}
+    <small>完整当前记录请切换「原文」。</small>
+  </article>;
 }
 
 function StructureBody({ structure, reader, readerError, workTypes, readerByUuid, sessionId, onEnter, onRetry, onAdd, onNotice }) {
