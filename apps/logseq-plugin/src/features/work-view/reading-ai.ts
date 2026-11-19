@@ -161,9 +161,11 @@ export class WorkReadingAI {
     try{
       const requested=await this.reading.request({schemaVersion:1,purpose:"继续当前工作"});if(!requested.ok)throw new Error(requested.reason);
       requestId=requested.value.requestId;const source=requested.value.source;
-      const ids=[...new Set([...(state.answer?.sourceIds??[]),...source.blocks.filter(block=>block.target.blockUuid===state.selection?.uuid).map(block=>block.sourceId)])].slice(0,128);
+      const basis=state.answer?.sourceIds.length?state.answer.source:source;
+      const referenced=[...new Set([...(state.answer?.sourceIds??[]),...basis.blocks.filter(block=>block.target.blockUuid===state.selection?.uuid).map(block=>block.sourceId)])];
+      const ids=(referenced.length?referenced:basis.blocks.map(block=>block.sourceId)).slice(0,128);
       if(!this.same(scope,state))throw new Error("scope-mismatch");
-      await this.port.handoff(scope,{request:state.question.trim()||"继续处理当前工作",sourceIds:ids,...(state.selection?{selection:state.selection.text}:{}),basisVersion:state.answer?.source.sourceSetVersion??source.sourceSetVersion});
+      await this.port.handoff(scope,{request:state.question.trim()||"继续处理当前工作",sourceIds:ids,...(state.selection?{selection:state.selection.text}:{}),basisVersion:basis.sourceSetVersion});
       state.notice="已交接当前工作、请求和来源；在 DSH 确认加入草稿。";
     }catch(error){state.notice=text(error);}
     finally{if(requestId)this.reading.cancel(requestId);state.busy=false;if(this.same(scope,state))this.paint();}
