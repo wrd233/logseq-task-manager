@@ -83,6 +83,7 @@ export class WorkReadingAI {
     this.organize.disabled=blocked||this.state.busy;this.toggle.disabled=blocked&& !this.state.open;
     this.form.dataset.blocked=String(blocked);
     this.paintControls();
+    this.updateAnswerBasis();
   }
   private paintControls(){
     const blocked=this.form.dataset.blocked==="true";
@@ -134,21 +135,22 @@ export class WorkReadingAI {
   private showAnswer(){
     const answer=this.state.answer,scope=this.scope;this.result.replaceChildren();this.result.hidden=!answer;if(!answer||!scope)return;
     const rendered=element("div","","wb-ai-answer");rendered.innerHTML=renderMarkdown(answer.text);for(const link of Array.from(rendered.querySelectorAll("a")))link.replaceWith(...Array.from(link.childNodes));
-    const label=element("small",`依据版本 · ${answer.source.sourceSetVersion.slice(0,10)}`,"wb-progressive-version");label.title=answer.source.sourceSetVersion;
+    const label=element("small",`依据版本 · ${answer.source.sourceSetVersion.slice(0,10)}`,"wb-progressive-version");label.title=answer.source.sourceSetVersion;label.dataset.answerBasis=answer.source.sourceSetVersion;
     const refs=element("div","","wb-ai-references");
     for(const id of answer.sourceIds){const source=answer.source.blocks.find(block=>block.sourceId===id);if(source){const details=element("details");details.append(element("summary",`依据 · ${source.content?.split("\n")[0]?.slice(0,52)??source.target.blockUuid.slice(0,8)}`),element("pre",source.content??""),button("查看当前原块",()=>this.actions.locate(source.target.blockUuid)));refs.append(details);}}
     for(const id of answer.materialIds)refs.append(button("查看相关材料",()=>this.actions.material(id)));
     const actions=element("div","","wb-ai-tools");actions.append(button("复制",()=>void copyMaterialLink(answer.text).then(()=>{this.state.notice="已复制。";this.status.textContent=this.state.notice;}).catch(error=>{this.state.notice=text(error);this.status.textContent=this.state.notice;})),button("插入为新块",()=>void this.write(answer,scope,false)));
     if(answer.rewrite){actions.append(button(this.state.confirm?"确认替换原块":"用此结果替换原块…",()=>{if(this.state.confirm)void this.write(answer,scope,true);else{this.state.confirm=true;this.paint();}}));if(this.state.confirm){const confirm=element("div","","wb-ai-confirm");confirm.append(element("small","将以下整块原文替换为上面的结果（仅普通块，保存版本必须未变化）："),element("pre",answer.rewrite.content??""),button("取消替换",()=>{this.state.confirm=false;this.paint();}));this.result.append(confirm);}}
-    this.result.append(label,rendered,refs,actions);
+    this.result.append(label,rendered,refs,actions);this.updateAnswerBasis();
   }
+  private updateAnswerBasis(){const label=this.result.querySelector<HTMLElement>("[data-answer-basis]");if(!label)return;const basis=label.dataset.answerBasis!,current=this.reading.read().sourceSetVersion,stale=!!current&&basis!==current;label.textContent=`依据版本 · ${basis.slice(0,10)}${stale?" · 原文有更新":""}`;label.classList.toggle("wb-progressive-changed",stale);}
   private async write(answer:Answer,scope:SourceScope,replace:boolean){
     const state=this.state;
     const check=async()=>{if(!this.same(scope,state)||graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||await logseq.Editor.checkEditing())throw new Error("请先结束原生输入并保持在当前工作，再确认写入。");};
     try{
       await check();
       if(replace&&answer.rewrite){const before=answer.rewrite,current=await logseq.Editor.getBlock(before.target.blockUuid);if(typeof current?.content!=="string"||!ordinary(before,scope)||await sha256(current.content)!==before.contentVersion)throw new Error("原块已变化，请重新改写。原文未修改。");await check();await logseq.Editor.updateBlock(before.target.blockUuid,answer.text);if((await logseq.Editor.getBlock(before.target.blockUuid))?.content!==answer.text)throw new Error("写入结果尚未核验，请查看原块。");}
-      else {const inserted=scope.kind==="page"?await logseq.Editor.appendBlockInPage(scope.pageName!,answer.text):await logseq.Editor.insertBlock(scope.rootUuid,answer.text,{sibling:false});if(!inserted?.uuid)throw new Error("新块写入尚未核验，请查看 Logseq 原页。");}
+      else {const last=scope.kind==="page"?(await logseq.Editor.getPageBlocksTree(scope.pageName!)).at(-1):null;await check();const inserted=scope.kind==="page"?(last?await logseq.Editor.insertBlock(last.uuid,answer.text,{sibling:true,focus:false}):await logseq.Editor.appendBlockInPage(scope.pageName!,answer.text)):await logseq.Editor.insertBlock(scope.rootUuid,answer.text,{sibling:false,focus:false});if(!inserted?.uuid)throw new Error("新块写入尚未核验，请查看 Logseq 原页。");}
       state.notice=replace?"普通原块已按你的确认修改。":"已插入为新块；旧原文保留。";state.confirm=false;await this.actions.refresh();
     }catch(error){state.notice=text(error);}
     if(this.same(scope,state))this.paint();

@@ -5,7 +5,7 @@ import { sameLensScope } from "./lens-source.ts";
 import type { LensResult } from "./lens-controller.ts";
 import { decodeReadingPlan, readingBasisChanged, validateReadingPlan, refreshReadingPlan, type ReadingPlan, type VerifiedReadingPlan } from "./reading-plan.ts";
 import { ReadingViewStore, type ReadingStorage, type SavedReadingView } from "./reading-store.ts";
-import { briefingMaterialIds, briefingStatus, latestBriefing, type ProgressiveReading } from "./briefing-model.ts";
+import { briefingMaterialIds, briefingStatus, latestBriefing, readingMaterialsChanged, type ProgressiveReading } from "./briefing-model.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
 
 interface ReadingHost {
@@ -37,7 +37,7 @@ export class ReadingPlanController {
   private save():void {
     if(!this.bound||!this.store)return;
     try {this.store.save(this.bound,{schemaVersion:1,mode:this.mode,selected:this.selected,
-      views:[...this.plans.values()].map(view=>({plan:view.plan,revision:view.revision,previous:view.previous,basis:view.basis,previousBasis:view.previousBasis,materialBasis:view.materialBasis,previousMaterialBasis:view.previousMaterialBasis}))});this.persistenceError=false;}
+      views:[...this.plans.values()].map(view=>({plan:view.plan,revision:view.revision,...(view.previous?{previous:view.previous}:{}),basis:view.basis,previousBasis:view.previousBasis,materialBasis:view.materialBasis,previousMaterialBasis:view.previousMaterialBasis}))});this.persistenceError=false;}
     catch {this.persistenceError=true;}
   }
   private synchronize():void {
@@ -90,7 +90,11 @@ export class ReadingPlanController {
   read() {
     this.synchronize();const active=this.source?this.active(this.source):null,selected=this.selected?this.plans.get(this.selected):null;
     const brief=latestBriefing([...this.plans.values()].map(view=>view.plan));
-    const status=(plan:ReadingPlan)=>this.available&&this.source?briefingStatus(plan,this.source):"unverified";
+    const status=(plan:ReadingPlan)=>{
+      if(!this.available||!this.source)return "unverified";
+      const materialBasis=this.plans.get(plan.planId)?.materialBasis,currentMaterials=this.host.materialSnapshots?.()??[];
+      return materialBasis&&readingMaterialsChanged(materialBasis,currentMaterials)?"stale":briefingStatus(plan,this.source);
+    };
     return {schemaVersion:1,scope:this.bound?{...this.bound}:null,mode:this.mode,activePlanId:active||selected?.plan.briefing?this.selected:null,selectedPlanId:this.selected,
       activePlan:active?structuredClone(active.plan):selected?.plan.briefing?structuredClone(selected.plan):null,
       briefing:brief?{planId:brief.planId,...structuredClone(brief.briefing!),status:status(brief)}:null,

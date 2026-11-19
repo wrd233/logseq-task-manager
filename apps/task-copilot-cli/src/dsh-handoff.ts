@@ -97,7 +97,7 @@ export async function callDshReadingModel(state:string,input:unknown):Promise<un
   if(envelope.rpcId!==rpcId||!envelope.result?.ok)throw new WorkspaceError(envelope.result?.error?.code??"READING_MODEL_DSH_UNAVAILABLE",envelope.result?.error?.message);
   return envelope.result.value;
 }
-/** Local click creates a short-lived locator, never an Agent prompt or a new grant. */
+/** Explicit local click creates a short-lived work locator and optional unsent reading request; no new grant. */
 export async function createDshHandoff(state: string, input: Omit<DshHandoff, "schemaVersion" | "ticket" | "createdAt">, newTab = false): Promise<{url: string | null; ticket: string}> {
   let browser: {url: string; pid: number};
   try {

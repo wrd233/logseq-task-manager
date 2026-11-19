@@ -73,7 +73,7 @@ export function installReportStyle(): () => void {
     .wb-progressive-line{margin:0;font-size:15px;line-height:1.65}
     .wb-progressive button.wb-progressive-disclose{display:inline;text-align:start;white-space:normal;border:0;padding:0;min-height:0;line-height:inherit;border-radius:2px;user-select:text;color:var(--wb-accent);background:transparent;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--wb-accent) 42%,transparent);text-underline-offset:3px;text-decoration-thickness:1px}
     .wb-progressive button.wb-progressive-phrase{font:inherit;color:var(--wb-ink);text-decoration-color:color-mix(in srgb,var(--wb-accent) 45%,transparent)}
-    .wb-progressive [data-tone=attention]>.wb-progressive-line>.wb-progressive-phrase{color:var(--wb-accent);font-weight:600}
+    .wb-progressive [data-tone=attention]>.wb-progressive-line>.wb-progressive-phrase{text-decoration-color:var(--wb-accent);font-weight:500}.wb-progressive [data-tone=attention]>.wb-progressive-line>.wb-progressive-phrase strong{color:var(--wb-accent);font-weight:600}
     .wb-progressive button.wb-progressive-disclose:hover{color:var(--wb-accent);text-decoration-color:var(--wb-accent);background:transparent}
     .wb-progressive button.wb-progressive-disclose:focus-visible{outline:2px solid var(--wb-focus);outline-offset:3px}
     .wb-progressive-caret{font-size:.82em;margin-inline-start:5px;color:var(--wb-accent);user-select:none;display:inline-block}
@@ -86,6 +86,7 @@ export function installReportStyle(): () => void {
     .wb-progressive-changed{color:var(--wb-error)!important;font-size:11px;display:block;margin:3px 0;font-weight:500}
     .wb-progressive-tag{font-size:11px;color:var(--wb-muted);margin-inline-end:6px;border:1px solid var(--wb-edge);padding:1px 4px;border-radius:3px;white-space:nowrap}
     .wb-progressive-evidence{font-size:12px;margin:8px 0 0;background:var(--wb-soft);border:1px solid var(--wb-edge);border-radius:6px;padding:8px;line-height:1.5;min-width:0}
+    .wb-progressive-evidence :is(h1,h2,h3,h4){font-size:1em;line-height:1.5;margin:4px 0}
     .wb-progressive-source+.wb-progressive-source{border-top:1px solid var(--wb-edge);margin-top:9px;padding-top:8px}
     .wb-progressive-source-head{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;justify-content:space-between;margin-bottom:4px}
     .wb-progressive-source-head button{padding:0 2px;min-height:24px;font-size:11px;color:var(--wb-accent)}

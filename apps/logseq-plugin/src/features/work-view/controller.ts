@@ -56,6 +56,7 @@ export class WorkView {
   private readonly disposers: Array<() => void> = [];
   private contentChoice: "body" | "materials" = "body";
   private materialBookmark: { scope: SourceScope; bookmark: ReadingBookmark } | null = null;
+  private materialTarget:SourceScope|null=null;
   private reviewOpen = false;
   private browsingPage = "";
   private workOriginPage = "";
@@ -207,7 +208,7 @@ export class WorkView {
     this.epoch++; this.seq++; this.draftEpoch++; this.refreshQueue?.stop(); this.refreshQueue = null;
     this.sourceRows = []; this.rows = []; this.draft = null; this.draftReading = null;
     this.lenses.reset(); this.lensBar.render(this.lenses.read());
-    this.materialBookmark = null; this.reviewOpen = false; this.reviewHost.hidden = true; this.contentChoice = "body"; this.failure = ""; this.shell.closeMenu();
+    this.materialBookmark = null;this.materialTarget=null; this.reviewOpen = false; this.reviewHost.hidden = true; this.contentChoice = "body"; this.failure = ""; this.shell.closeMenu();
     this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
     this.continuation=null; this.fromSearch = false;this.browsingPage="";this.workOriginPage="";
   }
@@ -392,7 +393,9 @@ export class WorkView {
   }
   rememberMaterials(scope: SourceScope): void {
     const current=this.readingScope(),actual=this.materialScope(scope);
-    if (this.panel.visible && this.contentChoice === "body" && current && actual?.graphId===current.graphId) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
+    if(!current||!actual||actual.graphId!==current.graphId)return;
+    this.materialTarget=actual;
+    if (this.panel.visible && this.contentChoice === "body") this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
   }
   /** Legacy material associations carry a UUID only. Restore page metadata only
    * from this already verified active page, never from an external caller. */
@@ -402,7 +405,7 @@ export class WorkView {
   /** Shared chrome mount only; materials keep their own editor, permissions and lifecycle. */
   mountMaterialChrome(surface: HTMLElement, scope: SourceScope | null): boolean {
     const current = this.readingScope();scope=this.materialScope(scope);
-    if (!scope || !current || scope.graphId!==current.graphId) {
+    if (!scope || !current || scope.graphId!==current.graphId||!sameLensScope(scope,current)&&(!this.materialTarget||!sameLensScope(scope,this.materialTarget))) {
       surface.classList.remove("wb-materials-in-work"); this.shell.mount(this.panel.root); return false;
     }
     if (this.panel.visible&&this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
@@ -429,6 +432,7 @@ export class WorkView {
     if (saved && this.readingScope() && sameLensScope(saved.scope, this.readingScope()!) && this.panel.visible) {
       this.renderer.restore(saved.bookmark); this.materialBookmark = null;
     }
+    this.materialTarget=null;
   }
   async openCurrentWork(uuid?: string): Promise<void> {
     const ticket = ++this.navigationEpoch, graph = graphIdentity(await logseq.App.getCurrentGraph());

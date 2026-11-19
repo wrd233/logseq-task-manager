@@ -93,6 +93,8 @@ export function latestBriefing(plans: ReadingPlan[]) {
 export function briefingStatus(plan: ReadingPlan, source: SourceSnapshot): "current" | "stale" {
   return plan.briefing?.basisVersion === source.sourceSetVersion && plan.structureVersion === source.structureVersion ? "current" : "stale";
 }
+export const readingMaterialChanged = (before?:ReadingMaterial,after?:ReadingMaterial) => !before||!after||before.version!==after.version||before.availability!==after.availability;
+export const readingMaterialsChanged = (before:ReadingMaterial[],after:ReadingMaterial[])=>before.length!==after.length||before.some(material=>readingMaterialChanged(material,after.find(item=>item.id===material.id)));
 
 export const progressivePlanId = "work-resume-briefing";
 export const progressivePurpose = "整理为渐进式阅读：恢复工作并理解原始思路与依据";

@@ -1,15 +1,13 @@
 import { button, element } from "../../host/panel-host.ts";
 import type { BlockSnapshot, SourceSnapshot } from "../../workspace/source-protocol.ts";
-import { briefingParagraphs, paragraphDetails, type BriefingDetail, type BriefingParagraph, type ProgressiveReading } from "./briefing-model.ts";
+import { briefingParagraphs, paragraphDetails, readingMaterialChanged as materialChanged, readingMaterialsChanged, type BriefingDetail, type BriefingParagraph, type ProgressiveReading } from "./briefing-model.ts";
 import { renderMarkdown } from "./markdown.ts";
-import type { ReadingMaterial } from "./reading-layout.ts";
 import { numericSeries, sourceTable } from "./source-table.ts";
 
 interface ReaderActions { locate(uuid: string): void; material(id: string): void }
 const version = (value: string | null | undefined) => value ? value.slice(0, 10) : "未核验";
 const byId = (source: SourceSnapshot | null) => new Map(source?.blocks.map(block => [block.sourceId, block]) ?? []);
 const blockChanged = (before?: BlockSnapshot, after?: BlockSnapshot) => !before || !after || before.contentVersion !== after.contentVersion || before.parentUuid !== after.parentUuid || before.depth !== after.depth || before.order !== after.order;
-const materialChanged = (before?: ReadingMaterial, after?: ReadingMaterial) => !before || !after || before.version !== after.version || before.availability !== after.availability;
 const kindLabel = (kind: string | undefined) => kind === "inference" ? "推断" : kind === "suggestion" ? "建议" : "";
 const stamp = (date: string) => new Date(date).toLocaleString("zh-CN", {month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
 
@@ -104,11 +102,11 @@ export class ProgressiveReader {
     node.append(caption,current ? this.original(current, display) : element("p","当前工作范围已无此块。","wb-progressive-label"));
     return node;
   }
-  private materialCard(id: string, view: ProgressiveReading): HTMLElement {
+  private materialCard(id: string, view: ProgressiveReading,key:string): HTMLElement {
     const before=view.materialBasis.find(material=>material.id===id),current=view.materials.find(material=>material.id===id), material=current??before;
     const node=element("section","","wb-progressive-source"),head=element("div","","wb-progressive-source-head");
     head.append(element("strong",material?.filename??"关联材料"));
-    head.append(button("查看材料",()=>this.actions.material(id))); node.append(head);
+    const open=button("查看材料",()=>this.actions.material(id));open.dataset.progressiveAnchor=`${key}/open`;node.dataset.progressiveAnchor=key;head.append(open); node.append(head);
     if(before){const label=element("small",`当时材料 · ${version(before.version)}`,"wb-progressive-version");label.title=before.version??"未取得内容版本";node.append(label);if(before.excerpt)node.append(rich(before.excerpt,true));}
     if(materialChanged(before,current)){
       const label=element("small",`当前材料 · ${current?version(current.version):"需重新核验"}`,"wb-progressive-changed");label.title=current?.version??"未取得当前版本";node.append(label);if(current?.excerpt)node.append(rich(current.excerpt,true));
@@ -140,7 +138,7 @@ export class ProgressiveReader {
               const context=element("details","","wb-progressive-parent");context.append(element("summary","当时上层语境"),rich(ancestor.content??"",true));evidence.append(context);
             }
           }
-          for(const id of detail.materialIds??[])evidence.append(this.materialCard(id,view));
+          for(const id of detail.materialIds??[])evidence.append(this.materialCard(id,view,`${detailKey}/material/${id}`));
         };
         item.dataset.progressiveUuid=(current.get(detail.sourceIds[0]!)??old.get(detail.sourceIds[0]!))?.target.blockUuid??"";
         if(detail.heading)item.append(element("h3",detail.heading));
@@ -162,7 +160,8 @@ export class ProgressiveReader {
     this.bind(view);
     if(this.root.parentElement!==container)container.replaceChildren(this.root);
     const old=byId(view.basis),current=byId(view.current),newBlocks=view.current.blocks.filter(block=>view.basis&&!old.has(block.sourceId));
-    const stale=view.briefing.basisVersion!==view.current.sourceSetVersion||!!view.basis&&view.basis.structureVersion!==view.current.structureVersion||view.materialBasis.some(material=>materialChanged(material,view.materials.find(item=>item.id===material.id)));
+    const newMaterials=view.basis?view.materials.filter(material=>!view.materialBasis.some(item=>item.id===material.id)):[];
+    const stale=view.briefing.basisVersion!==view.current.sourceSetVersion||!!view.basis&&(view.basis.structureVersion!==view.current.structureVersion||readingMaterialsChanged(view.materialBasis,view.materials));
     const title=`${stamp(view.briefing.createdAt)} 整理 · ${version(view.briefing.basisVersion)}`;
     const meta=stale?`${title} · 依据有更新`:`${title} · ${view.basis?"生成时依据已保存":"旧版依据未留存"}`;
     if(this.meta.textContent!==meta)this.meta.textContent=meta;
@@ -173,7 +172,7 @@ export class ProgressiveReader {
       if(node!==cursor)this.units.insertBefore(node,cursor);cursor=node.nextElementSibling;
     }
     for(const [key,entry] of this.nodes)if(!wanted.has(key)){entry.node.remove();this.nodes.delete(key);}
-    const extraSignature=JSON.stringify([view.current.sourceSetVersion,view.current.structureVersion,view.briefing.basisVersion,view.basis?.structureVersion,stale]);
+    const extraSignature=JSON.stringify([view.current.sourceSetVersion,view.current.structureVersion,view.briefing.basisVersion,view.basis?.structureVersion,stale,newMaterials]);
     if(this.extraSignature!==extraSignature){
       this.extraSignature=extraSignature;this.extra.replaceChildren();
       const group=(key:string,label:string,blocks:readonly BlockSnapshot[],historical=false)=>{
@@ -181,6 +180,7 @@ export class ProgressiveReader {
         section.append(this.disclose(key,label,body,()=>{if(!body.childElementCount)for(const block of blocks)body.append(this.sourceCard(historical?block:undefined,historical?current.get(block.sourceId):block,`${key}/${block.sourceId}`,undefined,historical));}),body);this.extra.append(section);
       };
       if(newBlocks.length)group("new",`新增记录 · ${newBlocks.length} 条（尚未整理）`,newBlocks);
+      if(newMaterials.length){const section=element("section","","wb-progressive-full"),body=element("div","","wb-progressive-evidence");section.append(this.disclose("new-materials",`新增材料 · ${newMaterials.length} 份（尚未整理）`,body,()=>{if(!body.childElementCount)for(const material of newMaterials)body.append(this.materialCard(material.id,view,`new-materials/${material.id}`));}),body);this.extra.append(section);}
       group("full",`查看全部当前原始记录 · ${view.current.blocks.length} 条`,view.current.blocks);
       if(stale&&view.basis)group("basis",`查看生成时完整原始记录 · ${view.basis.blocks.length} 条`,view.basis.blocks,true);
     }

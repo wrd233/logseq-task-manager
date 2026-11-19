@@ -140,3 +140,19 @@ test("updates keep one named view, preserve intervening navigation, restore prio
   assert.deepEqual(await h.controller.api.submit({...plan(h.source,earlier.requestId),name:"较早结果"}),{ok:false,reason:"reading-view-changed"});
   assert.equal(h.controller.api.read().activePlan!.name,"最新读法");
 });
+
+test("progressive reading retains the historical source across edits, restart and explicit update",async()=>{
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+  const old=await sourceFixture();let source=old;
+  const host={scope:()=>scope,source:async()=>({ok:true as const,value:source}),materials:async()=>new Set<string>(),unavailable:()=>null,changed:()=>{},storage};
+  const submission=(requestId:string,markdown:string):ReadingPlan=>({...plan(source,requestId),briefing:{basisVersion:source.sourceSetVersion,createdAt:new Date().toISOString(),paragraphs:[{key:"judgement",kind:"inference",markdown,sourceIds:[source.blocks[0]!.sourceId],details:[{key:"condition",markdown:"判断条件",sourceIds:[source.blocks[0]!.sourceId]}]}]}});
+  const first=new ReadingPlanController(host),invite=await first.request({schemaVersion:1,purpose:"organize"});assert.ok(invite.ok);
+  assert.ok((await first.submit(submission(invite.value.requestId,"旧判断"))).ok);await first.select("plan-one");
+  const changed="原判断已更正，仍需核验",additional="新增复核记录";
+  source=await snapshot(scope,[{...old.blocks[0]!,content:changed,contentVersion:await sha256(changed)},{sourceId:sourceId(scope.graphId,"new-block"),target:{kind:"logseq-block",graphId:scope.graphId,blockUuid:"new-block"},parentUuid:scope.rootUuid,order:0,depth:1,content:additional,contentVersion:await sha256(additional),availability:"available"}]);
+  first.dispose();const reopened=new ReadingPlanController(host);assert.ok((await reopened.refresh()).ok);
+  assert.equal(reopened.read().briefing?.status,"stale");assert.equal(reopened.progressive()?.basis?.blocks[0]?.content,old.blocks[0]?.content);assert.equal(reopened.progressive()?.current.blocks[1]?.content,additional);
+  const update=await reopened.request({schemaVersion:1,purpose:"update"});assert.ok(update.ok);assert.ok((await reopened.submit(submission(update.value.requestId,"当前判断"))).ok);
+  assert.equal(reopened.progressive()?.basis?.sourceSetVersion,source.sourceSetVersion);assert.ok((await reopened.restore("plan-one")).ok);
+  assert.equal(reopened.progressive()?.basis?.sourceSetVersion,old.sourceSetVersion);assert.equal(reopened.read().briefing?.status,"stale");
+});

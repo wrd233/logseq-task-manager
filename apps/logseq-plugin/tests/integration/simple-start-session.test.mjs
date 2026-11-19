@@ -34,15 +34,13 @@ test('close/reopen and a new controller restore the same reading mode, UUID book
  }finally{restored?.dispose();await f.close();}
 });
 
-test('toolbar requires an explicit named continuation when the current native block has no work object',async()=>{
+test('toolbar resumes the current work when the user temporarily browses an ordinary native block',async()=>{
  const f=await fixture(null,4,{initialReadingMode:'report'});
  try{
   const child={uuid:'nested',content:'保留折叠现场。',parent:{id:2},page:{id:'page'}};f.blocks.set(child.uuid,child);f.blocks.get('b0').children=[child];
   await f.work.open('root');f.work.panel.root.querySelector('.wb-scroll').scrollTop=145;f.work.panel.root.querySelector('.wb-row[data-uuid="b0"] > button:nth-of-type(2)').click();await f.work.panel.close();f.setCurrent('b2');
   const ordinary={uuid:'outside',content:'普通日记正文',parent:{id:'page'},page:{id:'page'}};f.blocks.set('outside',ordinary);f.setCurrent('outside');
-  await f.work.openToolbar();await f.tick();const buttons=[...f.work.panel.root.querySelectorAll('button')];const resume=buttons.find(b=>b.textContent==='继续阅读：来源');assert.ok(resume);assert.equal(f.work.snapshot().root,null);
-  assert.match(f.work.panel.root.querySelector('.wb-scroll').textContent,/继续阅读：来源/);
-  resume.click();for(let i=0;i<200&&f.work.snapshot().root!=='root';i++)await delay(5);assert.equal(f.work.snapshot().root,'root');
+  await f.work.openToolbar();await f.tick();assert.equal(f.work.snapshot().root,'root');
   for(let i=0;i<200&&!f.work.panel.root.querySelector('[data-uuid="nested"]')?.hidden;i++)await delay(5);
   assert.equal(f.work.panel.root.querySelector('[data-uuid="nested"]').hidden,true);assert.equal(f.work.panel.root.querySelector('.wb-scroll').scrollTop,145);
  }finally{await f.close();}

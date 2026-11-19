@@ -42,12 +42,14 @@ export function readingModel(ctx) {
       if(error instanceof WorkspaceError)throw error;
       fail('READING_MODEL_PROVIDER_FAILED');
     }
+    if(finish?.kind==='error')fail('READING_MODEL_PROVIDER_FAILED');
     if(finish?.kind!=='stop')fail('READING_MODEL_INCOMPLETE');
     let value;
     try {value=JSON.parse(output.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1'));}catch{fail('READING_MODEL_OUTPUT');}
     if(mode==='organize'){
       if(!Array.isArray(value?.paragraphs)||!value.paragraphs.length)fail('READING_MODEL_OUTPUT');
-      const paragraph = unit => ({...unit,sourceIds:refs(unit.sourceIds,reverse),details:unit.details?.map(detail=>({...detail,sourceIds:refs(detail.sourceIds,reverse),...(detail.materialIds?{materialIds:refs(detail.materialIds,reverseMaterial)}:{})}))});
+      const detail = unit=>({key:unit.key,markdown:unit.markdown,sourceIds:refs(unit.sourceIds,reverse),...(unit.heading?{heading:unit.heading}:{}),...(unit.kind?{kind:unit.kind}:{}),...(['quote','table','chart'].includes(unit.display)?{display:unit.display}:{}),...(unit.materialIds?{materialIds:refs(unit.materialIds,reverseMaterial)}:{})});
+      const paragraph = unit => ({key:unit.key,markdown:unit.markdown,kind:unit.kind,sourceIds:refs(unit.sourceIds,reverse),...(['progress','attention'].includes(unit.tone)?{tone:unit.tone}:{}),...(unit.details?.length?{details:unit.details.map(detail)}:{})});
       return {paragraphs:value.paragraphs.map(paragraph),...(value.followUps?.length?{followUps:value.followUps.map(paragraph)}:{})};
     }
     if(typeof value?.answer!=='string'||!value.answer.trim()||value.answer.length>24000)fail('READING_MODEL_OUTPUT');

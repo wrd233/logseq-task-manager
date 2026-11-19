@@ -4,6 +4,8 @@ import { observeCurrentStructure } from '../current-structure-client.mjs';
 import { WorkDiscovery } from '../discovery.jsx';
 import { insertReaderReferences } from '../reader-draft.mjs';
 import { Reader } from './reader.jsx';
+import { Markdown } from './markdown.jsx';
+import { marked } from '../../../logseq-plugin/src/features/work-view/vendor/marked.js';
 import { workFocus, readWorkFocus, saveWorkFocus } from './focus-store.mjs';
 import {
   connectionCopy, mergeSelections, previewText,
@@ -414,11 +416,11 @@ function ProgressiveBriefing({value}) {
   const {briefing,basis,current,materialBasis,materials}=value;
   const old=new Map((basis?.blocks??[]).map(block=>[block.sourceId,block])),now=new Map(current.blocks.map(block=>[block.sourceId,block]));
   return <article className="wx-briefing">
-    <small>整理于 {briefing.createdAt.slice(0,10)} · {briefing.basisVersion===current.sourceSetVersion?'来源未变化':'存在新版本，请核对依据'}</small>
+    <small>整理于 {briefing.createdAt.slice(0,10)} · {briefing.basisVersion===current.sourceSetVersion&&basis?.structureVersion===current.structureVersion?'来源未变化':'存在新版本，请核对依据'}</small>
     {[...briefing.paragraphs,...(briefing.followUps??[])].map((paragraph,index)=><details key={paragraph.key??index}>
-      <summary>{paragraph.markdown}</summary>
+      <summary><Markdown tokens={marked.lexer(paragraph.markdown)} source={paragraph.markdown} /></summary>
       {(paragraph.details?.length?paragraph.details:[{key:'original',markdown:'当时依据',sourceIds:paragraph.sourceIds}]).map(detail=><details key={detail.key}>
-        <summary>{detail.heading?<strong>{detail.heading} · </strong>:null}{detail.markdown}</summary>
+        <summary>{detail.heading?<strong>{detail.heading} · </strong>:null}<Markdown tokens={marked.lexer(detail.markdown)} source={detail.markdown} /></summary>
         {detail.sourceIds.map(id=>{const before=old.get(id),after=now.get(id);return <div className="wx-briefing-source" key={id}><small>当时依据 · {before?.contentVersion?.slice(0,8)??'未保存'}</small><p>{before?.content??'历史原文不可用，请核对当前原文。'}</p>{before?.contentVersion!==after?.contentVersion?<><small>当前原文 · {after?.contentVersion?.slice(0,8)??'已移除'}</small><p>{after?.content??'来源已不可用'}</p></>:null}</div>;})}
         {(detail.materialIds??[]).map(id=>{const before=materialBasis.find(material=>material.id===id),after=materials.find(material=>material.id===id);return <div className="wx-briefing-source" key={id}><small>材料 · {before?.filename??after?.filename??id} · {before?.version?.slice(0,8)??'版本未确认'}</small><p>{before?.excerpt??'在 Logseq 打开完整材料'}</p>{before?.version!==after?.version?<small>材料已变化，请在 Logseq 核对</small>:null}</div>;})}
       </details>)}
