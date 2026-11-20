@@ -31,5 +31,8 @@
     "test": "node --import tsx --test tests/*.test.mjs",
     "test:host": "node --import tsx tests/host-proof.mjs"
   },
+  "dependencies": {
+    "@task-copilot/reading-runtime": "0.2.0"
+  },
   "license": "MIT"
 }

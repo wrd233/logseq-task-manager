@@ -27,6 +27,7 @@
     "task-copilot": "tsx apps/task-copilot-cli/src/main.ts",
     "docs:requirements": "node scripts/build-requirements-map.mjs",
     "preview:logseq": "node --experimental-websocket scripts/logseq-preview.mjs",
+    "verify:companion": "node --import tsx scripts/verify-companion-ui.mjs",
     "package:plugin": "npm run build && node apps/logseq-plugin/scripts/package.mjs"
   },
   "devDependencies": {

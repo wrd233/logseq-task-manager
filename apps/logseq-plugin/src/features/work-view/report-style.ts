@@ -82,13 +82,16 @@ export function installReportStyle(): () => void {
     .wb-progressive button.wb-progressive-citation{font:500 11px/1.15 system-ui;border:0;min-height:0;padding:1px 3px;margin-inline-start:2px;border-radius:2px;color:var(--wb-accent);background:transparent;vertical-align:super;text-decoration:underline dotted;text-underline-offset:2px}
     .wb-progressive button.wb-progressive-citation-changed{color:var(--wb-attention)}
     .wb-progressive button.wb-progressive-citation:hover,.wb-progressive button.wb-progressive-citation[aria-expanded=true]{background:var(--wb-soft)}
-    .wb-progressive-context{border-inline-start:1px solid var(--wb-edge);padding-inline-start:12px;margin:8px 0 4px 2px;font-size:14px;line-height:1.78}
+    .wb-progressive-context{border-inline-start:1px solid var(--wb-edge);padding-inline-start:14px;margin:8px 0 6px 2px;font-size:14px;line-height:1.8}
     .wb-progressive-detail{margin:0 0 10px;line-height:inherit}
     .wb-progressive-detail:last-child{margin-bottom:0}
-    .wb-progressive :is(h1,h2,h3,h4){font-size:1.05em;line-height:1.55;margin:10px 0 5px;font-weight:600}
+    .wb-progressive :is(h1,h2,h3,h4){font-size:13px;line-height:1.5;margin:8px 0 4px;font-weight:600;color:var(--wb-muted)}
+    .wb-progressive-detail[data-tone=attention]>h3{color:var(--wb-attention)}
+    .wb-progressive-detail[data-tone=progress]>h3{color:var(--wb-accent)}
     .wb-progressive-markdown>:first-child{margin-top:0}.wb-progressive-markdown>:last-child{margin-bottom:0}
-    .wb-progressive-markdown p{margin:0 0 9px}.wb-progressive-markdown :is(ul,ol){padding-inline-start:17px;margin:6px 0}
-    .wb-progressive-markdown strong{font-weight:600}
+    .wb-progressive-markdown p{margin:0 0 8px}.wb-progressive-markdown :is(ul,ol){padding-inline-start:18px;margin:5px 0}.wb-progressive-markdown li{margin:3px 0}
+    .wb-progressive-markdown strong{font-weight:600;color:color-mix(in srgb,var(--wb-accent) 88%,var(--wb-ink));background:color-mix(in srgb,var(--wb-accent) 7%,transparent);padding:0 2px;border-radius:3px}
+    .wb-progressive-unit[data-tone=attention]>.wb-progressive-line strong,.wb-progressive-detail[data-tone=attention] .wb-progressive-markdown strong{color:var(--wb-attention);background:color-mix(in srgb,var(--wb-attention) 9%,transparent)}
     .wb-progressive-changed{color:var(--wb-attention)!important;font-size:11px;display:block;margin:3px 0}
     .wb-progressive-popup{position:fixed;z-index:10020;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;background:var(--wb-paper);color:var(--wb-ink);border:1px solid var(--wb-edge);border-radius:9px;box-shadow:var(--wb-shadow);font-size:13px;line-height:1.62;padding:0 12px 12px;min-width:0}
     .wb-progressive-popup-head{position:sticky;top:0;z-index:1;background:var(--wb-paper);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0 6px;border-bottom:1px solid var(--wb-edge);margin-bottom:7px}
@@ -120,7 +123,9 @@ export function installReportStyle(): () => void {
     .wb-ai-status{font-size:11px;line-height:1.4;color:var(--wb-muted);margin:2px 0}.wb-ai-status:empty{display:none}
     .wb-ai-result{margin-top:8px;padding:8px 0 0;border-top:1px solid var(--wb-edge);color:var(--wb-ink);font-size:13px;overflow-wrap:anywhere}
     .wb-ai-answer>:first-child{margin-top:0}.wb-ai-answer>:last-child{margin-bottom:4px}.wb-ai-answer p{margin:4px 0}.wb-ai-result pre{white-space:pre-wrap;font:inherit;overflow-wrap:anywhere}.wb-ai-references summary{font-size:11px;color:var(--wb-accent);cursor:pointer}.wb-ai-confirm{border-inline-start:2px solid var(--wb-error);padding-inline-start:7px}
-    .wb-ai-auto{display:flex;align-items:center;gap:5px;margin:5px 0;font-size:11px;cursor:pointer}.wb-ai-auto input{width:13px;height:13px;padding:0;margin:0;accent-color:var(--wb-accent)}
+    .wb-ai-options{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:5px 0}
+    .wb-ai-auto{display:flex;align-items:center;gap:5px;margin:0;font-size:11px;cursor:pointer}.wb-ai-auto input{width:13px;height:13px;padding:0;margin:0;accent-color:var(--wb-accent)}
+    .wb-ai-provider{margin-inline-start:auto;max-width:160px;font:11px/1.3 system-ui;padding:2px 6px;border:1px solid var(--wb-edge);border-radius:4px;background:var(--wb-paper);color:var(--wb-ink)}
     .wb-ai-candidate{position:fixed;z-index:10030;top:12px;inset-inline:10px;max-height:65vh;overflow:auto;overscroll-behavior:contain;border:1px solid var(--wb-edge);border-radius:8px;background:var(--wb-paper);box-shadow:var(--wb-shadow);color:var(--wb-ink);font-size:13px;line-height:1.7;padding:0 11px 11px}
     .wb-ai-candidate-head{position:sticky;top:0;display:flex;gap:4px;align-items:center;background:var(--wb-paper);border-bottom:1px solid var(--wb-edge);padding:7px 0;z-index:1}.wb-ai-candidate-head strong{margin-inline-end:auto}
     .wb-ai-candidate-unit{padding:6px 0;border-bottom:1px solid var(--wb-edge)}.wb-ai-candidate-unit>div>p{margin:4px 0}.wb-ai-candidate-detail{font-size:12px;margin:5px 0 5px 4px;padding-inline-start:9px;border-inline-start:1px solid var(--wb-edge)}.wb-ai-candidate details{font-size:11px;color:var(--wb-muted);margin-top:5px}

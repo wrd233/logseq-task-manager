@@ -17,7 +17,7 @@ import { OrdinaryTodoService } from "../ordinary-todo/service.ts";
 import { OrdinaryTodoUI } from "../ordinary-todo/ui.ts";
 import { WritingFormatService } from "../writing-format/service.ts";
 import { WritingFormatUI } from "../writing-format/ui.ts";
-import type { ReadingModelInput, ReadingHandoff } from "../work-view/reading-ai.ts";
+import type { ReadingModelInput, ReadingHandoff, ReadingJobStartRequest, ReadingJobSnapshot, ReadingProvidersView } from "../work-view/reading-ai.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
     const witnesses=new WeakMap<AgentWorkBinding,()=>boolean>();
     const read = async (rootUuid: string,pageScope?:ScopeLease["scope"]): Promise<AgentWorkBinding> => {
@@ -179,15 +179,47 @@ export function installAgentWorkspace(options: {
     const readDescriptor=async(graphId:string)=>{
         let path=String(logseq.settings?.agentWorkspaceDescriptor??"").trim();
         if(!path){const dot=await desktopBridge().doAction(["getLogseqDotDirRoot"]);if(typeof dot==="string"&&dot.endsWith("/.logseq"))path=`${dot.slice(0,-8)}/.task-copilot-workspace/workspace-plugin.json`;}
-        if(!path.startsWith("/"))throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED","请先运行协作启动器，启动工作台服务和 DSH。");
-        let descriptorText:string;try{descriptorText=await desktopFiles(()=>graphId).read(path);}catch{throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED","请先运行协作启动器，启动工作台服务和 DSH。");}
+        if(!path.startsWith("/"))throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED","请先启动工作台服务（Companion）。");
+        let descriptorText:string;try{descriptorText=await desktopFiles(()=>graphId).read(path);}catch{throw new WorkspaceError("PLUGIN_DESCRIPTOR_REQUIRED","请先启动工作台服务（Companion）。");}
         return {path,descriptor:parseWorkspaceDescriptor(JSON.parse(descriptorText),true) as WorkspacePluginDescriptor};
+    };
+    const currentDescriptor=async()=>{
+        const graphId=graphIdentity(await logseq.App.getCurrentGraph());
+        return (await readDescriptor(graphId)).descriptor;
     };
     const generateReading=async(input:ReadingModelInput,signal?:AbortSignal)=>{
         const epoch=graphGeneration,scope=input.source.scope;
         const check=async()=>{const work=options.work?.readingAPI.read().scope;if(disposed||graphGeneration!==epoch||graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||!work||!sameWorkScope(work,scope))throw new WorkspaceError("SCOPE_MISMATCH");};
         await check();const {descriptor}=await readDescriptor(scope.graphId);await check();
         const response=await post(descriptor,"/plugin/reading-model",input,190000,signal);await check();return response.value;
+    };
+    const readingProviders=async():Promise<ReadingProvidersView>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/reading-providers",{},10000);
+        return response.value as ReadingProvidersView;
+    };
+    const selectReadingRoute=async(route:{defaultProfileId?:string|null;fast?:string|null;deep?:string|null;local?:string|null}):Promise<ReadingProvidersView>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/reading-providers/route",route,10000);
+        return response.value as ReadingProvidersView;
+    };
+    const startReadingJob=async(input:ReadingJobStartRequest):Promise<{job:ReadingJobSnapshot;deduplicated:boolean}>=>{
+        const {descriptor}=await readDescriptor(input.input.source.scope.graphId);
+        const response=await post(descriptor,"/plugin/reading-jobs/start",input,30000);
+        return response.value as {job:ReadingJobSnapshot;deduplicated:boolean};
+    };
+    const readingJobStatus=async(query:{jobId?:string;workKey?:string}):Promise<{job:ReadingJobSnapshot|null}>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/reading-jobs/status",query,10000);
+        return response.value as {job:ReadingJobSnapshot|null};
+    };
+    const ackReadingJob=async(jobId:string):Promise<void>=>{
+        const descriptor=await currentDescriptor();
+        await post(descriptor,"/plugin/reading-jobs/ack",{jobId},10000);
+    };
+    const cancelReadingJob=async(query:{jobId?:string;workKey?:string}):Promise<void>=>{
+        const descriptor=await currentDescriptor();
+        await post(descriptor,"/plugin/reading-jobs/cancel",query,10000);
     };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)
@@ -398,7 +430,7 @@ export function installAgentWorkspace(options: {
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,generateReading,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

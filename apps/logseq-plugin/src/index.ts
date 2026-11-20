@@ -173,7 +173,16 @@ async function main(): Promise<void> {
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
     work.setWorkSearch(actions["找工作"]!);
-    work.setReadingAI({complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
+    work.setReadingAI({
+      complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),
+      handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent),
+      startJob:input=>agentWorkspace!.local.startReadingJob(input),
+      jobStatus:query=>agentWorkspace!.local.readingJobStatus(query),
+      ackJob:jobId=>agentWorkspace!.local.ackReadingJob(jobId),
+      cancelJob:query=>agentWorkspace!.local.cancelReadingJob(query),
+      providers:()=>agentWorkspace!.local.readingProviders(),
+      selectRoute:route=>agentWorkspace!.local.selectReadingRoute(route),
+    });
   }
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});

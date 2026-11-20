@@ -42,6 +42,7 @@ export function assertImportBoundaries(path, content, compilerOptions) {
   const cli = absolute.startsWith(`${resolve(repo, "apps/task-copilot-cli/src")}/`) && absolute !== resolve(repo, "apps/task-copilot-cli/src/local-runtime.ts");
   const domain = absolute.startsWith(`${resolve(repo, "packages/domain/src")}/`);
   const agent = absolute.startsWith(`${resolve(repo, "packages/agent/src")}/`);
+  const readingRuntime = absolute.startsWith(`${resolve(repo, "packages/reading-runtime/src")}/`);
   const options = compilerOptions ?? compilerOptionsFor(absolute);
   const runtime = absolute === resolve(repo, "apps/logseq-plugin/src/plugin-runtime.ts");
   const pluginHost = absolute.startsWith(`${resolve(repo, "apps/logseq-plugin/src/host")}/`);
@@ -54,7 +55,7 @@ export function assertImportBoundaries(path, content, compilerOptions) {
     const inside = directory => targets.some(target => target.startsWith(`${resolve(repo, directory)}/`));
     const sqlite = /^(?:@task-copilot\/sqlite(?:\/|$)|better-sqlite3(?:\/|$)|(?:node:)?sqlite$)/u.test(name) || inside("packages/sqlite");
     if ((kernel || serviceCapability || plugin || cli) && sqlite) throw new Error(`Application capability must use its storage port: ${path} imports ${name}`);
-    if ((domain || agent) && (sqlite || /^(?:@logseq(?:\/|$)|(?:node:)?http(?:$|\/)|@task-copilot\/client(?:\/|$))/u.test(name) || inside("packages/client"))) throw new Error(`Domain and Agent remain infrastructure-free: ${path} imports ${name}`);
+    if ((domain || agent || readingRuntime) && (sqlite || /^(?:@logseq(?:\/|$)|(?:node:)?http(?:$|\/)|@task-copilot\/client(?:\/|$))/u.test(name) || inside("packages/client"))) throw new Error(`Domain and Agent remain infrastructure-free: ${path} imports ${name}`);
     if (pluginHost && inside("apps/logseq-plugin/src/features")) throw new Error(`Plugin host must not depend on feature implementations: ${path} imports ${name}`);
     if (runtime && inside("apps/logseq-plugin/src/features")) throw new Error(`Runtime must not depend on feature controllers: ${path} imports ${name}`);
     if (taskUi && targets.some(target => /\/(?:graph-gateway-worker|source-change-observer)(?:\.(?:ts|mjs))?$/u.test(target))) throw new Error(`Task UI must not own background resources: ${path} imports ${name}`);
@@ -87,7 +88,7 @@ async function sources(directory) {
 }
 
 export async function checkBoundaries() {
-  for (const directory of ["packages/domain/src", "packages/agent/src", "apps/task-copilot-cli/src", "apps/logseq-plugin/src", "apps/kernel-service/src", "packages/contracts/src", "packages/kernel/src"]) {
+  for (const directory of ["packages/domain/src", "packages/agent/src", "packages/reading-runtime/src", "apps/task-copilot-cli/src", "apps/logseq-plugin/src", "apps/kernel-service/src", "packages/contracts/src", "packages/kernel/src"]) {
     for (const path of await sources(directory)) assertImportBoundaries(path, await readFile(path, "utf8"));
   }
   const server = await readFile("apps/kernel-service/src/server.ts", "utf8");

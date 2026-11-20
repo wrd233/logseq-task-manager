@@ -5,7 +5,8 @@ import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promi
 import { join, resolve, dirname } from "node:path";
 import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
-import { callDshReadingModel, createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
+import { createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
+import { ReadingJobHub, type ReadingHubOptions } from "./reading-hub.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -143,6 +144,7 @@ export async function startWorkspaceServer(options: {
     port?: number;
     offlineMs?: number;
     timeoutMs?: number;
+    reading?: Omit<ReadingHubOptions, "stateDirectory">;
 }) {
     const state = resolve(options.stateDirectory);
     await mkdir(state, { recursive: true, mode: 0o700 });
@@ -154,6 +156,7 @@ export async function startWorkspaceServer(options: {
     await writeFile(lock, JSON.stringify({ pid: process.pid, instanceId: randomUUID() }), { flag: "wx", mode: 0o600 });
     const instanceId = randomUUID(), token = randomBytes(32).toString("hex"), pluginToken = randomBytes(32).toString("hex");
     const broker = new WorkspaceBroker(instanceId, options.offlineMs, options.timeoutMs);
+    const readingHub = new ReadingJobHub({ stateDirectory: state, ...options.reading });
     let baseUrl = "", root: string | null = null, observations: FileObservation | undefined, cache: unknown = null;
     let operationQueue: Promise<unknown> = Promise.resolve(), queued = 0;
     const receipts = new Map<string, {
@@ -299,8 +302,32 @@ export async function startWorkspaceServer(options: {
             if (request.url === "/plugin/reading-model") {
                 const cancellation=new AbortController();
                 response.once("close",()=>{if(!response.writableEnded)cancellation.abort();});
-                const value=await callDshReadingModel(state,input,cancellation.signal);
+                const value=await readingHub.runSync(input,cancellation.signal);
                 if(!response.destroyed)send(response,200,{value});return;
+            }
+            if (request.url === "/plugin/reading-providers") {
+                const value = await readingHub.providers();
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/reading-providers/route") {
+                const value = await readingHub.setRoute(input);
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/reading-jobs/start") {
+                const value = await readingHub.startJob(input);
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/reading-jobs/status") {
+                const value = await readingHub.jobStatus(input);
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/reading-jobs/ack") {
+                const value = await readingHub.ackJob(input);
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/reading-jobs/cancel") {
+                const value = await readingHub.cancelJob(input);
+                send(response, 200, { value }); return;
             }
             if (request.url === "/plugin/dsh") {
                 const raw = workRecord(input, ["connectionId", "mode", "title", "workRef", "newTab", "intent"]), connectionId = workText(raw.connectionId);
@@ -417,7 +444,7 @@ export async function startWorkspaceServer(options: {
         const descriptor: WorkspacePluginDescriptor = { schemaVersion: 1, instanceId, baseUrl, token, pluginToken };
         await atomicJson(descriptorPath, { schemaVersion: 1, instanceId, baseUrl, token });
         await atomicJson(pluginDescriptorPath, descriptor);
-        return { descriptor, descriptorPath, pluginDescriptorPath, broker, close: async () => { broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
+        return { descriptor, descriptorPath, pluginDescriptorPath, broker, readingHub, close: async () => { readingHub.dispose(); broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
     }
     catch (error) {
         server.close();

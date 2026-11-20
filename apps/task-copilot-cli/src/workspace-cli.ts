@@ -4,10 +4,18 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { ClientError } from "@task-copilot/client";
 import { WorkspaceError, parseWorkspaceDescriptor, parseWorkBinding, sameWorkScope, workRecord, workText, type WorkspaceCommand, type WorkspaceCall, type WorkspaceDescriptor } from "@task-copilot/contracts";
+import { parseReadingConfig, sanitizeReadingProviders, testProviderProfile, type ProviderKind, type ProviderLocality, type ReadingProviderProfile } from "@task-copilot/reading-runtime";
 import { option, required, type CliIO } from "./cli.ts";
+import { isDshRunning, loadReadingConfig, loadReadingEnv, providersConfigPath, saveReadingConfig } from "./reading-hub.ts";
 import { startWorkspaceServer } from "./workspace-server.ts";
+import { installWorkspaceLaunchAgent, startWorkspaceDaemon, stopWorkspaceDaemon, uninstallWorkspaceLaunchAgent, workspaceServiceStatus } from "./workspace-service.ts";
 export const workspaceHelp = `Task Copilot natural workspace CLI (local connection; no Kernel required)
   workspace serve [--state-dir <private-directory>]  # foreground; stop with Ctrl+C
+  workspace service install | uninstall | start | stop | status [--state-dir <dir>]
+  workspace provider list | show [--state-dir <dir>]
+  workspace provider set <id> --kind <openai-compatible|anthropic|dsh> [--base-url <url>] [--model <name>] [--api-key <env:VAR|key>] [--label <text>] [--locality <remote|local>] [--max-tokens <n>]
+  workspace provider route [--default <id>] [--fast <id|none>] [--deep <id|none>] [--local <id|none>]
+  workspace provider test [id] [--state-dir <dir>]
   workspace status | capabilities | refresh | read
   workspace source read <sourceId>
   workspace guidance read | collaboration read | collaboration refresh
@@ -124,7 +132,7 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
             io.out(workspaceHelp);
             return 0;
         }
-        const valueFlags = new Set(["--state-dir", "--directory", "--client", "--request-id", "--input-file", "--question", "--purpose", "--path", "--id", "--platform", "--session-id", "--url", "--description"]), words: string[] = [];
+        const valueFlags = new Set(["--state-dir", "--directory", "--client", "--request-id", "--input-file", "--question", "--purpose", "--path", "--id", "--platform", "--session-id", "--url", "--description", "--kind", "--base-url", "--model", "--api-key", "--label", "--locality", "--max-tokens", "--fast", "--deep", "--local", "--default"]), words: string[] = [];
         for (let index = 0; index < args.length; index++) {
             const arg = args[index]!;
             if (valueFlags.has(arg)) {
@@ -146,6 +154,113 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
             io.out(JSON.stringify({ status: "listening", pluginDescriptorPath: service.pluginDescriptorPath, tasksRequired: false }));
             await new Promise<void>(yes => { const close = () => { process.removeListener("SIGINT", close); process.removeListener("SIGTERM", close); void service.close().then(yes); }; process.on("SIGINT", close); process.on("SIGTERM", close); });
             return 0;
+        }
+        if (words[1] === "service") {
+            const sub = words[2];
+            if (sub === "status") {
+                const status = await workspaceServiceStatus(state);
+                io.out(JSON.stringify(status, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "install") {
+                const result = await installWorkspaceLaunchAgent(state);
+                io.out(JSON.stringify(result, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "uninstall") {
+                const result = await uninstallWorkspaceLaunchAgent(state);
+                io.out(JSON.stringify(result, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "start") {
+                const status = await startWorkspaceDaemon(state);
+                io.out(JSON.stringify(status, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "stop") {
+                const result = await stopWorkspaceDaemon(state);
+                io.out(JSON.stringify(result, null, json ? undefined : 2));
+                return 0;
+            }
+            throw new ClientError("CLI_USAGE", "Use workspace service install|uninstall|start|stop|status", 2);
+        }
+        if (words[1] === "provider") {
+            const sub = words[2];
+            const env = await loadReadingEnv(state, process.env);
+            const dshAvailable = await isDshRunning(state);
+            const loaded = await loadReadingConfig(state, env, { dshAvailable });
+            if (sub === "list" || sub === "show") {
+                const snapshot = sanitizeReadingProviders(loaded.config, env, { dshAvailable, source: loaded.source, backgroundUsedLastHour: 0, backgroundUsedLastDay: 0 });
+                io.out(JSON.stringify({ configPath: providersConfigPath(state), ...snapshot }, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "set") {
+                const id = words[3];
+                if (!id) throw new ClientError("CLI_USAGE", "Usage: workspace provider set <id> --kind <kind> ...", 2);
+                const existing = loaded.config.profiles[id];
+                const kind = (option(args, "--kind") ?? existing?.kind) as ProviderKind | undefined;
+                if (kind !== "openai-compatible" && kind !== "anthropic" && kind !== "dsh") {
+                    throw new ClientError("CLI_USAGE", "--kind must be openai-compatible, anthropic, or dsh", 2);
+                }
+                const locality = (option(args, "--locality") ?? existing?.locality ?? "remote") as ProviderLocality;
+                const label = option(args, "--label") ?? existing?.label ?? id;
+                const baseUrl = option(args, "--base-url") ?? existing?.baseUrl;
+                const model = option(args, "--model") ?? existing?.model;
+                const apiKey = option(args, "--api-key") ?? existing?.apiKey;
+                const maxTokensRaw = option(args, "--max-tokens");
+                const maxTokens = maxTokensRaw !== undefined ? Number(maxTokensRaw) : existing?.maxTokens;
+                const nextProfile: ReadingProviderProfile = {
+                    label,
+                    kind,
+                    locality,
+                    ...(baseUrl ? { baseUrl } : {}),
+                    ...(model ? { model } : {}),
+                    ...(apiKey !== undefined ? { apiKey } : {}),
+                    ...(maxTokens !== undefined ? { maxTokens } : {}),
+                };
+                const nextConfig = parseReadingConfig({
+                    ...loaded.config,
+                    profiles: { ...loaded.config.profiles, [id]: nextProfile },
+                });
+                await saveReadingConfig(state, nextConfig);
+                const snapshot = sanitizeReadingProviders(nextConfig, env, { dshAvailable, source: "file", backgroundUsedLastHour: 0, backgroundUsedLastDay: 0 });
+                io.out(JSON.stringify({ saved: id, configPath: providersConfigPath(state), ...snapshot }, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "route") {
+                const next = structuredClone(loaded.config);
+                const parseRouteArg = (value: string) => (value === "none" || value === "null" ? null : value);
+                const def = option(args, "--default");
+                if (def !== undefined) {
+                    const target = parseRouteArg(def);
+                    next.routes.fast = target;
+                    next.routes.deep = target;
+                }
+                const fast = option(args, "--fast");
+                if (fast !== undefined) next.routes.fast = parseRouteArg(fast);
+                const deep = option(args, "--deep");
+                if (deep !== undefined) next.routes.deep = parseRouteArg(deep);
+                const local = option(args, "--local");
+                if (local !== undefined) next.routes.local = parseRouteArg(local);
+                const validated = parseReadingConfig(next);
+                await saveReadingConfig(state, validated);
+                const snapshot = sanitizeReadingProviders(validated, env, { dshAvailable, source: "file", backgroundUsedLastHour: 0, backgroundUsedLastDay: 0 });
+                io.out(JSON.stringify({ configPath: providersConfigPath(state), ...snapshot }, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "test") {
+                const id = words[3] ?? loaded.config.routes.fast ?? loaded.config.routes.deep;
+                if (!id || !loaded.config.profiles[id]) throw new WorkspaceError("READING_MODEL_NOT_CONFIGURED", "No profile specified or configured.");
+                const profile = loaded.config.profiles[id]!;
+                if (profile.kind === "dsh") {
+                    io.out(JSON.stringify({ profileId: id, kind: "dsh", ok: dshAvailable }, null, json ? undefined : 2));
+                    return dshAvailable ? 0 : 1;
+                }
+                const tested = await testProviderProfile(profile, env);
+                io.out(JSON.stringify({ profileId: id, model: profile.model, locality: profile.locality, ...tested }, null, json ? undefined : 2));
+                return 0;
+            }
+            throw new ClientError("CLI_USAGE", "Use workspace provider list|show|set|route|test", 2);
         }
         const entry = await workspaceEntry(option(args, "--directory") ?? process.cwd());
         const commandWords = words.slice(1);
