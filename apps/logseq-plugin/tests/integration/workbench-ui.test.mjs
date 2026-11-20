@@ -219,7 +219,8 @@ test('composition root leaves runtime disabled while work and materials remain u
     assert.equal(report.read().structureVersion,source.value.structureVersion);
     assert.equal(report.read().fragments[0].target.blockUuid,'root');
     const nav=browser.document.querySelector('#workbench-navigation');
-    const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='查找全部材料');
+    nav.querySelector('summary[aria-label="其他工作台入口"]').click();
+    const materials=[...nav.querySelectorAll('button')].find(button=>button.textContent==='全部材料');
     materials.click();await delay(20);
     assert.equal(browser.document.querySelector('[data-workbench-feature="materials"]').hidden,false);
     assert.equal(calls,0);assert.equal(subscriptions,4); // work-view, known-workspace observation, native reading entries and discovery metadata; no task runtime
