@@ -62,6 +62,11 @@ test('a restarted file Graph resolves the saved page name to its new real page U
   const WorkView=f.work.constructor;restored=new WorkView(()=>{},{initialReadingMode:'report',source:provider});await restored.restoreReadingSession();
   assert.equal(restored.panel.visible,true);assert.equal(restored.snapshot().root,null);assert.equal(restored.reportAPI.read().scope.rootUuid,'page-new');
   assert.deepEqual(restored.reportAPI.read().fragments.map(f=>f.target.blockUuid),['b0']);assert.equal(JSON.stringify([...f.blocks]),before);
+  // A real file Graph can replace the page identity after the initial
+  // restored view has already been shown.
+  page={...page,uuid:'page-late'};await restored.refresh();
+  assert.equal(restored.reportAPI.read().scope.rootUuid,'page-late');
+  assert.deepEqual(restored.reportAPI.read().fragments.map(f=>f.target.blockUuid),['b0']);assert.equal(JSON.stringify([...f.blocks]),before);
  }finally{restored?.dispose();await f.close();}
 });
 

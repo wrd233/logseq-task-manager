@@ -188,7 +188,7 @@ export class WorkView {
       void this.pollDraft().catch(this.fail);
       void this.refreshBrowsing().catch(()=>undefined);
       if (Date.now() - this.lastTreeRead >= 5_000) {
-        this.lastTreeRead = Date.now(); void this.refreshQueue?.request(true).catch(this.fail);
+        this.lastTreeRead = Date.now(); void this.refreshActiveSource().catch(this.fail);
       }
     }, 650);
   }
@@ -304,7 +304,23 @@ export class WorkView {
   }
 
   private refreshSource(): Promise<void> { return this.refreshQueue?.request(true, new Map(), true) ?? Promise.resolve(); }
+  /** Logseq may return the cached page UUID at startup, then replace it during
+   * file Graph indexing. Follow the same named page, not the native browsing
+   * location, after the actual host identity settles. */
+  private async followPageIdentity():Promise<boolean>{
+    const scope=this.readingScope(),navigation=panels.activeToken("work"),epoch=this.navigationEpoch;
+    if(scope?.kind!=="page"||navigation===null||!this.panel.visible||this.draft||this.report.nativeActive||this.renderer.composing)return false;
+    const valid=()=>!this.disposed&&this.panel.visible&&epoch===this.navigationEpoch&&panels.isLatest(navigation);
+    const page=await logseq.Editor.getPage(scope.pageName!);
+    if(!valid()||!page?.uuid||page.uuid===scope.rootUuid)return false;
+    if(graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||await logseq.Editor.checkEditing()||!valid())return false;
+    await this.enter(page.uuid,navigation,scope.pageName!);return true;
+  }
+  private async refreshActiveSource():Promise<void>{
+    if(!await this.followPageIdentity())await this.refreshQueue?.request(true);
+  }
   async refresh(): Promise<void> {
+    if(await this.followPageIdentity())return;
     const reading=this.report.readingActive;
     await this.refreshSource();
     if (!reading && this.report.active && this.panel.visible && !this.disposed) await this.report.capture(false);
@@ -465,7 +481,9 @@ export class WorkView {
     const scope=this.readingScope();if(!scope || this.disposed || this.historical || !this.panel.visible && !this.report.nativeActive)return;
     const bookmark=this.report.sessionBookmark(),title=this.pageName??workIdentity(scope,this.sourceRows.find(row=>row.uuid===scope.rootUuid)?.content??"工作").title;
     const excerpt=this.renderer.stopExcerpt()||this.sourceRows.find(row=>row.uuid===bookmark.uuid)?.content?.replace(/\s+/gu," ").slice(0,100)||"";
-    try{const position=JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,title,excerpt,...this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback,progressiveKey:bookmark.progressiveKey,progressiveFocus:bookmark.progressiveFocus}});
+    const previous=this.loadWorkPosition(scope)?.bookmark;
+    const progressiveFocus=bookmark.progressiveFocus??(bookmark.progressiveKey&&previous?.progressiveKey===bookmark.progressiveKey&&Math.abs(previous.scrollTop-bookmark.scrollTop)<=1?previous.progressiveFocus:undefined);
+    try{const position=JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,title,excerpt,...this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback,progressiveKey:bookmark.progressiveKey,progressiveFocus}});
       localStorage.setItem(this.positionKey(scope),position);localStorage.setItem(`workbench:reading-session:${scope.graphId}`,position);
       const recent:RecentReading={scope,title,excerpt};
       const others=this.recentReadings(scope.graphId).filter(item=>workPositionKey(item.scope)!==this.positionKey(scope));
