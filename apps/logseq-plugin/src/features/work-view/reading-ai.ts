@@ -14,6 +14,34 @@ import { pageWorkIds } from "../../workspace/page-identity.ts";
 
 type Mode = "organize" | "ask" | "rewrite";
 export type ReadingPrivacyMode = "default" | "local-only";
+export type CollaborateTargetId = "dsh" | "codex" | "antigravity" | "claude-code" | "clipboard";
+export interface CollaborateTargetOption {
+  id: CollaborateTargetId;
+  label: string;
+  buttonLabel: string;
+  transport: "dsh-ticket" | "mcp-handoff" | "clipboard-handoff";
+  available: boolean;
+  description?: string;
+}
+export interface CollaborateTargetsView {
+  defaultTarget: CollaborateTargetId;
+  dshAvailable: boolean;
+  targets: CollaborateTargetOption[];
+}
+export interface CollaborateHandoffResult {
+  target: CollaborateTargetId;
+  targetLabel: string;
+  handoffId: string;
+  workKey: string;
+  title: string;
+  directory: string;
+  directoryUrl: string;
+  url: string | null;
+  ticket: string | null;
+  handoffPrompt: string | null;
+  privacyMode: ReadingPrivacyMode;
+  permissions: { writeEscalated: false };
+}
 export interface ReadingModelInput {
   mode: Mode;
   question: string;
@@ -55,6 +83,9 @@ export interface ReadingJobSnapshot {
   mode: Mode;
   background: boolean;
   privacyMode: ReadingPrivacyMode;
+  requireReview?: boolean;
+  origin?: "local-model" | "external-mcp";
+  summary?: string;
   sourceSetVersion?: string;
   structureVersion?: string;
   previous?: WorkBriefing;
@@ -73,13 +104,16 @@ export interface ReadingJobStartRequest {
 }
 export interface ReadingAiPort {
   complete(input: ReadingModelInput, signal?: AbortSignal): Promise<unknown>;
-  handoff(scope: SourceScope, intent: ReadingHandoff): Promise<void>;
+  handoff(scope: SourceScope, intent: ReadingHandoff, target?: CollaborateTargetId): Promise<CollaborateHandoffResult | void>;
   startJob?(input: ReadingJobStartRequest): Promise<{ job: ReadingJobSnapshot; deduplicated: boolean }>;
   jobStatus?(query: { jobId?: string; workKey?: string }): Promise<{ job: ReadingJobSnapshot | null }>;
   ackJob?(jobId: string): Promise<void>;
   cancelJob?(query: { jobId?: string; workKey?: string }): Promise<void>;
   providers?(): Promise<ReadingProvidersView>;
   selectRoute?(route: { defaultProfileId?: string | null; fast?: string | null; deep?: string | null; local?: string | null }): Promise<ReadingProvidersView>;
+  collaborateTargets?(): Promise<CollaborateTargetsView>;
+  selectCollaborateTarget?(target: CollaborateTargetId): Promise<CollaborateTargetsView>;
+  setWorkPrivacy?(workKey: string, privacyMode: ReadingPrivacyMode, scope?: SourceScope): Promise<void>;
 }
 
 interface Selection { text: string; uuid?: string }
@@ -89,6 +123,7 @@ interface State {
   question: string;
   selection: Selection | null;
   answer: Answer | null;
+  handoffReceipt: CollaborateHandoffResult | null;
   busy: boolean;
   notice: string;
   confirm: boolean;
@@ -105,6 +140,7 @@ const initial = (automatic = false, localOnly = false): State => ({
   question: "",
   selection: null,
   answer: null,
+  handoffReceipt: null,
   busy: false,
   notice: "",
   confirm: false,
@@ -170,6 +206,7 @@ export class WorkReadingAI {
   private readonly tools = element("div", "", "wb-ai-tools");
   private readonly optionsBar = element("div", "", "wb-ai-options");
   private readonly status = element("div", "", "wb-ai-status");
+  private readonly handoffReady = element("div", "", "wb-ai-handoff-ready");
   private readonly result = element("div", "", "wb-ai-result");
   private readonly ask: HTMLButtonElement;
   private readonly rewrite: HTMLButtonElement;
@@ -178,12 +215,15 @@ export class WorkReadingAI {
   private readonly auto: HTMLInputElement;
   private readonly localOnlyInput: HTMLInputElement;
   private readonly providerSelect: HTMLSelectElement;
+  private readonly targetSelect: HTMLSelectElement;
   private readonly candidateButton: HTMLButtonElement;
   private readonly candidateBox = element("section", "", "wb-ai-candidate");
   private candidateFocus: HTMLElement | null = null;
   private candidateSignature = "";
   private providersView: ReadingProvidersView | null = null;
   private providersLoading = false;
+  private targetsView: CollaborateTargetsView | null = null;
+  private targetsLoading = false;
   private autoTimer: number | null = null;
   private autoKey: string | null = null;
   private watchTimer: number | null = null;
@@ -212,6 +252,7 @@ export class WorkReadingAI {
         this.state.selection = this.pointerSelection ?? selectedText() ?? this.state.selection;
         this.input.value = this.state.question;
         void this.loadProviders();
+        void this.loadCollaborateTargets();
       }
       this.pointerSelection = null;
       this.paint();
@@ -222,12 +263,13 @@ export class WorkReadingAI {
     this.cancel = button("取消", () => void this.cancelActiveJob());
     this.cancel.setAttribute("aria-label", "取消 AI 阅读任务");
     this.candidateButton = button("待采用修订", () => this.reviewCandidate(this.candidateButton));
-    this.handoff = button("在 DSH 继续", () => void this.continueInDsh());
+    this.handoff = button("在 DSH 继续", () => void this.continueCollaborate());
     this.handoff.className = "wb-ai-handoff";
-    this.handoff.title = "进入此工作的 DSH 对话，带上本次阅读和请求";
+    this.handoff.title = "带上本次阅读和请求，交接到当前协作目标继续";
     this.handoff.onpointerdown = (event) => { this.pointerSelection = selectedText(); event.preventDefault(); };
     bar.append(this.toggle, this.cancel, this.candidateButton, this.handoff);
-    this.root.append(bar, this.form, this.status, this.candidateBox);
+    this.handoffReady.hidden = true;
+    this.root.append(bar, this.form, this.status, this.handoffReady, this.candidateBox);
     this.status.setAttribute("role", "status");
     this.input.rows = 2;
     this.input.placeholder = "问当前工作，或说明希望怎样整理";
@@ -268,6 +310,9 @@ export class WorkReadingAI {
     this.localOnlyInput.onchange = () => {
       this.state.localOnly = this.localOnlyInput.checked;
       localStorage.setItem(`workbench:reading-local:${this.key}`, String(this.localOnlyInput.checked));
+      if (this.key) {
+        void this.port.setWorkPrivacy?.(this.key, this.state.localOnly ? "local-only" : "default", this.scope ?? undefined).catch(() => undefined);
+      }
       this.paintProviderSelect();
     };
 
@@ -276,7 +321,12 @@ export class WorkReadingAI {
     this.providerSelect.hidden = true;
     this.providerSelect.onchange = () => void this.switchProvider(this.providerSelect.value);
 
-    this.optionsBar.append(autoLabel, localLabel, this.providerSelect);
+    this.targetSelect = element("select", "", "wb-ai-target");
+    this.targetSelect.setAttribute("aria-label", "默认协作目标");
+    this.targetSelect.hidden = true;
+    this.targetSelect.onchange = () => void this.switchCollaborateTarget(this.targetSelect.value as CollaborateTargetId);
+
+    this.optionsBar.append(autoLabel, localLabel, this.targetSelect, this.providerSelect);
     this.form.append(this.selectionLabel, this.input, this.tools, this.optionsBar, this.result);
 
     this.candidateBox.hidden = true;
@@ -286,6 +336,7 @@ export class WorkReadingAI {
       if (event.key === "Escape") { event.preventDefault(); this.closeCandidate(); }
     };
     window.addEventListener("resize", this.positionCandidate);
+    window.addEventListener("focus", this.onWindowFocus);
     this.root.setAttribute("aria-label", "轻量 AI 阅读助手");
     this.paint();
   }
@@ -324,6 +375,103 @@ export class WorkReadingAI {
       this.providersLoading = false;
     }
   }
+
+  private async loadCollaborateTargets(): Promise<void> {
+    if (!this.port.collaborateTargets || this.targetsLoading || this.disposed) return;
+    this.targetsLoading = true;
+    try {
+      this.targetsView = await this.port.collaborateTargets();
+      if (!this.disposed) this.paintCollaborateTarget();
+    } catch {
+      // Companion may be stopped; keep default button label quietly.
+    } finally {
+      this.targetsLoading = false;
+    }
+  }
+
+  private async switchCollaborateTarget(target: CollaborateTargetId): Promise<void> {
+    if (!this.port.selectCollaborateTarget || !target) return;
+    try {
+      this.targetsView = await this.port.selectCollaborateTarget(target);
+      const chosen = this.targetsView.targets.find((item) => item.id === target);
+      this.state.notice = chosen ? `已切换默认协作目标：${chosen.label}` : "已切换默认协作目标。";
+      this.paint();
+    } catch (error) {
+      this.state.notice = text(error);
+      this.paint();
+    }
+  }
+
+  private paintCollaborateTarget(): void {
+    const view = this.targetsView;
+    const current = view?.targets.find((item) => item.id === view.defaultTarget) ?? null;
+    this.handoff.textContent = current?.buttonLabel ?? "在 DSH 继续";
+    this.handoff.title = current?.description ?? "带上本次阅读和请求，交接到当前协作目标继续";
+    if (!view || !view.targets.length) {
+      this.targetSelect.hidden = true;
+      return;
+    }
+    this.targetSelect.hidden = false;
+    this.targetSelect.disabled = this.state.busy;
+    this.targetSelect.replaceChildren();
+    for (const target of view.targets) {
+      const opt = element("option", `协作：${target.label}`);
+      opt.value = target.id;
+      opt.selected = target.id === view.defaultTarget;
+      this.targetSelect.append(opt);
+    }
+  }
+
+  private paintHandoffReceipt(): void {
+    const receipt = this.state.handoffReceipt;
+    this.handoffReady.replaceChildren();
+    this.handoffReady.hidden = !receipt;
+    if (!receipt) return;
+    const summaryText =
+      receipt.privacyMode === "local-only"
+        ? `已暂存 ${receipt.targetLabel} 交接上下文（只读 · 仅本地模式将拦正文）`
+        : `已暂存 ${receipt.targetLabel} 交接上下文（只读连接）`;
+    const copyBtn = button("复制交接指令", () => {
+      if (!receipt.handoffPrompt) return;
+      void copyMaterialLink(receipt.handoffPrompt)
+        .then(() => {
+          this.state.notice = `已复制 ${receipt.targetLabel} 交接指令。`;
+          this.status.textContent = this.state.notice;
+        })
+        .catch((error) => {
+          this.state.notice = text(error);
+          this.status.textContent = this.state.notice;
+        });
+    });
+    const dirBtn = button("打开工作目录", () => {
+      void (async () => {
+        try {
+          if (typeof logseq?.App?.openExternalLink === "function") {
+            await logseq.App.openExternalLink(receipt.directoryUrl);
+          } else {
+            await copyMaterialLink(receipt.directory);
+          }
+          this.state.notice = `工作目录：${receipt.directory}`;
+          this.status.textContent = this.state.notice;
+        } catch {
+          await copyMaterialLink(receipt.directory).catch(() => undefined);
+          this.state.notice = `已复制工作目录路径：${receipt.directory}`;
+          this.status.textContent = this.state.notice;
+        }
+      })();
+    });
+    const closeBtn = button("×", () => {
+      this.state.handoffReceipt = null;
+      this.paintHandoffReceipt();
+    });
+    closeBtn.setAttribute("aria-label", "关闭交接提示");
+    this.handoffReady.append(element("span", summaryText, "wb-ai-handoff-label"), copyBtn, dirBtn, closeBtn);
+  }
+
+  private onWindowFocus = (): void => {
+    if (this.disposed || !this.visible || !this.scope || !this.key || this.state.busy || !this.port.jobStatus) return;
+    void this.reconcileStagedJob(this.scope, this.state, this.key);
+  };
 
   private async switchProvider(profileId: string): Promise<void> {
     if (!this.port.selectRoute || !profileId) return;
@@ -393,6 +541,9 @@ export class WorkReadingAI {
     if (scope && visible && (keyChanged || !wasVisible) && this.port.jobStatus) {
       void this.reconcileStagedJob(scope, this.state, key);
     }
+    if (scope && visible && !this.targetsView && this.port.collaborateTargets) {
+      void this.loadCollaborateTargets();
+    }
     this.root.hidden = !scope || !visible;
     this.organize.disabled = blocked || this.state.busy;
     this.toggle.disabled = blocked && !this.state.open;
@@ -416,12 +567,14 @@ export class WorkReadingAI {
     this.auto.checked = this.state.automatic;
     this.localOnlyInput.checked = this.state.localOnly;
     this.paintProviderSelect();
+    this.paintCollaborateTarget();
   }
 
   private paint() {
     this.form.hidden = !this.state.open;
     this.status.textContent = this.state.notice;
     this.paintControls();
+    this.paintHandoffReceipt();
     this.selectionLabel.replaceChildren();
     if (this.state.selection) {
       this.selectionLabel.append(
@@ -568,10 +721,11 @@ export class WorkReadingAI {
           ...(paragraphs === result.paragraphs && result.followUps ? { followUps: result.followUps } : {}),
         },
       };
-      const saved = await (previous ? this.reading.prepare(plan) : this.reading.submit(plan));
+      const requireReview = job.requireReview === true || job.origin === "external-mcp";
+      const saved = await (previous || requireReview ? this.reading.prepare(plan) : this.reading.submit(plan));
       if (!saved.ok) throw new Error(saved.reason);
       const current = this.reading.read();
-      if (!previous && before.selectedPlanId === current.selectedPlanId && before.mode === current.mode) {
+      if (!previous && !requireReview && before.selectedPlanId === current.selectedPlanId && before.mode === current.mode) {
         const selected = await this.reading.select(planId);
         if (!selected.ok) throw new Error(selected.reason);
       }
@@ -579,7 +733,11 @@ export class WorkReadingAI {
       state.busy = false;
       state.background = false;
       const redacted = result.agentRun?.redactedMaterials;
-      state.notice = redacted?.length ? `已自动屏蔽 ${redacted.length} 份敏感文件正文未发往云端。` : "";
+      state.notice = requireReview
+        ? (job.summary ? `收到外部候选修订：${job.summary}` : "收到外部 Agent 提交的候选修订，可点击「待采用修订」审阅。")
+        : redacted?.length
+          ? `已自动屏蔽 ${redacted.length} 份敏感文件正文未发往云端。`
+          : "";
       if (!job.background) state.open = false;
       if (this.same(scope, state)) this.paint();
       if (this.port.ackJob) await this.port.ackJob(job.jobId).catch(() => undefined);
@@ -896,9 +1054,16 @@ export class WorkReadingAI {
   private async adoptCandidate(): Promise<void> {
     const state = this.state, scope = this.scope;
     if (!scope || this.blocked || (await logseq.Editor.checkEditing())) return;
+    const before = this.reading.read();
+    const candidatePlanId = before.candidate?.planId;
+    const hadArticle = !!before.activePlan?.briefing;
     const result = await this.reading.adopt();
     if (!this.same(scope, state)) return;
-    if (result.ok) { this.closeCandidate(); state.notice = ""; }
+    if (result.ok) {
+      if (!hadArticle && candidatePlanId) await this.reading.select(candidatePlanId);
+      this.closeCandidate();
+      state.notice = "";
+    }
     else state.notice = text(result.reason);
     this.paint();
   }
@@ -908,6 +1073,7 @@ export class WorkReadingAI {
     this.clearTimers();
     this.clearPollTimer();
     window.removeEventListener("resize", this.positionCandidate);
+    window.removeEventListener("focus", this.onWindowFocus);
     for (const state of this.states.values()) state.job?.abort();
     this.root.remove();
   }
@@ -997,12 +1163,14 @@ export class WorkReadingAI {
     if (this.same(scope, state)) this.paint();
   }
 
-  private async continueInDsh() {
+  private async continueCollaborate() {
     const state = this.state, scope = this.scope;
     if (!scope) return;
     if (this.pointerSelection) { state.selection = this.pointerSelection; this.pointerSelection = null; }
+    const targetOption = this.targetsView?.targets.find((item) => item.id === this.targetsView?.defaultTarget);
+    const targetLabel = targetOption?.label ?? "DSH";
     state.busy = true;
-    state.notice = "正在准备 DSH 协作…";
+    state.notice = `正在准备 ${targetLabel} 协作…`;
     this.paint();
     let requestId: string | undefined;
     try {
@@ -1016,16 +1184,28 @@ export class WorkReadingAI {
       if (!this.same(scope, state)) throw new Error("scope-mismatch");
       const article = this.reading.read().briefing;
       const readingResult = state.answer?.text ?? article?.paragraphs.map((unit) => unit.markdown).join("\n\n");
-      await this.port.handoff(scope, {
+      const handoffResult = await this.port.handoff(scope, {
         request: state.question.trim() || "继续处理当前工作",
         sourceIds: ids,
         ...(state.selection ? { selection: state.selection.text } : {}),
         basisVersion: basis.sourceSetVersion,
         ...(readingResult ? { result: readingResult.slice(0, 8000) } : {}),
       });
-      const notice = "已交接，请在 DSH 查看草稿。";
-      state.notice = notice;
-      window.setTimeout(() => { if (state.notice === notice) { state.notice = ""; if (this.same(scope, state) && !this.disposed) this.paint(); } }, 8000);
+      if (!this.same(scope, state)) return;
+      if (!handoffResult || handoffResult.target === "dsh") {
+        state.handoffReceipt = null;
+        const notice = "已交接，请在 DSH 查看草稿。";
+        state.notice = notice;
+        window.setTimeout(() => { if (state.notice === notice) { state.notice = ""; if (this.same(scope, state) && !this.disposed) this.paint(); } }, 8000);
+      } else {
+        state.handoffReceipt = handoffResult;
+        if (handoffResult.target === "clipboard" && handoffResult.handoffPrompt) {
+          await copyMaterialLink(handoffResult.handoffPrompt).catch(() => undefined);
+          state.notice = "已暂存交接上下文并复制指令，粘贴给外部 Agent 即可继续。";
+        } else {
+          state.notice = `已暂存 ${handoffResult.targetLabel} 交接上下文；可一键复制指令或打开工作目录。`;
+        }
+      }
     } catch (error) {
       state.notice = text(error);
     } finally {

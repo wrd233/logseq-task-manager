@@ -12,6 +12,7 @@ import {
   runReadingTask,
   sanitizeReadingProviders,
   type ReadingModelInput,
+  type ReadingParagraph,
   type ReadingPrivacyMode,
   type ReadingRole,
   type ReadingRunResult,
@@ -118,6 +119,9 @@ export interface StagedReadingJob {
   mode: ReadingModelInput["mode"];
   background: boolean;
   privacyMode: ReadingPrivacyMode;
+  requireReview?: boolean;
+  origin?: "local-model" | "external-mcp";
+  summary?: string;
   sourceSetVersion?: string;
   structureVersion?: string;
   previous?: ReadingModelInput["previous"];
@@ -489,6 +493,70 @@ export class ReadingJobHub {
     this.jobs.delete(jobId);
     this.schedulePersist();
     return { acknowledged: true };
+  }
+
+  async stageExternalCandidate(input: {
+    workKey: string;
+    planId?: string;
+    sourceSetVersion: string;
+    structureVersion: string;
+    paragraphs: ReadingParagraph[];
+    providerId: string;
+    summary?: string;
+    sourceIds: string[];
+    materialIds: string[];
+    redactedMaterials?: string[];
+  }): Promise<StagedReadingJob> {
+    await this.ensureLoaded();
+    this.pruneJobs();
+    const workKey = workText(input.workKey, 512);
+    const sourceSetVersion = workText(input.sourceSetVersion, 128);
+    const structureVersion = workText(input.structureVersion, 128);
+    const providerId = workText(input.providerId, 128);
+    const planId = input.planId ? workText(input.planId, 128) : undefined;
+    const summary = input.summary ? workText(input.summary, 400) : undefined;
+
+    for (const [id, existing] of this.jobs) {
+      if (existing.workKey === workKey && existing.origin === "external-mcp" && existing.status === "completed") {
+        this.jobs.delete(id);
+      }
+    }
+
+    const now = this.now();
+    const job: StagedReadingJob = {
+      jobId: randomUUID(),
+      workKey,
+      ...(planId ? { planId } : {}),
+      mode: "organize",
+      background: true,
+      privacyMode: "default",
+      requireReview: true,
+      origin: "external-mcp",
+      ...(summary ? { summary } : {}),
+      sourceSetVersion,
+      structureVersion,
+      status: "completed",
+      createdAt: now,
+      completedAt: now,
+      result: {
+        paragraphs: structuredClone(input.paragraphs),
+        agentRun: {
+          providerId,
+          model: null,
+          locality: "remote",
+          path: "agent",
+          steps: 1,
+          toolResults: 0,
+          sourceIds: [...input.sourceIds],
+          materialIds: [...input.materialIds],
+          redactedMaterials: [...(input.redactedMaterials ?? [])],
+        },
+      },
+    };
+    this.jobs.set(job.jobId, job);
+    this.schedulePersist();
+    await this.persistQueue;
+    return structuredClone(job);
   }
 
   async cancelJob(raw: unknown): Promise<{ cancelled: boolean }> {

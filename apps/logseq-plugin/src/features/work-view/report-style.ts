@@ -125,7 +125,10 @@ export function installReportStyle(): () => void {
     .wb-ai-answer>:first-child{margin-top:0}.wb-ai-answer>:last-child{margin-bottom:4px}.wb-ai-answer p{margin:4px 0}.wb-ai-result pre{white-space:pre-wrap;font:inherit;overflow-wrap:anywhere}.wb-ai-references summary{font-size:11px;color:var(--wb-accent);cursor:pointer}.wb-ai-confirm{border-inline-start:2px solid var(--wb-error);padding-inline-start:7px}
     .wb-ai-options{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:5px 0}
     .wb-ai-auto{display:flex;align-items:center;gap:5px;margin:0;font-size:11px;cursor:pointer}.wb-ai-auto input{width:13px;height:13px;padding:0;margin:0;accent-color:var(--wb-accent)}
-    .wb-ai-provider{margin-inline-start:auto;max-width:160px;font:11px/1.3 system-ui;padding:2px 6px;border:1px solid var(--wb-edge);border-radius:4px;background:var(--wb-paper);color:var(--wb-ink)}
+    .wb-ai-target,.wb-ai-provider{max-width:160px;font:11px/1.3 system-ui;padding:2px 6px;border:1px solid var(--wb-edge);border-radius:4px;background:var(--wb-paper);color:var(--wb-ink)}
+    .wb-ai-provider{margin-inline-start:auto}
+    .wb-ai-handoff-ready{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:5px 0 2px;padding:5px 8px;border:1px solid var(--wb-edge);border-radius:6px;background:var(--wb-soft);font-size:11px;color:var(--wb-ink)}
+    .wb-ai-handoff-label{margin-inline-end:auto;min-width:0}
     .wb-ai-candidate{position:fixed;z-index:10030;top:12px;inset-inline:10px;max-height:65vh;overflow:auto;overscroll-behavior:contain;border:1px solid var(--wb-edge);border-radius:8px;background:var(--wb-paper);box-shadow:var(--wb-shadow);color:var(--wb-ink);font-size:13px;line-height:1.7;padding:0 11px 11px}
     .wb-ai-candidate-head{position:sticky;top:0;display:flex;gap:4px;align-items:center;background:var(--wb-paper);border-bottom:1px solid var(--wb-edge);padding:7px 0;z-index:1}.wb-ai-candidate-head strong{margin-inline-end:auto}
     .wb-ai-candidate-unit{padding:6px 0;border-bottom:1px solid var(--wb-edge)}.wb-ai-candidate-unit>div>p{margin:4px 0}.wb-ai-candidate-detail{font-size:12px;margin:5px 0 5px 4px;padding-inline-start:9px;border-inline-start:1px solid var(--wb-edge)}.wb-ai-candidate details{font-size:11px;color:var(--wb-muted);margin-top:5px}

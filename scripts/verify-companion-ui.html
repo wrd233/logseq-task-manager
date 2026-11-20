@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Logseq 工作台 · 真实 DeepSeek 隔离验收面板</title>
+<title>Logseq 工作台 · 中立 Companion 与 MCP 隔离验收面板</title>
 <style>
   :root {
     --paper: #fbfaf7; --card: #ffffff; --soft: #ebeee8; --edge: #dce1d9;
@@ -13,12 +13,16 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
-  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--edge); margin-bottom: 20px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--edge); margin-bottom: 16px; }
   h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
   .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--ok-bg); color: var(--ok); border: 1px solid #c3e6d1; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--edge); background: var(--card); color: var(--muted); cursor: pointer; font-weight: 550; }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab-panel[hidden] { display: none !important; }
   .card { background: var(--card); border: 1px solid var(--edge); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
-  .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
   .sub { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   input[type=password], input[type=text], textarea, select {
@@ -30,6 +34,7 @@
   }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button.danger { color: var(--err); border-color: #f3c4c0; background: var(--err-bg); }
+  button.small { padding: 5px 10px; font-size: 12.5px; }
   button:disabled { opacity: 0.55; cursor: not-allowed; }
   .check-list { display: grid; gap: 12px; margin-top: 14px; }
   .check { border: 1px solid var(--edge); border-radius: 8px; padding: 14px 16px; background: var(--paper); }
@@ -38,6 +43,7 @@
   .check-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .check-title { font-weight: 600; font-size: 14px; }
   .pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+  .pill.attn { background: var(--attn-bg); color: var(--attn); }
   .check.pass .pill { background: var(--ok-bg); color: var(--ok); }
   .check.fail .pill { background: #fde2e0; color: var(--err); }
   .check-summary { font-size: 13px; color: var(--muted); margin-top: 6px; }
@@ -57,79 +63,202 @@
   .md-body ul { margin: 4px 0; padding-left: 18px; } .md-body li { margin: 3px 0; }
   .md-body strong, .p-top strong { font-weight: 600; color: #245747; background: rgba(53,105,88,0.07); padding: 0 2px; border-radius: 3px; }
   .p-unit[data-tone="attention"] > .p-top strong, .detail-item[data-tone="attention"] .md-body strong { color: #965214; background: rgba(150,82,20,0.09); }
-  .md-body code { font-size: 12px; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  .md-body code, .p-top code { font-size: 12px; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
   .cite-sup { font-size: 11px; color: var(--accent); margin-left: 2px; vertical-align: super; text-decoration: underline dotted; cursor: default; }
   .quote { margin: 5px 0 0; padding: 5px 10px; border-left: 2px solid var(--edge); font-size: 12px; color: var(--muted); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
-  textarea { width: 100%; min-height: 180px; resize: vertical; }
+  textarea { width: 100%; min-height: 160px; resize: vertical; }
   details.raw { margin-top: 8px; font-size: 12px; color: var(--muted); }
-  pre { background: var(--soft); padding: 10px; border-radius: 6px; overflow: auto; max-height: 240px; font-size: 12px; }
+  pre { background: var(--soft); padding: 10px; border-radius: 6px; overflow: auto; max-height: 260px; font-size: 12px; margin: 6px 0 0; }
+  .mock-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--edge); border-radius: 8px; margin-bottom: 12px; }
+  .mock-bar .spacer { flex: 1; }
+  .config-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .config-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .audit-table th, .audit-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--edge); }
+  .audit-table th { color: var(--muted); font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1>Logseq 工作台 · 真实 DeepSeek 隔离验收面板</h1>
-      <div style="font-size:12px;color:var(--muted);margin-top:2px;">临时隔离目录运行真实 Companion · 零 DSH · 绝不触碰日常笔记库或系统自启项</div>
+      <h1>Logseq 工作台 · 中立 Companion 隔离验收面板</h1>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;">临时隔离目录运行真实 Companion + 真实 stdio MCP 子进程 · 零 DSH · 绝不触碰日常笔记库</div>
     </div>
     <div class="row">
-      <span class="badge"><span class="dot"></span>Companion 隔离运行中（无 DSH）</span>
+      <span class="badge"><span class="dot"></span>Companion &amp; MCP 隔离运行中</span>
       <button class="danger" id="btnShutdown">结束并清理临时目录</button>
     </div>
   </header>
 
-  <section class="card">
-    <h2>第一步：粘贴 DeepSeek API Key（仅存本次临时 0600 文件，关闭即销毁）</h2>
-    <p class="sub">只需填一次即可测试连通性并一键跑完 5 项实机验收；前端不保存、不回显明文 Key。</p>
-    <div class="row">
-      <input type="password" id="apiKey" placeholder="sk-... （你的真实 DeepSeek API Key）" autocomplete="off" />
-      <input type="text" id="model" value="deepseek-chat" style="width:170px" title="模型名称" />
-      <input type="text" id="baseUrl" value="https://api.deepseek.com/v1" style="width:240px" title="API Base URL" />
-      <button id="btnSaveTest" class="primary">保存并测试连通</button>
-    </div>
-    <div id="keyStatus" class="check-summary" style="margin-top:8px;"></div>
-  </section>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="phase2" role="tab" aria-selected="true">Phase 2 · MCP 外部协作与多目标交接（免 Key 开箱可测）</button>
+    <button class="tab" data-tab="phase1" role="tab" aria-selected="false">Phase 1 · DeepSeek 直连阅读验收（需 API Key）</button>
+  </nav>
 
-  <section class="card">
-    <h2>
-      <span>第二步：一键 5 项实机验收体检</span>
-      <button id="btnRunAll" class="primary" disabled>一键跑完 5 项实机验收</button>
-    </h2>
-    <p class="sub">逐项调用真实 Companion + 真实 DeepSeek API，完成后直观渲染极简要点、语义着色重点与护栏证据。</p>
-    <div class="check-list" id="checkList"></div>
-  </section>
+  <!-- ================= PHASE 2 TAB ================= -->
+  <div id="tab-phase2" class="tab-panel">
+    <section class="card">
+      <h2>
+        <span>一、一键 5 项真实 stdio MCP 协议验收体检</span>
+        <button id="btnRunAllMcp" class="primary">一键跑完 5 项 MCP 验收</button>
+      </h2>
+      <p class="sub">无需任何 API Key：后端启动了真实 Companion 与独立子进程 <code>workspace mcp</code>（stdio JSON-RPC 2.0），直接端到端验证 D-43 的 6 工具安全边界、多目标交接、敏感拦截、候选修订与审计日志。</p>
+      <div class="check-list" id="mcpCheckList"></div>
+    </section>
 
-  <section class="card">
-    <h2>第三步：自由试玩区（粘贴你的任意笔记，现场感受新提示词与语义着色）</h2>
-    <p class="sub">青绿高亮 = 已确认事实/进展/关键编号，暖琥珀高亮 = 卡点/风险/未决待办；点蓝色虚线短语可展开/收起细读。</p>
-    <div class="grid2">
-      <div>
-        <textarea id="playText">今天同步了 Q4 客户端重构进度：
+    <section class="card">
+      <h2>
+        <span>二、直观互动：模拟 Logseq 工作现场 ↔ 外部 Agent（MCP）协作闭环</span>
+        <div class="row">
+          <span class="pill" id="mcpVersionPill">来源版本：loading…</span>
+          <span class="pill" id="mcpWritePill">原块静默写入：0 次</span>
+        </div>
+      </h2>
+      <p class="sub">遵守 D-35 安静工作笔记本原则：主栏始终只保留单一主要交接按钮（随所选协作目标自适应），外部 Agent 提交的修订以「待采用修订」暂存供审阅，绝不静默覆盖。</p>
+
+      <div class="mock-bar">
+        <strong id="mcpWorkTitle">Q4 客户端重构与机房交接</strong>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;">
+          默认协作目标：
+          <select id="mcpTargetSelect"></select>
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="mcpPrivacyToggle" /> 仅本地模型（禁止外部 MCP 读正文）
+        </label>
+        <span class="spacer"></span>
+        <button id="btnMockHandoff" class="primary small">在 DSH 继续</button>
+      </div>
+
+      <div id="mcpHandoffBox" style="display:none;margin-bottom:14px;">
+        <div class="article-label">已暂存至 Companion 的交接指令（不自动发送、不扩大写权限）：</div>
+        <pre id="mcpHandoffPrompt" style="white-space:pre-wrap;"></pre>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnCopyHandoff" class="small">一键复制交接指令</button>
+          <span id="mcpCopyStatus" style="font-size:12px;color:var(--ok);"></span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <button id="btnSimCandidate" class="primary small">模拟外部 Agent 通过 MCP 提交候选修订</button>
+        <button id="btnMutateSource" class="small">模拟修改 Logseq 原文（制造版本变化）</button>
+        <button id="btnAdoptCandidate" class="small" disabled>采用「待采用修订」</button>
+        <span id="mcpActionMsg" style="font-size:12.5px;color:var(--muted);"></span>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="article-label">当前 Logseq 文章（未采用前绝不静默替换）：</div>
+          <div id="mcpCurrentArticle"></div>
+        </div>
+        <div>
+          <div class="article-label">Companion 暂存的「待采用修订」预览（由真实 MCP 提交）：</div>
+          <div id="mcpStagedCandidate"></div>
+        </div>
+      </div>
+
+      <details class="raw" style="margin-top:14px;">
+        <summary>查看实时审计日志（connection-facts.jsonl · 每次 MCP 与交接调用全记录）</summary>
+        <div id="mcpAuditBox"></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>三、一键复制外部客户端 MCP 配置（指向真实 workspace.mjs 绝对路径 · 零明文 Key）</h2>
+      <p class="sub">可直接粘贴到对应客户端配置中，通过本机 <code>0600</code> 私有 <code>workspace.json</code> 自动鉴权对接运行中的 Companion。</p>
+      <div class="config-tabs" id="mcpConfigTabs">
+        <button data-client="codex" class="active small">Codex (config.toml)</button>
+        <button data-client="antigravity" class="small">Antigravity (mcp_config.json)</button>
+        <button data-client="claude-code" class="small">Claude Code (.mcp.json)</button>
+        <button data-client="cursor" class="small">Cursor (mcp.json)</button>
+      </div>
+      <div id="mcpConfigHint" class="article-label"></div>
+      <pre id="mcpConfigSnippet" style="white-space:pre;"></pre>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnCopyConfig" class="primary small">一键复制配置片段</button>
+        <button id="btnCopyClaudeCmd" class="small" style="display:none;">复制 claude mcp add 命令</button>
+        <span id="mcpConfigCopyStatus" style="font-size:12px;color:var(--ok);"></span>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= PHASE 1 TAB ================= -->
+  <div id="tab-phase1" class="tab-panel" hidden>
+    <section class="card">
+      <h2>第一步：粘贴 DeepSeek API Key（仅存本次临时 0600 文件，关闭即销毁）</h2>
+      <p class="sub">只需填一次即可测试连通性并一键跑完 5 项实机验收；前端不保存、不回显明文 Key。</p>
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="sk-... （你的真实 DeepSeek API Key）" autocomplete="off" />
+        <input type="text" id="model" value="deepseek-chat" style="width:170px" title="模型名称" />
+        <input type="text" id="baseUrl" value="https://api.deepseek.com/v1" style="width:240px" title="API Base URL" />
+        <button id="btnSaveTest" class="primary">保存并测试连通</button>
+      </div>
+      <div id="keyStatus" class="check-summary" style="margin-top:8px;"></div>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span>第二步：一键 5 项实机验收体检</span>
+        <button id="btnRunAll" class="primary" disabled>一键跑完 5 项实机验收</button>
+      </h2>
+      <p class="sub">逐项调用真实 Companion + 真实 DeepSeek API，完成后直观渲染极简要点、语义着色重点与护栏证据。</p>
+      <div class="check-list" id="checkList"></div>
+    </section>
+
+    <section class="card">
+      <h2>第三步：自由试玩区（粘贴你的任意笔记，现场感受新提示词与语义着色）</h2>
+      <p class="sub">青绿高亮 = 已确认事实/进展/关键编号，暖琥珀高亮 = 卡点/风险/未决待办；点蓝色虚线短语可展开/收起细读。</p>
+      <div class="grid2">
+        <div>
+          <textarea id="playText">今天同步了 Q4 客户端重构进度：
 1. 登录态迁移已经完成 80%，但离线缓存清理方案还有两种备选：方案 A 按版本重建索引，方案 B 增量清理。
 2. 昨天原本计划周五上线，今天排查出一个冷启动白屏问题，必须先修完再定发布窗口。
 3. TODO 明天上午找测试同学复现低内存设备上的白屏日志。</textarea>
-        <div class="row" style="margin-top:10px;">
-          <select id="playMode">
-            <option value="organize">整理成渐进式备忘</option>
-            <option value="ask">基于原文提问</option>
-          </select>
-          <input type="text" id="playQuestion" placeholder="可选：输入提问或风格要求" style="flex:1" />
-          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
-            <input type="checkbox" id="playLocal" /> 仅本地模型
-          </label>
-          <button id="btnPlay" class="primary" disabled>立即运行</button>
+          <div class="row" style="margin-top:10px;">
+            <select id="playMode">
+              <option value="organize">整理成渐进式备忘</option>
+              <option value="ask">基于原文提问</option>
+            </select>
+            <input type="text" id="playQuestion" placeholder="可选：输入提问或风格要求" style="flex:1" />
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="playLocal" /> 仅本地模型
+            </label>
+            <button id="btnPlay" class="primary" disabled>立即运行</button>
+          </div>
+        </div>
+        <div id="playOutput" class="article-preview" style="margin-top:0;min-height:180px;">
+          <div class="article-label">配置 Key 后点击「立即运行」，结果将显示在这里。</div>
         </div>
       </div>
-      <div id="playOutput" class="article-preview" style="margin-top:0;min-height:180px;">
-        <div class="article-label">配置 Key 后点击「立即运行」，结果将显示在这里。</div>
-      </div>
-    </div>
-  </section>
+    </section>
+  </div>
 </div>
 
 <script>
+// Tab switching
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.onclick = () => {
+    const target = btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach(t => {
+      const active = t.dataset.tab === target;
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-selected", String(active));
+    });
+    document.getElementById("tab-phase2").hidden = target !== "phase2";
+    document.getElementById("tab-phase1").hidden = target !== "phase1";
+  };
+});
+
+const MCP_CHECKS = [
+  { id: "m1-catalog", title: "M1. 标准 MCP tools/list + workbench_list_works 目录发现", desc: "真实 stdio JSON-RPC 2.0 枚举全部 6 个工具；工作目录清单不含任何正文或密钥。" },
+  { id: "m2-handoff-scope", title: "M2. 多目标交接（Codex）+ 单工作强边界越界拦截", desc: "暂存结构化交接上下文（不扩权）→ MCP 读取交接请求与本工作块 → 尝试读取工作 B 块被 Fail Closed 拒绝。" },
+  { id: "m3-sensitive-privacy", title: "M3. 材料分页查证（QPA-9472）+ .env 敏感拦截 + 仅本地隐私保护", desc: "分页读取长附件与关联笔记，默认硬拦截 .env.production 正文，并验证开启「仅本地模型」后拦截外部读取。" },
+  { id: "m4-candidate-stale", title: "M4. 外部 Agent 提交渐进式候选修订 + 过时版本拒绝", desc: "通过 workbench_submit_reading_candidate 经 readingTask 强引文核验入队待采用，同时验证旧版本提交被拒绝。" },
+  { id: "m5-writeback-audit", title: "M5. 受控写回提案（零静默改写）+ connection-facts.jsonl 审计日志", desc: "验证格式预览与写回提案 writesSource=false、TODO 保护拦截、只读越权写入拒绝及完整审计记录。" },
+];
+
 const CHECKS = [
   { id: "c1-short", title: "1. 零 DSH + L1 短事项快路径", desc: "直接通过 Companion 调 DeepSeek，1 步生成极简短事项备忘，验证完全不依赖 DSH。" },
   { id: "c2-agent-privacy", title: "2. L2 四工具长附件查证（QPA-9472）+ .env 敏感文件硬拦截", desc: "含 4357 字长附件与合成 .env.production，验证 Agent 自主查证附件末尾编号，同时硬拦截敏感正文零泄露。" },
@@ -138,24 +267,29 @@ const CHECKS = [
   { id: "c5-budget-sanitize", title: "5. 后台预算软上限（暂停自动，不阻断手动）+ 零 Key 脱敏", desc: "触发后台小时软上限暂停自动修订，但手动点击整理仍正常完成，且前端配置接口不含任何明文 Key。" },
 ];
 
-const listEl = document.getElementById("checkList");
-for (const c of CHECKS) {
-  const div = document.createElement("div");
-  div.className = "check";
-  div.id = "card-" + c.id;
-  div.innerHTML = `
-    <div class="check-head">
-      <span class="check-title">${c.title}</span>
-      <div class="row">
-        <span class="pill" id="pill-${c.id}">待运行</span>
-        <button data-run="${c.id}" disabled>单项运行</button>
+function buildCheckCards(containerId, items, prefix, disabledDefault) {
+  const el = document.getElementById(containerId);
+  for (const c of items) {
+    const div = document.createElement("div");
+    div.className = "check";
+    div.id = prefix + "card-" + c.id;
+    div.innerHTML = `
+      <div class="check-head">
+        <span class="check-title">${c.title}</span>
+        <div class="row">
+          <span class="pill" id="${prefix}pill-${c.id}">待运行</span>
+          <button data-${prefix}run="${c.id}" class="small" ${disabledDefault ? "disabled" : ""}>单项运行</button>
+        </div>
       </div>
-    </div>
-    <div class="check-summary" id="sum-${c.id}">${c.desc}</div>
-    <div id="out-${c.id}"></div>
-  `;
-  listEl.appendChild(div);
+      <div class="check-summary" id="${prefix}sum-${c.id}">${c.desc}</div>
+      <div id="${prefix}out-${c.id}"></div>
+    `;
+    el.appendChild(div);
+  }
 }
+
+buildCheckCards("mcpCheckList", MCP_CHECKS, "mcp-", false);
+buildCheckCards("checkList", CHECKS, "", true);
 
 function setReady(ready) {
   document.getElementById("btnRunAll").disabled = !ready;
@@ -249,7 +383,7 @@ function renderArticle(container, data) {
   label.className = "article-label";
   label.style.marginBottom = "0";
   const m = data.agentRun || {};
-  label.textContent = `渐进式阅读预览 · 路径：${m.path || "-"} · 步数：${m.steps || 1} · 工具：${m.toolResults || 0}`;
+  label.textContent = `渐进式阅读预览 · 来源：${m.providerId || m.path || "-"} · 步数：${m.steps || 1}`;
   const toggleAll = document.createElement("button");
   toggleAll.textContent = "收起细读";
   toggleAll.style.padding = "2px 8px";
@@ -334,6 +468,198 @@ async function api(path, body) {
   return res.json();
 }
 
+// ================= PHASE 2 UI LOGIC =================
+let mcpState = null;
+let selectedConfigClient = "codex";
+
+function renderConfigView() {
+  if (!mcpState?.mcpConfigs) return;
+  const cfg = mcpState.mcpConfigs[selectedConfigClient];
+  if (!cfg) return;
+  document.getElementById("mcpConfigHint").textContent = `推荐写入位置：${cfg.configPathHint} · 格式：${cfg.format.toUpperCase()} · 不含任何明文 API Key`;
+  document.getElementById("mcpConfigSnippet").textContent = cfg.snippet;
+  const claudeBtn = document.getElementById("btnCopyClaudeCmd");
+  claudeBtn.style.display = cfg.cliCommand ? "inline-block" : "none";
+  claudeBtn.dataset.cmd = cfg.cliCommand || "";
+}
+
+function renderMcpState(state) {
+  if (!state) return;
+  mcpState = state;
+  document.getElementById("mcpWorkTitle").textContent = state.title;
+  document.getElementById("mcpVersionPill").textContent = `来源版本：${state.sourceSetVersion}`;
+  document.getElementById("mcpWritePill").textContent = `原块静默写入：${state.rawWriteCount} 次`;
+  document.getElementById("mcpPrivacyToggle").checked = state.privacyMode === "local-only";
+
+  const targetSel = document.getElementById("mcpTargetSelect");
+  targetSel.innerHTML = "";
+  for (const t of state.targets?.targets || []) {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.label;
+    opt.selected = t.id === state.targets.defaultTarget;
+    targetSel.appendChild(opt);
+  }
+  const activeTarget = (state.targets?.targets || []).find(t => t.id === state.targets.defaultTarget);
+  document.getElementById("btnMockHandoff").textContent = activeTarget ? activeTarget.buttonLabel : "在 DSH 继续";
+
+  renderArticle(document.getElementById("mcpCurrentArticle"), state.currentArticle);
+
+  const stagedEl = document.getElementById("mcpStagedCandidate");
+  const adoptBtn = document.getElementById("btnAdoptCandidate");
+  if (state.stagedCandidate?.result) {
+    adoptBtn.disabled = false;
+    adoptBtn.textContent = state.stagedCandidate.versionValid ? "采用「待采用修订」" : "检验并清理过时候选";
+    renderArticle(stagedEl, state.stagedCandidate.result);
+    const note = document.createElement("div");
+    note.className = "check-summary";
+    note.style.marginTop = "8px";
+    note.innerHTML = state.stagedCandidate.versionValid
+      ? `<span class="pill" style="background:var(--ok-bg);color:var(--ok);">待采用修订 · 版本核对一致 (${esc(state.stagedCandidate.sourceSetVersion)})</span>`
+      : `<span class="pill attn">候选依据已过时（候选=${esc(state.stagedCandidate.sourceSetVersion)} ≠ 当前=${esc(state.sourceSetVersion)}）· 绝不覆盖</span>`;
+    stagedEl.prepend(note);
+  } else {
+    adoptBtn.disabled = true;
+    adoptBtn.textContent = "采用「待采用修订」";
+    stagedEl.innerHTML = '<div class="article-preview"><div class="article-label">暂无外部 Agent 提交的候选修订。点击上方「模拟外部 Agent 通过 MCP 提交候选修订」即可体验。</div></div>';
+  }
+
+  const auditBox = document.getElementById("mcpAuditBox");
+  const rows = (state.recentAudit || []).slice().reverse();
+  if (!rows.length) {
+    auditBox.innerHTML = '<div class="check-summary">暂无审计记录。</div>';
+  } else {
+    auditBox.innerHTML = `<table class="audit-table"><thead><tr><th>时间</th><th>调用方</th><th>命令</th><th>结果</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc((r.at || "").slice(11, 19))}</td><td>${esc(r.clientId)}</td><td><code>${esc(r.command)}</code></td><td>${esc(r.outcome)}</td></tr>`).join("")}</tbody></table>`;
+  }
+
+  renderConfigView();
+}
+
+async function loadMcpState() {
+  const res = await api("/api/mcp/state", {});
+  if (res.ok) renderMcpState(res.state);
+}
+
+async function runSingleMcpCheck(id) {
+  const card = document.getElementById("mcp-card-" + id);
+  const pill = document.getElementById("mcp-pill-" + id);
+  const sum = document.getElementById("mcp-sum-" + id);
+  const out = document.getElementById("mcp-out-" + id);
+  card.className = "check";
+  pill.textContent = "运行中…";
+  out.innerHTML = "";
+  const res = await api("/api/mcp/check", { id });
+  if (res.state) renderMcpState(res.state);
+  if (res.ok && res.result?.ok) {
+    card.className = "check pass";
+    pill.textContent = `✓ 通过 (${res.result.durationMs}ms)`;
+    sum.textContent = res.result.summary;
+    if (res.result.article) renderArticle(out, res.result.article);
+    const det = document.createElement("details");
+    det.className = "raw";
+    det.innerHTML = `<summary>查看 MCP JSON 回执</summary><pre>${esc(JSON.stringify(res.result.meta, null, 2))}</pre>`;
+    out.appendChild(det);
+  } else {
+    card.className = "check fail";
+    pill.textContent = "✕ 未通过";
+    sum.textContent = res.error || res.result?.summary || "执行失败";
+  }
+}
+
+document.querySelectorAll("button[data-mcp-run]").forEach(btn => {
+  btn.onclick = () => runSingleMcpCheck(btn.dataset.mcpRun);
+});
+
+document.getElementById("btnRunAllMcp").onclick = async () => {
+  const btn = document.getElementById("btnRunAllMcp");
+  btn.disabled = true;
+  try {
+    for (const c of MCP_CHECKS) await runSingleMcpCheck(c.id);
+  } finally { btn.disabled = false; }
+};
+
+async function triggerTargetSwitch(target) {
+  const res = await api("/api/mcp/target", { target });
+  if (res.ok) {
+    renderMcpState(res.state);
+    const box = document.getElementById("mcpHandoffBox");
+    if (res.handoff?.handoffPrompt) {
+      box.style.display = "block";
+      document.getElementById("mcpHandoffPrompt").textContent = res.handoff.handoffPrompt;
+    } else {
+      box.style.display = "none";
+    }
+  }
+}
+
+document.getElementById("mcpTargetSelect").onchange = (e) => triggerTargetSwitch(e.target.value);
+document.getElementById("btnMockHandoff").onclick = () => triggerTargetSwitch(document.getElementById("mcpTargetSelect").value);
+
+document.getElementById("btnCopyHandoff").onclick = async () => {
+  const text = document.getElementById("mcpHandoffPrompt").textContent;
+  await navigator.clipboard.writeText(text);
+  document.getElementById("mcpCopyStatus").textContent = "✓ 已复制交接指令";
+  setTimeout(() => { document.getElementById("mcpCopyStatus").textContent = ""; }, 2500);
+};
+
+document.getElementById("mcpPrivacyToggle").onchange = async (e) => {
+  const res = await api("/api/mcp/privacy", { privacyMode: e.target.checked ? "local-only" : "default" });
+  if (res.ok) {
+    renderMcpState(res.state);
+    document.getElementById("mcpActionMsg").textContent = e.target.checked
+      ? "已开启「仅本地模型」：外部 MCP 读取正文将被 Fail Closed 拦截。"
+      : "已恢复常规隐私策略。";
+  }
+};
+
+document.getElementById("btnSimCandidate").onclick = async () => {
+  const res = await api("/api/mcp/simulate-candidate", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = res.ok
+    ? "✓ 外部 Agent 已通过真实 MCP 提交候选修订（右侧可见预览，当前文章未静默替换）。"
+    : `✕ 提交被拒：${res.response?.error?.code || res.error}`;
+};
+
+document.getElementById("btnMutateSource").onclick = async () => {
+  const res = await api("/api/mcp/mutate-source", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = "已模拟保存新原文，来源版本已推进；旧版候选现已标为过时。";
+};
+
+document.getElementById("btnAdoptCandidate").onclick = async () => {
+  const res = await api("/api/mcp/adopt-candidate", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = res.ok
+    ? "✓ 已按你的确认采用修订；原块保持零改动。"
+    : `ℹ ${res.error}`;
+};
+
+document.querySelectorAll("#mcpConfigTabs button").forEach(btn => {
+  btn.onclick = () => {
+    selectedConfigClient = btn.dataset.client;
+    document.querySelectorAll("#mcpConfigTabs button").forEach(b => b.classList.toggle("active", b === btn));
+    renderConfigView();
+  };
+});
+
+document.getElementById("btnCopyConfig").onclick = async () => {
+  const text = document.getElementById("mcpConfigSnippet").textContent;
+  await navigator.clipboard.writeText(text);
+  document.getElementById("mcpConfigCopyStatus").textContent = "✓ 配置已复制到剪贴板";
+  setTimeout(() => { document.getElementById("mcpConfigCopyStatus").textContent = ""; }, 2500);
+};
+
+document.getElementById("btnCopyClaudeCmd").onclick = async (e) => {
+  const cmd = e.target.dataset.cmd;
+  if (!cmd) return;
+  await navigator.clipboard.writeText(cmd);
+  document.getElementById("mcpConfigCopyStatus").textContent = "✓ claude mcp add 命令已复制";
+  setTimeout(() => { document.getElementById("mcpConfigCopyStatus").textContent = ""; }, 2500);
+};
+
+void loadMcpState();
+
+// ================= PHASE 1 UI LOGIC (PRESERVED) =================
 document.getElementById("btnSaveTest").onclick = async () => {
   const statusEl = document.getElementById("keyStatus");
   const apiKey = document.getElementById("apiKey").value.trim();

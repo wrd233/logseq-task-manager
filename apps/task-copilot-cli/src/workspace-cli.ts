@@ -6,12 +6,17 @@ import { ClientError } from "@task-copilot/client";
 import { WorkspaceError, parseWorkspaceDescriptor, parseWorkBinding, sameWorkScope, workRecord, workText, type WorkspaceCommand, type WorkspaceCall, type WorkspaceDescriptor } from "@task-copilot/contracts";
 import { parseReadingConfig, sanitizeReadingProviders, testProviderProfile, type ProviderKind, type ProviderLocality, type ReadingProviderProfile } from "@task-copilot/reading-runtime";
 import { option, required, type CliIO } from "./cli.ts";
+import { isCollaborateTargetId, listCollaborateTargets, saveCollaborateConfig } from "./collaborate.ts";
+import { createCompanionMcpTransport, isMcpClientId, renderMcpClientConfig, runWorkspaceMcpStdio } from "./mcp-stdio.ts";
 import { isDshRunning, loadReadingConfig, loadReadingEnv, providersConfigPath, saveReadingConfig } from "./reading-hub.ts";
 import { startWorkspaceServer } from "./workspace-server.ts";
 import { installWorkspaceLaunchAgent, startWorkspaceDaemon, stopWorkspaceDaemon, uninstallWorkspaceLaunchAgent, workspaceServiceStatus } from "./workspace-service.ts";
 export const workspaceHelp = `Task Copilot natural workspace CLI (local connection; no Kernel required)
   workspace serve [--state-dir <private-directory>]  # foreground; stop with Ctrl+C
   workspace service install | uninstall | start | stop | status [--state-dir <dir>]
+  workspace mcp [--state-dir <dir>] [--client <label>]  # stdio JSON-RPC 2.0 MCP server
+  workspace mcp config --client <codex|antigravity|claude-code|cursor> [--state-dir <dir>] [--json]
+  workspace collaborate targets | target <dsh|codex|antigravity|claude-code|clipboard> [--state-dir <dir>] [--json]
   workspace provider list | show [--state-dir <dir>]
   workspace provider set <id> --kind <openai-compatible|anthropic|dsh> [--base-url <url>] [--model <name>] [--api-key <env:VAR|key>] [--label <text>] [--locality <remote|local>] [--max-tokens <n>]
   workspace provider route [--default <id>] [--fast <id|none>] [--deep <id|none>] [--local <id|none>]
@@ -183,6 +188,47 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
                 return 0;
             }
             throw new ClientError("CLI_USAGE", "Use workspace service install|uninstall|start|stop|status", 2);
+        }
+        if (words[1] === "mcp") {
+            const sub = words[2];
+            if (sub === "config") {
+                const clientRaw = required(args, "--client");
+                if (!isMcpClientId(clientRaw)) {
+                    throw new ClientError("CLI_USAGE", "--client must be codex, antigravity, claude-code, or cursor", 2);
+                }
+                const rendered = renderMcpClientConfig({ client: clientRaw, stateDirectory: state });
+                io.out(json ? JSON.stringify(rendered) : rendered.snippet);
+                return 0;
+            }
+            if (sub !== undefined) {
+                throw new ClientError("CLI_USAGE", "Use workspace mcp [--state-dir <dir>] or workspace mcp config --client <codex|antigravity|claude-code|cursor>", 2);
+            }
+            const clientId = option(args, "--client") ?? process.env.TASK_COPILOT_WORKSPACE_CLIENT ?? "mcp";
+            const transport = createCompanionMcpTransport({
+                stateDirectory: state,
+                readDescriptor: privateDescriptor,
+            });
+            return runWorkspaceMcpStdio({ transport, clientId });
+        }
+        if (words[1] === "collaborate") {
+            const sub = words[2];
+            const dshAvailable = await isDshRunning(state);
+            if (sub === "targets" || sub === "list" || sub === "show") {
+                const snapshot = await listCollaborateTargets(state, dshAvailable);
+                io.out(JSON.stringify(snapshot, null, json ? undefined : 2));
+                return 0;
+            }
+            if (sub === "target") {
+                const targetRaw = words[3];
+                if (!isCollaborateTargetId(targetRaw)) {
+                    throw new ClientError("CLI_USAGE", "Use workspace collaborate target <dsh|codex|antigravity|claude-code|clipboard>", 2);
+                }
+                await saveCollaborateConfig(state, { schemaVersion: 1, defaultTarget: targetRaw });
+                const snapshot = await listCollaborateTargets(state, dshAvailable);
+                io.out(JSON.stringify(snapshot, null, json ? undefined : 2));
+                return 0;
+            }
+            throw new ClientError("CLI_USAGE", "Use workspace collaborate targets | target <dsh|codex|antigravity|claude-code|clipboard>", 2);
         }
         if (words[1] === "provider") {
             const sub = words[2];

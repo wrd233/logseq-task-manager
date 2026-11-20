@@ -3,10 +3,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
-import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor, type WorkRef } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
 import { createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
-import { ReadingJobHub, type ReadingHubOptions } from "./reading-hub.ts";
+import { isDshRunning, ReadingJobHub, type ReadingHubOptions } from "./reading-hub.ts";
+import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
+import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -158,6 +160,7 @@ export async function startWorkspaceServer(options: {
     const broker = new WorkspaceBroker(instanceId, options.offlineMs, options.timeoutMs);
     const readingHub = new ReadingJobHub({ stateDirectory: state, ...options.reading });
     let baseUrl = "", root: string | null = null, observations: FileObservation | undefined, cache: unknown = null;
+    let activeMeta: { workKey?: string; title?: string; workRef?: WorkRef } = {};
     let operationQueue: Promise<unknown> = Promise.resolve(), queued = 0;
     const receipts = new Map<string, {
         digest: string;
@@ -166,7 +169,24 @@ export async function startWorkspaceServer(options: {
     }>();
     const descriptorPath = join(state, "workspace.json"), pluginDescriptorPath = join(state, "workspace-plugin.json");
     const cachePath = (directory: string) => join(state, `last-known-${digest(directory)}.json`);
-    const audit = async (call: WorkspaceCall, outcome: string) => appendFile(join(state, "connection-facts.jsonl"), JSON.stringify({ at: new Date().toISOString(), instanceId, connectionId: call.connectionId, clientId: call.clientId, requestId: call.requestId, command: call.command, payloadDigest: digest(call.payload), outcome }) + "\n", { mode: 0o600 });
+    const auditFact = async (entry: { connectionId: string; clientId: string; requestId: string; command: string; payload: unknown; outcome: string }) =>
+        appendFile(
+            join(state, "connection-facts.jsonl"),
+            JSON.stringify({
+                at: new Date().toISOString(),
+                instanceId,
+                connectionId: entry.connectionId,
+                clientId: entry.clientId,
+                requestId: entry.requestId,
+                command: entry.command,
+                payloadDigest: digest(entry.payload),
+                outcome: entry.outcome,
+            }) + "\n",
+            { mode: 0o600 }
+        );
+    const audit = async (call: WorkspaceCall, outcome: string) =>
+        auditFact({ connectionId: call.connectionId, clientId: call.clientId, requestId: call.requestId, command: call.command, payload: call.payload, outcome });
+    const checkDsh = options.reading?.dshAvailable ?? (() => isDshRunning(state));
     let connectionQueue: Promise<unknown> = Promise.resolve();
     const operation = async (call: WorkspaceCall): Promise<unknown> => {
         if (call.instanceId !== instanceId)
@@ -266,6 +286,36 @@ export async function startWorkspaceServer(options: {
         }
         return forward();
     };
+    const enqueueOperation = async (call: WorkspaceCall): Promise<unknown> => {
+        if (queued >= 128)
+            throw new WorkspaceError("REQUEST_LIMIT");
+        queued++;
+        const running = operationQueue.then(() => operation(call));
+        operationQueue = running.catch(() => undefined);
+        try {
+            return await running;
+        } finally {
+            queued--;
+        }
+    };
+    const getActiveConnection = (): ActiveConnectionMeta | null => {
+        if (!broker.online() || !broker.binding || !broker.connectionId) return null;
+        return {
+            connectionId: broker.connectionId,
+            binding: structuredClone(broker.binding),
+            workKey: activeMeta.workKey ?? workKeyForScope(broker.binding.scope),
+            ...(activeMeta.title ? { title: activeMeta.title } : {}),
+            ...(activeMeta.workRef ? { workRef: structuredClone(activeMeta.workRef) } : {}),
+        };
+    };
+    const mcpContext: McpRuntimeContext = {
+        stateDirectory: state,
+        instanceId,
+        readingHub,
+        getActiveConnection,
+        dispatch: enqueueOperation,
+        audit: auditFact,
+    };
     let catalogQueue = Promise.resolve();
     const server = createServer(async (request, response) => {
         try {
@@ -338,19 +388,80 @@ export async function startWorkspaceServer(options: {
                 broker.assert(connectionId);
                 send(response, 200, result); return;
             }
+            if (request.url === "/plugin/collaborate/targets") {
+                const raw = workRecord(input, ["defaultTarget"]);
+                if (raw.defaultTarget !== undefined) {
+                    if (!isCollaborateTargetId(raw.defaultTarget)) throw new WorkspaceError("COLLABORATE_TARGET_INVALID", "不支持的协作目标。");
+                    await saveCollaborateConfig(state, { schemaVersion: 1, defaultTarget: raw.defaultTarget });
+                }
+                const value = await listCollaborateTargets(state, await checkDsh());
+                send(response, 200, { value }); return;
+            }
+            if (request.url === "/plugin/collaborate") {
+                const raw = input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : {};
+                const connectionId = workText(raw.connectionId);
+                const binding = broker.assert(connectionId);
+                const { result, record } = await createCollaborateHandoff(state, { instanceId, connectionId, binding, input });
+                broker.assert(connectionId);
+                activeMeta = {
+                    ...activeMeta,
+                    workKey: record.workKey,
+                    title: record.title,
+                    ...(record.workRef ? { workRef: record.workRef } : {}),
+                };
+                await auditFact({
+                    connectionId,
+                    clientId: "logseq-plugin",
+                    requestId: record.handoffId,
+                    command: "collaborate.handoff",
+                    payload: { target: result.target, mode: record.mode, workKey: record.workKey, privacyMode: record.privacyMode },
+                    outcome: "returned",
+                });
+                send(response, 200, { value: result }); return;
+            }
+            if (request.url === "/plugin/work-privacy") {
+                const raw = workRecord(input, ["workKey", "privacyMode", "scope"]);
+                const workKey = workText(raw.workKey, 512);
+                if (raw.privacyMode !== "local-only" && raw.privacyMode !== "default") throw new WorkspaceError("INVALID_INPUT");
+                const keys = [workKey];
+                if (raw.scope !== undefined) {
+                    const parsedScope = parseWorkBinding({ scope: raw.scope, directory: "/", organization: "flat", provider: "workspace", workspaceId: null }).scope;
+                    keys.push(workKeyForScope(parsedScope));
+                }
+                const privacyMode = await setWorkPrivacy(state, keys, raw.privacyMode);
+                send(response, 200, { value: { workKey, privacyMode } }); return;
+            }
+            if (request.url === "/plugin/writeback-proposals") {
+                const raw = workRecord(input, ["action", "workKey", "proposalId"]);
+                if (raw.action === "dismiss") {
+                    const dismissed = await dismissWritebackProposal(state, workText(raw.proposalId, 128));
+                    send(response, 200, { value: { dismissed } }); return;
+                }
+                const workKey = raw.workKey !== undefined ? workText(raw.workKey, 512) : undefined;
+                const proposals = await listWritebackProposals(state, workKey);
+                send(response, 200, { value: { proposals } }); return;
+            }
             if (request.url === "/plugin/connect") {
-                const raw = workRecord(input, ["connectionId", "binding", "recoverFrom"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
+                const raw = workRecord(input, ["connectionId", "binding", "recoverFrom", "workKey", "privacyMode", "title", "workRef"]), binding = parseWorkBinding(raw.binding), connectionId = workText(raw.connectionId);
                 const recoverFrom = raw.recoverFrom === undefined ? undefined : workText(raw.recoverFrom);
+                const workKey = raw.workKey === undefined ? workKeyForScope(binding.scope) : workText(raw.workKey, 512);
+                const title = raw.title === undefined ? undefined : workText(raw.title, 800);
+                const workRef = raw.workRef === undefined ? undefined : parseWorkRef(raw.workRef);
+                const privacyMode = raw.privacyMode === undefined ? undefined : (raw.privacyMode === "local-only" || raw.privacyMode === "default" ? raw.privacyMode : (() => { throw new WorkspaceError("INVALID_INPUT"); })());
                 const pending = connectionQueue.then(async () => {
                     if (recoverFrom && broker.connectionId && broker.connectionId !== recoverFrom)
                         throw new WorkspaceError("RECOVERY_SUPERSEDED");
                     const directory = await authorizedRoot(binding.directory);
                     const metadata = await metadataDirectory(directory);
                     await atomicJson(join(metadata, "agent-connection.json"), { schemaVersion: 1, instanceId, connectionId, binding });
+                    if (privacyMode) {
+                        await setWorkPrivacy(state, [workKey, workKeyForScope(binding.scope)], privacyMode);
+                    }
                     // Only Registry owns the reading entry; the bridge publishes a derived locator.
                     root = directory;
                     observations = undefined;
                     cache = null;
+                    activeMeta = { workKey, ...(title ? { title } : {}), ...(workRef ? { workRef } : {}) };
                     broker.grant(connectionId, binding);
                 });
                 connectionQueue = pending.catch(() => {});
@@ -364,6 +475,7 @@ export async function startWorkspaceServer(options: {
                     connectionId: string;
                 }).connectionId !== broker.connectionId)
                     throw new WorkspaceError("CONNECTION_STALE");
+                activeMeta = {};
                 broker.revoke();
                 send(response, 200, { status: "revoked" });
                 return;
@@ -387,6 +499,22 @@ export async function startWorkspaceServer(options: {
                 }
                 broker.complete(workText(raw.connectionId), workText(raw.requestId), workText(raw.clientId), raw.value, error);
                 send(response, 200, { accepted: true });
+                return;
+            }
+            if (request.url === "/mcp/tools") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: { tools: MCP_TOOLS } });
+                return;
+            }
+            if (request.url === "/mcp/call") {
+                const raw = workRecord(input, ["name", "arguments", "clientId", "requestId"]);
+                const value = await executeMcpTool(mcpContext, {
+                    name: workText(raw.name, 128),
+                    arguments: raw.arguments,
+                    ...(raw.clientId !== undefined ? { clientId: workText(raw.clientId, 128) } : {}),
+                    ...(raw.requestId !== undefined ? { requestId: workText(raw.requestId, 128) } : {}),
+                });
+                send(response, 200, { instanceId, value });
                 return;
             }
             if (request.url === "/call" || request.url === "/plugin/call") {
