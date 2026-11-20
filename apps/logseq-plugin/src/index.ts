@@ -1,6 +1,5 @@
 import { installCatalogPublisher } from './features/agent-workspace/catalog-publisher.ts';
 import { WorkCatalogView } from './features/agent-workspace/catalog-view.ts';
-import { graphIdentity } from "./graph-adapter.ts";
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
 import { WorkspaceError, sameWorkScope, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
@@ -31,7 +30,7 @@ logseq.useSettingsSchema([
   { key: "workbenchBuildInfo", type: "heading", default: null, title: "当前加载版本", description: loadedBuild },
   { key: "workCatalogProjectTags", type: "string", default: "", title: "已有项目标签", description: "自动发现会识别页面的「项目」和「Project」标签。可补充你已经在用的标签，用逗号分隔。" },
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
-  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "Agent 工作连接", description: "workspace serve 返回的私有插件 descriptor 路径。通过“带当前工作去协作”建立只读连接；正文、文件与 TODO 分别允许。停止连接不影响本地阅读。" },
+  { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "DSH 协作连接", description: "仅在需要配置协作服务时填写。通过「在 DSH 继续」连接当前工作，阅读不依赖此设置。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: false, title: "启用任务管理", description: "按需启用正式任务，需要本地 Kernel。已有配置继续保留。" },
@@ -65,7 +64,7 @@ async function main(): Promise<void> {
   };
   logseq.beforeunload(dispose);
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
-  const currentWorkRoot = () => (work?.snapshot() as {root?: string} | undefined)?.root ?? null;
+  const currentWorkRoot = () => work?.readingAPI.read().scope?.rootUuid ?? null;
   if (logseq.settings?.materialsEnabled !== false) {
     try { materials = new Materials(async uuid => { if (work) await work.returnToBody(uuid); }, currentWorkRoot, workspace.materialBindings); } catch (error) { report(error); }
   }
@@ -87,31 +86,25 @@ async function main(): Promise<void> {
   logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
-  if (work) actions["阅读当前页"] = () => void work?.openPage().then(() => work?.focusReading()).catch(report);
-  if (work) actions["发现已有工作"] = () => void workSearch?.open().catch(report);
-  if (work) actions["打开当前块的工作"] = () => void work?.openCurrentWork().catch(report);
-  if (materials) actions["查找全部材料"] = () => void materials?.library(null).catch(report);
+  if (work) actions["找工作"] = () => void workSearch?.open().catch(report);
+  if (work) actions["当前工作"] = () => void work?.openToolbar().then(() => work?.focusReading()).catch(report);
+  if (materials) actions["全部材料"] = () => void materials?.library(null).catch(report);
   actions["正式任务"] = () => { void (async()=>{
     if (!stopTasks && !await pluginRuntime.configured()){logseq.showSettingsUI();return;}
     if(logseq.settings?.tasksEnabled===false)logseq.updateSettings({tasksEnabled:true});
     await activateTasks();await openTaskCenter();
   })().catch(report); };
-  actions["在 DSH 继续"] = () => void agentWorkspace?.local.openWork().catch(report);
   actions["插件设置"] = () => void panels.closeActive().then(() => logseq.showSettingsUI()).catch(report);
   if (disposed) return;
   removeNavigation = installNavigation(actions);
-  logseq.provideModel({ workbenchDsh: () => {if (!disposed) void agentWorkspace?.local.openWork().catch(report);}, workbenchOpen: () => { if (disposed) return; if (work) void work.openToolbar().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
+  logseq.provideModel({ workbenchOpen: () => { if (disposed) return; if (work) void work.openToolbar().catch(report); else if (materials) void materials.library().catch(report); else void openTaskCenter().catch(report); } });
   logseq.App.registerUIItem("toolbar", { key: "workbench-toolbar", template: '<button type="button" class="button" style="font-size:13px;line-height:1.5;width:auto;padding:4px 8px" data-workbench-toolbar="true" data-on-click="workbenchOpen" title="打开工作台" aria-label="打开工作台">工作台</button>' });
-  logseq.App.registerUIItem("toolbar", {key:"workbench-dsh",template:'<a class="button" data-on-click="workbenchDsh" title="在 DSH 继续">DSH</a>'});
-  if(work){const entries=installReadingEntries(uuid=>work!.open(uuid),()=>work!.openPage(),report,{block:uuid=>agentWorkspace!.local.openWork(uuid),page:async()=>{
-    const graph=await logseq.App.getCurrentGraph(),page=await logseq.Editor.getCurrentPage();
-    if(!page?.uuid)throw new Error("页面暂不可用。");
-    await agentWorkspace!.local.openWork({graphId:graphIdentity(graph),rootUuid:page.uuid,kind:"page",pageName:String(page.originalName??page.name)});
-  }});removeReadingEntries=entries.dispose;}
+  if(work){const entries=installReadingEntries(uuid=>work!.open(uuid),()=>work!.openPage(),report);removeReadingEntries=entries.dispose;}
   const requireActive = () => { if (disposed) throw new Error("工作台已关闭。"); };
   const requireMaterials = () => { requireActive(); if (!materials) throw new Error("材料模块未启用。"); return materials; };
-  if(work&&materials)work.setReadingMaterials({
-    list:async scope=>{
+  if(work&&materials){
+  const readingPort={
+    list:async (scope:SourceScope)=>{
       const valid=workspace.service.observeScope(scope),module=requireMaterials();
       const list=await module.listMaterials(scope.rootUuid,"");
       const binding=await workspace.service.resolve(scope);
@@ -124,20 +117,30 @@ async function main(): Promise<void> {
       }
       for(const association of binding?.manifest.associations??[]){
         if(association.kind==="material"||association.graphId!==scope.graphId)continue;
-        const note:SourceScope=association.kind==="logseq-page"?{graphId:association.graphId,rootUuid:association.pageUuid,kind:"page",pageName:association.pageName}:{graphId:association.graphId,rootUuid:association.blockUuid};
-        if(sameLensScope(note,scope)||reading.some(item=>item.id===`note:${note.rootUuid}`))continue;
+        const saved:SourceScope=association.kind==="logseq-page"?{graphId:association.graphId,rootUuid:association.pageUuid,kind:"page",pageName:association.pageName}:{graphId:association.graphId,rootUuid:association.blockUuid};
+        const note=await workspace.service.currentPageScope(saved,true)??saved,id=`note:${saved.rootUuid}`;
+        if(sameLensScope(note,scope)||reading.some(item=>item.id===id))continue;
         const snapshot=await workspace.service.readSource(note,valid),content=snapshot.blocks.map(block=>block.content??"").join("\n\n");
         const filename=note.pageName??snapshot.blocks[0]?.content?.split("\n")[0]?.slice(0,80)??"关联笔记";
-        reading.push({id:`note:${note.rootUuid}`,filename,reference:note.kind==="page"?`[[${filename}]]`:`((${note.rootUuid}))`,note,
-          availability:sourceAvailability(snapshot)==="available"?"available":"unavailable",version:await sha256(JSON.stringify([snapshot.structureVersion,snapshot.sourceSetVersion])),excerpt:content.slice(0,4000),text:content.slice(0,64000),truncated:content.length>64000});
+        reading.push({id,filename,reference:note.kind==="page"?`[[${filename}]]`:`((${note.rootUuid}))`,note,
+          availability:sourceAvailability(snapshot)==="available"?"available":"unavailable",version:await sha256(JSON.stringify([snapshot.page?.availability,snapshot.blocks.map(block=>[block.depth,block.order,block.contentVersion,block.availability])])),excerpt:content.slice(0,4000),text:content.slice(0,64000),truncated:content.length>64000});
       }
       if(!valid())throw new Error("READING_MATERIAL_SCOPE_CHANGED");
       return reading;
-    },delegateFileClick:(event,scope)=>requireMaterials().delegateFileClick(event,scope.rootUuid),open:async(id,scope)=>{
+    },delegateFileClick:(event:MouseEvent,scope:SourceScope)=>requireMaterials().delegateFileClick(event,scope.rootUuid),open:async(id:string,scope:SourceScope)=>{
       requireActive();const actual=work?.readingAPI.read().scope;if(actual&&sameLensScope(actual,scope))await requireMaterials().openDoc(id,scope.rootUuid);
       else throw new Error("READING_MATERIAL_SCOPE_CHANGED");
     }
-  });
+  };
+  work.setReadingMaterials(readingPort);
+  materials.setAssociatedSources(async root=>{
+    const scope=work!.readingAPI.read().scope;
+    if(!scope||scope.rootUuid!==root)return {materialIds:[],notes:[]};
+    const binding=await workspace.service.resolve(scope);
+    return {materialIds:(binding?.manifest.associations??[]).flatMap(a=>a.kind==="material"?[a.id]:[]),
+      notes:(binding?.manifest.associations??[]).flatMap(a=>a.kind==="material"?[]:[{id:`note:${a.kind==="logseq-page"?a.pageUuid:a.blockUuid}`,title:a.kind==="logseq-page"?a.pageName:"关联笔记块"}])};
+  },id=>work!.openAssociatedNote(id));
+  }
   content = installContentWriteback({adapter: new LogseqContentAdapter(null, workspace.sourceReader)});
   if (materials) installMaterialTransfers(materials, content, workspace.source, work);
   stages = installStageWorkbench({content,work,source:workspace.source,materials:{
@@ -169,7 +172,7 @@ async function main(): Promise<void> {
   removeCatalog = catalog.dispose;
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
-    work.setWorkSearch(actions["发现已有工作"]!);
+    work.setWorkSearch(actions["找工作"]!);
     work.setReadingAI({complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
   }
   setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
@@ -179,32 +182,21 @@ async function main(): Promise<void> {
     if (!root || !scope) return [];
     const connection = agentWorkspace?.api.status();
     const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
-    const dsh = {area:"primary" as const,label:"在 DSH 继续",preserveInputFocus:true,run:()=>agentWorkspace!.local.openWork(scope)};
-    const newDsh = {group:"外部连接与恢复",label:"新建此工作 DSH 对话",run:()=>agentWorkspace!.local.openWork(scope,"new")};
-    if(scope.kind==="page")return [dsh,newDsh,
-      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(scope)},
-      {group:"工作目录",label:"关联页面工作目录",description:"保存真实页面原文与层级的读取副本",run:()=>workspace.local.bind(scope)},
-      {group:"工作目录",label:"打开工作读取入口",run:()=>workspace.local.open(scope)},
+    const page=scope.kind==="page";
+    return [
+      {group:"DSH 协作",label:"新建 DSH 对话",run:()=>agentWorkspace!.local.openWork(scope,"new")},
+      {group:"DSH 协作",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
+      {group:"工作目录",label:"关联已有目录",run:()=>workspace.local.bind(scope)},
+      {group:"工作目录",label:"打开目录读取入口",run:()=>workspace.local.open(scope)},
       {group:"工作目录",label:"重新关联移动后的目录",run:()=>workspace.local.rebind(scope)},
-      {group:"外部连接与恢复",label:"带当前工作去协作",description:"页面原文、请求和指导；没有可写根块",run:()=>agentWorkspace!.local.collaborate(scope)},
-      {group:"外部连接与恢复",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
-      ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅允许目录内材料写作；页面正文保持只读",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
-      {group:"外部连接与恢复",label:connected?"停止 agent 工作连接":"允许 agent 只读连接此页面",run:()=>connected?agentWorkspace!.local.stop():agentWorkspace!.local.connectRead(scope)},
-    ];
-    return [dsh,newDsh,
-      {area:"reading",label:"让 Agent 设计读法…",description:"填写阅读目的，准备当前工作的协作请求",run:()=>agentWorkspace!.local.designReading(root)},
-      { group: "工作目录", label: "关联工作目录", description: "复用已有目录；正文仍在 Logseq", run: () => workspace.local.bind(root) },
-      { group: "工作目录", label: "打开工作读取入口", description: "打开目录中已有的读取入口", run: () => workspace.local.open(scope) },
-      { group: "工作目录", label: "重新关联移动后的目录", run: () => workspace.local.rebind(root) },
-      { group: "外部连接与恢复", label: "带当前工作去协作", description: "准备已保存现场、本次请求与指导；新连接仅允许读取和编排", run: () => agentWorkspace!.local.collaborate(root) },
-      { group: "外部连接与恢复", label: "共同指导与项目差异", description: "一份共同来源；本工作只补充差异", run: () => agentWorkspace!.local.guidance(root) },
-      { group: "正文维护", label: "查看并整理行首格式", description: "选择范围，核对受限真实差异，再明确写入", run: () => agentWorkspace!.local.format(root) },
-      ...(connected&&!connection.permissions.bodyWrite?[{group:"外部连接与恢复",label:"允许 Agent 维护这里正文",description:"明确允许当前真实块范围的正文写作；新连接的文件与 TODO 许可另行选择",run:()=>agentWorkspace!.local.connect(root)}]:[]),
-      ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 写工作文件",description:"仅授权这次连接的材料写作；正文和 TODO 独立",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
-      ...(connected?[{group:"外部连接与恢复",label:"允许 Agent 维护普通 TODO",description:"选择范围、操作；本次连接有效，正式对象保持受保护",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
-      { group: "外部连接与恢复", label: connected ? "停止 agent 工作连接" : "允许 Agent 维护这里正文", description: connected ? "通道已连接；这不表示 agent 正在工作" : "明确允许当前真实块范围的正文写作；文件与 TODO 许可独立", run: () => connected ? agentWorkspace!.local.stop() : agentWorkspace!.local.connect(root) },
-      { group: "外部连接与恢复", label: "允许润色并整理原块", description: "明确授予此工作内的结构维护许可", run: () => agentWorkspace!.local.connect(root, true) },
-      { group: "外部连接与恢复", label: "查看写回冲突与恢复", description: "核对未知结果和原请求；不盲目重放", run: () => content!.local.recovery(root) },
+      ...(!connected?[{group:"授权与恢复",label:"建立只读连接",run:()=>agentWorkspace!.local.connectRead(scope)}]:[]),
+      ...(!page&&(!connected||!connection.permissions.bodyWrite)?[{group:"授权与恢复",label:"允许维护当前工作正文",run:()=>agentWorkspace!.local.connect(root)}]:[]),
+      ...(connected&&!connection.permissions.fileWrite?[{group:"授权与恢复",label:"允许写工作文件",run:()=>agentWorkspace!.local.allowFiles()}]:[]),
+      ...(!page&&connected?[{group:"授权与恢复",label:"允许维护普通 TODO",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
+      ...(!page?[{group:"授权与恢复",label:"允许润色并整理原块",run:()=>agentWorkspace!.local.connect(root,true)},
+        {group:"授权与恢复",label:"检查写回冲突",run:()=>content!.local.recovery(root)},
+        {group:"维护",label:"核对行首格式",run:()=>agentWorkspace!.local.format(root)}]:[]),
+      ...(connected?[{group:"授权与恢复",label:"停止本次连接",run:()=>agentWorkspace!.local.stop()}]:[]),
     ];
   });
   const api = {

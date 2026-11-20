@@ -103,16 +103,30 @@ function synchronizeWorkbenchTheme(): void {
 
 export function installNavigation(actions: Record<string, () => void>): () => void {
   const nav = element("nav"); nav.id = "workbench-navigation"; nav.setAttribute("aria-label", "工作台入口");
-  const menu = disclosureMenu("工作台", "切换工作与其他入口");
+  const primary = element("div", "", "wb-navigation-primary");
+  const secondary = element("div", "", "wb-navigation-secondary");
+  const menu = disclosureMenu("其他", "其他工作台入口");
   for (const [name, action] of Object.entries(actions)) {
-    const item = button(name, () => { menu.close(); action(); }); item.dataset.module = name; menu.content.append(item);
+    const item = button(name, () => { menu.close(); action(); }); item.dataset.module = name;
+    if (name === "找工作" || name === "当前工作") {
+      primary.append(item); item.hidden = name === "当前工作";item.onpointerdown=event=>event.preventDefault();
+      if (name === "找工作") item.title = "搜索笔记与最近工作";
+    } else menu.content.append(item);
   }
-  nav.append(menu.root, button("关闭工作台", () => void panels.closeActive())); document.body.prepend(nav);
+  const close = button("×", () => void panels.closeActive());
+  close.title = "关闭工作台"; close.setAttribute("aria-label", close.title); close.className = "wb-navigation-close";
+  secondary.append(menu.root, close);
+  nav.append(primary, secondary); document.body.prepend(nav);
   return () => { menu.dispose(); nav.remove(); themeCleanup?.(); themeCleanup = null; document.querySelector("style[data-workbench-shell-style]")?.remove(); };
 }
 
 export function markNavigation(label: string): void {
-  document.querySelectorAll<HTMLElement>("#workbench-navigation [data-module]").forEach(node => node.setAttribute("aria-current", String(node.dataset.module === label)));
+  const destination = label === "工作视图" ? "当前工作" : label === "工作搜索" ? "找工作" : label === "材料" ? "全部材料" : label;
+  document.querySelectorAll<HTMLElement>("#workbench-navigation [data-module]").forEach(node => node.setAttribute("aria-current", String(node.dataset.module === destination)));
+}
+export function showCurrentWorkEntry(available: boolean): void {
+  const entry = document.querySelector<HTMLElement>('#workbench-navigation [data-module="当前工作"]');
+  if (entry) entry.hidden = !available;
 }
 
 export class FeaturePanel {
@@ -231,7 +245,7 @@ export class FeaturePanel {
       if (doc.body.classList.contains(name) !== enabled) doc.body.classList.toggle(name,enabled);
     }
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
-    this.splitter.style.left=`${spec.panelLeft}px`; this.splitter.style.top=`${top+32}px`;
+    this.splitter.style.left=`${spec.panelLeft}px`; this.splitter.style.top=`${top+36}px`;
     logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
     return spec;
   }

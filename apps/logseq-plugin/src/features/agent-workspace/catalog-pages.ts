@@ -1,5 +1,6 @@
 import {readScopedPrivateItem, writeScopedPrivateItem} from '../../scoped-private-storage.ts';
 import type {WorkRef} from '@task-copilot/contracts';
+import {pageWorkIds} from '../../workspace/page-identity.ts';
 
 const key = 'work-catalog-pages';
 export interface SelectedPage {uuid: string; title: string; anchorUuid?: string; sourceUuid?: string}
@@ -17,13 +18,18 @@ export async function resolveSelectedPage(page: SelectedPage, check: () => void)
     const current = await logseq.Editor.getPage(anchor.page.id); check();
     return current ? {uuid:page.uuid,title:String(current.originalName ?? current.name),sourceUuid:current.uuid} : null;
   }
-  const current = await logseq.Editor.getPage(page.sourceUuid ?? page.uuid); check();
+  const current = await logseq.Editor.getPage(page.sourceUuid ?? page.uuid) ?? (page.title === '已收录页面' ? null : await logseq.Editor.getPage(page.title)); check();
   return current ? {uuid:page.uuid,title:String(current.originalName ?? current.name),sourceUuid:current.uuid} : null;
 }
 export async function pageWorkRef(graphId: string, pageUuid: string, check: () => void): Promise<WorkRef> {
   for (const page of await readSelectedPages(graphId, check)) {
     const resolved = await resolveSelectedPage(page, check);
     if (resolved?.sourceUuid === pageUuid) return {kind:'logseq',graphId,rootUuid:page.uuid,sourceKind:'page'};
+  }
+  const page=await logseq.Editor.getPage(pageUuid);check();
+  if(page?.uuid===pageUuid){
+    const ids=pageWorkIds({graphId,rootUuid:pageUuid,kind:"page",pageName:String(page.originalName??page.name)},localStorage);
+    return {kind:"logseq",graphId,rootUuid:ids[0]!,sourceKind:"page"};
   }
   return {kind:'logseq',graphId,rootUuid:pageUuid,sourceKind:'page'};
 }

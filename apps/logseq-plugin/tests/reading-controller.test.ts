@@ -173,3 +173,24 @@ test("a changed source only updates affected article units; unrelated prose and 
   const result=retainUnchangedParagraphs(previous,[{...previous.paragraphs[0]!,markdown:"新判断",sourceIds:["s1","s3"]},{...previous.paragraphs[1]!,markdown:"不必要的改写"}],{sourceIds:["s1","s3"],materialIds:[],affectedKeys:["status"]});
   assert.equal(result[0]?.markdown,"新判断");assert.deepEqual(result[1],previous.paragraphs[1]);
 });
+
+test("a file Graph page reindex restores the article, and only identical saved records reattach citations",async()=>{
+  const {rememberPageWork}=await import("../src/workspace/page-identity.ts");
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+  let current:SourceScope={graphId:scope.graphId,rootUuid:"page-old",kind:"page",pageName:"旧笔记"};
+  const tree=async(uuid:string,content:string)=>snapshot(current,[{sourceId:sourceId(current.graphId,uuid),target:{kind:"logseq-block",graphId:current.graphId,blockUuid:uuid},content,contentVersion:await sha256(content),parentUuid:current.rootUuid,order:0,depth:0,availability:"available"}],undefined,{pageUuid:current.rootUuid,pageName:current.pageName!,availability:"available"});
+  let source=await tree("block-old","保留完整原文");
+  const host={scope:()=>current,source:async()=>({ok:true as const,value:source}),materials:async()=>new Set<string>(),unavailable:()=>null,changed:()=>{},storage};
+  rememberPageWork(current,"/graph",storage);
+  const first=new ReadingPlanController(host),invitation=await first.request({schemaVersion:1,purpose:"整理"});assert.ok(invitation.ok);
+  const article={...plan(source,invitation.value.requestId),briefing:{basisVersion:source.sourceSetVersion,createdAt:new Date().toISOString(),paragraphs:[{key:"main",kind:"fact" as const,markdown:"同一篇文章",sourceIds:[source.blocks[0]!.sourceId]}]}};
+  assert.ok((await first.submit(article)).ok);await first.select("plan-one");first.dispose();
+  const oldStorage=[...values].find(([key])=>key.startsWith("workbench:reading-views:"))!;
+  current={...current,rootUuid:"page-new"};rememberPageWork(current,"/graph",storage);source=await tree("block-new","保留完整原文");
+  const reopened=new ReadingPlanController(host);assert.ok((await reopened.refresh()).ok);
+  assert.equal(reopened.read().briefing?.status,"current");assert.equal(reopened.progressive()?.briefing.paragraphs[0]?.markdown,"同一篇文章");
+  assert.deepEqual(reopened.progressive()?.briefing.paragraphs[0]?.sourceIds,[source.blocks[0]!.sourceId]);assert.equal(values.get(oldStorage[0]),oldStorage[1]);reopened.dispose();
+  current={...current,rootUuid:"page-third"};rememberPageWork(current,"/graph",storage);source=await tree("block-third","原文真的变化");
+  const changed=new ReadingPlanController(host);assert.ok((await changed.refresh()).ok);assert.equal(changed.read().briefing?.status,"stale");
+  assert.equal(changed.progressive()?.basis?.blocks[0]?.content,"保留完整原文");assert.equal(changed.progressive()?.current.blocks[0]?.content,"原文真的变化");
+});

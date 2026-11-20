@@ -248,9 +248,11 @@ export class WorkViewRenderer {
       entry.fold.setAttribute("aria-expanded", String(child && !folded));
       entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
       entry.select.disabled = this.historical;
-      entry.expand.hidden = level !== "compact"; entry.expand.disabled = this.historical || item.full;
+      entry.select.hidden = !!report;
+      entry.expand.hidden = !!report || level !== "compact"; entry.expand.disabled = this.historical || item.full;
       entry.indent.disabled = index === 0 || this.historical || !!report || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
       entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical || !!report;
+      entry.indent.hidden=entry.outdent.hidden=entry.range.hidden=!!report;
       entry.range.disabled = this.historical;
       entry.nativeEdit.disabled = this.historical || (!!report && !fragment);
       const editParent = report ? entry.actionsBar : entry.controls;

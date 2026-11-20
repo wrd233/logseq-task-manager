@@ -4,7 +4,8 @@ import { lensRecord, lensText, LensInputError, requireLens } from "./lens-input.
 import { sameLensScope } from "./lens-source.ts";
 import type { LensResult } from "./lens-controller.ts";
 import { decodeReadingPlan, readingBasisChanged, validateReadingPlan, refreshReadingPlan, type ReadingPlan, type VerifiedReadingPlan } from "./reading-plan.ts";
-import { ReadingViewStore, type ReadingStorage, type SavedReadingView,type SavedReadingCandidate } from "./reading-store.ts";
+import { ReadingViewStore, reindexReadingPlan,type ReadingStorage, type SavedReadingView,type SavedReadingCandidate } from "./reading-store.ts";
+import { samePageWork } from "../../workspace/page-identity.ts";
 import { briefingMaterialIds, briefingParagraphs, paragraphDetails, briefingStatus, latestBriefing, readingMaterialsChanged, readingChanges,type ReadingChanges,type WorkBriefing,type ProgressiveReading } from "./briefing-model.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
 
@@ -58,10 +59,14 @@ export class ReadingPlanController {
     this.plans.clear();this.candidate=null;this.selected=null;this.mode=this.host.defaultMode??"report";this.selection++;
     const saved=scope?this.store?.load(scope):null;
     if(saved) {
-      for(const value of saved.views.slice(-8))try {const plan=decodeReadingPlan(value.plan);if(same(plan.scope,scope!))this.plans.set(plan.planId,{...value,plan,revision:value.revision??1});}catch{ /* An unreadable view does not block the work. */ }
+      const localPlan=(value:ReadingPlan)=>{const plan=decodeReadingPlan(value);return same(plan.scope,scope!)||samePageWork(plan.scope,scope!)?{...plan,scope:scope!}:null;};
+      for(const value of saved.views.slice(-8))try {
+        const plan=localPlan(value.plan),previous=value.previous?localPlan(value.previous):null;
+        if(plan)this.plans.set(plan.planId,{...value,plan,revision:value.revision??1,...(previous?{previous}:{})});
+      }catch{ /* An unreadable view does not block the work. */ }
       this.mode=saved.mode==="structure"?"structure":"report";
       this.selected=saved.selected&&this.plans.has(saved.selected)?saved.selected:null;
-      if(saved.candidate)try {const plan=decodeReadingPlan(saved.candidate.plan);if(plan.briefing&&same(plan.scope,scope!))this.candidate={...saved.candidate,plan};}catch{this.candidate=null;}
+      if(saved.candidate)try {const plan=localPlan(saved.candidate.plan);if(plan?.briefing)this.candidate={...saved.candidate,plan};}catch{this.candidate=null;}
     }
   }
   private ready():SourceScope {requireLens(!this.disposed,"reading-disposed");this.synchronize();const reason=this.host.unavailable();requireLens(!reason,reason??"reading-unavailable");requireLens(this.bound,"scope-mismatch");return {...this.bound};}
@@ -75,7 +80,14 @@ export class ReadingPlanController {
     this.synchronize();if(!this.bound||!same(this.bound,source.scope))return;
     this.source=structuredClone(source);this.available=(source.page?source.page.availability==="available":source.blocks.length>0)&&source.blocks.every(b=>b.availability==="available");
     if(!this.available){this.host.changed();return;}
+    let reindexed=false;
     for(const view of this.plans.values()) {
+      const replacement=reindexReadingPlan(view.plan,view.basis,source);
+      if(replacement){view.plan=replacement.plan;view.basis=replacement.basis;reindexed=true;}
+      if(view.previous){
+        const previous=reindexReadingPlan(view.previous,view.previousBasis,source);
+        if(previous){view.previous=previous.plan;view.previousBasis=previous.basis;reindexed=true;}
+      }
       if(view.plan.briefing) {
         if(briefingStatus(view.plan,source)==="current"&&!view.basis){view.basis=structuredClone(source);this.save();}
         delete view.verified;
@@ -87,6 +99,11 @@ export class ReadingPlanController {
         if(JSON.stringify(view.plan)!==JSON.stringify(plan)){view.plan=plan;this.save();}
       }catch {delete view.verified;}
     }
+    if(this.candidate){
+      const replacement=reindexReadingPlan(this.candidate.plan,this.candidate.basis,source);
+      if(replacement){this.candidate={...this.candidate,...replacement};reindexed=true;}
+    }
+    if(reindexed)this.save();
   }
   private materialIds(plan:ReadingPlan):string[] {const ids:string[]=[];const walk=(units:ReadingPlan["layout"])=>{for(const unit of units)if(unit.kind==="material")ids.push(unit.materialId);else if(unit.kind==="group")walk(unit.children);else if(unit.kind==="comparison")unit.columns.forEach(column=>walk(column.children));};walk(plan.layout);return ids;}
   private noteMaterials(ids:ReadonlySet<string>):void {this.materialScope=new Set(ids);if(this.source)this.noteSource(this.source);this.host.changed();}
@@ -126,6 +143,11 @@ export class ReadingPlanController {
         sourceText:"plugin-read",writesSource:false,authorizesTodo:false,authorizesRecognition:false}};
   }
   setMode(mode:"report"|"structure"):void {this.synchronize();this.mode=mode;this.selected=null;this.selection++;this.save();this.host.changed();}
+  preferArticle():void {
+    this.synchronize();
+    const chosen=this.selected&&this.plans.get(this.selected)?.plan.briefing?this.selected:latestBriefing([...this.plans.values()].map(view=>view.plan))?.planId??null;
+    if(this.mode!=="report"||this.selected!==chosen){this.mode="report";this.selected=chosen;this.selection++;this.save();this.host.changed();}
+  }
   async refresh():Promise<LensResult<ReturnType<ReadingPlanController["read"]>>> {try {const scope=this.ready(),generation=this.generation;await this.fresh(scope,generation);const materials=await this.host.materials();this.valid(scope,generation);this.noteMaterials(materials);return {ok:true,value:this.read()};}catch(error){return failed(error);}}
   /** Saved source and verified presentation in one transport round trip. */
   async view() {

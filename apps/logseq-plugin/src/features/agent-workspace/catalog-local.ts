@@ -5,6 +5,7 @@ import { graphIdentity } from "../../graph-adapter.ts";
 import { readScopedPrivateItem, writeScopedPrivateItem } from "../../scoped-private-storage.ts";
 import { readSelectedPages, resolveSelectedPage, type SelectedPage } from "./catalog-pages.ts";
 import type { CatalogBlock, CatalogPage, NoteCatalogWork } from "./work-catalog.ts";
+import { pageWorkIds } from "../../workspace/page-identity.ts";
 
 const preferenceKey = "work-catalog-discovery";
 interface DiscoveryPreferences {
@@ -58,7 +59,7 @@ function pageProjectTag(page: PageEntity, allowed: Set<string>): string | undefi
   return names.find((name): name is string => typeof name === "string" && allowed.has(normalizeTag(name)));
 }
 
-export async function readCatalogPages(scope: CatalogContext, enabled: boolean): Promise<CatalogPage[]> {
+export async function readCatalogPages(scope: CatalogContext, enabled: boolean, allPages?: PageEntity[]): Promise<CatalogPage[]> {
   const { graphId, check } = scope;
   const pages = new Map<string, CatalogPage>();
   for (const selected of await readSelectedPages(graphId, check)) {
@@ -70,7 +71,7 @@ export async function readCatalogPages(scope: CatalogContext, enabled: boolean):
   }
   if (!enabled) return [...pages.values()];
   const allowed = projectTags();
-  const existing = await logseq.Editor.getAllPages();
+  const existing = allPages ?? await logseq.Editor.getAllPages();
   check();
   for (const page of existing ?? []) {
     if (!page.uuid || !page.name || page["journal?"] || page.type === "journal" ||
@@ -80,7 +81,7 @@ export async function readCatalogPages(scope: CatalogContext, enabled: boolean):
     const mark = existingWorkPageMark(title);
     if (!tag && (!mark || title.trim().toLocaleLowerCase() === mark.toLocaleLowerCase())) continue;
     pages.set(page.uuid, {
-      uuid: page.uuid, title, sourceUuid: page.uuid, updatedAt: page.updatedAt,
+      uuid: pageWorkIds({graphId,rootUuid:page.uuid,kind:"page",pageName:title},localStorage)[0]!, title, sourceUuid: page.uuid, updatedAt: page.updatedAt,
       reason: tag ? `使用了项目标签 #${tag.trim().replace(/^#/u, "").replace(/^\[\[|\]\]$/gu, "")}` : `页面名包含 ${mark} 标记`,
     });
   }

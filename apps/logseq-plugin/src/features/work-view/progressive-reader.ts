@@ -4,6 +4,7 @@ import { briefingParagraphs,paragraphDetails,readingBlockChanged as blockChanged
 import { renderMarkdown } from "./markdown.ts";
 import { reportMarkdown } from "./report-body.ts";
 import { numericSeries,sourceTable } from "./source-table.ts";
+import { pageWorkIds } from "../../workspace/page-identity.ts";
 
 interface ReaderActions {locate(uuid:string):void;material(id:string):void;candidate?(anchor:HTMLElement):void}
 const byId=(source:SourceSnapshot|null)=>new Map(source?.blocks.map(block=>[block.sourceId,block])??[]);
@@ -53,8 +54,7 @@ export class ProgressiveReader {
   private readonly date=element("span");
   private readonly status=button("",()=>this.openStatus());
   private readonly units=element("article","","wb-progressive-units");
-  private readonly extra=element("div","","wb-progressive-extra");
-  private readonly all=icon("☷ 原文","完整原始记录",()=>this.openRecords());
+  private readonly all=icon("查看原文","查看全部原文及整理依据",()=>this.openRecords());
   private readonly popup=element("aside","","wb-progressive-popup");
   private readonly popupTitle=element("strong");
   private readonly popupBody=element("div","","wb-progressive-popup-body");
@@ -67,16 +67,16 @@ export class ProgressiveReader {
   private stopPopup:(()=>void)|null=null;
   constructor(private readonly actions:ReaderActions){
     this.status.className="wb-progressive-status";this.status.dataset.progressiveAnchor="status";
-    this.all.dataset.progressiveAnchor="all-records";this.extra.append(this.all);
+    this.all.dataset.progressiveAnchor="all-records";this.all.classList.add("wb-progressive-all");
     this.popup.id=`wb-progressive-source-${crypto.randomUUID()}`;this.popup.hidden=true;this.popup.setAttribute("role","dialog");this.popup.setAttribute("aria-modal","false");this.popup.setAttribute("aria-label","阅读依据");
     const heading=element("div","","wb-progressive-popup-head");heading.append(this.popupTitle,this.close);this.popup.append(heading,this.popupBody);
-    this.meta.append(this.date,this.status);this.root.append(this.meta,this.units,this.extra,this.popup);
+    this.meta.append(this.date,this.status,this.all);this.root.append(this.meta,this.units,this.popup);
   }
   private bind(view:ProgressiveReading):void{
-    const scope=view.current.scope,key=`workbench:progressive-open:${JSON.stringify([scope.graphId,scope.rootUuid,scope.kind??"block",view.planId])}`;
+    const scope=view.current.scope,ids=pageWorkIds(scope,localStorage),key=`workbench:progressive-open:${JSON.stringify([scope.graphId,ids[0],scope.kind??"block",view.planId])}`;
     if(key===this.storageKey)return;
     this.closePopup(false);this.storageKey=key;this.nodes.clear();this.units.replaceChildren();
-    try{this.expanded=new Set(JSON.parse(localStorage.getItem(key)??"[]"));}catch{this.expanded.clear();}
+    try{const saved=ids.map(id=>localStorage.getItem(`workbench:progressive-open:${JSON.stringify([scope.graphId,id,scope.kind??"block",view.planId])}`)).find(value=>value!==null);this.expanded=new Set(JSON.parse(saved??"[]"));}catch{this.expanded.clear();}
   }
   private remember():void{localStorage.setItem(this.storageKey,JSON.stringify([...this.expanded]));}
   private disclose(key:string,content:HTMLElement):HTMLButtonElement{
@@ -146,9 +146,8 @@ export class ProgressiveReader {
     const node=element("section","","wb-progressive-source"),block=current??before,changed=historical&&blockChanged(before,current);
     if(block){node.dataset.progressiveSource=block.sourceId;node.dataset.progressiveUuid=block.target.blockUuid;}
     const controls=element("div","","wb-progressive-source-tools"),raw=element("pre",before?.content??current?.content??"","wb-progressive-raw");raw.hidden=true;
-    const rawButton=icon("…","原始 Markdown 与来源版本",()=>{raw.hidden=!raw.hidden;rawButton.setAttribute("aria-expanded",String(!raw.hidden));});
+    const rawButton=icon("…","原始 Markdown",()=>{raw.hidden=!raw.hidden;rawButton.setAttribute("aria-expanded",String(!raw.hidden));});
     rawButton.setAttribute("aria-expanded","false");
-    raw.append(document.createTextNode(`\n\n来源版本：${(historical?before:current)?.contentVersion??"未保存"}`));
     controls.append(rawButton);
     if(current?.availability==="available")controls.append(icon("↗","打开原块",()=>this.navigate(()=>this.actions.locate(current.target.blockUuid))));
     node.append(controls);
@@ -227,7 +226,8 @@ export class ProgressiveReader {
   }
   private recordGroup(label:string,blocks:readonly BlockSnapshot[],historical:boolean):HTMLElement{
     const view=this.view!,current=byId(view.current),details=element("details","","wb-progressive-record-group"),body=element("div");details.append(element("summary",label),body);
-    details.ontoggle=()=>{if(details.open&&!body.childElementCount)for(const block of blocks)body.append(this.sourceCard(historical?block:undefined,historical?current.get(block.sourceId):block,undefined,historical));};return details;
+    const fill=()=>{if(details.open&&!body.childElementCount)for(const block of blocks)body.append(this.sourceCard(historical?block:undefined,historical?current.get(block.sourceId):block,undefined,historical));};
+    details.ontoggle=fill;if(!historical){details.open=true;fill();}return details;
   }
   private openRecords():void{
     if(!this.view)return;const view=this.view,content=element("div");

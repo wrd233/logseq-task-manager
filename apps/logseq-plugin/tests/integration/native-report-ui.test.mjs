@@ -33,7 +33,7 @@ async function reportFixture(width=650,options={}) {
   globalThis.logseq.App.pushState=async(_type,{name},{anchor})=>{ const uuid=anchor.slice('block-content-'.length);globalThis.logseq.Editor.scrollToBlockInPage(name,uuid);block.setAttribute('blockid',uuid); };
   globalThis.logseq.Editor.editBlock=async uuid=>{f.nativeCalls.push(['edit',uuid]);block.setAttribute('blockid',uuid);textarea.value=f.blocks.get(uuid).content;textarea.focus();f.editing(uuid,textarea.value);};
   await f.work.open('root');
-  assert.equal(f.work.panel.root.querySelector('[data-work-content=body]').textContent,'正文');
+  assert.equal(f.work.panel.root.querySelector('[data-work-content=body]').textContent,'文章');
   for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
   assert.equal(f.work.reportAPI.read().mode,'report');assert.equal(f.work.reportAPI.read().status,'current');
   return f;
@@ -74,7 +74,7 @@ test('narrow window yields the panel, really invokes native editing and restores
     await f.tick();
     for(let i=0;i<60&&f.work.reportAPI.read().status!=='current';i++)await delay(5);
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native,null);
-    assert.equal(f.work.panel.root.querySelector('.wb-work-shell .wb-primary').textContent,'编辑工作主块');
+    assert.equal(f.work.panel.root.querySelector('.wb-work-shell .wb-write-entry').textContent,'写作');
     assert.ok(row(f,'b3').querySelector('.wb-body').textContent.includes('原生提交的新句。'));
     assert.equal(row(f,'b3'),node);assert.equal(scroll.scrollTop,125);assert.equal(f.work.snapshot().root,'root');
   }finally{await f.close();}
@@ -122,7 +122,7 @@ test('wide docked window retains the report and native input, while report refle
     assert.equal(f.work.panel.visible,true);assert.equal(f.work.reportAPI.read().native.mode,'beside');
     f.editing('b0','[注] 尚未提交的原生草稿');await f.tick();
     assert.ok(!row(f,'b0').querySelector('.wb-body').textContent.includes('尚未提交'));
-    assert.match(f.work.panel.root.querySelector('.wb-work-notice').textContent,/原生输入尚未结束/);
+    assert.match(f.work.panel.root.querySelector('.wb-work-notice').textContent,/写作完成后这里会更新/);
     const fragment=f.work.reportAPI.read().fragments.find(f=>f.target.blockUuid==='b0');
     assert.equal(fragment.contentVersion,(await f.work.lensesAPI.source()).value.blocks.find(b=>b.target.blockUuid==='b0').contentVersion);
     f.editing(false);assert.equal((await f.work.reportAPI.resume()).ok,true);
@@ -322,7 +322,7 @@ test('the visible continue-writing action reuses the live input and exact select
     }
     compare.click();assert.equal(row(f,'b0').querySelector('[aria-label="原文对照"]').textContent,f.blocks.get('b0').content);
     assert.equal(f.browser.document.activeElement,input);assert.deepEqual([input.selectionStart,input.selectionEnd],[2,5]);assert.deepEqual(f.nativeCalls,calls);
-    const button=f.work.panel.root.querySelector('.wb-work-shell .wb-primary');assert.equal(button.textContent,'继续原生输入');
+    const button=f.work.panel.root.querySelector('.wb-work-shell .wb-write-entry');assert.equal(button.textContent,'继续写作');
     const pointer=new f.browser.PointerEvent('pointerdown',{bubbles:true,cancelable:true});button.dispatchEvent(pointer);assert.equal(pointer.defaultPrevented,true);
     button.click();await delay(60);
     assert.equal(f.browser.document.activeElement,input);assert.equal(input.value,'当前原生草稿继续写');assert.deepEqual([input.selectionStart,input.selectionEnd],[2,5]);
@@ -340,7 +340,7 @@ test('the work-menu native-page action preserves live input while yielding a nar
     const calls=[...f.nativeCalls],version=f.work.reportAPI.read().sourceSetVersion;
     const menu=f.work.panel.root.querySelector('.wb-work-shell .wb-menu'),trigger=menu.querySelector('summary');
     menu.open=true;
-    const action=[...menu.querySelectorAll('button')].find(node=>node.dataset.actionLabel==='显示原生页面');assert.ok(action);assert.equal(action.disabled,false);
+    const action=[...menu.querySelectorAll('button')].find(node=>node.dataset.actionLabel==='显示 Logseq 页面');assert.ok(action);assert.equal(action.disabled,false);
     for(const control of [trigger,action]){
       const pointer=new f.browser.PointerEvent('pointerdown',{bubbles:true,cancelable:true});control.dispatchEvent(pointer);assert.equal(pointer.defaultPrevented,true);
     }

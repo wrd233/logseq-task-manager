@@ -51,7 +51,7 @@ export class WorkViewReport {
   private readonly plans:ReadingPlanController;
   private readonly sourceSet=new NativeSourceSetHost();
   private readonly editor = new NativeEditorHost(() => {
-    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`); });
+    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先完成当前写作，再返回文章。" : "文章暂不能恢复，请重新打开当前工作。"); });
   },() => this.sourceChanged());
   readonly api = {
     read: () => this.read(), setMode: (mode: unknown) => this.setMode(mode),
@@ -60,7 +60,7 @@ export class WorkViewReport {
     compare: (input: unknown) => this.compare(input), showNative: () => this.showNative(),
     highlight:(input:unknown)=>this.highlight(input),clearHighlight:()=>this.sourceSet.clear(),
   };
-  constructor(private readonly host: ReportHost, defaultMode: "report" | "structure" = "report") {
+  constructor(private readonly host: ReportHost, private readonly defaultMode: "report" | "structure" = "report") {
     this.plans=new ReadingPlanController({scope:()=>this.disposed?null:this.host.scope(),version:()=>this.host.scopeVersion?.()??"",
       unavailable:()=>this.host.historical()?"historical-view":this.host.renderer.composing||this.editor.isComposing?"editing-in-progress":null,
       source:async()=>{
@@ -148,9 +148,13 @@ export class WorkViewReport {
     }
   }
   get active(): boolean { return this.mode === "report"; }
+  /** Opening a work in the product uses the article surface. Legacy API callers
+   * can still request the original presentation explicitly. */
+  preferArticle(): void { if (this.defaultMode === "report") this.plans.preferArticle(); }
   get nativeActive(): boolean { return !!this.native; }
   get readingActive(): boolean { return !!this.reading; }
   get composing(): boolean { return this.editor.isComposing; }
+  sessionBookmark():ReadingBookmark {return this.native?.bookmark??this.suspended??this.host.renderer.bookmark(true);}
   get rows(): SourceRow[] | null {
     return this.active && this.source ? this.source.blocks.map(block => ({uuid:block.target.blockUuid,content:block.content ?? "来源暂不可用",sourceParent:block.parentUuid,depth:block.depth})) : null;
   }

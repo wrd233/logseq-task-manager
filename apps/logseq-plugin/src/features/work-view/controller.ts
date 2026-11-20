@@ -1,4 +1,4 @@
-import { button, element, FeaturePanel, hostDocument } from "../../host/panel-host.ts";
+import { button, element, FeaturePanel, markNavigation, showCurrentWorkEntry } from "../../host/panel-host.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
 import { lookupBlockIdentity } from "../../block-identity.ts";
 import { ancestry, workObject, type AncestryBlock, type Trace } from "./focus.mjs";
@@ -22,10 +22,11 @@ import type { ReadingBookmark, ReadingFocus } from "./renderer.ts";
 import type { BodyPosition } from "./report-target.ts";
 import { logseqSourceReader } from "../../workspace/logseq-source.ts";
 import type { ReadingMaterialPort } from "./reading-layout.ts";
-import { existingWorkPageMark } from "../../canonical-writing.ts";
 import { WorkReadingAI, type ReadingAiPort } from "./reading-ai.ts";
+import { rememberPageWork, workPositionKey } from "../../workspace/page-identity.ts";
 
 const emptyPresentation = (): ViewPresentation => ({ items: [], collapsed: [], overrides: {}, expanded: [], selected: "" });
+interface RecentReading {title:string;excerpt:string;scope:SourceScope}
 
 export class WorkView {
   readonly panel = new FeaturePanel("work", "工作视图", reason => { this.saveReadingSession(reason === "close" ? false : true); this.lenses.hide(reason); this.report?.hide(reason); });
@@ -59,18 +60,16 @@ export class WorkView {
   private materialTarget:SourceScope|null=null;
   private reviewOpen = false;
   private browsingPage = "";
+  private initialBrowsingPage = "";
   private workOriginPage = "";
   private failure = "";
   private discoverWorks: (() => void) | null = null;
-  private fromSearch = false;
-  private continuation: {title:string;isCurrentPage:boolean;run:()=>Promise<void>} | null = null;
   private contextActions: () => WorkShellAction[] = () => [];
   private readonly reviewHost = element("section", "", "wb-review-host");
   private readonly shell = new WorkViewShell({
-    backSearch: () => { void this.returnToSearch().catch(this.fail); },
     body: () => { void this.returnToBody().catch(this.fail); },
     materials: () => { void this.openMaterials(); },
-    native: () => { const uuid = this.draft?.uuid ?? (this.pageName ? this.sourceRows[0]?.uuid : this.rootUuid); if (uuid) void this.locate(uuid).catch(this.fail); },
+    native: () => { const uuid = this.draft?.uuid ?? (this.pageName ? this.sourceRows[0]?.uuid : this.rootUuid); if (uuid) void this.locate(uuid).catch(this.fail); else if(this.pageName)void this.report.openPageReference(this.pageName).catch(this.fail); },
     review: () => { void this.setReviewOpen(!this.reviewOpen).catch(this.fail); },
     changed: () => this.renderHeading(),
     fail: error => this.fail(error),
@@ -146,17 +145,14 @@ export class WorkView {
     if(typeof pageCommand==="function")this.disposers.push(pageCommand);
     const unregister = logseq.Editor.registerBlockContextMenuItem("工作台：从此块打开工作视图", ({ uuid }) => this.openCurrentWork(uuid));
     if (typeof unregister === "function") this.disposers.push(unregister);
-    logseq.App.registerCommandPalette({ key: "workbench-focus-range", label: "工作台：只看当前块范围" }, () => {
+    logseq.App.registerCommandPalette({ key: "workbench-focus-range", label: "工作台（高级）：限定当前块范围" }, () => {
       if (!this.disposed) void logseq.Editor.getCurrentBlock().then(block => this.lenses.api.select(block?.uuid)).catch(this.fail);
     });
     logseq.App.registerCommandPalette({ key: "workbench-exit-lens", label: "工作台：返回完整内容" }, () => {
       if (!this.disposed) this.lenses.api.exit();
     });
-    logseq.App.registerCommandPalette({key:"workbench-read-report",label:"工作台：阅读当前报告"},() => {
-      if (!this.disposed) void this.open().then(() => this.report.api.setMode("report")).then(result => { if (!result.ok) this.fail(new Error(result.reason)); }).catch(this.fail);
-    });
-    logseq.App.registerCommandPalette({key:"workbench-return-report",label:"工作台：返回当前正文",keybinding:{binding:"mod+alt+r"}},() => {
-      if (!this.disposed) void this.report.api.resume().then(result => { if (!result.ok) this.fail(new Error(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`)); }).catch(this.fail);
+    logseq.App.registerCommandPalette({key:"workbench-return-report",label:"工作台：返回当前文章",keybinding:{binding:"mod+alt+r"}},() => {
+      if (!this.disposed) void this.report.api.resume().then(result => { if (!result.ok) this.fail(new Error(result.reason === "editing-in-progress" ? "请先完成当前写作，再返回文章。" : "文章暂不能恢复，请重新打开当前工作。")); }).catch(this.fail);
     });
     const readingKey = (event: KeyboardEvent) => {
       if (event.isComposing || this.renderer.composing || (event.target as HTMLElement).closest("input,textarea,select,[contenteditable=true]")) return;
@@ -211,7 +207,7 @@ export class WorkView {
     this.lenses.reset(); this.lensBar.render(this.lenses.read());
     this.materialBookmark = null;this.materialTarget=null; this.reviewOpen = false; this.reviewHost.hidden = true; this.contentChoice = "body"; this.failure = ""; this.shell.closeMenu();
     this.rawBodies.clear(); this.renderer.clear(); this.sourceAvailable = false; this.sourceAvailability = "unavailable"; this.sourceRevision++;
-    this.continuation=null; this.fromSearch = false;this.browsingPage="";this.workOriginPage="";
+    this.browsingPage="";this.initialBrowsingPage="";this.workOriginPage="";
   }
   private async readTrace(uuid: string, graph = this.graph, valid = () => !this.disposed): Promise<Trace> {
     return ancestry(uuid, async id => valid() ? await logseq.Editor.getBlock(id) as AncestryBlock | null : null, { resolve: (id, content) => {
@@ -234,11 +230,11 @@ export class WorkView {
     await this.enter(selected, navigation, null, fromSearch);
   }
 
-  private async enter(uuid: string, navigation = panels.reserve(), pageName: string | null = null, fromSearch = false): Promise<void> {
+  private async enter(uuid: string, navigation = panels.reserve(), pageName: string | null = null, _fromSearch = false): Promise<void> {
     if (this.disposed) return;
     const ticket = ++this.navigationEpoch;
     const valid = () => ticket === this.navigationEpoch && !this.disposed && panels.isLatest(navigation);
-    const graph = graphIdentity(await logseq.App.getCurrentGraph());
+    const currentGraph=await logseq.App.getCurrentGraph(),graph = graphIdentity(currentGraph);
     if (!valid()) return;
     const page=pageName ? await logseq.Editor.getPage(pageName) : null;
     const trace = pageName ? {path:[uuid],objects:[],complete:page?.uuid===uuid} : await this.readTrace(uuid, graph, valid);
@@ -247,9 +243,10 @@ export class WorkView {
     const changed = graph !== this.graph || uuid !== this.rootUuid || pageName !== this.pageName;
     if (changed) {this.saveReadingSession(true);this.invalidate();}
     this.graph = graph; this.rootUuid = uuid; this.pageName=pageName; this.trace = trace;
+    if(pageName)rememberPageWork(this.readingScope()!,currentGraph?.path??graph);
     const savedPosition=changed?this.loadWorkPosition(this.readingScope()!):null;
-    if (fromSearch) this.fromSearch = true;
     this.report.scopeChanged();
+    if(changed)this.report.preferArticle();
     if(changed)this.review?.scopeChanged(pageName ? null : {graphId:graph,rootUuid:uuid});
     if (changed) {
       this.state = emptyPresentation();
@@ -302,6 +299,7 @@ export class WorkView {
       if(!this.valid(epoch))return;
       this.workOriginPage=this.pageName??String(origin?.originalName??origin?.name??"");
     }
+    if(!this.initialBrowsingPage)this.initialBrowsingPage=browsing;
     if(browsing!==this.browsingPage){this.browsingPage=browsing;this.renderHeading();}
   }
 
@@ -344,6 +342,7 @@ export class WorkView {
   get reportAPI() { return this.report.api; }
   get readingAPI() { return this.report.readingAPI; }
   setReadingMaterials(port:ReadingMaterialPort|null):void {this.report.setReadingMaterials(port);}
+  async openAssociatedNote(id:string):Promise<void>{await this.returnToBody();await this.report.openReadingMaterial(id);}
   resolveBodyDrop(target: Element, position: BodyPosition) {
     const body=target.closest(".wb-body"), row=this.renderer.sourceRow(target);
     return body && row?.dataset.uuid && this.content.contains(body) && position !== "block"
@@ -410,7 +409,7 @@ export class WorkView {
       surface.classList.remove("wb-materials-in-work"); this.shell.mount(this.panel.root); return false;
     }
     if (this.panel.visible&&this.contentChoice !== "materials" && (!this.materialBookmark || !sameLensScope(this.materialBookmark.scope, current))) this.materialBookmark = { scope: { ...current }, bookmark: this.renderer.bookmark(true) };
-    this.contentChoice = "materials"; surface.classList.add("wb-materials-in-work"); this.shell.mount(surface); this.renderHeading(); return true;
+    this.contentChoice = "materials"; surface.classList.add("wb-materials-in-work"); this.shell.mount(surface); markNavigation("当前工作"); this.renderHeading(); return true;
   }
   private async returnToSearch(): Promise<void> {
     const epoch = this.epoch;
@@ -426,7 +425,7 @@ export class WorkView {
     const saved = this.materialBookmark;
     if (!saved && uuid === this.rootUuid && this.report.nativeActive) {
       const result = await this.report.api.resume();
-      if (!result.ok) throw new Error(`正文暂不能恢复：${result.reason}`);
+      if (!result.ok) throw new Error(result.reason==="editing-in-progress"?"请先完成当前写作，再返回文章。":"文章暂不能恢复，请打开当前工作后重试。");
       return;
     }
     if (this.pageName && uuid === this.rootUuid) await this.openPage(this.pageName); else await this.open(uuid);
@@ -451,53 +450,54 @@ export class WorkView {
     await this.enter(page.uuid,panels.reserve(),String(page.originalName??page.name),fromSearch);
   }
   async openToolbar(): Promise<void> {
-    const ticket=++this.navigationEpoch,graph=graphIdentity(await logseq.App.getCurrentGraph());
+    const ticket=++this.navigationEpoch,current=await logseq.App.getCurrentGraph();
+    if(!current)throw Error("请先打开一个 Logseq 笔记库。");
+    const graph=graphIdentity(current);
     if(ticket!==this.navigationEpoch||this.disposed)return;
-    if(this.rootUuid&&this.graph===graph){await this.returnToBody();return;}
-    const native=hostDocument()?.activeElement?.closest(".ls-block")?.getAttribute("blockid");
-    const block=native ? await logseq.Editor.getBlock(native) : null,page=typeof logseq.Editor.getCurrentPage==="function" ? await logseq.Editor.getCurrentPage() : null;
-    if(this.disposed || ticket!==this.navigationEpoch)return;
-    if(block && (!page || block.page?.id===page.id)) {
-      const trace=await this.readTrace(block.uuid,graph,()=>ticket===this.navigationEpoch&&!this.disposed);
-      if(ticket!==this.navigationEpoch || this.disposed)return;
-      if(trace.objects.length){await this.open(trace.objects.at(-1)!.uuid);return;}
+    if(this.rootUuid&&this.graph===graph){
+      if(!this.panel.visible||this.report.nativeActive||this.contentChoice!=="body")await this.returnToBody();
+      return;
     }
-    const name=String(page?.originalName??page?.name??"");
-    if(existingWorkPageMark(name)){await this.openPage(name);return;}
-    this.saveReadingSession(this.panel.visible || this.report.nativeActive);
-    this.invalidate();this.rootUuid=null;this.pageName=null;this.graph=graph;this.state=emptyPresentation();
-    this.shell.mount(this.panel.root);this.renderHeading();this.renderEmpty();
-    let saved;try{saved=JSON.parse(localStorage.getItem(`workbench:reading-session:${graph}`)??"null");}catch{ /* Fall back to the previous block entry. */ }
-    const savedScope=saved?.schemaVersion===1 && saved.scope?.graphId===graph && typeof saved.scope.rootUuid==="string" && ["report","structure"].includes(saved.mode) ? saved.scope as SourceScope : null;
-    const last=savedScope?.rootUuid ?? localStorage.getItem(`workbench:last:${graph}`);
-    const source=savedScope?.kind==="page" && typeof savedScope.pageName==="string" ? await logseq.Editor.getPage(savedScope.pageName) : last ? await logseq.Editor.getBlock(last) : null;
-    if(ticket!==this.navigationEpoch || this.disposed)return;
-    if(source?.uuid && (savedScope?.kind==="page" || source.uuid===last)) {
-      const title=savedScope?.kind==="page" ? String(savedScope.pageName) : "content" in source && typeof source.content==="string" ? workIdentity({graphId:graph,rootUuid:source.uuid},source.content).title : "上次工作";
-      this.continuation={title,isCurrentPage:savedScope?.kind==="page" && source.uuid===page?.uuid,run:()=>savedScope ? this.restoreReadingSession(false) : this.open(source.uuid)};
-      this.renderEmpty();
-    }
-    await this.panel.open();
+    if(this.discoverWorks){this.discoverWorks();return;}
+    await this.openPage();
   }
   private saveReadingSession(open: boolean): void {
     const scope=this.readingScope();if(!scope || this.disposed || this.historical || !this.panel.visible && !this.report.nativeActive)return;
-    const bookmark=this.renderer.bookmark(true),title=this.pageName??workIdentity(scope,this.sourceRows.find(row=>row.uuid===scope.rootUuid)?.content??"工作").title;
+    const bookmark=this.report.sessionBookmark(),title=this.pageName??workIdentity(scope,this.sourceRows.find(row=>row.uuid===scope.rootUuid)?.content??"工作").title;
     const excerpt=this.renderer.stopExcerpt()||this.sourceRows.find(row=>row.uuid===bookmark.uuid)?.content?.replace(/\s+/gu," ").slice(0,100)||"";
     try{const position=JSON.stringify({schemaVersion:1,scope,open,mode:this.report.read().mode,title,excerpt,...this.report.sessionFolds(),bookmark:{uuid:bookmark.uuid,offset:bookmark.offset,scrollTop:bookmark.scrollTop,fallback:bookmark.fallback,progressiveKey:bookmark.progressiveKey,progressiveFocus:bookmark.progressiveFocus}});
       localStorage.setItem(this.positionKey(scope),position);localStorage.setItem(`workbench:reading-session:${scope.graphId}`,position);
+      const recent:RecentReading={scope,title,excerpt};
+      const others=this.recentReadings(scope.graphId).filter(item=>workPositionKey(item.scope)!==this.positionKey(scope));
+      localStorage.setItem(`workbench:recent-work:${scope.graphId}`,JSON.stringify([recent,...others].slice(0,8)));
     }catch{ /* The live reading remains usable when storage is unavailable. */ }
   }
-  private positionKey(scope:SourceScope){return `workbench:reading-position:${JSON.stringify([scope.graphId,scope.kind??"block",scope.pageName??scope.rootUuid])}`;}
+  private positionKey(scope:SourceScope){return workPositionKey(scope);}
   private loadWorkPosition(scope:SourceScope){try{return JSON.parse(localStorage.getItem(this.positionKey(scope))??"null");}catch{return null;}}
   private async restoreWorkPosition(scope:SourceScope,saved:ReturnType<WorkView["loadWorkPosition"]>){
     if(!saved||saved.schemaVersion!==1)return;
     if(Array.isArray(saved.folds))this.report.restoreFolds(saved.folds,Array.isArray(saved.unfolded)?saved.unfolded:[]);
     const b=saved.bookmark,focus=!await logseq.Editor.checkEditing();
     if(!this.readingScope()||!sameLensScope(this.readingScope()!,scope))return;
-    if(b&&(b.uuid===null||typeof b.uuid==="string")&&Number.isFinite(b.scrollTop)&&Number.isFinite(b.offset)&&Array.isArray(b.fallback))this.renderer.restore({...b,focused:null},[],focus);
+    if(b&&(b.uuid===null||typeof b.uuid==="string")&&Number.isFinite(b.scrollTop)&&Number.isFinite(b.offset)&&Array.isArray(b.fallback)){
+      const uuid=scope.kind==="page"&&saved.scope?.rootUuid!==scope.rootUuid&&!this.sourceRows.some(row=>row.uuid===b.uuid)?null:b.uuid;
+      this.renderer.restore({...b,uuid,fallback:b.fallback.filter((id:unknown)=>typeof id==="string"),focused:null},[],focus);
+    }
   }
   lastReading(graphId:string):{title:string;excerpt:string;scope:SourceScope}|null {
     try{const value=JSON.parse(localStorage.getItem(`workbench:reading-session:${graphId}`)??"null");return value?.scope?.graphId===graphId&&value.title?{title:value.title,excerpt:value.excerpt??"",scope:value.scope}:null;}catch{return null;}
+  }
+  recentReadings(graphId:string):RecentReading[] {
+    try {
+      const saved=JSON.parse(localStorage.getItem(`workbench:recent-work:${graphId}`)??"[]") as RecentReading[];
+      const last=this.lastReading(graphId);
+      return last?[last,...saved.filter(item=>workPositionKey(item.scope)!==workPositionKey(last.scope))]:saved;
+    }catch{return [];}
+  }
+  async resumeRecent(scope:SourceScope):Promise<void>{
+    if(scope.graphId!==graphIdentity(await logseq.App.getCurrentGraph()))throw Error("请切回这份工作的笔记库。");
+    if(scope.kind==="page")await this.openPage(scope.pageName,true);else await this.open(scope.rootUuid,true);
+    this.focusReading();
   }
   async restoreReadingSession(requireOpen = true): Promise<void> {
     if(this.disposed)return;
@@ -516,10 +516,7 @@ export class WorkView {
     const actualScope=scope.kind==="page" ? {...scope,rootUuid:source.uuid} : scope;
     await this.enter(actualScope.rootUuid,panels.reserve(),scope.kind==="page"?scope.pageName!:null);
     if(this.disposed || !this.panel.visible || !sameLensScope(actualScope,this.readingScope()!))return;
-    if(this.report.read().mode!==saved.mode)await this.report.api.setMode(saved.mode);
-    if(Array.isArray(saved.folds))this.report.restoreFolds(saved.folds, Array.isArray(saved.unfolded) ? saved.unfolded : []);
-    const b=saved.bookmark;
-    if(b && (b.uuid===null || typeof b.uuid==="string") && Number.isFinite(b.offset) && Number.isFinite(b.scrollTop) && Array.isArray(b.fallback))this.renderer.restore({...b,fallback:b.fallback.filter((id:unknown)=>typeof id==="string"),focused:null});
+    await this.restoreWorkPosition(actualScope,saved);
     this.saveReadingSession(true);
   }
   get reviewing(): boolean { return this.reviewOpen && this.contentChoice === "body" && this.panel.visible; }
@@ -535,14 +532,8 @@ export class WorkView {
     this.status.textContent = "";
     const guide = element("div", "", "wb-empty wb-start-reading");
     const current = button("阅读当前页", () => void this.openPage().then(() => this.focusReading()).catch(this.fail));
-    const entry = this.continuation;
-    if (entry) {
-      const resume = button(`继续阅读：${entry.title}`, () => void entry.run().then(() => this.focusReading()).catch(this.fail));
-      resume.className = "wb-primary";
-      guide.append(resume);
-    } else current.className = "wb-primary";
-    if (!entry?.isCurrentPage) guide.append(current);
-    if (this.discoverWorks) guide.append(button("发现已有工作", this.discoverWorks));
+    current.className = "wb-primary"; guide.append(current);
+    if (this.discoverWorks) guide.append(button("找工作", this.discoverWorks));
     this.content.replaceChildren(guide);
   }
   setWorkSearch(open: () => void): void { this.discoverWorks = open; }
@@ -565,32 +556,28 @@ export class WorkView {
     const disabled = !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
     const reading=this.report.readingAPI.read();
     this.readingAI?.render(this.readingScope(),this.panel.visible&&this.contentChoice==="body"&&!this.historical,!!reading.briefing,!!this.draft||this.report.composing||this.renderer.composing);
-    const setReadingMode = async (mode: "report" | "structure") => {
-      const original = await this.report.readingAPI.select(null); if (!original.ok) throw new Error(original.reason);
-      const result = await this.report.api.setMode(mode); if (!result.ok) throw new Error(result.reason);
-    };
     const actions: WorkShellAction[] = [
-      { area: "reading", label: "连续阅读", selected: !reading.activePlanId && this.report.active, disabled, run: () => setReadingMode("report") },
-      { area: "reading", label: "原结构", selected: !this.report.active, disabled, run: () => setReadingMode("structure") },
-      { area: "range", label: this.lenses.selection ? "返回全文" : "只读选中部分", description: "保留完整来源块；随时返回全文", disabled:disabled||!!this.pageName, run: async () => { const result = this.lenses.selection ? this.lenses.api.exit() : await this.lenses.api.select(); if (!result.ok) throw new Error(result.reason); } },
-      { area: "maintenance", label: "重新读取正文", description: "从当前来源核对，保留安全保护", disabled, run: async () => { await this.refresh(); if (this.report.active) { const result = await this.report.api.refresh(); if (!result.ok) throw new Error(result.reason); } this.failure = ""; this.render(); } },
-      { area: "settings", label: "显示原生页面", description: "继续当前原生输入，保留阅读位置", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
+      {label: "显示 Logseq 页面", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
         const result = await this.report.api.showNative(); if (!result.ok) throw new Error(result.reason);
+        if(!this.draft && this.workOriginPage && !await logseq.Editor.checkEditing()) await logseq.App.pushState("page",{name:this.workOriginPage});
       } },
     ];
-    for(const plan of reading.plans)actions.push({area:"reading",group:plan.progressive?"渐进式阅读":"Agent 编排",label:plan.name,selected:reading.activePlanId===plan.planId,description:plan.status==="current"?"保留完整原句与来源，切换读法":plan.progressive?"查看旧版及当前依据":plan.status==="material-unavailable"?"关联材料需重新核验":"来源已变化，需要重新读取后编排",
-      disabled:!this.readingScope()||this.historical||this.renderer.composing||this.report.composing||!plan.progressive&&plan.status!=="current",
-      run:async()=>{const mode=await this.report.api.setMode("report");if(!mode.ok)throw new Error(mode.reason);const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
+    if(this.review&&!this.pageName)actions.push({label: "阶段记录与确认",...(review?.attention?{description:"有阶段记录待核对"}:{}),disabled:this.reviewOpen,run:()=>this.setReviewOpen(true)});
+    for(const plan of reading.plans)if(plan.planId!==reading.activePlanId)actions.push({group:"阅读成果与版本",label:plan.name,description:plan.status==="current"?"查看已保存成果":"查看保留的旧稿",
+      disabled:disabled||!plan.progressive&&plan.status!=="current",
+      run:async()=>{const result=await this.report.readingAPI.select(plan.planId);if(!result.ok)throw new Error(result.reason);}});
     const currentReading=reading.plans.find(plan=>plan.planId===reading.activePlanId);
-    if(currentReading?.canRestore)actions.push({area:"reading",group:"当前读法",label:"恢复上一版",disabled,
+    if(currentReading?.canRestore)actions.push({group:"阅读成果与版本",label:"恢复上一版文章",disabled,
       run:async()=>{const result=await this.report.readingAPI.restore(currentReading.planId);if(!result.ok)throw new Error(result.reason);}});
-    for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid) actions.push({ label: `打开上层工作：${crumb.title}`, run: () => this.enter(crumb.uuid), disabled: !this.rootUuid || this.historical });
+    if(currentReading&&!currentReading.progressive)actions.push({group:"阅读成果与版本",label:"回到原文",disabled,run:async()=>{const result=await this.report.readingAPI.select(null);if(!result.ok)throw new Error(result.reason);}});
+    for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid && crumb.uuid!==parent?.uuid) actions.push({group:"上层工作",label: crumb.title, run: () => this.enter(crumb.uuid), disabled: !this.rootUuid || this.historical });
     actions.push(...this.contextActions());
-    const notice = this.historical ? "只读版本 · 当前 Logseq 原文另行保留。收起审阅可回到当前正文。" : this.draft ? "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。" : report?.status === "stale" ? "来源已变化 · 等待安全刷新，当前仍是上次读取内容。" : "";
+    actions.push({group:"维护",label:"重新读取原文",description:"核对当前已保存记录",disabled,run:async()=>{await this.refresh();const result=await this.report.api.refresh();if(!result.ok)throw Error(result.reason);this.failure="";this.render();}});
+    const notice = this.historical ? "正在查看阶段历史。结束审阅可回到当前文章。" : this.draft ? "写作完成后这里会更新。" : report?.status === "stale" ? "正在重新读取原文…" : "";
+    showCurrentWorkEntry(!!work);
     this.shell.root.hidden = !work;
-    this.shell.root.classList.toggle("wb-ordinary-page", !!this.pageName && !existingWorkPageMark(this.pageName));
-    this.shell.render({ fromSearch: this.fromSearch && !!this.discoverWorks, searchAvailable:!!this.discoverWorks,browsing:this.browsingPage&&this.browsingPage!==this.workOriginPage?this.browsingPage:"", parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid)} : undefined, identity: work, content: this.contentChoice, structure: !this.report?.active, native: !!report?.native, draft: !!this.draft, historical: this.historical,
-      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, reviewLabel: review?.attention ? "有改动 · 进入审阅" : "审阅与历史", attention: !!review?.attention, notice: (reading.persistenceError?"读法未能保存到本机，请检查浏览器存储。":"") || notice || review?.notice || (this.contentChoice === "materials" ? this.failure : ""), readingLabel: reading.activePlan?.name ?? (this.report.active ? "连续阅读" : "原结构"), actions });
+    this.shell.render({ browsing:this.browsingPage&&this.browsingPage!==this.workOriginPage&&(report?.native||this.browsingPage!==this.initialBrowsingPage)?this.browsingPage:"", parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid)} : undefined, identity: work, content: this.contentChoice, native: !!report?.native, draft: !!this.draft, historical: this.historical,
+      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, attention: !!review?.attention, notice: (reading.persistenceError?"文章未能保存，请保持窗口打开。":"") || notice || (this.reviewOpen?review?.notice:"") || (this.contentChoice === "materials" ? this.failure : ""), actions });
   }
   private async openMaterials(): Promise<void> {
     const root = this.rootUuid, epoch = this.epoch;
@@ -627,7 +614,7 @@ export class WorkView {
     const count = displayed.items.filter(item => !item.hidden).length;
     this.status.textContent = this.failure || (!this.sourceAvailable || this.report.active && reportState.status === "unavailable"
       ? "来源暂不可用 · 保留最后已知内容。可在工作选项中重新读取。"
-      : displayed.focused && count < displayed.items.length ? `显示 ${count} / ${displayed.items.length} 条 · 当前范围已收窄，可展开或返回完整内容。` : "");
+      : !rows.length ? "这篇笔记还没有内容，可在 Logseq 开始写作。" : displayed.focused && count < displayed.items.length ? `显示 ${count} / ${displayed.items.length} 条 · 当前范围已收窄，可返回完整内容。` : "");
     if (!this.rootUuid) this.renderEmpty();
   }
   private toggle(name: "collapsed" | "expanded", uuid: string, collapsed?: boolean): void {
@@ -641,7 +628,7 @@ export class WorkView {
   }
   private async locate(uuid: string, control?: ReadingFocus["control"]): Promise<void> {
     const result=await this.report.navigate(uuid, control);
-    if (!result.ok) throw new Error(result.reason === "editing-in-progress" ? "请先结束原生输入，再切换原块。" : `原文暂不能打开：${result.reason}`);
+    if (!result.ok) throw new Error(result.reason === "editing-in-progress" ? "请先完成当前写作，再打开另一原块。" : "原文暂不能打开，请重新读取当前记录后再试。");
   }
   dispose(): void {
     if (this.disposed) return;

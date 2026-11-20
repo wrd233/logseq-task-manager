@@ -6,7 +6,7 @@ import {previewFormat} from "./preview/paths.ts";
 
 export function fileDetails(view: Pick<MaterialView, "path" | "capabilities" | "availability">): string {
   const type = extension(view.path).slice(1).toUpperCase() || "文件";
-  return `${type} · ${view.availability === "unavailable" ? "文件失联" : ["spreadsheet", "legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? "外部阅读" : "只读阅读"}`;
+  return `${type}${view.availability === "unavailable" ? " · 文件失联" : ["spreadsheet", "legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? " · 外部阅读" : ""}`;
 }
 export function materialEntry(view: MaterialView, open: () => void, draft: boolean): HTMLButtonElement {
   const entry = button("", open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
@@ -23,7 +23,7 @@ export function referenceNotice(record: MaterialRecord): string | null {
 export function materialDropArea(root: string | null): HTMLElement {
   const area = element("section", "", "wb-material-drop-area"); area.dataset.materialDropList = root ?? "";
   area.setAttribute("aria-label", "拖入文件加入材料");
-  area.append(element("p", "拖入文件或文件夹"), element("small", "保留原文件，副本加入当前工作。"));
+  area.append(element("p", "拖入文件或文件夹"));area.title="加入文件副本，原文件不变。";
   return area;
 }
 /** Local material styles; the shared shell continues to own navigation and theme. */
@@ -46,14 +46,17 @@ export function installMaterialReadingStyle(): () => void {
     .wb-material-folder small{display:block;overflow-wrap:anywhere;color:var(--ls-secondary-text-color,#666)}
 
     .wb-material-work{width:100%;color:var(--ls-secondary-text-color,#666);font-size:12px;overflow-wrap:anywhere}
-    .wb-material-tools{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap}
+    .wb-material-tools{display:flex;align-items:center;gap:8px;margin:0 0 14px;flex-wrap:wrap}
     .wb-material-tools input{flex:1;min-width:130px}
+    .wb-material-tools>.wb-material-count{flex:none;white-space:nowrap}
+    .wb-material-empty{font-size:13px;color:var(--wb-muted);margin:12px 0}
     .wb-material-drop-area{border:1px dashed var(--ls-border-color,#c8cfcc);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:13px}
     .wb-material-drop-area p{margin:0 0 2px}.wb-material-drop-area small{color:var(--ls-secondary-text-color,#666)}
     .wb-material-drag-target{outline:2px solid var(--ls-link-text-color,#6d8c7d);outline-offset:2px}
     .wb-material-drop-hint{font-size:12px;font-weight:400;margin:4px 0;color:var(--ls-secondary-text-color,#666)}
-    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:3px 0;min-height:38px;border-bottom:1px solid var(--wb-edge);position:relative}
-    [data-workbench-feature=materials] .wb-material{display:flex;align-items:center;gap:12px;grid-column:1;grid-row:1;border:0;margin:0;padding:5px 0;min-width:0;white-space:nowrap;font-size:14px}
+    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;padding:4px 0;min-height:38px;position:relative}
+    [data-workbench-feature=materials] .wb-material{display:flex;align-items:center;gap:8px;grid-column:1;grid-row:1;border:0;margin:0;padding:7px 3px;min-width:0;white-space:nowrap;font-size:14px}
+    .wb-material-note{width:100%}
     .wb-material-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}.wb-material-meta{flex:none;color:var(--wb-muted)}
     .wb-material-meta,.wb-material-filename{font-size:12px;font-weight:400;line-height:1.6}
     .wb-material-entry>.wb-menu{grid-column:3;grid-row:1;font-size:12px}.wb-material-entry>.wb-menu>summary{font-size:12px}
@@ -63,10 +66,14 @@ export function installMaterialReadingStyle(): () => void {
     .wb-material-rename label{font-size:12px;color:var(--wb-muted);width:100%}.wb-material-rename input{display:block;width:100%;margin-top:4px;font-size:14px}.wb-material-rename p{width:100%;margin:2px 0;font-size:13px}
     .wb-material-entry:has(.wb-material-rename)>.wb-material-feedback{display:none}
     .wb-material-path{font-size:12px;margin-top:4px;color:var(--wb-muted)}.wb-material-path summary{cursor:pointer}.wb-material-path small{margin-top:4px}
-    .wb-material-drop-compact{border:0!important;background:var(--wb-soft);padding:7px 10px!important;margin-bottom:5px!important}
-    .wb-material-drop-area{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;background:var(--wb-soft);padding:8px 10px!important;margin-bottom:8px!important}.wb-material-drop-area p{margin:0}.wb-material-drop-area small{flex:1;font-size:12px}.wb-material-drop-area button{font-size:12px}
+    .wb-material-drop-compact{border:1px dashed var(--wb-edge)!important;background:transparent;padding:7px 10px!important;margin-top:10px}
+    .wb-material-drop-area{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:5px 8px;padding:6px 10px!important;margin-bottom:8px!important;color:var(--wb-muted)}.wb-material-drop-area p{margin:0;font-size:12px}.wb-material-drop-area button{font-size:12px;color:var(--wb-accent);font-weight:500}
     .wb-material-directory-extra{margin-top:18px;font-size:12px;color:var(--wb-muted)}.wb-material-directory-extra>summary{cursor:pointer;padding:8px 0}.wb-material-folder-heading{flex-wrap:wrap}.wb-material-folder-heading select{flex:1;min-width:0;max-width:100%}
-    .wb-material-heading[data-material-reading]>strong{display:block!important;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wb-material-heading[data-material-reading]>small{font-size:12px;color:var(--wb-muted)}
+    .wb-material-heading[data-material-reading]>strong{display:block!important;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wb-material-heading[data-material-reading]>small{font-size:11px;color:var(--wb-muted)}
+    .wb-material-heading{border-bottom:1px solid var(--wb-edge)}
+    .wb-materials-in-work .wb-material-heading[data-material-list=true]{display:none}
+    .wb-materials-in-work .wb-material-heading:not([data-material-reading]){justify-content:flex-end;padding-block:1px}
+    .wb-material-close{display:none!important}
     .wb-material-drop-area.wb-material-drop-compact p{display:inline;margin-right:4px}.wb-material-drop-area.wb-material-drop-compact small{font-size:12px}
     .wb-material-drop-hint{position:absolute;z-index:10;pointer-events:none;padding:6px 10px;background:var(--wb-soft);border-radius:6px;box-shadow:var(--wb-shadow)}
     .wb-material-facts{font-size:12px;margin:0 0 12px;color:var(--ls-secondary-text-color,#666);overflow-wrap:anywhere}
@@ -79,6 +86,7 @@ export function installMaterialReadingStyle(): () => void {
     [data-workbench-feature=materials] .wb-material-form small{width:100%;color:var(--ls-secondary-text-color,#666)}
     [data-workbench-feature=materials] .wb-status:empty{display:none}
     @media(max-width:480px){.wb-material-entry{gap:4px}.wb-material-meta{font-size:11px}.wb-material-drop-area small{flex-basis:100%;order:1}.wb-material-tools{gap:6px}}
+    @media(hover:hover) and (pointer:fine){.wb-material-entry>.wb-menu{opacity:0;pointer-events:none}.wb-material-entry:hover>.wb-menu,.wb-material-entry:focus-within>.wb-menu,.wb-material-entry>.wb-menu[open]{opacity:1;pointer-events:auto}}
     @media(pointer:coarse){.wb-material-entry{min-height:44px}}
   `;
   document.head.append(style); return () => style.remove();

@@ -27,12 +27,19 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
   };
   const read = async () => {
     const scope = await context();
-    const { preferences, blocks, pages } = await notes(scope);
+    const preferences=await readDiscovery(scope),allPages=await logseq.Editor.getAllPages()??[];
+    scope.check();
+    const blocks=await readCatalogBlocks(scope.check);
+    const pages=await readCatalogPages(scope,true,allPages);
     const snapshot = await collectCatalog({ ...scope, blocks, pages, formal: [], getBlock: id => logseq.Editor.getBlock(id) });
     const markById = new Map(blocks.map(block => [block.uuid, block]));
     const works = snapshot.works.filter(work => isIncluded(work, preferences)).map(work =>
       work.workRef.kind === "logseq" && work.workRef.sourceKind === "block" ? explainBlockWork(work, markById.get(work.workRef.rootUuid)) : work);
-    return { ...snapshot, works, enabled: preferences.enabled };
+    // Local search is available even without discovery or a work directory.
+    // Ordinary pages are not collected/published to DSH by searching them.
+    const notes=allPages.filter(page=>page.uuid&&page.name&&!["whiteboard","property","hidden"].includes(page.type??""))
+      .map(page=>({uuid:page.uuid,name:page.originalName??page.name,updatedAt:page.updatedAt??0,hasFile:!!page.file||!!page["journal?"]}));
+    return { ...snapshot, works, notes, enabled: preferences.enabled };
   };
 
   const publish = async () => {

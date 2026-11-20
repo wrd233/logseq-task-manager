@@ -10,6 +10,7 @@ import { briefingParagraphs,retainUnchangedParagraphs,progressivePlanId, progres
 import { renderMarkdown } from "./markdown.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
 import type { WorkViewReport } from "./report-controller.ts";
+import { pageWorkIds } from "../../workspace/page-identity.ts";
 
 type Mode = "organize" | "ask" | "rewrite";
 export interface ReadingModelInput {mode:Mode;question:string;source:SourceSnapshot;materials:ReadingMaterial[];selection?:{text:string;sourceIds:string[]};previous?:WorkBriefing;changes?:ReadingChanges}
@@ -21,7 +22,7 @@ interface State {open:boolean;question:string;selection:Selection|null;answer:An
 const initial=(automatic=false):State=>({open:false,question:"",selection:null,answer:null,busy:false,notice:"",confirm:false,automatic,attempted:null,job:null,background:false,review:false});
 const text = (error:unknown) => {
   const code=typeof error==="object"&&error&&"code" in error?String(error.code):error instanceof Error?error.message:String(error);
-  return ({READING_MODEL_NOT_CONFIGURED:"DSH 尚未配置可用模型。原文阅读仍可使用。",READING_MODEL_PROVIDER_FAILED:"模型请求失败，请检查 DSH 的模型与凭据。",READING_MODEL_CONTEXT_LIMIT:"当前工作超过单次整理范围，可先选定较小的工作再试，或在 DSH 继续。",READING_MODEL_INCOMPLETE:"模型未完成生成，请重试或在 DSH 继续。",READING_AGENT_INCOMPLETE:"阅读 Agent 未提交完整成果，已保留原文章。",READING_MODEL_INTERRUPTED:"整理已停止，保留原文章。",DSH_NOT_RUNNING:"请先启动 DSH 与工作台协作服务。",PLUGIN_DESCRIPTOR_REQUIRED:"请先启动工作台协作服务。", "stale-source-set":"原文在生成期间更新，已保留原读法，请重试。", "reading-materials-changed":"关联依据已更新，请重新整理。","reading-request-revoked":"工作记录已变化，保留现有文章。","scope-mismatch":"工作已切换，请返回后重试。"} as Record<string,string>)[code]??`暂未完成：${code}`;
+  return ({READING_MODEL_NOT_CONFIGURED:"DSH 尚未配置可用模型，仍可阅读原文。",READING_MODEL_PROVIDER_FAILED:"模型暂不可用，请检查 DSH 的模型连接后重试。",READING_MODEL_CONTEXT_LIMIT:"资料较多，可缩小请求范围，或在 DSH 继续。",READING_MODEL_INCOMPLETE:"生成未完成，请重试或在 DSH 继续。",READING_AGENT_INCOMPLETE:"整理未完成，原文章保留。",READING_MODEL_OUTPUT:"未收到可用的阅读结果，请重试。",READING_MODEL_INTERRUPTED:"整理已停止，原文章保留。",DSH_NOT_RUNNING:"请启动 DSH 与工作台协作服务。",PLUGIN_DESCRIPTOR_REQUIRED:"请先启动工作台协作服务。",READING_MATERIAL_SCOPE_CHANGED:"关联材料已变化，请重新读取后再试。", "stale-source-set":"原文在生成期间更新，请重新整理。", "reading-materials-changed":"关联依据已更新，请重新整理。","reading-request-revoked":"工作记录已变化，原文章保留。","scope-mismatch":"工作已切换，请返回后重试。"} as Record<string,string>)[code]??(/^[A-Z_-]+$|^[a-z-]+$/u.test(code)?"请求未完成，请重试或在 DSH 继续。":code);
 };
 
 function selectedText(): Selection|null {
@@ -50,7 +51,6 @@ export class WorkReadingAI {
   private readonly status=element("div","","wb-ai-status");
   private readonly result=element("div","","wb-ai-result");
   private readonly ask:HTMLButtonElement;
-  private readonly arrange:HTMLButtonElement;
   private readonly rewrite:HTMLButtonElement;
   private readonly handoff:HTMLButtonElement;
   private readonly cancel:HTMLButtonElement;
@@ -61,43 +61,47 @@ export class WorkReadingAI {
   private candidateSignature="";
   private autoTimer:number|null=null;private autoKey:string|null=null;private watchTimer:number|null=null;
   private visible=false;private blocked=false;private disposed=false;
+  private hasBriefing=false;
   private readonly states=new Map<string,State>();
   private key="";private scope:SourceScope|null=null;private pointerSelection:Selection|null=null;
   private state:State=initial();
 
   constructor(private readonly reading:WorkViewReport["readingAPI"],private readonly port:ReadingAiPort,private readonly actions:{locate(uuid:string):void;material(id:string):void;refresh():Promise<void>}){
     const bar=element("div","","wb-ai-bar");
-    this.organize=button("AI 整理",()=>void this.run("organize",false));
-    this.toggle=button("提问…",()=>{this.state.open=!this.state.open;if(this.state.open){this.state.selection=this.pointerSelection??selectedText()??this.state.selection;this.input.value=this.state.question;}this.pointerSelection=null;this.paint();if(this.state.open)this.input.focus();});
+    this.organize=button("整理文章",()=>void this.run("organize",!!this.state.question.trim()));
+    this.toggle=button("AI 助手",()=>{this.state.open=!this.state.open;if(this.state.open){this.state.selection=this.pointerSelection??selectedText()??this.state.selection;this.input.value=this.state.question;}this.pointerSelection=null;this.paint();if(this.state.open)this.input.focus();});
     this.toggle.onpointerdown=()=>{this.pointerSelection=selectedText();};
     this.toggle.setAttribute("aria-expanded","false");
     this.cancel=button("取消",()=>{this.state.job?.abort();});this.cancel.setAttribute("aria-label","取消 AI 阅读任务");
     this.candidateButton=button("待采用修订",()=>this.reviewCandidate(this.candidateButton));
-    bar.append(this.organize,this.toggle,this.cancel,this.candidateButton);this.root.append(bar,this.form,this.status,this.candidateBox);this.status.setAttribute("role","status");
-    this.input.rows=2;this.input.placeholder="问当前工作，或说明希望怎样整理";this.input.setAttribute("aria-label","给 AI 的请求");this.input.maxLength=4000;
-    this.input.oninput=()=>{this.state.question=this.input.value;};
-    this.input.onkeydown=event=>{if(!event.isComposing&&event.key==="Enter"&&(event.metaKey||event.ctrlKey)){event.preventDefault();void this.run("ask",true);}};
-    this.ask=button("提问",()=>void this.run("ask",true));this.arrange=button("按此整理",()=>void this.run("organize",true));
-    this.rewrite=button("改写选中原块",()=>void this.run("rewrite",true));
     this.handoff=button("在 DSH 继续",()=>void this.continueInDsh());
-    this.tools.append(this.ask,this.arrange,this.rewrite,this.handoff);
+    this.handoff.className="wb-ai-handoff";this.handoff.title="进入此工作的 DSH 对话，带上本次阅读和请求";
+    this.handoff.onpointerdown=event=>{this.pointerSelection=selectedText();event.preventDefault();};
+    bar.append(this.toggle,this.cancel,this.candidateButton,this.handoff);this.root.append(bar,this.form,this.status,this.candidateBox);this.status.setAttribute("role","status");
+    this.input.rows=2;this.input.placeholder="问当前工作，或说明希望怎样整理";this.input.setAttribute("aria-label","给 AI 的请求");this.input.maxLength=4000;
+    this.input.oninput=()=>{this.state.question=this.input.value;this.paintControls();};
+    this.input.onkeydown=event=>{if(!event.isComposing&&event.key==="Enter"&&(event.metaKey||event.ctrlKey)){event.preventDefault();void this.run("ask",true);}};
+    this.ask=button("提问",()=>void this.run("ask",true));
+    this.rewrite=button("改写选中原块",()=>void this.run("rewrite",true));
+    this.tools.append(this.organize,this.ask,this.rewrite);
     const autoLabel=element("label","","wb-ai-auto");this.auto=element("input");this.auto.type="checkbox";autoLabel.append(this.auto,document.createTextNode("后台准备修订"));
     autoLabel.title="允许在本工作已保存来源变化后调用配置模型，准备候选；不会自动替换文章。";
     this.auto.onchange=()=>{this.state.automatic=this.auto.checked;this.state.attempted=null;localStorage.setItem(`workbench:reading-auto:${this.key}`,String(this.auto.checked));if(!this.auto.checked){this.clearTimers();if(this.state.background)this.state.job?.abort();}this.schedule();};
     this.form.append(this.selectionLabel,this.input,this.tools,autoLabel,this.result);
     this.candidateBox.hidden=true;this.candidateBox.setAttribute("role","dialog");this.candidateBox.setAttribute("aria-label","候选修订");this.candidateBox.onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();this.closeCandidate();}};
+    window.addEventListener("resize",this.positionCandidate);
     this.root.setAttribute("aria-label","轻量 AI 阅读助手");this.paint();
   }
   render(scope:SourceScope|null,visible:boolean,hasBriefing:boolean,blocked=false):void {
-    const key=scope?JSON.stringify([scope.graphId,scope.rootUuid,scope.kind??"block"]):"";
+    const key=scope?JSON.stringify([scope.graphId,pageWorkIds(scope,localStorage)[0],scope.kind??"block"]):"";
     this.scope=scope;
     if(key!==this.key){
       this.state.job?.abort();this.clearTimers();this.state.review=false;this.candidateSignature="";
       this.key=key;const previous=this.states.get(key);this.state=previous??initial(key?localStorage.getItem(`workbench:reading-auto:${key}`)==="true":false);if(key)this.states.set(key,this.state);
       this.input.value=this.state.question;this.result.replaceChildren();this.paint();
     }
-    this.visible=visible;this.blocked=blocked;
-    this.root.hidden=!scope||!visible;this.organize.textContent=hasBriefing?"AI 更新整理":"AI 整理";
+    this.visible=visible;this.blocked=blocked;this.hasBriefing=hasBriefing;
+    this.root.hidden=!scope||!visible;
     this.organize.disabled=blocked||this.state.busy;this.toggle.disabled=blocked&& !this.state.open;
     this.form.dataset.blocked=String(blocked);
     this.paintControls();
@@ -107,7 +111,10 @@ export class WorkReadingAI {
   }
   private paintControls(){
     const blocked=this.form.dataset.blocked==="true";
-    this.ask.disabled=this.arrange.disabled=this.rewrite.disabled=this.handoff.disabled=this.state.busy||blocked;
+    const question=!!this.state.question.trim();
+    this.ask.disabled=this.state.busy||blocked||!question;
+    this.rewrite.disabled=this.handoff.disabled=this.state.busy||blocked;
+    this.organize.textContent=question?"按要求整理":this.hasBriefing?"更新文章":"整理文章";
     this.rewrite.hidden=!this.state.selection?.uuid;
     this.organize.disabled=this.state.busy||blocked;this.toggle.setAttribute("aria-expanded",String(this.state.open));
     this.cancel.hidden=!this.state.job;this.auto.checked=this.state.automatic;
@@ -155,11 +162,11 @@ export class WorkReadingAI {
         const saved=await (previous?this.reading.prepare(plan):this.reading.submit(plan));if(!saved.ok)throw new Error(saved.reason);
         const current=this.reading.read();
         if(!previous&&before.selectedPlanId===current.selectedPlanId&&before.mode===current.mode){const selected=await this.reading.select(planId);if(!selected.ok)throw new Error(selected.reason);}
-        state.notice="";if(!custom&&!background)state.open=false;
+        state.notice="";if(!background)state.open=false;
       }else{
         if(typeof result.answer!=="string"||!result.answer.trim())throw new Error("READING_MODEL_OUTPUT");
         state.answer={text:result.answer,sourceIds:result.sourceIds??[],materialIds:result.materialIds??[],source,...(mode==="rewrite"&&chosen?{rewrite:chosen}:{})};
-        state.open=true;state.notice="已生成 · 依据为本次保存的原文，尚未写入。";
+        state.open=true;state.notice="";
       }
     }catch(error){state.notice=job.signal.aborted?"已取消；保留现有阅读。":text(error);}
     finally{if(requestId)this.reading.cancel(requestId);state.busy=false;state.job=null;state.background=false;if(this.same(scope,state)){this.paint();this.schedule();}}
@@ -191,9 +198,16 @@ export class WorkReadingAI {
   reviewCandidate(anchor?:HTMLElement):void{
     if(!this.reading.read().candidate)return;
     this.candidateFocus=anchor??this.candidateButton;this.state.review=true;this.updateCandidate();
-    this.candidateBox.querySelector<HTMLElement>("button")?.focus({preventScroll:true});
+    this.positionCandidate();this.candidateBox.querySelector<HTMLElement>("button")?.focus({preventScroll:true});
   }
-  private closeCandidate():void{this.state.review=false;this.candidateBox.hidden=true;const anchor=this.candidateFocus;((anchor?.isConnected&&!anchor.closest("[hidden]"))?anchor:this.organize).focus({preventScroll:true});}
+  private positionCandidate=():void=>{
+    if(this.candidateBox.hidden)return;
+    const rect=this.candidateFocus?.getBoundingClientRect()??this.root.getBoundingClientRect();
+    this.candidateBox.style.maxHeight=`${Math.min(window.innerHeight*.65,window.innerHeight-24)}px`;
+    const height=this.candidateBox.offsetHeight;
+    this.candidateBox.style.top=`${Math.max(12,Math.min(rect.bottom+6,window.innerHeight-height-12))}px`;
+  };
+  private closeCandidate():void{this.state.review=false;this.candidateBox.hidden=true;const anchor=this.candidateFocus;((anchor?.isConnected&&!anchor.closest("[hidden]"))?anchor:this.toggle).focus({preventScroll:true});}
   private updateCandidate():void{
     const state=this.state,reading=this.reading.read(),candidate=reading.candidate,article=!!reading.activePlan?.briefing;
     this.candidateButton.hidden=!candidate||article;this.candidateBox.hidden=!candidate||!state.review;
@@ -217,7 +231,7 @@ export class WorkReadingAI {
     if(missing.length){const removed=element("details");removed.append(element("summary","本次不再单独呈现的段落"));for(const item of missing){const block=element("div");block.innerHTML=renderMarkdown(item.markdown);removed.append(block);}preview.append(removed);}
     if(!preview.childElementCount)preview.append(element("p","文章表述未改动；采用会更新依据版本。"));
     for(const link of Array.from(preview.querySelectorAll("a")))link.replaceWith(...Array.from(link.childNodes));
-    this.candidateBox.replaceChildren(header,preview);
+    this.candidateBox.replaceChildren(header,preview);this.positionCandidate();
   }
   private async adoptCandidate():Promise<void>{
     const state=this.state,scope=this.scope;if(!scope||this.blocked||await logseq.Editor.checkEditing())return;
@@ -226,19 +240,19 @@ export class WorkReadingAI {
     if(result.ok){this.closeCandidate();state.notice="";}else state.notice=text(result.reason);
     this.paint();
   }
-  dispose():void{this.disposed=true;this.clearTimers();for(const state of this.states.values())state.job?.abort();this.root.remove();}
+  dispose():void{this.disposed=true;this.clearTimers();window.removeEventListener("resize",this.positionCandidate);for(const state of this.states.values())state.job?.abort();this.root.remove();}
   private showAnswer(){
     const answer=this.state.answer,scope=this.scope;this.result.replaceChildren();this.result.hidden=!answer;if(!answer||!scope)return;
     const rendered=element("div","","wb-ai-answer");rendered.innerHTML=renderMarkdown(answer.text);for(const link of Array.from(rendered.querySelectorAll("a")))link.replaceWith(...Array.from(link.childNodes));
     const label=element("small","","wb-progressive-version");label.dataset.answerBasis=answer.source.sourceSetVersion;label.dataset.answerTime=answer.source.capturedAt;
     const refs=element("div","","wb-ai-references");
-    for(const id of answer.sourceIds){const source=answer.source.blocks.find(block=>block.sourceId===id);if(source){const details=element("details");details.append(element("summary",`依据 · ${source.content?.split("\n")[0]?.slice(0,52)??source.target.blockUuid.slice(0,8)}`),element("pre",source.content??""),button("查看当前原块",()=>this.actions.locate(source.target.blockUuid)));refs.append(details);}}
+    for(const id of answer.sourceIds){const source=answer.source.blocks.find(block=>block.sourceId===id);if(source){const details=element("details");details.append(element("summary",`依据 · ${source.content?.split("\n")[0]?.slice(0,52)??"原文记录"}`),element("pre",source.content??""),button("查看当前原块",()=>this.actions.locate(source.target.blockUuid)));refs.append(details);}}
     for(const id of answer.materialIds)refs.append(button("查看相关材料",()=>this.actions.material(id)));
     const actions=element("div","","wb-ai-tools");actions.append(button("复制",()=>void copyMaterialLink(answer.text).then(()=>{this.state.notice="已复制。";this.status.textContent=this.state.notice;}).catch(error=>{this.state.notice=text(error);this.status.textContent=this.state.notice;})),button("插入为新块",()=>void this.write(answer,scope,false)));
     if(answer.rewrite){actions.append(button(this.state.confirm?"确认替换原块":"用此结果替换原块…",()=>{if(this.state.confirm)void this.write(answer,scope,true);else{this.state.confirm=true;this.paint();}}));if(this.state.confirm){const confirm=element("div","","wb-ai-confirm");confirm.append(element("small","将以下整块原文替换为上面的结果（仅普通块，保存版本必须未变化）："),element("pre",answer.rewrite.content??""),button("取消替换",()=>{this.state.confirm=false;this.paint();}));this.result.append(confirm);}}
     this.result.append(label,rendered,refs,actions);this.updateAnswerBasis();
   }
-  private updateAnswerBasis(){const label=this.result.querySelector<HTMLElement>("[data-answer-basis]");if(!label)return;const basis=label.dataset.answerBasis!,current=this.reading.read().sourceSetVersion,stale=!!current&&basis!==current;label.textContent=`${new Date(label.dataset.answerTime!).toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} 读取${stale?" · 原文有更新":""}`;label.classList.toggle("wb-progressive-changed",stale);}
+  private updateAnswerBasis(){const label=this.result.querySelector<HTMLElement>("[data-answer-basis]");if(!label)return;const basis=label.dataset.answerBasis!,current=this.reading.read().sourceSetVersion,stale=!!current&&basis!==current;label.hidden=!stale;label.textContent=stale?`原文有更新 · ${new Date(label.dataset.answerTime!).toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} 读取`:"";label.classList.toggle("wb-progressive-changed",stale);}
   private async write(answer:Answer,scope:SourceScope,replace:boolean){
     const state=this.state;
     const check=async()=>{if(!this.same(scope,state)||graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||await logseq.Editor.checkEditing())throw new Error("请先结束原生输入并保持在当前工作，再确认写入。");};
@@ -252,6 +266,7 @@ export class WorkReadingAI {
   }
   private async continueInDsh(){
     const state=this.state,scope=this.scope;if(!scope)return;
+    if(this.pointerSelection){state.selection=this.pointerSelection;this.pointerSelection=null;}
     state.busy=true;state.notice="正在准备 DSH 协作…";this.paint();let requestId:string|undefined;
     try{
       const requested=await this.reading.request({schemaVersion:1,purpose:"继续当前工作"});if(!requested.ok)throw new Error(requested.reason);
@@ -262,7 +277,7 @@ export class WorkReadingAI {
       if(!this.same(scope,state))throw new Error("scope-mismatch");
       const article=this.reading.read().briefing,readingResult=state.answer?.text??article?.paragraphs.map(unit=>unit.markdown).join("\n\n");
       await this.port.handoff(scope,{request:state.question.trim()||"继续处理当前工作",sourceIds:ids,...(state.selection?{selection:state.selection.text}:{}),basisVersion:basis.sourceSetVersion,...(readingResult?{result:readingResult.slice(0,8000)}:{})});
-      state.notice="已交接当前工作、请求和来源；在 DSH 确认加入草稿。";
+      state.notice="已交接，请在 DSH 查看草稿。";
     }catch(error){state.notice=text(error);}
     finally{if(requestId)this.reading.cancel(requestId);state.busy=false;if(this.same(scope,state))this.paint();}
   }

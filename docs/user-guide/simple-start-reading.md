@@ -1,5 +1,7 @@
 # 装好后直接阅读
 
+新版 2026-11-20 的操作路径见 [Logseq 工作台：从笔记继续工作](logseq-workbench.md)。下文保留此前安装试用时点的说明和截图；新版不再要求先收录笔记、选择读法或手工建立 DSH 协作连接。
+
 本轮工作台预览的安装包和实机记录见[验收记录](../implementation/logseq-workbench-preview-validation.md)。基础阅读装好即可使用，配置集中在原有的插件设置里。
 
 此前的材料、阅读和协作交付记录见[最终验收矩阵](../implementation/reading-and-agent-collaboration-final-matrix.md)。
