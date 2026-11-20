@@ -128,7 +128,7 @@ export class WorkViewReport {
     if (!scope || this.host.historical()) return;
     const key=JSON.stringify([scope.graphId,scope.rootUuid]);
     this.sessions.delete(key);
-    this.sessions.set(key,{mode:this.mode,folds:new Map(this.folds),bookmark:this.native?.bookmark??this.suspended??this.host.renderer.bookmark()});
+    this.sessions.set(key,{mode:this.mode,folds:new Map(this.folds),bookmark:this.native?.bookmark??this.suspended??this.host.renderer.bookmark(true)});
     if (this.sessions.size>12) this.sessions.delete(this.sessions.keys().next().value!);
   }
   scopeChanged(): void {
@@ -493,7 +493,7 @@ export class WorkViewReport {
   }
   hide(reason: "switch" | "close"): void {
     if (!this.yielding) {
-      this.navigation++; this.suspended=this.native?.bookmark??this.host.renderer.bookmark(); this.remember(); this.editor.hideReturn();
+      this.navigation++; this.suspended=this.native?.bookmark??this.host.renderer.bookmark(true); this.remember(); this.editor.hideReturn();
     }
     if (reason === "close") this.native=null;
   }

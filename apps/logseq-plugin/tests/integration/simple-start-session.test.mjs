@@ -24,9 +24,12 @@ test('close/reopen and a new controller restore the same reading mode, UUID book
   await f.work.open('root');assert.equal(f.work.reportAPI.read().status,'current');
   const content=f.work.panel.root.querySelector('.wb-scroll');content.scrollTop=145;
   f.work.panel.root.querySelector('.wb-row[data-uuid="b0"] > button:nth-of-type(2)').click();
+  const stop=f.work.panel.root.querySelector('.wb-row[data-uuid="b0"]');stop.focus();
+  f.work.panel.root.querySelector('.wb-write-entry').focus();
   await f.work.panel.close();assert.equal(f.work.panel.visible,false);
   assert.equal(JSON.parse(f.browser.localStorage.getItem('workbench:reading-session:one:/one')).open,false);
   await f.work.open('root');assert.equal(f.work.panel.root.querySelector('[data-uuid="nested"]').hidden,true);assert.equal(content.scrollTop,145);
+  assert.equal(f.browser.document.activeElement,stop);
   const before=JSON.stringify([...f.blocks]);f.work.dispose();await delay(10);
   const WorkView=f.work.constructor;restored=new WorkView(()=>{}, {initialReadingMode:'report'});await restored.restoreReadingSession();
   assert.equal(restored.panel.visible,true);assert.equal(restored.reportAPI.read().scope.rootUuid,'root');assert.equal(restored.panel.root.querySelector('[data-uuid="nested"]').hidden,true);
