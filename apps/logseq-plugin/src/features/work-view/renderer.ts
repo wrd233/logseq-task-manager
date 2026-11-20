@@ -370,7 +370,8 @@ export class WorkViewRenderer {
     const entry = focus ? this.entries.get(focus.uuid) : undefined;
     const control = entry && (focus?.control === "edit" ? entry.nativeEdit : focus?.control === "menu" ? entry.summary : entry.node);
     const progressiveControl=progressive(bookmark.progressiveFocus);
-    if (restoreFocus && progressiveControl?.matches("button,[tabindex]")) {this.lastReadingFocus=progressiveControl;progressiveControl.focus({preventScroll:true});}
+    if (progressiveControl?.matches("button,[tabindex]")) this.lastReadingFocus=progressiveControl;
+    if (restoreFocus && progressiveControl?.matches("button,[tabindex]")) progressiveControl.focus({preventScroll:true});
     else if (restoreFocus && focus) {
       const target = control && this.isInView(control) && !control.matches(":disabled") ? control : node;
       target?.focus({ preventScroll: true });

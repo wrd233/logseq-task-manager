@@ -309,11 +309,11 @@ export class WorkView {
    * location, after the actual host identity settles. */
   private async followPageIdentity():Promise<boolean>{
     const scope=this.readingScope(),navigation=panels.activeToken("work"),epoch=this.navigationEpoch;
-    if(scope?.kind!=="page"||navigation===null||!this.panel.visible||this.draft||this.report.nativeActive||this.renderer.composing)return false;
-    const valid=()=>!this.disposed&&this.panel.visible&&epoch===this.navigationEpoch&&panels.isLatest(navigation);
+    if(scope?.kind!=="page"||navigation===null||!this.panel.visible||this.draft||this.report.nativeActive||this.report.composing||this.renderer.composing)return false;
+    const valid=()=>!this.disposed&&this.panel.visible&&epoch===this.navigationEpoch&&panels.isLatest(navigation)&&!this.draft&&!this.report.nativeActive&&!this.report.composing&&!this.renderer.composing;
     const page=await logseq.Editor.getPage(scope.pageName!);
     if(!valid()||!page?.uuid||page.uuid===scope.rootUuid)return false;
-    if(graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||await logseq.Editor.checkEditing()||!valid())return false;
+    if(graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||!valid())return false;
     await this.enter(page.uuid,navigation,scope.pageName!);return true;
   }
   private async refreshActiveSource():Promise<void>{
