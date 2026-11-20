@@ -33,7 +33,8 @@ export class CollaborationUI {
     const revision=++this.revision,panelRevision=panels.reserve(),context=await this.boundary.context(root);
     if(this.disposed||revision!==this.revision)return;
     const {binding,guidance}=context,body=element("div","","wb-scroll"),header=element("div","","wb-heading");
-    header.append(element("strong",guideOnly?"共同指导与项目差异":reading?"让 Agent 设计读法":"带当前工作去协作"),button("关闭",()=>this.close()));
+    header.append(element("strong",guideOnly?"共同指导与项目差异":reading?"让 Agent 设计读法":"带当前工作去协作"));
+    if(!document.getElementById("workbench-navigation"))header.append(button("关闭",()=>this.close()));
     const status=element("p","","wb-guidance-status"),current=()=>!this.disposed&&revision===this.revision;
     status.setAttribute("role","status");
     const check=async()=>{if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");await context.check();if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");};

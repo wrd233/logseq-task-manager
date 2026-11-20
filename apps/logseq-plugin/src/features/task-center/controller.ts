@@ -485,6 +485,8 @@ html,body{margin:0;height:100%;overflow:hidden}
 [data-task-copilot-daily-panel] ::-webkit-scrollbar{width:8px;height:8px}
 [data-task-copilot-daily-panel] ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:4px}
 [data-task-copilot-daily-panel] ::-webkit-scrollbar-track{background:transparent}
+#workbench-navigation~[data-task-copilot-daily-panel] :is([data-tc-native-close],[data-tc-compact-back]){display:none!important}
+[data-task-copilot-daily-panel] button:focus-visible{outline:2px solid var(--wb-focus);outline-offset:2px}
 [data-tc-resize-handle]::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:1px;background:var(--ls-border-color,#e3e3e3);opacity:.75}
 [data-tc-resize-handle]:hover::after,[data-tc-resize-handle]:focus-visible::after{background:var(--ls-link-text-color,#4f74b8);opacity:.95;width:2px}
 `;
@@ -677,17 +679,17 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
   const [now, confirmations, workMap, system] = await Promise.all([api.nowProjection(), api.confirmationProjection(), api.workMapProjection(), api.systemProjection()]);
   const storedWidth = await logseq.FileStorage.getItem(sidebarWidthKey).catch(() => null);
   if (generation !== taskUiGeneration || !await panels.activate("tasks", navigation) || generation !== taskUiGeneration) return;
-  markNavigation("任务");
+  markNavigation("正式任务");
   sidebarWidth = parseSidebarWidth(storedWidth);
   const root = document.createElement("div");
   root.dataset.taskCopilotDailyPanel = "true";
   root.style.cssText = "box-sizing:border-box;width:100%;height:100vh;overflow:hidden;background:var(--ls-primary-background-color,#fff);color:var(--ls-primary-text-color,#222);font-family:var(--ls-font-family,system-ui,sans-serif);display:flex;flex-direction:column;position:relative;";
   const header = document.createElement("div"); header.style.cssText = "flex:none;display:flex;align-items:center;gap:8px;padding:9px 14px 7px;";
-  const brand = document.createElement("div"); brand.textContent = "Task Copilot"; brand.style.cssText = "font-size:13px;font-weight:700;letter-spacing:.02em;opacity:.9;";
+  const brand = document.createElement("div"); brand.textContent = "正式任务"; brand.style.cssText = "font-size:15px;font-weight:650;";
   const compactBack = document.createElement("button"); compactBack.dataset.tcCompactBack = "true"; compactBack.textContent = "← Logseq"; compactBack.title = "返回 Logseq 主工作区"; compactBack.setAttribute("aria-label", "返回 Logseq 主工作区");
   compactBack.style.cssText = "border:1px solid var(--ls-border-color,#ccc);border-radius:5px;background:transparent;color:inherit;padding:2px 8px;font-size:12px;cursor:pointer;display:none;";
   compactBack.onclick = () => closeDailyPanel();
-  const close = document.createElement("button"); close.textContent = "×"; close.title = "关闭 Task Copilot"; close.setAttribute("aria-label", "关闭 Task Copilot");
+  const close = document.createElement("button"); close.dataset.tcNativeClose = "true"; close.textContent = "×"; close.title = "关闭正式任务"; close.setAttribute("aria-label", "关闭正式任务");
   close.style.cssText = "border:none;background:transparent;font-size:19px;line-height:1;cursor:pointer;color:inherit;opacity:.55;padding:0 2px;margin-left:auto;";
   close.onclick = () => closeDailyPanel();
   header.append(compactBack, brand, close);
@@ -702,20 +704,19 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
     if (name === "now") {
       view.replaceChildren();
       if (!now.items.length) {
-        const empty = document.createElement("p"); empty.textContent = "目前没有特别需要你恢复的工作。"; empty.style.cssText = "color:#777;font-size:13px;";
-        const quiet = document.createElement("p"); quiet.textContent = "后台会在真正值得你注意时再把事情带回来。"; quiet.style.cssText = "color:#999;font-size:12px;margin:4px 0 0;";
-        view.append(empty, quiet);
+        const empty = document.createElement("p"); empty.textContent = "暂无需要恢复的正式任务。"; empty.style.cssText = "color:var(--wb-muted,#777);font-size:13px;";
+        view.append(empty);
       }
       for (const item of now.items) {
         const card = document.createElement("section"); card.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:10px 0;margin:0;cursor:pointer;";
         if (item.workObjectId) card.onclick = () => render("now", item.workObjectId);
         const h = document.createElement("h3"); h.textContent = item.title; h.style.cssText = "margin:0 0 3px;font-size:15px;font-weight:600;";
         const reality = document.createElement("p"); reality.textContent = item.currentReality; reality.style.cssText = "margin:0 0 4px;font-size:13px;";
-        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;";
-        const cont = document.createElement("p"); cont.textContent = item.continuationPoint; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:#333;";
+        const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 4px;font-size:12px;color:var(--wb-muted,#666);";
+        const cont = document.createElement("p"); cont.textContent = item.continuationPoint; cont.style.cssText = "margin:0 0 8px;font-size:13px;color:var(--wb-ink,#333);";
         const fragments: HTMLElement[] = [h, reality, why, cont];
         if (item.meaningfulChanges.length && item.lastSeenAt) {
-          const changes = document.createElement("p"); changes.textContent = `上次以后：${item.meaningfulChanges.slice(0, 2).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;";
+          const changes = document.createElement("p"); changes.textContent = `上次以后：${item.meaningfulChanges.slice(0, 2).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:var(--wb-muted,#444);";
           fragments.splice(3, 0, changes);
         }
         card.append(...fragments);
@@ -731,13 +732,13 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
       }
     } else if (name === "confirm") {
       view.replaceChildren();
-      if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "现在没有需要你确认的边界决定。"; empty.style.cssText = "color:#777;font-size:13px;"; view.append(empty); }
+      if (!confirmations.items.length) { const empty = document.createElement("p"); empty.textContent = "暂无待确认事项。"; empty.style.cssText = "color:var(--wb-muted,#777);font-size:13px;"; view.append(empty); }
       for (const item of confirmations.items) {
         const card = document.createElement("section"); card.style.cssText = "border-bottom:1px solid rgba(128,128,128,.16);padding:10px 0;margin:0;";
         const title = document.createElement("h3"); title.textContent = item.title; title.style.cssText = "margin:0 0 5px;font-size:15px;font-weight:600;";
         const impact = document.createElement("p"); impact.textContent = item.impact; impact.style.cssText = "margin:0 0 4px;font-size:13px;";
         const fragments: HTMLElement[] = [title, impact];
-        if (item.whyNow) { const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:12px;color:#666;"; fragments.push(why); }
+        if (item.whyNow) { const why = document.createElement("p"); why.textContent = item.whyNow; why.style.cssText = "margin:0 0 10px;font-size:12px;color:var(--wb-muted,#666);"; fragments.push(why); }
         const actions = document.createElement("div"); actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;";
         const accept = document.createElement("button"); accept.textContent = "确认"; accept.disabled = item.status === "STALE"; accept.style.cssText = "border:1px solid #bbb;border-radius:5px;background:var(--ls-link-text-color,#4f74b8);color:#fff;padding:4px 12px;cursor:pointer;";
         accept.onclick = () => { closeDailyPanel(); void guarded("accept-decision", async () => { if (await acceptDecisionPackage(item.packageId)) await dailyPanel(); }); };
@@ -762,7 +763,7 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
       const group = (title: string, rows: string[]) => {
         const label = document.createElement("p"); label.textContent = title; label.style.cssText = "margin:10px 0 4px;font-size:11px;font-weight:600;color:#888;";
         view.append(label);
-        for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:#444;overflow-wrap:anywhere;"; view.append(p); }
+        for (const text of rows) { const p = document.createElement("p"); p.textContent = text; p.style.cssText = "margin:0 0 4px;font-size:13px;color:var(--wb-muted,#444);overflow-wrap:anywhere;"; view.append(p); }
       };
       const systemRows = [system.runtimeSummary];
       if (system.runtimeStatus === "DEGRADED" || system.runtimeStatus === "CATCHING_UP") systemRows.push(`待处理：${system.runtimeQueuedJobs} · 失败：${system.runtimeFailedJobs}`);
@@ -799,7 +800,7 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
         }
         const reality = document.createElement("p"); reality.textContent = pack.reentrySummary; reality.style.cssText = "margin:0 0 8px;font-size:14px;overflow-wrap:anywhere;";
         view.append(reality);
-        if (pack.recentChanges.length) { const changes = document.createElement("p"); changes.textContent = `最近变化：${pack.recentChanges.slice(0, 3).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:#444;"; view.append(changes); }
+        if (pack.recentChanges.length) { const changes = document.createElement("p"); changes.textContent = `最近变化：${pack.recentChanges.slice(0, 3).join("；")}`; changes.style.cssText = "margin:0 0 8px;font-size:12px;color:var(--wb-muted,#444);"; view.append(changes); }
         if (pack.activeChildren.length) {
           const childrenTitle = document.createElement("p"); childrenTitle.textContent = "当前重点"; childrenTitle.style.cssText = "margin:8px 0 2px;font-size:11px;font-weight:600;color:#888;"; view.append(childrenTitle);
           for (const child of pack.activeChildren) { const p = document.createElement("p"); p.textContent = `• ${child.title}${child.reason ? ` — ${child.reason}` : ""}`; p.style.cssText = "margin:0 0 2px;font-size:13px;overflow-wrap:anywhere;"; view.append(p); }
@@ -813,13 +814,13 @@ async function dailyPanel(initialObjectId: string | null = null): Promise<void> 
             : assessment.readiness === "NOT_READY" ? "当前还不能结束"
             : "完成情况还不确定"; label.style.cssText = `margin:0 0 4px;font-size:13px;font-weight:600;${assessment.readiness === "CONFLICT" ? "color:#b02a37;" : assessment.readiness === "READY" && pack.closureAssessmentFresh ? "color:var(--ls-link-text-color,#4f74b8);" : ""}`;
           closure.append(label);
-          if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:#666;overflow-wrap:anywhere;"; closure.append(blockers); }
+          if (assessment.blockers.length) { const blockers = document.createElement("p"); blockers.textContent = assessment.blockers.join("；"); blockers.style.cssText = "margin:0 0 4px;font-size:12px;color:var(--wb-muted,#666);overflow-wrap:anywhere;"; closure.append(blockers); }
           if (assessment.checks.length) {
             for (const check of assessment.checks) {
               const glyph = check.status === "SATISFIED" ? "✓" : check.status === "UNSATISFIED" ? "✗" : check.status === "CONTRADICTED" ? "⚠" : "○";
               const p = document.createElement("p"); p.textContent = `${glyph} ${check.text}`; p.style.cssText = "margin:0 0 2px;font-size:12px;overflow-wrap:anywhere;";
               closure.append(p);
-              if (check.rationale && check.status !== "SATISFIED") { const reason = document.createElement("p"); reason.textContent = `  ${check.rationale}`; reason.style.cssText = "margin:0 0 4px;font-size:11px;color:#777;"; closure.append(reason); }
+              if (check.rationale && check.status !== "SATISFIED") { const reason = document.createElement("p"); reason.textContent = `  ${check.rationale}`; reason.style.cssText = "margin:0 0 4px;font-size:11px;color:var(--wb-muted,#777);"; closure.append(reason); }
             }
           }
           if (assessment.readiness === "READY" && pack.closureAssessmentFresh) {

@@ -1,6 +1,6 @@
 /** Small shared visual vocabulary; selectors stay within plugin-owned surfaces. */
 export const workbenchTokens = `
-:where(.wb-panel,#workbench-navigation,.wb-dialog,.wb-material-capture){
+:where(.wb-panel,#workbench-navigation,.wb-dialog,.wb-material-capture,[data-task-copilot-daily-panel]){
  --wb-bg:#f8f7f3;--wb-paper:#fbfaf7;--wb-soft:#ebeee8;--wb-ink:#29332f;--wb-muted:#63706a;
  --wb-edge:#dce1d9;--wb-accent:#356958;--wb-on-accent:#fff;--wb-focus:#367968;--wb-error:#9d4938;
  --wb-attention:#805b24;--wb-shadow:0 12px 38px #26352e24;--wb-backdrop:#15241c55;
@@ -8,7 +8,7 @@ export const workbenchTokens = `
  --ls-primary-text-color:var(--wb-ink);--ls-secondary-text-color:var(--wb-muted);--ls-border-color:var(--wb-edge);--ls-link-text-color:var(--wb-accent);
  color-scheme:light;
 }
-:where(html[data-wb-theme=dark],html[data-theme=dark],html.dark,body[data-theme=dark],body.dark) :where(.wb-panel,#workbench-navigation,.wb-dialog,.wb-material-capture){
+:where(html[data-wb-theme=dark],html[data-theme=dark],html.dark,body[data-theme=dark],body.dark) :where(.wb-panel,#workbench-navigation,.wb-dialog,.wb-material-capture,[data-task-copilot-daily-panel]){
  --wb-bg:#252e29;--wb-paper:#282f2b;--wb-soft:#354039;--wb-ink:#e3e8e3;--wb-muted:#b0bcb5;
  --wb-edge:#43534a;--wb-accent:#91c7b3;--wb-on-accent:#1e2d25;--wb-focus:#a4d8c1;--wb-error:#f0ad97;
  --wb-attention:#e1c18a;--wb-shadow:0 12px 38px #0005;--wb-backdrop:#09130f88;color-scheme:dark;
@@ -40,6 +40,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 #workbench-navigation button{min-height:27px;padding:3px 7px}
 #workbench-navigation [hidden]{display:none!important}
 .wb-navigation-primary,.wb-navigation-secondary{display:flex;align-items:center;gap:4px;min-width:0}
+#workbench-navigation .wb-menu:has([aria-current=true])>summary{color:var(--wb-accent);font-weight:600}
 .wb-navigation-primary button[aria-current=true]{color:var(--wb-accent);font-weight:650;background:transparent;border-bottom:2px solid var(--wb-accent);border-radius:2px}
 #workbench-navigation .wb-navigation-close{font-size:20px;line-height:1;padding-inline:7px}
 [data-task-copilot-daily-panel]{height:calc(100% - 36px)!important}
