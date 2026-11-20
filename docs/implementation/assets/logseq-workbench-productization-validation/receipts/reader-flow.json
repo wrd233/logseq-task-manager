@@ -1,0 +1,395 @@
+{
+  "expanded": {
+    "keyboard": [
+      "false",
+      "true"
+    ],
+    "state": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 0,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/option-pending",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    }
+  },
+  "table": {
+    "id": "unit/recheck-status/detail/recheck-counts",
+    "before": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 691,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/recheck-counts",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "opened": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n…\n↗\n实际复核数据（合成验收样本）\n上下文\n11月18日复核表补充-e37cd80f.md\n↗\n\n北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。",
+      "x": 8,
+      "y": 191.0859375,
+      "width": 368,
+      "height": 452.9140625,
+      "viewport": [
+        384,
+        652
+      ],
+      "tables": [
+        "区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台"
+      ],
+      "images": [],
+      "cards": 4
+    },
+    "after": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 691,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "closed": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 691,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/recheck-counts",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    }
+  },
+  "original": {
+    "cards": 15,
+    "fragments": 15,
+    "text": "工作记录\n×\n当前原文 · 15 条\n…\n↗\n\n#Project\n\n…\n↗\n机房交接：等待复核\n…\n↗\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n…\n↗\n\nTODO 联系现场值班人复核北侧机架，等签字回执\n\n…\n↗\n\n反例：南侧设备有签字，但照片日期晚于签字时间；只能确认签字记录存在，不能证明当时标签一致。\n\n…\n↗\n实际复核数据（合成验收样本）\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n…\n↗\n方案与限制\n…\n↗\n\n方案甲：先复核差异，再补签。优点是能保留追溯链；缺点是交付窗口可能推迟。\n\n…\n↗\n\n方案乙：先办理仅包含已核验设备的部分交接，其余记录待确认。不得冒充全部交接完成。\n\n…\n↗\n\n临时联络见 验收参考笔记；这里保持 A 工作现场，参考页不是新的交接任务。\n\n…\n↗\n继续工作停点\n…\n↗\n\n下回从北侧两台差异和南侧一台待核验继续；工作记录不以消息已发作为签字证明。\n\n整理时原文 · 15 条\n关联资料"
+  },
+  "attachment": {
+    "id": "unit/recheck-status/detail/attachment-check",
+    "before": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1217,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/attachment-check",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "opened": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n上下文\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n11月18日复核表补充-e37cd80f.md\n↗\n\n原记录保留，禁止据此宣告全部完成。\n\n合成标签示意.png\n↗\n验收核对长附件.md\n↗\n\n现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。",
+      "x": 8,
+      "y": 191.0859375,
+      "width": 368,
+      "height": 452.9140625,
+      "viewport": [
+        384,
+        652
+      ],
+      "tables": [],
+      "images": [
+        {
+          "loaded": true,
+          "w": 360,
+          "h": 150
+        }
+      ],
+      "cards": 5
+    },
+    "after": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1217,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "returned": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1217,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/attachment-check",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "shown": {
+      "title": "验收核对长附件.md",
+      "tail": "只是隔离演练记录，不代表签字或通过验收。 验收合成校验行 130：这只是隔离演练记录，不代表签字或通过验收。\n\n现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。",
+      "root": "验收交接计划"
+    }
+  },
+  "reference": {
+    "id": "unit/option-pending/detail/contact-window",
+    "before": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1746.5,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/option-pending/detail/contact-window",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "opened": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n\n临时联络见 验收参考笔记；这里保持 A 工作现场，参考页不是新的交接任务。\n\n上下文\n验收参考笔记\n↗\n\n联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。",
+      "x": 8,
+      "y": 325.3828125,
+      "width": 368,
+      "height": 255.65625,
+      "viewport": [
+        384,
+        652
+      ],
+      "tables": [],
+      "images": [],
+      "cards": 2
+    },
+    "after": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1746.5,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "returned": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 1746.5,
+      "height": 2215,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/option-pending/detail/contact-window",
+      "client": 384,
+      "scrollWidth": 384,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    }
+  },
+  "dark": {
+    "id": "unit/recheck-status/detail/recheck-counts",
+    "before": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 736.5,
+      "height": 2320,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/recheck-counts",
+      "client": 320,
+      "scrollWidth": 320,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "opened": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n…\n↗\n实际复核数据（合成验收样本）\n上下文\n11月18日复核表补充-e37cd80f.md\n↗\n\n北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。",
+      "x": 8,
+      "y": 191.0859375,
+      "width": 304,
+      "height": 452.9140625,
+      "viewport": [
+        320,
+        652
+      ],
+      "tables": [
+        "区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台"
+      ],
+      "images": [],
+      "cards": 4
+    },
+    "after": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 736.5,
+      "height": 2320,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "client": 320,
+      "scrollWidth": 320,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    }
+  },
+  "compact": {
+    "id": "unit/recheck-status/detail/history-initial-check",
+    "before": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 81.5,
+      "height": 1764,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/history-initial-check",
+      "client": 530,
+      "scrollWidth": 530,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    },
+    "opened": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n上下文\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文",
+      "x": 8,
+      "y": 191.0859375,
+      "width": 390,
+      "height": 289.09375,
+      "viewport": [
+        530,
+        652
+      ],
+      "tables": [],
+      "images": [],
+      "cards": 2
+    },
+    "after": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 81.5,
+      "height": 1764,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "client": 530,
+      "scrollWidth": 530,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "current",
+      "candidate": null
+    }
+  },
+  "native": {
+    "nativeBefore": {
+      "uuid": "1aa10000-1111-4111-8111-000000000002",
+      "value": "11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。（11月20日补核：仅凭旧照片，仍有三台待核验）"
+    },
+    "live": {
+      "value": "11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。（11月20日补核：仅凭旧照片，仍有三台待核验）",
+      "start": 2,
+      "end": 5,
+      "focused": true
+    },
+    "blocked": {
+      "value": "11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。（11月20日补核：仅凭旧照片，仍有三台待核验）",
+      "start": 2,
+      "end": 5,
+      "focused": true
+    },
+    "restored": {
+      "work": "验收交接计划",
+      "root": "6aff160f-9a62-4237-b905-cb94369681da",
+      "scroll": 69,
+      "height": 1764,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/history-initial-check",
+      "client": 530,
+      "scrollWidth": 530,
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "status": "stale",
+      "candidate": null
+    },
+    "added": {
+      "uuid": "6aff992c-c0f3-4721-b389-c318c73b8dff",
+      "text": "新增复核：11 月 20 日南侧待核验设备已有签字回执，但照片时间关系仍待核。北侧两台仍待现场复核；不能将计数当作全部交接完成。"
+    },
+    "changes": {
+      "visible": true,
+      "text": "验收交接计划\n×\n…\n↗\n整理时所引\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n当前原文\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。（11月20日补核：仅凭旧照片，仍有三台待核验）\n\n上下文\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文",
+      "x": 8,
+      "y": 165.9375,
+      "width": 368,
+      "height": 422.1796875,
+      "viewport": [
+        384,
+        652
+      ],
+      "tables": [],
+      "images": [],
+      "cards": 2
+    }
+  }
+}

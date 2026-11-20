@@ -1,0 +1,42 @@
+{
+  "materials": {
+    "list": "4 项\n···\n11月18日复核表补充-e37cd80f.md\nMD\n···\n合成标签示意.png\nPNG\n···\n验收核对长附件.md\nMD\n···\n验收参考笔记\n关联笔记\n\n拖入文件或文件夹\n\n加入文件…\n目录中的其他文件",
+    "options": "管理目录…\n登记已有材料目录",
+    "folders": "新拖入的文件和收纳长文保存到默认目录。\n\n添加目录\n\nwork-A\n默认保存位置\n查看完整路径\n更多\n切换默认目录只影响新文件。解除关联会保留文件和已有材料链接。",
+    "image": {
+      "width": 360,
+      "height": 150,
+      "body": "‹ 材料列表\n合成标签示意.png\nPNG\n···\n独立窗口"
+    },
+    "previewOptions": "复制链接\n外部打开\n改文件名\n写概述\n同步名称与引用\n补关联\n重新定位\n来源\n收纳创建 · 生成文档\n恢复收纳原文\n验收核对长附件.md\n编辑",
+    "global": "全部材料\n正式任务\n插件设置",
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+      "kind": "page",
+      "pageName": "验收交接计划"
+    }
+  },
+  "search": {
+    "home": "阅读当前页\n···\n最近工作\n验收交接计划\n上次读到：查看原文\n验收短事项\n验收随记\n已有工作\n交接索引22\n···\n交接索引21\n···\n交接索引20\n···\n交接索引19\n···\n交接索引18\n···\n交接索引17\n···\n交接索引16\n···\n交接索引15\n···\n交接索引14\n···\n交接索引13\n···\n交接索引12\n···\n交接索引11\n···\n交接索引10\n···\n交接索引09\n···\n交接索引08\n···\n交接索引07\n···\n交接索引06\n···\n交接索引05\n···\n交接索引04\n···\n交接索引03\n···\n近期笔记\nContents\nNov 20th, 2026\n验收参考笔记\nNov 19th, 2026\n输入更具体的名称以缩小范围。",
+    "ordinary": {
+      "text": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。（合成复读核验）\n\n编辑\n⋯\n\n参考 验收参考笔记。原记录的条件是先登记，再复核，最后归还。\n\n编辑\n⋯",
+      "plan": null
+    }
+  },
+  "guidance": {
+    "guidance": "共同指导与项目差异\n关闭\n\n现场仅含已保存的原文和选择的背景。原生草稿不包含在内；准备现场不会提交原生输入。\n\n共同指导：一处维护，各工作只写差异\n\n本次读取：共同 b24bf505fbaf；项目 e3b0c44298fc。旧现场保留当时的加载版本。\n\n共同指导（保存后影响本插件的各工作）明确保存共同指导这份工作的差异（不会改共同指导）仅保存这份工作的差异",
+    "authority": "显示 Logseq 页面\n阅读成果与版本\nDSH 协作\n新建 DSH 对话\n共同指导与项目差异\n工作目录\n授权与恢复\n允许写工作文件\n停止本次连接\n维护"
+  },
+  "stage": {
+    "bar": "当前原文 · 合成验收：核实正文依据 · 记录版本已认可\n当前原文与此次记录一致。认可只绑定所见记录，后续写作不受影响。\n新目标\n记录当前版本\n已认可\n看本阶段全部变化\n历史、比较与阶段成果\n连接与原文维护说明",
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "1aa10000-1111-4111-8111-000000000001"
+    }
+  },
+  "formal": {
+    "taskSettings": true,
+    "kernelSettings": true
+  }
+}

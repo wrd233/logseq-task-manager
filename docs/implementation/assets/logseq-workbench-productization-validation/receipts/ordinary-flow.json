@@ -1,0 +1,54 @@
+{
+  "ordinary": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "6aff1610-090d-45c4-8ab2-1badf8a853d5",
+      "kind": "page",
+      "pageName": "验收随记"
+    },
+    "title": "验收随记",
+    "body": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。\n\n编辑\n⋯\n\n参考 验收参考笔记。原记录的条件是先登记，再复核，最后归还。\n\n编辑\n⋯",
+    "scroll": 0,
+    "focus": "验收随记",
+    "brief": null
+  },
+  "edit": {
+    "before": {
+      "uuid": "6aff1610-fca8-4b86-9fcc-77c51eb1761e",
+      "text": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。"
+    },
+    "live": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。（合成复读核验）",
+    "saved": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。（合成复读核验）"
+  },
+  "resumed": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "6aff1610-090d-45c4-8ab2-1badf8a853d5",
+      "kind": "page",
+      "pageName": "验收随记"
+    },
+    "title": "验收随记",
+    "body": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。（合成复读核验）\n\n编辑\n⋯\n\n参考 验收参考笔记。原记录的条件是先登记，再复核，最后归还。\n\n编辑\n⋯",
+    "scroll": 0,
+    "focus": "验收随记",
+    "brief": null
+  },
+  "toolbar": {
+    "count": 1,
+    "oldDsh": 0,
+    "restored": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff1610-090d-45c4-8ab2-1badf8a853d5",
+        "kind": "page",
+        "pageName": "验收随记"
+      },
+      "title": "验收随记",
+      "body": "这是一篇两年前归档的普通随记，不是正式任务。下次借阅资料只核对编号，不改动旧台账。（合成复读核验）\n\n编辑\n⋯\n\n参考 验收参考笔记。原记录的条件是先登记，再复核，最后归还。\n\n编辑\n⋯",
+      "scroll": 0,
+      "focus": "找工作当前工作···全部材料正式任务插件设置×\n检测到外部版本变化，当前草稿已保留。另存草稿并继续另",
+      "brief": null
+    }
+  },
+  "modelCalls": 0
+}

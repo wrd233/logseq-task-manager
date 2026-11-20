@@ -1,0 +1,48 @@
+{
+  "initial": {
+    "graph": "",
+    "scope": null,
+    "recents": 0,
+    "tasks": false,
+    "agent": false
+  },
+  "installed": "0.2.0 · 预览 2026-11-20T06:03:55.387Z · 1RIGZS",
+  "home": {
+    "list": "近期笔记\nContents\n验收参考笔记\n验收随记\nNov 20th, 2026",
+    "currentHidden": true,
+    "recentHidden": true,
+    "nav": "找工作\n其他\n×"
+  },
+  "ordinary": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-fMxLkf/graph",
+      "rootUuid": "6affea68-7694-4a41-a337-c516b023301b",
+      "kind": "page",
+      "pageName": "验收随记"
+    },
+    "body": "两年前的普通随记：先借阅资料，核对编号，登记后归还。没有正式任务或工作标记。\n\n⋯\n⠿\n\n参考 验收参考笔记。\n\n⋯",
+    "briefing": null
+  },
+  "host": {
+    "id": "9a2c745f-ad34-4810-966d-e8955b1d7f13",
+    "pid": 79487,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 1080,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-fMxLkf/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-fMxLkf/profile"
+  }
+}
