@@ -203,7 +203,8 @@ export class StageReview implements ReviewPort {
     const mode=this.historyMode?this.submittedMode?"提交版本":"历史回看":"当前原文";
     this.bar.dataset.reviewMode=this.historyMode?this.submittedMode?"submitted":"history":"current";
     this.bar.dataset.reviewRevision=this.seen?.id??"";
-    this.versionText.textContent=this.seen?`修订：${this.seen.id}\n记录时间：${this.seen.at}\n正文集合版本：${this.seen.source.sourceSetVersion}\n结构版本：${this.seen.source.structureVersion}`:"还没有记录修订版本。";
+    const revisionNumber=(stage?.revisions.findIndex(r=>r.id===this.seen?.id)??-1)+1;
+    this.versionText.textContent=this.seen?`${revisionNumber?`第 ${revisionNumber} 版`:"阶段记录"}\n记录时间：${new Date(this.seen.at).toLocaleString("zh-CN")}\n${accepted?"已认可":"尚未认可"}`:"还没有记录修订版本。";
     this.label.textContent=stage?`${mode} · ${stage.start.goal}${accepted?" · 记录版本已认可":""}`:"阶段记录";
     this.label.hidden=!this.expanded;
     this.entry.textContent=this.expanded?"收起协作":this.changeCount&&(!accepted||!this.currentMatches)?`查看这次改动 · ${this.changeCount} 处`:"协作";

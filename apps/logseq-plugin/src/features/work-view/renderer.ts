@@ -428,8 +428,9 @@ export class WorkViewRenderer {
     return null;
   }
   stopExcerpt():string {
-    const anchor=Array.from(this.container.querySelectorAll<HTMLElement>(".wb-body,[data-progressive-anchor]")).find(node=>this.isInView(node));
-    return (anchor?.textContent??"").replace(/\s+/gu," ").trim().slice(0,100);
+    const anchor=Array.from(this.container.querySelectorAll<HTMLElement>(".wb-body,.wb-progressive-line,.wb-progressive-detail")).find(node=>this.isInView(node));
+    const text=anchor?.querySelector("h3")?.textContent??anchor?.textContent??"";
+    return text.replace(/\s+/gu," ").trim().slice(0,100);
   }
   private sourceNodes():HTMLElement[] {
     // DOM order follows both manual layouts and composed nested reading units.

@@ -277,7 +277,8 @@ export class WorkReadingAI {
       if(!this.same(scope,state))throw new Error("scope-mismatch");
       const article=this.reading.read().briefing,readingResult=state.answer?.text??article?.paragraphs.map(unit=>unit.markdown).join("\n\n");
       await this.port.handoff(scope,{request:state.question.trim()||"继续处理当前工作",sourceIds:ids,...(state.selection?{selection:state.selection.text}:{}),basisVersion:basis.sourceSetVersion,...(readingResult?{result:readingResult.slice(0,8000)}:{})});
-      state.notice="已交接，请在 DSH 查看草稿。";
+      const notice="已交接，请在 DSH 查看草稿。";state.notice=notice;
+      window.setTimeout(()=>{if(state.notice===notice){state.notice="";if(this.same(scope,state)&&!this.disposed)this.paint();}},8000);
     }catch(error){state.notice=text(error);}
     finally{if(requestId)this.reading.cancel(requestId);state.busy=false;if(this.same(scope,state))this.paint();}
   }
