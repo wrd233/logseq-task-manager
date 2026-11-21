@@ -12,8 +12,9 @@ import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTarget
 import { activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
+import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
 import type { IcloudInboxFsOps } from "./icloud-inbox.ts";
-import type { StageUserAction, StageViewportSource } from "@task-copilot/stage-runtime";
+import type { StageUserAction, StageViewportSource, TimeUserAction } from "@task-copilot/stage-runtime";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -155,6 +156,8 @@ export async function startWorkspaceServer(options: {
     icloudInboxDirectory?: string;
     icloudFsOps?: Partial<IcloudInboxFsOps>;
     watchIcloud?: boolean;
+    appleCalendar?: TimeHubOptions["appleCalendar"];
+    activateLogseq?: TimeHubOptions["activateLogseq"];
     reading?: Omit<ReadingHubOptions, "stateDirectory">;
 }) {
     const state = resolve(options.stateDirectory);
@@ -168,8 +171,14 @@ export async function startWorkspaceServer(options: {
     const instanceId = randomUUID(), token = randomBytes(32).toString("hex"), pluginToken = randomBytes(32).toString("hex");
     const broker = new WorkspaceBroker(instanceId, options.offlineMs, options.timeoutMs);
     const readingHub = new ReadingJobHub({ stateDirectory: state, ...options.reading });
+    const timeHub = new TimeHub({
+        stateDirectory: state,
+        ...(options.appleCalendar ? { appleCalendar: options.appleCalendar } : {}),
+        ...(options.activateLogseq ? { activateLogseq: options.activateLogseq } : {}),
+    });
     const stageHub = new StageHub({
         stateDirectory: state,
+        timeHub,
         ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}),
         ...(options.icloudInboxDirectory ? { icloudInboxDirectory: options.icloudInboxDirectory } : {}),
         ...(options.icloudFsOps ? { icloudFsOps: options.icloudFsOps } : {}),
@@ -329,6 +338,7 @@ export async function startWorkspaceServer(options: {
         instanceId,
         readingHub,
         stageHub,
+        timeHub,
         getActiveConnection,
         dispatch: enqueueOperation,
         audit: auditFact,
@@ -553,6 +563,25 @@ export async function startWorkspaceServer(options: {
             if (request.url === "/plugin/stage/inbox-status" || request.url === "/stage/inbox-status") {
                 workRecord(input, []);
                 send(response, 200, { instanceId, value: await stageHub.inboxStatus() });
+                return;
+            }
+            if (request.url === "/plugin/stage/calendar-status" || request.url === "/stage/calendar-status") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: await timeHub.calendarStatus(true) });
+                return;
+            }
+            if (request.url === "/plugin/time/state" || request.url === "/stage/time/state") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: await timeHub.snapshot() });
+                return;
+            }
+            if (request.url === "/plugin/time/action" || request.url === "/stage/time/action") {
+                const raw = workRecord(input, ["action"]);
+                if (!raw.action || typeof raw.action !== "object" || Array.isArray(raw.action)) {
+                    throw new WorkspaceError("INVALID_INPUT", "缺少 time action 对象。");
+                }
+                const value = await stageHub.applyAction({ type: "time", action: raw.action as TimeUserAction });
+                send(response, 200, { instanceId, value });
                 return;
             }
             if (request.url === "/plugin/stage/action" || request.url === "/stage/action") {
@@ -998,7 +1027,7 @@ export async function startWorkspaceServer(options: {
         const descriptor: WorkspacePluginDescriptor = { schemaVersion: 1, instanceId, baseUrl, token, pluginToken };
         await atomicJson(descriptorPath, { schemaVersion: 1, instanceId, baseUrl, token });
         await atomicJson(pluginDescriptorPath, descriptor);
-        return { descriptor, descriptorPath, pluginDescriptorPath, broker, readingHub, stageHub, close: async () => { stageHub.dispose(); readingHub.dispose(); broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
+        return { descriptor, descriptorPath, pluginDescriptorPath, broker, readingHub, stageHub, timeHub, close: async () => { stageHub.dispose(); readingHub.dispose(); broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
     }
     catch (error) {
         server.close();

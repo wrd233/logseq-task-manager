@@ -267,10 +267,10 @@ export function installAgentWorkspace(options: {
         const response=await post(descriptor,"/plugin/stage/state",{},10000);
         return response.value as StageSnapshot;
     };
-    const stageAction=async(action:StageUserAction):Promise<{snapshot:StageSnapshot;archivedInboxIds:string[]}>=>{
+    const stageAction=async(action:StageUserAction):Promise<{snapshot:StageSnapshot;archivedInboxIds:string[];warning?:string}>=>{
         const descriptor=await currentDescriptor();
         const response=await post(descriptor,"/plugin/stage/action",{action},10000);
-        return response.value as {snapshot:StageSnapshot;archivedInboxIds:string[]};
+        return response.value as {snapshot:StageSnapshot;archivedInboxIds:string[];warning?:string};
     };
     const stageAnchor=async(workKey:string):Promise<StageSnapshot>=>{
         const descriptor=await currentDescriptor();

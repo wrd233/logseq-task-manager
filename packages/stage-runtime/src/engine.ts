@@ -12,6 +12,7 @@ import {
   matchInboxLocally,
   recencyDays,
 } from "./pulse.ts";
+import type { StageViewTab, TimeSnapshot } from "./time-types.ts";
 import type {
   ColdStartAreaDraft,
   StageAdvancementItem,
@@ -178,6 +179,7 @@ export class StageEngine {
   constructor(initialRegistry?: StageRegistryFile, now = Date.now()) {
     this.registry = initialRegistry ? structuredClone(initialRegistry) : emptyStageRegistry(now);
     this.viewport = {
+      activeTab: "season",
       zoomLevel: 0,
       areaId: null,
       projectWorkKey: null,
@@ -214,11 +216,16 @@ export class StageEngine {
   // ==================== LAYER 1: PRESENCE & GAZE (Never dirties durable data or undo) ====================
 
   setViewport(patch: Partial<StageViewport>, source?: StageViewportSource, now = Date.now()): StageViewport {
+    const activeTab: StageViewTab =
+      patch.activeTab === "season" || patch.activeTab === "week" || patch.activeTab === "today"
+        ? patch.activeTab
+        : this.viewport.activeTab ?? "season";
     const level: StageZoomLevel =
       patch.zoomLevel === 0 || patch.zoomLevel === 1 || patch.zoomLevel === 2 || patch.zoomLevel === 3
         ? patch.zoomLevel
         : this.viewport.zoomLevel;
     this.viewport = {
+      activeTab,
       zoomLevel: level,
       areaId: patch.areaId !== undefined ? patch.areaId : level === 0 ? null : this.viewport.areaId,
       projectWorkKey: patch.projectWorkKey !== undefined ? patch.projectWorkKey : level <= 1 ? null : this.viewport.projectWorkKey,
@@ -1034,6 +1041,8 @@ export class StageEngine {
       case "clear-radar":
         this.clearRadar();
         return { mutatedRegistry: false, archivedInboxIds: [] };
+      case "time":
+        return { mutatedRegistry: false, archivedInboxIds: [] };
       case "undo":
         return { mutatedRegistry: this.undoLastCommit(), archivedInboxIds: [] };
     }
@@ -1058,6 +1067,7 @@ export class StageEngine {
     now = Date.now(),
     appUrl?: string,
     inboxDiagnostics?: StageInboxDiagnostics,
+    timeSnapshot?: TimeSnapshot,
   ): StageSnapshot {
     this.pruneEphemeral(now);
     const entries = flattenCatalog(catalogSnapshots);
@@ -1251,6 +1261,7 @@ export class StageEngine {
       cooledInboxCount,
       mismatchSignals,
       ...(inboxDiagnostics ? { inboxDiagnostics } : {}),
+      ...(timeSnapshot ? { time: timeSnapshot } : {}),
       ghostProposals: structuredClone(this.ghostProposals),
       highlights: structuredClone(this.highlights),
       edgeRadar: this.edgeRadar ? structuredClone(this.edgeRadar) : null,
@@ -1265,13 +1276,21 @@ export class StageEngine {
 
 /** Terse 1-line Shared Gaze summary injected into DSH system prompt or shown in Agent telemetry. */
 export function compactGazeSummary(snapshot: StageSnapshot): string {
-  const { zoomLevel, areaId, projectWorkKey, selectedInboxId } = snapshot.viewport;
+  const { activeTab = "season", zoomLevel, areaId, projectWorkKey, selectedInboxId } = snapshot.viewport;
   const area = areaId ? snapshot.areas.find((a) => a.id === areaId) : undefined;
   const proj = area && projectWorkKey ? area.projects.find((p) => p.workKey === projectWorkKey) : undefined;
   const inbox = selectedInboxId ? snapshot.inbox.find((i) => i.id === selectedInboxId) : undefined;
 
   const parts: string[] = [];
-  if (snapshot.ghostProposals.some((g) => g.kind === "propose-areas")) {
+  if (activeTab === "week" && snapshot.time) {
+    const cap = snapshot.time.weekCapacity;
+    parts.push(`本周容器（已排 ${cap.openMoveCount}/${cap.recommendedMax} 块，固定日程 ${cap.dailyOverview.filter((d) => d.busyMinutes > 0).length} 天）`);
+  } else if (activeTab === "today" && snapshot.time) {
+    const morning = snapshot.time.todaySlots.find((s) => s.spec.id === "morning");
+    const morningOpen = morning ? morning.items.filter((i) => i.state === "open").length : 0;
+    const carry = snapshot.time.carryoverItems.length;
+    parts.push(`今日容器（上午·深潜 ${morningOpen} 项${carry > 0 ? `，昨日遗留 ${carry} 项` : ""}）`);
+  } else if (snapshot.ghostProposals.some((g) => g.kind === "propose-areas")) {
     parts.push("L0 冷启动虚态星图");
   } else if (zoomLevel === 0) {
     const mainArea = snapshot.areas.find((a) => a.focusRole === "main");
@@ -1285,14 +1304,18 @@ export function compactGazeSummary(snapshot: StageSnapshot): string {
     parts.push(`L3 执行入口「${proj?.title ?? ""}」`);
   }
 
-  if (snapshot.mismatchSignals.length > 0 && zoomLevel === 0) {
+  if (snapshot.time?.activeFocus) {
+    parts.push(`专注中「${snapshot.time.activeFocus.title.slice(0, 18)}」`);
+  }
+  if (snapshot.mismatchSignals.length > 0 && activeTab === "season" && zoomLevel === 0) {
     parts.push(`主线错配提醒：${snapshot.mismatchSignals[0]!.areaName}`);
   }
   if (inbox) {
     parts.push(`已选 Inbox「${inbox.text.slice(0, 24)}」`);
   }
-  if (snapshot.ghostProposals.length > 0) {
-    parts.push(`待拍板虚态推演 ${snapshot.ghostProposals.length} 条`);
+  const ghostCount = snapshot.ghostProposals.length + (snapshot.time?.ghostProposals.length ?? 0);
+  if (ghostCount > 0) {
+    parts.push(`待拍板虚态推演 ${ghostCount} 条`);
   }
   return parts.join(" · ");
 }

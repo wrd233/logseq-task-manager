@@ -34,9 +34,9 @@ description: 个人主力工作台的顶层注意力参谋。结合实时活舞�
 ### 第一档 · 观察（Watch，静默只读）
 先拉事实，再开口：
 - `stage_get_pulse`：读取全局四态星区（`focusRole / domain / quarterGoal / antiGoal / weeklyMinimum`）、`mismatchSignals`（主线错配事实）、休眠/搁置区、`unassignedWorks`、活跃与已冷却（>14 天）Inbox（含 `ios-shortcut` iPhone 随口记与 `flomo`）、以及 `inboxDiagnostics`（若 iCloud 目录被 macOS TCC 拦截，如实向用户展示授权指引）。
-- `stage_get_view`：读取用户当前悬浮活舞台视角（L0–L3、选中的 Inbox、待拍板虚态提案）。
+- `time_get_overview`：读取纯语义时间中心实况——本周推进块与 Apple 日历硬日程密度推导的建议容量（常规 3–5 块，密集周 1–3 块）、今日三槽（上午·深潜 / 下午·推进 / 晚上·轻放）与剩余空间、昨日遗留托盘（含 `repeatCarryoverItems` 连续 >= 3 次遗留项）、各领域本周真实专注时长（`weeklyAreaFocusMinutes`）、以及 `calendarDiagnostics`。
+- `stage_get_view`：读取用户当前悬浮活舞台视角（季节星区 / 本周容器 / 今日容器、选中的 Inbox、待拍板虚态提案）。
 - `workbench_list_works`：需要核对全量 Logseq 工作目录与近期更新脉搏时只读查询。
-- *（Sprint 2 扩展位）*：若当前工具列表已包含 `time_*` 原语，一并读取本周/今日语义槽、连续遗留项与 Apple 日历固定日程；若尚无 `time_*` 工具，则在需要时用 1 句简短提问向用户确认本周硬日程密度。
 
 ### 第二档 · 推演（Draft，活舞台虚态预览）
 结构与排期提案一律放到画布上，对话区只给 1–2 句直击要害的理由：
@@ -44,10 +44,12 @@ description: 个人主力工作台的顶层注意力参谋。结合实时活舞�
 - `stage_propose_area_role`：针对单个已有 Area 提议四态升降级、领域切换或更新目标/反目标/每周底线；升为 `main` 时通过 `demoteCurrentMainTo` 明确被置换原主线的去向。
 - `stage_sprout_branches`：在具体领域或项目下生长 1–3 条轻量推进分支，可绑定 `sourceInboxId`。
 - `stage_propose_move`：提议将零散工作项归位到目标领域，或把 Inbox 碎片分流到目标领域/项目。
+- `time_propose_plan`：在「本周容器」或「今日容器」生成虚态排期提案（`week-add-move` 装盒、`day-place-item` 放入语义槽、`carryover-triage` 处理昨日遗留、`day-rescue` 当日救火减法），自动附带满载温柔阻力提示，绝不静默落盘。
 - `stage_highlight` / `stage_annotate`：点亮讨论焦点（视野外自动降级为边缘雷达，绝不抢镜头）或附上一句简短洞察注记。
 
-### 第三档 · 落盘（Commit，用户拍板后凝固）
-- `stage_resolve_proposals`：仅在用户明确拍板接受或放弃后调用，将虚态由虚化实（进入 Companion 轻量运营层并保留单步撤销）。
+### 第三档 · 落盘与执行（Commit，用户拍板后凝固）
+- `stage_resolve_proposals` / `time_resolve_proposals`：仅在用户明确拍板接受或放弃后调用，将虚态由虚化实（进入 Companion 轻量运营层并保留单步撤销）。
+- `time_focus_control`：仅在用户明确要求时执行专注控制（`start / pause / resume / finish` 附可选停点便条与可选足迹日历写入）或为单个上午主线块写入 Apple 日历护盾（`create_shield`）。
 
 ---
 

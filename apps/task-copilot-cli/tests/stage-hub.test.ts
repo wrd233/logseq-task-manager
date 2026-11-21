@@ -47,6 +47,7 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     inboxDirectory: inboxDir,
     icloudInboxDirectory: icloudDir,
     watchIcloud: false,
+    appleCalendar: { disabled: true },
   });
   const { baseUrl, token, pluginToken, instanceId } = server.descriptor;
   const cliHeaders = {
@@ -218,6 +219,7 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     inboxDirectory: inboxDir,
     icloudInboxDirectory: icloudDir,
     watchIcloud: false,
+    appleCalendar: { disabled: true },
   });
   try {
     const snap = await restarted.stageHub.snapshot();

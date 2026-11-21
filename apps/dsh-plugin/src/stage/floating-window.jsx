@@ -246,6 +246,10 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
         onOpenStandalone: url => {
           window.open(url, '_blank', 'noopener');
         },
+        onFocusStarted: session => {
+          setMode('peek');
+          flash?.(`已开始专注「${session.title}」`);
+        },
         onRequestClose: () => setMode('peek'),
       });
       viewRef.current = mounted;

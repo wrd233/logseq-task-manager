@@ -32,7 +32,15 @@ import {
 } from "./collaborate.ts";
 import type { ReadingJobHub } from "./reading-hub.ts";
 import type { StageHub } from "./stage-hub.ts";
-import type { StageAreaDomain, StageFocusRole, StageResolveDecision } from "@task-copilot/stage-runtime";
+import type { TimeHub } from "./time-hub.ts";
+import type {
+  StageAreaDomain,
+  StageFocusRole,
+  StageResolveDecision,
+  TimeGhostProposal,
+  TimeResolveDecision,
+  TimeSlotId,
+} from "@task-copilot/stage-runtime";
 import { readCatalog } from "./work-catalog.ts";
 
 export interface McpToolDefinition {
@@ -426,6 +434,104 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "time_get_overview",
+    description:
+      "Read-only snapshot of the pure semantic time containers: current week container (3-5 moves, dynamic capacity from Apple Calendar hard events, real weekly focus minutes per Area), today's 3 semantic slots (morning/afternoon/evening) with remaining space, carryover tray (flagging >=3 repeat carryover items), active focus session, and Apple Calendar diagnostics.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "time_propose_plan",
+    description:
+      "Stage Ghost proposals for the semantic time containers (week-add-move, day-place-item, carryover-triage, or day-rescue). Surfaces gentle soft-cap friction warnings automatically; never mutates saved plans until user confirms via time_resolve_proposals.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        proposals: {
+          type: "array",
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["week-add-move", "day-place-item", "carryover-triage", "day-rescue"] },
+              title: { type: "string" },
+              reason: { type: "string" },
+              weekKey: { type: "string" },
+              date: { type: "string" },
+              slotId: { type: "string", enum: ["morning", "afternoon", "evening"] },
+              areaId: { type: ["string", "null"] },
+              projectWorkKey: { type: ["string", "null"] },
+              weekMoveId: { type: ["string", "null"] },
+              dayItemId: { type: ["string", "null"] },
+              replaceItemId: { type: ["string", "null"] },
+              triageAction: { type: "string", enum: ["to-today", "to-week", "drop"] },
+            },
+            required: ["kind", "title", "reason"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["proposals"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "time_resolve_proposals",
+    description:
+      "Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals, solidifying them into Companion's lightweight operational time layer with 1-step Undo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        decisions: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: "object",
+            properties: {
+              proposalId: { type: "string" },
+              action: { type: "string", enum: ["accept", "dismiss"] },
+              title: { type: "string" },
+            },
+            required: ["proposalId", "action"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["decisions"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "time_focus_control",
+    description:
+      "Explicit user-triggered focus session control (start/pause/resume/finish with optional stopNote & optional Apple Calendar footprint) or single-click morning main-line Apple Calendar shield creation (create_shield). Never runs without explicit user intent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        command: { type: "string", enum: ["start", "pause", "resume", "finish", "create_shield"] },
+        dayItemId: { type: "string" },
+        weekMoveId: { type: "string" },
+        title: { type: "string" },
+        slotId: { type: "string", enum: ["morning", "afternoon", "evening"] },
+        areaId: { type: ["string", "null"] },
+        projectWorkKey: { type: ["string", "null"] },
+        focusRole: { type: "string", enum: ["main", "side", "maintenance", "parked"] },
+        stopNote: { type: "string" },
+        markDayItemDone: { type: "boolean" },
+        writeFootprint: { type: "boolean" },
+        startTime: { type: "string" },
+        endTime: { type: "string" },
+      },
+      required: ["command"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export interface ActiveConnectionMeta {
@@ -441,6 +547,7 @@ export interface McpRuntimeContext {
   instanceId: string;
   readingHub: ReadingJobHub;
   stageHub?: StageHub;
+  timeHub?: TimeHub;
   getActiveConnection(): ActiveConnectionMeta | null;
   dispatch(call: WorkspaceCall): Promise<unknown>;
   audit(entry: {
@@ -1012,6 +1119,173 @@ async function runTool(
         };
       });
       return stageHub.mcpResolveProposals(decisions);
+    }
+  }
+
+  if (toolName.startsWith("time_")) {
+    const timeHub = ctx.timeHub ?? ctx.stageHub?.getTimeHub();
+    if (!timeHub) {
+      throw new WorkspaceError("TIME_UNAVAILABLE", "当前 Companion 实例未启用纯语义时间中心。");
+    }
+    if (toolName === "time_get_overview") {
+      workRecord(rawArgs, []);
+      return timeHub.mcpGetOverview();
+    }
+    if (toolName === "time_propose_plan") {
+      const args = workRecord(rawArgs, ["proposals"]);
+      if (!Array.isArray(args.proposals) || args.proposals.length === 0 || args.proposals.length > 10) {
+        throw new WorkspaceError("INVALID_INPUT", "proposals 需包含 1-10 条虚态时间提案。");
+      }
+      const proposals = args.proposals.map((item) => {
+        const rec = workRecord(item, [
+          "kind",
+          "title",
+          "reason",
+          "weekKey",
+          "date",
+          "slotId",
+          "areaId",
+          "projectWorkKey",
+          "weekMoveId",
+          "dayItemId",
+          "replaceItemId",
+          "triageAction",
+        ]);
+        const kind: TimeGhostProposal["kind"] =
+          rec.kind === "week-add-move" ||
+          rec.kind === "day-place-item" ||
+          rec.kind === "carryover-triage" ||
+          rec.kind === "day-rescue"
+            ? rec.kind
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的提案 kind。");
+              })();
+        const slotId: TimeSlotId | undefined =
+          rec.slotId === undefined
+            ? undefined
+            : rec.slotId === "morning" || rec.slotId === "afternoon" || rec.slotId === "evening"
+              ? rec.slotId
+              : (() => {
+                  throw new WorkspaceError("INVALID_INPUT", "无效的 slotId，仅允许 morning / afternoon / evening。");
+                })();
+        const triageAction: "to-today" | "to-week" | "drop" | undefined =
+          rec.triageAction === undefined
+            ? undefined
+            : rec.triageAction === "to-today" || rec.triageAction === "to-week" || rec.triageAction === "drop"
+              ? rec.triageAction
+              : (() => {
+                  throw new WorkspaceError("INVALID_INPUT", "无效的 triageAction。");
+                })();
+        return {
+          kind,
+          title: workText(rec.title, 160),
+          reason: workText(rec.reason, 320),
+          ...(rec.weekKey !== undefined ? { weekKey: workText(rec.weekKey, 16) } : {}),
+          ...(rec.date !== undefined ? { date: workText(rec.date, 16) } : {}),
+          ...(slotId ? { slotId } : {}),
+          ...(rec.areaId !== undefined ? { areaId: rec.areaId === null ? null : workText(rec.areaId, 128) } : {}),
+          ...(rec.projectWorkKey !== undefined
+            ? { projectWorkKey: rec.projectWorkKey === null ? null : workText(rec.projectWorkKey, 512) }
+            : {}),
+          ...(rec.weekMoveId !== undefined ? { weekMoveId: rec.weekMoveId === null ? null : workText(rec.weekMoveId, 128) } : {}),
+          ...(rec.dayItemId !== undefined ? { dayItemId: rec.dayItemId === null ? null : workText(rec.dayItemId, 128) } : {}),
+          ...(rec.replaceItemId !== undefined
+            ? { replaceItemId: rec.replaceItemId === null ? null : workText(rec.replaceItemId, 128) }
+            : {}),
+          ...(triageAction ? { triageAction } : {}),
+        };
+      });
+      const result = await timeHub.mcpProposePlan({ agent: clientId, proposals });
+      await ctx.stageHub?.notifyExternalChange();
+      return result;
+    }
+    if (toolName === "time_resolve_proposals") {
+      const args = workRecord(rawArgs, ["decisions"]);
+      if (!Array.isArray(args.decisions) || args.decisions.length === 0 || args.decisions.length > 20) {
+        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策。");
+      }
+      const decisions: TimeResolveDecision[] = args.decisions.map((item) => {
+        const rec = workRecord(item, ["proposalId", "action", "title"]);
+        const action =
+          rec.action === "accept" || rec.action === "dismiss"
+            ? rec.action
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "decision.action 仅允许 accept 或 dismiss。");
+              })();
+        return {
+          proposalId: workText(rec.proposalId, 128),
+          action,
+          ...(rec.title !== undefined ? { title: workText(rec.title, 160) } : {}),
+        };
+      });
+      const result = await timeHub.mcpResolveProposals(decisions);
+      await ctx.stageHub?.notifyExternalChange();
+      return result;
+    }
+    if (toolName === "time_focus_control") {
+      const args = workRecord(rawArgs, [
+        "command",
+        "dayItemId",
+        "weekMoveId",
+        "title",
+        "slotId",
+        "areaId",
+        "projectWorkKey",
+        "focusRole",
+        "stopNote",
+        "markDayItemDone",
+        "writeFootprint",
+        "startTime",
+        "endTime",
+      ]);
+      const command =
+        args.command === "start" ||
+        args.command === "pause" ||
+        args.command === "resume" ||
+        args.command === "finish" ||
+        args.command === "create_shield"
+          ? args.command
+          : (() => {
+              throw new WorkspaceError("INVALID_INPUT", "无效的 command。");
+            })();
+      const slotId: TimeSlotId | undefined =
+        args.slotId === undefined
+          ? undefined
+          : args.slotId === "morning" || args.slotId === "afternoon" || args.slotId === "evening"
+            ? args.slotId
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 slotId。");
+              })();
+      const focusRole: StageFocusRole | undefined =
+        args.focusRole === undefined
+          ? undefined
+          : args.focusRole === "main" ||
+              args.focusRole === "side" ||
+              args.focusRole === "maintenance" ||
+              args.focusRole === "parked"
+            ? args.focusRole
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 focusRole。");
+              })();
+      const result = await timeHub.mcpFocusControl({
+        command,
+        ...(args.dayItemId !== undefined ? { dayItemId: workText(args.dayItemId, 128) } : {}),
+        ...(args.weekMoveId !== undefined ? { weekMoveId: workText(args.weekMoveId, 128) } : {}),
+        ...(args.title !== undefined ? { title: workText(args.title, 200) } : {}),
+        ...(slotId ? { slotId } : {}),
+        ...(args.areaId !== undefined ? { areaId: args.areaId === null ? null : workText(args.areaId, 128) } : {}),
+        ...(args.projectWorkKey !== undefined
+          ? { projectWorkKey: args.projectWorkKey === null ? null : workText(args.projectWorkKey, 512) }
+          : {}),
+        ...(focusRole ? { focusRole } : {}),
+        ...(args.stopNote !== undefined ? { stopNote: workText(args.stopNote, 240) } : {}),
+        ...(typeof args.markDayItemDone === "boolean" ? { markDayItemDone: args.markDayItemDone } : {}),
+        ...(typeof args.writeFootprint === "boolean" ? { writeFootprint: args.writeFootprint } : {}),
+        ...(args.startTime !== undefined ? { startTime: workText(args.startTime, 8) } : {}),
+        ...(args.endTime !== undefined ? { endTime: workText(args.endTime, 8) } : {}),
+      });
+      await ctx.stageHub?.notifyExternalChange();
+      return result;
     }
   }
 

@@ -1,7 +1,9 @@
 import type { CatalogSnapshot } from "@task-copilot/contracts";
 import {
   StageEngine,
+  TimeEngine,
   mountSharedStageView,
+  type ActiveFocusSession,
   type MountedStageView,
   type StageAdvancementItem,
   type StageProjectNode,
@@ -11,7 +13,7 @@ import {
 
 export interface GlobalStageRemotePort {
   stageState(): Promise<StageSnapshot>;
-  stageAction(action: StageUserAction): Promise<{ snapshot: StageSnapshot; archivedInboxIds: string[] }>;
+  stageAction(action: StageUserAction): Promise<{ snapshot: StageSnapshot; archivedInboxIds: string[]; warning?: string }>;
   stageAnchor(workKey: string): Promise<StageSnapshot>;
 }
 
@@ -19,6 +21,8 @@ export interface GlobalStageHostPort {
   remote?: GlobalStageRemotePort | null;
   readLocalCatalog(): Promise<CatalogSnapshot>;
   openProject(project: StageProjectNode): Promise<void>;
+  openFocusWork?(session: ActiveFocusSession): Promise<void>;
+  onSnapshot?(snapshot: StageSnapshot): void;
   promoteTodo(item: StageAdvancementItem, project: StageProjectNode | null): Promise<void>;
   openExternalUrl(url: string): Promise<void>;
   notify(message: string, status?: "success" | "warning"): void;
@@ -53,6 +57,7 @@ export class GlobalStageOverlay {
   private backdrop: HTMLDivElement | null = null;
   private mounted: MountedStageView | null = null;
   private localEngine = new StageEngine();
+  private localTimeEngine = new TimeEngine();
   private usingLocal = false;
   private pollTimer: number | null = null;
   private previousFocus: HTMLElement | null = null;
@@ -79,29 +84,43 @@ export class GlobalStageOverlay {
           ? await this.port.remote.stageAnchor(anchorWorkKey)
           : await this.port.remote.stageState();
         this.usingLocal = false;
+        this.port.onSnapshot?.(snap);
         return snap;
       } catch {
         // Companion offline -> fail open cleanly to local catalog snapshot
       }
     }
     this.usingLocal = true;
+    const now = Date.now();
     const catalog = await this.port.readLocalCatalog();
-    if (anchorWorkKey) this.localEngine.anchorFromWorkKey(anchorWorkKey, "logseq", Date.now());
-    return this.localEngine.buildSnapshot([catalog], [], Date.now());
+    if (anchorWorkKey) this.localEngine.anchorFromWorkKey(anchorWorkKey, "logseq", now);
+    const snap = this.localEngine.buildSnapshot([catalog], [], now, undefined, undefined, this.localTimeEngine.buildSnapshot(now));
+    this.port.onSnapshot?.(snap);
+    return snap;
   }
 
   private async dispatchAction(action: StageUserAction): Promise<StageSnapshot> {
     if (!this.usingLocal && this.port.remote) {
       try {
         const out = await this.port.remote.stageAction(action);
+        if (out.warning) this.port.notify(out.warning, "warning");
+        this.port.onSnapshot?.(out.snapshot);
         return out.snapshot;
       } catch {
         this.usingLocal = true;
       }
     }
+    const now = Date.now();
     const catalog = await this.port.readLocalCatalog();
-    this.localEngine.applyUserAction(action, { catalog: [catalog], inbox: [], now: Date.now() });
-    return this.localEngine.buildSnapshot([catalog], [], Date.now());
+    if (action.type === "time") {
+      this.localTimeEngine.applyAction(action.action, now);
+      this.localEngine.touchVersion();
+    } else {
+      this.localEngine.applyUserAction(action, { catalog: [catalog], inbox: [], now });
+    }
+    const snap = this.localEngine.buildSnapshot([catalog], [], now, undefined, undefined, this.localTimeEngine.buildSnapshot(now));
+    this.port.onSnapshot?.(snap);
+    return snap;
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
@@ -147,6 +166,13 @@ export class GlobalStageOverlay {
         },
         onOpenStandalone: (url) => {
           void this.port.openExternalUrl(url);
+        },
+        onFocusStarted: async (session) => {
+          this.close();
+          if (this.port.openFocusWork) {
+            await this.port.openFocusWork(session).catch(() => undefined);
+          }
+          this.port.notify(`已进入专注：${session.title}`, "success");
         },
         onRequestClose: () => this.close(),
       });

@@ -4,6 +4,7 @@ import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
 import { WorkspaceError, sameWorkScope, workKey, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
 import { GlobalStageOverlay } from "./features/stage/overlay.ts";
+import { QuietFocusCapsule } from "./features/stage/focus-capsule.ts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
@@ -54,6 +55,7 @@ async function main(): Promise<void> {
   let removeCatalog: () => void = () => undefined;
   let workSearch: WorkCatalogView | null = null;
   let globalStage: GlobalStageOverlay | null = null;
+  let focusCapsule: QuietFocusCapsule | null = null;
   let removeStageCommand: () => void = () => undefined;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
@@ -63,7 +65,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    focusCapsule?.dispose(); globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -190,6 +192,35 @@ async function main(): Promise<void> {
   }});
   const catalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
   removeCatalog = catalog.dispose;
+  const navigateFocusWork = async (session: { workRef?: { kind: string; rootUuid?: string; sourceKind?: string } | null; title: string }) => {
+    if (!work) return;
+    if (session.workRef?.kind === "logseq" && session.workRef.rootUuid) {
+      if (session.workRef.sourceKind === "page") await work.openPage(session.title);
+      else await work.open(session.workRef.rootUuid);
+    }
+  };
+  focusCapsule = new QuietFocusCapsule({
+    fetchSnapshot: async () => {
+      try {
+        return await agentWorkspace!.local.stageState();
+      } catch {
+        return null;
+      }
+    },
+    dispatch: async action => {
+      const out = await agentWorkspace!.local.stageAction(action);
+      return out.snapshot;
+    },
+    onOpenStage: () => {
+      if (!disposed) void globalStage?.open(currentAnchorKey()).catch(report);
+    },
+    onNavigateWork: async session => {
+      await navigateFocusWork(session);
+    },
+    notify: (message, status) => {
+      void logseq.UI.showMsg(message, status ?? "success");
+    },
+  });
   globalStage = new GlobalStageOverlay({
     remote: {
       stageState: () => agentWorkspace!.local.stageState(),
@@ -214,6 +245,12 @@ async function main(): Promise<void> {
       } else {
         await work.openPage(project.title);
       }
+    },
+    openFocusWork: async session => {
+      await navigateFocusWork(session);
+    },
+    onSnapshot: snap => {
+      focusCapsule?.syncFromSnapshot(snap);
     },
     promoteTodo: async (item, project) => {
       const text = `TODO ${item.title}`;
@@ -342,6 +379,7 @@ async function main(): Promise<void> {
   };
   publishedApi = api;
   host.taskCopilotWorkbench = api;
+  focusCapsule.start();
   await work?.restoreReadingSession();
 }
 

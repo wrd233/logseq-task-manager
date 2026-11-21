@@ -3,8 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   StageEngine,
+  TimeEngine,
   compactGazeSummary,
   parseStageRegistry,
+  parseTimeRegistry,
 } from '@task-copilot/stage-runtime';
 import { readCatalog } from '../../../task-copilot-cli/src/work-catalog.ts';
 import { privateDescriptor } from '../../../task-copilot-cli/src/workspace-cli.ts';
@@ -105,6 +107,61 @@ const STAGE_TOOL_SPECS = [
       },
     },
   }, ['decisions']],
+  ['time_get_overview', 'Read-only snapshot of pure semantic time containers: current week container (3-5 moves, dynamic capacity from Apple Calendar), today\'s 3 semantic slots with remaining space, carryover tray (>=3 repeat flags), active focus, and Apple Calendar diagnostics.', {}, []],
+  ['time_propose_plan', 'Stage Ghost proposals for semantic time containers (week-add-move, day-place-item, carryover-triage, day-rescue) with automatic soft-cap friction warnings. Remains Ghost until user confirms via time_resolve_proposals.', {
+    proposals: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['week-add-move', 'day-place-item', 'carryover-triage', 'day-rescue'] },
+          title: { type: 'string' },
+          reason: { type: 'string' },
+          weekKey: { type: 'string' },
+          date: { type: 'string' },
+          slotId: { type: 'string', enum: ['morning', 'afternoon', 'evening'] },
+          areaId: { type: ['string', 'null'] },
+          projectWorkKey: { type: ['string', 'null'] },
+          weekMoveId: { type: ['string', 'null'] },
+          dayItemId: { type: ['string', 'null'] },
+          replaceItemId: { type: ['string', 'null'] },
+          triageAction: { type: 'string', enum: ['to-today', 'to-week', 'drop'] },
+        },
+        required: ['kind', 'title', 'reason'],
+        additionalProperties: false,
+      },
+    },
+  }, ['proposals']],
+  ['time_resolve_proposals', 'Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals with 1-step Undo.', {
+    decisions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          proposalId: { type: 'string' },
+          action: { type: 'string', enum: ['accept', 'dismiss'] },
+          title: { type: 'string' },
+        },
+        required: ['proposalId', 'action'],
+        additionalProperties: false,
+      },
+    },
+  }, ['decisions']],
+  ['time_focus_control', 'Explicit user-triggered focus session control (start/pause/resume/finish with optional stopNote & footprint) or single-click morning main-line Apple Calendar shield creation (create_shield).', {
+    command: { type: 'string', enum: ['start', 'pause', 'resume', 'finish', 'create_shield'] },
+    dayItemId: { type: 'string' },
+    weekMoveId: { type: 'string' },
+    title: { type: 'string' },
+    slotId: { type: 'string', enum: ['morning', 'afternoon', 'evening'] },
+    areaId: { type: ['string', 'null'] },
+    projectWorkKey: { type: ['string', 'null'] },
+    focusRole: { type: 'string', enum: ['main', 'side', 'maintenance', 'parked'] },
+    stopNote: { type: 'string' },
+    markDayItemDone: { type: 'boolean' },
+    writeFootprint: { type: 'boolean' },
+    startTime: { type: 'string' },
+    endTime: { type: 'string' },
+  }, ['command']],
 ];
 
 /**
@@ -114,7 +171,9 @@ const STAGE_TOOL_SPECS = [
 export function installStageHost(ctx, { service, inboxStore }) {
   const stateDir = service.transport.stateDirectory;
   const registryPath = join(stateDir, 'stage-areas.json');
+  const timeRegistryPath = join(stateDir, 'time-stage.json');
   const localEngine = new StageEngine();
+  const localTimeEngine = new TimeEngine();
   const localWaiters = new Set();
   let localLoaded = false;
   let stageOpen = false;
@@ -128,6 +187,12 @@ export function installStageHost(ctx, { service, inboxStore }) {
       localEngine.replaceRegistry(parseStageRegistry(raw));
     } catch {
       // Missing or unreadable registry starts cleanly empty.
+    }
+    try {
+      const rawTime = JSON.parse(await readFile(timeRegistryPath, 'utf8'));
+      localTimeEngine.replaceRegistry(parseTimeRegistry(rawTime));
+    } catch {
+      // Missing or unreadable time registry starts cleanly empty.
     }
   }
 
@@ -211,8 +276,10 @@ export function installStageHost(ctx, { service, inboxStore }) {
 
   async function localSnapshot() {
     await ensureLocalLoaded();
+    const now = Date.now();
     const [catalog, inbox] = await Promise.all([readCatalog(stateDir), listInboxRaw()]);
-    const snap = localEngine.buildSnapshot(catalog, inbox, Date.now());
+    const timeSnap = localTimeEngine.buildSnapshot(now);
+    const snap = localEngine.buildSnapshot(catalog, inbox, now, undefined, undefined, timeSnap);
     lastGazeText = compactGazeSummary(snap);
     return snap;
   }
@@ -231,11 +298,26 @@ export function installStageHost(ctx, { service, inboxStore }) {
     if (remote?.snapshot) {
       await archiveInDshInbox(remote.archivedInboxIds);
       lastGazeText = compactGazeSummary(remote.snapshot);
-      return { snapshot: remote.snapshot, archivedInboxIds: remote.archivedInboxIds ?? [], mode: 'companion' };
+      return {
+        snapshot: remote.snapshot,
+        archivedInboxIds: remote.archivedInboxIds ?? [],
+        ...(remote.warning ? { warning: remote.warning } : {}),
+        mode: 'companion',
+      };
     }
     await ensureLocalLoaded();
+    const now = Date.now();
+    if (action?.type === 'time' && action.action) {
+      const res = localTimeEngine.applyAction(action.action, now);
+      if (res.mutatedRegistry) {
+        await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
+      }
+      localEngine.touchVersion();
+      await notifyLocalWaiters();
+      return { snapshot: await localSnapshot(), archivedInboxIds: [], mode: 'local' };
+    }
     const [catalog, inbox] = await Promise.all([readCatalog(stateDir), listInboxRaw()]);
-    const result = localEngine.applyUserAction(action, { catalog, inbox, now: Date.now() });
+    const result = localEngine.applyUserAction(action, { catalog, inbox, now });
     if (result.mutatedRegistry) {
       await atomicJson(registryPath, localEngine.getRegistry());
     }
@@ -352,10 +434,41 @@ export function installStageHost(ctx, { service, inboxStore }) {
       await notifyLocalWaiters();
       return { ...result, operationalLayer: 'local-plan-a' };
     }
+    if (toolName === 'time_get_overview') {
+      return localTimeEngine.buildSnapshot(now);
+    }
+    if (toolName === 'time_propose_plan') {
+      const proposals = localTimeEngine.proposeTimePlan({ agent: clientId, proposals: args.proposals ?? [] }, now);
+      localEngine.touchVersion();
+      await notifyLocalWaiters();
+      return { proposals, writesFormalState: false };
+    }
+    if (toolName === 'time_resolve_proposals') {
+      const result = localTimeEngine.resolveTimeProposals(args.decisions ?? [], now);
+      if (result.committedIds.length > 0) await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
+      localEngine.touchVersion();
+      await notifyLocalWaiters();
+      return { ...result, operationalLayer: 'local-time-stage' };
+    }
+    if (toolName === 'time_focus_control') {
+      const cmd = args?.command;
+      const actionMap = {
+        start: { type: 'start-focus', ...args },
+        pause: { type: 'pause-focus' },
+        resume: { type: 'resume-focus' },
+        finish: { type: 'finish-focus', ...(args?.stopNote ? { stopNote: args.stopNote } : {}), ...(args?.markDayItemDone ? { markDayItemDone: true } : {}) },
+      };
+      if (!actionMap[cmd]) throw Object.assign(Error(`OFFLINE_UNSUPPORTED_COMMAND:${cmd}`), { code: 'INVALID_INPUT' });
+      const res = localTimeEngine.applyAction(actionMap[cmd], now);
+      if (res.mutatedRegistry) await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
+      localEngine.touchVersion();
+      await notifyLocalWaiters();
+      return { snapshot: localTimeEngine.buildSnapshot(now), ...res };
+    }
     throw Error(`UNKNOWN_STAGE_TOOL:${toolName}`);
   }
 
-  // Register 9 stage_* tools directly in DSH native Agent runtime
+  // Register 9 stage_* + 4 time_* tools directly in DSH native Agent runtime
   if (ctx?.tools?.register) {
     for (const [toolName, description, properties, required] of STAGE_TOOL_SPECS) {
       ctx.tools.register({

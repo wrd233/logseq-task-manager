@@ -30,6 +30,7 @@ import {
 } from "./icloud-inbox.ts";
 import { readCatalog } from "./work-catalog.ts";
 import { atomicJson } from "./workspace-files.ts";
+import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
 
 export interface StageHubOptions {
   stateDirectory: string;
@@ -37,6 +38,9 @@ export interface StageHubOptions {
   icloudInboxDirectory?: string;
   icloudFsOps?: Partial<IcloudInboxFsOps>;
   watchIcloud?: boolean;
+  timeHub?: TimeHub;
+  appleCalendar?: TimeHubOptions["appleCalendar"];
+  activateLogseq?: TimeHubOptions["activateLogseq"];
 }
 
 interface Waiter {
@@ -147,6 +151,7 @@ export class StageHub {
   private readonly icloudInboxDirectory: string;
   private readonly icloudFsOps: Partial<IcloudInboxFsOps> | undefined;
   private readonly shouldWatchIcloud: boolean;
+  private readonly timeHub: TimeHub;
   private readonly engine = new StageEngine();
   private readonly sseClients = new Set<ServerResponse>();
   private readonly waiters = new Set<Waiter>();
@@ -166,6 +171,23 @@ export class StageHub {
     this.icloudInboxDirectory = resolve(options.icloudInboxDirectory ?? defaultIcloudInboxDirectory());
     this.icloudFsOps = options.icloudFsOps;
     this.shouldWatchIcloud = options.watchIcloud ?? !options.icloudFsOps;
+    this.timeHub =
+      options.timeHub ??
+      new TimeHub({
+        stateDirectory: this.stateDirectory,
+        ...(options.appleCalendar ? { appleCalendar: options.appleCalendar } : {}),
+        ...(options.activateLogseq ? { activateLogseq: options.activateLogseq } : {}),
+      });
+  }
+
+  getTimeHub(): TimeHub {
+    return this.timeHub;
+  }
+
+  async notifyExternalChange(): Promise<StageSnapshot> {
+    await this.ensureLoaded();
+    this.engine.touchVersion();
+    return this.broadcast();
   }
 
   setAppUrl(url: string): void {
@@ -277,8 +299,11 @@ export class StageHub {
 
   async snapshot(): Promise<StageSnapshot> {
     const now = Date.now();
-    const { catalog, inbox, inboxDiagnostics } = await this.loadSources(now);
-    return this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics);
+    const [{ catalog, inbox, inboxDiagnostics }, timeSnapshot] = await Promise.all([
+      this.loadSources(now),
+      this.timeHub.snapshot(now),
+    ]);
+    return this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics, timeSnapshot);
   }
 
   private async broadcast(): Promise<StageSnapshot> {
@@ -350,7 +375,21 @@ export class StageHub {
   async applyAction(action: StageUserAction): Promise<{
     snapshot: StageSnapshot;
     archivedInboxIds: string[];
+    warning?: string;
+    activatedLogseq?: { activated: boolean; appPath: string | null; pid: number | null };
   }> {
+    if (action.type === "time") {
+      await this.ensureLoaded();
+      const timeResult = await this.timeHub.applyAction(action.action, Date.now());
+      this.engine.touchVersion();
+      const snapshot = await this.broadcast();
+      return {
+        snapshot,
+        archivedInboxIds: [],
+        ...(timeResult.warning ? { warning: timeResult.warning } : {}),
+        ...(timeResult.activatedLogseq ? { activatedLogseq: timeResult.activatedLogseq } : {}),
+      };
+    }
     const { catalog, inbox } = await this.loadSources();
     const prevAdvInboxIds =
       action.type === "undo"
@@ -687,12 +726,39 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
         const proj = area && snap.viewport.projectWorkKey ? area.projects.find((p) => p.workKey === snap.viewport.projectWorkKey) : null;
         const hi = new Set(snap.highlights.map((h) => h.targetId));
 
+        const activeTab = snap.viewport.activeTab || "season";
         const roleLabel = (r) => r === "main" ? "本季主线" : r === "maintenance" ? "维护" : r === "parked" ? "搁置" : "支线";
         const badgeCls = (tone) => tone === "mismatch" ? "tcs-badge-mismatch" : tone === "amber" ? "tcs-badge-amber" : tone === "teal" ? "tcs-badge-teal" : "tcs-badge-mist";
         const toneCls = (tone) => tone === "mismatch" ? "tcs-tone-mismatch" : tone === "amber" ? "tcs-tone-amber" : tone === "teal" ? "tcs-tone-teal" : "";
 
         let stageHtml = "";
-        if (cold) {
+        if (activeTab === "week" && snap.time) {
+          const cap = snap.time.weekCapacity;
+          stageHtml = '<div class="tcs-time-wrap ' + anim + '">' +
+            '<div class="tcs-cal-strip"><div class="tcs-cal-days">' +
+            cap.dailyOverview.map((d) => '<span class="tcs-cal-day ' + (d.isToday ? "is-today" : "") + (d.busyMinutes > 0 ? " is-busy" : "") + '">' + esc(d.summary) + '</span>').join("") +
+            '</div><span>' + esc(cap.summary) + '</span></div>' +
+            '<div class="tcs-panel"><div style="display:flex;justify-content:space-between;align-items:center"><strong>本周推进块（' + cap.openMoveCount + '/' + cap.recommendedMax + '）</strong><span class="tcs-badge tcs-badge-mist">' + esc(cap.weekKey) + '</span></div>' +
+            (snap.time.weekMoves.length === 0 ? '<div class="tcs-blank-hint">本周尚未装入推进块</div>' : snap.time.weekMoves.map((m) =>
+              '<div class="tcs-move-row ' + (m.state === "done" ? "is-done" : "") + '"><div style="display:flex;justify-content:space-between;gap:8px"><strong>' + esc(m.title) + '</strong><span style="font-size:11px;color:var(--tcs-muted)">已投入 ' + m.actualMinutes + 'm</span></div>' +
+              '<div style="display:flex;gap:5px"><button class="tcs-btn tcs-btn-sm" data-sa-week-day="' + esc(m.id) + '|morning">排今日上午</button><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-week-toggle="' + esc(m.id) + '">' + (m.state === "done" ? "重开" : "完成") + '</button></div></div>'
+            ).join("")) +
+            '</div></div>';
+        } else if (activeTab === "today" && snap.time) {
+          const t = snap.time;
+          const af = t.activeFocus;
+          stageHtml = '<div class="tcs-time-wrap ' + anim + '">' +
+            (af ? '<div class="tcs-focus-strip"><strong>专注中：' + esc(af.title) + (af.status === "paused" ? "（已暂停）" : "") + '</strong><div style="display:flex;gap:5px"><button class="tcs-btn tcs-btn-sm" data-sa-focus-pause>' + (af.status === "paused" ? "继续" : "暂停") + '</button><button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-focus-finish>结束</button></div></div>' : '') +
+            (t.carryoverItems.length > 0 ? '<div class="tcs-carryover-tray"><strong>昨日遗留托盘（' + t.carryoverItems.length + '）</strong>' + t.carryoverItems.map((c) => '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>' + esc(c.title) + (c.carryoverCount >= 3 ? '（连续 ' + c.carryoverCount + ' 次遗留）' : '') + '</span><div style="display:flex;gap:5px"><button class="tcs-btn tcs-btn-sm" data-sa-carry="' + esc(c.id) + '|to-today">放入今日</button><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-carry="' + esc(c.id) + '|to-week">退回本周</button><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-carry="' + esc(c.id) + '|drop">撤掉</button></div></div>').join("") + '</div>' : '') +
+            t.todaySlots.map((slot) =>
+              '<div class="tcs-slot-card ' + (slot.spec.id === "morning" ? "is-morning" : "") + '"><div style="display:flex;justify-content:space-between"><strong>' + esc(slot.spec.name) + '</strong><span style="font-size:11.5px;color:var(--tcs-muted)">' + slot.items.filter((i) => i.state === "open").length + '/' + slot.spec.softCap + '</span></div>' +
+              slot.hardEvents.map((ev) => '<div class="tcs-hard-event ' + (ev.isShield ? "is-shield" : "") + '"><span><strong>' + esc(ev.startTime) + '–' + esc(ev.endTime) + '</strong> ' + esc(ev.title) + '</span><span style="font-size:11px;color:var(--tcs-muted)">' + esc(ev.calendarName) + '</span></div>').join("") +
+              (slot.items.length === 0 && slot.spec.allowEmptyHint ? '<div class="tcs-blank-hint">' + esc(slot.spec.allowEmptyHint) + '</div>' : '') +
+              slot.items.map((item) => '<div class="tcs-move-row ' + (item.state === "done" ? "is-done" : "") + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>' + esc(item.title) + '</span><div style="display:flex;gap:5px">' + (item.state === "open" ? '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-focus="' + esc(item.id) + '">开始专注</button>' : '') + (slot.spec.id === "morning" && item.state === "open" && !item.calendarShield ? '<button class="tcs-btn tcs-btn-sm" data-sa-shield="' + esc(item.id) + '">写入日历护盾</button>' : '') + '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-day-toggle="' + esc(item.id) + '">' + (item.state === "done" ? "重开" : "完成") + '</button></div></div></div>').join("") +
+              '</div>'
+            ).join("") +
+            '</div>';
+        } else if (cold) {
           const drafts = cold.proposedAreas || [];
           stageHtml = '<div class="tcs-l1-wrap tcs-anim-out">' +
             '<div class="tcs-tone-ghost" style="border-radius:13px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
@@ -768,8 +834,12 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
 
         rootEl.innerHTML =
           '<div class="tcs-root" data-theme="' + theme + '">' +
-          '<div class="tcs-bar"><div class="tcs-bar-left"><button class="tcs-btn" data-zoom-out ' + (snap.viewport.zoomLevel === 0 && !cold ? "disabled" : "") + '>← 拉远</button><span style="font-size:12px;font-weight:600">' + (area ? esc(area.name) + (proj ? " / " + esc(proj.title) : "") : "L0 季节星区") + '</span></div>' +
-          '<div class="tcs-bar-right"><span class="tcs-standalone-status"><span class="tcs-dot" style="background:var(--tcs-success)"></span>SSE 实时共视</span><button class="tcs-btn" data-coldstart>生成初始星图</button>' +
+          '<div class="tcs-bar"><div class="tcs-bar-left">' +
+          '<div class="tcs-tabs"><button class="tcs-tab ' + (activeTab === "season" ? "is-active" : "") + '" data-sa-tab="season">季节星区</button><button class="tcs-tab ' + (activeTab === "week" ? "is-active" : "") + '" data-sa-tab="week">本周容器</button><button class="tcs-tab ' + (activeTab === "today" ? "is-active" : "") + '" data-sa-tab="today">今日容器</button></div>' +
+          (activeTab === "season" ? '<button class="tcs-btn" data-zoom-out ' + (snap.viewport.zoomLevel === 0 && !cold ? "disabled" : "") + '>← 拉远</button><span style="font-size:12px;font-weight:600">' + (area ? esc(area.name) + (proj ? " / " + esc(proj.title) : "") : "") + '</span>' : '') +
+          '</div>' +
+          '<div class="tcs-bar-right"><span class="tcs-standalone-status"><span class="tcs-dot" style="background:var(--tcs-success)"></span>SSE 实时共视</span>' +
+          (activeTab === "season" ? '<button class="tcs-btn" data-coldstart>生成初始星图</button>' : '') +
           (snap.canUndo ? '<button class="tcs-btn tcs-btn-ghost" data-undo>↶ 撤销</button>' : '') +
           '<button class="tcs-btn tcs-btn-ghost" data-toggle-theme>' + (theme === "dark" ? "浅色" : "深色") + '</button></div></div>' +
           '<div class="tcs-body"><div class="tcs-stage-wrap"><div class="tcs-stage">' + stageHtml + '</div>' + radarHtml + pillHtml + '</div>' +
@@ -779,8 +849,22 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
       }
 
       rootEl.addEventListener("click", (e) => {
-        const t = e.target.closest("[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
+        const t = e.target.closest("[data-sa-tab],[data-sa-week-day],[data-sa-week-toggle],[data-sa-carry],[data-sa-focus],[data-sa-shield],[data-sa-day-toggle],[data-sa-focus-pause],[data-sa-focus-finish],[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
         if (!t || !snap) return;
+        if (t.dataset.saTab) { void dispatch({ type: "set-viewport", source: "standalone", viewport: { activeTab: t.dataset.saTab } }); return; }
+        if (t.dataset.saWeekDay && snap.time) {
+          const [mId, sId] = t.dataset.saWeekDay.split("|");
+          const mv = snap.time.weekMoves.find((m) => m.id === mId);
+          if (mv) void dispatch({ type: "time", action: { type: "place-day-item", title: mv.title, slotId: sId, weekMoveId: mv.id, areaId: mv.areaId || null, projectWorkKey: mv.projectWorkKey || null } });
+          return;
+        }
+        if (t.dataset.saWeekToggle) { void dispatch({ type: "time", action: { type: "toggle-week-move-state", moveId: t.dataset.saWeekToggle } }); return; }
+        if (t.dataset.saCarry) { const [cId, dec] = t.dataset.saCarry.split("|"); void dispatch({ type: "time", action: { type: "triage-carryover", itemId: cId, decision: dec } }); return; }
+        if (t.dataset.saFocus) { void dispatch({ type: "time", action: { type: "start-focus", dayItemId: t.dataset.saFocus } }); return; }
+        if (t.dataset.saShield) { void dispatch({ type: "time", action: { type: "create-calendar-shield", itemId: t.dataset.saShield } }); return; }
+        if (t.dataset.saDayToggle) { void dispatch({ type: "time", action: { type: "toggle-day-item-done", itemId: t.dataset.saDayToggle } }); return; }
+        if (t.hasAttribute("data-sa-focus-pause") && snap.time && snap.time.activeFocus) { void dispatch({ type: "time", action: { type: snap.time.activeFocus.status === "paused" ? "resume-focus" : "pause-focus" } }); return; }
+        if (t.hasAttribute("data-sa-focus-finish")) { void dispatch({ type: "time", action: { type: "finish-focus" } }); return; }
         if (t.hasAttribute("data-archive-cooled")) { e.preventDefault(); e.stopPropagation(); void dispatch({ type: "archive-cooled-inbox" }); return; }
         if (t.hasAttribute("data-toggle-theme")) { theme = theme === "dark" ? "light" : "dark"; render(); return; }
         if (t.hasAttribute("data-coldstart")) { void dispatch({ type: "trigger-cold-start", agent: "standalone" }); return; }

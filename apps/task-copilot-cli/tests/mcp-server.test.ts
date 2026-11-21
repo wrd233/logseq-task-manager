@@ -155,6 +155,8 @@ test("Companion stdio MCP server enforces single-work scope, sensitive blocking,
 
   const server = await startWorkspaceServer({
     stateDirectory: stateDir,
+    watchIcloud: false,
+    appleCalendar: { disabled: true },
     reading: {
       env: { DEEPSEEK_API_KEY: "super-secret-api-key-never-leak" },
       dshAvailable: async () => false,
@@ -357,6 +359,10 @@ test("Companion stdio MCP server enforces single-work scope, sensitive blocking,
       "stage_sprout_branches",
       "stage_propose_move",
       "stage_resolve_proposals",
+      "time_get_overview",
+      "time_propose_plan",
+      "time_resolve_proposals",
+      "time_focus_control",
     ]);
 
     // 2. Publish catalog and verify workbench_list_works (read-only metadata, zero secrets/body)

@@ -9,7 +9,7 @@ import { startWorkspaceServer } from '../../task-copilot-cli/src/workspace-serve
 import { PersonalInboxStore } from '../src/personal-inbox/store.mjs';
 import { installStageHost } from '../src/stage/host.mjs';
 
-test('DSH stage host registers 9 stage_* tools, injects gaze only when window is open, and syncs PersonalInboxStore', async () => {
+test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when window is open, and syncs PersonalInboxStore', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'tc-dsh-stage-')));
   const stateDir = join(root, 'state');
   const inboxDir = join(root, 'inbox');
@@ -41,6 +41,7 @@ test('DSH stage host registers 9 stage_* tools, injects gaze only when window is
     inboxDirectory: inboxDir,
     icloudInboxDirectory: join(root, 'icloud-empty'),
     watchIcloud: false,
+    appleCalendar: { disabled: true },
   });
   const registeredTools = new Map();
   let gazeProvider = null;
@@ -54,10 +55,14 @@ test('DSH stage host registers 9 stage_* tools, injects gaze only when window is
   });
 
   try {
-    assert.equal(registeredTools.size, 9);
+    assert.equal(registeredTools.size, 13);
     assert.ok(registeredTools.has('stage_get_view'));
     assert.ok(registeredTools.has('stage_propose_area_role'));
     assert.ok(registeredTools.has('stage_sprout_branches'));
+    assert.ok(registeredTools.has('time_get_overview'));
+    assert.ok(registeredTools.has('time_propose_plan'));
+    assert.ok(registeredTools.has('time_resolve_proposals'));
+    assert.ok(registeredTools.has('time_focus_control'));
 
     // Closed window injects empty gaze string
     assert.equal(gazeProvider(), '');
@@ -86,6 +91,18 @@ test('DSH stage host registers 9 stage_* tools, injects gaze only when window is
     );
     const pulseAfterRole = await registeredTools.get('stage_get_pulse').execute({}, { agent: { session: { id: 'sess-1' } } });
     assert.equal(pulseAfterRole.areas.find(a => a.id === firstAreaId).focusRole, 'main');
+
+    // Time tools proxy cleanly through Companion
+    const timeProposed = await registeredTools.get('time_propose_plan').execute(
+      { proposals: [{ kind: 'week-add-move', title: '完成核心告警降噪闭环', areaId: firstAreaId, reason: '本周主线块' }] },
+      { agent: { session: { id: 'sess-1' } } },
+    );
+    await registeredTools.get('time_resolve_proposals').execute(
+      { decisions: [{ proposalId: timeProposed.proposals[0].id, action: 'accept' }] },
+      { agent: { session: { id: 'sess-1' } } },
+    );
+    const timeOverview = await registeredTools.get('time_get_overview').execute({}, { agent: { session: { id: 'sess-1' } } });
+    assert.equal(timeOverview.weekMoves.length, 1);
 
     const sprouted = await registeredTools.get('stage_sprout_branches').execute(
       {

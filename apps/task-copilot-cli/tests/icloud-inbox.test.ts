@@ -133,6 +133,7 @@ test("Companion StageHub integrates iCloud Inbox, cools >14d fragments, archives
     inboxDirectory: personalInboxDir,
     icloudInboxDirectory: icloudDir,
     watchIcloud: false,
+    appleCalendar: { disabled: true },
   });
   const { baseUrl, token, instanceId } = server.descriptor;
   const cliHeaders = {
@@ -189,6 +190,7 @@ test("Companion StageHub integrates iCloud Inbox, cools >14d fragments, archives
     inboxDirectory: personalInboxDir,
     icloudInboxDirectory: icloudDir,
     watchIcloud: false,
+    appleCalendar: { disabled: true },
   });
   try {
     const snapAfter = await restarted.stageHub.snapshot();
@@ -206,6 +208,7 @@ test("Companion StageHub integrates iCloud Inbox, cools >14d fragments, archives
     inboxDirectory: personalInboxDir,
     icloudInboxDirectory: icloudDir,
     watchIcloud: false,
+    appleCalendar: { disabled: true },
     icloudFsOps: {
       readdir: async () => {
         throw Object.assign(new Error("Operation not permitted"), { code: "EPERM" });

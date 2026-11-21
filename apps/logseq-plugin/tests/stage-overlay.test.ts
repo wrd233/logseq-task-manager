@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { workKey, type CatalogSnapshot } from "@task-copilot/contracts";
-import { StageEngine } from "@task-copilot/stage-runtime";
+import { StageEngine, TimeEngine, type StageSnapshot } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "../src/features/stage/overlay.ts";
+import { QuietFocusCapsule, formatFocusStatusLine } from "../src/features/stage/focus-capsule.ts";
 
 function installDom() {
   const win = new Window({ url: "http://localhost/" });
@@ -157,6 +158,139 @@ test("Logseq GlobalStageOverlay fails open offline, anchors zoom-out, and promot
     assert.equal(onlineOverlay.isOpen, false);
 
     onlineOverlay.dispose();
+  } finally {
+    restore();
+  }
+});
+
+test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq QuietFocusCapsule work cleanly with zero emoji", async () => {
+  const restore = installDom();
+  const catalog = makeCatalog();
+  const engine = new StageEngine();
+  const timeEngine = new TimeEngine();
+  const navigated: string[] = [];
+  const notices: string[] = [];
+  let openedStageCount = 0;
+
+  const buildSnap = (now = Date.now()): StageSnapshot =>
+    engine.buildSnapshot([catalog], [], now, undefined, undefined, timeEngine.buildSnapshot(now));
+
+  try {
+    const capsule = new QuietFocusCapsule({
+      fetchSnapshot: async () => buildSnap(),
+      dispatch: async (action) => {
+        if (action.type === "time") timeEngine.applyAction(action.action, Date.now());
+        else engine.applyUserAction(action, { catalog: [catalog], inbox: [], now: Date.now() });
+        return buildSnap();
+      },
+      onOpenStage: () => { openedStageCount++; },
+      onNavigateWork: async (session) => { navigated.push(session.title); },
+      notify: (m) => { notices.push(m); },
+    });
+
+    const overlay = new GlobalStageOverlay({
+      remote: {
+        stageState: async () => buildSnap(),
+        stageAction: async (action) => {
+          if (action.type === "time") timeEngine.applyAction(action.action, Date.now());
+          else engine.applyUserAction(action, { catalog: [catalog], inbox: [], now: Date.now() });
+          return { snapshot: buildSnap(), archivedInboxIds: [] };
+        },
+        stageAnchor: async (key) => {
+          engine.anchorFromWorkKey(key, "logseq");
+          return buildSnap();
+        },
+      },
+      readLocalCatalog: async () => catalog,
+      openProject: async () => undefined,
+      openFocusWork: async (session) => { navigated.push(session.title); },
+      onSnapshot: (snap) => capsule.syncFromSnapshot(snap),
+      promoteTodo: async () => undefined,
+      openExternalUrl: async () => undefined,
+      notify: (m) => { notices.push(m); },
+    });
+
+    // 1. Open Stage and switch to "本周容器" then "今日容器"
+    await overlay.open();
+    const weekTab = document.querySelector<HTMLButtonElement>('[data-tcs-tab="week"]');
+    assert.ok(weekTab);
+    weekTab.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.match(document.body.textContent ?? "", /本周推进块/);
+    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u);
+
+    const todayTab = document.querySelector<HTMLButtonElement>('[data-tcs-tab="today"]');
+    assert.ok(todayTab);
+    todayTab.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.match(document.body.textContent ?? "", /上午 · 深潜/);
+    assert.match(document.body.textContent ?? "", /下午 · 推进/);
+    assert.match(document.body.textContent ?? "", /晚上 · 轻放/);
+    assert.match(document.body.textContent ?? "", /允许留白/);
+
+    // 2. Place 1st morning item, then verify Gentle Friction appears when attempting a 2nd morning item
+    timeEngine.placeDayItem({
+      title: "完成核心告警降噪闭环",
+      slotId: "morning",
+      workRef: catalog.works[0]!.workRef,
+    });
+    await overlay.open();
+    const morningForm = document.querySelector<HTMLFormElement>('[data-slot-add-form="morning"]')!;
+    const morningInput = morningForm.querySelector<HTMLInputElement>('input[name="title"]')!;
+    morningInput.value = "临时塞进来的第二件事";
+    morningForm.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    assert.match(document.body.textContent ?? "", /替换当前/);
+    assert.match(document.body.textContent ?? "", /顺延至明天/);
+
+    // 3. Click "开始专注" -> closes overlay, navigates Logseq work, and shows QuietFocusCapsule!
+    const startFocusBtn = document.querySelector<HTMLButtonElement>("[data-day-focus]")!;
+    assert.ok(startFocusBtn);
+    startFocusBtn.click();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(overlay.isOpen, false);
+    assert.ok(navigated.includes("完成核心告警降噪闭环"));
+
+    const capsuleEl = document.querySelector<HTMLElement>(".tcs-lsq-focus-bar");
+    assert.ok(capsuleEl, "QuietFocusCapsule should mount when focus is active");
+    assert.doesNotMatch(capsuleEl.textContent ?? "", /\p{Extended_Pictographic}/u);
+    assert.match(capsuleEl.textContent ?? "", /上午 · .*完成核心告警降噪闭环 · 已进行 \d+m/);
+
+    // Verify exact 28m count-up formatting helper
+    const sampleLine = formatFocusStatusLine(
+      {
+        id: "f-1",
+        title: "架构梳理",
+        slotId: "morning",
+        roleLabel: "主线",
+        date: "2026-11-21",
+        status: "running",
+        startedAt: 0,
+        resumedAt: 1000,
+        accumulatedSeconds: 28 * 60,
+      },
+      1000,
+    );
+    assert.equal(sampleLine, "上午 · 主线：架构梳理 · 已进行 28m");
+
+    // 4. Zoom-out button on capsule opens Stage
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zoom]")!.click();
+    assert.equal(openedStageCount, 1);
+
+    // 5. Finish focus with stop note removes capsule and records stopNote
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-finish-open]")!.click();
+    const stopInput = document.querySelector<HTMLInputElement>("[data-fc-stop-input]")!;
+    assert.ok(stopInput);
+    stopInput.value = "已写完核心验证，明日继续收尾";
+    const finishForm = document.querySelector<HTMLFormElement>("[data-fc-finish-form]")!;
+    finishForm.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 30));
+
+    assert.equal(document.querySelector(".tcs-lsq-focus-bar"), null);
+    assert.equal(timeEngine.buildSnapshot().recentFocusRecords[0]!.stopNote, "已写完核心验证，明日继续收尾");
+
+    capsule.dispose();
+    overlay.dispose();
   } finally {
     restore();
   }

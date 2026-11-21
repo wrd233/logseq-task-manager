@@ -1,4 +1,17 @@
 import { areaDomainLabel, focusRoleLabel } from "./pulse.ts";
+import {
+  buildSlotFrictionPrompt,
+  compactHours,
+  compactMinutes,
+  dateLabel,
+  slotDisplayLabel,
+  slotShortLabel,
+} from "./time-model.ts";
+import type {
+  ActiveFocusSession,
+  StageViewTab,
+  TimeSlotId,
+} from "./time-types.ts";
 import type {
   StageAdvancementItem,
   StageAreaDomain,
@@ -22,6 +35,7 @@ export interface StageViewPort {
   onQuoteToChat?(text: string): void;
   onOpenStandalone?(url: string): void;
   onRequestClose?(): void;
+  onFocusStarted?(session: ActiveFocusSession): void | Promise<void>;
   /** Optional header label for open-work button (e.g. "在 DSH 打开" / "回到 Logseq 原文"). */
   openWorkLabel?: string;
   showStandaloneButton?: boolean;
@@ -252,6 +266,85 @@ export const STAGE_VIEW_CSS = `
   border-color: var(--tcs-primary);
   color: var(--tcs-primary);
 }
+.tcs-tabs {
+  display: inline-flex; align-items: center; padding: 2px; border-radius: 8px;
+  background: var(--tcs-bg); border: 1px solid var(--tcs-card-border); gap: 2px;
+}
+.tcs-tab {
+  border: none; background: transparent; padding: 3px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; color: var(--tcs-muted); cursor: pointer; white-space: nowrap;
+  transition: background 140ms, color 140ms;
+}
+.tcs-tab:hover { color: var(--tcs-fg); }
+.tcs-tab.is-active {
+  background: var(--tcs-card); color: var(--tcs-fg); font-weight: 600;
+  box-shadow: var(--tcs-shadow-sm);
+}
+.tcs-inbox-pane.is-collapsed { display: none; }
+.tcs-time-wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 64px; }
+.tcs-cal-strip {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--tcs-card-border);
+  background: var(--tcs-card); font-size: 11.5px; color: var(--tcs-muted);
+}
+.tcs-cal-days { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tcs-cal-day {
+  padding: 2px 7px; border-radius: 6px; background: var(--tcs-bg); border: 1px solid var(--tcs-card-border);
+  font-size: 11px; color: var(--tcs-muted);
+}
+.tcs-cal-day.is-today { border-color: var(--tcs-primary); color: var(--tcs-fg); font-weight: 600; }
+.tcs-cal-day.is-busy { color: var(--tcs-fg); }
+.tcs-week-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(240px, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 760px) { .tcs-week-grid { grid-template-columns: 1fr; } }
+.tcs-panel {
+  border-radius: 13px; border: 1px solid var(--tcs-border); background: var(--tcs-card);
+  padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--tcs-shadow-sm);
+}
+.tcs-move-row {
+  border-radius: 10px; border: 1px solid var(--tcs-card-border); background: var(--tcs-bg);
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 6px;
+}
+.tcs-move-row.is-done { opacity: 0.6; }
+.tcs-slot-card {
+  border-radius: 13px; border: 1px solid var(--tcs-border); background: var(--tcs-card);
+  padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--tcs-shadow-sm);
+  transition: border-color 150ms, background 150ms;
+}
+.tcs-slot-card.is-morning { border-color: color-mix(in srgb, var(--tcs-primary) 42%, var(--tcs-border)); }
+.tcs-hard-event {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  background: color-mix(in srgb, var(--tcs-muted) 8%, var(--tcs-bg));
+  border-left: 3px solid color-mix(in srgb, var(--tcs-muted) 56%, transparent);
+}
+.tcs-hard-event.is-shield {
+  border-left-color: var(--tcs-primary);
+  background: color-mix(in srgb, var(--tcs-primary) 8%, var(--tcs-bg));
+}
+.tcs-carryover-tray {
+  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-warning) 36%, var(--tcs-card-border));
+  background: color-mix(in srgb, var(--tcs-warning) 6%, var(--tcs-card));
+  padding: 9px 12px; display: flex; flex-direction: column; gap: 7px;
+}
+.tcs-friction-bar {
+  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-warning) 44%, var(--tcs-border));
+  background: color-mix(in srgb, var(--tcs-warning) 9%, var(--tcs-card));
+  padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  font-size: 12px;
+}
+.tcs-focus-strip {
+  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-primary) 48%, var(--tcs-border));
+  background: color-mix(in srgb, var(--tcs-primary) 7%, var(--tcs-card));
+  padding: 9px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.tcs-inline-input {
+  flex: 1; min-width: 140px; border: 1px solid var(--tcs-card-border); border-radius: 7px;
+  background: var(--tcs-bg); color: var(--tcs-fg); padding: 5px 9px; font-size: 12px; font-family: inherit;
+  outline: none;
+}
+.tcs-inline-input:focus { border-color: var(--tcs-primary); }
+.tcs-inline-form { display: flex; align-items: center; gap: 6px; }
+.tcs-blank-hint { font-size: 12px; color: var(--tcs-muted); padding: 4px 2px; }
 
 .tcs-amber-resonate {
   border-color: var(--tcs-warning) !important;
@@ -419,19 +512,26 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   root.innerHTML = `
     <div class="tcs-bar">
       <div class="tcs-bar-left">
+        <div class="tcs-tabs" role="tablist" aria-label="时间视野切换">
+          <button type="button" class="tcs-tab is-active" role="tab" data-tcs-tab="season">季节星区</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="week">本周容器</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="today">今日容器</button>
+        </div>
         <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>← 拉远</button>
         <div class="tcs-bc" data-tcs-bc></div>
       </div>
       <div class="tcs-bar-right">
+        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-discuss>向 Agent 讨论当前画面</button>
         <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">↶ 撤销</button>
+        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>Inbox · 0</button>
         ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">独立窗</button>` : ""}
         ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">✕</button>` : ""}
       </div>
     </div>
     <div class="tcs-body">
       <div class="tcs-stage-wrap">
-        <div class="tcs-legend">
+        <div class="tcs-legend" data-tcs-legend>
           <div class="tcs-legend-group">
             <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-primary)"></span>本季主线</span>
             <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-error)"></span>主线错配</span>
@@ -446,7 +546,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <div class="tcs-toast" data-tcs-toast style="display:none"></div>
         <div class="tcs-l3-overlay" data-tcs-l3 style="display:none"></div>
       </div>
-      <aside class="tcs-inbox-pane">
+      <aside class="tcs-inbox-pane" data-tcs-inbox-pane>
         <div class="tcs-inbox-head">
           <span style="font-weight:600">Inbox 浮带 <span data-tcs-inbox-count class="tcs-badge tcs-badge-mist" style="margin-left:4px">0</span></span>
           <span style="font-size:11px;color:var(--tcs-muted)">0ms 匹配</span>
@@ -463,16 +563,20 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
   const zoomOutBtn = root.querySelector<HTMLButtonElement>("[data-tcs-zoom-out]")!;
   const bcEl = root.querySelector<HTMLElement>("[data-tcs-bc]")!;
+  const discussBtn = root.querySelector<HTMLButtonElement>("[data-tcs-discuss]")!;
   const coldStartBtn = root.querySelector<HTMLButtonElement>("[data-tcs-coldstart]")!;
   const undoBtn = root.querySelector<HTMLButtonElement>("[data-tcs-undo]")!;
+  const inboxToggleBtn = root.querySelector<HTMLButtonElement>("[data-tcs-toggle-inbox]")!;
   const popoutBtn = root.querySelector<HTMLButtonElement>("[data-tcs-popout]");
   const closeBtn = root.querySelector<HTMLButtonElement>("[data-tcs-close]");
+  const legendEl = root.querySelector<HTMLElement>("[data-tcs-legend]")!;
   const hintEl = root.querySelector<HTMLElement>("[data-tcs-hint]")!;
   const stageEl = root.querySelector<HTMLElement>("[data-tcs-stage]")!;
   const radarEl = root.querySelector<HTMLElement>("[data-tcs-radar]")!;
   const pillEl = root.querySelector<HTMLElement>("[data-tcs-pill]")!;
   const toastEl = root.querySelector<HTMLElement>("[data-tcs-toast]")!;
   const l3El = root.querySelector<HTMLElement>("[data-tcs-l3]")!;
+  const inboxPaneEl = root.querySelector<HTMLElement>("[data-tcs-inbox-pane]")!;
   const inboxCountEl = root.querySelector<HTMLElement>("[data-tcs-inbox-count]")!;
   const inboxSubEl = root.querySelector<HTMLElement>("[data-tcs-inbox-sub]")!;
   const inboxDiagEl = root.querySelector<HTMLElement>("[data-tcs-inbox-diag]")!;
@@ -484,6 +588,17 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   let prevZoomLevel: StageZoomLevel = 0;
   let hoveredInboxId: string | null = null;
   let draggingInboxId: string | null = null;
+  let inboxCollapsed = false;
+  let finishingFocusInline = false;
+  let pendingFriction: {
+    slotId: TimeSlotId;
+    title: string;
+    message: string;
+    weekMoveId?: string | null;
+    areaId?: string | null;
+    projectWorkKey?: string | null;
+    inboxId?: string;
+  } | null = null;
   let recentlySolidifiedIds = new Set<string>();
   let toastTimer: ReturnType<typeof setTimeout> | null = null;
   let areaDrag: { areaId: string; startX: number; startY: number; origX: number; origY: number } | null = null;
@@ -1171,9 +1286,389 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     `;
   };
 
+  const renderWeekView = (snap: StageSnapshot, animCls: string) => {
+    const time = snap.time;
+    if (!time) {
+      stageEl.innerHTML = `<div class="tcs-empty ${animCls}"><strong>本周容器尚未就绪</strong><div style="font-size:12px;color:var(--tcs-muted)">当前运行在离线降级视图，未连接到 Companion 时间服务。</div></div>`;
+      return;
+    }
+    const cap = time.weekCapacity;
+    const areaNameById = new Map(snap.areas.map((a) => [a.id, a.name]));
+    const weekGhosts = time.ghostProposals.filter((g) => g.kind === "week-add-move");
+    const existingKeys = new Set(time.weekMoves.map((m) => m.projectWorkKey).filter(Boolean));
+    const existingTitles = new Set(time.weekMoves.map((m) => m.title));
+
+    // Pull candidate items from season main & side Areas
+    const candidates: Array<{
+      areaId: string;
+      areaName: string;
+      roleLabel: string;
+      title: string;
+      projectWorkKey?: string;
+    }> = [];
+    const orderedAreas = [...snap.areas].sort((a, b) => {
+      const rank = (r: StageFocusRole) => (r === "main" ? 0 : r === "side" ? 1 : 2);
+      return rank(a.focusRole) - rank(b.focusRole);
+    });
+    for (const area of orderedAreas) {
+      if (area.focusRole !== "main" && area.focusRole !== "side") continue;
+      for (const proj of area.projects) {
+        if (existingKeys.has(proj.workKey) || existingTitles.has(proj.title)) continue;
+        candidates.push({
+          areaId: area.id,
+          areaName: area.name,
+          roleLabel: focusRoleLabel(area.focusRole),
+          title: proj.title,
+          projectWorkKey: proj.workKey,
+        });
+      }
+      for (const adv of area.areaAdvancements) {
+        if (adv.state === "done" || existingTitles.has(adv.title)) continue;
+        candidates.push({
+          areaId: area.id,
+          areaName: area.name,
+          roleLabel: focusRoleLabel(area.focusRole),
+          title: adv.title,
+        });
+      }
+    }
+
+    const calDiag = time.calendarDiagnostics;
+    const calNotice =
+      calDiag && calDiag.status === "permission-denied"
+        ? `<div class="tcs-diag-notice" style="margin:0;"><strong>Apple 日历暂未授权</strong><div style="color:var(--tcs-muted);margin-top:2px;">${esc(calDiag.guidance ?? calDiag.message ?? "")}</div></div>`
+        : "";
+
+    stageEl.innerHTML = `
+      <div class="tcs-time-wrap ${animCls}" data-drop-week="true">
+        <div class="tcs-cal-strip">
+          <div class="tcs-cal-days">
+            ${cap.dailyOverview
+              .map(
+                (d) =>
+                  `<span class="tcs-cal-day ${d.isToday ? "is-today" : ""} ${d.busyMinutes > 0 ? "is-busy" : ""}">${esc(d.summary)}</span>`,
+              )
+              .join("")}
+          </div>
+          <span>${esc(cap.summary)}</span>
+        </div>
+        ${calNotice}
+        ${
+          cap.overCapacity
+            ? `<div class="tcs-friction-bar">
+                <span>本周已装入 ${cap.openMoveCount} 块，超出建议上限（${cap.recommendedMax} 块）。建议先收窄范围或退回 1 项，保住主线完成度。</span>
+              </div>`
+            : ""
+        }
+        <div class="tcs-week-grid">
+          <div class="tcs-panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <div>
+                <strong style="font-size:14px;">本周推进块</strong>
+                <span style="font-size:11.5px;color:var(--tcs-muted);margin-left:6px;">${cap.openMoveCount} / ${cap.recommendedMax} 建议上限</span>
+              </div>
+              <span class="tcs-badge ${cap.overCapacity ? "tcs-badge-amber" : "tcs-badge-mist"}">周起始 ${esc(cap.weekKey)}</span>
+            </div>
+            <form class="tcs-inline-form" data-week-add-form>
+              <input class="tcs-inline-input" type="text" name="title" placeholder="输入本周真正承诺的推进块，回车装盒…" maxlength="200" />
+              <button type="submit" class="tcs-btn tcs-btn-sm tcs-btn-primary">装入本周</button>
+            </form>
+            ${
+              weekGhosts.length > 0
+                ? weekGhosts
+                    .map(
+                      (g) => `
+                  <div class="tcs-tone-ghost" style="border-radius:10px;padding:9px 11px;">
+                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                      <strong style="font-size:12.5px;">${esc(g.title)}</strong>
+                      <span class="tcs-badge tcs-badge-ghost">${esc(g.agent)} 虚态装盒</span>
+                    </div>
+                    <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px;">${esc(g.reason)}</div>
+                    ${g.frictionWarning ? `<div style="font-size:11.5px;color:var(--tcs-warning);margin-top:3px;">${esc(g.frictionWarning)}</div>` : ""}
+                    <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:7px;">
+                      <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-time-dismiss="${esc(g.id)}">× 散去</button>
+                      <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-time-accept="${esc(g.id)}">✓ 装入本周</button>
+                    </div>
+                  </div>`,
+                    )
+                    .join("")
+                : ""
+            }
+            ${
+              time.weekMoves.length === 0
+                ? `<div class="tcs-blank-hint">本周尚未装入推进块。可从右侧本季主线/支线一键拉入，或直接输入 1–3 件最重要的推进项。</div>`
+                : time.weekMoves
+                    .map((m) => {
+                      const areaName = m.areaId ? areaNameById.get(m.areaId) : undefined;
+                      return `
+                        <div class="tcs-move-row ${m.state === "done" ? "is-done" : ""}">
+                          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                            <div style="min-width:0;">
+                              <div style="font-size:13px;font-weight:500;${m.state === "done" ? "text-decoration:line-through;" : ""}">${esc(m.title)}</div>
+                              <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
+                                ${areaName ? `${esc(areaName)} · ` : ""}已投入 ${compactMinutes(m.actualMinutes)}
+                              </div>
+                            </div>
+                            <span class="tcs-badge ${m.state === "done" ? "tcs-badge-mist" : "tcs-badge-teal"}">${m.state === "done" ? "已完成" : "推进中"}</span>
+                          </div>
+                          ${m.lastStopNote ? `<div style="font-size:11.5px;color:var(--tcs-muted);">停点：${esc(m.lastStopNote)}</div>` : ""}
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
+                            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                              ${
+                                m.state === "open"
+                                  ? `<button type="button" class="tcs-btn tcs-btn-sm" data-week-to-day="${esc(m.id)}|morning">排今日上午</button>
+                                     <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-to-day="${esc(m.id)}|afternoon">排今日下午</button>`
+                                  : ""
+                              }
+                            </div>
+                            <div style="display:flex;gap:5px;">
+                              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-toggle="${esc(m.id)}">${m.state === "done" ? "重开" : "完成"}</button>
+                              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-remove="${esc(m.id)}">移除</button>
+                            </div>
+                          </div>
+                        </div>`;
+                    })
+                    .join("")
+            }
+          </div>
+
+          <div class="tcs-panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <strong style="font-size:13px;">本季主线 / 支线待选</strong>
+              <span style="font-size:11px;color:var(--tcs-muted)">${candidates.length} 项</span>
+            </div>
+            ${
+              candidates.length === 0
+                ? `<div class="tcs-blank-hint">暂无未装入本周的主线/支线待选项。</div>`
+                : candidates
+                    .slice(0, 14)
+                    .map(
+                      (c, idx) => `
+                  <div class="tcs-move-row" style="padding:7px 9px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                      <div style="min-width:0;">
+                        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
+                        <div style="font-size:11px;color:var(--tcs-muted);">${esc(c.roleLabel)} · ${esc(c.areaName)}</div>
+                      </div>
+                      <button type="button" class="tcs-btn tcs-btn-sm" data-candidate-to-week="${idx}">装入</button>
+                    </div>
+                  </div>`,
+                    )
+                    .join("")
+            }
+          </div>
+        </div>
+      </div>
+    `;
+    // Keep candidate list accessible for click handler
+    stageEl.dataset.weekCandidates = JSON.stringify(candidates.slice(0, 14));
+  };
+
+  const renderTodayView = (snap: StageSnapshot, animCls: string) => {
+    const time = snap.time;
+    if (!time) {
+      stageEl.innerHTML = `<div class="tcs-empty ${animCls}"><strong>今日容器尚未就绪</strong><div style="font-size:12px;color:var(--tcs-muted)">当前运行在离线降级视图，未连接到 Companion 时间服务。</div></div>`;
+      return;
+    }
+
+    const activeFocus = time.activeFocus;
+    const focusElapsedMin = activeFocus
+      ? Math.floor(
+          (activeFocus.accumulatedSeconds +
+            (activeFocus.status === "running" ? Math.max(0, Math.floor((Date.now() - activeFocus.resumedAt) / 1000)) : 0)) /
+            60,
+        )
+      : 0;
+
+    const focusHtml = activeFocus
+      ? `
+      <div class="tcs-focus-strip">
+        <div style="font-size:12.5px;">
+          <strong>${esc(slotShortLabel(activeFocus.slotId))} · ${esc(activeFocus.roleLabel)}：${esc(activeFocus.title)}</strong>
+          <span style="color:var(--tcs-muted);margin-left:8px;">已进行 ${focusElapsedMin}m${activeFocus.status === "paused" ? "（已暂停）" : ""}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${
+            finishingFocusInline
+              ? `<form class="tcs-inline-form" data-focus-finish-form>
+                  <input class="tcs-inline-input" type="text" name="stopNote" placeholder="可选：留一句停点便条，回车结束" maxlength="240" />
+                  <button type="submit" class="tcs-btn tcs-btn-sm tcs-btn-primary">确认结束</button>
+                  <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-focus-finish-cancel>取消</button>
+                </form>`
+              : `<button type="button" class="tcs-btn tcs-btn-sm" data-focus-toggle-pause>${activeFocus.status === "paused" ? "继续" : "暂停"}</button>
+                 <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-focus-finish-open>结束</button>`
+          }
+        </div>
+      </div>`
+      : "";
+
+    const carryoverHtml =
+      time.carryoverItems.length > 0
+        ? `
+      <div class="tcs-carryover-tray">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;">
+          <strong>昨日遗留托盘（${time.carryoverItems.length}）</strong>
+          <span style="color:var(--tcs-muted);font-size:11px;">未完成项不自动滚雪球挤爆今天</span>
+        </div>
+        ${time.carryoverItems
+          .map(
+            (c) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 8px;border-radius:8px;background:var(--tcs-card);border:1px solid var(--tcs-card-border);">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+              <span style="font-size:12.5px;font-weight:500;">${esc(c.title)}</span>
+              ${c.carryoverCount >= 3 ? `<span class="tcs-badge tcs-badge-mismatch">连续 ${c.carryoverCount} 次遗留</span>` : `<span class="tcs-badge tcs-badge-mist">${esc(c.date)}</span>`}
+            </div>
+            <div style="display:flex;gap:5px;">
+              <button type="button" class="tcs-btn tcs-btn-sm" data-carryover="${esc(c.id)}|to-today">放入今日</button>
+              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-carryover="${esc(c.id)}|to-week">退回本周</button>
+              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-carryover="${esc(c.id)}|drop">撤掉</button>
+            </div>
+          </div>`,
+          )
+          .join("")}
+      </div>`
+        : "";
+
+    const frictionHtml = pendingFriction
+      ? `
+      <div class="tcs-friction-bar">
+        <span>${esc(pendingFriction.message)}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-friction-resolve="replace">替换当前</button>
+          <button type="button" class="tcs-btn tcs-btn-sm" data-friction-resolve="defer-tomorrow">顺延至明天</button>
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-friction-resolve="stack">仍然叠加</button>
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-friction-resolve="cancel">取消</button>
+        </div>
+      </div>`
+      : "";
+
+    const dayGhosts = time.ghostProposals.filter((g) => g.kind !== "week-add-move");
+    const ghostHtml =
+      dayGhosts.length > 0
+        ? dayGhosts
+            .map(
+              (g) => `
+          <div class="tcs-tone-ghost" style="border-radius:11px;padding:10px 12px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+              <strong style="font-size:12.5px;">${esc(g.title)}</strong>
+              <span class="tcs-badge tcs-badge-ghost">${esc(g.agent)} 虚态排期${g.slotId ? ` · ${esc(slotDisplayLabel(g.slotId))}` : ""}</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px;">${esc(g.reason)}</div>
+            ${g.frictionWarning ? `<div style="font-size:11.5px;color:var(--tcs-warning);margin-top:3px;">${esc(g.frictionWarning)}</div>` : ""}
+            <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:7px;">
+              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-time-dismiss="${esc(g.id)}">× 散去</button>
+              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-time-accept="${esc(g.id)}">✓ 确认落盘</button>
+            </div>
+          </div>`,
+            )
+            .join("")
+        : "";
+
+    const calDiag = time.calendarDiagnostics;
+    const calNotice =
+      calDiag && calDiag.status === "permission-denied"
+        ? `<div class="tcs-diag-notice" style="margin:0;"><strong>Apple 日历暂未授权</strong><div style="color:var(--tcs-muted);margin-top:2px;">${esc(calDiag.guidance ?? calDiag.message ?? "")}</div></div>`
+        : "";
+
+    const slotsHtml = time.todaySlots
+      .map((slot) => {
+        const openCount = slot.items.filter((i) => i.state === "open").length;
+        const spaceText =
+          slot.busyMinutes > 0
+            ? `硬日程 ${compactHours(slot.busyMinutes)} · 剩余约 ${compactHours(slot.remainingMinutes)}`
+            : `无硬日程 · 约 ${slot.spec.nominalHours}h 可用`;
+        return `
+          <div class="tcs-slot-card ${slot.spec.id === "morning" ? "is-morning" : ""}" data-drop-slot="${slot.spec.id}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <div>
+                <strong style="font-size:14px;">${esc(slot.spec.name)}</strong>
+                <span style="font-size:11.5px;color:var(--tcs-muted);margin-left:8px;">${esc(slot.spec.subtitle)}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11.5px;color:var(--tcs-muted);">${esc(spaceText)}</span>
+                <span class="tcs-badge ${slot.overSoftCap ? "tcs-badge-amber" : "tcs-badge-mist"}">${openCount}/${slot.spec.softCap}</span>
+              </div>
+            </div>
+            ${slot.frictionMessage ? `<div style="font-size:11.5px;color:var(--tcs-warning);">${esc(slot.frictionMessage)}</div>` : ""}
+            ${slot.hardEvents
+              .map(
+                (ev) => `
+              <div class="tcs-hard-event ${ev.isShield ? "is-shield" : ""}">
+                <div>
+                  <span style="font-weight:600;margin-right:8px;">${esc(ev.startTime)}–${esc(ev.endTime)}</span>
+                  <span>${esc(ev.title)}</span>
+                </div>
+                <span style="font-size:11px;color:var(--tcs-muted);">${esc(ev.calendarName)}</span>
+              </div>`,
+              )
+              .join("")}
+            ${
+              slot.items.length === 0 && slot.hardEvents.length === 0 && slot.spec.allowEmptyHint
+                ? `<div class="tcs-blank-hint">${esc(slot.spec.allowEmptyHint)}</div>`
+                : ""
+            }
+            ${slot.items
+              .map(
+                (item) => `
+              <div class="tcs-move-row ${item.state === "done" ? "is-done" : ""}">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                  <div style="min-width:0;">
+                    <div style="font-size:13px;font-weight:500;${item.state === "done" ? "text-decoration:line-through;" : ""}">${esc(item.title)}</div>
+                    <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
+                      已投入 ${compactMinutes(item.actualMinutes)}
+                      ${item.calendarShield ? ` · 已设日历护盾 ${esc(item.calendarShield.startTime)}–${esc(item.calendarShield.endTime)}` : ""}
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+                    ${
+                      item.state === "open"
+                        ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-day-focus="${esc(item.id)}">开始专注</button>`
+                        : ""
+                    }
+                    ${
+                      slot.spec.id === "morning" && item.state === "open" && !item.calendarShield
+                        ? `<button type="button" class="tcs-btn tcs-btn-sm" data-day-shield="${esc(item.id)}">写入日历护盾</button>`
+                        : ""
+                    }
+                    <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-day-toggle="${esc(item.id)}">${item.state === "done" ? "重开" : "完成"}</button>
+                    <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-day-remove="${esc(item.id)}">移除</button>
+                  </div>
+                </div>
+                ${item.lastStopNote ? `<div style="font-size:11.5px;color:var(--tcs-muted);">上次停点：${esc(item.lastStopNote)}</div>` : ""}
+              </div>`,
+              )
+              .join("")}
+            <form class="tcs-inline-form" data-slot-add-form="${slot.spec.id}">
+              <input class="tcs-inline-input" type="text" name="title" placeholder="放入「${esc(slot.spec.name)}」，回车确认…" maxlength="200" />
+              <button type="submit" class="tcs-btn tcs-btn-sm">放入</button>
+            </form>
+          </div>`;
+      })
+      .join("");
+
+    stageEl.innerHTML = `
+      <div class="tcs-time-wrap ${animCls}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <strong style="font-size:14.5px;">${esc(dateLabel(time.today))} · 今日语义容器</strong>
+          <label style="font-size:11.5px;color:var(--tcs-muted);display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" data-toggle-footprint ${time.footprintCalendarEnabled ? "checked" : ""} />
+            <span>专注结束后静默写入「${esc(time.footprintCalendarName)}」</span>
+          </label>
+        </div>
+        ${focusHtml}
+        ${calNotice}
+        ${carryoverHtml}
+        ${frictionHtml}
+        ${ghostHtml}
+        ${slotsHtml}
+      </div>
+    `;
+  };
+
   const renderOverlays = (snap: StageSnapshot) => {
+    const activeTab: StageViewTab = snap.viewport.activeTab ?? "season";
     // Edge Radar
-    if (snap.edgeRadar && snap.viewport.zoomLevel > 0) {
+    if (activeTab === "season" && snap.edgeRadar && snap.viewport.zoomLevel > 0) {
       radarEl.style.display = "block";
       radarEl.innerHTML = `
         <button type="button" class="tcs-btn tcs-btn-pill tcs-anim-sprout" style="background:var(--tcs-card);border-color:var(--tcs-warning);box-shadow:var(--tcs-shadow-md);" data-radar-go="${esc(snap.edgeRadar.targetAreaId)}|${esc(snap.edgeRadar.targetProjectWorkKey ?? "")}">
@@ -1188,7 +1683,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
     // Bottom Round-Change Pill
     const nonColdGhosts = snap.ghostProposals.filter((g) => g.kind !== "propose-areas");
-    if (nonColdGhosts.length > 0) {
+    const timeGhosts = snap.time?.ghostProposals ?? [];
+    if (activeTab === "season" && nonColdGhosts.length > 0) {
       const firstAgent = nonColdGhosts[0]?.agent ?? "Agent";
       pillEl.style.display = "flex";
       pillEl.innerHTML = `
@@ -1196,6 +1692,15 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <span style="font-weight:600">${esc(firstAgent)} 刚提议：+${nonColdGhosts.length} 条虚态推演</span>
         <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-primary" data-pill-accept-all>全部留下</button>
         <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-ghost" data-pill-dismiss-all>全部散去</button>
+      `;
+    } else if (activeTab !== "season" && timeGhosts.length > 0) {
+      const firstAgent = timeGhosts[0]?.agent ?? "Agent";
+      pillEl.style.display = "flex";
+      pillEl.innerHTML = `
+        <span class="tcs-dot tcs-pulse" style="background:var(--tcs-primary)"></span>
+        <span style="font-weight:600">${esc(firstAgent)} 提议排期：+${timeGhosts.length} 条虚态提案</span>
+        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-primary" data-time-accept-all>全部落盘</button>
+        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-ghost" data-time-dismiss-all>全部散去</button>
       `;
     } else {
       pillEl.style.display = "none";
@@ -1227,33 +1732,61 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     prevZoomLevel = next.viewport.zoomLevel;
     snapshot = next;
 
-    // Header
+    const activeTab: StageViewTab = next.viewport.activeTab ?? "season";
+    root.querySelectorAll<HTMLButtonElement>("[data-tcs-tab]").forEach((btn) => {
+      const isCurrent = btn.dataset.tcsTab === activeTab;
+      btn.classList.toggle("is-active", isCurrent);
+      btn.setAttribute("aria-selected", String(isCurrent));
+    });
+
+    const activeInboxCount = next.inbox.filter((i) => !i.cooled).length;
+    inboxToggleBtn.textContent = `Inbox · ${activeInboxCount}`;
+    inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
+
+    // Header contextual controls
     const coldProposal = next.ghostProposals.find((g) => g.kind === "propose-areas");
+    const isSeason = activeTab === "season";
+    zoomOutBtn.style.display = isSeason ? "inline-flex" : "none";
     zoomOutBtn.disabled = next.viewport.zoomLevel === 0 && !coldProposal && !port.onRequestClose;
-    undoBtn.style.display = next.canUndo ? "inline-flex" : "none";
+    coldStartBtn.style.display = isSeason ? "inline-flex" : "none";
+    legendEl.style.display = isSeason ? "flex" : "none";
+    undoBtn.style.display = (isSeason ? next.canUndo : Boolean(next.time?.canUndo)) ? "inline-flex" : "none";
     if (popoutBtn) popoutBtn.style.display = next.appUrl ? "inline-flex" : "none";
 
-    const bcParts: string[] = [
-      `<button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 0 && !coldProposal ? "is-current" : ""}" data-bc-l0>L0 全局星区</button>`,
-    ];
-    if (coldProposal) {
-      bcParts.push(`<span style="color:var(--tcs-muted)">/</span><span class="tcs-badge tcs-badge-ghost">冷启动虚态初稿</span>`);
+    if (isSeason) {
+      const bcParts: string[] = [
+        `<button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 0 && !coldProposal ? "is-current" : ""}" data-bc-l0>L0 季节星区</button>`,
+      ];
+      if (coldProposal) {
+        bcParts.push(`<span style="color:var(--tcs-muted)">/</span><span class="tcs-badge tcs-badge-ghost">冷启动虚态初稿</span>`);
+      } else {
+        const area = findArea(next.viewport.areaId);
+        if (next.viewport.zoomLevel >= 1 && area) {
+          bcParts.push(`<span style="color:var(--tcs-muted)">/</span><button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 1 ? "is-current" : ""}" data-area-open="${esc(area.id)}">L1 ${esc(area.name)}</button>`);
+        }
+        const proj = findProject(next.viewport.areaId, next.viewport.projectWorkKey);
+        if (next.viewport.zoomLevel >= 2 && area && proj) {
+          bcParts.push(`<span style="color:var(--tcs-muted)">/</span><button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 2 ? "is-current" : ""}" data-project-open="${esc(area.id)}|${esc(proj.workKey)}">L2 ${esc(proj.title)}</button>`);
+        }
+      }
+      bcEl.innerHTML = bcParts.join("");
     } else {
-      const area = findArea(next.viewport.areaId);
-      if (next.viewport.zoomLevel >= 1 && area) {
-        bcParts.push(`<span style="color:var(--tcs-muted)">/</span><button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 1 ? "is-current" : ""}" data-area-open="${esc(area.id)}">L1 ${esc(area.name)}</button>`);
-      }
-      const proj = findProject(next.viewport.areaId, next.viewport.projectWorkKey);
-      if (next.viewport.zoomLevel >= 2 && area && proj) {
-        bcParts.push(`<span style="color:var(--tcs-muted)">/</span><button type="button" class="tcs-bc-btn ${next.viewport.zoomLevel === 2 ? "is-current" : ""}" data-project-open="${esc(area.id)}|${esc(proj.workKey)}">L2 ${esc(proj.title)}</button>`);
-      }
+      bcEl.innerHTML = "";
     }
-    bcEl.innerHTML = bcParts.join("");
 
-    if (coldProposal) renderColdStart(coldProposal);
-    else if (next.viewport.zoomLevel === 0) renderL0(next, animCls);
-    else if (next.viewport.zoomLevel === 1) renderL1(next, animCls);
-    else renderL2(next, animCls);
+    if (activeTab === "week") {
+      renderWeekView(next, animCls);
+    } else if (activeTab === "today") {
+      renderTodayView(next, animCls);
+    } else if (coldProposal) {
+      renderColdStart(coldProposal);
+    } else if (next.viewport.zoomLevel === 0) {
+      renderL0(next, animCls);
+    } else if (next.viewport.zoomLevel === 1) {
+      renderL1(next, animCls);
+    } else {
+      renderL2(next, animCls);
+    }
 
     renderInbox(next);
     renderOverlays(next);
@@ -1270,20 +1803,345 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   };
 
   // ==================== EVENT DELEGATION ====================
+  const buildDiscussPrompt = (snap: StageSnapshot): string => {
+    const tab: StageViewTab = snap.viewport.activeTab ?? "season";
+    if (tab === "week" && snap.time) {
+      return `当前在「本周容器」（${snap.time.weekCapacity.summary}，已装入 ${snap.time.weekCapacity.openMoveCount} 块）。请结合 stage_get_pulse 与 time_get_overview 帮我检视本周容量与推进块优先级。`;
+    }
+    if (tab === "today" && snap.time) {
+      const carry = snap.time.carryoverItems.length;
+      return `当前在「今日容器」（${snap.time.today}，昨日遗留 ${carry} 项）。请结合 time_get_overview 帮我确认今天「上午·深潜」的主线切口并做减法。`;
+    }
+    const area = findArea(snap.viewport.areaId);
+    const proj = findProject(snap.viewport.areaId, snap.viewport.projectWorkKey);
+    if (proj) {
+      return `当前在活画布关注「${area?.name ?? "领域"} / ${proj.title}」，请帮我评估下一步 15 分钟最小切口或衍生推进项。`;
+    }
+    if (area) {
+      return `当前在活画布关注领域「${area.name}」（${focusRoleLabel(area.focusRole)}），请结合近期脉搏与 Inbox 帮我做取舍。`;
+    }
+    return `当前在「季节星区」，请先调用 stage_get_pulse 与 time_get_overview 帮我做一次简短事实核对。`;
+  };
+
+  const requestPlaceIntoSlot = (input: {
+    slotId: TimeSlotId;
+    title: string;
+    weekMoveId?: string | null;
+    areaId?: string | null;
+    projectWorkKey?: string | null;
+    inboxId?: string;
+  }) => {
+    if (!snapshot) return;
+    const slotSnap = snapshot.time?.todaySlots.find((s) => s.spec.id === input.slotId);
+    const openTitles = (slotSnap?.items ?? []).filter((i) => i.state === "open").map((i) => i.title);
+    const friction = buildSlotFrictionPrompt(input.slotId, openTitles);
+    if (friction) {
+      pendingFriction = {
+        slotId: input.slotId,
+        title: input.title,
+        message: friction.message,
+        ...(input.weekMoveId !== undefined ? { weekMoveId: input.weekMoveId } : {}),
+        ...(input.areaId !== undefined ? { areaId: input.areaId } : {}),
+        ...(input.projectWorkKey !== undefined ? { projectWorkKey: input.projectWorkKey } : {}),
+        ...(input.inboxId ? { inboxId: input.inboxId } : {}),
+      };
+      if ((snapshot.viewport.activeTab ?? "season") !== "today") {
+        void runAction({ type: "set-viewport", source: port.source, viewport: { activeTab: "today" } });
+      } else {
+        renderTodayView(snapshot, "");
+      }
+      return;
+    }
+    void runAction(
+      {
+        type: "time",
+        action: {
+          type: "place-day-item",
+          title: input.title,
+          slotId: input.slotId,
+          ...(input.weekMoveId !== undefined ? { weekMoveId: input.weekMoveId } : {}),
+          ...(input.areaId !== undefined ? { areaId: input.areaId } : {}),
+          ...(input.projectWorkKey !== undefined ? { projectWorkKey: input.projectWorkKey } : {}),
+        },
+      },
+      `已放入「${slotDisplayLabel(input.slotId)}」`,
+    ).then(() => {
+      if (input.inboxId) {
+        void runAction({ type: "archive-inbox-items", inboxIds: [input.inboxId] });
+      }
+    });
+  };
+
   zoomOutBtn.addEventListener("click", zoomOut);
   coldStartBtn.addEventListener("click", () => void runAction({ type: "trigger-cold-start" }));
-  undoBtn.addEventListener("click", () => void runAction({ type: "undo" }, "已撤销上一次落盘"));
+  undoBtn.addEventListener("click", () => {
+    const isSeason = (snapshot?.viewport.activeTab ?? "season") === "season";
+    void runAction(isSeason ? { type: "undo" } : { type: "time", action: { type: "undo-time" } }, "已撤销上一次改动");
+  });
+  discussBtn.addEventListener("click", () => {
+    if (!snapshot) return;
+    const text = buildDiscussPrompt(snapshot);
+    if (port.onQuoteToChat) {
+      port.onQuoteToChat(text);
+      showToast("已将当前画面摘要填入对话输入框");
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).then(
+        () => showToast("已复制当前画面摘要，可直接粘贴给 Agent"),
+        () => showToast(text),
+      );
+      return;
+    }
+    showToast(text);
+  });
+  inboxToggleBtn.addEventListener("click", () => {
+    inboxCollapsed = !inboxCollapsed;
+    inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
+    drawTethers();
+  });
   popoutBtn?.addEventListener("click", () => {
     if (snapshot?.appUrl) port.onOpenStandalone?.(snapshot.appUrl);
   });
   closeBtn?.addEventListener("click", () => port.onRequestClose?.());
 
+  root.addEventListener("submit", (event) => {
+    const form = event.target as HTMLFormElement | null;
+    if (!form || !snapshot) return;
+    if (form.hasAttribute("data-week-add-form")) {
+      event.preventDefault();
+      const input = form.querySelector<HTMLInputElement>('input[name="title"]');
+      const title = input?.value.trim() ?? "";
+      if (!title) return;
+      if (input) input.value = "";
+      void runAction({ type: "time", action: { type: "add-week-move", title } }, "已装入本周容器");
+      return;
+    }
+    const slotId = form.dataset.slotAddForm as TimeSlotId | undefined;
+    if (slotId) {
+      event.preventDefault();
+      const input = form.querySelector<HTMLInputElement>('input[name="title"]');
+      const title = input?.value.trim() ?? "";
+      if (!title) return;
+      if (input) input.value = "";
+      requestPlaceIntoSlot({ slotId, title });
+      return;
+    }
+    if (form.hasAttribute("data-focus-finish-form")) {
+      event.preventDefault();
+      const input = form.querySelector<HTMLInputElement>('input[name="stopNote"]');
+      const stopNote = input?.value.trim() ?? "";
+      finishingFocusInline = false;
+      void runAction(
+        { type: "time", action: { type: "finish-focus", ...(stopNote ? { stopNote } : {}) } },
+        stopNote ? "已结束专注并记录停点" : "已结束专注并累计投入时长",
+      );
+    }
+  });
+
+  root.addEventListener("change", (event) => {
+    const target = event.target as HTMLInputElement | null;
+    if (!target || !snapshot) return;
+    if (target.hasAttribute("data-toggle-footprint")) {
+      void runAction(
+        { type: "time", action: { type: "set-footprint-calendar", enabled: target.checked } },
+        target.checked ? "已开启专注结束写入 Apple 日历足迹" : "已关闭 Apple 日历足迹写入",
+      );
+    }
+  });
+
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
     if (!target || !snapshot) return;
 
+    const tabBtn = target.closest<HTMLElement>("[data-tcs-tab]");
+    if (tabBtn?.dataset.tcsTab) {
+      const nextTab = tabBtn.dataset.tcsTab as StageViewTab;
+      pendingFriction = null;
+      void runAction({ type: "set-viewport", source: port.source, viewport: { activeTab: nextTab } });
+      return;
+    }
     if (target.closest("[data-bc-l0]")) {
       setZoom(0);
+      return;
+    }
+    const frictionChoice = target.closest<HTMLElement>("[data-friction-resolve]")?.dataset.frictionResolve;
+    if (frictionChoice && pendingFriction) {
+      const req = pendingFriction;
+      pendingFriction = null;
+      if (frictionChoice === "cancel") {
+        renderTodayView(snapshot, "");
+        return;
+      }
+      const mode = frictionChoice as "replace" | "defer-tomorrow" | "stack";
+      const label =
+        mode === "replace"
+          ? `已替换「${slotDisplayLabel(req.slotId)}」当前项`
+          : mode === "defer-tomorrow"
+            ? `已顺延至明天「${slotDisplayLabel(req.slotId)}」`
+            : `已叠加放入「${slotDisplayLabel(req.slotId)}」`;
+      void runAction(
+        {
+          type: "time",
+          action: {
+            type: "place-day-item",
+            title: req.title,
+            slotId: req.slotId,
+            overflowMode: mode,
+            ...(req.weekMoveId !== undefined ? { weekMoveId: req.weekMoveId } : {}),
+            ...(req.areaId !== undefined ? { areaId: req.areaId } : {}),
+            ...(req.projectWorkKey !== undefined ? { projectWorkKey: req.projectWorkKey } : {}),
+          },
+        },
+        label,
+      ).then(() => {
+        if (req.inboxId) void runAction({ type: "archive-inbox-items", inboxIds: [req.inboxId] });
+      });
+      return;
+    }
+    const candIdx = target.closest<HTMLElement>("[data-candidate-to-week]")?.dataset.candidateToWeek;
+    if (candIdx !== undefined) {
+      try {
+        const list = JSON.parse(stageEl.dataset.weekCandidates ?? "[]") as Array<{
+          areaId: string;
+          title: string;
+          projectWorkKey?: string;
+        }>;
+        const item = list[Number(candIdx)];
+        if (item) {
+          void runAction(
+            {
+              type: "time",
+              action: {
+                type: "add-week-move",
+                title: item.title,
+                areaId: item.areaId,
+                ...(item.projectWorkKey ? { projectWorkKey: item.projectWorkKey } : {}),
+              },
+            },
+            `已装入本周：${item.title}`,
+          );
+        }
+      } catch {
+        // ignore malformed dataset
+      }
+      return;
+    }
+    const weekToDay = target.closest<HTMLElement>("[data-week-to-day]")?.dataset.weekToDay;
+    if (weekToDay && snapshot.time) {
+      const [moveId, slotId] = weekToDay.split("|");
+      const move = snapshot.time.weekMoves.find((m) => m.id === moveId);
+      if (move && (slotId === "morning" || slotId === "afternoon" || slotId === "evening")) {
+        requestPlaceIntoSlot({
+          slotId,
+          title: move.title,
+          weekMoveId: move.id,
+          areaId: move.areaId ?? null,
+          projectWorkKey: move.projectWorkKey ?? null,
+        });
+      }
+      return;
+    }
+    const weekToggle = target.closest<HTMLElement>("[data-week-toggle]")?.dataset.weekToggle;
+    if (weekToggle) {
+      void runAction({ type: "time", action: { type: "toggle-week-move-state", moveId: weekToggle } });
+      return;
+    }
+    const weekRemove = target.closest<HTMLElement>("[data-week-remove]")?.dataset.weekRemove;
+    if (weekRemove) {
+      void runAction({ type: "time", action: { type: "remove-week-move", moveId: weekRemove } }, "已移出本周容器");
+      return;
+    }
+    const carryover = target.closest<HTMLElement>("[data-carryover]")?.dataset.carryover;
+    if (carryover) {
+      const [itemId, decision] = carryover.split("|");
+      if (itemId && (decision === "to-today" || decision === "to-week" || decision === "drop")) {
+        const msg = decision === "to-today" ? "已放入今日" : decision === "to-week" ? "已退回本周容器" : "已撤掉该遗留项";
+        void runAction({ type: "time", action: { type: "triage-carryover", itemId, decision } }, msg);
+      }
+      return;
+    }
+    const dayFocus = target.closest<HTMLElement>("[data-day-focus]")?.dataset.dayFocus;
+    if (dayFocus && snapshot.time) {
+      const found = snapshot.time.todaySlots.flatMap((s) => s.items).find((i) => i.id === dayFocus);
+      if (found) {
+        const area = found.areaId ? snapshot.areas.find((a) => a.id === found.areaId) : undefined;
+        void Promise.resolve(
+          port.dispatch({
+            type: "time",
+            action: {
+              type: "start-focus",
+              dayItemId: found.id,
+              ...(area ? { focusRole: area.focusRole } : {}),
+            },
+          }),
+        )
+          .then((res) => {
+            if (res && !disposed) update(res);
+            const active = res?.time?.activeFocus ?? snapshot?.time?.activeFocus;
+            if (active && port.onFocusStarted) void port.onFocusStarted(active);
+            else showToast(`已开始专注：${found.title}`);
+          })
+          .catch((e) => showToast(e instanceof Error ? e.message : "启动专注失败"));
+      }
+      return;
+    }
+    const dayShield = target.closest<HTMLElement>("[data-day-shield]")?.dataset.dayShield;
+    if (dayShield) {
+      void runAction(
+        { type: "time", action: { type: "create-calendar-shield", itemId: dayShield } },
+        "已请求写入 Apple 日历主线护盾",
+      );
+      return;
+    }
+    const dayToggle = target.closest<HTMLElement>("[data-day-toggle]")?.dataset.dayToggle;
+    if (dayToggle) {
+      void runAction({ type: "time", action: { type: "toggle-day-item-done", itemId: dayToggle } });
+      return;
+    }
+    const dayRemove = target.closest<HTMLElement>("[data-day-remove]")?.dataset.dayRemove;
+    if (dayRemove) {
+      void runAction({ type: "time", action: { type: "remove-day-item", itemId: dayRemove } }, "已移出今日槽位");
+      return;
+    }
+    if (target.closest("[data-focus-toggle-pause]") && snapshot.time?.activeFocus) {
+      const paused = snapshot.time.activeFocus.status === "paused";
+      void runAction({ type: "time", action: { type: paused ? "resume-focus" : "pause-focus" } });
+      return;
+    }
+    if (target.closest("[data-focus-finish-open]")) {
+      finishingFocusInline = true;
+      renderTodayView(snapshot, "");
+      return;
+    }
+    if (target.closest("[data-focus-finish-cancel]")) {
+      finishingFocusInline = false;
+      renderTodayView(snapshot, "");
+      return;
+    }
+    const timeAccept = target.closest<HTMLElement>("[data-time-accept]")?.dataset.timeAccept;
+    if (timeAccept) {
+      void runAction(
+        { type: "time", action: { type: "resolve-time-proposals", decisions: [{ proposalId: timeAccept, action: "accept" }] } },
+        "已凝固该条时间排期",
+      );
+      return;
+    }
+    const timeDismiss = target.closest<HTMLElement>("[data-time-dismiss]")?.dataset.timeDismiss;
+    if (timeDismiss) {
+      void runAction({ type: "time", action: { type: "resolve-time-proposals", decisions: [{ proposalId: timeDismiss, action: "dismiss" }] } });
+      return;
+    }
+    if (target.closest("[data-time-accept-all]") && snapshot.time) {
+      const decisions = snapshot.time.ghostProposals.map((g) => ({ proposalId: g.id, action: "accept" as const }));
+      void runAction(
+        { type: "time", action: { type: "resolve-time-proposals", decisions } },
+        `已凝固 ${decisions.length} 条排期`,
+      );
+      return;
+    }
+    if (target.closest("[data-time-dismiss-all]")) {
+      void runAction({ type: "time", action: { type: "dismiss-all-time-proposals" } }, "已散去本轮虚态排期");
       return;
     }
     if (target.closest("[data-tcs-empty-coldstart]")) {
@@ -1504,27 +2362,63 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   });
   stageEl.addEventListener("dragover", (event) => {
     if (!draggingInboxId) return;
-    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-area],[data-drop-project]");
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-area],[data-drop-project],[data-drop-slot],[data-drop-week]");
     if (!target) return;
     event.preventDefault();
     target.classList.add("tcs-drop-active");
   });
   stageEl.addEventListener("dragleave", (event) => {
-    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-area],[data-drop-project]");
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-area],[data-drop-project],[data-drop-slot],[data-drop-week]");
     target?.classList.remove("tcs-drop-active");
   });
   stageEl.addEventListener("drop", (event) => {
     const id = draggingInboxId ?? event.dataTransfer?.getData("text/plain") ?? "";
     if (!id) return;
+    const slotTarget = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-slot]");
+    const weekTarget = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-week]");
     const projTarget = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-project]");
     const areaTarget = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-drop-area]");
-    if (!projTarget && !areaTarget) return;
+    if (!slotTarget && !weekTarget && !projTarget && !areaTarget) return;
     event.preventDefault();
+    slotTarget?.classList.remove("tcs-drop-active");
+    weekTarget?.classList.remove("tcs-drop-active");
     projTarget?.classList.remove("tcs-drop-active");
     areaTarget?.classList.remove("tcs-drop-active");
     draggingInboxId = null;
     hoveredInboxId = null;
 
+    if (slotTarget?.dataset.dropSlot && snapshot) {
+      const inboxItem = snapshot.inbox.find((i) => i.id === id);
+      if (inboxItem) {
+        requestPlaceIntoSlot({
+          slotId: slotTarget.dataset.dropSlot as TimeSlotId,
+          title: inboxItem.text.slice(0, 120),
+          areaId: inboxItem.matchAreaIds[0] ?? null,
+          projectWorkKey: inboxItem.matchProjectWorkKeys[0] ?? null,
+          inboxId: inboxItem.id,
+        });
+      }
+      return;
+    }
+    if (weekTarget && snapshot) {
+      const inboxItem = snapshot.inbox.find((i) => i.id === id);
+      if (inboxItem) {
+        void runAction(
+          {
+            type: "time",
+            action: {
+              type: "add-week-move",
+              title: inboxItem.text.slice(0, 120),
+              areaId: inboxItem.matchAreaIds[0] ?? null,
+              projectWorkKey: inboxItem.matchProjectWorkKeys[0] ?? null,
+              sourceInboxId: inboxItem.id,
+            },
+          },
+          "已从 Inbox 装入本周容器",
+        ).then(() => void runAction({ type: "archive-inbox-items", inboxIds: [inboxItem.id] }));
+      }
+      return;
+    }
     if (projTarget?.dataset.dropProject) {
       const [areaId, projectWorkKey] = projTarget.dataset.dropProject.split("|");
       if (areaId && projectWorkKey) {

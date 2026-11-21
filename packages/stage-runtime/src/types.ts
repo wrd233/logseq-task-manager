@@ -1,4 +1,5 @@
 import type { CatalogWork, WorkRef } from "@task-copilot/contracts";
+import type { StageViewTab, TimeSnapshot, TimeUserAction } from "./time-types.ts";
 
 export type StageZoomLevel = 0 | 1 | 2 | 3;
 export type StageTone = "amber" | "teal" | "mist" | "mismatch" | "none";
@@ -12,6 +13,7 @@ export interface StagePoint {
 }
 
 export interface StageViewport {
+  activeTab?: StageViewTab;
   zoomLevel: StageZoomLevel;
   areaId: string | null;
   projectWorkKey: string | null;
@@ -249,6 +251,7 @@ export interface StageSnapshot {
   cooledInboxCount: number;
   mismatchSignals: StageMismatchSignal[];
   inboxDiagnostics?: StageInboxDiagnostics;
+  time?: TimeSnapshot;
   ghostProposals: StageGhostProposal[];
   highlights: StageHighlight[];
   edgeRadar: StageEdgeRadar | null;
@@ -305,6 +308,7 @@ export type StageUserAction =
   | { type: "toggle-advancement-done"; advancementId: string }
   | { type: "mark-promoted-logseq"; advancementId: string }
   | { type: "clear-radar" }
+  | { type: "time"; action: TimeUserAction }
   | { type: "undo" };
 
 export interface StageFocusRequest {
