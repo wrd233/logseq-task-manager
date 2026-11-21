@@ -32,7 +32,8 @@
     "test:host": "node --import tsx tests/host-proof.mjs"
   },
   "dependencies": {
-    "@task-copilot/reading-runtime": "0.2.0"
+    "@task-copilot/reading-runtime": "0.2.0",
+    "@task-copilot/stage-runtime": "0.2.0"
   },
   "license": "MIT"
 }

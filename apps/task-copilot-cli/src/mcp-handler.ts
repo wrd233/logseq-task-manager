@@ -31,6 +31,8 @@ import {
   type StagedWritebackProposal,
 } from "./collaborate.ts";
 import type { ReadingJobHub } from "./reading-hub.ts";
+import type { StageHub } from "./stage-hub.ts";
+import type { StageResolveDecision } from "@task-copilot/stage-runtime";
 import { readCatalog } from "./work-catalog.ts";
 
 export interface McpToolDefinition {
@@ -249,6 +251,156 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "stage_get_view",
+    description:
+      "Read the user's live Shared Stage viewport (L0-L3 zoom level, focused Area/Project, selected Inbox item, pending Ghost proposals). Wide-and-shallow executive gaze only; never returns private project file bodies.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_get_pulse",
+    description:
+      "Read global Areas, dormant Areas, bottom-up recent activity pulse, unassigned catalog works, and active Inbox resonance list without scanning private files.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_highlight",
+    description:
+      "Temporarily highlight target Area/Project node(s) in the live Stage with a short reason. Targets outside the user's current viewport automatically downgrade to a non-intrusive Edge Radar pill (never hijacks camera).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetIds: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 8 },
+        reason: { type: "string" },
+        tone: { type: "string", enum: ["primary", "amber", "teal"] },
+      },
+      required: ["targetIds", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_annotate",
+    description:
+      "Attach or clear a concise collapsible Agent insight note on an Area or Project node in the live Stage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetId: { type: "string" },
+        insight: { type: ["string", "null"] },
+      },
+      required: ["targetId", "insight"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_propose_areas",
+    description:
+      "Generate or propose an initial cold-start Ghost Area constellation (hard-capped at 4-7 top-level Areas; one-offs remain in unassigned pool). Remains Ghost until user confirms.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        areas: {
+          type: "array",
+          maxItems: 7,
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              workKeys: { type: "array", items: { type: "string" } },
+            },
+            required: ["name", "workKeys"],
+            additionalProperties: false,
+          },
+        },
+        unassignedWorkKeys: { type: "array", items: { type: "string" } },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_sprout_branches",
+    description:
+      "Sprout staggered Ghost advancement branches under a focused Project or Area on the live Stage with rationale and optional Inbox link. Never writes Formal Kernel or Logseq source until confirmed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        areaId: { type: "string" },
+        projectWorkKey: { type: "string" },
+        branches: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              reason: { type: "string" },
+              sourceInboxId: { type: "string" },
+              sourceInboxText: { type: "string" },
+            },
+            required: ["title", "reason"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["branches"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_propose_move",
+    description:
+      "Preview moving a work item or triaging an Inbox item into a target Area/Project as a Ghost proposal on the live Stage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetAreaId: { type: "string" },
+        targetProjectWorkKey: { type: "string" },
+        moveWorkKey: { type: "string" },
+        sourceInboxId: { type: "string" },
+        sourceInboxText: { type: "string" },
+        title: { type: "string" },
+        reason: { type: "string" },
+      },
+      required: ["targetAreaId", "title", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_resolve_proposals",
+    description:
+      "Apply user-confirmed decisions (accept / optional renamed title / dismiss) to Ghost proposals. Accepted branches solidify into Companion Plan A operational state with 1-step Undo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        decisions: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: "object",
+            properties: {
+              proposalId: { type: "string" },
+              action: { type: "string", enum: ["accept", "dismiss"] },
+              title: { type: "string" },
+            },
+            required: ["proposalId", "action"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["decisions"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export interface ActiveConnectionMeta {
@@ -263,6 +415,7 @@ export interface McpRuntimeContext {
   stateDirectory: string;
   instanceId: string;
   readingHub: ReadingJobHub;
+  stageHub?: StageHub;
   getActiveConnection(): ActiveConnectionMeta | null;
   dispatch(call: WorkspaceCall): Promise<unknown>;
   audit(entry: {
@@ -587,6 +740,134 @@ async function runTool(
       total,
       readOnlyCatalog: true,
     };
+  }
+
+  if (toolName.startsWith("stage_")) {
+    const stageHub = ctx.stageHub;
+    if (!stageHub) {
+      throw new WorkspaceError("STAGE_UNAVAILABLE", "当前 Companion 实例未启用全局活画布服务。");
+    }
+    if (toolName === "stage_get_view") {
+      workRecord(rawArgs, []);
+      return stageHub.mcpGetView(clientId);
+    }
+    if (toolName === "stage_get_pulse") {
+      workRecord(rawArgs, []);
+      return stageHub.mcpGetPulse();
+    }
+    if (toolName === "stage_highlight") {
+      const args = workRecord(rawArgs, ["targetIds", "reason", "tone"]);
+      if (!Array.isArray(args.targetIds) || args.targetIds.length === 0 || args.targetIds.length > 8) {
+        throw new WorkspaceError("INVALID_INPUT", "targetIds 需包含 1-8 个节点 ID。");
+      }
+      const targetIds = args.targetIds.map((id) => workText(id, 512));
+      const reason = workText(args.reason, 200);
+      const tone =
+        args.tone === undefined
+          ? undefined
+          : args.tone === "primary" || args.tone === "amber" || args.tone === "teal"
+            ? args.tone
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 tone。");
+              })();
+      return stageHub.mcpHighlight({ targetIds, reason, ...(tone ? { tone } : {}), agent: clientId });
+    }
+    if (toolName === "stage_annotate") {
+      const args = workRecord(rawArgs, ["targetId", "insight"]);
+      const targetId = workText(args.targetId, 512);
+      const insight = args.insight === null ? null : workText(args.insight, 280);
+      return stageHub.mcpAnnotate({ targetId, insight });
+    }
+    if (toolName === "stage_propose_areas") {
+      const args = workRecord(rawArgs, ["areas", "unassignedWorkKeys"]);
+      let areas: Array<{ name: string; workKeys: string[] }> | undefined;
+      if (args.areas !== undefined) {
+        if (!Array.isArray(args.areas) || args.areas.length > 7) {
+          throw new WorkspaceError("INVALID_INPUT", "冷启动防乱护栏：areas 最多允许 7 个顶层领域。");
+        }
+        areas = args.areas.map((item) => {
+          const rec = workRecord(item, ["name", "workKeys"]);
+          if (!Array.isArray(rec.workKeys)) throw new WorkspaceError("INVALID_INPUT", "areas[].workKeys 必须为数组。");
+          return {
+            name: workText(rec.name, 64),
+            workKeys: rec.workKeys.map((k) => workText(k, 512)),
+          };
+        });
+      }
+      const unassignedWorkKeys =
+        args.unassignedWorkKeys !== undefined
+          ? Array.isArray(args.unassignedWorkKeys)
+            ? args.unassignedWorkKeys.map((k) => workText(k, 512))
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "unassignedWorkKeys 必须为数组。");
+              })()
+          : undefined;
+      return stageHub.mcpProposeAreas({
+        agent: clientId,
+        ...(areas ? { areas } : {}),
+        ...(unassignedWorkKeys ? { unassignedWorkKeys } : {}),
+      });
+    }
+    if (toolName === "stage_sprout_branches") {
+      const args = workRecord(rawArgs, ["areaId", "projectWorkKey", "branches"]);
+      if (!Array.isArray(args.branches) || args.branches.length === 0 || args.branches.length > 8) {
+        throw new WorkspaceError("INVALID_INPUT", "branches 需包含 1-8 条衍生分支。");
+      }
+      const branches = args.branches.map((item) => {
+        const rec = workRecord(item, ["title", "reason", "sourceInboxId", "sourceInboxText"]);
+        return {
+          title: workText(rec.title, 160),
+          reason: workText(rec.reason, 320),
+          ...(rec.sourceInboxId !== undefined ? { sourceInboxId: workText(rec.sourceInboxId, 128) } : {}),
+          ...(rec.sourceInboxText !== undefined ? { sourceInboxText: workText(rec.sourceInboxText, 240) } : {}),
+        };
+      });
+      return stageHub.mcpSproutBranches({
+        agent: clientId,
+        ...(args.areaId !== undefined ? { areaId: workText(args.areaId, 128) } : {}),
+        ...(args.projectWorkKey !== undefined ? { projectWorkKey: workText(args.projectWorkKey, 512) } : {}),
+        branches,
+      });
+    }
+    if (toolName === "stage_propose_move") {
+      const args = workRecord(rawArgs, [
+        "targetAreaId",
+        "targetProjectWorkKey",
+        "moveWorkKey",
+        "sourceInboxId",
+        "sourceInboxText",
+        "title",
+        "reason",
+      ]);
+      return stageHub.mcpProposeMove({
+        agent: clientId,
+        targetAreaId: workText(args.targetAreaId, 128),
+        ...(args.targetProjectWorkKey !== undefined ? { targetProjectWorkKey: workText(args.targetProjectWorkKey, 512) } : {}),
+        ...(args.moveWorkKey !== undefined ? { moveWorkKey: workText(args.moveWorkKey, 512) } : {}),
+        ...(args.sourceInboxId !== undefined ? { sourceInboxId: workText(args.sourceInboxId, 128) } : {}),
+        ...(args.sourceInboxText !== undefined ? { sourceInboxText: workText(args.sourceInboxText, 240) } : {}),
+        title: workText(args.title, 160),
+        reason: workText(args.reason, 320),
+      });
+    }
+    if (toolName === "stage_resolve_proposals") {
+      const args = workRecord(rawArgs, ["decisions"]);
+      if (!Array.isArray(args.decisions) || args.decisions.length === 0 || args.decisions.length > 20) {
+        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策。");
+      }
+      const decisions: StageResolveDecision[] = args.decisions.map((item) => {
+        const rec = workRecord(item, ["proposalId", "action", "title"]);
+        const action = rec.action === "accept" || rec.action === "dismiss" ? rec.action : (() => {
+          throw new WorkspaceError("INVALID_INPUT", "decision.action 仅允许 accept 或 dismiss。");
+        })();
+        return {
+          proposalId: workText(rec.proposalId, 128),
+          action,
+          ...(rec.title !== undefined ? { title: workText(rec.title, 160) } : {}),
+        };
+      });
+      return stageHub.mcpResolveProposals(decisions);
+    }
   }
 
   const active = ctx.getActiveConnection();

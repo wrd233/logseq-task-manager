@@ -19,6 +19,7 @@
   "dependencies": {
     "@task-copilot/client": "0.2.0",
     "@task-copilot/contracts": "0.2.0",
+    "@task-copilot/stage-runtime": "0.2.0",
     "dompurify": "3.3.3",
     "fflate": "0.8.3",
     "mammoth": "1.13.0",

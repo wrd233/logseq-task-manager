@@ -348,6 +348,14 @@ test("Companion stdio MCP server enforces single-work scope, sensitive blocking,
       "workbench_read_material",
       "workbench_submit_reading_candidate",
       "workbench_propose_writeback",
+      "stage_get_view",
+      "stage_get_pulse",
+      "stage_highlight",
+      "stage_annotate",
+      "stage_propose_areas",
+      "stage_sprout_branches",
+      "stage_propose_move",
+      "stage_resolve_proposals",
     ]);
 
     // 2. Publish catalog and verify workbench_list_works (read-only metadata, zero secrets/body)

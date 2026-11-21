@@ -56,6 +56,8 @@ html,body{margin:0;height:100%;overflow:hidden}
 .wb-work-browsing{display:block;color:var(--wb-muted);font-size:11px;padding:2px 0 5px;overflow-wrap:anywhere}.wb-work-browsing[hidden]{display:none}
 .wb-work-line>button,.wb-work-line>.wb-menu>summary{white-space:nowrap;font-size:13px;padding:3px 7px;min-height:28px}
 .wb-write-entry{color:var(--wb-accent);font-weight:550}
+.wb-zoomout-entry{color:var(--wb-muted);font-size:12px;padding:3px 7px;border-radius:6px}
+.wb-zoomout-entry:hover{color:var(--wb-accent)}
 .wb-content-navigation{display:flex;gap:2px 15px;align-items:center;margin-top:9px;min-height:29px;flex-wrap:wrap}
 .wb-content-navigation>button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:4px 0;min-height:29px;font-size:13px}
 .wb-content-navigation>button[aria-current=true]{border-bottom-color:var(--wb-accent);color:var(--wb-accent);font-weight:650}
