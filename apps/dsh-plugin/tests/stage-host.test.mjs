@@ -9,7 +9,7 @@ import { startWorkspaceServer } from '../../task-copilot-cli/src/workspace-serve
 import { PersonalInboxStore } from '../src/personal-inbox/store.mjs';
 import { installStageHost } from '../src/stage/host.mjs';
 
-test('DSH stage host registers 8 stage_* tools, injects gaze only when window is open, and syncs PersonalInboxStore', async () => {
+test('DSH stage host registers 9 stage_* tools, injects gaze only when window is open, and syncs PersonalInboxStore', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'tc-dsh-stage-')));
   const stateDir = join(root, 'state');
   const inboxDir = join(root, 'inbox');
@@ -36,7 +36,12 @@ test('DSH stage host registers 8 stage_* tools, injects gaze only when window is
     ],
   });
 
-  const server = await startWorkspaceServer({ stateDirectory: stateDir, inboxDirectory: inboxDir });
+  const server = await startWorkspaceServer({
+    stateDirectory: stateDir,
+    inboxDirectory: inboxDir,
+    icloudInboxDirectory: join(root, 'icloud-empty'),
+    watchIcloud: false,
+  });
   const registeredTools = new Map();
   let gazeProvider = null;
   const fakeCtx = {
@@ -49,8 +54,9 @@ test('DSH stage host registers 8 stage_* tools, injects gaze only when window is
   });
 
   try {
-    assert.equal(registeredTools.size, 8);
+    assert.equal(registeredTools.size, 9);
     assert.ok(registeredTools.has('stage_get_view'));
+    assert.ok(registeredTools.has('stage_propose_area_role'));
     assert.ok(registeredTools.has('stage_sprout_branches'));
 
     // Closed window injects empty gaze string
@@ -67,6 +73,19 @@ test('DSH stage host registers 8 stage_* tools, injects gaze only when window is
       { decisions: [{ proposalId: draftId, action: 'accept' }] },
       { agent: { session: { id: 'sess-1' } } },
     );
+
+    const pulseAfterCold = await registeredTools.get('stage_get_pulse').execute({}, { agent: { session: { id: 'sess-1' } } });
+    const firstAreaId = pulseAfterCold.areas[0].id;
+    const roleProp = await registeredTools.get('stage_propose_area_role').execute(
+      { areaId: firstAreaId, focusRole: 'main', domain: 'work', reason: '锁定主线领域' },
+      { agent: { session: { id: 'sess-1' } } },
+    );
+    await registeredTools.get('stage_resolve_proposals').execute(
+      { decisions: [{ proposalId: roleProp.proposal.id, action: 'accept' }] },
+      { agent: { session: { id: 'sess-1' } } },
+    );
+    const pulseAfterRole = await registeredTools.get('stage_get_pulse').execute({}, { agent: { session: { id: 'sess-1' } } });
+    assert.equal(pulseAfterRole.areas.find(a => a.id === firstAreaId).focusRole, 'main');
 
     const sprouted = await registeredTools.get('stage_sprout_branches').execute(
       {

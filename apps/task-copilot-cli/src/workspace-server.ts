@@ -12,6 +12,7 @@ import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTarget
 import { activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
+import type { IcloudInboxFsOps } from "./icloud-inbox.ts";
 import type { StageUserAction, StageViewportSource } from "@task-copilot/stage-runtime";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -151,6 +152,9 @@ export async function startWorkspaceServer(options: {
     offlineMs?: number;
     timeoutMs?: number;
     inboxDirectory?: string;
+    icloudInboxDirectory?: string;
+    icloudFsOps?: Partial<IcloudInboxFsOps>;
+    watchIcloud?: boolean;
     reading?: Omit<ReadingHubOptions, "stateDirectory">;
 }) {
     const state = resolve(options.stateDirectory);
@@ -164,7 +168,13 @@ export async function startWorkspaceServer(options: {
     const instanceId = randomUUID(), token = randomBytes(32).toString("hex"), pluginToken = randomBytes(32).toString("hex");
     const broker = new WorkspaceBroker(instanceId, options.offlineMs, options.timeoutMs);
     const readingHub = new ReadingJobHub({ stateDirectory: state, ...options.reading });
-    const stageHub = new StageHub({ stateDirectory: state, ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}) });
+    const stageHub = new StageHub({
+        stateDirectory: state,
+        ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}),
+        ...(options.icloudInboxDirectory ? { icloudInboxDirectory: options.icloudInboxDirectory } : {}),
+        ...(options.icloudFsOps ? { icloudFsOps: options.icloudFsOps } : {}),
+        ...(options.watchIcloud !== undefined ? { watchIcloud: options.watchIcloud } : {}),
+    });
     let baseUrl = "", root: string | null = null, observations: FileObservation | undefined, cache: unknown = null;
     let activeMeta: { workKey?: string; title?: string; workRef?: WorkRef } = {};
     let operationQueue: Promise<unknown> = Promise.resolve(), queued = 0;
@@ -538,6 +548,11 @@ export async function startWorkspaceServer(options: {
             if (request.url === "/plugin/stage/state" || request.url === "/stage/state") {
                 workRecord(input, []);
                 send(response, 200, { instanceId, value: await stageHub.snapshot() });
+                return;
+            }
+            if (request.url === "/plugin/stage/inbox-status" || request.url === "/stage/inbox-status") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: await stageHub.inboxStatus() });
                 return;
             }
             if (request.url === "/plugin/stage/action" || request.url === "/stage/action") {

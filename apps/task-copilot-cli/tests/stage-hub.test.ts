@@ -10,8 +10,10 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
   const root = await realpath(await mkdtemp(join(tmpdir(), "tc-stage-hub-")));
   const stateDir = join(root, "state");
   const inboxDir = join(root, "inbox");
+  const icloudDir = join(root, "icloud-inbox");
   await mkdir(stateDir, { recursive: true, mode: 0o700 });
   await mkdir(inboxDir, { recursive: true, mode: 0o700 });
+  await mkdir(icloudDir, { recursive: true, mode: 0o700 });
 
   // Seed one real DSH PersonalInboxStore record
   const inboxId = "11111111-1111-4111-8111-111111111111";
@@ -40,7 +42,12 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     "utf8",
   );
 
-  const server = await startWorkspaceServer({ stateDirectory: stateDir, inboxDirectory: inboxDir });
+  const server = await startWorkspaceServer({
+    stateDirectory: stateDir,
+    inboxDirectory: inboxDir,
+    icloudInboxDirectory: icloudDir,
+    watchIcloud: false,
+  });
   const { baseUrl, token, pluginToken, instanceId } = server.descriptor;
   const cliHeaders = {
     "content-type": "application/json",
@@ -92,6 +99,7 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     assert.equal(okApp.status, 200);
     const html = await okApp.text();
     assert.match(html, /Task Copilot · 全局态势活画布/);
+    assert.doesNotMatch(html, /[✨💡📖]/u, "standalone stage HTML must contain zero emojis");
 
     // 3. Call stage_propose_areas via /mcp/call (Codex/Antigravity path) without active single-work connection
     const callMcp = async (name: string, args: Record<string, unknown>, clientId = "codex") => {
@@ -115,11 +123,50 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     });
     assert.deepEqual(solidified.committedIds, [draftId]);
 
-    // 4. Verify 0ms local Inbox resonance in stage_get_pulse
+    // 3b. Reject >1 main area in stage_propose_areas (hard rule)
+    const badAreasRes = await fetch(`${baseUrl}/mcp/call`, {
+      method: "POST",
+      headers: cliHeaders,
+      body: JSON.stringify({
+        name: "stage_propose_areas",
+        arguments: {
+          areas: [
+            { name: "领域A", workKeys: [], focusRole: "main" },
+            { name: "领域B", workKeys: [], focusRole: "main" },
+          ],
+        },
+        clientId: "codex",
+      }),
+    });
+    assert.equal(badAreasRes.status, 400);
+
+    // 3c. Propose four-state role update via stage_propose_area_role -> resolve -> verify persisted
+    const pulseInitial = await callMcp("stage_get_pulse", {});
+    const firstAreaId = ((pulseInitial.areas as Array<{ id: string }>)[0]!).id;
+    const roleProposed = await callMcp("stage_propose_area_role", {
+      areaId: firstAreaId,
+      focusRole: "main",
+      domain: "work",
+      quarterGoal: "完成核心告警降噪闭环",
+      antiGoal: "不增加夜间值守噪音",
+      reason: "主线战役优先锁定",
+    });
+    const roleGhostId = (roleProposed.proposal as { id: string }).id;
+    assert.equal(roleProposed.writesFormalState, false);
+    await callMcp("stage_resolve_proposals", {
+      decisions: [{ proposalId: roleGhostId, action: "accept" }],
+    });
+
+    // 4. Verify 0ms local Inbox resonance and four-state metadata in stage_get_pulse
     const pulse = await callMcp("stage_get_pulse", {});
     const inboxList = pulse.inbox as Array<{ id: string; matchProjectWorkKeys: string[]; matchAreaIds: string[] }>;
     assert.equal(inboxList.length, 1);
     assert.ok(inboxList[0]!.matchProjectWorkKeys.includes(obsKey));
+    const mainArea = (pulse.areas as Array<{ id: string; focusRole: string; quarterGoal: string | null }>).find(
+      (a) => a.id === firstAreaId,
+    )!;
+    assert.equal(mainArea.focusRole, "main");
+    assert.equal(mainArea.quarterGoal, "完成核心告警降噪闭环");
 
     // 5. Anchor from Logseq plugin ("拉远 ↖") -> verify stage_get_view reflects live Shared Gaze!
     const anchorRes = await fetch(`${baseUrl}/plugin/stage/anchor`, {
@@ -165,11 +212,17 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     await server.close();
   }
 
-  // 7. Restart Companion and confirm Plan A Areas + Advancements survived on disk!
-  const restarted = await startWorkspaceServer({ stateDirectory: stateDir, inboxDirectory: inboxDir });
+  // 7. Restart Companion and confirm Plan A Areas + four-state role + Advancements survived on disk!
+  const restarted = await startWorkspaceServer({
+    stateDirectory: stateDir,
+    inboxDirectory: inboxDir,
+    icloudInboxDirectory: icloudDir,
+    watchIcloud: false,
+  });
   try {
     const snap = await restarted.stageHub.snapshot();
     assert.ok(snap.areas.length >= 2, "Areas must persist across restart");
+    assert.equal(snap.areas.filter((a) => a.focusRole === "main").length, 1, "Main focusRole must persist across restart");
     const totalAdv = snap.areas.flatMap((a) => [...a.areaAdvancements, ...a.projects.flatMap((p) => p.advancements)]);
     assert.equal(totalAdv.length, 1, "Plan A advancement must persist across restart");
     assert.equal(snap.inbox.length, 0, "Consumed inbox item must remain archived from Stage queue");

@@ -303,7 +303,7 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
         <button type="button" className="tcs-dsh-peek" onClick={() => setMode('floating')}>
           <span className="tcs-dsh-dot" style={{ background: ghostCount > 0 ? '#3b6ea5' : '#c27824' }} />
           <span>{gaze}</span>
-          <span style={{ color: '#3b6ea5', fontWeight: 500 }}>展开 ↗</span>
+          <span style={{ color: '#3b6ea5', fontWeight: 500 }}>展开</span>
         </button>
       );
     }

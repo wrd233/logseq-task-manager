@@ -133,7 +133,7 @@ export class GlobalStageOverlay {
 
       this.mounted = mountSharedStageView(dialog, {
         source: "logseq",
-        openWorkLabel: "📖 回到 Logseq 原文现场",
+        openWorkLabel: "回到 Logseq 原文现场",
         showStandaloneButton: true,
         showCloseButton: true,
         dispatch: (action) => this.dispatchAction(action),

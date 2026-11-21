@@ -1,9 +1,13 @@
 import type { CatalogSnapshot } from "@task-copilot/contracts";
 import {
+  COOLED_INBOX_DAYS,
+  MAIN_MISMATCH_DAYS,
   buildColdStartAreaDrafts,
   computeTone,
   defaultAreaPosition,
+  defaultAreaPositionForRole,
   flattenCatalog,
+  focusRoleLabel,
   formatRecencyLabel,
   matchInboxLocally,
   recencyDays,
@@ -13,13 +17,17 @@ import type {
   StageAdvancementItem,
   StageAgentPresence,
   StageArea,
+  StageAreaDomain,
   StageAreaNode,
   StageCatalogEntry,
   StageDormantArea,
   StageEdgeRadar,
+  StageFocusRole,
   StageGhostProposal,
   StageHighlight,
+  StageInboxDiagnostics,
   StageInboxRawItem,
+  StageMismatchSignal,
   StagePoint,
   StageProjectNode,
   StageRegistryFile,
@@ -36,6 +44,23 @@ import type {
 const HIGHLIGHT_TTL_MS = 20_000;
 const PRESENCE_TTL_MS = 35_000;
 const DORMANT_DAYS = 21;
+
+function normalizeFocusRole(value: unknown, parkedFallback: boolean): StageFocusRole {
+  if (value === "main" || value === "side" || value === "maintenance" || value === "parked") {
+    return value;
+  }
+  return parkedFallback ? "parked" : "side";
+}
+
+function normalizeDomain(value: unknown): StageAreaDomain {
+  return value === "life" ? "life" : "work";
+}
+
+function cleanOptionalText(value: unknown, maxLen: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLen) : undefined;
+}
 
 export function emptyStageRegistry(now = Date.now()): StageRegistryFile {
   return {
@@ -56,6 +81,7 @@ export function parseStageRegistry(input: unknown): StageRegistryFile {
     return emptyStageRegistry();
   }
   const areas: StageArea[] = [];
+  let hasMain = false;
   for (const item of raw.areas) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const rec = item as Record<string, unknown>;
@@ -68,12 +94,26 @@ export function parseStageRegistry(input: unknown): StageRegistryFile {
       : [];
     const createdAt = typeof rec.createdAt === "number" && Number.isFinite(rec.createdAt) ? rec.createdAt : Date.now();
     const updatedAt = typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : createdAt;
+    let focusRole = normalizeFocusRole(rec.focusRole, rec.parked === true);
+    if (focusRole === "main") {
+      if (hasMain) focusRole = "side";
+      else hasMain = true;
+    }
+    const domain = normalizeDomain(rec.domain);
+    const quarterGoal = cleanOptionalText(rec.quarterGoal, 200);
+    const antiGoal = cleanOptionalText(rec.antiGoal, 200);
+    const weeklyMinimum = cleanOptionalText(rec.weeklyMinimum, 160);
     areas.push({
       id: rec.id,
       name: rec.name.slice(0, 64),
       workKeys: [...new Set(workKeys)],
       pos: { x, y },
-      parked: rec.parked === true,
+      focusRole,
+      domain,
+      ...(quarterGoal ? { quarterGoal } : {}),
+      ...(antiGoal ? { antiGoal } : {}),
+      ...(weeklyMinimum ? { weeklyMinimum } : {}),
+      parked: focusRole === "parked",
       ...(typeof rec.parkedReason === "string" && rec.parkedReason.trim() ? { parkedReason: rec.parkedReason.slice(0, 160) } : {}),
       ...(typeof rec.annotation === "string" && rec.annotation.trim() ? { annotation: rec.annotation.slice(0, 280) } : {}),
       createdAt,
@@ -153,6 +193,11 @@ export class StageEngine {
     return this.version;
   }
 
+  touchVersion(): number {
+    this.version++;
+    return this.version;
+  }
+
   getRegistry(): StageRegistryFile {
     return structuredClone(this.registry);
   }
@@ -191,7 +236,7 @@ export class StageEngine {
   }
 
   /**
-   * Focuses the stage anchored at a specific Logseq WorkRef key (used by Logseq "拉远 ↖").
+   * Focuses the stage anchored at a specific Logseq WorkRef key (used by Logseq "拉远").
    * Starts at L1/L2 of the owning Area/Project if known, otherwise L0 with highlight.
    */
   anchorFromWorkKey(targetWorkKey: string, source: StageViewportSource = "logseq", now = Date.now()): StageViewport {
@@ -314,7 +359,15 @@ export class StageEngine {
     input: {
       agent: string;
       catalog: readonly CatalogSnapshot[];
-      areas?: Array<{ name: string; workKeys: string[] }>;
+      areas?: Array<{
+        name: string;
+        workKeys: string[];
+        focusRole?: StageFocusRole;
+        domain?: StageAreaDomain;
+        quarterGoal?: string;
+        antiGoal?: string;
+        weeklyMinimum?: string;
+      }>;
       unassignedWorkKeys?: string[];
     },
     now = Date.now(),
@@ -326,25 +379,47 @@ export class StageEngine {
     let unassignedTitles: string[];
 
     if (input.areas && input.areas.length > 0) {
-      // Enforce D-53 anti-clutter hard cap: max 7 top-level Areas
+      // Enforce D-53 anti-clutter hard cap: max 7 top-level Areas; max 1 main
       const capped = input.areas.slice(0, 7);
       const claimed = new Set<string>();
+      const hasMainArea = capped.some((item) => item.focusRole === "main");
+      let mainAssigned = false;
+      let nonMainIdx = 0;
+
       drafts = capped.map((item, idx) => {
         const cleanKeys = [...new Set(item.workKeys.filter((k) => byKey.has(k) && !claimed.has(k)))];
         for (const k of cleanKeys) claimed.add(k);
+        let focusRole: StageFocusRole = item.focusRole ?? "side";
+        if (focusRole === "main") {
+          if (mainAssigned) focusRole = "side";
+          else mainAssigned = true;
+        }
+        const domain: StageAreaDomain = item.domain ?? "work";
+        const pos =
+          focusRole === "main"
+            ? defaultAreaPositionForRole(0, "main", true)
+            : defaultAreaPositionForRole(nonMainIdx++, focusRole, hasMainArea);
+        const quarterGoal = cleanOptionalText(item.quarterGoal, 200);
+        const antiGoal = cleanOptionalText(item.antiGoal, 200);
+        const weeklyMinimum = cleanOptionalText(item.weeklyMinimum, 160);
         return {
           id: makeId("area-draft", this.seq++, now),
           name: item.name.trim().slice(0, 48) || `领域 ${idx + 1}`,
           workKeys: cleanKeys,
           anchorTitles: cleanKeys.slice(0, 3).map((k) => byKey.get(k)?.title ?? k),
-          pos: defaultAreaPosition(idx),
+          pos,
+          focusRole,
+          domain,
+          ...(quarterGoal ? { quarterGoal } : {}),
+          ...(antiGoal ? { antiGoal } : {}),
+          ...(weeklyMinimum ? { weeklyMinimum } : {}),
         };
       });
       const explicitUnassigned = input.unassignedWorkKeys ?? entries.filter((e) => !claimed.has(e.workKey)).map((e) => e.workKey);
       unassignedTitles = explicitUnassigned.slice(0, 8).map((k) => byKey.get(k)?.title ?? k);
     } else {
       const built = buildColdStartAreaDrafts(entries, 7);
-      drafts = built.areas;
+      drafts = built.areas.map((d) => ({ ...d, focusRole: "side" as const, domain: "work" as const }));
       unassignedTitles = built.unassignedTitles;
     }
 
@@ -359,6 +434,71 @@ export class StageEngine {
       reason: `按防乱护栏聚合为 ${drafts.length} 个主领域，未归类零散项留入暂放池。`,
       proposedAreas: drafts,
       unassignedTitles,
+    };
+    this.ghostProposals.push(proposal);
+    this.version++;
+    return structuredClone(proposal);
+  }
+
+  proposeAreaRole(
+    input: {
+      agent: string;
+      areaId: string;
+      focusRole?: StageFocusRole;
+      domain?: StageAreaDomain;
+      quarterGoal?: string | null;
+      antiGoal?: string | null;
+      weeklyMinimum?: string | null;
+      demoteCurrentMainTo?: "side" | "maintenance" | "parked";
+      reason: string;
+    },
+    now = Date.now(),
+  ): StageGhostProposal | null {
+    const area = this.registry.areas.find((a) => a.id === input.areaId);
+    if (!area) return null;
+
+    // Replace older pending role proposal targeting the same Area
+    this.ghostProposals = this.ghostProposals.filter(
+      (p) => !(p.kind === "propose-area-role" && p.areaId === area.id),
+    );
+
+    const parts: string[] = [];
+    if (input.focusRole) parts.push(`角色调整为「${focusRoleLabel(input.focusRole)}」`);
+    if (input.domain) parts.push(`领域标为「${input.domain === "life" ? "生活" : "工作"}」`);
+    if (input.quarterGoal !== undefined) parts.push(input.quarterGoal ? "更新季度目标" : "清除季度目标");
+    if (input.antiGoal !== undefined) parts.push(input.antiGoal ? "更新反目标" : "清除反目标");
+    if (input.weeklyMinimum !== undefined) parts.push(input.weeklyMinimum ? "更新每周底线" : "清除每周底线");
+
+    const currentMain =
+      input.focusRole === "main"
+        ? this.registry.areas.find((a) => a.id !== area.id && a.focusRole === "main")
+        : undefined;
+    const demoteTarget = input.demoteCurrentMainTo ?? "side";
+    const replacementNote = currentMain
+      ? `（置换原主线「${currentMain.name}」为${focusRoleLabel(demoteTarget)}）`
+      : "";
+
+    const proposal: StageGhostProposal = {
+      id: makeId("ghost-role", this.seq++, now),
+      kind: "propose-area-role",
+      agent: input.agent,
+      createdAt: now,
+      areaId: area.id,
+      targetAreaId: area.id,
+      title: `调整「${area.name}」：${parts.join("，") || "更新领域配置"}${replacementNote}`.slice(0, 160),
+      reason: input.reason.trim().slice(0, 320),
+      ...(input.focusRole ? { proposedRole: input.focusRole } : {}),
+      ...(input.domain ? { proposedDomain: input.domain } : {}),
+      ...(input.quarterGoal !== undefined
+        ? { proposedQuarterGoal: input.quarterGoal === null ? null : cleanOptionalText(input.quarterGoal, 200) ?? null }
+        : {}),
+      ...(input.antiGoal !== undefined
+        ? { proposedAntiGoal: input.antiGoal === null ? null : cleanOptionalText(input.antiGoal, 200) ?? null }
+        : {}),
+      ...(input.weeklyMinimum !== undefined
+        ? { proposedWeeklyMinimum: input.weeklyMinimum === null ? null : cleanOptionalText(input.weeklyMinimum, 160) ?? null }
+        : {}),
+      ...(input.demoteCurrentMainTo ? { demoteCurrentMainTo: input.demoteCurrentMainTo } : {}),
     };
     this.ghostProposals.push(proposal);
     this.version++;
@@ -515,19 +655,52 @@ export class StageEngine {
       }
 
       if (proposal.kind === "propose-areas" && proposal.proposedAreas) {
-        this.registry.areas = proposal.proposedAreas.slice(0, 7).map((draft, i) => ({
-          id: draft.id.startsWith("area-draft-") ? `area-${i + 1}-${now.toString(36)}` : draft.id,
-          name: draft.name,
-          workKeys: [...new Set(draft.workKeys)],
-          pos: draft.pos ?? defaultAreaPosition(i),
-          parked: false,
-          createdAt: now,
-          updatedAt: now,
-        }));
+        let mainSeen = false;
+        this.registry.areas = proposal.proposedAreas.slice(0, 7).map((draft, i) => {
+          let focusRole: StageFocusRole = draft.focusRole ?? "side";
+          if (focusRole === "main") {
+            if (mainSeen) focusRole = "side";
+            else mainSeen = true;
+          }
+          const domain: StageAreaDomain = draft.domain ?? "work";
+          return {
+            id: draft.id.startsWith("area-draft-") ? `area-${i + 1}-${now.toString(36)}` : draft.id,
+            name: draft.name,
+            workKeys: [...new Set(draft.workKeys)],
+            pos: draft.pos ?? defaultAreaPosition(i),
+            focusRole,
+            domain,
+            ...(draft.quarterGoal ? { quarterGoal: draft.quarterGoal } : {}),
+            ...(draft.antiGoal ? { antiGoal: draft.antiGoal } : {}),
+            ...(draft.weeklyMinimum ? { weeklyMinimum: draft.weeklyMinimum } : {}),
+            parked: focusRole === "parked",
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
         const claimed = new Set(this.registry.areas.flatMap((a) => a.workKeys));
         this.registry.unassignedWorkKeys = this.registry.unassignedWorkKeys.filter((k) => !claimed.has(k));
         this.registry.updatedAt = now;
         committedIds.push(proposal.id);
+        continue;
+      }
+
+      if (proposal.kind === "propose-area-role" && proposal.areaId) {
+        const applied = this.applyAreaMetaPatch(
+          {
+            areaId: proposal.areaId,
+            ...(proposal.proposedRole ? { focusRole: proposal.proposedRole } : {}),
+            ...(proposal.proposedDomain ? { domain: proposal.proposedDomain } : {}),
+            ...(proposal.proposedQuarterGoal !== undefined ? { quarterGoal: proposal.proposedQuarterGoal } : {}),
+            ...(proposal.proposedAntiGoal !== undefined ? { antiGoal: proposal.proposedAntiGoal } : {}),
+            ...(proposal.proposedWeeklyMinimum !== undefined ? { weeklyMinimum: proposal.proposedWeeklyMinimum } : {}),
+            ...(proposal.demoteCurrentMainTo ? { demoteCurrentMainTo: proposal.demoteCurrentMainTo } : {}),
+          },
+          now,
+        );
+        if (applied) {
+          committedIds.push(proposal.id);
+        }
         continue;
       }
 
@@ -554,6 +727,8 @@ export class StageEngine {
           name: "默认工作领域",
           workKeys: proposal.projectWorkKey ? [proposal.projectWorkKey] : [],
           pos: defaultAreaPosition(0),
+          focusRole: "side",
+          domain: "work",
           parked: false,
           createdAt: now,
           updatedAt: now,
@@ -629,14 +804,90 @@ export class StageEngine {
     return true;
   }
 
+  private applyAreaMetaPatch(
+    input: {
+      areaId: string;
+      focusRole?: StageFocusRole;
+      domain?: StageAreaDomain;
+      quarterGoal?: string | null;
+      antiGoal?: string | null;
+      weeklyMinimum?: string | null;
+      demoteCurrentMainTo?: "side" | "maintenance" | "parked";
+    },
+    now: number,
+  ): boolean {
+    const area = this.registry.areas.find((a) => a.id === input.areaId);
+    if (!area) return false;
+
+    if (input.focusRole !== undefined) {
+      if (input.focusRole === "main") {
+        const demoteTo = input.demoteCurrentMainTo ?? "side";
+        for (const other of this.registry.areas) {
+          if (other.id !== area.id && other.focusRole === "main") {
+            other.focusRole = demoteTo;
+            other.parked = demoteTo === "parked";
+            other.updatedAt = now;
+          }
+        }
+      }
+      area.focusRole = input.focusRole;
+      area.parked = input.focusRole === "parked";
+      if (!area.parked) delete area.parkedReason;
+    }
+    if (input.domain !== undefined) {
+      area.domain = input.domain;
+    }
+    if (input.quarterGoal !== undefined) {
+      const cleaned = input.quarterGoal === null ? undefined : cleanOptionalText(input.quarterGoal, 200);
+      if (cleaned) area.quarterGoal = cleaned;
+      else delete area.quarterGoal;
+    }
+    if (input.antiGoal !== undefined) {
+      const cleaned = input.antiGoal === null ? undefined : cleanOptionalText(input.antiGoal, 200);
+      if (cleaned) area.antiGoal = cleaned;
+      else delete area.antiGoal;
+    }
+    if (input.weeklyMinimum !== undefined) {
+      const cleaned = input.weeklyMinimum === null ? undefined : cleanOptionalText(input.weeklyMinimum, 160);
+      if (cleaned) area.weeklyMinimum = cleaned;
+      else delete area.weeklyMinimum;
+    }
+    area.updatedAt = now;
+    this.registry.updatedAt = now;
+    return true;
+  }
+
+  updateAreaMeta(
+    input: {
+      areaId: string;
+      focusRole?: StageFocusRole;
+      domain?: StageAreaDomain;
+      quarterGoal?: string | null;
+      antiGoal?: string | null;
+      weeklyMinimum?: string | null;
+      demoteCurrentMainTo?: "side" | "maintenance" | "parked";
+    },
+    now = Date.now(),
+  ): boolean {
+    if (!this.registry.areas.some((a) => a.id === input.areaId)) return false;
+    this.captureUndo();
+    const ok = this.applyAreaMetaPatch(input, now);
+    if (ok) this.version++;
+    return ok;
+  }
+
   toggleParkArea(areaId: string, parked: boolean, reason?: string, now = Date.now()): boolean {
     const area = this.registry.areas.find((a) => a.id === areaId);
     if (!area) return false;
     this.captureUndo();
     area.parked = parked;
-    if (parked && reason?.trim()) {
-      area.parkedReason = reason.trim().slice(0, 160);
-    } else if (!parked) {
+    if (parked) {
+      area.focusRole = "parked";
+      if (reason?.trim()) {
+        area.parkedReason = reason.trim().slice(0, 160);
+      }
+    } else {
+      if (area.focusRole === "parked") area.focusRole = "side";
       delete area.parkedReason;
     }
     area.updatedAt = now;
@@ -706,6 +957,22 @@ export class StageEngine {
         return { mutatedRegistry: this.toggleParkArea(action.areaId, action.parked, action.reason, now), archivedInboxIds: [] };
       case "rename-area":
         return { mutatedRegistry: this.renameArea(action.areaId, action.name, now), archivedInboxIds: [] };
+      case "update-area-meta":
+        return {
+          mutatedRegistry: this.updateAreaMeta(
+            {
+              areaId: action.areaId,
+              ...(action.focusRole !== undefined ? { focusRole: action.focusRole } : {}),
+              ...(action.domain !== undefined ? { domain: action.domain } : {}),
+              ...(action.quarterGoal !== undefined ? { quarterGoal: action.quarterGoal } : {}),
+              ...(action.antiGoal !== undefined ? { antiGoal: action.antiGoal } : {}),
+              ...(action.weeklyMinimum !== undefined ? { weeklyMinimum: action.weeklyMinimum } : {}),
+              ...(action.demoteCurrentMainTo !== undefined ? { demoteCurrentMainTo: action.demoteCurrentMainTo } : {}),
+            },
+            now,
+          ),
+          archivedInboxIds: [],
+        };
       case "trigger-cold-start":
         this.proposeAreas({ agent: action.agent ?? "stage-assistant", catalog: context.catalog }, now);
         return { mutatedRegistry: false, archivedInboxIds: [] };
@@ -735,6 +1002,30 @@ export class StageEngine {
           now,
         );
         return { mutatedRegistry: true, archivedInboxIds: [found.id] };
+      }
+      case "archive-inbox-items": {
+        const validSet = new Set(context.inbox.map((i) => i.id));
+        const archivedIds = [...new Set(action.inboxIds.filter((id) => validSet.has(id)))];
+        if (archivedIds.length > 0) {
+          if (this.viewport.selectedInboxId && archivedIds.includes(this.viewport.selectedInboxId)) {
+            this.viewport.selectedInboxId = null;
+          }
+          this.version++;
+        }
+        return { mutatedRegistry: false, archivedInboxIds: archivedIds };
+      }
+      case "archive-cooled-inbox": {
+        const cooledIds = context.inbox
+          .filter((item) => item.status !== "archived" && item.status !== "deleted")
+          .filter((item) => recencyDays(item.updatedAt || item.createdAt, now) >= COOLED_INBOX_DAYS)
+          .map((item) => item.id);
+        if (cooledIds.length > 0) {
+          if (this.viewport.selectedInboxId && cooledIds.includes(this.viewport.selectedInboxId)) {
+            this.viewport.selectedInboxId = null;
+          }
+          this.version++;
+        }
+        return { mutatedRegistry: false, archivedInboxIds: cooledIds };
       }
       case "toggle-advancement-done":
         return { mutatedRegistry: this.toggleAdvancementDone(action.advancementId, now), archivedInboxIds: [] };
@@ -766,6 +1057,7 @@ export class StageEngine {
     inboxItems: readonly StageInboxRawItem[],
     now = Date.now(),
     appUrl?: string,
+    inboxDiagnostics?: StageInboxDiagnostics,
   ): StageSnapshot {
     this.pruneEphemeral(now);
     const entries = flattenCatalog(catalogSnapshots);
@@ -773,15 +1065,19 @@ export class StageEngine {
 
     // Build effective areas (use committed registry; if empty, show unassigned pool + needsColdStart)
     const effectiveAreas = this.registry.areas;
-    const inboxView = matchInboxLocally(inboxItems, effectiveAreas, byKey);
+    const inboxView = matchInboxLocally(inboxItems, effectiveAreas, byKey, now);
+    const activeInboxView = inboxView.filter((i) => !i.cooled);
+    const cooledInboxCount = inboxView.length - activeInboxView.length;
+    const selectedInbox = this.viewport.selectedInboxId
+      ? inboxView.find((i) => i.id === this.viewport.selectedInboxId)
+      : undefined;
 
-    const activeAreas: StageAreaNode[] = [];
-    const dormantAreas: StageDormantArea[] = [];
     const assignedKeys = new Set<string>();
 
-    for (const area of effectiveAreas) {
+    // Pass 1: gather real bottom-up work progress per Area (ignoring metadata-only edits)
+    const precomputed = effectiveAreas.map((area) => {
       const projects: StageProjectNode[] = [];
-      let newestMs = area.updatedAt;
+      let workNewestMs = 0;
       let recentCount = 0;
 
       for (const pKey of area.workKeys) {
@@ -790,14 +1086,16 @@ export class StageEngine {
         assignedKeys.add(pKey);
         const pAdv = this.registry.advancements.filter((a) => a.areaId === area.id && a.projectWorkKey === pKey);
         const pLastMs = Math.max(entry.updatedAt, ...pAdv.map((a) => a.updatedAt));
-        if (pLastMs > newestMs) newestMs = pLastMs;
+        if (pLastMs > workNewestMs) workNewestMs = pLastMs;
         const pDays = recencyDays(pLastMs, now);
         if (pDays <= 7) recentCount++;
 
-        const pInboxCount = inboxView.filter((i) => i.matchProjectWorkKeys.includes(pKey)).length;
+        const pInboxCount = activeInboxView.filter((i) => i.matchProjectWorkKeys.includes(pKey)).length;
+        const pInboxHighlight = Boolean(selectedInbox && selectedInbox.matchProjectWorkKeys.includes(pKey));
         const pTone = computeTone({
           recencyDays: pDays,
           inboxMatchCount: pInboxCount,
+          inboxHighlightActive: pInboxHighlight,
           hasActiveAdvancement: pAdv.some((a) => a.state === "active"),
         });
         const pAnn = this.projectAnnotations.get(pKey);
@@ -823,13 +1121,64 @@ export class StageEngine {
 
       const areaAdv = this.registry.advancements.filter((a) => a.areaId === area.id && a.projectWorkKey === null);
       if (areaAdv.length > 0) {
-        newestMs = Math.max(newestMs, ...areaAdv.map((a) => a.updatedAt));
+        workNewestMs = Math.max(workNewestMs, ...areaAdv.map((a) => a.updatedAt));
       }
-      const aDays = recencyDays(newestMs, now);
-      const aInboxCount = inboxView.filter((i) => i.matchAreaIds.includes(area.id)).length;
+      const hasAnyWork = projects.length > 0 || areaAdv.length > 0;
+      const aDays = workNewestMs > 0 ? recencyDays(workNewestMs, now) : 999;
+      const aInboxCount = activeInboxView.filter((i) => i.matchAreaIds.includes(area.id)).length;
+      const aInboxHighlight = Boolean(selectedInbox && selectedInbox.matchAreaIds.includes(area.id));
+      const effectiveIdleDays = hasAnyWork ? aDays : recencyDays(area.createdAt, now);
+
+      return {
+        area,
+        projects,
+        areaAdv,
+        recentCount,
+        aDays,
+        effectiveIdleDays,
+        aInboxCount,
+        aInboxHighlight,
+      };
+    });
+
+    // Pass 2: detect real main-line mismatch (declared main idle >= 7d while other non-parked areas stay active <= 3d)
+    const mismatchSignals: StageMismatchSignal[] = [];
+    const mismatchByAreaId = new Map<string, StageMismatchSignal>();
+    for (const entry of precomputed) {
+      if (entry.area.focusRole !== "main") continue;
+      if (entry.effectiveIdleDays < MAIN_MISMATCH_DAYS) continue;
+      const otherActive = precomputed
+        .filter(
+          (other) =>
+            other.area.id !== entry.area.id &&
+            other.area.focusRole !== "parked" &&
+            !other.area.parked &&
+            other.aDays <= 3,
+        )
+        .map((other) => ({ id: other.area.id, name: other.area.name, recencyDays: other.aDays }));
+      if (otherActive.length === 0) continue;
+      const daysLabel = entry.effectiveIdleDays >= 999 ? "超过 7 天无记录" : `连续 ${entry.effectiveIdleDays} 天未推进`;
+      const signal: StageMismatchSignal = {
+        areaId: entry.area.id,
+        areaName: entry.area.name,
+        daysSinceProgress: entry.effectiveIdleDays,
+        otherActiveAreas: otherActive,
+        summary: `宣称主线「${entry.area.name}」${daysLabel}，同期活跃领域：${otherActive.map((o) => o.name).join("、")}`,
+      };
+      mismatchSignals.push(signal);
+      mismatchByAreaId.set(entry.area.id, signal);
+    }
+
+    const activeAreas: StageAreaNode[] = [];
+    const dormantAreas: StageDormantArea[] = [];
+
+    for (const item of precomputed) {
+      const { area, projects, areaAdv, recentCount, aDays, effectiveIdleDays, aInboxCount, aInboxHighlight } = item;
+      const isParked = area.parked || area.focusRole === "parked";
       const isDormant =
-        area.parked ||
-        (aDays >= DORMANT_DAYS &&
+        isParked ||
+        (area.focusRole === "side" &&
+          effectiveIdleDays >= DORMANT_DAYS &&
           aInboxCount === 0 &&
           !areaAdv.some((a) => a.state === "active") &&
           !this.ghostProposals.some((g) => g.areaId === area.id || g.targetAreaId === area.id));
@@ -838,29 +1187,41 @@ export class StageEngine {
         dormantAreas.push({
           id: area.id,
           name: area.name,
+          focusRole: area.focusRole,
+          domain: area.domain,
           recencyDays: aDays,
-          parked: area.parked,
+          parked: isParked,
           ...(area.parkedReason ? { parkedReason: area.parkedReason } : {}),
           projectCount: projects.length,
         });
       } else {
+        const mismatch = mismatchByAreaId.get(area.id);
         const aTone = computeTone({
           recencyDays: aDays,
           inboxMatchCount: aInboxCount,
-          parked: area.parked,
+          parked: isParked,
+          focusRole: area.focusRole,
+          mainMismatch: Boolean(mismatch),
+          inboxHighlightActive: aInboxHighlight,
           hasActiveAdvancement: areaAdv.some((a) => a.state === "active") || projects.some((p) => p.tone === "teal"),
         });
         activeAreas.push({
           id: area.id,
           name: area.name,
           pos: area.pos,
-          parked: area.parked,
+          focusRole: area.focusRole,
+          domain: area.domain,
+          ...(area.quarterGoal ? { quarterGoal: area.quarterGoal } : {}),
+          ...(area.antiGoal ? { antiGoal: area.antiGoal } : {}),
+          ...(area.weeklyMinimum ? { weeklyMinimum: area.weeklyMinimum } : {}),
+          parked: isParked,
           ...(area.parkedReason ? { parkedReason: area.parkedReason } : {}),
           ...(area.annotation ? { annotation: area.annotation } : {}),
           recencyDays: aDays,
           pulseLabel: formatRecencyLabel(aDays, recentCount),
           tone: aTone.tone,
           signalLabel: aTone.signalLabel,
+          ...(mismatch ? { mismatch } : {}),
           projects,
           areaAdvancements: areaAdv,
           inboxMatchCount: aInboxCount,
@@ -887,6 +1248,9 @@ export class StageEngine {
       dormantAreas,
       unassignedWorks,
       inbox: inboxView,
+      cooledInboxCount,
+      mismatchSignals,
+      ...(inboxDiagnostics ? { inboxDiagnostics } : {}),
       ghostProposals: structuredClone(this.ghostProposals),
       highlights: structuredClone(this.highlights),
       edgeRadar: this.edgeRadar ? structuredClone(this.edgeRadar) : null,
@@ -910,7 +1274,9 @@ export function compactGazeSummary(snapshot: StageSnapshot): string {
   if (snapshot.ghostProposals.some((g) => g.kind === "propose-areas")) {
     parts.push("L0 冷启动虚态星图");
   } else if (zoomLevel === 0) {
-    parts.push(`L0 全局星区（${snapshot.areas.length} 个活跃领域，${snapshot.unassignedWorks.length} 项待归位）`);
+    const mainArea = snapshot.areas.find((a) => a.focusRole === "main");
+    const mainTag = mainArea ? `，主线「${mainArea.name}」` : "";
+    parts.push(`L0 季节星区（${snapshot.areas.length} 个活跃领域${mainTag}，${snapshot.unassignedWorks.length} 项待归位）`);
   } else if (zoomLevel === 1) {
     parts.push(`L1 领域「${area?.name ?? areaId ?? "未知"}」`);
   } else if (zoomLevel === 2) {
@@ -919,6 +1285,9 @@ export function compactGazeSummary(snapshot: StageSnapshot): string {
     parts.push(`L3 执行入口「${proj?.title ?? ""}」`);
   }
 
+  if (snapshot.mismatchSignals.length > 0 && zoomLevel === 0) {
+    parts.push(`主线错配提醒：${snapshot.mismatchSignals[0]!.areaName}`);
+  }
   if (inbox) {
     parts.push(`已选 Inbox「${inbox.text.slice(0, 24)}」`);
   }

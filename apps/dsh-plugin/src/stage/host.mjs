@@ -12,6 +12,7 @@ import { atomicJson } from '../../../task-copilot-cli/src/workspace-files.ts';
 import { blockUrl } from '../reader-model.mjs';
 
 const SOURCE_LABELS = {
+  'ios-shortcut': 'iPhone 随口记',
   manual: '手动捕获',
   flomo: 'Flomo',
   logseq: 'Logseq',
@@ -21,8 +22,8 @@ const SOURCE_LABELS = {
 };
 
 const STAGE_TOOL_SPECS = [
-  ['stage_get_view', 'Read the user\'s live Shared Stage floating canvas viewport (L0-L3 zoom level, focused Area/Project, selected Inbox item, pending Ghost proposals). Wide-and-shallow gaze only; never exposes private files.', {}, []],
-  ['stage_get_pulse', 'Read global Areas, dormant Areas, recent activity pulse, unassigned works, and active Inbox resonance list.', {}, []],
+  ['stage_get_view', 'Read the user\'s live Shared Stage floating canvas viewport (L0-L3 zoom level, focused Area/Project with four-state focusRole/domain, main-line mismatch alerts, selected Inbox item, cooled Inbox count, iCloud diagnostics, and pending Ghost proposals). Wide-and-shallow gaze only; never exposes private files.', {}, []],
+  ['stage_get_pulse', 'Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, recent activity pulse, unassigned works, active/cooled Inbox list, and iCloud diagnostics.', {}, []],
   ['stage_highlight', 'Highlight Area/Project node(s) in the live floating Stage. Out-of-viewport targets automatically become a non-intrusive Edge Radar pill (never hijacks camera).', {
     targetIds: { type: 'array', items: { type: 'string' } },
     reason: { type: 'string' },
@@ -32,18 +33,36 @@ const STAGE_TOOL_SPECS = [
     targetId: { type: 'string' },
     insight: { type: ['string', 'null'] },
   }, ['targetId', 'insight']],
-  ['stage_propose_areas', 'Generate or propose an initial cold-start Ghost Area constellation (hard-capped at 4-7 top-level Areas; one-offs remain unassigned).', {
+  ['stage_propose_areas', 'Generate or propose a Ghost Area constellation (hard-capped at 4-7 top-level Areas, at most 1 main focusRole; supports four-state focusRole, work/life domain, quarterGoal, antiGoal, and weeklyMinimum; one-offs remain unassigned).', {
     areas: {
       type: 'array',
       items: {
         type: 'object',
-        properties: { name: { type: 'string' }, workKeys: { type: 'array', items: { type: 'string' } } },
+        properties: {
+          name: { type: 'string' },
+          workKeys: { type: 'array', items: { type: 'string' } },
+          focusRole: { type: 'string', enum: ['main', 'side', 'maintenance', 'parked'] },
+          domain: { type: 'string', enum: ['work', 'life'] },
+          quarterGoal: { type: 'string' },
+          antiGoal: { type: 'string' },
+          weeklyMinimum: { type: 'string' },
+        },
         required: ['name', 'workKeys'],
         additionalProperties: false,
       },
     },
     unassignedWorkKeys: { type: 'array', items: { type: 'string' } },
   }, []],
+  ['stage_propose_area_role', 'Propose updating an existing Area\'s four-state focusRole (main/side/maintenance/parked), domain (work/life), quarterGoal, antiGoal, or weeklyMinimum as a Ghost proposal on the live Stage. Enforces single-main replacement; remains Ghost until confirmed.', {
+    areaId: { type: 'string' },
+    focusRole: { type: 'string', enum: ['main', 'side', 'maintenance', 'parked'] },
+    domain: { type: 'string', enum: ['work', 'life'] },
+    quarterGoal: { type: ['string', 'null'] },
+    antiGoal: { type: ['string', 'null'] },
+    weeklyMinimum: { type: ['string', 'null'] },
+    demoteCurrentMainTo: { type: 'string', enum: ['side', 'maintenance', 'parked'] },
+    reason: { type: 'string' },
+  }, ['areaId', 'reason']],
   ['stage_sprout_branches', 'Sprout staggered Ghost advancement branches under the focused Project or Area on the live Stage with rationale and optional Inbox link.', {
     areaId: { type: 'string' },
     projectWorkKey: { type: 'string' },
@@ -124,6 +143,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
           status: item.status,
           createdAt: Date.parse(item.createdAt) || Date.now(),
           updatedAt: Date.parse(item.updatedAt) || Date.now(),
+          sourceType: item.source?.type ?? 'manual',
           sourceLabel: SOURCE_LABELS[item.source?.type] ?? 'Inbox',
         }))
         .filter(item => item.text.length > 0);
@@ -268,11 +288,30 @@ export function installStageHost(ctx, { service, inboxStore }) {
     const now = Date.now();
     if (toolName === 'stage_get_view') {
       const snap = localEngine.buildSnapshot(catalog, inbox, now);
-      return { gazeSummary: compactGazeSummary(snap), viewport: snap.viewport, areas: snap.areas.length, inbox: snap.inbox, pendingGhostProposals: snap.ghostProposals, needsColdStart: snap.needsColdStart };
+      return {
+        gazeSummary: compactGazeSummary(snap),
+        viewport: snap.viewport,
+        areas: snap.areas.length,
+        mismatchSignals: snap.mismatchSignals,
+        cooledInboxCount: snap.cooledInboxCount,
+        inbox: snap.inbox,
+        pendingGhostProposals: snap.ghostProposals,
+        needsColdStart: snap.needsColdStart,
+      };
     }
     if (toolName === 'stage_get_pulse') {
       const snap = localEngine.buildSnapshot(catalog, inbox, now);
-      return { version: snap.version, gazeSummary: compactGazeSummary(snap), areas: snap.areas, dormantAreas: snap.dormantAreas, unassignedWorks: snap.unassignedWorks.slice(0, 30), inbox: snap.inbox, pendingGhostProposals: snap.ghostProposals };
+      return {
+        version: snap.version,
+        gazeSummary: compactGazeSummary(snap),
+        mismatchSignals: snap.mismatchSignals,
+        areas: snap.areas,
+        dormantAreas: snap.dormantAreas,
+        unassignedWorks: snap.unassignedWorks.slice(0, 30),
+        inbox: snap.inbox,
+        cooledInboxCount: snap.cooledInboxCount,
+        pendingGhostProposals: snap.ghostProposals,
+      };
     }
     if (toolName === 'stage_highlight') {
       const out = localEngine.highlight({ targetIds: args.targetIds, reason: args.reason, ...(args.tone ? { tone: args.tone } : {}), agent: clientId }, now);
@@ -287,6 +326,12 @@ export function installStageHost(ctx, { service, inboxStore }) {
     }
     if (toolName === 'stage_propose_areas') {
       const proposal = localEngine.proposeAreas({ agent: clientId, catalog, ...(args.areas ? { areas: args.areas } : {}), ...(args.unassignedWorkKeys ? { unassignedWorkKeys: args.unassignedWorkKeys } : {}) }, now);
+      await notifyLocalWaiters();
+      return { proposal, writesFormalState: false };
+    }
+    if (toolName === 'stage_propose_area_role') {
+      const proposal = localEngine.proposeAreaRole({ agent: clientId, ...args }, now);
+      if (!proposal) throw Object.assign(Error(`未找到目标领域：${args?.areaId ?? ''}`), { code: 'INVALID_INPUT' });
       await notifyLocalWaiters();
       return { proposal, writesFormalState: false };
     }
@@ -310,7 +355,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
     throw Error(`UNKNOWN_STAGE_TOOL:${toolName}`);
   }
 
-  // Register 8 stage_* tools directly in DSH native Agent runtime
+  // Register 9 stage_* tools directly in DSH native Agent runtime
   if (ctx?.tools?.register) {
     for (const [toolName, description, properties, required] of STAGE_TOOL_SPECS) {
       ctx.tools.register({
@@ -338,7 +383,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
       interpolate: false,
       text: () => {
         if (!stageOpen || !lastGazeText) return '';
-        return `[全局共视活画布已打开] 用户当前视角：${lastGazeText}。可用 stage_get_view / stage_get_pulse 读取当前画布，用 stage_highlight 点亮节点（视野外自动转为边缘雷达不抢镜头），用 stage_sprout_branches 长出虚态衍生分支，经用户拍板后用 stage_resolve_proposals 凝固落盘。`;
+        return `[全局共视活画布已打开] 用户当前视角：${lastGazeText}。可用 stage_get_view / stage_get_pulse 读取当前画布与错配事实，用 stage_highlight 点亮节点（视野外自动转为边缘雷达不抢镜头），用 stage_propose_area_role / stage_sprout_branches 生成虚态提议，经用户拍板后用 stage_resolve_proposals 凝固落盘。`;
       },
     });
   }

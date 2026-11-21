@@ -32,7 +32,7 @@ import {
 } from "./collaborate.ts";
 import type { ReadingJobHub } from "./reading-hub.ts";
 import type { StageHub } from "./stage-hub.ts";
-import type { StageResolveDecision } from "@task-copilot/stage-runtime";
+import type { StageAreaDomain, StageFocusRole, StageResolveDecision } from "@task-copilot/stage-runtime";
 import { readCatalog } from "./work-catalog.ts";
 
 export interface McpToolDefinition {
@@ -254,7 +254,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "stage_get_view",
     description:
-      "Read the user's live Shared Stage viewport (L0-L3 zoom level, focused Area/Project, selected Inbox item, pending Ghost proposals). Wide-and-shallow executive gaze only; never returns private project file bodies.",
+      "Read the user's live Shared Stage viewport (L0-L3 zoom level, focused Area/Project with four-state focusRole/domain, main-line mismatch alerts, selected Inbox item, cooled Inbox count, iCloud diagnostics, and pending Ghost proposals). Wide-and-shallow executive gaze only; never returns private project file bodies.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -264,7 +264,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "stage_get_pulse",
     description:
-      "Read global Areas, dormant Areas, bottom-up recent activity pulse, unassigned catalog works, and active Inbox resonance list without scanning private files.",
+      "Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, bottom-up recent activity pulse, unassigned catalog works, active/cooled Inbox list (including iPhone voice captures and Flomo), and iCloud diagnostics without scanning private files.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -303,7 +303,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "stage_propose_areas",
     description:
-      "Generate or propose an initial cold-start Ghost Area constellation (hard-capped at 4-7 top-level Areas; one-offs remain in unassigned pool). Remains Ghost until user confirms.",
+      "Generate or propose a Ghost Area constellation (hard-capped at 4-7 top-level Areas, at most 1 main focusRole; supports four-state focusRole, work/life domain, quarterGoal, antiGoal, and weeklyMinimum; one-offs remain in unassigned pool). Remains Ghost until user confirms via stage_resolve_proposals.",
     inputSchema: {
       type: "object",
       properties: {
@@ -315,6 +315,11 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
             properties: {
               name: { type: "string" },
               workKeys: { type: "array", items: { type: "string" } },
+              focusRole: { type: "string", enum: ["main", "side", "maintenance", "parked"] },
+              domain: { type: "string", enum: ["work", "life"] },
+              quarterGoal: { type: "string" },
+              antiGoal: { type: "string" },
+              weeklyMinimum: { type: "string" },
             },
             required: ["name", "workKeys"],
             additionalProperties: false,
@@ -322,6 +327,26 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         },
         unassignedWorkKeys: { type: "array", items: { type: "string" } },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_propose_area_role",
+    description:
+      "Propose updating an existing Area's four-state focusRole (main/side/maintenance/parked), domain (work/life), quarterGoal, antiGoal, or weeklyMinimum as a Ghost proposal on the live Stage. Enforces single-main One-In-One-Out replacement; remains Ghost until user confirms via stage_resolve_proposals.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        areaId: { type: "string" },
+        focusRole: { type: "string", enum: ["main", "side", "maintenance", "parked"] },
+        domain: { type: "string", enum: ["work", "life"] },
+        quarterGoal: { type: ["string", "null"] },
+        antiGoal: { type: ["string", "null"] },
+        weeklyMinimum: { type: ["string", "null"] },
+        demoteCurrentMainTo: { type: "string", enum: ["side", "maintenance", "parked"] },
+        reason: { type: "string" },
+      },
+      required: ["areaId", "reason"],
       additionalProperties: false,
     },
   },
@@ -780,19 +805,66 @@ async function runTool(
     }
     if (toolName === "stage_propose_areas") {
       const args = workRecord(rawArgs, ["areas", "unassignedWorkKeys"]);
-      let areas: Array<{ name: string; workKeys: string[] }> | undefined;
+      let areas:
+        | Array<{
+            name: string;
+            workKeys: string[];
+            focusRole?: StageFocusRole;
+            domain?: StageAreaDomain;
+            quarterGoal?: string;
+            antiGoal?: string;
+            weeklyMinimum?: string;
+          }>
+        | undefined;
       if (args.areas !== undefined) {
         if (!Array.isArray(args.areas) || args.areas.length > 7) {
           throw new WorkspaceError("INVALID_INPUT", "冷启动防乱护栏：areas 最多允许 7 个顶层领域。");
         }
+        let mainCount = 0;
         areas = args.areas.map((item) => {
-          const rec = workRecord(item, ["name", "workKeys"]);
+          const rec = workRecord(item, [
+            "name",
+            "workKeys",
+            "focusRole",
+            "domain",
+            "quarterGoal",
+            "antiGoal",
+            "weeklyMinimum",
+          ]);
           if (!Array.isArray(rec.workKeys)) throw new WorkspaceError("INVALID_INPUT", "areas[].workKeys 必须为数组。");
+          const focusRole =
+            rec.focusRole === undefined
+              ? undefined
+              : rec.focusRole === "main" ||
+                  rec.focusRole === "side" ||
+                  rec.focusRole === "maintenance" ||
+                  rec.focusRole === "parked"
+                ? rec.focusRole
+                : (() => {
+                    throw new WorkspaceError("INVALID_INPUT", "无效的 focusRole，仅允许 main / side / maintenance / parked。");
+                  })();
+          if (focusRole === "main") mainCount++;
+          const domain =
+            rec.domain === undefined
+              ? undefined
+              : rec.domain === "work" || rec.domain === "life"
+                ? rec.domain
+                : (() => {
+                    throw new WorkspaceError("INVALID_INPUT", "无效的 domain，仅允许 work / life。");
+                  })();
           return {
             name: workText(rec.name, 64),
             workKeys: rec.workKeys.map((k) => workText(k, 512)),
+            ...(focusRole ? { focusRole } : {}),
+            ...(domain ? { domain } : {}),
+            ...(rec.quarterGoal !== undefined ? { quarterGoal: workText(rec.quarterGoal, 200) } : {}),
+            ...(rec.antiGoal !== undefined ? { antiGoal: workText(rec.antiGoal, 200) } : {}),
+            ...(rec.weeklyMinimum !== undefined ? { weeklyMinimum: workText(rec.weeklyMinimum, 160) } : {}),
           };
         });
+        if (mainCount > 1) {
+          throw new WorkspaceError("INVALID_INPUT", "四态护栏：本季主线（main）最多只能设定 1 个领域。");
+        }
       }
       const unassignedWorkKeys =
         args.unassignedWorkKeys !== undefined
@@ -806,6 +878,79 @@ async function runTool(
         agent: clientId,
         ...(areas ? { areas } : {}),
         ...(unassignedWorkKeys ? { unassignedWorkKeys } : {}),
+      });
+    }
+    if (toolName === "stage_propose_area_role") {
+      const args = workRecord(rawArgs, [
+        "areaId",
+        "focusRole",
+        "domain",
+        "quarterGoal",
+        "antiGoal",
+        "weeklyMinimum",
+        "demoteCurrentMainTo",
+        "reason",
+      ]);
+      const areaId = workText(args.areaId, 128);
+      const reason = workText(args.reason, 320);
+      const focusRole =
+        args.focusRole === undefined
+          ? undefined
+          : args.focusRole === "main" ||
+              args.focusRole === "side" ||
+              args.focusRole === "maintenance" ||
+              args.focusRole === "parked"
+            ? args.focusRole
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 focusRole，仅允许 main / side / maintenance / parked。");
+              })();
+      const domain =
+        args.domain === undefined
+          ? undefined
+          : args.domain === "work" || args.domain === "life"
+            ? args.domain
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 domain，仅允许 work / life。");
+              })();
+      const demoteCurrentMainTo =
+        args.demoteCurrentMainTo === undefined
+          ? undefined
+          : args.demoteCurrentMainTo === "side" ||
+              args.demoteCurrentMainTo === "maintenance" ||
+              args.demoteCurrentMainTo === "parked"
+            ? args.demoteCurrentMainTo
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "无效的 demoteCurrentMainTo，仅允许 side / maintenance / parked。");
+              })();
+      const quarterGoal =
+        args.quarterGoal === undefined ? undefined : args.quarterGoal === null ? null : workText(args.quarterGoal, 200);
+      const antiGoal =
+        args.antiGoal === undefined ? undefined : args.antiGoal === null ? null : workText(args.antiGoal, 200);
+      const weeklyMinimum =
+        args.weeklyMinimum === undefined
+          ? undefined
+          : args.weeklyMinimum === null
+            ? null
+            : workText(args.weeklyMinimum, 160);
+      if (
+        focusRole === undefined &&
+        domain === undefined &&
+        quarterGoal === undefined &&
+        antiGoal === undefined &&
+        weeklyMinimum === undefined
+      ) {
+        throw new WorkspaceError("INVALID_INPUT", "至少需要提供一项领域调整字段（focusRole / domain / quarterGoal / antiGoal / weeklyMinimum）。");
+      }
+      return stageHub.mcpProposeAreaRole({
+        agent: clientId,
+        areaId,
+        reason,
+        ...(focusRole !== undefined ? { focusRole } : {}),
+        ...(domain !== undefined ? { domain } : {}),
+        ...(quarterGoal !== undefined ? { quarterGoal } : {}),
+        ...(antiGoal !== undefined ? { antiGoal } : {}),
+        ...(weeklyMinimum !== undefined ? { weeklyMinimum } : {}),
+        ...(demoteCurrentMainTo !== undefined ? { demoteCurrentMainTo } : {}),
       });
     }
     if (toolName === "stage_sprout_branches") {

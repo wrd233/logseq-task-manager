@@ -1,6 +1,9 @@
+import { areaDomainLabel, focusRoleLabel } from "./pulse.ts";
 import type {
   StageAdvancementItem,
+  StageAreaDomain,
   StageAreaNode,
+  StageFocusRole,
   StageGhostProposal,
   StageInboxViewItem,
   StageProjectNode,
@@ -161,11 +164,26 @@ export const STAGE_VIEW_CSS = `
   background: color-mix(in srgb, var(--tcs-success) 8%, var(--tcs-card));
   border-color: color-mix(in srgb, var(--tcs-success) 40%, var(--tcs-card-border));
 }
+.tcs-tone-mismatch {
+  background: color-mix(in srgb, var(--tcs-error) 7%, var(--tcs-card));
+  border-color: color-mix(in srgb, var(--tcs-error) 46%, var(--tcs-border));
+}
 .tcs-tone-ghost {
   background: color-mix(in srgb, var(--tcs-primary) 8%, var(--tcs-card));
   border: 1.5px dashed color-mix(in srgb, var(--tcs-primary) 64%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tcs-primary) 12%, transparent),
               0 8px 20px -10px color-mix(in srgb, var(--tcs-primary) 28%, transparent);
+}
+.tcs-role-main {
+  border-color: color-mix(in srgb, var(--tcs-primary) 54%, var(--tcs-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tcs-primary) 18%, transparent), var(--tcs-shadow-md);
+}
+.tcs-role-maintenance {
+  background: color-mix(in srgb, var(--tcs-bg) 72%, var(--tcs-card));
+  border-color: var(--tcs-card-border);
+}
+.tcs-domain-life {
+  border-left: 3px solid color-mix(in srgb, var(--tcs-muted) 48%, transparent);
 }
 
 .tcs-badge {
@@ -182,6 +200,16 @@ export const STAGE_VIEW_CSS = `
   color: color-mix(in srgb, var(--tcs-success) 86%, var(--tcs-fg));
   border: 1px solid color-mix(in srgb, var(--tcs-success) 32%, transparent);
 }
+.tcs-badge-mismatch {
+  background: color-mix(in srgb, var(--tcs-error) 13%, transparent);
+  color: color-mix(in srgb, var(--tcs-error) 88%, var(--tcs-fg));
+  border: 1px solid color-mix(in srgb, var(--tcs-error) 36%, transparent);
+}
+.tcs-badge-main {
+  background: color-mix(in srgb, var(--tcs-primary) 15%, transparent);
+  color: var(--tcs-primary);
+  border: 1px solid color-mix(in srgb, var(--tcs-primary) 36%, transparent);
+}
 .tcs-badge-mist {
   background: color-mix(in srgb, var(--tcs-muted) 12%, transparent);
   color: var(--tcs-muted);
@@ -191,6 +219,38 @@ export const STAGE_VIEW_CSS = `
   background: color-mix(in srgb, var(--tcs-primary) 14%, transparent);
   color: var(--tcs-primary);
   border: 1px solid color-mix(in srgb, var(--tcs-primary) 34%, transparent);
+}
+.tcs-meta-line {
+  font-size: 11.5px; color: var(--tcs-muted); line-height: 1.4;
+  margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--tcs-card-border);
+}
+.tcs-mismatch-note {
+  margin-top: 6px; padding: 5px 8px; border-radius: 7px; font-size: 11.5px; line-height: 1.4;
+  background: color-mix(in srgb, var(--tcs-error) 9%, transparent);
+  color: color-mix(in srgb, var(--tcs-error) 86%, var(--tcs-fg));
+  border: 1px solid color-mix(in srgb, var(--tcs-error) 28%, transparent);
+}
+.tcs-diag-notice {
+  margin: 8px 9px 0; padding: 8px 10px; border-radius: 9px; font-size: 11.5px; line-height: 1.45;
+  background: color-mix(in srgb, var(--tcs-warning) 9%, var(--tcs-card));
+  border: 1px solid color-mix(in srgb, var(--tcs-warning) 32%, var(--tcs-card-border));
+  color: var(--tcs-fg);
+}
+.tcs-cooled-box {
+  margin-top: 8px; border-top: 1px solid var(--tcs-card-border); padding-top: 8px;
+}
+.tcs-cooled-box summary {
+  cursor: pointer; font-size: 11.5px; color: var(--tcs-muted);
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; list-style: none;
+  padding: 4px 2px;
+}
+.tcs-cooled-box summary::-webkit-details-marker { display: none; }
+.tcs-cooled-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.tcs-role-bar { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.tcs-btn.is-active {
+  background: color-mix(in srgb, var(--tcs-primary) 14%, var(--tcs-card));
+  border-color: var(--tcs-primary);
+  color: var(--tcs-primary);
 }
 
 .tcs-amber-resonate {
@@ -359,13 +419,13 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   root.innerHTML = `
     <div class="tcs-bar">
       <div class="tcs-bar-left">
-        <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>↖ 拉远</button>
+        <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>← 拉远</button>
         <div class="tcs-bc" data-tcs-bc></div>
       </div>
       <div class="tcs-bar-right">
-        <button type="button" class="tcs-btn" data-tcs-coldstart>✨ 生成初始星图</button>
+        <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">↶ 撤销</button>
-        ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">↗ 独立窗</button>` : ""}
+        ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">独立窗</button>` : ""}
         ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">✕</button>` : ""}
       </div>
     </div>
@@ -373,10 +433,10 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       <div class="tcs-stage-wrap">
         <div class="tcs-legend">
           <div class="tcs-legend-group">
-            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-warning)"></span>Inbox 共振</span>
-            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-success)"></span>可顺手推进</span>
-            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-muted)"></span>静默待决定</span>
-            <span class="tcs-legend-item"><span class="tcs-dot" style="border:1.5px dashed var(--tcs-primary);background:color-mix(in srgb, var(--tcs-primary) 24%, transparent)"></span>Agent 虚态推演</span>
+            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-primary)"></span>本季主线</span>
+            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-error)"></span>主线错配</span>
+            <span class="tcs-legend-item"><span class="tcs-dot" style="background:var(--tcs-success)"></span>近期活跃</span>
+            <span class="tcs-legend-item"><span class="tcs-dot" style="border:1.5px dashed var(--tcs-primary);background:color-mix(in srgb, var(--tcs-primary) 24%, transparent)"></span>虚态推演</span>
           </div>
           <span data-tcs-hint style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
         </div>
@@ -388,10 +448,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       </div>
       <aside class="tcs-inbox-pane">
         <div class="tcs-inbox-head">
-          <span style="font-weight:600">Inbox 信号浮带 <span data-tcs-inbox-count class="tcs-badge tcs-badge-mist" style="margin-left:4px">0</span></span>
+          <span style="font-weight:600">Inbox 浮带 <span data-tcs-inbox-count class="tcs-badge tcs-badge-mist" style="margin-left:4px">0</span></span>
           <span style="font-size:11px;color:var(--tcs-muted)">0ms 匹配</span>
         </div>
         <div class="tcs-inbox-sub" data-tcs-inbox-sub>悬停照亮归属 · 拖拽直接安放</div>
+        <div data-tcs-inbox-diag></div>
         <div class="tcs-inbox-list" data-tcs-inbox-list></div>
       </aside>
       <svg class="tcs-tether-svg" data-tcs-tether></svg>
@@ -414,6 +475,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   const l3El = root.querySelector<HTMLElement>("[data-tcs-l3]")!;
   const inboxCountEl = root.querySelector<HTMLElement>("[data-tcs-inbox-count]")!;
   const inboxSubEl = root.querySelector<HTMLElement>("[data-tcs-inbox-sub]")!;
+  const inboxDiagEl = root.querySelector<HTMLElement>("[data-tcs-inbox-diag]")!;
   const inboxListEl = root.querySelector<HTMLElement>("[data-tcs-inbox-list]")!;
   const tetherSvg = root.querySelector<SVGSVGElement>("[data-tcs-tether]")!;
   const bodyEl = root.querySelector<HTMLElement>(".tcs-body")!;
@@ -562,15 +624,29 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     return `<div class="tcs-presence"><span class="tcs-dot tcs-pulse" style="background:currentColor"></span><span>${esc(label)}</span></div>`;
   };
 
+  const badgeClassForTone = (tone: StageAreaNode["tone"]): string => {
+    if (tone === "mismatch") return "tcs-badge-mismatch";
+    if (tone === "amber") return "tcs-badge-amber";
+    if (tone === "teal") return "tcs-badge-teal";
+    return "tcs-badge-mist";
+  };
+
+  const toneClassFor = (tone: StageAreaNode["tone"]): string => {
+    if (tone === "mismatch") return "tcs-tone-mismatch";
+    if (tone === "amber") return "tcs-tone-amber";
+    if (tone === "teal") return "tcs-tone-teal";
+    return "";
+  };
+
   const renderColdStart = (proposal: StageGhostProposal) => {
     const drafts = proposal.proposedAreas ?? [];
     const unassigned = proposal.unassignedTitles ?? [];
-    hintEl.textContent = "冷启动防乱护栏：硬控 4–7 主领域 + 边缘暂放池 · 微调后一键凝固";
+    hintEl.textContent = "冷启动防乱护栏：硬控 4–7 主领域 + 四态分流 · 微调后一键凝固";
     stageEl.innerHTML = `
       <div class="tcs-l1-wrap tcs-anim-out">
         <div class="tcs-tone-ghost" style="border-radius:13px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <div style="font-weight:600;color:var(--tcs-primary)">✨ ${esc(proposal.agent)} 提议初始领域星图（${drafts.length} 个主领域）</div>
+            <div style="font-weight:600;color:var(--tcs-primary)">${esc(proposal.agent)} 提议初始领域星图（${drafts.length} 个主领域）</div>
             <div style="font-size:12px;color:var(--tcs-muted);margin-top:2px;">${esc(proposal.reason)}</div>
           </div>
           <div style="display:flex;gap:7px;">
@@ -582,12 +658,19 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           ${drafts
             .map(
               (d, idx) => `
-            <div class="tcs-tone-ghost tcs-anim-sprout" style="animation-delay:${idx * 90}ms;border-radius:13px;padding:13px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;">
+            <div class="tcs-tone-ghost tcs-anim-sprout ${d.domain === "life" ? "tcs-domain-life" : ""}" style="animation-delay:${idx * 90}ms;border-radius:13px;padding:13px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;">
               <div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
                   <strong style="font-size:13.5px">${esc(d.name)}</strong>
-                  <span class="tcs-badge tcs-badge-ghost">${d.workKeys.length} 项</span>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <span class="tcs-badge ${d.focusRole === "main" ? "tcs-badge-main" : "tcs-badge-ghost"}">${esc(focusRoleLabel(d.focusRole ?? "side"))}</span>
+                    ${d.domain === "life" ? `<span class="tcs-badge tcs-badge-mist">生活</span>` : ""}
+                    <span class="tcs-badge tcs-badge-mist">${d.workKeys.length} 项</span>
+                  </div>
                 </div>
+                ${d.quarterGoal ? `<div style="font-size:11.5px;color:var(--tcs-muted);margin-bottom:4px;">目标：${esc(d.quarterGoal)}</div>` : ""}
+                ${d.antiGoal ? `<div style="font-size:11.5px;color:var(--tcs-muted);margin-bottom:4px;">反目标：${esc(d.antiGoal)}</div>` : ""}
+                ${d.weeklyMinimum ? `<div style="font-size:11.5px;color:var(--tcs-muted);margin-bottom:4px;">周底线：${esc(d.weeklyMinimum)}</div>` : ""}
                 <div style="display:flex;flex-wrap:wrap;gap:5px;">
                   ${d.anchorTitles.map((t) => `<span style="font-size:11.5px;padding:2px 7px;border-radius:6px;background:var(--tcs-card);border:1px solid var(--tcs-card-border)">${esc(t)}</span>`).join("")}
                 </div>
@@ -619,13 +702,13 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   };
 
   const renderL0 = (snap: StageSnapshot, animCls: string) => {
-    hintEl.textContent = "点击领域推近 L1 · 拖动「⋮⋮」固定老家方位 · 拖拽右侧 Inbox 直接安放";
+    hintEl.textContent = "点击领域推近 L1 · 拖动「⋮⋮」固定空间方位 · 悬停右侧 Inbox 照亮归属";
     if (snap.areas.length === 0 && snap.dormantAreas.length === 0) {
       stageEl.innerHTML = `
         <div class="tcs-empty ${animCls}">
-          <div style="font-size:15px;font-weight:600">尚未建立全局领域星图</div>
-          <div style="font-size:12px;color:var(--tcs-muted)">已发现 ${snap.catalogCount} 项工作目录与 ${snap.inbox.length} 条 Inbox 线索。可以一键让助手以虚态生成 4–7 个主领域骨架，再由你微调凝固。</div>
-          <button type="button" class="tcs-btn tcs-btn-primary" data-tcs-empty-coldstart>✨ 生成初始虚态星图</button>
+          <div style="font-size:15px;font-weight:600">尚未建立季节领域星图</div>
+          <div style="font-size:12px;color:var(--tcs-muted)">已发现 ${snap.catalogCount} 项工作目录与 ${snap.inbox.length} 条 Inbox 线索。可先向 Agent 口述当下全景，再结合目录生成 4–7 个四态领域虚态初稿。</div>
+          <button type="button" class="tcs-btn tcs-btn-primary" data-tcs-empty-coldstart>生成初始虚态星图</button>
         </div>
       `;
       return;
@@ -634,32 +717,42 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     const highlightSet = new Set(snap.highlights.map((h) => h.targetId));
     const cards = snap.areas
       .map((area) => {
-        const toneCls = area.tone === "amber" ? "tcs-tone-amber" : area.tone === "teal" ? "tcs-tone-teal" : "";
-        const badgeCls =
-          area.tone === "amber"
-            ? "tcs-badge-amber"
-            : area.tone === "teal"
-              ? "tcs-badge-teal"
-              : "tcs-badge-mist";
+        const toneCls = toneClassFor(area.tone);
+        const badgeCls = badgeClassForTone(area.tone);
+        const roleCls =
+          area.focusRole === "main"
+            ? "tcs-role-main"
+            : area.focusRole === "maintenance"
+              ? "tcs-role-maintenance"
+              : "";
+        const domainCls = area.domain === "life" ? "tcs-domain-life" : "";
         const areaGhosts = snap.ghostProposals.filter((g) => g.areaId === area.id || g.targetAreaId === area.id);
+        const roleProposal = areaGhosts.find((g) => g.kind === "propose-area-role");
         const hi = highlightSet.has(area.id) ? "tcs-highlight-ring" : "";
         return `
-          <div class="tcs-area-card ${toneCls} ${hi}"
+          <div class="tcs-area-card ${roleCls} ${domainCls} ${toneCls} ${hi}"
             data-node-id="${esc(area.id)}"
             data-area-open="${esc(area.id)}"
             data-drop-area="${esc(area.id)}"
             style="left:${area.pos.x}px;top:${area.pos.y}px;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:5px;">
               <div style="display:flex;align-items:center;gap:4px;min-width:0;">
-                <span class="tcs-drag-handle" data-area-drag="${esc(area.id)}" title="拖动固定老家坐标">⋮⋮</span>
+                <span class="tcs-drag-handle" data-area-drag="${esc(area.id)}" title="拖动固定空间坐标">⋮⋮</span>
                 <strong style="font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(area.name)}</strong>
               </div>
-              ${area.signalLabel ? `<span class="tcs-badge ${badgeCls}">${esc(area.signalLabel)}</span>` : ""}
+              <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                <span class="tcs-badge ${area.focusRole === "main" ? "tcs-badge-main" : "tcs-badge-mist"}">${esc(focusRoleLabel(area.focusRole))}</span>
+                ${area.domain === "life" ? `<span class="tcs-badge tcs-badge-mist">生活</span>` : ""}
+              </div>
             </div>
-            <div style="font-size:11.5px;color:var(--tcs-muted);display:flex;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-size:11.5px;color:var(--tcs-muted);display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;">
               <span>${esc(area.pulseLabel)}</span>
-              <span>${area.projects.length} 项工作</span>
+              <span>${area.projects.length} 项${area.inboxMatchCount > 0 ? ` · Inbox ${area.inboxMatchCount}` : ""}</span>
             </div>
+            ${area.signalLabel ? `<div style="margin-bottom:6px;"><span class="tcs-badge ${badgeCls}">${esc(area.signalLabel)}</span></div>` : ""}
+            ${area.mismatch ? `<div class="tcs-mismatch-note">${esc(area.mismatch.summary)}</div>` : ""}
+            ${area.focusRole === "main" && area.quarterGoal ? `<div class="tcs-meta-line">目标：${esc(area.quarterGoal)}</div>` : ""}
+            ${area.focusRole === "maintenance" && area.weeklyMinimum ? `<div class="tcs-meta-line">周底线：${esc(area.weeklyMinimum)}</div>` : ""}
             <div>
               ${area.projects
                 .slice(0, 3)
@@ -677,14 +770,24 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                 })
                 .join("")}
               ${
-                areaGhosts.length > 0
-                  ? `<div class="tcs-tone-ghost" style="margin-top:7px;padding:4px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;">
-                      <span>✦ ${areaGhosts.length} 条虚态推演待定</span><span>进入 →</span>
+                roleProposal
+                  ? `<div class="tcs-tone-ghost" data-ghost-id="${esc(roleProposal.id)}" style="margin-top:7px;padding:6px 8px;border-radius:7px;font-size:11.5px;">
+                      <div style="font-weight:600;color:var(--tcs-primary)">虚态角色提议</div>
+                      <div style="color:var(--tcs-fg);margin-top:2px;">${esc(roleProposal.title)}</div>
+                      <div style="color:var(--tcs-muted);margin-top:2px;">${esc(roleProposal.reason)}</div>
+                      <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:6px;">
+                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss-ghost="${esc(roleProposal.id)}">× 散去</button>
+                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept-ghost="${esc(roleProposal.id)}">✓ 确认</button>
+                      </div>
                     </div>`
-                  : ""
+                  : areaGhosts.length > 0
+                    ? `<div class="tcs-tone-ghost" style="margin-top:7px;padding:4px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;">
+                        <span>${areaGhosts.length} 条虚态推演待定</span><span>进入 →</span>
+                      </div>`
+                    : ""
               }
             </div>
-            ${area.annotation ? `<div class="tcs-badge-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;">💡 ${esc(area.annotation)}</div>` : ""}
+            ${area.annotation ? `<div class="tcs-badge-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;">注：${esc(area.annotation)}</div>` : ""}
             ${renderPresence(area.id)}
           </div>
         `;
@@ -696,11 +799,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         ? `
         <div class="tcs-dormant-bar">
           <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-            ${snap.dormantAreas.length > 0 ? `<span>边缘休眠岛：</span>` : ""}
+            ${snap.dormantAreas.length > 0 ? `<span>搁置 / 休眠：</span>` : ""}
             ${snap.dormantAreas
               .map(
                 (d) =>
-                  `<button type="button" class="tcs-btn tcs-btn-sm" data-unpark-area="${esc(d.id)}" title="点击唤醒">${esc(d.name)} · ${d.parked ? "已搁置" : `${d.recencyDays}天`}</button>`,
+                  `<button type="button" class="tcs-btn tcs-btn-sm" data-unpark-area="${esc(d.id)}" title="点击唤醒">${esc(d.name)}${d.domain === "life" ? " · 生活" : ""} · ${d.parked ? "已搁置" : `${d.recencyDays}天`}</button>`,
               )
               .join("")}
             ${snap.unassignedWorks.length > 0 ? `<span style="margin-left:6px">暂放未归类：${snap.unassignedWorks.length} 项</span>` : ""}
@@ -721,7 +824,14 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     hintEl.textContent = "点击项目推近 L2 结构树 · 右侧 Inbox 已自动上浮本领域共振条";
     const highlightSet = new Set(snap.highlights.map((h) => h.targetId));
     const neighbors = snap.areas.filter((a) => a.id !== area.id);
-    const areaGhosts = snap.ghostProposals.filter((g) => g.areaId === area.id && !g.projectWorkKey);
+    const areaGhosts = snap.ghostProposals.filter((g) => g.areaId === area.id && !g.projectWorkKey && g.kind !== "propose-area-role");
+    const roleGhosts = snap.ghostProposals.filter((g) => g.areaId === area.id && g.kind === "propose-area-role");
+    const roleOptions: Array<{ role: StageFocusRole; label: string }> = [
+      { role: "main", label: "设为主线" },
+      { role: "side", label: "支线" },
+      { role: "maintenance", label: "维护" },
+      { role: "parked", label: "搁置" },
+    ];
 
     stageEl.innerHTML = `
       <div class="tcs-l1-wrap ${animCls}">
@@ -733,27 +843,53 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
               </div>`
             : ""
         }
-        <div class="tcs-l1-hero ${highlightSet.has(area.id) ? "tcs-highlight-ring" : ""}" data-node-id="${esc(area.id)}">
+        <div class="tcs-l1-hero ${area.domain === "life" ? "tcs-domain-life" : ""} ${highlightSet.has(area.id) ? "tcs-highlight-ring" : ""}" data-node-id="${esc(area.id)}">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
             <div>
-              <div style="font-size:11.5px;color:var(--tcs-muted)">L1 领域切面</div>
+              <div style="font-size:11.5px;color:var(--tcs-muted)">L1 领域切面 · ${esc(areaDomainLabel(area.domain))}</div>
               <div style="font-size:17px;font-weight:600;margin-top:2px;">${esc(area.name)}</div>
               <div style="font-size:12px;color:var(--tcs-muted);margin-top:3px;">${esc(area.pulseLabel)} · ${area.projects.length} 项工作</div>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              ${area.signalLabel ? `<span class="tcs-badge ${area.tone === "amber" ? "tcs-badge-amber" : area.tone === "teal" ? "tcs-badge-teal" : "tcs-badge-mist"}">${esc(area.signalLabel)}</span>` : ""}
-              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-park-area="${esc(area.id)}">主动搁置</button>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+              <span class="tcs-badge ${area.focusRole === "main" ? "tcs-badge-main" : "tcs-badge-mist"}">${esc(focusRoleLabel(area.focusRole))}</span>
+              ${area.signalLabel ? `<span class="tcs-badge ${badgeClassForTone(area.tone)}">${esc(area.signalLabel)}</span>` : ""}
             </div>
           </div>
-          ${area.annotation ? `<div class="tcs-badge-ghost" style="margin-top:10px;padding:6px 10px;border-radius:8px;font-size:12px;">💡 ${esc(area.annotation)}</div>` : ""}
+          ${area.mismatch ? `<div class="tcs-mismatch-note">${esc(area.mismatch.summary)}</div>` : ""}
+          ${area.quarterGoal ? `<div class="tcs-meta-line">季度目标：${esc(area.quarterGoal)}</div>` : ""}
+          ${area.antiGoal ? `<div class="tcs-meta-line">反目标：${esc(area.antiGoal)}</div>` : ""}
+          ${area.weeklyMinimum ? `<div class="tcs-meta-line">每周底线：${esc(area.weeklyMinimum)}</div>` : ""}
+          <div class="tcs-role-bar">
+            ${roleOptions
+              .map(
+                (opt) =>
+                  `<button type="button" class="tcs-btn tcs-btn-sm ${area.focusRole === opt.role ? "is-active" : "tcs-btn-ghost"}" data-set-role="${esc(area.id)}|${opt.role}">${opt.label}</button>`,
+              )
+              .join("")}
+            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-set-domain="${esc(area.id)}|${area.domain === "work" ? "life" : "work"}">切至${area.domain === "work" ? "生活" : "工作"}</button>
+          </div>
+          ${roleGhosts
+            .map(
+              (g) => `
+              <div class="tcs-tone-ghost" data-ghost-id="${esc(g.id)}" style="margin-top:10px;padding:9px 11px;border-radius:9px;">
+                <div style="font-size:12px;font-weight:600;color:var(--tcs-primary)">${esc(g.agent)} 提议调整：${esc(g.title)}</div>
+                <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px;">${esc(g.reason)}</div>
+                <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:7px;">
+                  <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss-ghost="${esc(g.id)}">× 散去</button>
+                  <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept-ghost="${esc(g.id)}">✓ 确认调整</button>
+                </div>
+              </div>`,
+            )
+            .join("")}
+          ${area.annotation ? `<div class="tcs-badge-ghost" style="margin-top:10px;padding:6px 10px;border-radius:8px;font-size:12px;">注：${esc(area.annotation)}</div>` : ""}
           ${renderPresence(area.id)}
         </div>
 
         <div class="tcs-grid">
           ${area.projects
             .map((p) => {
-              const toneCls = p.tone === "teal" ? "tcs-tone-teal" : p.tone === "amber" ? "tcs-tone-amber" : "";
-              const badgeCls = p.tone === "teal" ? "tcs-badge-teal" : p.tone === "amber" ? "tcs-badge-amber" : "tcs-badge-mist";
+              const toneCls = toneClassFor(p.tone);
+              const badgeCls = badgeClassForTone(p.tone);
               const pGhosts = snap.ghostProposals.filter((g) => g.projectWorkKey === p.workKey);
               const hi = highlightSet.has(p.workKey) ? "tcs-highlight-ring" : "";
               return `
@@ -770,7 +906,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                     <span>${esc(p.pulseLabel)}</span>
                     <span>${p.advancements.filter((a) => a.state === "active").length} 项推进</span>
                   </div>
-                  ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>✦ ${pGhosts.length} 条虚态分支待定</span><span>进入 L2 →</span></div>` : ""}
+                  ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>${pGhosts.length} 条虚态分支待定</span><span>进入 L2 →</span></div>` : ""}
                   ${renderPresence(p.workKey)}
                 </div>
               `;
@@ -799,7 +935,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
               (g, idx) => `
               <div class="tcs-tone-ghost tcs-anim-sprout" data-ghost-id="${esc(g.id)}" style="animation-delay:${idx * 120}ms;border-radius:13px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;">
                 <div>
-                  <span class="tcs-badge tcs-badge-ghost" style="margin-bottom:6px;">✦ ${esc(g.agent)} 推演</span>
+                  <span class="tcs-badge tcs-badge-ghost" style="margin-bottom:6px;">${esc(g.agent)} 虚态推演</span>
                   <div style="font-weight:600;font-size:13.5px;">${esc(g.title)}</div>
                   <div style="font-size:12px;color:var(--tcs-muted);margin-top:4px;">${esc(g.reason)}</div>
                 </div>
@@ -840,10 +976,10 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--tcs-card-border);font-size:11.5px;color:var(--tcs-muted);">${esc(proj.pulseLabel)}</div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
               ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l2-open-work>${esc(port.openWorkLabel ?? "进入此工作")}</button>` : ""}
-              ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-open-logseq>📖 Logseq 原文</button>` : ""}
+              ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-open-logseq>Logseq 原文</button>` : ""}
               ${port.onQuoteToChat ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l2-quote>引用到对话</button>` : ""}
             </div>
-            ${proj.annotation ? `<div class="tcs-badge-ghost" style="margin-top:9px;padding:5px 8px;border-radius:7px;font-size:11.5px;">💡 ${esc(proj.annotation)}</div>` : ""}
+            ${proj.annotation ? `<div class="tcs-badge-ghost" style="margin-top:9px;padding:5px 8px;border-radius:7px;font-size:11.5px;">注：${esc(proj.annotation)}</div>` : ""}
             ${renderPresence(proj.workKey)}
           </div>
 
@@ -885,7 +1021,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                       <span class="tcs-dot tcs-pulse" style="background:var(--tcs-primary)"></span>
                       <strong style="font-size:12.5px;">${esc(g.title)}</strong>
                     </div>
-                    <span class="tcs-badge tcs-badge-ghost">✦ ${esc(g.agent)} 推演</span>
+                    <span class="tcs-badge tcs-badge-ghost">${esc(g.agent)} 虚态推演</span>
                   </div>
                   <div style="padding-left:14px;font-size:11.5px;color:var(--tcs-muted);margin-bottom:9px;">${esc(g.reason)}</div>
                   <div style="padding-left:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -909,12 +1045,26 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   };
 
   const renderInbox = (snap: StageSnapshot) => {
-    inboxCountEl.textContent = String(snap.inbox.length);
+    const activeItems = snap.inbox.filter((i) => !i.cooled);
+    const cooledItems = snap.inbox.filter((i) => i.cooled);
+    inboxCountEl.textContent = String(activeItems.length);
     const focusedArea = findArea(snap.viewport.areaId);
     const focusedProjKey = snap.viewport.projectWorkKey;
     inboxSubEl.textContent = focusedArea
       ? `反向共振：「${focusedArea.name}」相关项已上浮`
       : "悬停照亮归属 · 拖拽安放 · 点选供 Agent 指代";
+
+    const icloudDiag = snap.inboxDiagnostics?.icloud;
+    if (icloudDiag && icloudDiag.status === "permission-denied") {
+      inboxDiagEl.innerHTML = `
+        <div class="tcs-diag-notice">
+          <div style="font-weight:600">iCloud 语音目录暂未授权</div>
+          <div style="color:var(--tcs-muted);margin-top:3px;">${esc(icloudDiag.guidance ?? icloudDiag.message ?? "请在系统设置开启文件与文件夹权限。")}</div>
+        </div>
+      `;
+    } else {
+      inboxDiagEl.innerHTML = "";
+    }
 
     if (snap.inbox.length === 0) {
       inboxListEl.innerHTML = `<div style="padding:18px;text-align:center;font-size:12px;color:var(--tcs-muted)">Inbox 暂无待处理线索</div>`;
@@ -923,7 +1073,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
     const matched: StageInboxViewItem[] = [];
     const others: StageInboxViewItem[] = [];
-    for (const item of snap.inbox) {
+    for (const item of activeItems) {
       const hit = focusedProjKey
         ? item.matchProjectWorkKeys.includes(focusedProjKey) || (focusedArea ? item.matchAreaIds.includes(focusedArea.id) : false)
         : focusedArea
@@ -944,27 +1094,43 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           data-inbox-id="${esc(item.id)}">
           <div style="font-size:12px;line-height:1.45;margin-bottom:5px;">${esc(item.text)}</div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tcs-muted);">
-            <span>${esc(item.sourceLabel)}</span>
+            <span>${esc(item.sourceLabel)}${item.cooled ? ` · ${item.ageDays}天前` : ""}</span>
             ${selected ? `<span style="color:var(--tcs-warning);font-weight:600;">已选指代</span>` : ""}
           </div>
           ${
             areaTags.length > 0
-              ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">${areaTags.map((n) => `<span class="tcs-badge tcs-badge-amber">↗ ${esc(n)}</span>`).join("")}</div>`
+              ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">${areaTags.map((n) => `<span class="tcs-badge tcs-badge-amber">→ ${esc(n)}</span>`).join("")}</div>`
               : ""
           }
         </div>
       `;
     };
 
-    if (focusedArea && matched.length > 0) {
-      inboxListEl.innerHTML =
-        `<div style="font-size:11px;font-weight:600;color:var(--tcs-warning);padding:2px 4px;">✦ 本领域共振（${matched.length}）</div>` +
-        matched.map((i) => renderCard(i, true, false)).join("") +
-        (others.length > 0 ? `<div style="font-size:11px;color:var(--tcs-muted);padding:6px 4px 2px;">其他 Inbox（${others.length}）</div>` : "") +
-        others.map((i) => renderCard(i, false, true)).join("");
-    } else {
-      inboxListEl.innerHTML = snap.inbox.map((i) => renderCard(i, false, false)).join("");
-    }
+    const activeHtml =
+      activeItems.length === 0
+        ? `<div style="padding:12px;text-align:center;font-size:12px;color:var(--tcs-muted)">近期无未处理碎片</div>`
+        : focusedArea && matched.length > 0
+          ? `<div style="font-size:11px;font-weight:600;color:var(--tcs-warning);padding:2px 4px;">本领域共振（${matched.length}）</div>` +
+            matched.map((i) => renderCard(i, true, false)).join("") +
+            (others.length > 0 ? `<div style="font-size:11px;color:var(--tcs-muted);padding:6px 4px 2px;">其他 Inbox（${others.length}）</div>` : "") +
+            others.map((i) => renderCard(i, false, true)).join("")
+          : activeItems.map((i) => renderCard(i, false, false)).join("");
+
+    const cooledHtml =
+      cooledItems.length > 0
+        ? `
+        <details class="tcs-cooled-box">
+          <summary>
+            <span>已冷却 · 14 天以上（${cooledItems.length}）</span>
+            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键归档</button>
+          </summary>
+          <div class="tcs-cooled-list">
+            ${cooledItems.map((i) => renderCard(i, false, true)).join("")}
+          </div>
+        </details>`
+        : "";
+
+    inboxListEl.innerHTML = activeHtml + cooledHtml;
   };
 
   const renderL3 = (snap: StageSnapshot) => {
@@ -987,7 +1153,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             <div style="font-size:11.5px;color:var(--tcs-muted)">L3 执行入口 · ${esc(area?.name ?? "")} / ${esc(proj.title)}</div>
             <div style="font-size:15.5px;font-weight:600;margin-top:3px;">${esc(adv.title)}</div>
           </div>
-          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l3-back>↖ 回 L2</button>
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l3-back>← 回 L2</button>
         </div>
         <div style="border-radius:10px;background:var(--tcs-bg);border:1px solid var(--tcs-card-border);padding:11px 13px;">
           <div style="font-size:11px;color:var(--tcs-muted);margin-bottom:4px;">推进说明（方案 A 轻量运营态）</div>
@@ -996,8 +1162,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-top:8px;border-top:1px solid var(--tcs-card-border);">
           <button type="button" class="tcs-btn tcs-btn-sm" data-toggle-adv="${esc(adv.id)}">${adv.state === "done" ? "重新打开" : "✓ 标记完成"}</button>
           <div style="display:flex;gap:7px;">
-            ${port.onPromoteTodo && !adv.promotedToLogseqAt ? `<button type="button" class="tcs-btn tcs-btn-sm" data-promote-adv="${esc(adv.id)}">✎ 写入 Logseq TODO</button>` : ""}
-            ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l3-open-logseq>📖 Logseq 原文</button>` : ""}
+            ${port.onPromoteTodo && !adv.promotedToLogseqAt ? `<button type="button" class="tcs-btn tcs-btn-sm" data-promote-adv="${esc(adv.id)}">写入 Logseq TODO</button>` : ""}
+            ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l3-open-logseq>Logseq 原文</button>` : ""}
             ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l3-open-work>${esc(port.openWorkLabel ?? "进入执行")}</button>` : ""}
           </div>
         </div>
@@ -1011,7 +1177,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       radarEl.style.display = "block";
       radarEl.innerHTML = `
         <button type="button" class="tcs-btn tcs-btn-pill tcs-anim-sprout" style="background:var(--tcs-card);border-color:var(--tcs-warning);box-shadow:var(--tcs-shadow-md);" data-radar-go="${esc(snap.edgeRadar.targetAreaId)}|${esc(snap.edgeRadar.targetProjectWorkKey ?? "")}">
-          <span style="color:var(--tcs-warning)">↗</span>
+          <span style="color:var(--tcs-warning)">→</span>
           <span>${esc(snap.edgeRadar.label)}</span>
           <span style="color:var(--tcs-muted)">滑过去</span>
         </button>
@@ -1126,7 +1292,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     const csCommit = target.closest<HTMLElement>("[data-cs-commit]")?.dataset.csCommit;
     if (csCommit) {
-      void runAction({ type: "resolve-proposals", decisions: [{ proposalId: csCommit, action: "accept" }] }, "初始领域星图已凝固落盘 ✨");
+      void runAction({ type: "resolve-proposals", decisions: [{ proposalId: csCommit, action: "accept" }] }, "初始领域星图已凝固落盘");
       return;
     }
     const csDismiss = target.closest<HTMLElement>("[data-cs-dismiss]")?.dataset.csDismiss;
@@ -1180,8 +1346,39 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     const parkArea = target.closest<HTMLElement>("[data-park-area]")?.dataset.parkArea;
     if (parkArea) {
       event.stopPropagation();
-      void runAction({ type: "toggle-park-area", areaId: parkArea, parked: true }, "已标为主动搁置（移入边缘休眠岛）");
+      void runAction({ type: "toggle-park-area", areaId: parkArea, parked: true }, "已标为主动搁置（移入边缘休眠区）");
       setZoom(0);
+      return;
+    }
+    const setRole = target.closest<HTMLElement>("[data-set-role]")?.dataset.setRole;
+    if (setRole) {
+      event.stopPropagation();
+      const [areaId, role] = setRole.split("|");
+      if (areaId && (role === "main" || role === "side" || role === "maintenance" || role === "parked")) {
+        void runAction(
+          { type: "update-area-meta", areaId, focusRole: role },
+          `已调整为「${focusRoleLabel(role)}」`,
+        );
+        if (role === "parked") setZoom(0);
+      }
+      return;
+    }
+    const setDomain = target.closest<HTMLElement>("[data-set-domain]")?.dataset.setDomain;
+    if (setDomain) {
+      event.stopPropagation();
+      const [areaId, dom] = setDomain.split("|");
+      if (areaId && (dom === "work" || dom === "life")) {
+        void runAction(
+          { type: "update-area-meta", areaId, domain: dom as StageAreaDomain },
+          `已切换为「${areaDomainLabel(dom as StageAreaDomain)}」领域`,
+        );
+      }
+      return;
+    }
+    if (target.closest("[data-archive-cooled]")) {
+      event.preventDefault();
+      event.stopPropagation();
+      void runAction({ type: "archive-cooled-inbox" }, "已归档超过 14 天的冷却碎片");
       return;
     }
     const unparkArea = target.closest<HTMLElement>("[data-unpark-area]")?.dataset.unparkArea;

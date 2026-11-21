@@ -2,7 +2,9 @@ import { workKey, type CatalogSnapshot } from "@task-copilot/contracts";
 import type {
   ColdStartAreaDraft,
   StageArea,
+  StageAreaDomain,
   StageCatalogEntry,
+  StageFocusRole,
   StageInboxRawItem,
   StageInboxViewItem,
   StagePoint,
@@ -10,6 +12,25 @@ import type {
 } from "./types.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+export const COOLED_INBOX_DAYS = 14;
+export const MAIN_MISMATCH_DAYS = 7;
+
+export function focusRoleLabel(role: StageFocusRole): string {
+  switch (role) {
+    case "main":
+      return "本季主线";
+    case "side":
+      return "支线";
+    case "maintenance":
+      return "维护";
+    case "parked":
+      return "搁置";
+  }
+}
+
+export function areaDomainLabel(domain: StageAreaDomain): string {
+  return domain === "life" ? "生活" : "工作";
+}
 const STOP_WORDS = new Set([
   "的", "了", "和", "与", "在", "是", "把", "将", "给", "到", "从", "对", "为", "中", "里", "上", "下",
   "一个", "一些", "这个", "那个", "可以", "需要", "已经", "目前", "最近", "今天", "昨天", "明天", "顺便",
@@ -54,19 +75,48 @@ export function computeTone(input: {
   recencyDays: number;
   inboxMatchCount: number;
   parked?: boolean;
+  focusRole?: StageFocusRole;
   hasActiveAdvancement?: boolean;
+  mainMismatch?: boolean;
+  inboxHighlightActive?: boolean;
 }): { tone: StageTone; signalLabel: string } {
-  if (input.parked) return { tone: "mist", signalLabel: "主动搁置" };
-  if (input.inboxMatchCount > 0) {
+  if (input.parked || input.focusRole === "parked") {
+    return { tone: "mist", signalLabel: "主动搁置" };
+  }
+  // Highest priority: real main-line mismatch (declared main idle >= 7d while other areas stay active)
+  if (input.focusRole === "main" && input.mainMismatch) {
+    return {
+      tone: "mismatch",
+      signalLabel: input.recencyDays >= 999 ? "主线错配 · 尚无推进" : `主线错配 · ${input.recencyDays} 天未动`,
+    };
+  }
+  // Warm amber only highlights when actively triaging / selecting an Inbox item (never steals default focus)
+  if (input.inboxHighlightActive && input.inboxMatchCount > 0) {
     return {
       tone: "amber",
       signalLabel: input.inboxMatchCount === 1 ? "Inbox 共振" : `Inbox ${input.inboxMatchCount} 条共振`,
     };
   }
+  // Maintenance areas stay quiet and never emit cold/anxiety warnings
+  if (input.focusRole === "maintenance") {
+    return {
+      tone: "none",
+      signalLabel: input.recencyDays <= 7 || input.hasActiveAdvancement ? "维护正常" : "维护模式",
+    };
+  }
+  if (input.focusRole === "main") {
+    if (input.recencyDays <= 3 || input.hasActiveAdvancement) {
+      return { tone: "teal", signalLabel: "主线推进中" };
+    }
+    if (input.recencyDays >= MAIN_MISMATCH_DAYS && input.recencyDays < 999) {
+      return { tone: "mist", signalLabel: `主线 ${input.recencyDays} 天未动` };
+    }
+    return { tone: "none", signalLabel: "" };
+  }
   if (input.recencyDays <= 3 || input.hasActiveAdvancement) {
     return {
       tone: "teal",
-      signalLabel: input.recencyDays <= 1 ? "近期活跃 · 可延展" : "可顺手推进",
+      signalLabel: input.recencyDays <= 1 ? "近期活跃" : "可顺手推进",
     };
   }
   if (input.recencyDays >= 10 && input.recencyDays < 999) {
@@ -110,6 +160,7 @@ export function matchInboxLocally(
   inboxItems: readonly StageInboxRawItem[],
   areas: readonly StageArea[],
   catalogByKey: ReadonlyMap<string, StageCatalogEntry>,
+  now = Date.now(),
 ): StageInboxViewItem[] {
   const areaTokenMap = new Map<string, Set<string>>();
   const projTokenMap = new Map<string, { areaId: string; tokens: Set<string> }>();
@@ -132,7 +183,7 @@ export function matchInboxLocally(
       const itemTokens = extractSemanticTokens(item.text);
       const areaScores: Array<{ id: string; score: number }> = [];
       for (const area of areas) {
-        if (area.parked) continue;
+        if (area.parked || area.focusRole === "parked") continue;
         const base = overlapScore(itemTokens, areaTokenMap.get(area.id) ?? new Set());
         const nameBoost = overlapScore(itemTokens, extractSemanticTokens(area.name)) * 1.4;
         const total = base + nameBoost;
@@ -158,12 +209,16 @@ export function matchInboxLocally(
         }
       }
 
+      const ageDays = recencyDays(item.updatedAt || item.createdAt, now);
       return {
         id: item.id,
         text: item.text,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
+        sourceType: item.sourceType ?? "manual",
         sourceLabel: item.sourceLabel ?? "Inbox",
+        ageDays,
+        cooled: ageDays >= COOLED_INBOX_DAYS,
         matchAreaIds,
         matchProjectWorkKeys,
       };
@@ -181,6 +236,22 @@ export function defaultAreaPosition(index: number): StagePoint {
   return {
     x: 20 + col * 308,
     y: 16 + row * 194,
+  };
+}
+
+export function defaultAreaPositionForRole(index: number, focusRole?: StageFocusRole, hasMainArea = false): StagePoint {
+  if (focusRole === "main") {
+    return { x: 174, y: 16 };
+  }
+  if (!hasMainArea) {
+    return defaultAreaPosition(index);
+  }
+  const cols = 2;
+  const col = index % cols;
+  const row = Math.floor(index / cols);
+  return {
+    x: 20 + col * 308,
+    y: 224 + row * 194,
   };
 }
 

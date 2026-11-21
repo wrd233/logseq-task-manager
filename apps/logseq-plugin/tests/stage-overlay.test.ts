@@ -79,7 +79,8 @@ test("Logseq GlobalStageOverlay fails open offline, anchors zoom-out, and promot
 
     await offlineOverlay.open(obsKey);
     assert.equal(offlineOverlay.isOpen, true);
-    assert.match(document.body.textContent ?? "", /尚未建立全局领域星图/);
+    assert.match(document.body.textContent ?? "", /尚未建立季节领域星图/);
+    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "Stage overlay UI must stay zero-emoji");
 
     // Trigger cold-start & solidify locally
     const csBtn = document.querySelector<HTMLButtonElement>("[data-tcs-empty-coldstart]");

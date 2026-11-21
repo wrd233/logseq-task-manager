@@ -1,8 +1,10 @@
 import type { CatalogWork, WorkRef } from "@task-copilot/contracts";
 
 export type StageZoomLevel = 0 | 1 | 2 | 3;
-export type StageTone = "amber" | "teal" | "mist" | "none";
+export type StageTone = "amber" | "teal" | "mist" | "mismatch" | "none";
 export type StageViewportSource = "logseq" | "dsh" | "standalone" | "agent";
+export type StageFocusRole = "main" | "side" | "maintenance" | "parked";
+export type StageAreaDomain = "work" | "life";
 
 export interface StagePoint {
   x: number;
@@ -25,6 +27,11 @@ export interface StageArea {
   name: string;
   workKeys: string[];
   pos: StagePoint;
+  focusRole: StageFocusRole;
+  domain: StageAreaDomain;
+  quarterGoal?: string;
+  antiGoal?: string;
+  weeklyMinimum?: string;
   parked: boolean;
   parkedReason?: string;
   annotation?: string;
@@ -65,7 +72,9 @@ export interface StageInboxRawItem {
   status: string;
   createdAt: number;
   updatedAt: number;
+  sourceType?: string;
   sourceLabel?: string;
+  sourcePath?: string;
 }
 
 export interface StageInboxViewItem {
@@ -73,9 +82,29 @@ export interface StageInboxViewItem {
   text: string;
   createdAt: number;
   updatedAt: number;
+  sourceType: string;
   sourceLabel: string;
+  ageDays: number;
+  cooled: boolean;
   matchAreaIds: string[];
   matchProjectWorkKeys: string[];
+}
+
+export interface StageInboxSourceDiagnostic {
+  source: "icloud" | "personal-inbox";
+  directory: string;
+  status: "ok" | "missing" | "permission-denied" | "error";
+  itemCount: number;
+  cooledCount?: number;
+  errorCode?: string;
+  message?: string;
+  guidance?: string;
+  checkedAt: number;
+}
+
+export interface StageInboxDiagnostics {
+  icloud: StageInboxSourceDiagnostic;
+  personalInbox?: StageInboxSourceDiagnostic;
 }
 
 export interface ColdStartAreaDraft {
@@ -84,11 +113,16 @@ export interface ColdStartAreaDraft {
   workKeys: string[];
   anchorTitles: string[];
   pos: StagePoint;
+  focusRole?: StageFocusRole;
+  domain?: StageAreaDomain;
+  quarterGoal?: string;
+  antiGoal?: string;
+  weeklyMinimum?: string;
 }
 
 export interface StageGhostProposal {
   id: string;
-  kind: "sprout-branch" | "propose-areas" | "propose-move" | "intake-inbox";
+  kind: "sprout-branch" | "propose-areas" | "propose-area-role" | "propose-move" | "intake-inbox";
   agent: string;
   createdAt: number;
   areaId?: string;
@@ -102,6 +136,12 @@ export interface StageGhostProposal {
   sourceInboxText?: string;
   proposedAreas?: ColdStartAreaDraft[];
   unassignedTitles?: string[];
+  proposedRole?: StageFocusRole;
+  proposedDomain?: StageAreaDomain;
+  proposedQuarterGoal?: string | null;
+  proposedAntiGoal?: string | null;
+  proposedWeeklyMinimum?: string | null;
+  demoteCurrentMainTo?: "side" | "maintenance" | "parked";
 }
 
 export interface StageHighlight {
@@ -148,10 +188,23 @@ export interface StageProjectNode {
   inboxMatchCount: number;
 }
 
+export interface StageMismatchSignal {
+  areaId: string;
+  areaName: string;
+  daysSinceProgress: number;
+  otherActiveAreas: Array<{ id: string; name: string; recencyDays: number }>;
+  summary: string;
+}
+
 export interface StageAreaNode {
   id: string;
   name: string;
   pos: StagePoint;
+  focusRole: StageFocusRole;
+  domain: StageAreaDomain;
+  quarterGoal?: string;
+  antiGoal?: string;
+  weeklyMinimum?: string;
   parked: boolean;
   parkedReason?: string;
   annotation?: string;
@@ -159,6 +212,7 @@ export interface StageAreaNode {
   pulseLabel: string;
   tone: StageTone;
   signalLabel: string;
+  mismatch?: StageMismatchSignal;
   projects: StageProjectNode[];
   areaAdvancements: StageAdvancementItem[];
   inboxMatchCount: number;
@@ -167,6 +221,8 @@ export interface StageAreaNode {
 export interface StageDormantArea {
   id: string;
   name: string;
+  focusRole: StageFocusRole;
+  domain: StageAreaDomain;
   recencyDays: number;
   parked: boolean;
   parkedReason?: string;
@@ -190,6 +246,9 @@ export interface StageSnapshot {
   dormantAreas: StageDormantArea[];
   unassignedWorks: StageUnassignedWork[];
   inbox: StageInboxViewItem[];
+  cooledInboxCount: number;
+  mismatchSignals: StageMismatchSignal[];
+  inboxDiagnostics?: StageInboxDiagnostics;
   ghostProposals: StageGhostProposal[];
   highlights: StageHighlight[];
   edgeRadar: StageEdgeRadar | null;
@@ -225,12 +284,24 @@ export type StageUserAction =
   | { type: "move-area"; areaId: string; pos: StagePoint }
   | { type: "toggle-park-area"; areaId: string; parked: boolean; reason?: string }
   | { type: "rename-area"; areaId: string; name: string }
+  | {
+      type: "update-area-meta";
+      areaId: string;
+      focusRole?: StageFocusRole;
+      domain?: StageAreaDomain;
+      quarterGoal?: string | null;
+      antiGoal?: string | null;
+      weeklyMinimum?: string | null;
+      demoteCurrentMainTo?: "side" | "maintenance" | "parked";
+    }
   | { type: "trigger-cold-start"; agent?: string }
   | { type: "merge-cold-start-area"; proposalId: string; sourceAreaId: string; targetAreaId: string }
   | { type: "drop-cold-start-area"; proposalId: string; areaId: string }
   | { type: "resolve-proposals"; decisions: StageResolveDecision[] }
   | { type: "dismiss-all-proposals" }
   | { type: "drop-inbox"; inboxId: string; areaId: string; projectWorkKey?: string | null }
+  | { type: "archive-inbox-items"; inboxIds: string[] }
+  | { type: "archive-cooled-inbox" }
   | { type: "toggle-advancement-done"; advancementId: string }
   | { type: "mark-promoted-logseq"; advancementId: string }
   | { type: "clear-radar" }

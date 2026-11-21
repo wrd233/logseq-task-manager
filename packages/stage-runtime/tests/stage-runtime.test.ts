@@ -114,14 +114,21 @@ test("StageEngine isolates Presence, Ghost staging, and Plan A Committed state w
   assert.equal(commitDraft.committedIds.length, 1);
   assert.ok(engine.getRegistry().areas.length >= 2);
 
-  // 2. Local 0ms Inbox resonance matches the right Area and Project
+  // 2. Local 0ms Inbox resonance matches the right Area and Project without stealing default focus tone
   const snap1 = engine.buildSnapshot(catalog, inbox, NOW);
   const inb1 = snap1.inbox.find((i) => i.id === "inb-1")!;
   const obsKey = workKey(catalog[0]!.works[0]!.workRef);
   assert.ok(inb1.matchProjectWorkKeys.includes(obsKey), "expected 0ms local match to obs project");
   const obsArea = snap1.areas.find((a) => a.projects.some((p) => p.workKey === obsKey))!;
   assert.ok(inb1.matchAreaIds.includes(obsArea.id));
-  assert.equal(obsArea.tone, "amber");
+  assert.equal(obsArea.tone, "teal", "default calm state should not let Inbox amber hijack area tone");
+
+  // Selecting an Inbox item activates amber resonance on the matched Area
+  engine.setViewport({ selectedInboxId: "inb-1" }, "dsh", NOW);
+  const snapSelectedInbox = engine.buildSnapshot(catalog, inbox, NOW);
+  const obsAreaResonating = snapSelectedInbox.areas.find((a) => a.id === obsArea.id)!;
+  assert.equal(obsAreaResonating.tone, "amber");
+  engine.setViewport({ selectedInboxId: null }, "dsh", NOW);
 
   // 3. Non-hijacking highlight: zoomed into Area A, highlighting Area B creates Edge Radar instead of moving viewport
   const otherArea = snap1.areas.find((a) => a.id !== obsArea.id)!;
@@ -173,4 +180,143 @@ test("StageEngine isolates Presence, Ghost staging, and Plan A Committed state w
   // Serialization roundtrip
   const reparsed = parseStageRegistry(JSON.parse(JSON.stringify(engine.getRegistry())));
   assert.equal(reparsed.areas.length, engine.getRegistry().areas.length);
+});
+
+test("Four-state Areas prioritize main-line mismatch, keep maintenance calm, enforce single-main replacement, and cool >14d Inbox", () => {
+  const catalog = sampleCatalog();
+  const obsKey = workKey(catalog[0]!.works[0]!.workRef); // updated 1 day ago
+  const learnKey = workKey(catalog[0]!.works[3]!.workRef); // updated 13 days ago
+  const netKey = workKey(catalog[0]!.works[2]!.workRef); // updated 2 days ago
+
+  const engine = new StageEngine(undefined, NOW);
+  const draft = engine.proposeAreas(
+    {
+      agent: "attention-navigator",
+      catalog,
+      areas: [
+        {
+          name: "认证学习",
+          workKeys: [learnKey],
+          focusRole: "main",
+          domain: "work",
+          quarterGoal: "90 天内完成系统排障体系整理",
+          antiGoal: "不靠熬夜压缩睡眠",
+        },
+        {
+          name: "监控平台",
+          workKeys: [obsKey],
+          focusRole: "side",
+          domain: "work",
+        },
+        {
+          name: "基础设施",
+          workKeys: [netKey],
+          focusRole: "side",
+          domain: "work",
+        },
+        {
+          name: "健康与运动",
+          workKeys: [],
+          focusRole: "maintenance",
+          domain: "life",
+          weeklyMinimum: "每周至少运动 2 次、保证 7 小时睡眠",
+        },
+      ],
+    },
+    NOW - 30 * DAY,
+  );
+  engine.resolveProposals([{ proposalId: draft.id, action: "accept" }], NOW - 30 * DAY);
+
+  const inboxWithCooled: StageInboxRawItem[] = [
+    ...sampleInbox(),
+    {
+      id: "inb-old",
+      text: "Linux 排障卡片补充一篇老笔记",
+      status: "open",
+      createdAt: NOW - 18 * DAY,
+      updatedAt: NOW - 18 * DAY,
+      sourceType: "ios-shortcut",
+      sourceLabel: "iPhone 随口记",
+    },
+  ];
+
+  const snap = engine.buildSnapshot(catalog, inboxWithCooled, NOW);
+
+  // 1. Main-line mismatch (13 days idle while 监控平台/基础设施 active <= 3d) outranks everything!
+  assert.equal(snap.mismatchSignals.length, 1);
+  const mainArea = snap.areas.find((a) => a.focusRole === "main")!;
+  assert.equal(mainArea.name, "认证学习");
+  assert.equal(mainArea.tone, "mismatch");
+  assert.match(mainArea.signalLabel, /主线错配/);
+  assert.ok(mainArea.mismatch);
+  assert.equal(mainArea.quarterGoal, "90 天内完成系统排障体系整理");
+  assert.equal(mainArea.antiGoal, "不靠熬夜压缩睡眠");
+
+  // Even when selecting a matching Inbox item, main-line mismatch keeps top priority!
+  engine.setViewport({ selectedInboxId: "inb-old" }, "standalone", NOW);
+  const snapWithSelected = engine.buildSnapshot(catalog, inboxWithCooled, NOW);
+  assert.equal(snapWithSelected.areas.find((a) => a.id === mainArea.id)!.tone, "mismatch");
+
+  // 2. Life maintenance area stays visible (never auto-dormant) and quiet (no cold anxiety) even after 30 days
+  const lifeArea = snap.areas.find((a) => a.domain === "life")!;
+  assert.equal(lifeArea.focusRole, "maintenance");
+  assert.equal(lifeArea.tone, "none");
+  assert.equal(lifeArea.weeklyMinimum, "每周至少运动 2 次、保证 7 小时睡眠");
+  assert.doesNotMatch(lifeArea.signalLabel, /静默/);
+
+  // 3. Cooled Inbox (>14d) flagged cleanly and excluded from active area inboxMatchCount
+  assert.equal(snap.cooledInboxCount, 1);
+  assert.equal(snap.inbox.find((i) => i.id === "inb-old")!.cooled, true);
+  assert.equal(mainArea.inboxMatchCount, 0);
+
+  // 4. archive-cooled-inbox returns only the cooled item ID
+  const archived = engine.applyUserAction(
+    { type: "archive-cooled-inbox" },
+    { catalog, inbox: inboxWithCooled, now: NOW },
+  );
+  assert.deepEqual(archived.archivedInboxIds, ["inb-old"]);
+
+  // 5. proposeAreaRole enforces One-In-One-Out single-main replacement via Ghost -> Resolve + 1-step Undo
+  const obsArea = snap.areas.find((a) => a.name === "监控平台")!;
+  const roleProposal = engine.proposeAreaRole(
+    {
+      agent: "attention-navigator",
+      areaId: obsArea.id,
+      focusRole: "main",
+      demoteCurrentMainTo: "side",
+      quarterGoal: "完成核心告警降噪闭环",
+      reason: "近期真实投入集中在监控平台，建议扶正为主线",
+    },
+    NOW,
+  )!;
+  assert.equal(roleProposal.kind, "propose-area-role");
+  // Still Ghost -> old main unchanged
+  assert.equal(engine.getRegistry().areas.find((a) => a.id === mainArea.id)!.focusRole, "main");
+
+  engine.resolveProposals([{ proposalId: roleProposal.id, action: "accept" }], NOW);
+  const afterCommit = engine.getRegistry().areas;
+  assert.equal(afterCommit.filter((a) => a.focusRole === "main").length, 1);
+  assert.equal(afterCommit.find((a) => a.id === obsArea.id)!.focusRole, "main");
+  assert.equal(afterCommit.find((a) => a.id === mainArea.id)!.focusRole, "side");
+
+  // Undo restores previous main cleanly
+  assert.equal(engine.undoLastCommit(), true);
+  assert.equal(engine.getRegistry().areas.find((a) => a.id === mainArea.id)!.focusRole, "main");
+  assert.equal(engine.getRegistry().areas.find((a) => a.id === obsArea.id)!.focusRole, "side");
+
+  // 6. Legacy v1 registry without focusRole/domain parses backward-compatibly
+  const legacyParsed = parseStageRegistry({
+    schemaVersion: 1,
+    areas: [
+      { id: "a1", name: "老工作区", workKeys: [], pos: { x: 20, y: 20 }, parked: false, createdAt: NOW, updatedAt: NOW },
+      { id: "a2", name: "老搁置区", workKeys: [], pos: { x: 40, y: 40 }, parked: true, createdAt: NOW, updatedAt: NOW },
+    ],
+    advancements: [],
+    unassignedWorkKeys: [],
+    updatedAt: NOW,
+  });
+  assert.equal(legacyParsed.areas[0]!.focusRole, "side");
+  assert.equal(legacyParsed.areas[0]!.domain, "work");
+  assert.equal(legacyParsed.areas[1]!.focusRole, "parked");
+  assert.equal(legacyParsed.areas[1]!.parked, true);
 });
