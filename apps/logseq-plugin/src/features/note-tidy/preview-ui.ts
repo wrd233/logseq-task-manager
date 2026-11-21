@@ -561,7 +561,12 @@ export class NoteTidyPreviewOverlay {
     const doc = this.activeDoc;
     if (!preserveStatus && !this.busy) this.activeStatus.textContent = "";
 
-    const titleText = plan.meta.origin === "external-mcp" ? "外部原文改动提案" : "左侧原地整理";
+    const titleText =
+      plan.meta.origin === "external-mcp"
+        ? plan.meta.providerId?.startsWith("dsh:")
+          ? "来自 DSH 的原文改动提案"
+          : "外部原文改动提案"
+        : "左侧原地整理";
     const toggleGroup = docElement(doc, "div", "", "wb-tidy-toggle");
     const afterBtn = docButton(doc, "整理后（成稿）", () => this.switchView("after"));
     afterBtn.dataset.tidyView = "after";

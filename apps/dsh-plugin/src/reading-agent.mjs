@@ -1,6 +1,7 @@
 /* global AbortSignal */
 import { randomUUID } from 'node:crypto';
 import { WorkspaceError } from '@task-copilot/contracts';
+import { isSensitiveMaterialName } from '@task-copilot/reading-runtime';
 
 const string={type:'string'},strings={type:'array',items:string},integer={type:'integer',minimum:0};
 const object=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
@@ -49,6 +50,9 @@ export async function readingAgent(ctx,task,instructions,signal){
       });
       register('logseq_file_read','Read a linked material or explicitly associated Logseq note by the m identifier, not by arbitrary path. Return actual stored text; paginate via nextOffset.',object({materialId:string,offset:integer},['materialId']),args=>{
         const material=materials.get(args.materialId);if(!material)throw Error('Material is not in the reading invitation.');
+        if(material.sensitiveRedacted || (!material.note && isSensitiveMaterialName(material.filename ?? ''))) {
+          return {id:material.id,filename:material.filename,kind:material.kind,version:material.version,sensitiveBlocked:true,unavailable:'Sensitive file content is blocked from remote models.'};
+        }
         const offset=args.offset??0,text=material.text??material.excerpt;
         return {id:material.id,filename:material.filename,kind:material.kind,version:material.version,truncated:material.truncated,...(typeof text==='string'?{text:text.slice(offset,offset+16000),...(offset+16000<text.length?{nextOffset:offset+16000}:{})}:{unavailable:'No text is available; do not infer the contents.'})};
       });

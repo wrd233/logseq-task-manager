@@ -2,12 +2,13 @@ import { publishCatalog } from './work-catalog.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
-import { join, resolve, dirname } from "node:path";
+import { basename, join, resolve, dirname } from "node:path";
 import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor, type WorkRef } from "@task-copilot/contracts";
+import { isSensitiveMaterialName, type ReadingMaterialInput } from "@task-copilot/reading-runtime";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
 import { createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
-import { isDshRunning, ReadingJobHub, type ReadingHubOptions } from "./reading-hub.ts";
-import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
+import { isDshRunning, ReadingJobHub, type ReadingHubOptions, type StagedReadingJob } from "./reading-hub.ts";
+import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, resolveWorkPrivacy, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -522,6 +523,297 @@ export async function startWorkspaceServer(options: {
                 });
                 send(response, 200, { instanceId, value });
                 return;
+            }
+            if (request.url?.startsWith("/dsh/") === true) {
+                const unwrapReplyValue = (value: unknown): unknown =>
+                    value && typeof value === "object" && "provenance" in value && "value" in value
+                        ? (value as { value: unknown }).value
+                        : value;
+                const summarizeJob = (job: StagedReadingJob | null) =>
+                    job
+                        ? {
+                              jobId: job.jobId,
+                              workKey: job.workKey,
+                              status: job.status,
+                              origin: job.origin ?? "local-model",
+                              requireReview: job.requireReview === true,
+                              summary: job.summary ?? null,
+                              sourceSetVersion: job.sourceSetVersion ?? null,
+                              structureVersion: job.structureVersion ?? null,
+                              createdAt: job.createdAt,
+                              completedAt: job.completedAt ?? null,
+                              providerId: job.result?.agentRun?.providerId ?? null,
+                              error: job.error ?? null,
+                          }
+                        : null;
+                const assertDshActive = (keys: string[]) => {
+                    const raw = workRecord(input, keys);
+                    const connectionId = workText(raw.connectionId);
+                    const parsedScope = parseWorkBinding({
+                        scope: raw.scope,
+                        directory: "/",
+                        organization: "flat",
+                        provider: "workspace",
+                        workspaceId: null,
+                    }).scope;
+                    const active = getActiveConnection();
+                    if (!active) throw new WorkspaceError("WORKSPACE_OFFLINE");
+                    if (active.connectionId !== connectionId) throw new WorkspaceError("CONNECTION_STALE");
+                    if (!sameWorkScope(active.binding.scope, parsedScope)) throw new WorkspaceError("SCOPE_MISMATCH");
+                    return { raw, active };
+                };
+
+                if (request.url === "/dsh/hub-status") {
+                    const { active } = assertDshActive(["connectionId", "scope"]);
+                    const [privacyMode, jobState, proposals, providers] = await Promise.all([
+                        resolveWorkPrivacy(state, active.binding, active.workKey),
+                        readingHub.jobStatus({ workKey: active.workKey }),
+                        listWritebackProposals(state, active.workKey),
+                        readingHub.providers(),
+                    ]);
+                    const localProfile = providers.routes.local
+                        ? providers.profiles.find((p) => p.id === providers.routes.local) ?? null
+                        : null;
+                    const primaryId =
+                        privacyMode === "local-only"
+                            ? providers.routes.local
+                            : providers.routes.deep ?? providers.routes.fast ?? providers.routes.local;
+                    const primaryProfile = primaryId ? providers.profiles.find((p) => p.id === primaryId) ?? null : null;
+                    send(response, 200, {
+                        instanceId,
+                        value: {
+                            workKey: active.workKey,
+                            privacyMode,
+                            readingJob: summarizeJob(jobState.job),
+                            proposals: proposals.map((item) => ({
+                                proposalId: item.proposalId,
+                                summary: item.summary,
+                                clientId: item.clientId,
+                                createdAt: item.createdAt,
+                                sourceSetVersion: item.sourceSetVersion,
+                                structureVersion: item.structureVersion,
+                                operationCount: item.operations.length,
+                            })),
+                            providers: {
+                                ready: Boolean(primaryProfile?.configured),
+                                localReady: Boolean(localProfile?.configured),
+                                activeLabel: primaryProfile?.label ?? null,
+                                activeLocality: primaryProfile?.locality ?? null,
+                            },
+                        },
+                    });
+                    return;
+                }
+                if (request.url === "/dsh/writeback-dismiss") {
+                    const { raw, active } = assertDshActive(["connectionId", "scope", "proposalId", "clientId"]);
+                    const proposalId = workText(raw.proposalId, 128);
+                    const clientId = raw.clientId !== undefined ? workText(raw.clientId, 128) : "dsh";
+                    const scopedProposals = await listWritebackProposals(state, active.workKey);
+                    const owned = scopedProposals.some((item) => item.proposalId === proposalId);
+                    const dismissed = owned ? await dismissWritebackProposal(state, proposalId) : false;
+                    await auditFact({
+                        connectionId: active.connectionId,
+                        clientId,
+                        requestId: randomUUID(),
+                        command: "dsh.writeback.dismiss",
+                        payload: { proposalId, workKey: active.workKey, dismissed },
+                        outcome: dismissed ? "returned" : "NOT_FOUND",
+                    });
+                    send(response, 200, { instanceId, value: { dismissed, proposalId } });
+                    return;
+                }
+                if (request.url === "/dsh/reading-start") {
+                    const { raw, active } = assertDshActive(["connectionId", "scope", "question", "profileId", "clientId"]);
+                    const question =
+                        raw.question !== undefined ? workText(raw.question, 600) : "整理当前工作以便快速恢复上下文";
+                    const profileId = raw.profileId !== undefined ? workText(raw.profileId, 64) : undefined;
+                    const clientId = raw.clientId !== undefined ? workText(raw.clientId, 128) : "dsh";
+                    const privacyMode = await resolveWorkPrivacy(state, active.binding, active.workKey);
+                    const dispatch = (command: WorkspaceCall["command"], payload: Record<string, unknown>) =>
+                        enqueueOperation({
+                            schemaVersion: 1,
+                            instanceId,
+                            connectionId: active.connectionId,
+                            clientId,
+                            requestId: randomUUID(),
+                            command,
+                            payload,
+                        }).then(unwrapReplyValue);
+                    const refreshed = (await dispatch("refresh", {})) as {
+                        snapshot: {
+                            scope: AgentWorkBinding["scope"];
+                            structureVersion: string;
+                            sourceSetVersion: string;
+                            blocks: Array<{
+                                sourceId: string;
+                                target: { blockUuid: string };
+                                parentUuid?: string | null;
+                                depth?: number;
+                                availability: string;
+                                content?: string | null;
+                            }>;
+                        };
+                        workspace?: {
+                            observed?: {
+                                sources?: Array<{
+                                    association?: { id?: string; pageName?: string; blockUuid?: string; pageUuid?: string };
+                                    availability?: string;
+                                    snapshot?: {
+                                        sourceSetVersion?: string;
+                                        blocks?: Array<{ content?: string | null }>;
+                                    };
+                                }>;
+                            };
+                        };
+                    };
+                    const materials: ReadingMaterialInput[] = [];
+                    const seenIds = new Set<string>();
+                    let rawMaterials: { materials?: Array<{ id: string; path?: string; filename?: string; title?: string; version?: string | null; availability?: string; content?: string | null }> } = { materials: [] };
+                    try {
+                        rawMaterials = (await dispatch("materials.list", {})) as typeof rawMaterials;
+                    } catch {
+                        rawMaterials = { materials: [] };
+                    }
+                    let hydratedCount = 0;
+                    for (const item of rawMaterials.materials ?? []) {
+                        if (!item || typeof item.id !== "string" || seenIds.has(item.id)) continue;
+                        seenIds.add(item.id);
+                        const rawPath = typeof item.path === "string" ? item.path : undefined;
+                        const filename =
+                            typeof item.filename === "string" && item.filename.trim()
+                                ? item.filename.trim()
+                                : rawPath
+                                  ? basename(rawPath)
+                                  : item.title || item.id;
+                        const sensitive = isSensitiveMaterialName(filename) || (rawPath !== undefined && isSensitiveMaterialName(rawPath));
+                        let text: string | undefined = typeof item.content === "string" ? item.content : undefined;
+                        if (!sensitive && !text && item.availability === "available" && hydratedCount < 8) {
+                            hydratedCount++;
+                            try {
+                                const readRes = (await dispatch("materials.read", { id: item.id })) as { content?: string | null };
+                                if (typeof readRes?.content === "string") text = readRes.content;
+                            } catch {
+                                // Keep metadata only if material cannot be read.
+                            }
+                        }
+                        materials.push({
+                            id: item.id,
+                            filename,
+                            ...(rawPath ? { path: rawPath } : {}),
+                            ...(item.version ? { version: item.version } : {}),
+                            availability: item.availability ?? "available",
+                            ...(text && !sensitive ? { excerpt: text.slice(0, 4000), text: text.slice(0, 64000), truncated: text.length > 64000 } : {}),
+                        });
+                    }
+                    for (const assoc of refreshed.workspace?.observed?.sources ?? []) {
+                        const id = assoc.association?.id
+                            ? `note:${assoc.association.id}`
+                            : assoc.association?.pageUuid
+                              ? `note:${assoc.association.pageUuid}`
+                              : assoc.association?.blockUuid
+                                ? `note:${assoc.association.blockUuid}`
+                                : null;
+                        if (!id || seenIds.has(id)) continue;
+                        seenIds.add(id);
+                        const noteText = (assoc.snapshot?.blocks ?? [])
+                            .map((b) => (typeof b.content === "string" ? b.content : ""))
+                            .filter(Boolean)
+                            .join("\n");
+                        materials.push({
+                            id,
+                            filename: assoc.association?.pageName ?? "关联笔记",
+                            note: true,
+                            availability: assoc.availability ?? "available",
+                            ...(assoc.snapshot?.sourceSetVersion ? { version: assoc.snapshot.sourceSetVersion } : {}),
+                            ...(noteText ? { excerpt: noteText.slice(0, 4000), text: noteText.slice(0, 64000), truncated: noteText.length > 64000 } : {}),
+                        });
+                    }
+                    const started = await readingHub.startJob({
+                        workKey: active.workKey,
+                        trigger: "manual",
+                        privacyMode,
+                        requireReview: true,
+                        origin: "external-mcp",
+                        summary: "在 DSH 发起阅读简报整理",
+                        ...(profileId ? { profileId } : {}),
+                        input: {
+                            mode: "organize",
+                            question,
+                            source: {
+                                scope: refreshed.snapshot.scope,
+                                structureVersion: refreshed.snapshot.structureVersion,
+                                sourceSetVersion: refreshed.snapshot.sourceSetVersion,
+                                blocks: refreshed.snapshot.blocks.map((block) => ({
+                                    sourceId: block.sourceId,
+                                    target: block.target,
+                                    ...(block.parentUuid !== undefined ? { parentUuid: block.parentUuid } : {}),
+                                    ...(block.depth !== undefined ? { depth: block.depth } : {}),
+                                    availability: block.availability,
+                                    ...(typeof block.content === "string" ? { content: block.content } : {}),
+                                })),
+                            },
+                            materials,
+                        },
+                    });
+                    await auditFact({
+                        connectionId: active.connectionId,
+                        clientId,
+                        requestId: started.job.jobId,
+                        command: "dsh.reading.start",
+                        payload: { workKey: active.workKey, privacyMode, deduplicated: started.deduplicated },
+                        outcome: "returned",
+                    });
+                    send(response, 200, {
+                        instanceId,
+                        value: { job: summarizeJob(started.job), deduplicated: started.deduplicated },
+                    });
+                    return;
+                }
+                if (request.url === "/dsh/mcp-call") {
+                    const { raw, active } = assertDshActive([
+                        "connectionId",
+                        "scope",
+                        "name",
+                        "arguments",
+                        "clientId",
+                        "requestId",
+                    ]);
+                    const name = workText(raw.name, 128);
+                    if (name !== "workbench_propose_writeback" && name !== "workbench_submit_reading_candidate") {
+                        throw new WorkspaceError("UNKNOWN_MCP_TOOL", `DSH 受控回流接口不允许调用：${name}`);
+                    }
+                    const rawArgs =
+                        raw.arguments !== undefined && raw.arguments !== null
+                            ? typeof raw.arguments === "object" && !Array.isArray(raw.arguments)
+                                ? (raw.arguments as Record<string, unknown>)
+                                : (() => {
+                                      throw new WorkspaceError("INVALID_INPUT", "Tool arguments must be a JSON object.");
+                                  })()
+                            : {};
+                    if (rawArgs.workKey !== undefined) {
+                        const requestedKey = workText(rawArgs.workKey, 512);
+                        if (requestedKey !== active.workKey && requestedKey !== workKeyForScope(active.binding.scope)) {
+                            throw new WorkspaceError("SCOPE_MISMATCH");
+                        }
+                    }
+                    if (rawArgs.rootUuid !== undefined && workText(rawArgs.rootUuid, 128) !== active.binding.scope.rootUuid) {
+                        throw new WorkspaceError("SCOPE_MISMATCH");
+                    }
+                    const clientId = raw.clientId !== undefined ? workText(raw.clientId, 128) : "dsh";
+                    const value = await executeMcpTool(mcpContext, {
+                        name,
+                        arguments: {
+                            ...rawArgs,
+                            workKey: active.workKey,
+                            rootUuid: active.binding.scope.rootUuid,
+                        },
+                        clientId,
+                        ...(raw.requestId !== undefined ? { requestId: workText(raw.requestId, 128) } : {}),
+                    });
+                    send(response, 200, { instanceId, value });
+                    return;
+                }
+                throw new WorkspaceError("UNKNOWN_ROUTE");
             }
             if (request.url === "/call" || request.url === "/plugin/call") {
                 const call = parseWorkspaceCall(input);

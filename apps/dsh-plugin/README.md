@@ -1,11 +1,13 @@
 # DSH × Logseq 工作台
 
-可安装的 DSH 插件。**Unified Work Experience UX v1** 把工作入口、当前结构、Reader、引用、历史与时间规划放进同一个 DSH 工作界面；最终引用、拖动与真实宿主收尾记录见 [Final UX Polish & Acceptance Closure v1](../../docs/implementation/final-work-experience-polish-v1/README.md)。
+可安装的 DSH 插件。**Unified Work Experience UX v1**、**Personal Inbox v1** 与 **DSH ↔ Companion 双向闭环（D-47 / D-48）** 把工作入口、当前结构、Reader、原生引用、共享简报、个人收集箱、历史回看、变更回顾与时间规划放进同一个 DSH 工作界面；前期最终收尾记录见 [Final UX Polish & Acceptance Closure v1](../../docs/implementation/final-work-experience-polish-v1/README.md) 与 [Personal Inbox v1](../../docs/implementation/personal-inbox-v1/README.md)。
 
 - 原生 DSH 对话、输入框、模型选择和轨迹继续使用宿主实现。
-- 会话头部只保留 **工作** 与 **规划**。工作入口不再依赖旧的左侧浮层；阅读、结构和引用都使用 DSH 原生右侧栏，可拖动、全屏和分栏。
+- 会话头部保留 **工作**、**规划** 与 **收集箱**。阅读、结构、简报、引用、收集箱、历史回看与变更回顾都使用 DSH 原生右侧栏，可拖动、全屏和分栏。
 - 每个 DSH 会话独立保存工作身份。换会话同步右侧栏；连接恢复由 Logseq/companion 已有的只读授权恢复，不需要重新关联。
-- Work tab 与 Planner tab 保持挂载；在历史、规划之间切换再回来，当前工作对象、阅读/结构模式和滚动位置保留。
+- Work tab、Planner tab 与 Inbox tab 保持挂载；在历史、规划、收集箱之间切换再回来，当前工作对象、阅读/结构模式和滚动位置保留。
+- **D-41 / D-47 隐私与敏感文件边界**：敏感凭据文件（`.env*`、`*.key`、`*.pem` 等）默认禁止发往模型并在文件页标注「敏感」；当工作在 Logseq 设为「仅本地模型 / 禁止上云」时，DSH 模型上下文与读取工具严格 Fail Closed，右侧栏本地阅读不受影响。
+- **D-48 双向回流闭环**：DSH 原生 Agent 工具新增 `logseq_writeback_propose`（仅限待审提案，自动生成锚点计划回流 Logseq 左侧 FLIP 预览）与 `logseq_reading_candidate_submit`（暂存阅读候选进 Companion `ReadingJobHub`）；Work tab 在有待审提案或候选修订时安静显示回流状态条（支持一键跳转 Logseq 审阅或撤回），简报 tab 可直接经 Companion 发起阅读简报整理，所有「采用到工作」动作统一在 Logseq 确认。
 
 ## 使用入口
 
@@ -91,7 +93,7 @@ node --import tsx apps/dsh-plugin/tests/host-proof.mjs
 - 引用使用 DSH 原生标签，完整来源数据不直接显示在输入框；表格按实际行/单元格映射；无法精确映射的转义管道单元格提示改用整块引用。
 - 变更回顾的模型理解需要用户明确点击并配置模型；验收环境没有调用外部模型。
 - 文件页仍显示当前工作目录和显式关联材料；没有增加上传、内嵌预览或全 Graph 对象目录。
-- 只提供读取与阅读方案工具，没有正文、文件或 TODO 写入工具。DSH 自身通用终端工具的权限仍由 DSH 管理。
+- 写回工具仅支持待审提案通道（`logseq_writeback_propose` 的 `content-proposal` / `formatting-preview` 与 `logseq_reading_candidate_submit`），不会静默改写 Logseq 原块、文件、TODO 或正式任务状态；所有采用动作统一在 Logseq 确认。DSH 自身通用终端工具的权限仍由 DSH 管理。
 - 本轮实机验收使用隔离 Logseq 副本、测试 Graph 和测试工作区，没有使用真实用户 Graph；具体截图、测试数据和未完成项见 [Unified Work Experience UX v1](../../docs/implementation/unified-work-experience-ux-v1/README.md)。
 
 `src/` 是正式宿主和 React 客户端，`cordis.patch.yml` 是 bundle，`scripts/` 是构建/安装器，`tests/` 是验证程序。`prototype/` 保留交互样例，`research/` 保留前期宿主实验，见 [设计记录](design.md)。

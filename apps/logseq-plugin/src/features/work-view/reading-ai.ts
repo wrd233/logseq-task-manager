@@ -598,7 +598,11 @@ export class WorkReadingAI {
       anchors: [],
       omittedAnchorIds: [],
       protectedBlockCount: 0,
-      meta: { origin: "external-mcp", providerId: `mcp:${proposal.clientId}`, proposalId: proposal.proposalId },
+      meta: {
+        origin: "external-mcp",
+        providerId: proposal.clientId.startsWith("dsh:") ? proposal.clientId : `mcp:${proposal.clientId}`,
+        proposalId: proposal.proposalId,
+      },
     };
   }
 
@@ -1010,8 +1014,13 @@ export class WorkReadingAI {
       state.busy = false;
       state.background = false;
       const redacted = result.agentRun?.redactedMaterials;
+      const fromDsh = result.agentRun?.providerId?.startsWith("dsh:") === true;
       state.notice = requireReview
-        ? (job.summary ? `收到外部候选修订：${job.summary}` : "收到外部 Agent 提交的候选修订，可点击「待采用修订」审阅。")
+        ? job.summary
+          ? `${fromDsh ? "收到来自 DSH 的候选修订" : "收到外部候选修订"}：${job.summary}`
+          : fromDsh
+            ? "收到来自 DSH 的候选修订，可点击「待采用修订」审阅。"
+            : "收到外部 Agent 提交的候选修订，可点击「待采用修订」审阅。"
         : redacted?.length
           ? `已自动屏蔽 ${redacted.length} 份敏感文件正文未发往云端。`
           : "";

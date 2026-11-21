@@ -577,10 +577,30 @@ test("NoteTidyPreviewOverlay mounts in-place over target left Logseq block insid
     // Space toggles to before view on host document; Escape closes and unmasks cleanly
     document.dispatchEvent(new f.browser.KeyboardEvent("keydown", { key: " ", bubbles: true }));
     assert.equal(overlay.currentView, "before");
+    // Escape closes and unmasks cleanly
     document.dispatchEvent(new f.browser.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     assert.equal(overlay.open, false);
     assert.equal(main.querySelector(".wb-host-tidy"), null);
     assert.equal(nativeBlock.getAttribute("data-wb-tidy-masked"), null);
+
+    // DSH-originated writeback proposal renders dedicated DSH title
+    overlay.openPlan({
+      schemaVersion: 1,
+      summary: "来自 DSH 对话的整理提案",
+      sourceSetVersion: "s-v1",
+      structureVersion: "st-v1",
+      hasExistingStructure: true,
+      structuralChanges: [],
+      operations: [],
+      beforeBlocks: [{ id: "s-2", sourceId: "s-2", blockUuid: "b-2", parentId: "s-1", depth: 1, content: "原文", protected: false, changed: true }],
+      afterBlocks: [{ id: "s-2", sourceId: "s-2", blockUuid: "b-2", parentId: "s-1", depth: 1, content: "整理后", protected: false, changed: true }],
+      anchors: [],
+      omittedAnchorIds: [],
+      protectedBlockCount: 0,
+      meta: { origin: "external-mcp", providerId: "dsh:sess-1", proposalId: "prop-dsh-1" },
+    });
+    assert.equal(main.querySelector(".wb-host-tidy")?.textContent.includes("来自 DSH 的原文改动提案"), true);
+    overlay.close();
 
     overlay.dispose();
     assert.equal(document.head.querySelector("style[data-wb-host-tidy-style]"), null);

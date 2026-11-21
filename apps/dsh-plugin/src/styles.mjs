@@ -6,6 +6,7 @@ export const styles = `
 .lq-header,.lq-row-action{border:0;background:none;color:light-dark(#5077cb,#93b6ff);padding:5px 7px;border-radius:6px;font-size:12px}.lq-header:hover,.lq-row-action:hover{background:light-dark(#eef3fd,#253248)}
 .lq-files{padding:14px 10px}.lq-files h3{font-size:10px;font-weight:500;letter-spacing:.04em;color:var(--lq-muted);margin:12px 7px 4px;text-transform:uppercase}.lq-file-row{display:flex;align-items:center;gap:2px;min-width:0}.lq-file-open{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-align:left;padding:7px!important;font-size:12px!important}.lq-file-open span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lq-file-open span:first-child{color:var(--lq-muted)}.lq-more{flex:none}.lq-opening{margin-left:auto;color:var(--lq-muted);font-size:9.5px;white-space:nowrap}
 .lq-link{color:var(--lq-blue)!important}.lq-file-menu{display:flex;flex-direction:column;align-items:stretch;padding:5px;background:var(--lq-bg);border:1px solid var(--lq-line);border-radius:7px;margin:4px 0 10px 7px}.lq-file-menu button{text-align:left;font-size:12px}
+.lq-sensitive{margin-left:auto;flex:none;font-size:9.5px;line-height:15px;padding:0 5px;border-radius:4px;color:light-dark(#956000,#e2b56a);background:light-dark(#fff4e3,#3b2d17);border:1px solid light-dark(#e7cfa0,#5a4320);white-space:nowrap}
 `;
 
 export const discoveryStyles = `

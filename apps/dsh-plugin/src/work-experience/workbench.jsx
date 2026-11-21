@@ -27,6 +27,11 @@ const errorText = error => ({
   REFERENCE_SELECTION_INVALID: '这次选择无法可靠引用，请重新选择。',
   INPUT_BUSY: '输入框正在提交，请稍后再加入引用。',
   STRUCTURE_FOCUS_MISSING: '这件工作已不在当前结构中。',
+  WORK_LOCAL_ONLY_RESTRICTED: '此工作已设为仅本地模型，模型上下文读取已保护；右侧栏仍可本地查看。',
+  SENSITIVE_MATERIAL_BLOCKED: '该文件属于敏感凭据，默认禁止发往模型。',
+  READING_LOCAL_MODEL_REQUIRED: '此工作已设为仅本地模型，请先在 Companion 配置本机模型后再整理简报。',
+  READING_MODEL_NOT_CONFIGURED: '尚未配置可用的 Companion 阅读模型，请在 Logseq 或 providers.json 配置后再试。',
+  DSH_NOT_RUNNING: '当前阅读路由指向 DSH，但本地服务尚未就绪。',
   REQUEST_ABORTED: '读取已取消，请重试。',
   ENOENT: '工作目录或本地连接暂时不可用。',
 }[error?.code] ?? '暂时无法读取这件工作，请稍后重试。');
@@ -95,6 +100,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     const [reader, setReader] = useState(null), [readerError, setReaderError] = useState(null);
     const [focus, setFocus] = useState(null), [view, setView] = useState('structure');
     const [loading, setLoading] = useState(true), [reload, setReload] = useState(0), [readerTick, setReaderTick] = useState(0);
+    const [hub, setHub] = useState(null), [hubTick, setHubTick] = useState(0), [hubBusy, setHubBusy] = useState(false);
     const [selected, setSelected] = useState([]), [notice, setNotice] = useState(null), [busy, setBusy] = useState(false);
     const [discovery, setDiscovery] = useState(false), [menu, setMenu] = useState(false), [confirmUnbind, setConfirmUnbind] = useState(false), [binding, setBinding] = useState(false);
     const [directory, setDirectory] = useState(''), [bindingError, setBindingError] = useState('');
@@ -110,6 +116,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     useEffect(() => {
       setStatus(null); setConnection(null); setStructure(null); setStructureError(null); setReader(null); setReaderError(null);
+      setHub(null); setHubBusy(false);
       setFocus(readWorkFocus(sessionId)); setView('structure'); setSelected([]); setNotice(null); setLoading(true); setDiscovery(false); setMenu(false);
       setBinding(false); setBindingError(''); setDirectory(''); setConfirmUnbind(false); scrollPositions.current = new Map();
     }, [sessionId]);
@@ -187,6 +194,29 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       });
       return () => controller.abort();
     }, [sessionId, visible, connected, reload, readerTick, rpc]);
+
+    useEffect(() => {
+      if (!visible || !connected || !sessionId) { setHub(null); return; }
+      const controller = new AbortController();
+      rpc('hub-status', { sessionId }, controller.signal).then(value => {
+        if (controller.signal.aborted || !mountedRef.current) return;
+        setHub(previous => {
+          if (previous?.readingJob?.status === 'running' && value?.readingJob?.status === 'completed') void refresh(sessionId);
+          return value;
+        });
+      }).catch(() => {
+        // Companion hub status is optional; never disrupt Structure or Reader.
+      });
+      return () => controller.abort();
+    }, [sessionId, visible, connected, reload, readerTick, hubTick, refresh, rpc]);
+
+    useEffect(() => {
+      if (!visible || !connected || !sessionId) return;
+      const onFocus = () => setHubTick(value => value + 1);
+      window.addEventListener('focus', onFocus);
+      const timer = hub?.readingJob?.status === 'running' ? setTimeout(() => setHubTick(value => value + 1), 3500) : null;
+      return () => { window.removeEventListener('focus', onFocus); if (timer) clearTimeout(timer); };
+    }, [sessionId, visible, connected, hub?.readingJob?.status, hubTick]);
 
     // Preserve where the reader was when moving between a parent and a child work object.
     useEffect(() => {
@@ -293,6 +323,35 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     };
     const onEnterWork = async (work, ops) => enterWork(work, ops);
     const onGeneral = async () => { if (!(await navigate('general', sessionId))) throw Error('GENERAL_NAVIGATION_FAILED'); };
+    const dismissProposal = async proposalId => {
+      const currentSession = sessionId;
+      setHubBusy(true);
+      try {
+        await rpc('writeback-dismiss', { sessionId, proposalId });
+        if (sessionRef.current !== currentSession || !mountedRef.current) return;
+        setHubTick(value => value + 1);
+        setNotice({ text: '已撤回这份笔记修改提案。', tone: 'ok' });
+      } catch (error) {
+        if (sessionRef.current === currentSession && mountedRef.current) setNotice({ text: errorText(error), tone: 'error' });
+      } finally {
+        if (mountedRef.current) setHubBusy(false);
+      }
+    };
+    const startReading = async () => {
+      const currentSession = sessionId;
+      setHubBusy(true);
+      try {
+        const result = await rpc('reading-start', { sessionId });
+        if (sessionRef.current !== currentSession || !mountedRef.current) return;
+        setHub(previous => ({ ...(previous ?? {}), readingJob: result.job }));
+        setHubTick(value => value + 1);
+        setNotice({ text: '已通过 Companion 发起简报整理，完成后将提示在 Logseq 采用。', tone: 'info' });
+      } catch (error) {
+        if (sessionRef.current === currentSession && mountedRef.current) setNotice({ text: errorText(error), tone: 'error' });
+      } finally {
+        if (mountedRef.current) setHubBusy(false);
+      }
+    };
 
     const staleCount = selected.filter(item => {
       const version = selectionVersions.get(item.sourceId);
@@ -348,6 +407,29 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
       </header>
 
       <Notice notice={notice} onClose={() => setNotice(null)} />
+      {showWork && !cwdMismatch && hub?.privacyMode === 'local-only' ? <aside className="wx-hub-strip is-privacy" role="status" aria-label="仅本地隐私保护">
+        <div className="wx-hub-strip-copy"><strong>仅本地模式</strong><span> · DSH 模型不会读取此工作正文与文件，右侧栏本地查看不受影响。</span></div>
+      </aside> : null}
+      {showWork && !cwdMismatch && hub?.proposals?.length ? (() => {
+        const latest = hub.proposals[hub.proposals.length - 1];
+        return <aside className="wx-hub-strip is-return" role="status" aria-label="待审笔记修改提案">
+          <div className="wx-hub-strip-copy">
+            <strong>已提交 {hub.proposals.length} 份笔记修改提案，待在 Logseq 预览应用</strong>
+            {latest?.summary ? <small>{latest.summary}</small> : null}
+          </div>
+          <div className="wx-hub-strip-actions">
+            {root?.source?.logseqUrl ? <a href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 审阅</a> : null}
+            <button type="button" className="wx-text" disabled={hubBusy} onClick={() => void dismissProposal(latest.proposalId)}>撤回</button>
+          </div>
+        </aside>;
+      })() : null}
+      {showWork && !cwdMismatch && (hub?.readingJob?.status === 'running' || (hub?.readingJob?.status === 'completed' && hub.readingJob.requireReview)) ? <aside className="wx-hub-strip is-return" role="status" aria-label="阅读简报候选状态">
+        <div className="wx-hub-strip-copy">
+          <strong>{hub.readingJob.status === 'running' ? '正在整理阅读简报…' : '新版阅读简报已就绪，待在 Logseq 采用'}</strong>
+          {hub.readingJob.summary ? <small>{hub.readingJob.summary}</small> : null}
+        </div>
+        {hub.readingJob.status === 'completed' && root?.source?.logseqUrl ? <div className="wx-hub-strip-actions"><a href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 采用</a></div> : null}
+      </aside> : null}
       {readingIntent ? <aside className="wx-recovery" aria-label="来自 Logseq 的协作请求"><div className="wx-recovery-copy"><strong>来自 Logseq 的请求</strong><p style={{whiteSpace:'pre-wrap'}}>{readingIntent.request}</p>{readingIntent.selection?<p>{readingIntent.selection}</p>:null}<small>{readingIntent.sourceIds.length} 处来源 · 只加入草稿，不发送</small></div><div className="wx-recovery-actions"><button type="button" className="wx-button" onClick={()=>{
         if(!props.inputActions)return;
         const captured=props.inputActions.captureInsertion(),span={...captured,start:captured.end};
@@ -397,7 +479,29 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
             ? <Reader nodes={reader.nodes} focusUuid={root?.uuid} workTypes={workTypes} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} resetKey={`${sessionId}:${root?.uuid ?? 'root'}:reader`} />
             : readerError ? <div className="wx-empty" role="alert"><p>{errorText(readerError)}</p><button type="button" className="wx-button" onClick={() => setReaderTick(value => value + 1)}>重试</button></div>
               : <Skeleton />) : null}
-          {structure && view === 'briefing' ? (progressive ? <ProgressiveBriefing value={progressive} onOriginal={()=>changeView('reader')} /> : <div className="wx-empty">尚无阅读简报。可在 Logseq 中整理当前工作。</div>) : null}
+          {structure && view === 'briefing' ? (progressive
+            ? <ProgressiveBriefing value={progressive} hubJob={hub?.readingJob ?? null} logseqUrl={root?.source?.logseqUrl ?? null} busy={hubBusy} onStartReading={startReading} onOriginal={()=>changeView('reader')} />
+            : <div className="wx-empty">
+                {hub?.readingJob?.status === 'running'
+                  ? <p>正在通过 Companion 整理当前工作的阅读简报…</p>
+                  : hub?.readingJob?.status === 'completed'
+                    ? <><p>阅读简报候选已生成，请回到 Logseq 审阅并采用。</p>{root?.source?.logseqUrl ? <div className="wx-brief-empty-actions"><a className="wx-button wx-button-primary" href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 在 Logseq 审阅采用</a></div> : null}</>
+                    : <>
+                        <p>{hub?.readingJob?.status === 'failed' ? errorText(hub.readingJob.error) : '当前工作还没有阅读简报。'}</p>
+                        <div className="wx-brief-empty-actions">
+                          <button type="button" className="wx-button wx-button-primary" disabled={hubBusy} onClick={() => void startReading()}>
+                            {hub?.readingJob?.status === 'failed' ? '重试生成简报' : '生成阅读简报'}
+                          </button>
+                        </div>
+                        <p className="wx-brief-empty-note">
+                          {hub?.privacyMode === 'local-only' && !hub?.providers?.localReady
+                            ? '此工作已设为仅本地模型，需先在 Companion 配置本机模型。'
+                            : hub?.providers?.activeLabel
+                              ? `使用 Companion（${hub.providers.activeLabel}）整理，生成后回 Logseq 审阅采用。`
+                              : '通过 Companion 中立阅读服务整理，生成后回 Logseq 审阅采用。'}
+                        </p>
+                      </>}
+              </div>) : null}
         </div>
         {selected.length ? <aside className="wx-tray" aria-label="已选引用">
           <div className="wx-tray-head"><strong>{selected.length} 处引用</strong>{staleCount ? <span className="wx-warn">{staleCount} 处已变化</span> : null}<span className="wx-tray-note">加入草稿，不发送</span><button type="button" className="wx-text" onClick={() => setSelected([])}>清空</button><button type="button" className="wx-button wx-button-primary" disabled={busy} onClick={insertSelection}>{busy ? '加入中…' : '加入对话'}</button></div>
@@ -419,7 +523,7 @@ function BriefingSource({content,display}){
   const original=reportMarkdown(content??'来源不可用'),table=display==='chart'?sourceTable(original):null,series=table?numericSeries(table):[];
   return series.length?<div>{series.map(column=><div className="wx-brief-chart" key={column.label}><small>{column.label}</small>{column.points.map(point=><div key={point.label}><div className="wx-brief-chart-label"><span>{point.label}</span><strong>{point.value}</strong></div><div className="wx-brief-track"><span style={{width:`${point.ratio*100}%`}}/></div></div>)}</div>)}</div>:articleMarkdown(original);
 }
-function ProgressiveBriefing({value,onOriginal}) {
+function ProgressiveBriefing({value,hubJob,logseqUrl,busy,onStartReading,onOriginal}) {
   const {briefing,basis,current,materialBasis,materials}=value;
   const old=new Map((basis?.blocks??[]).map(block=>[block.sourceId,block])),now=new Map(current.blocks.map(block=>[block.sourceId,block]));
   const storageKey=`wx-briefing-open:${JSON.stringify([current.scope.graphId,current.scope.rootUuid,value.planId])}`;
@@ -444,8 +548,16 @@ function ProgressiveBriefing({value,onOriginal}) {
   const stale=briefing.basisVersion!==current.sourceSetVersion||basis?.structureVersion!==current.structureVersion||materials.some(item=>materialChanged(item.id))||materialBasis.some(item=>materialChanged(item.id));
   const citation=(detail,number,key)=><button type="button" className={`wx-brief-cite${changed(detail)?' is-changed':''}`} aria-label={`查阅依据 ${number}`} aria-haspopup="dialog" aria-expanded={popup?.key===key} title="查阅依据" onClick={event=>popup?.key===key?close(true):setPopup({detail,key,anchor:event.currentTarget})}>{number}</button>;
   let number=1;
+  const jobRunning = hubJob?.status === 'running';
+  const jobReady = hubJob?.status === 'completed' && hubJob.requireReview;
   return <article className="wx-briefing" ref={root}>
-    <div className="wx-brief-meta">{new Date(briefing.createdAt).toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 整理{stale||value.candidate?<span className="wx-brief-change"> · {value.candidate==='ready'?'修订待在 Logseq 采用':'依据有更新'}</span>:null}</div>
+    <div className="wx-brief-head">
+      <div className="wx-brief-meta">{new Date(briefing.createdAt).toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 整理{jobRunning ? <span className="wx-brief-change"> · 正在整理新版简报…</span> : jobReady || value.candidate === 'ready' ? <span className="wx-brief-change"> · 新版修订待在 Logseq 采用</span> : stale ? <span className="wx-brief-change"> · 依据有更新</span> : null}</div>
+      <div>
+        {jobReady && logseqUrl ? <a className="wx-text" href={logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 采用</a> : null}
+        {onStartReading ? <button type="button" className="wx-text" disabled={busy || jobRunning} onClick={() => void onStartReading()}>{jobRunning ? '整理中…' : '重新整理简报'}</button> : null}
+      </div>
+    </div>
     {[...briefing.paragraphs,...(briefing.followUps??[])].map((paragraph,index)=>{
       const key=paragraph.key??String(index),details=paragraph.details??[],open=expanded.includes(key),label=paragraph.cue??'细读';
       const control=<button type="button" className="wx-brief-phrase" aria-expanded={open} aria-label={`${label}，${open?'收起':'展开'}细读`} onClick={()=>toggle(key)}>{label}</button>;

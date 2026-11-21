@@ -1035,7 +1035,7 @@ async function runTool(
       sourceSetVersion: live.sourceSetVersion,
       structureVersion: live.structureVersion,
       paragraphs: validated.paragraphs,
-      providerId: `mcp:${clientId}`,
+      providerId: clientId.startsWith("dsh:") ? clientId : `mcp:${clientId}`,
       ...(summary ? { summary } : {}),
       sourceIds: citedSources,
       materialIds: citedMaterials,
@@ -1214,7 +1214,7 @@ async function runTool(
         operations: tidyOps,
         structuralChanges,
         origin: "external-mcp",
-        providerId: `mcp:${clientId}`,
+        providerId: clientId.startsWith("dsh:") ? clientId : `mcp:${clientId}`,
         proposalId: proposalRequestId,
       });
 

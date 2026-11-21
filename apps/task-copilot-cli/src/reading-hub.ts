@@ -375,10 +375,32 @@ export class ReadingJobHub {
   async startJob(raw: unknown): Promise<{ job: StagedReadingJob; deduplicated: boolean }> {
     await this.ensureLoaded();
     this.pruneJobs();
-    const envelope = workRecord(raw, ["workKey", "planId", "refreshKey", "trigger", "privacyMode", "role", "profileId", "input"]);
+    const envelope = workRecord(raw, [
+      "workKey",
+      "planId",
+      "refreshKey",
+      "trigger",
+      "privacyMode",
+      "role",
+      "profileId",
+      "requireReview",
+      "origin",
+      "summary",
+      "input",
+    ]);
     const workKey = workText(envelope.workKey, 512);
     const planId = envelope.planId !== undefined ? workText(envelope.planId, 128) : undefined;
     const refreshKey = envelope.refreshKey !== undefined ? workText(envelope.refreshKey, 2048) : undefined;
+    const requireReview = envelope.requireReview === true;
+    const origin =
+      envelope.origin === undefined
+        ? undefined
+        : envelope.origin === "local-model" || envelope.origin === "external-mcp"
+          ? envelope.origin
+          : (() => {
+              throw new WorkspaceError("INVALID_INPUT", "Invalid reading job origin.");
+            })();
+    const summary = envelope.summary !== undefined ? workText(envelope.summary, 400) : undefined;
     const parsed = asReadingInput(envelope);
 
     // Deduplicate background revisions for the exact same work + refreshKey
@@ -442,6 +464,9 @@ export class ReadingJobHub {
       mode: parsed.input.mode,
       background: parsed.trigger === "background",
       privacyMode: parsed.privacyMode,
+      ...(requireReview ? { requireReview: true } : {}),
+      ...(origin ? { origin } : {}),
+      ...(summary ? { summary } : {}),
       ...(parsed.input.source?.sourceSetVersion ? { sourceSetVersion: parsed.input.source.sourceSetVersion } : {}),
       ...(parsed.input.source?.structureVersion ? { structureVersion: parsed.input.source.structureVersion } : {}),
       ...(parsed.input.previous ? { previous: structuredClone(parsed.input.previous) } : {}),
