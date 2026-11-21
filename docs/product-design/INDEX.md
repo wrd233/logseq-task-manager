@@ -32,6 +32,8 @@
 - [后续 Goal B：结构历史](planning/goals/02-结构历史-Goal.md)：真实来源树只读回放、覆盖限制与前端子任务。
 - [Capture G2 与宿主接线计划](planning/03-Capture-G2与宿主接线计划.md)：单设备持久化方案的条件批准、上下文校验与等待 A 已提交模块后的整合顺序。
 - [Capture 7b49d00e 独立审查](planning/04-Capture-7b49d00e审查.md)：固定提交的 Standards / Spec 六项复现与 G2 阻塞，区分模块测试和真实宿主证据。
+- [个人主力工作台演进交接简报（`feat/personal-time-stage-v1`）](planning/personal-time-stage-v1/HANDOFF-BRIEF.md)：2026-11-21 定稿的四层纯语义时间容器、Apple 日历轻协同、iCloud 语音捕获、类 PPT 重启与三段冲刺规划。
+- [Attention Navigator Skill 产品规格（v1.0）](planning/personal-time-stage-v1/ATTENTION-NAVIGATOR-SKILL-SPEC.md)：结合社区避坑与用户定稿（直接点破、先口述再对照补全、工作与生活轻样式区分）的顶层注意力参谋规格。
 
 ## 来源与参考材料
 
