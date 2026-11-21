@@ -2,7 +2,8 @@ import { installCatalogPublisher } from './features/agent-workspace/catalog-publ
 import { WorkCatalogView } from './features/agent-workspace/catalog-view.ts';
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
-import { WorkspaceError, sameWorkScope, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
+import { WorkspaceError, sameWorkScope, workKey, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
+import { GlobalStageOverlay } from "./features/stage/overlay.ts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
@@ -52,6 +53,8 @@ async function main(): Promise<void> {
   let stages: StageInstallation | null = null;
   let removeCatalog: () => void = () => undefined;
   let workSearch: WorkCatalogView | null = null;
+  let globalStage: GlobalStageOverlay | null = null;
+  let removeStageCommand: () => void = () => undefined;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
   let publishedApi: unknown = null;
@@ -60,13 +63,27 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
   logseq.beforeunload(dispose);
   const report = (error: unknown) => void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
   const currentWorkRoot = () => work?.readingAPI.read().scope?.rootUuid ?? null;
+  const currentAnchorKey = (): string | null => {
+    const scope = work?.readingAPI.read().scope;
+    if (!scope) return null;
+    try {
+      return workKey({
+        kind: "logseq",
+        graphId: scope.graphId,
+        rootUuid: scope.rootUuid,
+        sourceKind: scope.kind === "page" ? "page" : "block",
+      });
+    } catch {
+      return null;
+    }
+  };
   if (logseq.settings?.materialsEnabled !== false) {
     try { materials = new Materials(async uuid => { if (work) await work.returnToBody(uuid); }, currentWorkRoot, workspace.materialBindings); } catch (error) { report(error); }
   }
@@ -90,6 +107,7 @@ async function main(): Promise<void> {
   const actions: Record<string, () => void> = {};
   if (work) actions["找工作"] = () => void workSearch?.open().catch(report);
   if (work) actions["当前工作"] = () => void work?.openToolbar().then(() => work?.focusReading()).catch(report);
+  actions["全局星图"] = () => void globalStage?.open(currentAnchorKey()).catch(report);
   if (materials) actions["全部材料"] = () => void materials?.library(null).catch(report);
   actions["正式任务"] = () => { void (async()=>{
     if (!stopTasks && !await pluginRuntime.configured()){logseq.showSettingsUI();return;}
@@ -172,9 +190,64 @@ async function main(): Promise<void> {
   }});
   const catalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
   removeCatalog = catalog.dispose;
+  globalStage = new GlobalStageOverlay({
+    remote: {
+      stageState: () => agentWorkspace!.local.stageState(),
+      stageAction: action => agentWorkspace!.local.stageAction(action),
+      stageAnchor: key => agentWorkspace!.local.stageAnchor(key),
+    },
+    readLocalCatalog: async () => {
+      const snap = await catalog.read();
+      return {
+        schemaVersion: 1,
+        graphId: snap.graphId,
+        graphName: snap.graphName,
+        refreshedAt: snap.refreshedAt,
+        works: snap.works,
+      };
+    },
+    openProject: async project => {
+      if (!work) return;
+      if (project.workRef.kind === "logseq") {
+        if (project.workRef.sourceKind === "page") await work.openPage(project.title);
+        else await work.open(project.workRef.rootUuid);
+      } else {
+        await work.openPage(project.title);
+      }
+    },
+    promoteTodo: async (item, project) => {
+      const text = `TODO ${item.title}`;
+      if (project?.workRef.kind === "logseq") {
+        if (project.workRef.sourceKind === "page") {
+          await logseq.Editor.appendBlockInPage(project.title, text);
+          return;
+        }
+        await logseq.Editor.insertBlock(project.workRef.rootUuid, text, { sibling: false });
+        return;
+      }
+      const root = currentWorkRoot();
+      if (root) {
+        await logseq.Editor.insertBlock(root, text, { sibling: false });
+        return;
+      }
+      throw new Error("请先在 Logseq 打开目标项目页或块后再写入 TODO。");
+    },
+    openExternalUrl: async url => {
+      await logseq.App.openExternalLink(url);
+    },
+    notify: (message, status) => {
+      void logseq.UI.showMsg(message, status ?? "success");
+    },
+  });
+  const stageCmd = logseq.App.registerCommandPalette(
+    { key: "workbench-global-stage", label: "工作台：拉远到全局星图" },
+    () => { if (!disposed) void globalStage?.open(currentAnchorKey()).catch(report); },
+  );
+  if (typeof stageCmd === "function") removeStageCommand = stageCmd;
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
     work.setWorkSearch(actions["找工作"]!);
+    work.setGlobalStage(() => { void globalStage?.open(currentAnchorKey()).catch(report); });
     work.setReadingAI({
       complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),
       handoff:(scope,intent,target)=>agentWorkspace!.local.openWork(scope,"continue",false,intent,target),
@@ -247,6 +320,10 @@ async function main(): Promise<void> {
       selectTarget:(targetAgent: CollaborateTargetId)=>agentWorkspace!.local.selectCollaborateTarget(targetAgent),
     },
     stages: stages.api,
+    globalStage: {
+      open: async (anchorKey?: string) => { requireActive(); await globalStage?.open(anchorKey ?? currentAnchorKey()); },
+      close: () => { globalStage?.close(); },
+    },
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),
       read: (id: string) => requireMaterials().readMaterial(id),

@@ -15,6 +15,7 @@
   "dependencies": {
     "@task-copilot/client": "0.2.0",
     "@task-copilot/reading-runtime": "0.2.0",
+    "@task-copilot/stage-runtime": "0.2.0",
     "better-sqlite3": "12.6.2"
   }
 }

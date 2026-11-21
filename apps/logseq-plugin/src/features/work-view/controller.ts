@@ -64,6 +64,7 @@ export class WorkView {
   private workOriginPage = "";
   private failure = "";
   private discoverWorks: (() => void) | null = null;
+  private openGlobalStage: (() => void) | null = null;
   private contextActions: () => WorkShellAction[] = () => [];
   private readonly reviewHost = element("section", "", "wb-review-host");
   private readonly shell = new WorkViewShell({
@@ -71,6 +72,7 @@ export class WorkView {
     materials: () => { void this.openMaterials(); },
     native: () => { const uuid = this.draft?.uuid ?? (this.pageName ? this.sourceRows[0]?.uuid : this.rootUuid); if (uuid) void this.locate(uuid).catch(this.fail); else if(this.pageName)void this.report.openPageReference(this.pageName).catch(this.fail); },
     review: () => { void this.setReviewOpen(!this.reviewOpen).catch(this.fail); },
+    zoomOut: () => { this.openGlobalStage?.(); },
     changed: () => this.renderHeading(),
     fail: error => this.fail(error),
   });
@@ -624,6 +626,7 @@ export class WorkView {
     this.content.replaceChildren(guide);
   }
   setWorkSearch(open: () => void): void { this.discoverWorks = open; }
+  setGlobalStage(open: () => void): void { this.openGlobalStage = open; }
   focusReading(): void {
     if (!this.panel.visible) return;
     if(this.content.contains(document.activeElement))return;

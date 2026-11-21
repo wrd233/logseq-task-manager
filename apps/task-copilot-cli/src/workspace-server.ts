@@ -11,6 +11,8 @@ import { isDshRunning, ReadingJobHub, type ReadingHubOptions, type StagedReading
 import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, resolveWorkPrivacy, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
 import { activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
+import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
+import type { StageUserAction, StageViewportSource } from "@task-copilot/stage-runtime";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -148,6 +150,7 @@ export async function startWorkspaceServer(options: {
     port?: number;
     offlineMs?: number;
     timeoutMs?: number;
+    inboxDirectory?: string;
     reading?: Omit<ReadingHubOptions, "stateDirectory">;
 }) {
     const state = resolve(options.stateDirectory);
@@ -161,6 +164,7 @@ export async function startWorkspaceServer(options: {
     const instanceId = randomUUID(), token = randomBytes(32).toString("hex"), pluginToken = randomBytes(32).toString("hex");
     const broker = new WorkspaceBroker(instanceId, options.offlineMs, options.timeoutMs);
     const readingHub = new ReadingJobHub({ stateDirectory: state, ...options.reading });
+    const stageHub = new StageHub({ stateDirectory: state, ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}) });
     let baseUrl = "", root: string | null = null, observations: FileObservation | undefined, cache: unknown = null;
     let activeMeta: { workKey?: string; title?: string; workRef?: WorkRef } = {};
     let operationQueue: Promise<unknown> = Promise.resolve(), queued = 0;
@@ -314,6 +318,7 @@ export async function startWorkspaceServer(options: {
         stateDirectory: state,
         instanceId,
         readingHub,
+        stageHub,
         getActiveConnection,
         dispatch: enqueueOperation,
         audit: auditFact,
@@ -323,10 +328,31 @@ export async function startWorkspaceServer(options: {
         try {
             if (request.headers.host !== baseUrl.slice(7))
                 throw new WorkspaceError("HOST_REJECTED");
-            const pluginRoute = request.url?.startsWith("/plugin/") === true;
-            // CLI routes reject browser origins. Plugin routes require the separate private token.
+            const reqUrl = new URL(request.url ?? "/", baseUrl);
+            const pathname = reqUrl.pathname;
             const origin = request.headers.origin;
-            if (origin && (!pluginRoute || !["null", "lsp://logseq.io", "http://logseq.local"].includes(origin)))
+            if (request.method === "GET" && pathname === "/stage/app") {
+                if (origin && origin !== baseUrl) throw new WorkspaceError("ORIGIN_REJECTED");
+                if (!equal(reqUrl.searchParams.get("token"), token)) throw new WorkspaceError("AUTHENTICATION_REQUIRED");
+                response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+                response.end(renderStandaloneStageHtml(token, instanceId));
+                return;
+            }
+            if (request.method === "GET" && pathname === "/stage/events") {
+                if (origin && origin !== baseUrl) throw new WorkspaceError("ORIGIN_REJECTED");
+                const qToken = reqUrl.searchParams.get("token");
+                const qInst = reqUrl.searchParams.get("instanceId");
+                const authOk = equal(request.headers.authorization, `Bearer ${token}`) || equal(qToken, token);
+                const instOk = request.headers["x-workspace-instance"] === instanceId || qInst === instanceId;
+                if (!authOk) throw new WorkspaceError("AUTHENTICATION_REQUIRED");
+                if (!instOk) throw new WorkspaceError("DESCRIPTOR_STALE");
+                await stageHub.subscribeSse(response);
+                return;
+            }
+            const pluginRoute = pathname.startsWith("/plugin/");
+            const stageSameOrigin = pathname.startsWith("/stage/") && origin === baseUrl;
+            // CLI routes reject browser origins (except same-origin loopback /stage/app). Plugin routes require the separate private token.
+            if (origin && !stageSameOrigin && (!pluginRoute || !["null", "lsp://logseq.io", "http://logseq.local"].includes(origin)))
                 throw new WorkspaceError("ORIGIN_REJECTED");
             if (pluginRoute && origin) {
                 response.setHeader("access-control-allow-origin", origin);
@@ -507,6 +533,37 @@ export async function startWorkspaceServer(options: {
                 }
                 broker.complete(workText(raw.connectionId), workText(raw.requestId), workText(raw.clientId), raw.value, error);
                 send(response, 200, { accepted: true });
+                return;
+            }
+            if (request.url === "/plugin/stage/state" || request.url === "/stage/state") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: await stageHub.snapshot() });
+                return;
+            }
+            if (request.url === "/plugin/stage/action" || request.url === "/stage/action") {
+                const raw = workRecord(input, ["action"]);
+                if (!raw.action || typeof raw.action !== "object" || Array.isArray(raw.action)) {
+                    throw new WorkspaceError("INVALID_INPUT", "缺少 stage action 对象。");
+                }
+                const value = await stageHub.applyAction(raw.action as StageUserAction);
+                send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/plugin/stage/anchor" || request.url === "/stage/anchor") {
+                const raw = workRecord(input, ["workKey", "source"]);
+                const src = raw.source === "dsh" || raw.source === "standalone" || raw.source === "agent" ? raw.source : "logseq";
+                const value = await stageHub.anchorWork(workText(raw.workKey, 512), src as StageViewportSource);
+                send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/stage/wait") {
+                const raw = workRecord(input, ["sinceVersion", "timeoutMs"]);
+                const sinceVersion = typeof raw.sinceVersion === "number" && Number.isFinite(raw.sinceVersion) ? raw.sinceVersion : 0;
+                const timeoutMs = typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs) ? Math.min(30_000, Math.max(500, raw.timeoutMs)) : 25_000;
+                const cancellation = new AbortController();
+                response.once("close", () => { if (!response.writableEnded) cancellation.abort(); });
+                const value = await stageHub.waitForUpdate(sinceVersion, cancellation.signal, timeoutMs);
+                if (!response.destroyed) send(response, 200, { instanceId, value });
                 return;
             }
             if (request.url === "/mcp/tools") {
@@ -922,10 +979,11 @@ export async function startWorkspaceServer(options: {
         if (!address || typeof address === "string")
             throw new WorkspaceError("START_FAILED");
         baseUrl = `http://127.0.0.1:${address.port}`;
+        stageHub.setAppUrl(`${baseUrl}/stage/app?token=${token}`);
         const descriptor: WorkspacePluginDescriptor = { schemaVersion: 1, instanceId, baseUrl, token, pluginToken };
         await atomicJson(descriptorPath, { schemaVersion: 1, instanceId, baseUrl, token });
         await atomicJson(pluginDescriptorPath, descriptor);
-        return { descriptor, descriptorPath, pluginDescriptorPath, broker, readingHub, close: async () => { readingHub.dispose(); broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
+        return { descriptor, descriptorPath, pluginDescriptorPath, broker, readingHub, stageHub, close: async () => { stageHub.dispose(); readingHub.dispose(); broker.revoke(); server.closeAllConnections(); await new Promise<void>((yes, no) => server.close(error => error ? no(error) : yes())); await rm(descriptorPath, { force: true }); await rm(pluginDescriptorPath, { force: true }); await rm(lock, { force: true }); } };
     }
     catch (error) {
         server.close();

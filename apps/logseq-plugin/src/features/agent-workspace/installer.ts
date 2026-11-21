@@ -19,6 +19,7 @@ import { WritingFormatService } from "../writing-format/service.ts";
 import { WritingFormatUI } from "../writing-format/ui.ts";
 import { pageWorkIds } from "../../workspace/page-identity.ts";
 import type { NoteTidyInput, NoteTidyPlan, StagedWritebackProposalView } from "../note-tidy/types.ts";
+import type { StageSnapshot, StageUserAction } from "@task-copilot/stage-runtime";
 import type { CollaborateHandoffResult, CollaborateTargetId, CollaborateTargetsView, ReadingModelInput, ReadingHandoff, ReadingJobStartRequest, ReadingJobSnapshot, ReadingPrivacyMode, ReadingProvidersView } from "../work-view/reading-ai.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
     const witnesses=new WeakMap<AgentWorkBinding,()=>boolean>();
@@ -261,6 +262,21 @@ export function installAgentWorkspace(options: {
         const descriptor=await currentDescriptor();
         await post(descriptor,"/plugin/writeback-proposals",{action,proposalId},10000);
     };
+    const stageState=async():Promise<StageSnapshot>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/stage/state",{},10000);
+        return response.value as StageSnapshot;
+    };
+    const stageAction=async(action:StageUserAction):Promise<{snapshot:StageSnapshot;archivedInboxIds:string[]}>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/stage/action",{action},10000);
+        return response.value as {snapshot:StageSnapshot;archivedInboxIds:string[]};
+    };
+    const stageAnchor=async(workKey:string):Promise<StageSnapshot>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/stage/anchor",{workKey,source:"logseq"},10000);
+        return response.value as StageSnapshot;
+    };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
@@ -488,7 +504,7 @@ export function installAgentWorkspace(options: {
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,runNoteTidy,listWritebackProposals,consumeWritebackProposal,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,runNoteTidy,listWritebackProposals,consumeWritebackProposal,stageState,stageAction,stageAnchor,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

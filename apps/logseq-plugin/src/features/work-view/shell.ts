@@ -19,6 +19,7 @@ export class WorkViewShell {
   private readonly title = element("strong", "选择一份工作", "wb-work-title");
   private readonly browsing = element("small", "", "wb-work-browsing");
   private readonly native: HTMLButtonElement;
+  private readonly zoomOutBtn: HTMLButtonElement | null = null;
   private readonly body: HTMLButtonElement;
   private readonly materials: HTMLButtonElement;
   private readonly review: HTMLButtonElement;
@@ -26,7 +27,7 @@ export class WorkViewShell {
   private readonly notice = element("div", "", "wb-work-notice");
   private readonly menu = disclosureMenu("···", "更多工作选项");
   private actionSignature = "";
-  constructor(actions: { body(): void; materials(): void; native(): void; review(): void; changed(): void; fail(error: unknown): void }) {
+  constructor(actions: { body(): void; materials(): void; native(): void; review(): void; zoomOut?(): void; changed(): void; fail(error: unknown): void }) {
     this.native = button("写作", actions.native); this.native.className = "wb-write-entry";
     this.native.onpointerdown = event => event.preventDefault();
     this.menu.trigger.onpointerdown = event => event.preventDefault();
@@ -35,7 +36,16 @@ export class WorkViewShell {
     this.materials = button("材料", actions.materials);
     this.review = button("审阅与历史", actions.review); this.review.className = "wb-review-entry";
     const identity = element("div", "", "wb-work-identity"); identity.append(this.title);
-    const line = element("div", "", "wb-work-line"); line.append(identity, this.native, this.menu.root);
+    const line = element("div", "", "wb-work-line");
+    if (actions.zoomOut) {
+      this.zoomOutBtn = button("拉远 ↖", actions.zoomOut);
+      this.zoomOutBtn.className = "wb-zoomout-entry";
+      this.zoomOutBtn.title = "从当前工作拉远到全局领域星图";
+      this.zoomOutBtn.onpointerdown = event => event.preventDefault();
+      line.append(identity, this.zoomOutBtn, this.native, this.menu.root);
+    } else {
+      line.append(identity, this.native, this.menu.root);
+    }
     const tabs = element("nav", "", "wb-content-navigation"); tabs.setAttribute("aria-label", "当前工作内容");
     tabs.append(this.body, this.materials, this.parent, this.review);
     this.body.dataset.workContent = "body"; this.materials.dataset.workContent = "materials";

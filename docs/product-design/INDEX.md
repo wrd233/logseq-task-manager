@@ -17,6 +17,7 @@
 - [`modules/07-个人规划.md`](modules/07-个人规划.md)
 - [`modules/08-AI线索与有限领航.md`](modules/08-AI线索与有限领航.md)
 - [`modules/09-视觉与主题.md`](modules/09-视觉与主题.md)
+- [`modules/10-全局态势与共视活画布.md`](modules/10-全局态势与共视活画布.md)（2026-11-21 草案：全局 Area/Project 态势、悬浮语义变焦活舞台、Inbox 双向共振与 Stage MCP 共编）
 
 ## 第三组：跨模块设计
 
