@@ -12,6 +12,7 @@ import {
   matchInboxLocally,
   recencyDays,
 } from "./pulse.ts";
+import { buildWorkbenchRestartDeck } from "./restart-deck.ts";
 import type { StageViewTab, TimeSnapshot } from "./time-types.ts";
 import type {
   ColdStartAreaDraft,
@@ -1250,7 +1251,7 @@ export class StageEngine {
         updatedAt: e.updatedAt,
       }));
 
-    return {
+    const baseSnapshot: StageSnapshot = {
       version: this.version,
       generatedAt: now,
       viewport: this.getViewport(),
@@ -1270,6 +1271,11 @@ export class StageEngine {
       needsColdStart: this.registry.areas.length === 0,
       catalogCount: entries.length,
       ...(appUrl ? { appUrl } : {}),
+    };
+    const restartDeck = buildWorkbenchRestartDeck({ snapshot: baseSnapshot, now });
+    return {
+      ...baseSnapshot,
+      ...(restartDeck ? { restartDeck } : {}),
     };
   }
 }

@@ -505,6 +505,7 @@ export class StageHub {
       mismatchSignals: snap.mismatchSignals,
       cooledInboxCount: snap.cooledInboxCount,
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
+      restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
       needsColdStart: snap.needsColdStart,
       appUrl: snap.appUrl,
@@ -549,6 +550,7 @@ export class StageHub {
       inbox: snap.inbox,
       cooledInboxCount: snap.cooledInboxCount,
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
+      restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
       appUrl: snap.appUrl,
     };
@@ -700,6 +702,8 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
       let draggingInboxId = null;
       let areaDrag = null;
       let prevZoom = 0;
+      let restartSlideIndex = 0;
+      const dismissedRestarts = new Set();
 
       const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
       const darkPref = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -832,6 +836,28 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           ? '<details class="tcs-cooled-box"><summary><span>已冷却 · 14 天以上（' + cooledInbox.length + '）</span><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键归档</button></summary><div class="tcs-cooled-list">' + cooledInbox.map(renderInboxCard).join("") + '</div></details>'
           : "";
 
+        const activeRestart = snap.restartDeck && !dismissedRestarts.has(snap.restartDeck.id) ? snap.restartDeck : null;
+        let restartHtml = "";
+        if (activeRestart && activeRestart.slides && activeRestart.slides.length > 0) {
+          restartSlideIndex = Math.max(0, Math.min(activeRestart.slides.length - 1, restartSlideIndex));
+          const sl = activeRestart.slides[restartSlideIndex];
+          const isFirst = restartSlideIndex === 0;
+          const isLast = restartSlideIndex === activeRestart.slides.length - 1;
+          restartHtml = '<div class="tcs-restart-overlay"><div class="tcs-restart-card tcs-anim-in">' +
+            '<div class="tcs-restart-meta"><span>' + esc(sl.kicker) + '</span><div style="display:flex;align-items:center;gap:10px"><span>' + sl.index + ' / ' + sl.total + '</span><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-skip>Esc 跳过</button></div></div>' +
+            '<div class="tcs-restart-main"><div class="tcs-restart-heading">' + esc(sl.heading) + '</div><div class="tcs-restart-lines">' +
+            sl.lines.slice(0, 3).map((l) => '<div class="tcs-restart-line">' + esc(l) + '</div>').join("") +
+            '</div></div>' +
+            '<div class="tcs-restart-foot"><span class="tcs-restart-kbd">' + (isLast ? "← 上一页 · Esc 跳过" : "空格 / → 下一页 · Esc 跳过") + '</span><div class="tcs-restart-actions">' +
+            (!isFirst ? '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-prev>← 上一页</button>' : '') +
+            (isLast
+              ? (activeRestart.canSettleCarryover ? '<button class="tcs-btn tcs-btn-sm" data-sa-restart-settle>旧遗留退回本周</button>' : '') +
+                (activeRestart.exitAreaId ? '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-exit="maintenance">转入维护</button><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-exit="parked">移入搁置</button>' : '') +
+                '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-restart-start>' + esc(activeRestart.primaryActionLabel) + '</button>'
+              : '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-restart-next>下一页 →</button>') +
+            '</div></div></div></div>';
+        }
+
         rootEl.innerHTML =
           '<div class="tcs-root" data-theme="' + theme + '">' +
           '<div class="tcs-bar"><div class="tcs-bar-left">' +
@@ -842,15 +868,55 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           (activeTab === "season" ? '<button class="tcs-btn" data-coldstart>生成初始星图</button>' : '') +
           (snap.canUndo ? '<button class="tcs-btn tcs-btn-ghost" data-undo>↶ 撤销</button>' : '') +
           '<button class="tcs-btn tcs-btn-ghost" data-toggle-theme>' + (theme === "dark" ? "浅色" : "深色") + '</button></div></div>' +
-          '<div class="tcs-body"><div class="tcs-stage-wrap"><div class="tcs-stage">' + stageHtml + '</div>' + radarHtml + pillHtml + '</div>' +
+          '<div class="tcs-body"><div class="tcs-stage-wrap"><div class="tcs-stage">' + stageHtml + '</div>' + radarHtml + pillHtml + restartHtml + '</div>' +
           '<aside class="tcs-inbox-pane"><div class="tcs-inbox-head"><strong>Inbox 浮带 (' + activeInbox.length + ')</strong><span style="font-size:11px;color:var(--tcs-muted)">0ms</span></div>' + icloudDiag + '<div class="tcs-inbox-list">' +
           (snap.inbox.length === 0 ? '<div style="padding:14px;font-size:12px;color:var(--tcs-muted)">暂无待处理 Inbox</div>' : (activeInbox.length === 0 ? '<div style="padding:10px;font-size:12px;color:var(--tcs-muted)">近期无未处理碎片</div>' : activeInbox.map(renderInboxCard).join("")) + cooledHtml) +
           '</div></aside></div></div>';
       }
 
       rootEl.addEventListener("click", (e) => {
-        const t = e.target.closest("[data-sa-tab],[data-sa-week-day],[data-sa-week-toggle],[data-sa-carry],[data-sa-focus],[data-sa-shield],[data-sa-day-toggle],[data-sa-focus-pause],[data-sa-focus-finish],[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
+        const t = e.target.closest("[data-sa-restart-skip],[data-sa-restart-prev],[data-sa-restart-next],[data-sa-restart-settle],[data-sa-restart-exit],[data-sa-restart-start],[data-sa-tab],[data-sa-week-day],[data-sa-week-toggle],[data-sa-carry],[data-sa-focus],[data-sa-shield],[data-sa-day-toggle],[data-sa-focus-pause],[data-sa-focus-finish],[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
         if (!t || !snap) return;
+        const activeRestart = snap.restartDeck && !dismissedRestarts.has(snap.restartDeck.id) ? snap.restartDeck : null;
+        if (t.hasAttribute("data-sa-restart-skip") && activeRestart) {
+          dismissedRestarts.add(activeRestart.id);
+          restartSlideIndex = 0;
+          void dispatch({ type: "time", action: { type: "ack-workbench-restart" } });
+          return;
+        }
+        if (t.hasAttribute("data-sa-restart-next") && activeRestart) {
+          restartSlideIndex = Math.min(activeRestart.slides.length - 1, restartSlideIndex + 1);
+          render();
+          return;
+        }
+        if (t.hasAttribute("data-sa-restart-prev") && activeRestart) {
+          restartSlideIndex = Math.max(0, restartSlideIndex - 1);
+          render();
+          return;
+        }
+        if (t.hasAttribute("data-sa-restart-settle") && activeRestart) {
+          dismissedRestarts.add(activeRestart.id);
+          restartSlideIndex = 0;
+          void dispatch({ type: "time", action: { type: "ack-workbench-restart", settleCarryoverToWeek: true } });
+          return;
+        }
+        if (t.dataset.saRestartExit && activeRestart) {
+          const role = t.dataset.saRestartExit;
+          dismissedRestarts.add(activeRestart.id);
+          restartSlideIndex = 0;
+          void dispatch({ type: "time", action: { type: "ack-workbench-restart" } }).then(() => {
+            if (activeRestart.exitAreaId) return dispatch({ type: "update-area-meta", areaId: activeRestart.exitAreaId, focusRole: role });
+          });
+          return;
+        }
+        if (t.hasAttribute("data-sa-restart-start") && activeRestart) {
+          dismissedRestarts.add(activeRestart.id);
+          restartSlideIndex = 0;
+          void dispatch({ type: "time", action: { type: "ack-workbench-restart" } }).then(() =>
+            dispatch({ type: "time", action: { type: "start-focus", title: activeRestart.suggestedActionTitle, slotId: "morning", areaId: activeRestart.areaId || null, projectWorkKey: activeRestart.projectWorkKey || null } })
+          );
+          return;
+        }
         if (t.dataset.saTab) { void dispatch({ type: "set-viewport", source: "standalone", viewport: { activeTab: t.dataset.saTab } }); return; }
         if (t.dataset.saWeekDay && snap.time) {
           const [mId, sId] = t.dataset.saWeekDay.split("|");
@@ -935,6 +1001,26 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
       });
 
       window.addEventListener("keydown", (e) => {
+        const activeRestart = snap && snap.restartDeck && !dismissedRestarts.has(snap.restartDeck.id) ? snap.restartDeck : null;
+        if (activeRestart) {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            dismissedRestarts.add(activeRestart.id);
+            restartSlideIndex = 0;
+            void dispatch({ type: "time", action: { type: "ack-workbench-restart" } });
+            return;
+          }
+          if (e.key === "ArrowRight" || e.key === " " || e.code === "Space") {
+            e.preventDefault();
+            if (restartSlideIndex < activeRestart.slides.length - 1) { restartSlideIndex++; render(); }
+            return;
+          }
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            if (restartSlideIndex > 0) { restartSlideIndex--; render(); }
+            return;
+          }
+        }
         if (e.key === "Escape" && snap && snap.viewport.zoomLevel > 0) {
           const z = snap.viewport.zoomLevel;
           void dispatch({ type: "set-viewport", source: "standalone", viewport: { zoomLevel: z - 1, areaId: z === 1 ? null : snap.viewport.areaId, projectWorkKey: z <= 2 ? null : snap.viewport.projectWorkKey } });

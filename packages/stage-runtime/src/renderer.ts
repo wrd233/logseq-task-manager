@@ -1,5 +1,10 @@
 import { areaDomainLabel, focusRoleLabel } from "./pulse.ts";
 import {
+  WORK_RESUME_RESTART_DAYS,
+  buildWorkRestartDeck,
+  type RestartDeck,
+} from "./restart-deck.ts";
+import {
   buildSlotFrictionPrompt,
   compactHours,
   compactMinutes,
@@ -444,6 +449,51 @@ export const STAGE_VIEW_CSS = `
   background: var(--tcs-card); padding: 20px; box-shadow: var(--tcs-shadow-lg);
   display: flex; flex-direction: column; gap: 14px;
 }
+.tcs-restart-overlay {
+  position: absolute; inset: 0; z-index: 18; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: color-mix(in srgb, var(--tcs-bg) 92%, transparent); backdrop-filter: blur(4px);
+}
+.tcs-restart-card {
+  max-width: 560px; width: 100%; min-height: 292px; border-radius: 14px;
+  border: 1px solid var(--tcs-border); background: #ffffff; color: #14171a;
+  padding: 28px 32px 24px; box-shadow: var(--tcs-shadow-lg);
+  display: flex; flex-direction: column; justify-content: space-between; gap: 22px;
+}
+.tcs-root[data-theme="dark"] .tcs-restart-card {
+  background: #1b1f25; color: #eceff4; border-color: #343b46;
+}
+.tcs-restart-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 11.5px; color: var(--tcs-muted);
+}
+.tcs-restart-main {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.tcs-restart-heading {
+  font-size: 18px; font-weight: 600; line-height: 1.38; letter-spacing: -0.01em;
+}
+.tcs-restart-lines {
+  display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.65;
+}
+.tcs-restart-line {
+  padding-left: 11px; border-left: 2px solid var(--tcs-border);
+}
+.tcs-restart-link {
+  align-self: flex-start; border: none; background: transparent; padding: 0;
+  color: var(--tcs-primary); font-size: 12.5px; cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.tcs-restart-link:hover { opacity: 0.8; }
+.tcs-restart-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding-top: 14px; border-top: 1px solid var(--tcs-card-border);
+}
+.tcs-restart-actions {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;
+}
+.tcs-restart-kbd {
+  font-size: 11.5px; color: var(--tcs-muted);
+}
 .tcs-tether-svg { pointer-events: none; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; overflow: visible; }
 .tcs-empty {
   max-width: 520px; margin: 44px auto; text-align: center; padding: 26px;
@@ -545,6 +595,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <div class="tcs-change-pill" data-tcs-pill style="display:none"></div>
         <div class="tcs-toast" data-tcs-toast style="display:none"></div>
         <div class="tcs-l3-overlay" data-tcs-l3 style="display:none"></div>
+        <div class="tcs-restart-overlay" data-tcs-restart style="display:none"></div>
       </div>
       <aside class="tcs-inbox-pane" data-tcs-inbox-pane>
         <div class="tcs-inbox-head">
@@ -576,6 +627,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   const pillEl = root.querySelector<HTMLElement>("[data-tcs-pill]")!;
   const toastEl = root.querySelector<HTMLElement>("[data-tcs-toast]")!;
   const l3El = root.querySelector<HTMLElement>("[data-tcs-l3]")!;
+  const restartEl = root.querySelector<HTMLElement>("[data-tcs-restart]")!;
   const inboxPaneEl = root.querySelector<HTMLElement>("[data-tcs-inbox-pane]")!;
   const inboxCountEl = root.querySelector<HTMLElement>("[data-tcs-inbox-count]")!;
   const inboxSubEl = root.querySelector<HTMLElement>("[data-tcs-inbox-sub]")!;
@@ -600,6 +652,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     inboxId?: string;
   } | null = null;
   let recentlySolidifiedIds = new Set<string>();
+  let activeRestartDeck: RestartDeck | null = null;
+  let restartSlideIndex = 0;
+  const dismissedRestartIds = new Set<string>();
   let toastTimer: ReturnType<typeof setTimeout> | null = null;
   let areaDrag: { areaId: string; startX: number; startY: number; origX: number; origY: number } | null = null;
   let disposed = false;
@@ -644,7 +699,92 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     });
   };
 
+  const renderRestartDeck = () => {
+    if (!activeRestartDeck || activeRestartDeck.slides.length === 0) {
+      restartEl.style.display = "none";
+      restartEl.innerHTML = "";
+      return;
+    }
+    const deck = activeRestartDeck;
+    const clampedIndex = Math.max(0, Math.min(deck.slides.length - 1, restartSlideIndex));
+    restartSlideIndex = clampedIndex;
+    const slide = deck.slides[clampedIndex]!;
+    const isFirst = clampedIndex === 0;
+    const isLast = clampedIndex === deck.slides.length - 1;
+
+    const linesHtml = slide.lines
+      .slice(0, 3)
+      .map((line) => `<div class="tcs-restart-line">${esc(line)}</div>`)
+      .join("");
+
+    const linkHtml =
+      slide.directLinkLabel && deck.projectWorkKey && (port.onOpenInLogseq || port.onOpenWork)
+        ? `<button type="button" class="tcs-restart-link" data-restart-open-source>${esc(slide.directLinkLabel)} →</button>`
+        : "";
+
+    const actionsHtml = isLast
+      ? `
+        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>← 上一页</button>` : ""}
+        ${deck.canSettleCarryover ? `<button type="button" class="tcs-btn tcs-btn-sm" data-restart-settle-carryover>旧遗留退回本周</button>` : ""}
+        ${
+          deck.exitAreaId
+            ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-exit="maintenance">转入维护</button>
+               <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-exit="parked">不再重要 · 移入搁置</button>`
+            : ""
+        }
+        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-start>${esc(deck.primaryActionLabel)}</button>
+      `
+      : `
+        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>← 上一页</button>` : ""}
+        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-next>下一页 →</button>
+      `;
+
+    restartEl.style.display = "flex";
+    restartEl.innerHTML = `
+      <div class="tcs-restart-card tcs-anim-in" role="dialog" aria-modal="true" aria-label="${esc(deck.title)}" data-restart-kind="${esc(deck.kind)}" data-restart-slide="${slide.index}">
+        <div class="tcs-restart-meta">
+          <span>${esc(slide.kicker)}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span data-restart-counter>${slide.index} / ${slide.total}</span>
+            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-skip>Esc 跳过</button>
+          </div>
+        </div>
+        <div class="tcs-restart-main">
+          <div class="tcs-restart-heading">${esc(slide.heading)}</div>
+          <div class="tcs-restart-lines">${linesHtml}</div>
+          ${linkHtml}
+        </div>
+        <div class="tcs-restart-foot">
+          <span class="tcs-restart-kbd">${isLast ? "← 上一页 · Esc 跳过" : "空格 / → 下一页 · Esc 跳过"}</span>
+          <div class="tcs-restart-actions">${actionsHtml}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  const openRestartDeck = (deck: RestartDeck) => {
+    activeRestartDeck = deck;
+    restartSlideIndex = 0;
+    renderRestartDeck();
+  };
+
+  const dismissRestartDeck = (ackServer = true) => {
+    const deck = activeRestartDeck;
+    if (!deck) return;
+    dismissedRestartIds.add(deck.id);
+    activeRestartDeck = null;
+    restartSlideIndex = 0;
+    renderRestartDeck();
+    if (ackServer && deck.kind === "workbench-gap") {
+      void runAction({ type: "time", action: { type: "ack-workbench-restart" } });
+    }
+  };
+
   const zoomOut = () => {
+    if (activeRestartDeck) {
+      dismissRestartDeck(true);
+      return;
+    }
     if (!snapshot) return;
     const { zoomLevel, areaId, projectWorkKey } = snapshot.viewport;
     if (zoomLevel === 3) setZoom(2, areaId, projectWorkKey, null);
@@ -1092,6 +1232,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
               ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l2-open-work>${esc(port.openWorkLabel ?? "进入此工作")}</button>` : ""}
               ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-open-logseq>Logseq 原文</button>` : ""}
+              ${proj.recencyDays >= WORK_RESUME_RESTART_DAYS ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-restart="${esc(proj.workKey)}">久别重启</button>` : ""}
               ${port.onQuoteToChat ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l2-quote>引用到对话</button>` : ""}
             </div>
             ${proj.annotation ? `<div class="tcs-badge-ghost" style="margin-top:9px;padding:5px 8px;border-radius:7px;font-size:11.5px;">注：${esc(proj.annotation)}</div>` : ""}
@@ -1792,6 +1933,23 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     renderOverlays(next);
     renderL3(next);
 
+    if (!activeRestartDeck) {
+      if (next.restartDeck && !dismissedRestartIds.has(next.restartDeck.id)) {
+        openRestartDeck(next.restartDeck);
+      } else if (activeTab === "season" && next.viewport.zoomLevel === 2 && next.viewport.projectWorkKey) {
+        const area = findArea(next.viewport.areaId);
+        const proj = findProject(next.viewport.areaId, next.viewport.projectWorkKey);
+        if (area && proj && proj.recencyDays >= WORK_RESUME_RESTART_DAYS) {
+          const deckId = `restart-work-${proj.workKey}`;
+          if (!dismissedRestartIds.has(deckId)) {
+            const workDeck = buildWorkRestartDeck({ project: proj, area, snapshot: next });
+            if (workDeck) openRestartDeck(workDeck);
+          }
+        }
+      }
+    }
+    renderRestartDeck();
+
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         if (disposed) return;
@@ -1953,6 +2111,110 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
     if (!target || !snapshot) return;
+
+    // Restart flip-card controls
+    if (target.closest("[data-restart-skip]")) {
+      dismissRestartDeck(true);
+      return;
+    }
+    if (target.closest("[data-restart-next]") && activeRestartDeck) {
+      restartSlideIndex = Math.min(activeRestartDeck.slides.length - 1, restartSlideIndex + 1);
+      renderRestartDeck();
+      return;
+    }
+    if (target.closest("[data-restart-prev]") && activeRestartDeck) {
+      restartSlideIndex = Math.max(0, restartSlideIndex - 1);
+      renderRestartDeck();
+      return;
+    }
+    if (target.closest("[data-restart-open-source]") && activeRestartDeck) {
+      const deck = activeRestartDeck;
+      const proj = findProject(deck.areaId ?? null, deck.projectWorkKey ?? null);
+      dismissRestartDeck(true);
+      if (proj) {
+        if (port.onOpenInLogseq) void port.onOpenInLogseq(proj);
+        else if (port.onOpenWork) void port.onOpenWork(proj);
+      }
+      return;
+    }
+    if (target.closest("[data-restart-settle-carryover]") && activeRestartDeck) {
+      const deck = activeRestartDeck;
+      dismissedRestartIds.add(deck.id);
+      activeRestartDeck = null;
+      restartSlideIndex = 0;
+      renderRestartDeck();
+      void runAction(
+        { type: "time", action: { type: "ack-workbench-restart", settleCarryoverToWeek: true } },
+        "旧遗留已安静退回本周容器",
+      );
+      return;
+    }
+    const restartExitRole = target.closest<HTMLElement>("[data-restart-exit]")?.dataset.restartExit;
+    if (restartExitRole && activeRestartDeck) {
+      const deck = activeRestartDeck;
+      const role = restartExitRole === "parked" ? "parked" : "maintenance";
+      dismissedRestartIds.add(deck.id);
+      activeRestartDeck = null;
+      restartSlideIndex = 0;
+      renderRestartDeck();
+      const applyExit = async () => {
+        if (deck.kind === "workbench-gap") {
+          await runAction({ type: "time", action: { type: "ack-workbench-restart" } });
+        }
+        if (deck.exitAreaId) {
+          await runAction(
+            { type: "update-area-meta", areaId: deck.exitAreaId, focusRole: role },
+            role === "parked" ? "已移入搁置，不再打扰" : "已转入维护模式",
+          );
+          if (role === "parked") setZoom(0);
+        }
+      };
+      void applyExit();
+      return;
+    }
+    if (target.closest("[data-restart-start]") && activeRestartDeck) {
+      const deck = activeRestartDeck;
+      dismissedRestartIds.add(deck.id);
+      activeRestartDeck = null;
+      restartSlideIndex = 0;
+      renderRestartDeck();
+      const launchFocus = async () => {
+        if (deck.kind === "workbench-gap") {
+          await port.dispatch({ type: "time", action: { type: "ack-workbench-restart" } });
+        }
+        const res = await port.dispatch({
+          type: "time",
+          action: {
+            type: "start-focus",
+            title: deck.suggestedActionTitle,
+            slotId: "morning",
+            areaId: deck.areaId ?? null,
+            projectWorkKey: deck.projectWorkKey ?? null,
+            workRef: deck.workRef ?? null,
+            ...(deck.focusRole ? { focusRole: deck.focusRole } : {}),
+          },
+        });
+        if (res && !disposed) update(res);
+        const active = res?.time?.activeFocus ?? snapshot?.time?.activeFocus;
+        if (active && port.onFocusStarted) {
+          await port.onFocusStarted(active);
+        } else {
+          showToast(`已进入现场并开始专注：${deck.suggestedActionTitle}`);
+        }
+      };
+      void launchFocus().catch((e) => showToast(e instanceof Error ? e.message : "启动专注失败"));
+      return;
+    }
+    const l2RestartKey = target.closest<HTMLElement>("[data-l2-restart]")?.dataset.l2Restart;
+    if (l2RestartKey) {
+      const area = findArea(snapshot.viewport.areaId);
+      const proj = findProject(snapshot.viewport.areaId, l2RestartKey);
+      if (area && proj) {
+        const deck = buildWorkRestartDeck({ project: proj, area, snapshot, force: true });
+        if (deck) openRestartDeck(deck);
+      }
+      return;
+    }
 
     const tabBtn = target.closest<HTMLElement>("[data-tcs-tab]");
     if (tabBtn?.dataset.tcsTab) {
@@ -2465,12 +2727,38 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     drawL2Lines();
     drawTethers();
   };
+  const onRestartKeyDown = (event: KeyboardEvent) => {
+    if (!activeRestartDeck) return;
+    const tag = (event.target as HTMLElement | null)?.tagName ?? "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      dismissRestartDeck(true);
+      return;
+    }
+    if (event.key === "ArrowRight" || event.key === " " || event.code === "Space") {
+      event.preventDefault();
+      if (restartSlideIndex < activeRestartDeck.slides.length - 1) {
+        restartSlideIndex++;
+        renderRestartDeck();
+      }
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      if (restartSlideIndex > 0) {
+        restartSlideIndex--;
+        renderRestartDeck();
+      }
+    }
+  };
   stageEl.addEventListener("scroll", drawTethers);
   inboxListEl.addEventListener("scroll", drawTethers);
   if (typeof window !== "undefined") {
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onRestartKeyDown);
   }
 
   return {
@@ -2483,6 +2771,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
         window.removeEventListener("resize", onResize);
+        window.removeEventListener("keydown", onRestartKeyDown);
       }
       root.remove();
       void styleEl;

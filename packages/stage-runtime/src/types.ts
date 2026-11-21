@@ -1,4 +1,5 @@
 import type { CatalogWork, WorkRef } from "@task-copilot/contracts";
+import type { RestartDeck } from "./restart-deck.ts";
 import type { StageViewTab, TimeSnapshot, TimeUserAction } from "./time-types.ts";
 
 export type StageZoomLevel = 0 | 1 | 2 | 3;
@@ -252,6 +253,7 @@ export interface StageSnapshot {
   mismatchSignals: StageMismatchSignal[];
   inboxDiagnostics?: StageInboxDiagnostics;
   time?: TimeSnapshot;
+  restartDeck?: RestartDeck | null;
   ghostProposals: StageGhostProposal[];
   highlights: StageHighlight[];
   edgeRadar: StageEdgeRadar | null;

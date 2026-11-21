@@ -240,6 +240,12 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
     }
   }
 
+  const lastWorkbenchActiveAt =
+    typeof raw.lastWorkbenchActiveAt === "number" && Number.isFinite(raw.lastWorkbenchActiveAt)
+      ? raw.lastWorkbenchActiveAt
+      : undefined;
+  const restartDismissedDate = validDate(raw.restartDismissedDate) ? raw.restartDismissedDate : undefined;
+
   return {
     schemaVersion: 1,
     weekMoves,
@@ -248,6 +254,8 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
     focusHistory,
     footprintCalendarEnabled: raw.footprintCalendarEnabled === true,
     footprintCalendarName: cleanText(raw.footprintCalendarName, 80) ?? DEFAULT_FOOTPRINT_CALENDAR,
+    ...(lastWorkbenchActiveAt !== undefined ? { lastWorkbenchActiveAt } : {}),
+    ...(restartDismissedDate ? { restartDismissedDate } : {}),
     updatedAt: typeof raw.updatedAt === "number" && Number.isFinite(raw.updatedAt) ? raw.updatedAt : now,
   };
 }
@@ -292,6 +300,15 @@ export class TimeEngine {
   syncCarryover(now = Date.now()): boolean {
     const today = dateKeyFromMs(now);
     let mutated = false;
+    if (this.registry.lastWorkbenchActiveAt === undefined) {
+      const timestamps: number[] = [];
+      for (const r of this.registry.focusHistory) timestamps.push(r.endedAt);
+      for (const i of this.registry.dayItems) timestamps.push(i.updatedAt);
+      for (const m of this.registry.weekMoves) timestamps.push(m.updatedAt);
+      if (timestamps.length > 0) {
+        this.registry.lastWorkbenchActiveAt = Math.max(...timestamps);
+      }
+    }
     for (const item of this.registry.dayItems) {
       if (item.state !== "open") continue;
       if (item.date < today && item.lastCarryoverDate !== today) {
@@ -354,6 +371,7 @@ export class TimeEngine {
       updatedAt: now,
     };
     this.registry.weekMoves.push(item);
+    this.registry.lastWorkbenchActiveAt = now;
     this.registry.updatedAt = now;
     return structuredClone(item);
   }
@@ -434,6 +452,7 @@ export class TimeEngine {
       updatedAt: now,
     };
     this.registry.dayItems.push(item);
+    this.registry.lastWorkbenchActiveAt = now;
     this.registry.updatedAt = now;
     return {
       item: structuredClone(item),
@@ -534,6 +553,24 @@ export class TimeEngine {
       item.state = "dropped";
       item.updatedAt = now;
     }
+    this.registry.lastWorkbenchActiveAt = now;
+    this.registry.updatedAt = now;
+    return true;
+  }
+
+  ackWorkbenchRestart(options: { settleCarryoverToWeek?: boolean } = {}, now = Date.now()): boolean {
+    const today = dateKeyFromMs(now);
+    const openCarryover = options.settleCarryoverToWeek
+      ? this.registry.dayItems.filter((i) => i.state === "open" && i.date < today)
+      : [];
+    if (openCarryover.length > 0) {
+      this.captureUndo();
+      for (const item of openCarryover) {
+        this.triageCarryover({ itemId: item.id, decision: "to-week" }, now, false);
+      }
+    }
+    this.registry.lastWorkbenchActiveAt = now;
+    this.registry.restartDismissedDate = today;
     this.registry.updatedAt = now;
     return true;
   }
@@ -609,6 +646,7 @@ export class TimeEngine {
     };
 
     this.registry.activeFocus = session;
+    this.registry.lastWorkbenchActiveAt = now;
     this.registry.updatedAt = now;
     return {
       session: structuredClone(session),
@@ -694,6 +732,7 @@ export class TimeEngine {
       this.registry.focusHistory = this.registry.focusHistory.slice(-400);
     }
     this.registry.activeFocus = null;
+    this.registry.lastWorkbenchActiveAt = now;
     this.registry.updatedAt = now;
     return structuredClone(record);
   }
@@ -980,6 +1019,13 @@ export class TimeEngine {
       case "dismiss-all-time-proposals":
         this.dismissAllTimeProposals();
         return { mutatedRegistry: false };
+      case "ack-workbench-restart":
+        return {
+          mutatedRegistry: this.ackWorkbenchRestart(
+            { ...(action.settleCarryoverToWeek !== undefined ? { settleCarryoverToWeek: action.settleCarryoverToWeek } : {}) },
+            now,
+          ),
+        };
       case "undo-time":
         return { mutatedRegistry: this.undoLastCommit() };
     }
@@ -1046,6 +1092,20 @@ export class TimeEngine {
       weeklyAreaFocusMinutes[rec.areaId] = (weeklyAreaFocusMinutes[rec.areaId] ?? 0) + rec.durationMinutes;
     }
 
+    let effectiveLastActiveAt = this.registry.lastWorkbenchActiveAt;
+    if (effectiveLastActiveAt === undefined) {
+      const timestamps: number[] = [];
+      for (const r of this.registry.focusHistory) timestamps.push(r.endedAt);
+      for (const i of this.registry.dayItems) timestamps.push(i.updatedAt);
+      for (const m of this.registry.weekMoves) timestamps.push(m.updatedAt);
+      if (timestamps.length > 0) {
+        effectiveLastActiveAt = Math.max(...timestamps);
+      }
+    }
+    const workbenchGapDays =
+      effectiveLastActiveAt !== undefined ? Math.max(0, Math.floor((now - effectiveLastActiveAt) / 86_400_000)) : 0;
+    const restartDismissedToday = this.registry.restartDismissedDate === today;
+
     return {
       today,
       weekKey: wk,
@@ -1061,6 +1121,9 @@ export class TimeEngine {
       footprintCalendarEnabled: this.registry.footprintCalendarEnabled,
       footprintCalendarName: this.registry.footprintCalendarName,
       ...(calendarDiagnostics ? { calendarDiagnostics } : {}),
+      ...(effectiveLastActiveAt !== undefined ? { lastWorkbenchActiveAt: effectiveLastActiveAt } : {}),
+      workbenchGapDays,
+      restartDismissedToday,
       canUndo: this.undoSnapshot !== null,
     };
   }

@@ -156,6 +156,8 @@ export interface TimeRegistryFile {
   focusHistory: CompletedFocusRecord[];
   footprintCalendarEnabled: boolean;
   footprintCalendarName: string;
+  lastWorkbenchActiveAt?: number;
+  restartDismissedDate?: string;
   updatedAt: number;
 }
 
@@ -207,6 +209,9 @@ export interface TimeSnapshot {
   footprintCalendarEnabled: boolean;
   footprintCalendarName: string;
   calendarDiagnostics?: CalendarDiagnostics;
+  lastWorkbenchActiveAt?: number;
+  workbenchGapDays: number;
+  restartDismissedToday: boolean;
   canUndo: boolean;
 }
 
@@ -277,4 +282,5 @@ export type TimeUserAction =
   | { type: "create-calendar-shield"; itemId: string; startTime?: string; endTime?: string }
   | { type: "resolve-time-proposals"; decisions: TimeResolveDecision[] }
   | { type: "dismiss-all-time-proposals" }
+  | { type: "ack-workbench-restart"; settleCarryoverToWeek?: boolean }
   | { type: "undo-time" };

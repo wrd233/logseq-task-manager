@@ -32,8 +32,19 @@ function defaultRunOsascript(script: string, args: string[]): Promise<string> {
       { timeout: OSASCRIPT_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error) {
-          const detail = (stderr || error.message || "").trim();
-          rejectDone(Object.assign(new Error(detail || "OSASCRIPT_FAILED"), { code: (error as NodeJS.ErrnoException).code }));
+          const stderrText = (stderr || "").trim();
+          const killed = Boolean((error as { killed?: boolean }).killed);
+          if (stderrText) {
+            rejectDone(Object.assign(new Error(stderrText), { code: (error as NodeJS.ErrnoException).code }));
+            return;
+          }
+          if (killed) {
+            rejectDone(Object.assign(new Error("OSASCRIPT_TIMEOUT"), { code: "ETIMEDOUT" }));
+            return;
+          }
+          const rawMsg = (error.message || "").trim();
+          const cleaned = rawMsg.startsWith("Command failed:") ? "OSASCRIPT_EXEC_FAILED" : rawMsg;
+          rejectDone(Object.assign(new Error(cleaned || "OSASCRIPT_FAILED"), { code: (error as NodeJS.ErrnoException).code }));
           return;
         }
         resolveDone(stdout);
@@ -295,6 +306,7 @@ export class AppleCalendarBridge {
       const message = error instanceof Error ? error.message : String(error);
       const code = (error as NodeJS.ErrnoException)?.code;
       const denied = isCalendarPermissionError(message, code);
+      const timedOut = code === "ETIMEDOUT" || message === "OSASCRIPT_TIMEOUT";
       const diagnostics: CalendarDiagnostics = {
         status: denied ? "permission-denied" : "error",
         eventCount: 0,
@@ -303,8 +315,10 @@ export class AppleCalendarBridge {
         ...(code ? { errorCode: code } : {}),
         message: denied
           ? "读取 Apple 日历被系统权限拦截（Fail Open，未影响语义时间容器）。"
-          : `读取 Apple 日历失败：${message.slice(0, 160)}`,
-        ...(denied ? { guidance: MACOS_CALENDAR_TCC_GUIDANCE } : {}),
+          : timedOut
+            ? "读取 Apple 日历超时（可能正在等待系统权限弹窗确认，或日历应用响应较慢；已 Fail Open）。"
+            : `读取 Apple 日历失败：${message.slice(0, 160)}`,
+        ...(denied || timedOut ? { guidance: MACOS_CALENDAR_TCC_GUIDANCE } : {}),
         checkedAt: now,
       };
       this.cache = { key: cacheKey, expiresAt: now + Math.min(this.cacheTtlMs, 15_000), events: [], diagnostics };

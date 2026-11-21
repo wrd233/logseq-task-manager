@@ -10,10 +10,12 @@ import { isCollaborateTargetId, listCollaborateTargets, saveCollaborateConfig } 
 import { createCompanionMcpTransport, isMcpClientId, renderMcpClientConfig, runWorkspaceMcpStdio } from "./mcp-stdio.ts";
 import { isDshRunning, loadReadingConfig, loadReadingEnv, providersConfigPath, saveReadingConfig } from "./reading-hub.ts";
 import { startWorkspaceServer } from "./workspace-server.ts";
+import { formatStageSelfCheckText, runStageSelfCheck } from "./stage-check.ts";
 import { installWorkspaceLaunchAgent, startWorkspaceDaemon, stopWorkspaceDaemon, uninstallWorkspaceLaunchAgent, workspaceServiceStatus } from "./workspace-service.ts";
 export const workspaceHelp = `Task Copilot natural workspace CLI (local connection; no Kernel required)
   workspace serve [--state-dir <private-directory>]  # foreground; stop with Ctrl+C
   workspace service install | uninstall | start | stop | status [--state-dir <dir>]
+  workspace stage-check [--state-dir <dir>] [--icloud-dir <dir>] [--json]  # 1-step Node/Companion/iCloud/Calendar self-check
   workspace mcp [--state-dir <dir>] [--client <label>]  # stdio JSON-RPC 2.0 MCP server
   workspace mcp config --client <codex|antigravity|claude-code|cursor> [--state-dir <dir>] [--json]
   workspace collaborate targets | target <dsh|codex|antigravity|claude-code|clipboard> [--state-dir <dir>] [--json]
@@ -137,7 +139,7 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
             io.out(workspaceHelp);
             return 0;
         }
-        const valueFlags = new Set(["--state-dir", "--directory", "--client", "--request-id", "--input-file", "--question", "--purpose", "--path", "--id", "--platform", "--session-id", "--url", "--description", "--kind", "--base-url", "--model", "--api-key", "--label", "--locality", "--max-tokens", "--fast", "--deep", "--local", "--default"]), words: string[] = [];
+        const valueFlags = new Set(["--state-dir", "--icloud-dir", "--directory", "--client", "--request-id", "--input-file", "--question", "--purpose", "--path", "--id", "--platform", "--session-id", "--url", "--description", "--kind", "--base-url", "--model", "--api-key", "--label", "--locality", "--max-tokens", "--fast", "--deep", "--local", "--default"]), words: string[] = [];
         for (let index = 0; index < args.length; index++) {
             const arg = args[index]!;
             if (valueFlags.has(arg)) {
@@ -188,6 +190,15 @@ export async function runWorkspaceCli(args: string[], io: CliIO): Promise<number
                 return 0;
             }
             throw new ClientError("CLI_USAGE", "Use workspace service install|uninstall|start|stop|status", 2);
+        }
+        if (words[1] === "stage-check") {
+            const icloudDir = option(args, "--icloud-dir");
+            const report = await runStageSelfCheck({
+                stateDirectory: state,
+                ...(icloudDir ? { icloudInboxDirectory: icloudDir } : {}),
+            });
+            io.out(json ? JSON.stringify(report) : formatStageSelfCheckText(report));
+            return report.ok ? 0 : 1;
         }
         if (words[1] === "mcp") {
             const sub = words[2];

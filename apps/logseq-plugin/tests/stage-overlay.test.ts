@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { workKey, type CatalogSnapshot } from "@task-copilot/contracts";
-import { StageEngine, TimeEngine, type StageSnapshot } from "@task-copilot/stage-runtime";
+import { StageEngine, TimeEngine, parseTimeRegistry, type StageSnapshot } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "../src/features/stage/overlay.ts";
 import { QuietFocusCapsule, formatFocusStatusLine } from "../src/features/stage/focus-capsule.ts";
 
@@ -290,6 +290,141 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     assert.equal(timeEngine.buildSnapshot().recentFocusRecords[0]!.stopNote, "已写完核心验证，明日继续收尾");
 
     capsule.dispose();
+    overlay.dispose();
+  } finally {
+    restore();
+  }
+});
+
+test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/Esc keyboard nav, start focus, and legitimate exit", async () => {
+  const restore = installDom();
+  const DAY_MS = 86_400_000;
+  const now = Date.now();
+  const staleCatalog: CatalogSnapshot = {
+    schemaVersion: 1,
+    graphId: "graph:/lsq-test",
+    graphName: "Test Graph",
+    refreshedAt: now,
+    works: [
+      {
+        workRef: { kind: "logseq", graphId: "graph:/lsq-test", rootUuid: "blk-stale-1", sourceKind: "block" },
+        title: "沉睡九天的架构重整",
+        objectType: "Project",
+        location: "系统演进 / 架构",
+        updatedAt: now - 9 * DAY_MS,
+      },
+    ],
+  };
+  const staleKey = workKey(staleCatalog.works[0]!.workRef);
+  const engine = new StageEngine();
+  const draft = engine.proposeAreas({
+    agent: "codex",
+    catalog: [staleCatalog],
+    areas: [{ name: "系统演进", workKeys: [staleKey], focusRole: "main", quarterGoal: "完成架构解耦" }],
+  });
+  engine.resolveProposals([{ proposalId: draft.id, action: "accept" }], now - 9 * DAY_MS);
+
+  // Workbench untouched for 5 days with zero external changes -> 2-slide compressed workbench-gap deck!
+  const timeEngine = new TimeEngine(
+    parseTimeRegistry(
+      {
+        schemaVersion: 1,
+        weekMoves: [],
+        dayItems: [],
+        activeFocus: null,
+        focusHistory: [],
+        footprintCalendarEnabled: false,
+        footprintCalendarName: "Task Copilot 足迹",
+        lastWorkbenchActiveAt: now - 5 * DAY_MS,
+        updatedAt: now - 5 * DAY_MS,
+      },
+      now,
+    ),
+    now,
+  );
+
+  const navigated: string[] = [];
+  const buildSnap = (): StageSnapshot =>
+    engine.buildSnapshot([staleCatalog], [], now, undefined, undefined, timeEngine.buildSnapshot(now));
+
+  try {
+    const overlay = new GlobalStageOverlay({
+      remote: {
+        stageState: async () => buildSnap(),
+        stageAction: async (action) => {
+          if (action.type === "time") timeEngine.applyAction(action.action, now);
+          else engine.applyUserAction(action, { catalog: [staleCatalog], inbox: [], now });
+          return { snapshot: buildSnap(), archivedInboxIds: [] };
+        },
+        stageAnchor: async (key) => {
+          engine.anchorFromWorkKey(key, "logseq", now);
+          return buildSnap();
+        },
+      },
+      readLocalCatalog: async () => staleCatalog,
+      openProject: async () => undefined,
+      openFocusWork: async (session) => { navigated.push(session.title); },
+      promoteTodo: async () => undefined,
+      openExternalUrl: async () => undefined,
+      notify: () => undefined,
+    });
+
+    // 1. Opening Stage triggers 2-slide workbench-gap deck
+    await overlay.open();
+    const card1 = document.querySelector<HTMLElement>(".tcs-restart-card");
+    assert.ok(card1, "Workbench >3d gap should open Restart Flip-Card");
+    assert.equal(card1.dataset.restartKind, "workbench-gap");
+    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+    assert.doesNotMatch(card1.textContent ?? "", /\p{Extended_Pictographic}/u);
+
+    // Space advances to slide 2 / 2
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }));
+    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "2 / 2");
+    assert.match(document.querySelector(".tcs-restart-card")?.textContent ?? "", /进入现场，开始专注/);
+
+    // ArrowLeft steps back to 1 / 2
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+
+    // Esc skips restart deck WITHOUT closing the Stage overlay!
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(document.querySelector(".tcs-restart-card"), null);
+    assert.equal(overlay.isOpen, true, "Esc should only dismiss the restart deck, not close the whole Stage");
+    assert.equal(timeEngine.buildSnapshot(now).restartDismissedToday, true);
+
+    // 2. Drill into L2 of the 9-day stale project -> triggers single-work >7d restart deck!
+    const areaId = engine.getRegistry().areas[0]!.id;
+    engine.setViewport({ zoomLevel: 2, areaId, projectWorkKey: staleKey });
+    await overlay.open();
+    const workCard = document.querySelector<HTMLElement>(".tcs-restart-card");
+    assert.ok(workCard, "Stale >7d project should open work-resume flip-card");
+    assert.equal(workCard.dataset.restartKind, "work-resume");
+    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+    assert.match(workCard.textContent ?? "", /沉睡九天的架构重整/);
+
+    // ArrowRight to final slide -> test "进入现场，开始专注"
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    const startBtn = document.querySelector<HTMLButtonElement>("[data-restart-start]");
+    assert.ok(startBtn);
+    startBtn.click();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(overlay.isOpen, false, "Starting focus from restart card closes overlay");
+    assert.ok(navigated.includes("沉睡九天的架构重整"));
+    assert.equal(timeEngine.buildSnapshot(now).activeFocus?.title, "沉睡九天的架构重整");
+
+    // 3. Re-open L2 and click explicit "久别重启" button -> test legitimate exit "不再重要 · 移入搁置"
+    await overlay.open();
+    const reopenRestart = document.querySelector<HTMLButtonElement>("[data-l2-restart]");
+    assert.ok(reopenRestart, "L2 stale project should offer manual 久别重启 trigger");
+    reopenRestart.click();
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    const parkExitBtn = document.querySelector<HTMLButtonElement>('[data-restart-exit="parked"]');
+    assert.ok(parkExitBtn);
+    parkExitBtn.click();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(engine.getRegistry().areas[0]!.focusRole, "parked");
+
     overlay.dispose();
   } finally {
     restore();

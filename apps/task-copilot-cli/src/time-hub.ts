@@ -220,6 +220,8 @@ export class TimeHub {
       footprintCalendarEnabled: snap.footprintCalendarEnabled,
       footprintCalendarName: snap.footprintCalendarName,
       calendarDiagnostics: snap.calendarDiagnostics ?? null,
+      workbenchGapDays: snap.workbenchGapDays,
+      restartDismissedToday: snap.restartDismissedToday,
       canUndo: snap.canUndo,
     };
   }
