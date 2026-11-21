@@ -78,8 +78,8 @@ export const workbenchStyles = `
 .wx-hub-strip.is-privacy .wx-hub-strip-copy strong{color:var(--wx-amber)}
 .wx-hub-strip-copy small{display:block;font-size:10.5px;color:var(--wx-muted);margin-top:1px}
 .wx-hub-strip-actions{display:flex;align-items:center;gap:4px;margin-left:auto;flex-wrap:wrap}
-.wx-hub-strip-actions a{font-size:11px;color:var(--wx-accent);text-decoration:none;padding:3px 6px;border-radius:5px;border:1px solid color-mix(in srgb,var(--wx-accent) 28%,transparent);background:var(--wx-bg);white-space:nowrap}
-.wx-hub-strip-actions a:hover{background:var(--wx-hover)}
+.wx-hub-strip-actions a,.wx-hub-strip-actions .wx-hub-open{font-size:11px;color:var(--wx-accent);text-decoration:none;padding:3px 6px;border-radius:5px;border:1px solid color-mix(in srgb,var(--wx-accent) 28%,transparent);background:var(--wx-bg);white-space:nowrap}
+.wx-hub-strip-actions a:hover,.wx-hub-strip-actions .wx-hub-open:hover:not(:disabled){background:var(--wx-hover)}
 .wx-brief-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:2px 0 13px}
 .wx-brief-head .wx-brief-meta{margin:0}
 .wx-brief-empty-actions{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}

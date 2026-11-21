@@ -235,14 +235,22 @@ function EntryActions({ entry, sessionId, rpc, onEdit, onFocus, onHandoff }) {
     return () => { active = false; };
   }, [open, entry.id, entry.reference, sessionId, rpc, url]);
   const close = () => { if (details.current) details.current.open = false; setOpen(false); };
+  const openOriginalInLogseq = async () => {
+    close();
+    try {
+      await rpc('navigate-logseq', { sessionId, intent: 'open-block', blockUuid: entry.reference.blockUuid });
+      return;
+    } catch {
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
   return <details ref={details} className="sp-actions" onToggle={event => { setOpen(event.currentTarget.open); if (!event.currentTarget.open) { requested.current = false; setError(''); } }}>
     <summary aria-label="安排操作" title="继续工作、打开原文或带入对话">↗</summary>
     <div className="sp-menu-pop" role="menu">
       <button type="button" role="menuitem" onClick={() => { close(); onEdit(entry); }}>编辑安排</button>
       {entry.reference ? <>
         <button type="button" role="menuitem" onClick={() => { close(); onFocus(entry); }}>在工作结构中查看</button>
-        {url ? <a role="menuitem" href={url} target="_blank" rel="noreferrer" onClick={close}>在 Logseq 打开原文</a>
-          : <button type="button" role="menuitem" disabled={loading} onClick={() => void 0}>{loading ? '正在定位原文…' : '在 Logseq 打开原文'}</button>}
+        <button type="button" role="menuitem" disabled={loading && !url} onClick={() => void openOriginalInLogseq()}>{loading && !url ? '正在定位原文…' : '在 Logseq 打开原文'}</button>
         {error ? <span className="sp-menu-error">{error}</span> : null}
         <span className="sp-menu-sep" />
       </> : null}

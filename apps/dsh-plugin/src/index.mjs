@@ -5,6 +5,7 @@ import process from 'node:process';
 import { rm, readFile } from 'node:fs/promises';
 import { DshHandoffs } from './handoff.mjs';
 import { browserDescriptor, waitDshBrowserOffer, localDshUrl } from '../../task-copilot-cli/src/dsh-handoff.ts';
+import { activateRunningBrowser } from '../../task-copilot-cli/src/macos-focus.ts';
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
@@ -138,6 +139,14 @@ export async function apply(ctx, config = {}) {
       const value = request(input, ['sessionId', 'question', 'profileId']);
       return service.startReading(value.sessionId, { ...(value.question !== undefined ? { question: value.question } : {}), ...(value.profileId !== undefined ? { profileId: value.profileId } : {}) }, signal);
     },
+    'navigate-logseq': async (input, signal) => {
+      const value = request(input, ['sessionId', 'intent', 'blockUuid', 'proposalId']);
+      return service.navigateLogseq(value.sessionId, {
+        ...(value.intent !== undefined ? { intent: value.intent } : {}),
+        ...(value.blockUuid !== undefined ? { blockUuid: value.blockUuid } : {}),
+        ...(value.proposalId !== undefined ? { proposalId: value.proposalId } : {}),
+      }, signal);
+    },
   };
   const dispatch = async (endpoint, input, signal) => {
     try {
@@ -160,8 +169,12 @@ export async function apply(ctx, config = {}) {
       try { envelope = await incoming.json(); } catch { return new Response('Invalid JSON', { status: 400 }); }
       if (envelope?.type !== 'client-request' || envelope.method !== `logseq-workbench/${endpoint}` ||
           typeof envelope.rpcId !== 'string' || !envelope.rpcId.length || envelope.rpcId.length > 128) return new Response('Invalid RPC envelope', { status: 400 });
-      return Response.json({ type: 'server-response', rpcId: envelope.rpcId,
-        result: await dispatch(endpoint, envelope.payload, incoming.signal) });
+      const result = await dispatch(endpoint, envelope.payload, incoming.signal);
+      if (endpoint === 'handoff' && result.ok) {
+        const ua = incoming.headers?.get?.('user-agent') ?? null;
+        void activateRunningBrowser(ua).catch(() => {});
+      }
+      return Response.json({ type: 'server-response', rpcId: envelope.rpcId, result });
     },
     });
     if (typeof unregister === 'function') ctx.effect(() => unregister);

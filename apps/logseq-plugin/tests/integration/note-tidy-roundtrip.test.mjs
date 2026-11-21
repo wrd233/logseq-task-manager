@@ -1,4 +1,4 @@
-/* global Buffer, document, logseq, setTimeout, clearTimeout */
+/* global Buffer, document, fetch, logseq, setTimeout, clearTimeout */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -10,6 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { startWorkspaceServer } from "../../../task-copilot-cli/src/workspace-server.ts";
+import { workspaceEntry } from "../../../task-copilot-cli/src/workspace-cli.ts";
 import { contentFixture } from "../fixtures/content-writeback.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -438,6 +439,38 @@ test("Phase 3 end-to-end: in-place left note tidying with anchors/FLIP/tweak, sa
     assert.equal(writebackBtn.textContent, "待审原文改动（1）");
     const candBtn = Array.from(aiRoot.querySelectorAll("button")).find((b) => b.textContent === "待采用修订");
     assert.equal(candBtn.hidden, true, "reading candidate entry must remain strictly separate from writeback proposal entry");
+
+    // Wave P0: Companion /dsh/navigate-logseq (review-writeback) opens FLIP overlay directly inside Logseq without logseq://
+    const prevSkipActivate = process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+    process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = "1";
+    try {
+      const entry = await workspaceEntry(workDir);
+      const navRes = await fetch(`${server.descriptor.baseUrl}/dsh/navigate-logseq`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${server.descriptor.token}`,
+          "x-workspace-instance": server.descriptor.instanceId,
+        },
+        body: JSON.stringify({
+          connectionId: entry.connectionId,
+          scope: entry.binding.scope,
+          intent: "review-writeback",
+          proposalId: proposeRes.data.proposal.proposalId,
+          clientId: "dsh:phase3-test",
+        }),
+      });
+      const navBody = await navRes.json();
+      assert.equal(navRes.ok, true, JSON.stringify(navBody));
+      assert.equal(navBody.value.navigated, true);
+      assert.equal(navBody.value.openedReview, true);
+      assert.equal(dialog.hidden, false, "workbench.navigate(review-writeback) must open FLIP preview overlay directly");
+      dialog.dispatchEvent(new f.browser.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      assert.equal(dialog.hidden, true);
+    } finally {
+      if (prevSkipActivate === undefined) delete process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+      else process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = prevSkipActivate;
+    }
 
     // Click "待审原文改动（1）" -> opens unified FLIP overlay with external-mcp title & anchors -> click "应用到左侧"
     writebackBtn.click();

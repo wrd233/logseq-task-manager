@@ -474,6 +474,7 @@ export function installAgentWorkspace(options: {
         const result = response.value as CollaborateHandoffResult;
         await valid(value); await check();
         if (result.target === "dsh" && result.url) await logseq.App.openExternalLink(result.url);
+        else if (result.target === "dsh") void logseq.UI?.showMsg?.(`已在打开的 DSH 页面切到「${title.slice(0, 48)}」`, "success");
         return result;
     };
     const dshMenu = logseq.App.registerCommand("block-context-menu-item", {key: "agent-workspace-open-dsh-block", label: "在外部协作继续"}, (event: {uuid?: string; args?: Array<{uuid?: string}>}) => openWork(event.uuid ?? event.args?.[0]?.uuid).catch(report));

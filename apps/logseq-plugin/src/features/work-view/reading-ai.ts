@@ -606,11 +606,35 @@ export class WorkReadingAI {
     };
   }
 
-  private openWritebackReview(): void {
-    const latest = this.state.proposals.at(-1);
-    if (!latest) return;
-    const plan = latest.plan ?? this.fallbackPlanFromProposal(latest);
-    this.tidyOverlay.openPlan(plan, { proposalId: latest.proposalId, anchor: this.writebackButton });
+  private openWritebackReview(proposalId?: string): boolean {
+    const chosen = proposalId
+      ? this.state.proposals.find((item) => item.proposalId === proposalId) ?? this.state.proposals.at(-1)
+      : this.state.proposals.at(-1);
+    if (!chosen) return false;
+    const plan = chosen.plan ?? this.fallbackPlanFromProposal(chosen);
+    this.tidyOverlay.openPlan(plan, { proposalId: chosen.proposalId, anchor: this.writebackButton });
+    return true;
+  }
+
+  async openWritebackProposal(proposalId?: string): Promise<boolean> {
+    if (this.disposed || !this.scope || !this.key) return false;
+    if (this.port.listWritebackProposals) {
+      await this.reconcileWritebackProposals(this.scope, this.state, this.key);
+    }
+    if (this.disposed) return false;
+    return this.openWritebackReview(proposalId);
+  }
+
+  async openCandidateReview(): Promise<boolean> {
+    if (this.disposed || !this.scope || !this.key) return false;
+    if (this.port.jobStatus) {
+      await this.reconcileStagedJob(this.scope, this.state, this.key);
+    }
+    if (this.disposed) return false;
+    const candidate = this.reading.read().candidate;
+    if (!candidate) return false;
+    this.reviewCandidate(this.candidateButton);
+    return true;
   }
 
   async openTidySnapshots(): Promise<void> {

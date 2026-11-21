@@ -9,6 +9,7 @@ import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewF
 import { createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
 import { isDshRunning, ReadingJobHub, type ReadingHubOptions, type StagedReadingJob } from "./reading-hub.ts";
 import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, resolveWorkPrivacy, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
+import { activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -811,6 +812,60 @@ export async function startWorkspaceServer(options: {
                         ...(raw.requestId !== undefined ? { requestId: workText(raw.requestId, 128) } : {}),
                     });
                     send(response, 200, { instanceId, value });
+                    return;
+                }
+                if (request.url === "/dsh/navigate-logseq") {
+                    const { raw, active } = assertDshActive([
+                        "connectionId",
+                        "scope",
+                        "intent",
+                        "blockUuid",
+                        "proposalId",
+                        "clientId",
+                    ]);
+                    const intent = raw.intent === undefined ? "open-work" : workText(raw.intent, 64);
+                    if (!["open-work", "open-block", "review-writeback", "review-candidate"].includes(intent)) {
+                        throw new WorkspaceError("INVALID_INPUT", "不支持的 Logseq 导航意图。");
+                    }
+                    const blockUuid = raw.blockUuid !== undefined ? workText(raw.blockUuid, 200) : undefined;
+                    const proposalId = raw.proposalId !== undefined ? workText(raw.proposalId, 128) : undefined;
+                    const clientId = raw.clientId !== undefined ? workText(raw.clientId, 128) : "dsh";
+                    const navRequestId = randomUUID();
+                    const reply = unwrapReplyValue(
+                        await enqueueOperation({
+                            schemaVersion: 1,
+                            instanceId,
+                            connectionId: active.connectionId,
+                            clientId,
+                            requestId: navRequestId,
+                            command: "workbench.navigate",
+                            payload: {
+                                intent,
+                                ...(blockUuid ? { blockUuid } : {}),
+                                ...(proposalId ? { proposalId } : {}),
+                            },
+                        })
+                    ) as Record<string, unknown>;
+                    const focus = await activateRunningLogseq({
+                        stateDirectory: state,
+                        graphId: active.binding.scope.graphId,
+                    });
+                    await auditFact({
+                        connectionId: active.connectionId,
+                        clientId,
+                        requestId: navRequestId,
+                        command: "dsh.navigate.logseq",
+                        payload: { intent, ...(blockUuid ? { blockUuid } : {}), ...(proposalId ? { proposalId } : {}), activated: focus.activated },
+                        outcome: "returned",
+                    });
+                    send(response, 200, {
+                        instanceId,
+                        value: {
+                            ...(reply && typeof reply === "object" ? reply : { navigated: true }),
+                            intent,
+                            activated: focus.activated,
+                        },
+                    });
                     return;
                 }
                 throw new WorkspaceError("UNKNOWN_ROUTE");

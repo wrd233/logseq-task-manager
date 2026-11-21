@@ -20,7 +20,7 @@ function Properties({ properties }) {
   ))}</div>;
 }
 
-function Block({ node, tree, collapsed, onToggle, focusUuid, workTypes, onAdd, onNotice }) {
+function Block({ node, tree, collapsed, onToggle, focusUuid, workTypes, onAdd, onNotice, onOpenLogseq }) {
   const children = tree.children.get(node.blockUuid) ?? [];
   const open = !collapsed.has(node.blockUuid);
   const body = node.body ?? {};
@@ -44,7 +44,9 @@ function Block({ node, tree, collapsed, onToggle, focusUuid, workTypes, onAdd, o
           {node.availability !== 'available' ? <span className="wx-unavailable">原文暂不可用</span> : null}
           <div className="wx-block-actions">
             <button type="button" aria-label="把这一段加入引用" title="加入引用" onClick={whole}>＋</button>
-            {node.logseqUrl ? <a href={node.logseqUrl} target="_blank" rel="noreferrer" aria-label="在 Logseq 打开这一段" title="在 Logseq 打开">↗</a> : null}
+            {node.logseqUrl ? (onOpenLogseq
+              ? <button type="button" aria-label="在 Logseq 打开这一段" title="切回 Logseq 定位这一段" onClick={() => onOpenLogseq(node.blockUuid, node.logseqUrl)}>↗</button>
+              : <a href={node.logseqUrl} target="_blank" rel="noreferrer" aria-label="在 Logseq 打开这一段" title="在 Logseq 打开">↗</a>) : null}
           </div>
         </div>
         {body.markdown?.trim() ? (body.tokens?.length ? <Markdown tokens={body.tokens} source={body.markdown} skip={skip} /> : <div className="wx-md wx-md-plain">{body.markdown.slice(skip)}</div>) : null}
@@ -52,12 +54,12 @@ function Block({ node, tree, collapsed, onToggle, focusUuid, workTypes, onAdd, o
         {children.length && !open ? <button type="button" className="wx-collapsed-hint" onClick={() => onToggle(node.blockUuid)}>{children.length} 条下级内容</button> : null}
       </div>
     </div>
-    {children.length && open ? <div className="wx-children">{children.map(child => <Block key={child.blockUuid} node={child} tree={tree} collapsed={collapsed} onToggle={onToggle} focusUuid={focusUuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} />)}</div> : null}
+    {children.length && open ? <div className="wx-children">{children.map(child => <Block key={child.blockUuid} node={child} tree={tree} collapsed={collapsed} onToggle={onToggle} focusUuid={focusUuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} onOpenLogseq={onOpenLogseq} />)}</div> : null}
   </article>;
 }
 
 /** Logseq's real block hierarchy, readable at any width. No permanent per-block buttons. */
-export function Reader({ nodes, onlyIds, focusUuid, workTypes, onAdd, onNotice, resetKey = '', toolbar = true }) {
+export function Reader({ nodes, onlyIds, focusUuid, workTypes, onAdd, onNotice, onOpenLogseq, resetKey = '', toolbar = true }) {
   const root = useRef(null);
   const [collapsed, setCollapsed] = useState(() => new Set());
   const [popup, setPopup] = useState(null);
@@ -138,7 +140,7 @@ export function Reader({ nodes, onlyIds, focusUuid, workTypes, onAdd, onNotice, 
       {focusUuid ? <button type="button" onClick={focusBlock}>定位当前</button> : null}
     </div> : null}
     <div onMouseUp={readSelection} onKeyUp={readSelection} className="wx-reader-body">
-      {tree.roots.length ? tree.roots.map(node => <Block key={node.blockUuid} node={node} tree={tree} collapsed={collapsed} onToggle={toggle} focusUuid={focusUuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} />)
+      {tree.roots.length ? tree.roots.map(node => <Block key={node.blockUuid} node={node} tree={tree} collapsed={collapsed} onToggle={toggle} focusUuid={focusUuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} onOpenLogseq={onOpenLogseq} />)
         : <p className="wx-empty-line">这里还没有可读的原文。</p>}
     </div>
     {popup ? <button type="button" className="wx-select-action" style={{ top: popup.top, left: popup.left }} onMouseDown={event => event.preventDefault()} onClick={addSelection}>

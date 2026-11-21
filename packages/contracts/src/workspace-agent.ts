@@ -34,6 +34,7 @@ export const workspaceCommands = {
     "todo.read": [], "todo.apply": ["request"], "todo.result": ["requestId"], "todo.recover": ["requestId"], "todo.resumeIdentity": ["requestId"], "todo.retry": ["previousRequestId", "request"],
     "formatting.preview": ["requestId", "sourceIds", "labels"], "formatting.result": ["requestId"], "formatting.recover": ["requestId"],
     "stage.history": [], "stage.read": ["input"], "stage.submit": ["input"],
+    "workbench.navigate": ["intent", "blockUuid", "proposalId"],
 } as const;
 export type WorkspaceCommand = keyof typeof workspaceCommands;
 export type WorkspaceReadTarget = {sessionId: string; workRef: WorkRef; scope: AgentWorkScope; generation: number};

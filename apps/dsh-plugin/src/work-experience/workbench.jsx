@@ -100,7 +100,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     const [reader, setReader] = useState(null), [readerError, setReaderError] = useState(null);
     const [focus, setFocus] = useState(null), [view, setView] = useState('structure');
     const [loading, setLoading] = useState(true), [reload, setReload] = useState(0), [readerTick, setReaderTick] = useState(0);
-    const [hub, setHub] = useState(null), [hubTick, setHubTick] = useState(0), [hubBusy, setHubBusy] = useState(false);
+    const [hub, setHub] = useState(null), [hubTick, setHubTick] = useState(0), [hubBusy, setHubBusy] = useState(false), [navBusy, setNavBusy] = useState(false);
     const [selected, setSelected] = useState([]), [notice, setNotice] = useState(null), [busy, setBusy] = useState(false);
     const [discovery, setDiscovery] = useState(false), [menu, setMenu] = useState(false), [confirmUnbind, setConfirmUnbind] = useState(false), [binding, setBinding] = useState(false);
     const [directory, setDirectory] = useState(''), [bindingError, setBindingError] = useState('');
@@ -116,7 +116,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
     useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     useEffect(() => {
       setStatus(null); setConnection(null); setStructure(null); setStructureError(null); setReader(null); setReaderError(null);
-      setHub(null); setHubBusy(false);
+      setHub(null); setHubBusy(false); setNavBusy(false);
       setFocus(readWorkFocus(sessionId)); setView('structure'); setSelected([]); setNotice(null); setLoading(true); setDiscovery(false); setMenu(false);
       setBinding(false); setBindingError(''); setDirectory(''); setConfirmUnbind(false); scrollPositions.current = new Map();
     }, [sessionId]);
@@ -352,6 +352,35 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
         if (mountedRef.current) setHubBusy(false);
       }
     };
+    const openInLogseq = async ({ intent = 'open-work', blockUuid, proposalId, fallbackUrl } = {}) => {
+      const currentSession = sessionId;
+      setNavBusy(true);
+      try {
+        const result = await rpc('navigate-logseq', {
+          sessionId,
+          intent,
+          ...(blockUuid ? { blockUuid } : {}),
+          ...(proposalId ? { proposalId } : {}),
+        });
+        if (sessionRef.current !== currentSession || !mountedRef.current) return;
+        const text = intent === 'review-writeback'
+          ? (result?.openedReview ? '已在 Logseq 打开原文改动预览。' : '已切回 Logseq，请在工作台查看待审改动。')
+          : intent === 'review-candidate'
+            ? (result?.openedReview ? '已在 Logseq 打开新版简报审阅。' : '已切回 Logseq。')
+            : '已切回 Logseq 定位对应位置。';
+        setNotice({ text: result?.activated === false ? `${text}（请切换至 Logseq 窗口查看）` : text, tone: 'ok' });
+      } catch (error) {
+        if (sessionRef.current !== currentSession || !mountedRef.current) return;
+        if (fallbackUrl && ['WORKSPACE_OFFLINE', 'WORKSPACE_TIMEOUT', 'ENOENT', 'ECONNREFUSED', 'CHANNEL_UNAVAILABLE'].includes(error?.code)) {
+          window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
+          setNotice({ text: '本地通道离线，已改为使用 Logseq 链接打开。', tone: 'info' });
+          return;
+        }
+        setNotice({ text: errorText(error), tone: 'error' });
+      } finally {
+        if (mountedRef.current) setNavBusy(false);
+      }
+    };
 
     const staleCount = selected.filter(item => {
       const version = selectionVersions.get(item.sourceId);
@@ -374,7 +403,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
         <div className="wx-head-top">
           <span className="wx-eyebrow"><span className={`wx-live-dot${connected ? ' is-on' : ''}`} />当前工作</span>
           <div className="wx-head-actions">
-            {root?.source?.logseqUrl ? <a className="wx-icon" href={root.source.logseqUrl} target="_blank" rel="noreferrer" title="在 Logseq 打开这件工作" aria-label="在 Logseq 打开这件工作">↗</a> : null}
+            {root?.source?.logseqUrl ? <button type="button" className="wx-icon" disabled={navBusy} title="切回 Logseq 打开这件工作" aria-label="在 Logseq 打开这件工作" onClick={() => void openInLogseq({ intent: 'open-work', fallbackUrl: root.source.logseqUrl })}>↗</button> : null}
             <button type="button" className="wx-icon" aria-label="刷新当前结构与原文" title="刷新" onClick={() => setReload(value => value + 1)}>↻</button>
             <div className="wx-menu-wrap" ref={menuRef}>
               <button type="button" className="wx-icon" aria-label="更多工作操作" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(value => !value)}>⋯</button>
@@ -418,7 +447,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
             {latest?.summary ? <small>{latest.summary}</small> : null}
           </div>
           <div className="wx-hub-strip-actions">
-            {root?.source?.logseqUrl ? <a href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 审阅</a> : null}
+            <button type="button" className="wx-hub-open" disabled={navBusy} onClick={() => void openInLogseq({ intent: 'review-writeback', proposalId: latest.proposalId, fallbackUrl: root?.source?.logseqUrl })}>↗ 去 Logseq 审阅</button>
             <button type="button" className="wx-text" disabled={hubBusy} onClick={() => void dismissProposal(latest.proposalId)}>撤回</button>
           </div>
         </aside>;
@@ -428,7 +457,7 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
           <strong>{hub.readingJob.status === 'running' ? '正在整理阅读简报…' : '新版阅读简报已就绪，待在 Logseq 采用'}</strong>
           {hub.readingJob.summary ? <small>{hub.readingJob.summary}</small> : null}
         </div>
-        {hub.readingJob.status === 'completed' && root?.source?.logseqUrl ? <div className="wx-hub-strip-actions"><a href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 采用</a></div> : null}
+        {hub.readingJob.status === 'completed' ? <div className="wx-hub-strip-actions"><button type="button" className="wx-hub-open" disabled={navBusy} onClick={() => void openInLogseq({ intent: 'review-candidate', fallbackUrl: root?.source?.logseqUrl })}>↗ 去 Logseq 采用</button></div> : null}
       </aside> : null}
       {readingIntent ? <aside className="wx-recovery" aria-label="来自 Logseq 的协作请求"><div className="wx-recovery-copy"><strong>来自 Logseq 的请求</strong><p style={{whiteSpace:'pre-wrap'}}>{readingIntent.request}</p>{readingIntent.selection?<p>{readingIntent.selection}</p>:null}<small>{readingIntent.sourceIds.length} 处来源 · 只加入草稿，不发送</small></div><div className="wx-recovery-actions"><button type="button" className="wx-button" onClick={()=>{
         if(!props.inputActions)return;
@@ -474,18 +503,18 @@ export function createWorkbench({ ctx, rpc, refresh, invalidate, navigate, enter
           {!structure && !structureError ? <Skeleton /> : null}
           {!structure && structureError ? <div className="wx-empty" role="alert"><p>{errorText(structureError)}</p><button type="button" className="wx-button" onClick={() => setReload(value => value + 1)}>重试</button></div> : null}
           {structure && view === 'structure' ? <StructureBody structure={structure} reader={reader} readerError={readerError} workTypes={workTypes}
-            readerByUuid={readerByUuid} sessionId={sessionId} onEnter={changeFocus} onRetry={() => setReload(value => value + 1)} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} /> : null}
+            readerByUuid={readerByUuid} sessionId={sessionId} onEnter={changeFocus} onRetry={() => setReload(value => value + 1)} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} onOpenLogseq={options => void openInLogseq(options)} /> : null}
           {structure && view === 'reader' ? (reader
-            ? <Reader nodes={reader.nodes} focusUuid={root?.uuid} workTypes={workTypes} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} resetKey={`${sessionId}:${root?.uuid ?? 'root'}:reader`} />
+            ? <Reader nodes={reader.nodes} focusUuid={root?.uuid} workTypes={workTypes} onAdd={addSelection} onNotice={text => setNotice({ text, tone: 'info' })} onOpenLogseq={(blockUuid, fallbackUrl) => void openInLogseq({ intent: 'open-block', blockUuid, fallbackUrl })} resetKey={`${sessionId}:${root?.uuid ?? 'root'}:reader`} />
             : readerError ? <div className="wx-empty" role="alert"><p>{errorText(readerError)}</p><button type="button" className="wx-button" onClick={() => setReaderTick(value => value + 1)}>重试</button></div>
               : <Skeleton />) : null}
           {structure && view === 'briefing' ? (progressive
-            ? <ProgressiveBriefing value={progressive} hubJob={hub?.readingJob ?? null} logseqUrl={root?.source?.logseqUrl ?? null} busy={hubBusy} onStartReading={startReading} onOriginal={()=>changeView('reader')} />
+            ? <ProgressiveBriefing value={progressive} hubJob={hub?.readingJob ?? null} busy={hubBusy || navBusy} onReviewCandidate={() => void openInLogseq({ intent: 'review-candidate', fallbackUrl: root?.source?.logseqUrl })} onStartReading={startReading} onOriginal={()=>changeView('reader')} />
             : <div className="wx-empty">
                 {hub?.readingJob?.status === 'running'
                   ? <p>正在通过 Companion 整理当前工作的阅读简报…</p>
                   : hub?.readingJob?.status === 'completed'
-                    ? <><p>阅读简报候选已生成，请回到 Logseq 审阅并采用。</p>{root?.source?.logseqUrl ? <div className="wx-brief-empty-actions"><a className="wx-button wx-button-primary" href={root.source.logseqUrl} target="_blank" rel="noreferrer">↗ 在 Logseq 审阅采用</a></div> : null}</>
+                    ? <><p>阅读简报候选已生成，请回到 Logseq 审阅并采用。</p><div className="wx-brief-empty-actions"><button type="button" className="wx-button wx-button-primary" disabled={navBusy} onClick={() => void openInLogseq({ intent: 'review-candidate', fallbackUrl: root?.source?.logseqUrl })}>↗ 在 Logseq 审阅采用</button></div></>
                     : <>
                         <p>{hub?.readingJob?.status === 'failed' ? errorText(hub.readingJob.error) : '当前工作还没有阅读简报。'}</p>
                         <div className="wx-brief-empty-actions">
@@ -523,7 +552,7 @@ function BriefingSource({content,display}){
   const original=reportMarkdown(content??'来源不可用'),table=display==='chart'?sourceTable(original):null,series=table?numericSeries(table):[];
   return series.length?<div>{series.map(column=><div className="wx-brief-chart" key={column.label}><small>{column.label}</small>{column.points.map(point=><div key={point.label}><div className="wx-brief-chart-label"><span>{point.label}</span><strong>{point.value}</strong></div><div className="wx-brief-track"><span style={{width:`${point.ratio*100}%`}}/></div></div>)}</div>)}</div>:articleMarkdown(original);
 }
-function ProgressiveBriefing({value,hubJob,logseqUrl,busy,onStartReading,onOriginal}) {
+function ProgressiveBriefing({value,hubJob,busy,onReviewCandidate,onStartReading,onOriginal}) {
   const {briefing,basis,current,materialBasis,materials}=value;
   const old=new Map((basis?.blocks??[]).map(block=>[block.sourceId,block])),now=new Map(current.blocks.map(block=>[block.sourceId,block]));
   const storageKey=`wx-briefing-open:${JSON.stringify([current.scope.graphId,current.scope.rootUuid,value.planId])}`;
@@ -554,7 +583,7 @@ function ProgressiveBriefing({value,hubJob,logseqUrl,busy,onStartReading,onOrigi
     <div className="wx-brief-head">
       <div className="wx-brief-meta">{new Date(briefing.createdAt).toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 整理{jobRunning ? <span className="wx-brief-change"> · 正在整理新版简报…</span> : jobReady || value.candidate === 'ready' ? <span className="wx-brief-change"> · 新版修订待在 Logseq 采用</span> : stale ? <span className="wx-brief-change"> · 依据有更新</span> : null}</div>
       <div>
-        {jobReady && logseqUrl ? <a className="wx-text" href={logseqUrl} target="_blank" rel="noreferrer">↗ 去 Logseq 采用</a> : null}
+        {jobReady && onReviewCandidate ? <button type="button" className="wx-text" disabled={busy} onClick={onReviewCandidate}>↗ 去 Logseq 采用</button> : null}
         {onStartReading ? <button type="button" className="wx-text" disabled={busy || jobRunning} onClick={() => void onStartReading()}>{jobRunning ? '整理中…' : '重新整理简报'}</button> : null}
       </div>
     </div>
@@ -581,7 +610,7 @@ function ProgressiveBriefing({value,hubJob,logseqUrl,busy,onStartReading,onOrigi
   </article>;
 }
 
-function StructureBody({ structure, reader, readerError, workTypes, readerByUuid, sessionId, onEnter, onRetry, onAdd, onNotice }) {
+function StructureBody({ structure, reader, readerError, workTypes, readerByUuid, sessionId, onEnter, onRetry, onAdd, onNotice, onOpenLogseq }) {
   const root = structure.root;
   if (structure.children.length) {
     return <div className="wx-structure">
@@ -603,12 +632,12 @@ function StructureBody({ structure, reader, readerError, workTypes, readerByUuid
   if (reader) {
     const content = structure.content ?? [];
     const visible = content.length > 1 ? content.filter(node => node.blockUuid !== root.uuid) : content;
-    if (!visible.length) return <div className="wx-empty"><p>这件工作下还没有可读的普通内容。</p><a className="wx-button" href={root.source?.logseqUrl} target="_blank" rel="noreferrer">在 Logseq 查看</a></div>;
+    if (!visible.length) return <div className="wx-empty"><p>这件工作下还没有可读的普通内容。</p><button type="button" className="wx-button" onClick={() => onOpenLogseq?.({ intent: 'open-work', fallbackUrl: root.source?.logseqUrl })}>在 Logseq 查看</button></div>;
     if (visible.length === 1 && previewText(visible[0].body.markdown) === root.title && !visible[0].body.properties?.length && !visible[0].body.semantic) {
-      return <div className="wx-empty"><p>这件工作只有标题，没有更多正文。</p><a className="wx-button" href={root.source?.logseqUrl} target="_blank" rel="noreferrer">在 Logseq 查看</a></div>;
+      return <div className="wx-empty"><p>这件工作只有标题，没有更多正文。</p><button type="button" className="wx-button" onClick={() => onOpenLogseq?.({ intent: 'open-work', fallbackUrl: root.source?.logseqUrl })}>在 Logseq 查看</button></div>;
     }
     const ids = new Set(visible.map(node => node.blockUuid));
-    return <Reader nodes={reader.nodes} onlyIds={ids} focusUuid={root.uuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} resetKey={`${sessionId}:${root.uuid}:structure`} toolbar={false} />;
+    return <Reader nodes={reader.nodes} onlyIds={ids} focusUuid={root.uuid} workTypes={workTypes} onAdd={onAdd} onNotice={onNotice} onOpenLogseq={(blockUuid, fallbackUrl) => onOpenLogseq?.({ intent: 'open-block', blockUuid, fallbackUrl })} resetKey={`${sessionId}:${root.uuid}:structure`} toolbar={false} />;
   }
   if (readerError) return <div className="wx-empty" role="alert"><p>{errorText(readerError)}</p><button type="button" className="wx-button" onClick={onRetry}>重试</button></div>;
   return <Skeleton />;

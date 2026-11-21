@@ -26,7 +26,7 @@ export interface WorkspaceSourcePort {
     refresh(scope: AgentWorkBinding["scope"]): Promise<ContextReading>;
 }
 type MaterialPort = Pick<Materials, "listMaterials" | "readMaterial" | "capture" | "associateMaterial" | "resolveDirectoryFile" | "saveMaterial">;
-type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI" | "readingAPI" | "reportAPI">;
+type WorkPort = Pick<WorkView, "open" | "snapshot" | "lensesAPI" | "readingAPI" | "reportAPI"> & Partial<Pick<WorkView, "navigateFromCompanion">>;
 /** Routes capabilities, without implementing source algorithms, protections or Stage. */
 export class AgentWorkspaceRouter {
     private readonly questions = new Map<string, string>();
@@ -287,6 +287,20 @@ export class AgentWorkspaceRouter {
             if(command==="reading.original") {const result=await work.readingAPI.select(null);await checked();return result;}
             if(command==="reading.highlight") {const result=await work.reportAPI.highlight(payload.input);await checked();return result;}
             if(command==="reading.clear") {work.reportAPI.clearHighlight();return {ok:true,value:null};}
+        }
+        if (command === "workbench.navigate") {
+            const work = this.ports.work;
+            if (!work?.navigateFromCompanion) throw new WorkspaceError("NAVIGATION_UNAVAILABLE");
+            const intent = payload.intent === undefined ? "open-work" : workText(payload.intent, 64);
+            const blockUuid = payload.blockUuid === undefined ? undefined : workText(payload.blockUuid, 200);
+            const proposalId = payload.proposalId === undefined ? undefined : workText(payload.proposalId, 128);
+            const result = await work.navigateFromCompanion(binding.scope, {
+                intent,
+                ...(blockUuid ? { blockUuid } : {}),
+                ...(proposalId ? { proposalId } : {}),
+            });
+            await check();
+            return result;
         }
         if (command.startsWith("focus.")) {
             const work = this.ports.work;

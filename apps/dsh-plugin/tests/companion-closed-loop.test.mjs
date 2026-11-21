@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import { apply } from '../src/index.mjs';
 import { readingModel } from '../src/reading-model.mjs';
 import { startWorkspaceServer } from '../../task-copilot-cli/src/workspace-server.ts';
@@ -156,6 +157,12 @@ function createFakeDshHost(sessionsById) {
 }
 
 test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposal, reading candidate, and ReadingJobHub start', async t => {
+  const previousSkip = process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+  process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = '1';
+  t.after(() => {
+    if (previousSkip === undefined) delete process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+    else process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = previousSkip;
+  });
   const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-closed-loop-')));
   t.after(() => rm(root, { recursive: true, force: true }));
 
@@ -283,6 +290,7 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
     { id: 'mat-pem', filename: 'prod-secret.pem', path: join(workDir, 'prod-secret.pem'), availability: 'available', version: 'm2' },
   ];
 
+  const navDeliveries = [];
   const responderA = startLogseqResponder(server.descriptor, connectionIdA, async delivery => {
     if (delivery.command === 'status') return { capabilities: { read: true, content: false, fileWrite: false } };
     if (delivery.command === 'refresh') return { freshness: 'checked', snapshot: snapshotA, binding: bindingA, workspace: {} };
@@ -299,6 +307,10 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
     if (delivery.command === 'source.read') {
       const b = snapshotA.blocks.find(item => item.sourceId === delivery.payload.sourceId);
       return { freshness: 'checked', source: b };
+    }
+    if (delivery.command === 'workbench.navigate') {
+      navDeliveries.push(delivery.payload);
+      return { navigated: true, intent: delivery.payload.intent, openedReview: delivery.payload.intent !== 'open-block' };
     }
     return {};
   });
@@ -470,6 +482,17 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
   assert.equal(hubWithProposal.value.proposals[0].proposalId, 'dsh-prop-1');
   assert.equal(hubWithProposal.value.proposals[0].operationCount, 2);
 
+  // Wave P0: navigate-logseq sends context-aware workbench.navigate over Companion (review-writeback + open-block)
+  const navReview = await host.rpc('navigate-logseq', { sessionId: 'sess-a', intent: 'review-writeback', proposalId: 'dsh-prop-1' });
+  assert.equal(navReview.ok, true, JSON.stringify(navReview));
+  assert.equal(navReview.value.navigated, true);
+  assert.equal(navReview.value.openedReview, true);
+  assert.deepEqual(navDeliveries.at(-1), { intent: 'review-writeback', proposalId: 'dsh-prop-1' });
+
+  const navBlock = await host.rpc('navigate-logseq', { sessionId: 'sess-a', intent: 'open-block', blockUuid: '11111111-1111-4111-8111-111111111111' });
+  assert.equal(navBlock.ok, true, JSON.stringify(navBlock));
+  assert.deepEqual(navDeliveries.at(-1), { intent: 'open-block', blockUuid: '11111111-1111-4111-8111-111111111111' });
+
   // DSH can dismiss its own staged proposal
   const dismissed = await host.rpc('writeback-dismiss', { sessionId: 'sess-a', proposalId: 'dsh-prop-1' });
   assert.equal(dismissed.ok, true);
@@ -547,12 +570,16 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
     }, 'sess-a'),
     { code: 'CONNECTION_STALE' }
   );
+  const crossNav = await host.rpc('navigate-logseq', { sessionId: 'sess-a', intent: 'open-work' });
+  assert.equal(crossNav.ok, false);
+  assert.equal(crossNav.error.code, 'CONNECTION_STALE');
 
   // Audit log recorded DSH bridge activity
   const auditLines = (await readFile(join(stateDir, 'connection-facts.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
   assert.ok(auditLines.some(row => row.command === 'mcp.workbench_propose_writeback' && row.clientId === 'dsh:sess-a' && row.outcome === 'returned'));
   assert.ok(auditLines.some(row => row.command === 'dsh.writeback.dismiss' && row.clientId === 'dsh:sess-a'));
   assert.ok(auditLines.some(row => row.command === 'dsh.reading.start' && row.clientId === 'dsh:sess-a'));
+  assert.ok(auditLines.some(row => row.command === 'dsh.navigate.logseq' && row.clientId === 'dsh:sess-a' && row.outcome === 'returned'));
 });
 
 test('DSH readingModel defense-in-depth blocks local-only and strips sensitive materials', async () => {

@@ -417,6 +417,54 @@ export class WorkView {
     if (!this.readingAI) throw new Error("整理助手未启用。");
     await this.readingAI.openTidySnapshots();
   }
+  async navigateFromCompanion(
+    scope: SourceScope,
+    options: { intent?: string; blockUuid?: string; proposalId?: string } = {}
+  ): Promise<{ navigated: boolean; intent: string; openedReview: boolean }> {
+    if (this.disposed) throw new Error("WORKBENCH_DISPOSED");
+    const currentGraph = graphIdentity(await logseq.App.getCurrentGraph());
+    if (currentGraph !== scope.graphId) throw new Error("SCOPE_MISMATCH");
+    const intent = options.intent ?? "open-work";
+    const active = this.readingScope();
+    if (!this.panel.visible || !active || !sameLensScope(active, scope) || this.contentChoice !== "body") {
+      if (scope.kind === "page" && scope.pageName) await this.openPage(scope.pageName);
+      else await this.open(scope.rootUuid);
+    }
+    if (this.disposed) return { navigated: false, intent, openedReview: false };
+    let openedReview = false;
+    const pushOriginPage = async () => {
+      if (!this.workOriginPage) return;
+      try { await Promise.resolve(logseq.App.pushState("page", { name: this.workOriginPage })); } catch { /* ignore */ }
+    };
+    if (intent === "review-writeback") {
+      const editing = await logseq.Editor.checkEditing();
+      const editingInWork = typeof editing === "string" && this.sourceRows.some(row => row.uuid === editing);
+      if (!this.draft && this.workOriginPage && !editingInWork) {
+        if (typeof editing === "string" && typeof logseq.Editor.exitEditingMode === "function") {
+          await logseq.Editor.exitEditingMode(false).catch(() => undefined);
+        }
+        await pushOriginPage();
+        await new Promise<void>(resolve => window.setTimeout(resolve, 60));
+      }
+      openedReview = (await this.readingAI?.openWritebackProposal(options.proposalId)) ?? false;
+    } else if (intent === "review-candidate") {
+      openedReview = (await this.readingAI?.openCandidateReview()) ?? false;
+    } else if (intent === "open-block") {
+      await this.locate(options.blockUuid ?? scope.rootUuid).catch(async () => {
+        if (this.workOriginPage && !(await logseq.Editor.checkEditing())) {
+          await pushOriginPage();
+        }
+      });
+    } else {
+      if (!this.draft && !(await logseq.Editor.checkEditing())) {
+        await this.locate(scope.rootUuid).catch(async () => {
+          await pushOriginPage();
+        });
+      }
+    }
+    try { window.focus?.(); } catch { /* Best effort focus inside Electron renderer */ }
+    return { navigated: true, intent, openedReview };
+  }
   /** A native material link inside this work retains its root; an explicit other source keeps its own work. */
   async materialContext(uuid: string): Promise<string | null> {
     const epoch = this.epoch, root = this.rootUuid, graph = this.graph;

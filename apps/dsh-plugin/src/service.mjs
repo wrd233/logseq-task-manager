@@ -366,6 +366,17 @@ export class WorkbenchService {
     this.check(sessionId, generation, signal);
     return value;
   }
+  async navigateLogseq(sessionId, options = {}, signal) {
+    const generation = this.generations.get(sessionId) ?? 0, entry = await this.binding(sessionId, signal);
+    const value = await this.transport.dsh(entry, 'navigate-logseq', {
+      ...(options?.intent !== undefined ? { intent: workText(options.intent, 64) } : {}),
+      ...(options?.blockUuid !== undefined ? { blockUuid: workText(options.blockUuid, 200) } : {}),
+      ...(options?.proposalId !== undefined ? { proposalId: workText(options.proposalId, 128) } : {}),
+      clientId: `dsh:${sessionId}`,
+    }, signal);
+    this.check(sessionId, generation, signal);
+    return value;
+  }
   async proposeWriteback(sessionId, args, signal) {
     const generation = this.generations.get(sessionId) ?? 0, entry = await this.binding(sessionId, signal);
     await this.assertModelReadable(sessionId, signal, entry);
