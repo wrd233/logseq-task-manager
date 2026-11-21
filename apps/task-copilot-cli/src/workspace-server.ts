@@ -5,7 +5,7 @@ import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promi
 import { join, resolve, dirname } from "node:path";
 import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor } from "@task-copilot/contracts";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
-import { createDshHandoff, type DshMode } from "./dsh-handoff.ts";
+import { callDshReadingModel, createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -296,12 +296,18 @@ export async function startWorkspaceServer(options: {
                 await pending;
                 send(response, 200, {published: true}); return;
             }
+            if (request.url === "/plugin/reading-model") {
+                const cancellation=new AbortController();
+                response.once("close",()=>{if(!response.writableEnded)cancellation.abort();});
+                const value=await callDshReadingModel(state,input,cancellation.signal);
+                if(!response.destroyed)send(response,200,{value});return;
+            }
             if (request.url === "/plugin/dsh") {
-                const raw = workRecord(input, ["connectionId", "mode", "title", "workRef", "newTab"]), connectionId = workText(raw.connectionId);
+                const raw = workRecord(input, ["connectionId", "mode", "title", "workRef", "newTab", "intent"]), connectionId = workText(raw.connectionId);
                 const binding = broker.assert(connectionId);
                 if (!["continue", "new"].includes(String(raw.mode))) throw new WorkspaceError("INVALID_INPUT");
                 const result = await createDshHandoff(state, {mode: raw.mode as DshMode, ...(raw.workRef ? {workRef: parseWorkRef(raw.workRef)} : {}), title: workText(raw.title, 800),
-                    entry: {instanceId, connectionId, binding, directory: binding.directory}}, raw.newTab === true);
+                    entry: {instanceId, connectionId, binding, directory: binding.directory},...(raw.intent?{intent:dshReadingIntent(raw.intent)}:{})}, raw.newTab === true);
                 broker.assert(connectionId);
                 send(response, 200, result); return;
             }

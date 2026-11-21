@@ -1,0 +1,270 @@
+{
+  "baselineSnapshot": "9b94f5db114557c4359cec011634b9c27d4972a3",
+  "baselineZip": "b7861b198816220270a7ba0d08b5f07e294af2950b2e09bbe14010cae7ad62c7",
+  "releaseVersion": "0.2.0 · 预览 2026-11-19T01:51:52.308Z · PIiln4",
+  "releaseCommit": "5f23a3895d855663e0afb6bb6fa3045b93e6605e",
+  "releaseZipSHA256": "a856e034c5c3c2f0fa0e922b77f0ca375ff427eefca8d2dab98b2f193e3291cf",
+  "sourceHashes": [
+    {
+      "sample": "交接工作长记.md",
+      "fixture": "fc8efac13b67fa2d1e72ff588c8c40daf197f2d6b3a1c3b2b25fa36d3ec9a77b",
+      "releaseGraphAfter": "fc8efac13b67fa2d1e72ff588c8c40daf197f2d6b3a1c3b2b25fa36d3ec9a77b",
+      "baselineGraphAfter": "fc8efac13b67fa2d1e72ff588c8c40daf197f2d6b3a1c3b2b25fa36d3ec9a77b"
+    },
+    {
+      "sample": "交接随记.md",
+      "fixture": "65da46ee83a133dc369aaf51af7d97316593d2470c91270ff5050061aabe9461",
+      "releaseGraphAfter": "65da46ee83a133dc369aaf51af7d97316593d2470c91270ff5050061aabe9461",
+      "baselineGraphAfter": "65da46ee83a133dc369aaf51af7d97316593d2470c91270ff5050061aabe9461"
+    },
+    {
+      "sample": "审计联络页.md",
+      "fixture": "9610b9764d22d12eddcd90b04f0b845521ddc98035e8b7ad33464849d122916e",
+      "releaseGraphAfter": "9610b9764d22d12eddcd90b04f0b845521ddc98035e8b7ad33464849d122916e",
+      "baselineGraphAfter": "9610b9764d22d12eddcd90b04f0b845521ddc98035e8b7ad33464849d122916e"
+    }
+  ],
+  "loadedPluginIntegrityFiles": 616,
+  "screenshots": {
+    "audit-dsh-wide.png": {
+      "size": [
+        2160,
+        1226
+      ],
+      "sha256": "9012fe724005f66b546ee7b583680547b1d50032f5bbdd0b0e0b2b4e6df7e5fd"
+    },
+    "audit-logseq-narrow-detail.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "d46d8e1ac4424ae1c9bdbbf6faf13f41a484ca1a2b3110c6c3a09682463bc567"
+    },
+    "baseline-compact.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "d7038030d60d538e6a2d8fb3dd8677dfcc1a5b67f2c938ebf43cc86aa0e6c0b4"
+    },
+    "baseline-narrow-dark.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "114b70adc57c0ed27ec5b1e86fb1b4be439c476b34bf2e73e5cc7d6b6bd7d495"
+    },
+    "baseline-narrow-detail.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "7ffd6222cf1ab17239555ebc526d0a22835c876136e3961c0f4b85a728104c51"
+    },
+    "baseline-narrow.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "3fab67f24a5528222f60ffd15bd1921ca0263683657b8fb71572874c03884972"
+    },
+    "baseline-ordinary.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "868db4f4f046a4a4e57bdbf04a2f0b7476d4c72dc8793c24301ff89cc025ccfb"
+    },
+    "baseline-wide.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "5f6ebbf1b82fc2ff5e154f62f5cc35aeca102e73d606186e4feabd9cad40460e"
+    },
+    "candidate-compact-edit-return.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "09f91b465a2524b81a7a9530c14a2ffdad0e905dd817bc0b2b0bb22025c174ba"
+    },
+    "candidate-compact-native-edit.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "54dea1f89754d26d12c94fa35ae7db9e5d64e2fae3450f4a25bb6c3bb48635a0"
+    },
+    "candidate-compact-paged-tab.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "e08781614bcaba9ad7fdb1eeeead4dbcf1143530387f99c4d53ddacfcfb346df"
+    },
+    "candidate-compact.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "b0753944ea6bae3aba3e9444ecce2c7805f5403f1d4e81316c648aafe8c3e6d3"
+    },
+    "candidate-composition-native.png": {
+      "size": [
+        1080,
+        1400
+      ],
+      "sha256": "2d2bcbe3b473658a121cd4469c927a248566c2f2b01d795102aefbd3064451b6"
+    },
+    "candidate-draft-beside.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "3974a488bed76d64a9505d8cbf54e6121951db281311bc776143aea055d2237d"
+    },
+    "candidate-hover-actions.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "9b5fc0026f92c162fb6d6c3c1ea272b8a23d329eee2789f886d562499a96baa0"
+    },
+    "candidate-local-page-reference.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "7c9f5e6fb8aae9c027e6618fd95913042b04ff11a0b6cdbb09bed1e12e62503e"
+    },
+    "candidate-more-collaboration.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "9a312e11ecf334e7e46f8a910424c134307981bcd1d55cc24c6367d07b921849"
+    },
+    "candidate-narrow-classic-gutter-equivalent.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "cc3286571fe262583274390fb9a4df0704ea82fef5a57c9f3308efaf60ea1828"
+    },
+    "candidate-narrow-dark-detail.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "3d24e02e4335865ff981cce33818c313dec7e011bb21d35a34b1743dd1be4fee"
+    },
+    "candidate-narrow-dark.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "4c7319ecfa23b7fd702aab7779bb51f94d6b8c968a97ead5d87651a605484ac9"
+    },
+    "candidate-narrow-edit-return.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "cca225fbe77d972b521f879d6eda308f9ca4bed458da6711b183eacd8ad30d86"
+    },
+    "candidate-narrow-expanded.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "b7d7130c8ab08e26a9b1a221636f7c3c21488778a5f728135aaa686a1acbca7d"
+    },
+    "candidate-narrow-light-detail.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "b44dc0aac5fa07529e229e5aa59d1bdcc299caefe673e441509a238e4b72f15c"
+    },
+    "candidate-narrow-native-edit.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "d1a03c12e03669157ad89cde38ecd8814a5faa93efc6bc392ec9b3c90faca639"
+    },
+    "candidate-narrow-paged-tab.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "7678d5dfc440c9cdc3372440f7697d4f3b30b78acfcabaa522a219173337d8d0"
+    },
+    "candidate-narrow.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "6db97e24b0882fcad5b61ea7d9f5330e99ea8c3badd6e6010b0e97e69adf2508"
+    },
+    "candidate-ordinary.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "e82886f2fc2c14e97f44660e3af5c7e01c69e1c652f58ae40876e60099eee097"
+    },
+    "candidate-row-menu.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "160a2115d6c5fd5b51e292bc7454f63809159718513198742091b2ad013d471a"
+    },
+    "candidate-search-return.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "651b343e54799660a6806cdd962095e8e07ccbf30ea2af86c88bb27de2da5d41"
+    },
+    "candidate-touch-menu.png": {
+      "size": [
+        1520,
+        1400
+      ],
+      "sha256": "e29e4ec2f003faaab8b845134cc2536601bc3892e04ad53ba4cd460eb9153ac0"
+    },
+    "candidate-wide-edit-return.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "6349208c92120b12a78307efaa155e66db1f304f13ad5f29772ae69555ee1ece"
+    },
+    "candidate-wide-native-edit.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "90866cb4000713fd502212efca7b4bde5f629cb385564cee157a3d5ddbaf1e96"
+    },
+    "candidate-wide.png": {
+      "size": [
+        2160,
+        1400
+      ],
+      "sha256": "1734e9a418d6707d7d6c9cdbeac454d899511a52a130efaf44beb706b28234a3"
+    }
+  },
+  "hostObservation": {
+    "ports": [
+      19451,
+      19452
+    ],
+    "unexpectedShowOrFocus": false,
+    "baselineStartupShowSuppressed": 1,
+    "releaseStartupShowSuppressed": 1
+  }
+}

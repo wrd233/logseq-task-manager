@@ -136,11 +136,25 @@ function renderTable(token, source, position, key) {
     <tbody>{(token.rows ?? []).map((row, rowIndex) => <tr key={rowIndex}>{row.map((value, index) => <td key={index}>{cell(value, rows[rowIndex + 2]?.[index], `${key}.r${rowIndex}c${index}`)}</td>)}</tr>)}</tbody></table>;
 }
 
-export function Markdown({ tokens, source, className = '', skip = 0 }) {
-  if (!Array.isArray(tokens) || !tokens.length) {
-    return <div className={`wx-md wx-md-empty ${className}`}>{String(source ?? '').slice(skip)}</div>;
+export function Markdown({ tokens, source, className = '', skip = 0, cue, suffix }) {
+  const content=Array.isArray(tokens)&&tokens.length?renderSequence(tokens,source,0,'md',skip):[String(source??'').slice(skip)];
+  let placed=false;
+  const walk=child=>{
+    if(Array.isArray(child))return child.map(walk);
+    if(!placed&&typeof child==='string'&&cue?.text&&child.includes(cue.text)){
+      placed=true;const at=child.indexOf(cue.text);
+      return <React.Fragment>{child.slice(0,at)}{cue.control}{child.slice(at+cue.text.length)}</React.Fragment>;
+    }
+    if(!placed&&React.isValidElement(child)&&!['a','code','pre'].includes(child.type)&&child.props.children!==undefined)return React.cloneElement(child,{},walk(child.props.children));
+    return child;
+  };
+  const nodes=cue?walk(content):content,tail=<React.Fragment>{cue&&!placed?cue.fallback:null}{suffix}</React.Fragment>;
+  if((cue&&!placed)||suffix){
+    const index=nodes.findLastIndex(node=>React.isValidElement(node)&&['p','h3','blockquote'].includes(node.type));
+    if(index>=0){const node=nodes[index];nodes[index]=React.cloneElement(node,{},<React.Fragment>{node.props.children}{tail}</React.Fragment>);}
+    else nodes.push(tail);
   }
-  return <div className={`wx-md ${className}`}>{renderSequence(tokens, source, 0, 'md', skip)}</div>;
+  return <div className={`wx-md${Array.isArray(tokens)&&tokens.length?'':' wx-md-empty'} ${className}`}>{nodes}</div>;
 }
 
 /** Extract source ranges from a DOM selection. Unmapped text is never guessed. */

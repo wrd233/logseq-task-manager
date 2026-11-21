@@ -26,6 +26,7 @@
     "check": "npm run docs:requirements && npm run typecheck && npm run lint && npm test && npm run test:sandbox && npm run build && npm run check:boundaries && npm run taste:eval",
     "task-copilot": "tsx apps/task-copilot-cli/src/main.ts",
     "docs:requirements": "node scripts/build-requirements-map.mjs",
+    "preview:logseq": "node --experimental-websocket scripts/logseq-preview.mjs",
     "package:plugin": "npm run build && node apps/logseq-plugin/scripts/package.mjs"
   },
   "devDependencies": {

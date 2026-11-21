@@ -1,4 +1,5 @@
 import type { FileIO } from "../host/file-io.ts";
+import { pageAliases } from "./page-identity.ts";
 
 export interface MaterialWorkContext {
   graph: string;
@@ -28,7 +29,12 @@ export interface KeyStorage {
 /** Small, persistent binding port; no lifecycle, hierarchy or task-controller state. */
 export class MaterialDirectories {
   constructor(private readonly storage: KeyStorage) {}
-  private folderKey(graph: string, uuid: string): string { return `workbench:material-folders:${JSON.stringify([graph, uuid])}`; }
+  sourceUuids(graph:string,uuid:string):string[] {return pageAliases(graph,uuid,this.storage);}
+  private ownerKey(prefix:string,graph:string,uuid:string):string {
+    const ids=this.sourceUuids(graph,uuid),key=(id:string)=>`${prefix}:${JSON.stringify([graph,id])}`;
+    return [uuid,...ids].map(key).find(value=>this.storage.getItem(value)!==null)??key(ids[0]!);
+  }
+  private folderKey(graph: string, uuid: string): string { return this.ownerKey("workbench:material-folders",graph,uuid); }
   private preferences(graph: string, uuid: string): FolderPreferences {
     const raw = this.storage.getItem(this.folderKey(graph, uuid));
     if (!raw) return {folders: [], defaultDirectory: null};
@@ -65,7 +71,7 @@ export class MaterialDirectories {
     this.storage.setItem(this.folderKey(graph, uuid), JSON.stringify(value));
     // Registered record roots and locator hints remain valid for existing links.
   }
-  private bindingKey(graph: string, uuid: string): string { return `workbench:material-binding:${JSON.stringify([graph, uuid])}`; }
+  private bindingKey(graph: string, uuid: string): string { return this.ownerKey("workbench:material-binding",graph,uuid); }
   binding(graph: string, uuid: string): Pick<MaterialWorkContext, "directory" | "organization"> | null {
     const value = this.storage.getItem(this.bindingKey(graph, uuid));
     if (!value) return null;
@@ -76,7 +82,7 @@ export class MaterialDirectories {
   bind(context: MaterialWorkContext): void {
     if (!context.sourceUuid) throw new Error("请先选择工作块。");
     if (context.directory) this.storage.setItem(this.bindingKey(context.graph, context.sourceUuid), JSON.stringify({directory: context.directory, organization: context.organization}));
-    else this.storage.removeItem(this.bindingKey(context.graph, context.sourceUuid));
+    else for(const id of this.sourceUuids(context.graph,context.sourceUuid))this.storage.removeItem(`workbench:material-binding:${JSON.stringify([context.graph,id])}`);
   }
   /** Enumerate explicit bindings only; used by the local workspace observer, never a Graph scan. */
   bindings(graph: string): MaterialWorkContext[] {

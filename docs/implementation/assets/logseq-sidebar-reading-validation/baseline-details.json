@@ -1,0 +1,418 @@
+{
+  "scrollInfo": {
+    "offsetWidth": 320,
+    "clientWidth": 320,
+    "style": "stable",
+    "inner": 320,
+    "devicePixelRatio": 2,
+    "zoom": "1"
+  },
+  "light": {
+    "host": [
+      760,
+      700
+    ],
+    "frame": [
+      320,
+      652
+    ],
+    "dpr": 2,
+    "theme": "light",
+    "paper": "rgb(250, 249, 246)",
+    "flags": "white-theme light-theme tc-sidebar-docked",
+    "first": 213.1328125,
+    "scroll": 0,
+    "height": 5209,
+    "clientHeight": 451,
+    "count": 64,
+    "available": 64,
+    "footer": "",
+    "headline": [
+      [
+        "h1",
+        "17.55px"
+      ],
+      [
+        "h2",
+        "22.5px"
+      ],
+      [
+        "h3",
+        "17.55px"
+      ]
+    ],
+    "shapes": {
+      "交接随记": null,
+      "#Project": {
+        "width": 234,
+        "x": 37,
+        "y": 181.1328125,
+        "font": "15px",
+        "line": "27px",
+        "lines": 1,
+        "text": "#Project",
+        "height": 36.75,
+        "row": "6afe4bd2-a264-4e1c-9489-dfb1cb0eaf39",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "一、交接目标": {
+        "width": 234,
+        "x": 37,
+        "y": 221.8828125,
+        "font": "17.55px",
+        "line": "31.59px",
+        "lines": 1,
+        "text": "一、交接目标",
+        "height": 74.671875,
+        "row": "6afe4bd2-e7e8-48eb-b079-8477fad337d5",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "本轮先": {
+        "width": 234,
+        "x": 37,
+        "y": 296.5546875,
+        "font": "15px",
+        "line": "27px",
+        "lines": 3,
+        "text": "本轮先把场地、设备和签字窗口对齐。若交付时间调整，请先写明影响范围，再通知下一班同事。",
+        "height": 89,
+        "row": "6afe4bd2-e826-44d2-8597-eba151c7ae97",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "第一层": {
+        "width": 225,
+        "x": 46,
+        "y": 471.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 2,
+        "text": "第一层：入口门禁恢复后核对备用钥匙和签字页。",
+        "height": 62,
+        "row": "6afe4bd2-6150-42c8-b5c6-267dbc150dfa",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      },
+      "第二层": {
+        "width": 216,
+        "x": 55,
+        "y": 533.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 4,
+        "text": "第二层：按照顺序记下机柜位置、设备标签、负责人员以及下一次复核所需材料。此句用于比较长行回绕后的可读宽度。",
+        "height": 116,
+        "row": "6afe4bd2-e3e2-4087-aa8c-fdaa01bcc054",
+        "contentWidth": 216,
+        "contentScrollWidth": 216,
+        "gutter": null
+      },
+      "第三层": {
+        "width": 207,
+        "x": 64,
+        "y": 649.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 5,
+        "text": "第三层：调试单号 AUDIT-2026-11-18-NORTH-ROOM-01234567890123456789012345678901234567890123456789；人工核验前保留记录。",
+        "height": 143,
+        "row": "6afe4bd2-2a15-4470-968d-d6374503ce20",
+        "contentWidth": 207,
+        "contentScrollWidth": 207,
+        "gutter": null
+      },
+      "核对两套": {
+        "width": 216,
+        "x": 55,
+        "y": 828.1484375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 1,
+        "text": "核对两套标签与签字窗口",
+        "height": 70.75,
+        "row": "6afe4bd2-3704-4e1b-a0cb-c314e370d7cb",
+        "contentWidth": 216,
+        "contentScrollWidth": 216,
+        "gutter": null
+      },
+      "折叠组": {
+        "width": 234,
+        "x": 37,
+        "y": 933.8984375,
+        "font": "22.5px",
+        "line": "40.5px",
+        "lines": 1,
+        "text": "折叠组｜备用步骤\ncollapsed:: true",
+        "height": 112.84375,
+        "row": "6afe4bd2-84fe-4f57-a83d-7b6d5999979a",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "展开后可见": {
+        "width": 225,
+        "x": 46,
+        "y": 1046.7421875,
+        "font": "15px",
+        "line": "27px",
+        "lines": 2,
+        "text": "展开后可见的备用步骤。返回阅读时用本句验证折叠状态。",
+        "height": 62,
+        "row": "6afe4bd2-4d9f-49da-8412-d15c2c6205b1",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      },
+      "联系": {
+        "width": 225,
+        "x": 46,
+        "y": 1235.3359375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 7,
+        "text": "联系 [[审计联络页]]，并查看 交接指南 和 https://example.org/handoff/2026/11/18/network-room/documentation/readiness-checklist-for-operations-and-handoff-records",
+        "height": 197,
+        "row": "6afe4bd2-697f-4496-a7e5-bf1f7543b42e",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      }
+    }
+  },
+  "dark": {
+    "host": [
+      760,
+      700
+    ],
+    "frame": [
+      320,
+      652
+    ],
+    "dpr": 2,
+    "theme": "dark",
+    "paper": "rgb(39, 49, 45)",
+    "flags": "tc-sidebar-docked dark-theme",
+    "first": 213.1328125,
+    "scroll": 0,
+    "height": 5209,
+    "clientHeight": 451,
+    "count": 64,
+    "available": 64,
+    "footer": "",
+    "headline": [
+      [
+        "h1",
+        "17.55px"
+      ],
+      [
+        "h2",
+        "22.5px"
+      ],
+      [
+        "h3",
+        "17.55px"
+      ]
+    ],
+    "shapes": {
+      "交接随记": null,
+      "#Project": {
+        "width": 234,
+        "x": 37,
+        "y": 181.1328125,
+        "font": "15px",
+        "line": "27px",
+        "lines": 1,
+        "text": "#Project",
+        "height": 36.75,
+        "row": "6afe4bd2-a264-4e1c-9489-dfb1cb0eaf39",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "一、交接目标": {
+        "width": 234,
+        "x": 37,
+        "y": 221.8828125,
+        "font": "17.55px",
+        "line": "31.59px",
+        "lines": 1,
+        "text": "一、交接目标",
+        "height": 74.671875,
+        "row": "6afe4bd2-e7e8-48eb-b079-8477fad337d5",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "本轮先": {
+        "width": 234,
+        "x": 37,
+        "y": 296.5546875,
+        "font": "15px",
+        "line": "27px",
+        "lines": 3,
+        "text": "本轮先把场地、设备和签字窗口对齐。若交付时间调整，请先写明影响范围，再通知下一班同事。",
+        "height": 89,
+        "row": "6afe4bd2-e826-44d2-8597-eba151c7ae97",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "第一层": {
+        "width": 225,
+        "x": 46,
+        "y": 471.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 2,
+        "text": "第一层：入口门禁恢复后核对备用钥匙和签字页。",
+        "height": 62,
+        "row": "6afe4bd2-6150-42c8-b5c6-267dbc150dfa",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      },
+      "第二层": {
+        "width": 216,
+        "x": 55,
+        "y": 533.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 4,
+        "text": "第二层：按照顺序记下机柜位置、设备标签、负责人员以及下一次复核所需材料。此句用于比较长行回绕后的可读宽度。",
+        "height": 116,
+        "row": "6afe4bd2-e3e2-4087-aa8c-fdaa01bcc054",
+        "contentWidth": 216,
+        "contentScrollWidth": 216,
+        "gutter": null
+      },
+      "第三层": {
+        "width": 207,
+        "x": 64,
+        "y": 649.3984375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 5,
+        "text": "第三层：调试单号 AUDIT-2026-11-18-NORTH-ROOM-01234567890123456789012345678901234567890123456789；人工核验前保留记录。",
+        "height": 143,
+        "row": "6afe4bd2-2a15-4470-968d-d6374503ce20",
+        "contentWidth": 207,
+        "contentScrollWidth": 207,
+        "gutter": null
+      },
+      "核对两套": {
+        "width": 216,
+        "x": 55,
+        "y": 828.1484375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 1,
+        "text": "核对两套标签与签字窗口",
+        "height": 70.75,
+        "row": "6afe4bd2-3704-4e1b-a0cb-c314e370d7cb",
+        "contentWidth": 216,
+        "contentScrollWidth": 216,
+        "gutter": null
+      },
+      "折叠组": {
+        "width": 234,
+        "x": 37,
+        "y": 933.8984375,
+        "font": "22.5px",
+        "line": "40.5px",
+        "lines": 1,
+        "text": "折叠组｜备用步骤\ncollapsed:: true",
+        "height": 112.84375,
+        "row": "6afe4bd2-84fe-4f57-a83d-7b6d5999979a",
+        "contentWidth": 234,
+        "contentScrollWidth": 234,
+        "gutter": null
+      },
+      "展开后可见": {
+        "width": 225,
+        "x": 46,
+        "y": 1046.7421875,
+        "font": "15px",
+        "line": "27px",
+        "lines": 2,
+        "text": "展开后可见的备用步骤。返回阅读时用本句验证折叠状态。",
+        "height": 62,
+        "row": "6afe4bd2-4d9f-49da-8412-d15c2c6205b1",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      },
+      "联系": {
+        "width": 225,
+        "x": 46,
+        "y": 1235.3359375,
+        "font": "15px",
+        "line": "27px",
+        "lines": 7,
+        "text": "联系 [[审计联络页]]，并查看 交接指南 和 https://example.org/handoff/2026/11/18/network-room/documentation/readiness-checklist-for-operations-and-handoff-records",
+        "height": 197,
+        "row": "6afe4bd2-697f-4496-a7e5-bf1f7543b42e",
+        "contentWidth": 225,
+        "contentScrollWidth": 225,
+        "gutter": null
+      }
+    }
+  },
+  "screenshot": {
+    "id": "81a59715-b673-4bc2-8045-9e0448e715f4",
+    "image": {
+      "width": 1520,
+      "height": 1400
+    },
+    "pid": 48765,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 760,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-aWh4h8/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-aWh4h8/profile"
+  },
+  "detailShot": {
+    "id": "feb72a75-48e6-455c-b56b-de835de3d36f",
+    "image": {
+      "width": 1520,
+      "height": 1400
+    },
+    "pid": 48765,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 760,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-aWh4h8/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-aWh4h8/profile"
+  }
+}

@@ -138,7 +138,7 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         // native selection changes. A new body connection cannot inherit files
         // or TODO and must not grant structure maintenance.
         await api.open(f.root);await f.commands.get("agent-workspace-files")!();assert.equal((await cli(["status"])).capabilities.fileWrite,true);
-        const beforeUpgrade=f.counts(),bodyGrant=document.querySelector<HTMLButtonElement>('[data-action-label="允许 Agent 维护这里正文"]')!;assert.ok(bodyGrant);
+        const beforeUpgrade=f.counts(),bodyGrant=document.querySelector<HTMLButtonElement>('[data-action-label="允许维护当前工作正文"]')!;assert.ok(bodyGrant);
         f.editing(f.a);bodyGrant.click();
         for(let i=0;i<500&&!(await cli(["status"])).capabilities.content;i++)await delay(10);
         const bodyStatus=await cli(["status"]);assert.equal(bodyStatus.binding.scope.rootUuid,f.root);assert.equal(bodyStatus.capabilities.content,true);assert.equal(bodyStatus.capabilities.fileWrite,false);assert.equal(bodyStatus.authorizesTodo,false);assert.equal(bodyStatus.contentProtocol.structureAuthorized,false);assert.deepEqual(f.counts().writes,beforeUpgrade.writes);
@@ -162,27 +162,21 @@ test("independent CLI processes use installed plugin data, real filesystem and p
         assert.deepEqual(f.counts().writes,readonlyCounts.writes);assert.equal(f.counts().identities,readonlyCounts.identities);
         const guideInputs=form.querySelectorAll<HTMLTextAreaElement>("details textarea"),common=guideInputs[0]!,project=guideInputs[1]!;
         common.value=firstGuide.common.text+"\n\n共同补充：保留问号。";project.value="只在这份报价工作中先核对取消条款。";
-        Array.from(form.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="明确保存共同指导")!.click();
+        Array.from(form.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="保存共同指导")!.click();
         for(let i=0;i<100&&!form.textContent!.includes("共同指导已保存");i++)await delay(10);
         assert.match(form.textContent!,/共同指导已保存/);
-        Array.from(form.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="仅保存这份工作的差异")!.click();
-        for(let i=0;i<100&&!form.textContent!.includes("项目差异已读回核验");i++)await delay(10);
+        Array.from(form.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="仅保存当前工作差异")!.click();
+        for(let i=0;i<100&&!form.textContent!.includes("当前工作的差异已保存");i++)await delay(10);
         const newGuide=await cli(["guidance","read"]);assert.notEqual(newGuide.common.version,firstGuide.common.version);assert.equal(newGuide.project.text,project.value);
         const oldScene=await cli(["collaboration","read"]);assert.equal(oldScene.current.guidanceMatches,false);assert.equal(oldScene.scene.guidance.common.version,firstGuide.common.version);
         const newScene=await cli(["collaboration","refresh"]);assert.equal(newScene.guidance.common.version,newGuide.common.version);assert.equal(newScene.guidance.project.version,newGuide.project.version);
         f.editing(false);
         await api.open(f.root);
-        const designReading = document.querySelector<HTMLButtonElement>('[data-action-label="让 Agent 设计读法…"]')!;
-        designReading.click();
-        for(let i=0;i<100&&!form.querySelector(".wb-heading")?.textContent?.includes("让 Agent 设计读法");i++)await delay(10);
-        const readingPreferences=form.querySelector<HTMLTextAreaElement>("textarea")!;
-        assert.match(readingPreferences.value,/reading.request \/ reading.submit/);assert.match(readingPreferences.value,/不修改 Logseq 正文/);
+        assert.equal(document.querySelector('[data-action-label="让 Agent 设计读法…"]'),null);
+        assert.equal(document.querySelectorAll(".wb-reading-ai .wb-ai-handoff").length,1);
+        assert.ok(Array.from(document.querySelectorAll(".wb-reading-ai button")).some(button=>button.textContent==="AI 助手"));
         assert.equal(api.agentWorkspace.status().connected,true);assert.equal(f.counts().writes,readonlyCounts.writes);
-        readingPreferences.value="请按取消条件和待询问问题设计读法。";readingPreferences.dispatchEvent(new f.browser.Event("input") as unknown as Event);
-        await f.commands.get("agent-workspace-collaboration")!();assert.equal(form.querySelector<HTMLTextAreaElement>("textarea")!.value,request.value,"reading preferences do not overwrite the ordinary collaboration draft");
-        await api.open(f.root);document.querySelector<HTMLButtonElement>('[data-action-label="让 Agent 设计读法…"]')!.click();
-        for(let i=0;i<100&&form.querySelector<HTMLTextAreaElement>("textarea")!.value!==readingPreferences.value;i++)await delay(10);
-        assert.equal(form.querySelector<HTMLTextAreaElement>("textarea")!.value,readingPreferences.value);
+        await f.commands.get("agent-workspace-collaboration")!();assert.equal(form.querySelector<HTMLTextAreaElement>("textarea")!.value,request.value,"the advanced explicit-background form retains its own draft");
         const formatNode=f.add("[想法] 可能去湖边，尚未询问。");
         const formatSource=await cli(["content","read"]),formatBlock=formatSource.blocks.find((b:{target:{blockUuid:string}})=>b.target.blockUuid===formatNode.uuid),beforeFormatWrites=f.counts().writes;
         const formatInput={requestId:"format-one",sourceIds:[formatBlock.sourceId]};

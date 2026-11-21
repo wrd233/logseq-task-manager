@@ -89,7 +89,7 @@ export class DshHandoffs {
     try { if (createdNow) await this.renameSession({sessionId, title: request.title}); } catch { warnings.push('SESSION_TITLE_PENDING'); }
     try { await service.command(sessionId, 'sessions.add', {platform: 'dsh', externalId: sessionId, description: request.title}, signal); }
     catch { warnings.push('SESSION_REFERENCE_PENDING'); }
-    return {sessionId, title: request.title, warnings};
+    return {sessionId, title: request.title, warnings,...(request.intent?{intent:request.intent}:{})};
   }
   // The same native validity/recent-open rules, without a body connection or grant.
   enterCatalog(work, operationId, signal, mode = 'continue') {

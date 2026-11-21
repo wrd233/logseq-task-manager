@@ -8,6 +8,7 @@ export class PanelCoordinator {
   active: string | null = null;
   private tail: Promise<void> = Promise.resolve();
   private revision = 0;
+  private activeRevision = 0;
   private readonly closers = new Map<string, (reason: PanelCloseReason) => void | Promise<void>>();
 
   register(name: string, close: (reason: PanelCloseReason) => void | Promise<void>): () => void {
@@ -17,6 +18,7 @@ export class PanelCoordinator {
 
   reserve(): number { return ++this.revision; }
   isLatest(revision: number): boolean { return revision === this.revision; }
+  activeToken(name:string):number|null {return this.active===name&&this.isLatest(this.activeRevision)?this.activeRevision:null;}
 
   activate(name: string, revision = this.reserve()): Promise<boolean> {
     const next = this.tail.then(async () => {
@@ -24,6 +26,7 @@ export class PanelCoordinator {
       if (this.active && this.active !== name) await this.closers.get(this.active)?.("switch");
       if (!this.isLatest(revision)) return false;
       this.active = name;
+      this.activeRevision = revision;
       return true;
     });
     this.tail = next.then(() => undefined, () => undefined);

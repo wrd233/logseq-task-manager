@@ -18,7 +18,10 @@ async function fixture(mode: "report" | "structure" = "structure") {
   const work=new WorkView(()=>{}, {initialReadingMode:mode});let stages=installStageWorkbench({content,work,storage:f.storage});
   await content.local.authorize(f.root,true);await work.open(f.root);
   return {f,content,work,get stages(){return stages;},
-    open:()=>document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-review-entry")!.click(),
+    open:async()=>{
+      document.querySelector<HTMLDetailsElement>(".wb-work-shell .wb-menu")!.open=true;
+      button("阶段记录与确认").click();await wait(()=>work.reviewing,"open stage review");
+    },
     begin:async()=>{
       await f.commands.get("stage-begin")!();
       const input=document.querySelector<HTMLInputElement>("[aria-label='阶段目标']")!;input.value="核验同一轮资料维护";
@@ -48,21 +51,22 @@ test("bounded display hunks reconstruct repeated, multiline and astral text with
 test("ordinary reading exposes one collaboration entry, keeps setup optional and never writes or fabricates agent activity",async()=>{
   const t=await fixture();try{
     const controls=document.querySelector<HTMLElement>(".wb-collaboration-controls")!;
-    assert.equal(controls.hidden,true);assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-review-entry")!.textContent,"审阅与历史");
+    assert.equal(controls.hidden,true);assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-review-entry")!.hidden,true);
+    assert.ok(button("阶段记录与确认",document.querySelector(".wb-work-shell .wb-menu")!));
     assert.equal(document.querySelector<HTMLInputElement>("[aria-label='阶段目标']")!.hidden,true);
     assert.equal(document.querySelectorAll(".wb-review-info").length,0);assert.equal(t.f.counts().writes,0);
-    t.open();assert.equal(controls.hidden,false);assert.ok(Array.from(controls.querySelectorAll("details")).every(d=>!d.open));
+    await t.open();assert.equal(controls.hidden,false);assert.ok(Array.from(controls.querySelectorAll("details")).every(d=>!d.open));
     assert.match(controls.textContent!,/不表示 agent 在线|不会启动模型/);assert.doesNotMatch(controls.textContent!,/agent 正在处理/);
-    button("收起审阅").click();assert.equal(controls.hidden,true);assert.equal((await t.stages.api.history()).stages.length,0);
+    button("结束审阅").click();assert.equal(controls.hidden,true);assert.equal((await t.stages.api.history()).stages.length,0);
   }finally{await t.cleanup();}
 });
 test("real local begin and record name their local effect; remote changes stay discoverable without opening a console",async()=>{
   const t=await fixture();try{
-    await t.begin();button("收起审阅").click();await t.submit();
-    assert.match(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-review-entry")!.textContent!,/有改动/);
+    await t.begin();button("结束审阅").click();await t.submit();
+    assert.ok(document.querySelector(".wb-work-shell .wb-menu > summary.wb-attention"));
     assert.equal(document.querySelector<HTMLElement>(".wb-collaboration-controls")!.hidden,true);
     assert.ok(Array.from(document.querySelectorAll<HTMLElement>(".wb-review-info")).every(n=>n.hidden));
-    t.open();assert.equal(document.querySelector(".wb-stage-bar")!.getAttribute("data-review-mode"),"current");
+    await t.open();assert.equal(document.querySelector(".wb-stage-bar")!.getAttribute("data-review-mode"),"current");
     assert.match(button("记录当前版本").title,/不发送给 agent 或发布/);
     button("记录当前版本").click();await wait(()=>document.querySelector(".wb-stage-bar .wb-error")?.textContent?.includes("没有发送给 agent")??false,"local record message");
     assert.equal((await t.stages.api.history()).stages.length,1);
@@ -70,7 +74,7 @@ test("real local begin and record name their local effect; remote changes stay d
 });
 test("collapsed shortcut cannot approve an unseen revision; submitted snapshots and later native writing remain distinct",async()=>{
   const t=await fixture();try{
-    await t.begin();button("收起审阅").click();const result=await t.submit();
+    await t.begin();button("结束审阅").click();const result=await t.submit();
     await t.f.commands.get("stage-accept")!();assert.equal((await t.stages.api.history()).stages[0]!.acceptances.length,0);
     t.f.blocks.get(t.f.a)!.content+="\n原生后来写下的限制";await t.work.refresh();
     assert.equal(button("认可这个版本").disabled,true);button("查看待认可版本").click();
@@ -105,7 +109,7 @@ test("lost suggestion reply is queried using its retained request after restart 
     t.f.onInsert(async()=>{throw Error("lost SDK reply after insertion");});button("写入原文建议",changed).click();
     await wait(()=>changed.textContent?.includes("写入结果未知")??false,"unknown result");
     assert.equal(t.f.counts().inserts,1);assert.equal(button("重新读取当前原文",changed).disabled,true);
-    button("保留草稿 / 关闭",changed).click();await t.restart();t.open();
+    button("保留草稿 / 关闭",changed).click();await t.restart();await t.open();
     const restored=document.querySelector<HTMLElement>(`article[data-uuid='${t.f.a}']`)!;
     await wait(()=>!!document.querySelector<HTMLElement>(".wb-stage-bar")!.dataset.reviewRevision && restored.querySelector<HTMLElement>(".wb-review-info")?.hidden===false,"restored review");button("纠正",restored).click();
     await wait(()=>!!restored.querySelector("textarea"),"retained request");assert.equal(restored.querySelector("textarea")!.value,"保留这个反例");
@@ -122,11 +126,11 @@ test("native drafts and composition keep the reading frame and review proposal r
     await t.begin();await t.submit();const row=document.querySelector<HTMLElement>(`article[data-uuid='${t.f.a}']`)!;
     button("纠正",row).click();await wait(()=>!!row.querySelector("textarea"),"review editor");
     const area=row.querySelector("textarea")!;area.value+="尚未提交";area.dispatchEvent(new t.f.browser.Event("input",{bubbles:true}) as unknown as Event);
-    area.dispatchEvent(new t.f.browser.Event("compositionstart",{bubbles:true}) as unknown as Event);button("收起审阅").click();await t.work.refresh();
+    area.dispatchEvent(new t.f.browser.Event("compositionstart",{bubbles:true}) as unknown as Event);button("结束审阅").click();await t.work.refresh();
     assert.equal(row.querySelector("textarea"),area);assert.match(area.value,/尚未提交/);assert.equal(button("提交修改",row).disabled,true);
     assert.equal(document.querySelector<HTMLElement>(".wb-collaboration-controls")!.hidden,false);
     area.dispatchEvent(new t.f.browser.Event("compositionend",{bubbles:true}) as unknown as Event);button("保留草稿 / 关闭",row).click();
-    t.f.editing(t.f.a);await t.work.refresh();button("收起审阅").click();assert.equal(document.querySelector<HTMLElement>(".wb-collaboration-controls")!.hidden,false);
+    t.f.editing(t.f.a);await t.work.refresh();button("结束审阅").click();assert.equal(document.querySelector<HTMLElement>(".wb-collaboration-controls")!.hidden,false);
   }finally{await t.cleanup();}
 });
 
@@ -198,8 +202,8 @@ test("large focused reading exposes all changes and missing blocks without mutat
     assert.equal(other.hidden,false);assert.match(other.textContent!,/已缺失/);
     assert.match(other.querySelector(".wb-review-old")!.textContent!,/新一处记录/);
     assert.equal(other.querySelector(".wb-review-info button"),null);assert.equal(t.f.counts().inserts,0);
-    const frozen=JSON.stringify(await t.stages.api.history());button("返回原位置").click();button("收起审阅").click();
-    assert.match(document.querySelector(".wb-work-shell .wb-review-entry")!.textContent!,/有改动/);
+    const frozen=JSON.stringify(await t.stages.api.history());button("返回原位置").click();button("结束审阅").click();
+    assert.ok(document.querySelector(".wb-work-shell .wb-menu > summary.wb-attention"));
     assert.equal(JSON.stringify(await t.stages.api.history()),frozen);
   }finally{await t.cleanup();}
 });
@@ -207,7 +211,7 @@ test("large focused reading exposes all changes and missing blocks without mutat
 test("local connection controls use a private scope port; external stage APIs never expose approval or authority",async()=>{
   const t=await fixture();let connected=false,root="",structure=false;try{
     t.stages.setCollaboration({status:()=>({connected,binding:connected?{scope:t.f.scope,directory:"/private/work"}:null}),connect:async(uuid,organize)=>{root=uuid;structure=organize;connected=true;},stop:()=>{connected=false;}});
-    t.open();button("连接正文维护").click();await wait(()=>connected,"text connection");
+    await t.open();button("连接正文维护").click();await wait(()=>connected,"text connection");
     assert.equal(root,t.f.root);assert.equal(structure,false);button("断开工作连接").click();assert.equal(connected,false);
     button("允许润色与原块整理").click();await wait(()=>structure,"explicit structure connection");
     assert.match(document.querySelector(".wb-collaboration-controls")!.textContent!,/这不表示 agent 在线/);
@@ -228,17 +232,17 @@ test("shared work entry composes the default full report, explicit review and re
     assert.equal(row.querySelector("textarea"),null);
     assert.match(row.querySelector(".wb-body")!.textContent!,/Revised/);
     const history=JSON.stringify(await t.stages.api.history()),source=JSON.stringify([...t.f.blocks]);
-    button("收起审阅").click();assert.equal(t.work.reviewing,false);
+    button("结束审阅").click();assert.equal(t.work.reviewing,false);
     await t.f.commands.get("stage-history")!();
     assert.equal(t.work.reviewing,true);assert.equal(document.querySelector<HTMLElement>(".wb-review-host")!.hidden,false);
     assert.equal(document.querySelector<HTMLElement>(".wb-stage-bar")!.dataset.reviewMode,"history");
-    assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-primary")!.disabled,true);
-    assert.match(document.querySelector(".wb-work-notice")!.textContent!,/只读版本/);
-    button("收起审阅").click();
+    assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-write-entry")!.disabled,true);
+    assert.match(document.querySelector(".wb-work-notice")!.textContent!,/阶段历史/);
+    button("结束审阅").click();
     assert.equal(t.work.reviewing,false);assert.equal(document.querySelector<HTMLElement>(".wb-review-host")!.hidden,true);
-    assert.equal(document.activeElement,document.querySelector(".wb-work-shell .wb-review-entry"));
+    assert.equal(document.activeElement,document.querySelector(".wb-work-shell .wb-menu > summary"));
     assert.equal(t.work.reportAPI.read().mode,"report");assert.deepEqual(t.work.lensesAPI.read().plan,plan);
-    assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-primary")!.disabled,false);
+    assert.equal(document.querySelector<HTMLButtonElement>(".wb-work-shell .wb-write-entry")!.disabled,false);
     assert.equal(JSON.stringify(await t.stages.api.history()),history);assert.equal(JSON.stringify([...t.f.blocks]),source);
   }finally{await t.cleanup();}
 });

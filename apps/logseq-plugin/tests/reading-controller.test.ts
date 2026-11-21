@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { sha256, snapshot, sourceId, type SourceScope, type SourceSnapshot } from "../src/workspace/source-protocol.ts";
 import { ReadingPlanController } from "../src/features/work-view/reading-controller.ts";
+import { retainUnchangedParagraphs,type WorkBriefing } from "../src/features/work-view/briefing-model.ts";
 import type { ReadingPlan } from "../src/features/work-view/reading-plan.ts";
 import type { LensResult } from "../src/features/work-view/lens-controller.ts";
 
@@ -139,4 +140,57 @@ test("updates keep one named view, preserve intervening navigation, restore prio
   assert.ok((await h.controller.api.submit({...plan(h.source,later.requestId),name:"最新读法"})).ok);
   assert.deepEqual(await h.controller.api.submit({...plan(h.source,earlier.requestId),name:"较早结果"}),{ok:false,reason:"reading-view-changed"});
   assert.equal(h.controller.api.read().activePlan!.name,"最新读法");
+});
+
+test("progressive reading retains the historical source across edits, restart and explicit update",async()=>{
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+  const old=await sourceFixture();let source=old;
+  const host={scope:()=>scope,source:async()=>({ok:true as const,value:source}),materials:async()=>new Set<string>(),unavailable:()=>null,changed:()=>{},storage};
+  const submission=(requestId:string,markdown:string):ReadingPlan=>({...plan(source,requestId),briefing:{basisVersion:source.sourceSetVersion,createdAt:new Date().toISOString(),paragraphs:[{key:"judgement",kind:"inference",markdown,sourceIds:[source.blocks[0]!.sourceId],details:[{key:"condition",markdown:"判断条件",sourceIds:[source.blocks[0]!.sourceId]}]}]}});
+  const first=new ReadingPlanController(host),invite=await first.request({schemaVersion:1,purpose:"organize"});assert.ok(invite.ok);
+  assert.ok((await first.submit(submission(invite.value.requestId,"旧判断"))).ok);await first.select("plan-one");
+  const changed="原判断已更正，仍需核验",additional="新增复核记录";
+  source=await snapshot(scope,[{...old.blocks[0]!,content:changed,contentVersion:await sha256(changed)},{sourceId:sourceId(scope.graphId,"new-block"),target:{kind:"logseq-block",graphId:scope.graphId,blockUuid:"new-block"},parentUuid:scope.rootUuid,order:0,depth:1,content:additional,contentVersion:await sha256(additional),availability:"available"}]);
+  first.dispose();const reopened=new ReadingPlanController(host);assert.ok((await reopened.refresh()).ok);
+  assert.equal(reopened.read().briefing?.status,"stale");assert.equal(reopened.progressive()?.basis?.blocks[0]?.content,old.blocks[0]?.content);assert.equal(reopened.progressive()?.current.blocks[1]?.content,additional);
+  const update=await reopened.request({schemaVersion:1,purpose:"update",planId:"plan-one"});assert.ok(update.ok);assert.ok(update.value.changes?.affectedKeys.includes("judgement"));
+  assert.ok((await reopened.api.prepare(submission(update.value.requestId,"当前判断"))).ok);
+  assert.equal(reopened.read().candidate?.status,"ready");assert.equal(reopened.progressive()?.briefing.paragraphs[0]?.markdown,"旧判断");assert.equal(reopened.progressive()?.basis?.sourceSetVersion,old.sourceSetVersion);
+  reopened.dispose();const candidate=new ReadingPlanController(host);await candidate.refresh();
+  assert.equal(candidate.read().candidate?.status,"ready");assert.equal(candidate.read().briefing?.paragraphs[0]?.markdown,"旧判断");
+  const preparedSource=source;source=await snapshot(scope,[{...source.blocks[0]!,content:"再次变更",contentVersion:await sha256("再次变更")},source.blocks[1]!]);
+  await candidate.refresh();assert.equal(candidate.read().candidate?.status,"stale");assert.equal((await candidate.adopt()).ok,false);assert.equal(candidate.read().briefing?.paragraphs[0]?.markdown,"旧判断");
+  source=preparedSource;await candidate.refresh();assert.ok((await candidate.adopt()).ok);assert.equal(candidate.read().candidate,null);
+  assert.equal(candidate.progressive()?.basis?.sourceSetVersion,source.sourceSetVersion);assert.ok((await candidate.restore("plan-one")).ok);
+  assert.equal(candidate.progressive()?.basis?.sourceSetVersion,old.sourceSetVersion);assert.equal(candidate.read().briefing?.status,"stale");
+});
+
+test("a changed source only updates affected article units; unrelated prose and keys remain intact",()=>{
+  const previous:WorkBriefing={basisVersion:"old",createdAt:"2026-11-19T00:00:00Z",paragraphs:[
+    {key:"status",markdown:"旧判断",sourceIds:["s1"],kind:"inference"},
+    {key:"process",markdown:"保留原始思路",cue:"原始思路",sourceIds:["s2"],kind:"fact",details:[{key:"reason",markdown:"不受影响的细节",sourceIds:["s2"]}]},
+  ]};
+  const result=retainUnchangedParagraphs(previous,[{...previous.paragraphs[0]!,markdown:"新判断",sourceIds:["s1","s3"]},{...previous.paragraphs[1]!,markdown:"不必要的改写"}],{sourceIds:["s1","s3"],materialIds:[],affectedKeys:["status"]});
+  assert.equal(result[0]?.markdown,"新判断");assert.deepEqual(result[1],previous.paragraphs[1]);
+});
+
+test("a file Graph page reindex restores the article, and only identical saved records reattach citations",async()=>{
+  const {rememberPageWork}=await import("../src/workspace/page-identity.ts");
+  const values=new Map<string,string>(),storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+  let current:SourceScope={graphId:scope.graphId,rootUuid:"page-old",kind:"page",pageName:"旧笔记"};
+  const tree=async(uuid:string,content:string)=>snapshot(current,[{sourceId:sourceId(current.graphId,uuid),target:{kind:"logseq-block",graphId:current.graphId,blockUuid:uuid},content,contentVersion:await sha256(content),parentUuid:current.rootUuid,order:0,depth:0,availability:"available"}],undefined,{pageUuid:current.rootUuid,pageName:current.pageName!,availability:"available"});
+  let source=await tree("block-old","保留完整原文");
+  const host={scope:()=>current,source:async()=>({ok:true as const,value:source}),materials:async()=>new Set<string>(),unavailable:()=>null,changed:()=>{},storage};
+  rememberPageWork(current,"/graph",storage);
+  const first=new ReadingPlanController(host),invitation=await first.request({schemaVersion:1,purpose:"整理"});assert.ok(invitation.ok);
+  const article={...plan(source,invitation.value.requestId),briefing:{basisVersion:source.sourceSetVersion,createdAt:new Date().toISOString(),paragraphs:[{key:"main",kind:"fact" as const,markdown:"同一篇文章",sourceIds:[source.blocks[0]!.sourceId]}]}};
+  assert.ok((await first.submit(article)).ok);await first.select("plan-one");first.dispose();
+  const oldStorage=[...values].find(([key])=>key.startsWith("workbench:reading-views:"))!;
+  current={...current,rootUuid:"page-new"};rememberPageWork(current,"/graph",storage);source=await tree("block-new","保留完整原文");
+  const reopened=new ReadingPlanController(host);assert.ok((await reopened.refresh()).ok);
+  assert.equal(reopened.read().briefing?.status,"current");assert.equal(reopened.progressive()?.briefing.paragraphs[0]?.markdown,"同一篇文章");
+  assert.deepEqual(reopened.progressive()?.briefing.paragraphs[0]?.sourceIds,[source.blocks[0]!.sourceId]);assert.equal(values.get(oldStorage[0]),oldStorage[1]);reopened.dispose();
+  current={...current,rootUuid:"page-third"};rememberPageWork(current,"/graph",storage);source=await tree("block-third","原文真的变化");
+  const changed=new ReadingPlanController(host);assert.ok((await changed.refresh()).ok);assert.equal(changed.read().briefing?.status,"stale");
+  assert.equal(changed.progressive()?.basis?.blocks[0]?.content,"保留完整原文");assert.equal(changed.progressive()?.current.blocks[0]?.content,"原文真的变化");
 });

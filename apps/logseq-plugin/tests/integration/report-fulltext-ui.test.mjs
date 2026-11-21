@@ -21,10 +21,10 @@ test('source body uses the flexible text track across structure/report round tri
   const f=await longFixture();try{
     const style=f.browser.document.createElement('style');style.textContent=workbenchShellStyle;f.browser.document.head.prepend(style);
     const target=row(f,rows[14].uuid),body=target.querySelector('.wb-body'),original=body.textContent;
-    for(const [mode,column] of [['report','2'],['structure','3'],['report','2'],['structure','3']]){
+    for(const [mode,column] of [['report','1'],['structure','3'],['report','1'],['structure','3']]){
       assert.equal((await f.work.reportAPI.setMode(mode)).ok,true);
       assert.equal(row(f,rows[14].uuid),target);assert.equal(target.querySelector('.wb-body'),body);
-      assert.equal(f.browser.getComputedStyle(body).gridColumn,column,'body must not auto-place into an 18px control track');
+      assert.equal(f.browser.getComputedStyle(body.parentElement).gridColumn,column,'source content must occupy the flexible grid track');
       if(mode==='structure')assert.equal(body.textContent,original);
     }
   }finally{await f.close();}
@@ -38,9 +38,10 @@ test('entering real long report ignores inherited folds and compact overrides; e
     const nodes=rows.map(r=>row(f,r.uuid));assert.ok(nodes.every(n=>!n.hidden&&n.querySelector('.wb-body').classList.contains('expanded')));
     assert.equal(nodes[0].parentElement.dataset.reportRange,'full');assert.equal(nodes[0].parentElement.dataset.reportShown,String(rows.length));
     nodes[0].querySelector('button[aria-label="折叠子项"]').click();assert.equal(nodes.filter(n=>!n.hidden).length,1);
-    assert.equal(nodes[0].parentElement.dataset.reportRange,'limited');assert.match(f.work.panel.root.querySelector('.wb-status').textContent,/显示 1 \/ 93/);
+    assert.equal(nodes[0].parentElement.dataset.reportRange,'limited');assert.equal(f.work.panel.root.querySelector('.wb-status').textContent,'');
     nodes[0].querySelector('button[aria-label="展开子项"]').click();assert.ok(nodes.every(n=>!n.hidden));
     assert.equal((await f.work.lensesAPI.select(rows[6].uuid)).ok,true);assert.ok(nodes.some(n=>n.hidden));
+    assert.match(f.work.panel.root.querySelector('.wb-status').textContent,/显示 \d+ \/ 93/);
     f.work.lensesAPI.exit();assert.ok(nodes.every(n=>!n.hidden));
     await f.work.reportAPI.setMode('structure');assert.equal(JSON.stringify(f.work.snapshot().view),personal);
     await f.work.reportAPI.setMode('report');assert.ok(nodes.every(n=>!n.hidden));assert.ok(rows.every((r,i)=>row(f,r.uuid)===nodes[i]));

@@ -1,0 +1,1526 @@
+{
+  "scope": "Independent synthetic file Graph; actual Logseq Electron and DSH web host; no real work records.",
+  "delivery": {
+    "commit": "b29cd45c3fb6b02f2bcf13562ef5627f20ae7f6c",
+    "build": "0.2.0 · 预览 2026-11-19T13:33:20.824Z · YqgqNe",
+    "verifiedManifestFiles": 616,
+    "zipSha256": "93e2b52cde507d6010efeb670afc53e3b8f6f7d177ca196d8d61f2bdb1995da5",
+    "dshZipSha256": "0d6511180ede935417cbfe9ba3b29559646eabd86b0d8d453c4834ebc23305ef"
+  },
+  "host": {
+    "logseq": "0.10.9",
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "dsh": "0.2.1-rc.2",
+    "platform": "macOS 15.2 Intel",
+    "node": "22.23.2",
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "foregroundFocusAttempts": 0
+  },
+  "model": {
+    "transport": [
+      "api.deepseek.com"
+    ],
+    "requests": 36,
+    "http200": 34,
+    "errors": 2,
+    "backgroundRuns": [
+      {
+        "sessionId": "1b13208f-b093-4b39-99c6-ac655788b0a4",
+        "origin": "subagent",
+        "question": "为什么不能把核验数量等同于全部交接完成？请简短回答并核对原文。",
+        "mode": "ask",
+        "models": [
+          "deepseek-flash"
+        ],
+        "toolSurface": [
+          "logseq_file_read",
+          "logseq_reading_request",
+          "logseq_reading_submit",
+          "logseq_source_read"
+        ],
+        "steps": 4,
+        "results": [
+          {
+            "name": "logseq_reading_request",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": true
+          },
+          {
+            "name": "logseq_source_read",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": true,
+            "imageName": false
+          },
+          {
+            "name": "logseq_reading_submit",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          }
+        ],
+        "turns": [
+          "completed"
+        ]
+      },
+      {
+        "sessionId": "4a14f7bd-a649-4811-b25a-7aef6b1ccbbe",
+        "origin": "subagent",
+        "question": "取消验收：详细查阅现场每条记录，逐项核对关联资料，只读不写入。",
+        "mode": "ask",
+        "models": [
+          "deepseek-flash"
+        ],
+        "toolSurface": [
+          "logseq_file_read",
+          "logseq_reading_request",
+          "logseq_reading_submit",
+          "logseq_source_read"
+        ],
+        "steps": 1,
+        "results": [],
+        "turns": [
+          "aborted"
+        ]
+      },
+      {
+        "sessionId": "59e84402-c023-467b-b879-e335a422fce6",
+        "origin": "subagent",
+        "question": "根据已保存的新旧记录，核查变化并仅修订受影响的段落；保留原文稿中不受影响的表达和语义键。",
+        "mode": "organize",
+        "models": [
+          "deepseek-flash"
+        ],
+        "toolSurface": [
+          "logseq_file_read",
+          "logseq_reading_request",
+          "logseq_reading_submit",
+          "logseq_source_read"
+        ],
+        "steps": 4,
+        "results": [
+          {
+            "name": "logseq_reading_request",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": true,
+            "imageName": true
+          },
+          {
+            "name": "logseq_source_read",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": true,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": true
+          },
+          {
+            "name": "logseq_reading_submit",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          }
+        ],
+        "turns": [
+          "completed"
+        ]
+      },
+      {
+        "sessionId": "a07bb8d8-3a40-443a-a1fc-521a4b3f797d",
+        "origin": "subagent",
+        "question": "请核实记录、复核计数和历史判断，写成连贯、简明的小文章，详细过程作为细读。请实际查阅关联的验收核对长附件，找到末尾唯一核对编号并附原样引用；核实关联参考笔记的联络时间。数字以实际表格或小图作脚注。关联的合成标签示意.png 只提供查阅入口，不猜图中内容或将其当签字依据。",
+        "mode": "organize",
+        "models": [
+          "deepseek-flash"
+        ],
+        "toolSurface": [
+          "logseq_file_read",
+          "logseq_reading_request",
+          "logseq_reading_submit",
+          "logseq_source_read"
+        ],
+        "steps": 4,
+        "results": [
+          {
+            "name": "logseq_reading_request",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": true
+          },
+          {
+            "name": "logseq_source_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": true,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": true,
+            "imageName": false
+          },
+          {
+            "name": "logseq_file_read",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": true
+          },
+          {
+            "name": "logseq_reading_submit",
+            "success": true,
+            "attachmentTail": false,
+            "noteTime": false,
+            "imageName": false
+          }
+        ],
+        "turns": [
+          "completed"
+        ]
+      }
+    ]
+  },
+  "ordinary": {
+    "work": "验收随记",
+    "rows": 2
+  },
+  "short": {
+    "paragraphs": 2,
+    "markdown": [
+      "这条记录挂在 **#Project** 下，是一件需要跟进的小事。",
+      "给值班同事的**签字提醒**目前仍是待办，尚未完成。确认的节点不在于提醒是否发出，而在于是否**收到回执**；回执到达之前，不能算已确认。"
+    ]
+  },
+  "article": {
+    "blocks": 15,
+    "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+    "paragraphs": 8,
+    "details": 6,
+    "cues": 6,
+    "linkedMaterials": [
+      "11 月 18 日复核表补充.md",
+      "合成标签示意.png",
+      "验收核对长附件.md",
+      "验收参考笔记"
+    ],
+    "foundTail": true,
+    "associatedNote": true,
+    "associatedImage": true,
+    "tableOrChart": true,
+    "units": [
+      {
+        "key": "handover-lead",
+        "markdown": "**机房交接的状态是等待复核，而不是通过验收。** 11 月 18 日复核确认北侧机架标签不符，交接停在差异确认上；复核表显示还有 3 台待核验，这些设备不能并入已完成项。附件末尾的核对编号 QPA-9472 仅是查找线索，不具备签字效力。",
+        "cue": "待核验",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000001",
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000008"
+        ]
+      },
+      {
+        "key": "handover-counts",
+        "markdown": "计数是这次复核最容易被误读的部分：数字只说明**当下核验到哪一步**，不等于签字完成。北侧与南侧都还留着待核验设备，东侧已无待核验项。",
+        "cue": "签字完成",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000007",
+          "1aa10000-1111-4111-8111-000000000008"
+        ],
+        "details": [
+          {
+            "key": "handover-count-table",
+            "markdown": "复核表按区域分列，合计 16 台：已核验 13 台、待核验 3 台。北侧 2 台、南侧 1 台是下次现场要处理的对象，东侧没有待核验项。这张表只表示当前计数，不代表签字完成，尚待核对的台数不得合并成已完成项。",
+            "heading": "实际复核计数",
+            "display": "table",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000007",
+              "1aa10000-1111-4111-8111-000000000008"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-history",
+        "markdown": "回看判断链，11 月 12 日初查曾认为三处标签均已核验，但依据只是旧照片，并未查阅原表，因此这条结论不能当作最终事实。11 月 18 日复核推翻了它的一角：北侧机架标签不符。处理上先保留旧编号和原表截图，再安排现场确认，避免在核对之前改动记录。",
+        "cue": "旧照片",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000002",
+          "1aa10000-1111-4111-8111-000000000003"
+        ],
+        "details": [
+          {
+            "key": "handover-history-detail",
+            "markdown": "11 月 12 日那句“三处均已核验”是现场初查的判断，凭据是旧照片；11 月 18 日才拿原表对照，北侧机架标签当场露出不符。补充附件把范围收得更紧：北侧有两台需再次核验，南侧一台要等签字回执，复核窗口安排在 14:00–16:00。南侧还有一个反例——签字记录确实存在，但照片日期晚于签字时间，所以只能确认签字记录存在，不能证明当时标签一致。",
+            "heading": "从初查到复核",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000002",
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000005"
+            ],
+            "materials": [
+              "11 月 18 日复核表补充.md"
+            ],
+            "quotes": [
+              {
+                "source": "11 月 18 日复核表补充.md",
+                "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+              }
+            ]
+          },
+          {
+            "key": "handover-image-entry",
+            "markdown": "关联的 合成标签示意.png 目前只提供查阅入口，系统里没有可用文本；它既不能用来印证图中标签内容，也不能作为签字依据，核对仍要回到原表和现场。",
+            "heading": "标签示意只是入口",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000003"
+            ],
+            "materials": [
+              "合成标签示意.png"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-unique-id",
+        "markdown": "长附件末尾只有一处核对编号，编号本身只是查找线索：它把一次核对指向具体附件，却不构成签字回执，也不改变“未完成”的状态。",
+        "cue": "查找线索",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000014"
+        ],
+        "details": [
+          {
+            "key": "handover-id-quote",
+            "markdown": "长附件由 130 行合成校验行组成，末尾单独一行给出编号 QPA-9472，原文同时注明这个编号不视为签字回执；引用时应连同这层限定一起保留，不能只摘编号。",
+            "heading": "附件末尾的唯一编号",
+            "display": "quote",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000014"
+            ],
+            "materials": [
+              "验收核对长附件.md"
+            ],
+            "quotes": [
+              {
+                "source": "验收核对长附件.md",
+                "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-contact",
+        "markdown": "临时联络指向验收参考笔记，那里给出的联络窗口是工作日 14:00–16:00，与复核窗口重合；这页只是阅读用，不是新的交接任务。",
+        "cue": "工作日 14:00–16:00",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000012"
+        ],
+        "details": [
+          {
+            "key": "handover-contact-detail",
+            "markdown": "参考笔记写明窗口只在工作日 14:00–16:00 开放，并明确自己不属于 A 工作现场；因此这里的时间只能用于安排联络，不能替代现场签字，也不应把笔记里的内容记成 A 的进展。",
+            "heading": "联络时间的边界",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000012"
+            ],
+            "materials": [
+              "验收参考笔记"
+            ],
+            "quotes": [
+              {
+                "source": "验收参考笔记",
+                "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-options",
+        "markdown": "接下来的走法仍是二选一：先复核差异再补签，能保留追溯链，代价是交付窗口可能推迟；或只就已核验设备办理部分交接，其余留作待确认，但不得说成全部完成。无论选哪条，TODO 都还没完成——仍要联系现场值班人复核北侧机架并等签字回执，设备未通电也不得宣告验收完成。",
+        "cue": "部分交接",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000004",
+          "1aa10000-1111-4111-8111-000000000010",
+          "1aa10000-1111-4111-8111-000000000011",
+          "1aa10000-1111-4111-8111-000000000014"
+        ],
+        "details": [
+          {
+            "key": "handover-stop-detail",
+            "markdown": "下次的起点很明确：北侧两台差异，加上南侧那一台等回执的待核验设备。工作记录只证明“已记录”，消息发出也不等于签字；如果现场设备未通电，复核无法完成，交接就不能宣告结束。",
+            "heading": "停在哪里、下次做什么",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000004",
+              "1aa10000-1111-4111-8111-000000000014"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "followup-north-diff",
+        "markdown": "下一次进场先比对北侧两台机架的旧编号与原表，再谈补签。",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000014"
+        ]
+      },
+      {
+        "key": "followup-partial-vs-full",
+        "markdown": "若交付窗口不可推迟，方案乙只能覆盖已核验设备；这属于部分交接，不是验收完成。",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000010",
+          "1aa10000-1111-4111-8111-000000000011"
+        ]
+      }
+    ]
+  },
+  "materialEvidence": {
+    "attachmentCharacters": 4357,
+    "excerptHasTail": false,
+    "attachmentTail": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。",
+    "attachmentVersion": "6eb55e9a2f476a43d9efa84fe13195607855224724c5a81db302f19e73071f90",
+    "associatedNoteText": "这里是临时阅读的 B。联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。",
+    "associatedNoteVersion": "9a0e9f98ff23098ad84fad5fa5640c86e41aa85945732db0949d2602088c87a2",
+    "imageVersion": "f1d9168bf8760385d4a815b3312a6bee206292c9cca88ed1c5ff2d62e5d5ba6c"
+  },
+  "interactions": {
+    "expanded": {
+      "keyboard": [
+        "false",
+        "true"
+      ],
+      "state": {
+        "work": "验收交接计划",
+        "scroll": 229.5,
+        "height": 1530,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history"
+        ],
+        "focus": "unit/handover-history",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      }
+    },
+    "table": {
+      "anchorKey": "unit/handover-counts/detail/handover-count-table",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 159,
+        "height": 1530,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history"
+        ],
+        "focus": "unit/handover-counts/detail/handover-count-table",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 159,
+        "height": 1530,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n上下文\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n上下文",
+        "rect": {
+          "x": 8,
+          "y": 139.59375,
+          "width": 368,
+          "height": 354.734375
+        },
+        "viewport": {
+          "w": 384,
+          "h": 652
+        },
+        "tables": [
+          "区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台"
+        ],
+        "charts": [],
+        "images": [],
+        "count": 1
+      },
+      "closed": {
+        "work": "验收交接计划",
+        "scroll": 159,
+        "height": 1530,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history"
+        ],
+        "focus": "unit/handover-counts/detail/handover-count-table",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      }
+    },
+    "attachment": {
+      "anchorKey": "unit/handover-unique-id/detail/handover-id-quote",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 919,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": "unit/handover-unique-id/detail/handover-id-quote",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 919,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n…\n↗\n\n下回从北侧两台差异和南侧一台待核验继续；工作记录不以消息已发作为签字证明。\n\n上下文\n验收核对长附件.md\n↗\n\n现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。",
+        "rect": {
+          "x": 8,
+          "y": 139.59375,
+          "width": 368,
+          "height": 391.2578125
+        },
+        "viewport": {
+          "w": 384,
+          "h": 652
+        },
+        "tables": [],
+        "charts": [],
+        "images": [],
+        "count": 1
+      },
+      "returned": {
+        "work": "验收交接计划",
+        "scroll": 919,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": "unit/handover-unique-id/detail/handover-id-quote",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      }
+    },
+    "image": {
+      "anchorKey": "unit/handover-history/detail/handover-image-entry",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 686,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": "unit/handover-history/detail/handover-image-entry",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 686,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n合成标签示意.png\n↗",
+        "rect": {
+          "x": 8,
+          "y": 139.59375,
+          "width": 368,
+          "height": 386.1015625
+        },
+        "viewport": {
+          "w": 384,
+          "h": 652
+        },
+        "tables": [],
+        "charts": [],
+        "images": [
+          {
+            "loaded": true,
+            "width": 360,
+            "height": 150
+          }
+        ],
+        "count": 1
+      },
+      "image": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n合成标签示意.png\n↗",
+        "rect": {
+          "x": 8,
+          "y": 139.59375,
+          "width": 368,
+          "height": 386.1015625
+        },
+        "viewport": {
+          "w": 384,
+          "h": 652
+        },
+        "tables": [],
+        "charts": [],
+        "images": [
+          {
+            "loaded": true,
+            "width": 360,
+            "height": 150
+          }
+        ],
+        "count": 1
+      },
+      "closed": {
+        "work": "验收交接计划",
+        "scroll": 686,
+        "height": 1667,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id"
+        ],
+        "focus": "unit/handover-history/detail/handover-image-entry",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      }
+    },
+    "reference": {
+      "anchorKey": "unit/handover-contact/detail/handover-contact-detail",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 1164.5,
+        "height": 1805,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-contact/detail/handover-contact-detail",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 1164.5,
+        "height": 1805,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n\n临时联络见 验收参考笔记；这里保持 A 工作现场，参考页不是新的交接任务。\n\n上下文\n验收参考笔记\n↗\n\n联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。",
+        "rect": {
+          "x": 8,
+          "y": 164.7421875,
+          "width": 368,
+          "height": 255.65625
+        },
+        "viewport": {
+          "w": 384,
+          "h": 652
+        },
+        "tables": [],
+        "charts": [],
+        "images": [],
+        "count": 1
+      },
+      "browse": {
+        "state": {
+          "work": "验收交接计划",
+          "scroll": 1164.5,
+          "height": 1805,
+          "expanded": [
+            "unit/handover-counts",
+            "unit/handover-history",
+            "unit/handover-unique-id",
+            "unit/handover-contact"
+          ],
+          "focus": "unit/handover-contact/detail/handover-contact-detail",
+          "selection": "",
+          "client": 369,
+          "scrollWidth": 369
+        },
+        "notice": "验收交接计划\n编辑页首\n更多\n返回工作搜索\n返回正文\n材料\n读法：文章式阅读\n浏览：验收参考笔记 · 当前工作不变"
+      },
+      "returned": {
+        "work": "验收交接计划",
+        "scroll": 1151.5,
+        "height": 1805,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-contact/detail/handover-contact-detail",
+        "selection": "",
+        "client": 369,
+        "scrollWidth": 369
+      }
+    },
+    "dark": {
+      "anchorKey": "unit/handover-counts/detail/handover-count-table",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 194.5,
+        "height": 1860,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-counts/detail/handover-count-table",
+        "selection": "",
+        "client": 305,
+        "scrollWidth": 305
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 194.5,
+        "height": 1860,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 305,
+        "scrollWidth": 305
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n上下文\n…\n↗\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n上下文",
+        "rect": {
+          "x": 8,
+          "y": 164.7421875,
+          "width": 304,
+          "height": 375.7890625
+        },
+        "viewport": {
+          "w": 320,
+          "h": 652
+        },
+        "tables": [
+          "区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台"
+        ],
+        "charts": [],
+        "images": [],
+        "count": 1
+      },
+      "closed": {
+        "work": "验收交接计划",
+        "scroll": 194.5,
+        "height": 1860,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-counts/detail/handover-count-table",
+        "selection": "",
+        "client": 305,
+        "scrollWidth": 305
+      }
+    },
+    "compact": {
+      "anchorKey": "unit/handover-history/detail/handover-history-detail",
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 352,
+        "height": 1383,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-history/detail/handover-history-detail",
+        "selection": "",
+        "client": 515,
+        "scrollWidth": 515
+      },
+      "after": {
+        "work": "验收交接计划",
+        "scroll": 352,
+        "height": 1383,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": null,
+        "selection": "",
+        "client": 515,
+        "scrollWidth": 515
+      },
+      "opened": {
+        "visible": true,
+        "text": "验收交接计划\n×\n…\n↗\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n上下文\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n…\n↗\n\n反例：南侧设备有签字，但照片日期晚于签字时间；只能确认签字记录存在，不能证明当时标签一致。\n\n11 月 18 日复核表补充.md\n↗\n\n北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。",
+        "rect": {
+          "x": 36.1328125,
+          "y": 164.7421875,
+          "width": 390,
+          "height": 479.2578125
+        },
+        "viewport": {
+          "w": 530,
+          "h": 652
+        },
+        "tables": [],
+        "charts": [],
+        "images": [],
+        "count": 1
+      },
+      "closed": {
+        "work": "验收交接计划",
+        "scroll": 352,
+        "height": 1383,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-history/detail/handover-history-detail",
+        "selection": "",
+        "client": 515,
+        "scrollWidth": 515
+      }
+    }
+  },
+  "candidate": {
+    "native": {
+      "before": {
+        "work": "验收交接计划",
+        "scroll": 352,
+        "height": 1383,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": null,
+        "selection": "",
+        "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+        "status": "current",
+        "candidate": null,
+        "notice": ""
+      },
+      "original": {
+        "text": "11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。",
+        "start": 53,
+        "end": 53,
+        "focus": true
+      },
+      "live": {
+        "text": "（后续核查：仅凭旧照片，仍有三台待核验）11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。",
+        "start": 2,
+        "end": 5,
+        "focus": true
+      },
+      "blocked": {
+        "ok": false,
+        "reason": "editing-in-progress"
+      },
+      "after": {
+        "text": "（后续核查：仅凭旧照片，仍有三台待核验）11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。",
+        "start": 2,
+        "end": 5,
+        "focus": true
+      },
+      "block": "（后续核查：仅凭旧照片，仍有三台待核验）11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\nid:: 1aa10000-1111-4111-8111-000000000002",
+      "returned": {
+        "work": "验收交接计划",
+        "scroll": 356.5,
+        "height": 1388,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-history/detail/handover-history-detail",
+        "selection": "",
+        "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+        "status": "stale",
+        "candidate": null,
+        "notice": ""
+      },
+      "sourceUuid": "1aa10000-1111-4111-8111-000000000002"
+    },
+    "newSource": {
+      "uuid": "6aff0131-3352-4b25-a2fe-39cafe70570a",
+      "text": "新增复核：11 月 19 日南侧已取得值班签字回执，北侧仍未确认。此前 QPA-9472 仅为附件定位。"
+    },
+    "compare": {
+      "popup": {
+        "text": "验收交接计划\n×\n…\n↗\n整理时所引\n\n11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n当前原文\n（后续核查：仅凭旧照片，仍有三台待核验）11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实。\n\n上下文\n…\n↗\n\n11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告已完成验收。\n\n上下文\n…\n↗\n\n反例：南侧设备有签字，但照片日期晚于签字时间；只能确认签字记录存在，不能证明当时标签一致。\n\n11 月 18 日复核表补充.md\n↗\n\n北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。",
+        "diff": [
+          "（后续核查：仅凭旧照片，仍有三台待核验）"
+        ]
+      },
+      "state": {
+        "work": "验收交接计划",
+        "scroll": 344,
+        "height": 1388,
+        "expanded": [
+          "unit/handover-counts",
+          "unit/handover-history",
+          "unit/handover-unique-id",
+          "unit/handover-contact"
+        ],
+        "focus": "unit/handover-history/detail/handover-history-detail",
+        "selection": "",
+        "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+        "status": "stale",
+        "candidate": null,
+        "notice": ""
+      }
+    },
+    "waiting": {
+      "work": "验收交接计划",
+      "scroll": 168,
+      "height": 1388,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "focus": "unit/handover-history/detail/handover-history-detail",
+      "selection": "计数是这次复核最容易被误读的部分：数字只说明当下核验到哪一步，不等于签字完成。北侧与南侧都还留着待核验设备，东侧已无待核验项。",
+      "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+      "status": "stale",
+      "candidate": null,
+      "notice": ""
+    },
+    "ready": {
+      "work": "验收交接计划",
+      "scroll": 168,
+      "height": 1388,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "focus": "unit/handover-history/detail/handover-history-detail",
+      "selection": "计数是这次复核最容易被误读的部分：数字只说明当下核验到哪一步，不等于签字完成。北侧与南侧都还留着待核验设备，东侧已无待核验项。",
+      "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+      "status": "stale",
+      "candidate": "ready",
+      "notice": ""
+    },
+    "unchangedKeys": [
+      "handover-counts",
+      "handover-unique-id",
+      "handover-contact",
+      "followup-north-diff",
+      "followup-partial-vs-full"
+    ],
+    "oldBasis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+    "newBasis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+    "proposedUnits": [
+      {
+        "key": "handover-lead",
+        "markdown": "**机房交接的状态仍是等待复核，不是通过验收。** 11 月 18 日复核确认北侧机架标签不符；11 月 19 日南侧已拿到值班签字回执，北侧却仍未确认。回执只说明签字发生过，签字与核验是两件事，所以复核表上那 3 台待核验设备仍不能并入已完成项，交接也没有结束。附件末尾的核对编号 QPA-9472 只是查找线索，不具备签字效力。",
+        "cue": "签字与核验是两件事",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000001",
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000008",
+          "6aff0131-3352-4b25-a2fe-39cafe70570a"
+        ]
+      },
+      {
+        "key": "handover-counts",
+        "markdown": "计数是这次复核最容易被误读的部分：数字只说明**当下核验到哪一步**，不等于签字完成。北侧与南侧都还留着待核验设备，东侧已无待核验项。",
+        "cue": "签字完成",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000007",
+          "1aa10000-1111-4111-8111-000000000008"
+        ],
+        "details": [
+          {
+            "key": "handover-count-table",
+            "markdown": "复核表按区域分列，合计 16 台：已核验 13 台、待核验 3 台。北侧 2 台、南侧 1 台是下次现场要处理的对象，东侧没有待核验项。这张表只表示当前计数，不代表签字完成，尚待核对的台数不得合并成已完成项。",
+            "heading": "实际复核计数",
+            "display": "table",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000007",
+              "1aa10000-1111-4111-8111-000000000008"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-history",
+        "markdown": "回看判断链，11 月 12 日初查曾认为三处标签均已核验，依据只是**旧照片**，并未查阅原表；后续核查也注明了仅凭旧照片仍有三台待核验，所以这条结论不能当作最终事实。11 月 18 日复核推翻了它的一角：北侧机架标签不符，处理上先保留旧编号和原表截图，再安排现场确认。11 月 19 日南侧拿到了值班签字回执，北侧依旧没有确认——这是进展，却不是验收，回执仍只是签字记录。",
+        "cue": "旧照片",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000002",
+          "1aa10000-1111-4111-8111-000000000003",
+          "6aff0131-3352-4b25-a2fe-39cafe70570a"
+        ],
+        "details": [
+          {
+            "key": "handover-history-detail",
+            "markdown": "11 月 12 日那句“三处均已核验”是现场初查的判断，凭据是旧照片；11 月 18 日才拿原表对照，北侧机架标签当场露出不符。复核表补充附件把范围收得更紧：北侧有两台需再次核验，南侧一台要等签字回执，复核窗口安排在 14:00–16:00；同一份补充也提醒签字与核验是不同事项，不得宣告全部完成。南侧还有一个反例——签字记录确实存在，但照片日期晚于签字时间，所以只能确认签字记录存在，不能证明当时标签一致。11 月 19 日南侧回执到手，说明“等回执”这一步走完了；但按同一标准，北侧未确认、南侧标签一致性也未因回执而自动成立。",
+            "heading": "从初查到复核",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000002",
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000005",
+              "6aff0131-3352-4b25-a2fe-39cafe70570a"
+            ],
+            "materials": [
+              "11 月 18 日复核表补充.md"
+            ],
+            "quotes": [
+              {
+                "source": "11 月 18 日复核表补充.md",
+                "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+              },
+              {
+                "source": "11 月 18 日复核表补充.md",
+                "quote": "签字与核验是不同事项，不得宣告全部完成。"
+              }
+            ]
+          },
+          {
+            "key": "handover-image-entry",
+            "markdown": "关联的 合成标签示意.png 目前只提供查阅入口，系统里没有可用文本；它既不能用来印证图中标签内容，也不能作为签字依据，核对仍要回到原表和现场。",
+            "heading": "标签示意只是入口",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000003"
+            ],
+            "materials": [
+              "合成标签示意.png"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-unique-id",
+        "markdown": "长附件末尾只有一处核对编号，编号本身只是查找线索：它把一次核对指向具体附件，却不构成签字回执，也不改变“未完成”的状态。",
+        "cue": "查找线索",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000014"
+        ],
+        "details": [
+          {
+            "key": "handover-id-quote",
+            "markdown": "长附件由 130 行合成校验行组成，末尾单独一行给出编号 QPA-9472，原文同时注明这个编号不视为签字回执；引用时应连同这层限定一起保留，不能只摘编号。",
+            "heading": "附件末尾的唯一编号",
+            "display": "quote",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000003",
+              "1aa10000-1111-4111-8111-000000000014"
+            ],
+            "materials": [
+              "验收核对长附件.md"
+            ],
+            "quotes": [
+              {
+                "source": "验收核对长附件.md",
+                "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-contact",
+        "markdown": "临时联络指向验收参考笔记，那里给出的联络窗口是工作日 14:00–16:00，与复核窗口重合；这页只是阅读用，不是新的交接任务。",
+        "cue": "工作日 14:00–16:00",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000012"
+        ],
+        "details": [
+          {
+            "key": "handover-contact-detail",
+            "markdown": "参考笔记写明窗口只在工作日 14:00–16:00 开放，并明确自己不属于 A 工作现场；因此这里的时间只能用于安排联络，不能替代现场签字，也不应把笔记里的内容记成 A 的进展。",
+            "heading": "联络时间的边界",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000012"
+            ],
+            "materials": [
+              "验收参考笔记"
+            ],
+            "quotes": [
+              {
+                "source": "验收参考笔记",
+                "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "handover-options",
+        "markdown": "接下来的走法仍是二选一：先复核差异再补签，能保留追溯链，代价是交付窗口可能推迟；或只就已核验设备办理**部分交接**，其余留作待确认，但不得说成全部完成。无论选哪条，TODO 都还没完成——南侧回执虽已到手，北侧机架仍要联系现场值班人复核并等签字回执，设备未通电也不得宣告验收完成。",
+        "cue": "部分交接",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000004",
+          "1aa10000-1111-4111-8111-000000000010",
+          "1aa10000-1111-4111-8111-000000000011",
+          "1aa10000-1111-4111-8111-000000000014",
+          "6aff0131-3352-4b25-a2fe-39cafe70570a"
+        ],
+        "details": [
+          {
+            "key": "handover-stop-detail",
+            "markdown": "下次的起点很明确：北侧两台的标签差异。南侧那台的回执已经拿到，但签字与核验分开算，回执所附照片与签字时间的先后仍要核对，才能判断标签是否一致。工作记录只证明“已记录”，消息发出也不等于签字；如果现场设备未通电，复核无法完成，交接就不能宣告结束。",
+            "heading": "停在哪里、下次做什么",
+            "sources": [
+              "1aa10000-1111-4111-8111-000000000004",
+              "1aa10000-1111-4111-8111-000000000005",
+              "1aa10000-1111-4111-8111-000000000014",
+              "6aff0131-3352-4b25-a2fe-39cafe70570a"
+            ]
+          }
+        ]
+      },
+      {
+        "key": "followup-south-receipt",
+        "markdown": "南侧回执到手后，先核对回执所附照片的日期是否晚于签字时间，再判断南侧标签是否一致。",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000005",
+          "6aff0131-3352-4b25-a2fe-39cafe70570a"
+        ]
+      },
+      {
+        "key": "followup-north-diff",
+        "markdown": "下一次进场先比对北侧两台机架的旧编号与原表，再谈补签。",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000003",
+          "1aa10000-1111-4111-8111-000000000014"
+        ]
+      },
+      {
+        "key": "followup-partial-vs-full",
+        "markdown": "若交付窗口不可推迟，方案乙只能覆盖已核验设备；这属于部分交接，不是验收完成。",
+        "sources": [
+          "1aa10000-1111-4111-8111-000000000010",
+          "1aa10000-1111-4111-8111-000000000011"
+        ]
+      }
+    ],
+    "ignored": {
+      "work": "验收交接计划",
+      "scroll": 0,
+      "height": 1388,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "focus": "status",
+      "selection": "",
+      "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+      "status": "stale",
+      "candidate": "ready",
+      "notice": ""
+    },
+    "adopted": {
+      "work": "验收交接计划",
+      "scroll": 0,
+      "height": 1636,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "focus": null,
+      "selection": "",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "candidate": null,
+      "notice": ""
+    },
+    "plans": [
+      {
+        "planId": "work-resume-briefing",
+        "name": "文章式阅读",
+        "revision": 2,
+        "canRestore": true,
+        "status": "current",
+        "progressive": true,
+        "structureVersion": "93d9b17705b5dfe7f0e875cb63cc4f957f90f79396a9c613168e7a46b8ce4286",
+        "sourceSetVersion": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29"
+      }
+    ]
+  },
+  "cancellation": {
+    "before": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "candidate": null,
+      "fragments": 16,
+      "notice": "",
+      "result": "",
+      "job": false,
+      "pending": 0
+    },
+    "after": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "candidate": null,
+      "fragments": 16,
+      "notice": "已取消；保留现有阅读。",
+      "result": "",
+      "job": false,
+      "pending": 0
+    },
+    "modelRequestsStarted": 2,
+    "sessions": [
+      {
+        "sessionId": "4a14f7bd-a649-4811-b25a-7aef6b1ccbbe",
+        "turns": [
+          "aborted"
+        ]
+      }
+    ]
+  },
+  "answer": {
+    "question": "为什么不能把核验数量等同于全部交接完成？请简短回答并核对原文。",
+    "result": "不能这样等同，因为“已核验台数”只是计数，既不含未核验部分，也不等于签字完成。\n\n有未核验的余量：11 月 18 日复核表记录北侧待核验 2 台、南侧待核验 1 台，只有东侧为 0；合计仍有 3 台未完成核验。原文明确说明该数据“仅表示当前计数，不代表签字完成”，且“尚待核对的数据不得合并成已完成项”。\n核验与签字是两件事：复核补充材料直接写明“签字与核验是不同事项，不得宣告全部完成”。\n最新进展也支持这一点：11 月 19 日南侧已取得值班签字回执，但北侧仍未确认，因此即使南侧补签，也不能推出全部交接完成。\n另有前置限制：北侧机架标签曾不符，需现场确认；若设备未通电，不得宣告已完成验收。工作记录也不以消息已发作为签字证明。\n\n所以目前可以成立的说法只是“东侧已核验、南侧已补签回执、北侧仍待确认”，而不是全部交接完成。北侧两台差异的最终核验结果，原文尚未给出，属于未知。",
+    "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+    "notice": "已生成 · 依据为本次保存的原文，尚未写入。",
+    "sourceCount": 6,
+    "blocksBefore": 16,
+    "blocksAfter": 16
+  },
+  "handoff": {
+    "logseq": {
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "scope": "验收交接计划"
+    },
+    "dsh": {
+      "sessionTitle": "验收交接计划 — DeepSeek Harness",
+      "existingDraft": true,
+      "question": true,
+      "readingResult": true,
+      "basis": true,
+      "sourceRefs": 6,
+      "sent": 0,
+      "banner": false,
+      "article": {
+        "units": 9,
+        "hasHumanTime": true,
+        "hasRawHash": false,
+        "expanded": 1
+      },
+      "popup": {
+        "table": true,
+        "visible": true,
+        "text": "验收交接计划\n×\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n\n数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。\n\n↗"
+      }
+    }
+  },
+  "history": {
+    "before": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 0,
+      "focus": null,
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    },
+    "old": {
+      "work": "验收交接计划",
+      "basis": "cac671290db25170a98e24a8de5ed6a3a5ae4f8635b6a0d5611c81894cc2cebe",
+      "status": "stale",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 4.5,
+      "focus": null,
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    },
+    "summary": "当前原文 · 16 条",
+    "newRecordVisible": true,
+    "latest": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 4.5,
+      "focus": null,
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    }
+  },
+  "reopen": {
+    "before": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 36,
+      "focus": "unit/handover-counts",
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    },
+    "after": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 36,
+      "focus": "unit/handover-counts",
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    }
+  },
+  "offline": {
+    "before": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 36,
+      "focus": "unit/handover-counts",
+      "shown": true,
+      "notice": "已交接当前工作、请求和来源；在 DSH 确认加入草稿。",
+      "pending": 0,
+      "job": false
+    },
+    "after": {
+      "work": "验收交接计划",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current",
+      "fragments": 16,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 36,
+      "focus": null,
+      "shown": true,
+      "notice": "请先启动 DSH 与工作台协作服务。",
+      "pending": 0,
+      "job": false
+    }
+  },
+  "reload": {
+    "before": {
+      "scope": "验收交接计划",
+      "shown": true,
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 975.5,
+      "focus": "unit/handover-unique-id",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29"
+    },
+    "after": {
+      "scope": "验收交接计划",
+      "expanded": [
+        "unit/handover-counts",
+        "unit/handover-history",
+        "unit/handover-unique-id",
+        "unit/handover-contact"
+      ],
+      "scroll": 975.5,
+      "focus": "unit/handover-unique-id",
+      "basis": "e06b39350486e3b79af610ba7da7f5a6b8db81cbc0c21e8cea47de4f616aed29",
+      "status": "current"
+    }
+  },
+  "cleanup": {
+    "temporaryPorts": [
+      19455,
+      19456,
+      3098,
+      49193
+    ],
+    "temporaryListenersAfter": [],
+    "dailyPort3080StillListening": true,
+    "credentialCopyRemoved": true,
+    "unexpectedForegroundEvent": false
+  }
+}

@@ -6,6 +6,7 @@ import { composeWorkView, type ComposedView, type LensSelection } from "./view-c
 import type { SourceRow } from "./model.mjs";
 import type { VerifiedReadingPlan } from "./reading-plan.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
+import type { ProgressiveReading } from "./briefing-model.ts";
 
 export type ReportCategory = "goals" | "notes" | "ideas" | "todos" | "objects" | "questions";
 const titles: Record<ReportCategory, string> = {goals:"目标", notes:"记录与说明", ideas:"思考", todos:"待办", objects:"工作事项", questions:"问题"};
@@ -21,6 +22,7 @@ export interface ReportComposition {
   coverage: {total: number; available: number; shown: number; range: "full" | "limited" | "unavailable";
     hiddenSourceIds: string[]; unavailableSourceIds: string[]};
   reading?:{verified:VerifiedReadingPlan; materials:ReadonlyMap<string,ReadingMaterial>};
+  progressive?:ProgressiveReading;
 }
 
 /** Finite display vocabulary only; adjacency does not establish semantic ownership. */
@@ -44,9 +46,6 @@ function fragmentForBlock(scope: SourceScope, block: BlockSnapshot): ReportFragm
 export function reportFragments(source: SourceSnapshot): ReportFragment[] {
   return source.blocks.map(block=>fragmentForBlock(source.scope,block)).filter((fragment):fragment is ReportFragment=>!!fragment);
 }
-
-/** Entering report reading never inherits personal collapse preferences. Consumers own explicit session folds. */
-export const defaultReportFolds = (): Set<string> => new Set();
 
 /** Group only explicit sibling runs in work objects. Explanatory subtrees and ambiguous neighbors remain intact. */
 export function composeReport(source: SourceSnapshot, personal: ViewPresentation, lens: LensSelection | null, folds: ReadonlySet<string>, overlay?: ComposedView): ReportComposition {

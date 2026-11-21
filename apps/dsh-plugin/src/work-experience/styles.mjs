@@ -71,6 +71,21 @@ export const workbenchStyles = `
 .wx-notice span{flex:1;min-width:0}
 .wx-notice button{width:18px;height:18px;padding:0;line-height:1;font-size:13px;color:inherit;opacity:.7;flex:none}
 .wx-scroll{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:14px 18px 40px}
+.wx-briefing{font-size:14px;line-height:1.8;overflow-wrap:anywhere;max-width:64ch;margin:0 auto;color:var(--wx-text)}
+.wx-brief-meta{font-size:11px;color:var(--wx-muted);margin:2px 0 13px;line-height:1.4}.wx-brief-change{color:var(--wx-amber)!important}
+.wx-brief-unit{margin:0 0 13px}.wx-briefing .wx-md{font-size:inherit;line-height:inherit}.wx-briefing .wx-md p:first-child{margin-top:0}.wx-briefing .wx-md p:last-child{margin-bottom:0}
+.wx-briefing button.wx-brief-phrase{display:inline;font:inherit;line-height:inherit;color:inherit;background:transparent;border:0;border-radius:2px;padding:0;min-height:0;text-decoration:underline dotted color-mix(in srgb,var(--wx-green) 65%,transparent);text-underline-offset:3px;user-select:text}
+.wx-briefing button.wx-brief-phrase:hover,.wx-briefing button.wx-brief-phrase[aria-expanded=true]{color:var(--wx-green);text-decoration-style:solid}
+.wx-briefing button.wx-brief-branch{display:inline;color:var(--wx-green);padding:0 4px;border:0;background:transparent;font-size:12px}
+.wx-briefing button.wx-brief-cite{font:500 11px/1.2 system-ui;vertical-align:super;padding:1px 3px;border:0;background:transparent;color:var(--wx-green);margin-left:1px;text-decoration:underline dotted}
+.wx-briefing button.wx-brief-cite.is-changed{color:var(--wx-amber)}.wx-briefing button.wx-brief-cite[aria-expanded=true]{background:var(--wx-hover)}
+.wx-brief-context{font-size:13px;margin:8px 0 2px 2px;border-left:1px solid var(--wx-line);padding-left:10px;line-height:1.75}.wx-brief-context>section{margin:0 0 9px}.wx-brief-context h4{font-size:13px;margin:7px 0 4px;font-weight:600}
+.wx-briefing button.wx-brief-original{border:0;background:transparent;color:var(--wx-muted);font-size:14px;padding:4px;display:block;margin-left:auto}
+.wx-brief-popover{position:fixed;z-index:300;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;background:var(--wx-bg);color:var(--wx-text);border:1px solid var(--wx-line);border-radius:8px;box-shadow:0 8px 28px #0003;font-size:12px;line-height:1.65;padding:0 12px 10px}
+.wx-brief-popover>header{position:sticky;top:0;background:var(--wx-bg);display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--wx-line);padding:8px 0;z-index:1}
+.wx-brief-popover>header button{border:0;background:none;color:var(--wx-muted);font-size:17px;padding:0 3px}
+.wx-briefing-source{padding:8px 0;font-size:12px}.wx-briefing-source+.wx-briefing-source{border-top:1px solid var(--wx-line)}.wx-briefing-source small{display:block;font-size:11px;color:var(--wx-muted);margin:4px 0}.wx-briefing-source img{max-width:100%;max-height:220px;object-fit:contain;display:block;margin:5px auto}
+.wx-brief-chart{margin:5px 0 9px}.wx-brief-chart-label{display:flex;justify-content:space-between;gap:6px}.wx-brief-track{height:4px;border-radius:3px;background:var(--wx-line);overflow:hidden;margin:2px 0 5px}.wx-brief-track span{display:block;height:100%;background:var(--wx-green);border-radius:3px}
 .wx-structure,.wx-reader{max-width:820px;margin:0 auto}
 .wx-section-head{display:flex;align-items:baseline;gap:7px;margin:2px 0 4px;font-size:11px;font-weight:600;color:var(--wx-secondary)}
 .wx-section-count{font-size:10px;font-weight:400;color:var(--wx-muted)}

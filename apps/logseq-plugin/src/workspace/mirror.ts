@@ -1,6 +1,7 @@
 import type { FileIO } from "../host/file-io.ts";
 import { object, sha256, validateSnapshot, sourceAvailability, MAX_TEXT, type SourceSnapshot } from "./source-protocol.ts";
 import { associationOf, guard, managedRoot, optionalRead, replaceVerified, sameScope, uuidOf, verifiedWrite, type Association, type WorkspaceManifest } from "./workspace-record.ts";
+import { samePageWork } from "./page-identity.ts";
 
 export interface MaterialReading {
   id: string; path: string; availability: "available" | "unavailable"; content: string | null; version: string | null;
@@ -51,10 +52,11 @@ async function associatedOf(value: unknown): Promise<AssociatedReading> {
   if (s.availability !== "available" && s.availability !== "missing" && s.availability !== "unavailable") throw new Error("WORKSPACE_INVALID_AVAILABILITY");
   const snapshot = s.snapshot ? await validateSnapshot(s.snapshot) : undefined;
   if(snapshot){
-    if(association.kind==="material"||snapshot.scope.graphId!==association.graphId||snapshot.scope.rootUuid!==(association.kind==="logseq-block"?association.blockUuid:association.pageUuid)||sourceAvailability(snapshot)!==s.availability)throw new Error("WORKSPACE_SOURCE_MISMATCH");
+    if(association.kind==="material"||snapshot.scope.graphId!==association.graphId||sourceAvailability(snapshot)!==s.availability)throw new Error("WORKSPACE_SOURCE_MISMATCH");
+    if(association.kind==="logseq-block"&&snapshot.scope.rootUuid!==association.blockUuid||association.kind==="logseq-page"&&snapshot.scope.rootUuid!==association.pageUuid&&!samePageWork(snapshot.scope,{kind:"page",pageName:association.pageName,graphId:association.graphId,rootUuid:association.pageUuid}))throw new Error("WORKSPACE_SOURCE_MISMATCH");
     // Old associated-page mirrors remain readable history. Newly refreshed page
     // snapshots use the real page descriptor and contain no invented root block.
-    if(association.kind==="logseq-block"&&snapshot.scope.kind!==undefined||association.kind==="logseq-page"&&snapshot.scope.kind==="page"&&snapshot.scope.pageName!==association.pageName)throw new Error("WORKSPACE_SOURCE_MISMATCH");
+    if(association.kind==="logseq-block"&&snapshot.scope.kind!==undefined||association.kind==="logseq-page"&&snapshot.scope.kind==="page"&&snapshot.scope.pageName?.toLocaleLowerCase()!==association.pageName.toLocaleLowerCase())throw new Error("WORKSPACE_SOURCE_MISMATCH");
   }
   const material = s.material && association.kind === "material" ? materialReading(s.material, association.id) : undefined;
   if (material && material.availability !== s.availability) throw new Error("WORKSPACE_SOURCE_MISMATCH");
@@ -67,7 +69,7 @@ export async function bundleOf(value: unknown, manifest: WorkspaceManifest): Pro
   const b = object(value);
   if (b.schemaVersion !== 1 || b.workspaceId !== manifest.workspaceId || !Array.isArray(b.sources) || b.sources.length > 64) throw new Error("WORKSPACE_INVALID_BUNDLE");
   const primary = await validateSnapshot(b.primary);
-  if (!sameScope(primary.scope, manifest.primarySource)) throw new Error("WORKSPACE_SOURCE_MISMATCH");
+  if (!sameScope(primary.scope, manifest.primarySource)&&!samePageWork(primary.scope,manifest.primarySource)) throw new Error("WORKSPACE_SOURCE_MISMATCH");
   const sources: AssociatedReading[] = [];
   for (const item of b.sources) sources.push(await associatedOf(item));
   const lastKnownSources: NonNullable<ReadingBundle["lastKnownSources"]> = [];

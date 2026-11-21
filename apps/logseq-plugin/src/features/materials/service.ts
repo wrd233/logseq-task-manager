@@ -237,7 +237,7 @@ export class MaterialService {
         if (seen.has(record.id)) throw new Error("多个已知目录包含同一材料身份，请核对备份目录。");
         seen.add(record.id);
         if (!this.directories.hint(this.graph, record.id)) this.directories.remember(this.graph, record.id, store.root);
-        if (!sourceUuid || associationsOf(record).some(item => item.graph === this.graph && item.sourceUuid === sourceUuid)) results.push(record);
+        if (!sourceUuid || associationsOf(record).some(item => item.graph === this.graph && this.directories.sourceUuids(this.graph,sourceUuid).includes(item.sourceUuid))) results.push(record);
       }
     }
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));

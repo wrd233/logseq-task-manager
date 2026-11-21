@@ -1,0 +1,23 @@
+{
+  "sourceUnchanged": true,
+  "work": "验收随记",
+  "rows": [
+    {
+      "id": "7a33cabd-a851-405c-be0c-aebbe0744491",
+      "text": "11月18日复核表补充.md\nMD\n···"
+    }
+  ],
+  "realDragEvents": [
+    "dragEnter",
+    "dragOver",
+    "drop"
+  ],
+  "globalAssociation": {
+    "action": "其他 → 全部材料 → 关联到当前工作",
+    "status": "已关联当前工作。",
+    "work": "验收随记",
+    "materialId": "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+    "currentMaterialCount": 2,
+    "filename": "合成标签示意.png"
+  }
+}

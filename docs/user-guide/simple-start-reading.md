@@ -1,18 +1,33 @@
 # 装好后直接阅读
 
-[下载当前验收包](../implementation/assets/simple-start-reading/task-copilot-workbench.zip)。基础阅读不需要 Node、npm、Kernel、协作服务或设置项。
+新版 2026-11-20 的操作路径见 [Logseq 工作台：从笔记继续工作](logseq-workbench.md)。下文保留此前安装试用时点的说明和截图；新版不再要求先收录笔记、选择读法或手工建立 DSH 协作连接。
 
-当前包含材料 A 与阅读/协作 B 的合入，并修复原结构文字列和材料页签往返阅读焦点。已在仓库外同一安装包完成阅读、三条协作过程、普通 TODO、五类材料、页面权限、正式保护、目录恢复及正常禁用检查，详见[最终验收矩阵](../implementation/reading-and-agent-collaboration-final-matrix.md)。请先在合成或可丢弃的 Graph 副本使用；重要生产 Graph 的迁移、备份恢复和安全降级尚未通过。
+本轮工作台预览的安装包和实机记录见[验收记录](../implementation/logseq-workbench-preview-validation.md)。基础阅读装好即可使用，配置集中在原有的插件设置里。
+
+此前的材料、阅读和协作交付记录见[最终验收矩阵](../implementation/reading-and-agent-collaboration-final-matrix.md)。
 
 ## 安装与更新
 
 1. 解压 ZIP，保留其中的 `task-copilot-workbench` 文件夹。
 2. 在 Logseq「设置 → 高级」开启开发者模式。在「插件」页选择「加载解压的插件」，选中这个文件夹并启用。
-3. 回到自己的原生页面。事务、任务和 MiniProject 标题旁出现「阅读」，就可以使用了。
+3. 打开一篇已有笔记，点工具栏「工作台 → 阅读当前页」。工作台收在拼图菜单时，从菜单打开。带工作标记的标题仍可直接点「阅读」。
 
-更新时先停用旧插件，解压新包，再从插件页加载新文件夹并启用。若在原目录替换文件，使用插件页的重载或重启 Logseq。已有设置、目录与私有记录继续保留。此包通过解压加载，没有商店上架或自动更新功能。
+需要找回已有工作时，点「工作台 → 发现已有工作」，为当前笔记库开启一次即可。插件认已有工作标记和页面属性 `tags::` 里的 `项目`、`Project` 标签。在插件设置的「已有项目标签」可补充自己的标签。列表显示入选原因，点标题阅读，点「原文」定位原笔记。用「移出」调整结果，选择会保存在本机。
 
-当前隔离复验使用 macOS 15.1 ARM64、Logseq Desktop 0.10.15。较早截图来自其他阶段；Windows／Linux 和其他宿主版本未由本次验收证明。
+手工更新时，将新版解压到同一安装位置，再在插件页重载。在插件设置的「当前加载版本」核对是否成功。
+
+### 本地开发预览
+
+预览用于独立的 Logseq 测试环境。首次在仓库根目录用 Node 20.19 或更高的 20.x 版本运行 `npm ci`。之后可用以下命令构建新版和回退。
+
+```sh
+npm run preview:logseq
+npm run preview:logseq -- rollback
+```
+
+首次加载 `tmp/logseq-preview/task-copilot-workbench`。后续构建成功才切换这个目录指向的版本，命令会同时打印可分享的 ZIP 路径。常规操作是在 Logseq 插件页重载。对已有调试端口的独立测试实例，可在 `update` 或 `rollback` 后附加 `--reload 端口`，命令会核对独立窗口、安装目录和实际加载的版本。
+
+本轮预览已在 macOS 15.2、Logseq Desktop 0.10.9 的独立 Markdown 笔记库中验证。
 
 ## 写原文，点一次阅读
 
@@ -80,4 +95,4 @@ Project／Area 独立页面的页面标题旁也有「阅读」，读取整页�
 
 Logseq 0.10.9 没有允许插件任意启动本机进程的接口，因此本轮交付的是独立启动器加自动连接发现，尚未实现“插件一个按钮直接启动 companion”。已有自定义连接位置继续有效。
 
-上方链接是本轮 A+B 最终验收包，包含协作现场、共同指导和独立权限入口；包身份及限制见[当前交接](../implementation/reading-and-agent-collaboration-handoff.md)。视觉刷新截图保留为[历史证据](../implementation/assets/workbench-visual-refresh/README.md)，不替代当前包验收。旧版一键阅读另见[原证据](../implementation/assets/simple-start-reading-main/README.md)。
+此前的协作交付包含协作现场、共同指导和独立权限入口，包身份及适用范围见[协作交接记录](../implementation/reading-and-agent-collaboration-handoff.md)。另有[视觉刷新记录](../implementation/assets/workbench-visual-refresh/README.md)和[早期阅读验收](../implementation/assets/simple-start-reading-main/README.md)。

@@ -118,7 +118,7 @@ export class MaterialTransfers {
     }
     const row = element("div", "", "wb-material-entry"); row.dataset.materialRow=record.id; row.append(entry);
     const feedback = element("span", "", "wb-material-feedback"); feedback.setAttribute("role", "status");
-    const menu = disclosureMenu("更多", `${record.title} 的材料操作`);
+    const menu = disclosureMenu("···", `${record.title} 的材料操作`);menu.root.classList.add("wb-icon-menu");
     const run = (action: () => Promise<void>) => { menu.close(false); void action().catch(error => { try { this.host.assert(value.ticket); let problem=row.querySelector<HTMLElement>(".wb-material-problem");
         if(!problem){problem=element("p","","wb-material-problem wb-error");problem.setAttribute("role","status");row.append(problem);}
         problem.textContent=error instanceof Error ? error.message : String(error); } catch { /* A later scope owns the screen. */ } }); };

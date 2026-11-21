@@ -4,11 +4,12 @@ import { sha256, type SourceScope, type SourceSnapshot } from "../../workspace/s
 import { logseqSourceId, sameLensScope } from "./lens-source.ts";
 import { lensArray, lensRecord, lensText, requireLens } from "./lens-input.ts";
 import type { LensResult } from "./lens-controller.ts";
-import type { ReadingBookmark, WorkViewRenderer } from "./renderer.ts";
+import type { ReadingBookmark, ReadingFocus, WorkViewRenderer } from "./renderer.ts";
 import type { ViewPresentation } from "./operations.ts";
 import type { ComposedView, LensSelection } from "./view-composer.ts";
 import type { SourceRow } from "./model.mjs";
-import { composeReport, defaultReportFolds, reportFragment, reportFragments } from "./report-model.ts";
+import { composeReport, reportFragment, reportFragments } from "./report-model.ts";
+import { reportCollapsed } from "./report-body.ts";
 import { reportFailure, resolveBodyTarget, type BodyPosition, type BodyTarget } from "./report-target.ts";
 import { ReadingPlanController } from "./reading-controller.ts";
 import type { ReadingMaterial, ReadingMaterialPort } from "./reading-layout.ts";
@@ -39,10 +40,10 @@ export class WorkViewReport {
   private navigation = 0;
   private disposed = false;
   private yielding = false;
-  private folds = defaultReportFolds();
+  private folds = new Map<string, boolean>();
   private boundScope: SourceScope | null = null;
   private suspended: ReadingBookmark | null = null;
-  private readonly sessions = new Map<string, {mode:"report" | "structure"; folds:string[]; bookmark:ReadingBookmark}>();
+  private readonly sessions = new Map<string, {mode:"report" | "structure"; folds:Map<string, boolean>; bookmark:ReadingBookmark}>();
   private native: {scope:SourceScope; bookmark:ReadingBookmark; mode:"beside" | "switch"} | null = null;
   private notice: string | null = null;
   private materialPort:ReadingMaterialPort|null=null;
@@ -50,7 +51,7 @@ export class WorkViewReport {
   private readonly plans:ReadingPlanController;
   private readonly sourceSet=new NativeSourceSetHost();
   private readonly editor = new NativeEditorHost(() => {
-    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先结束原生输入，再返回正文。" : `报告暂不能恢复：${result.reason}`); });
+    void this.resume().then(result => { if (!result.ok) this.host.notify(result.reason === "editing-in-progress" ? "请先完成当前写作，再返回文章。" : "文章暂不能恢复，请重新打开当前工作。"); });
   },() => this.sourceChanged());
   readonly api = {
     read: () => this.read(), setMode: (mode: unknown) => this.setMode(mode),
@@ -59,7 +60,7 @@ export class WorkViewReport {
     compare: (input: unknown) => this.compare(input), showNative: () => this.showNative(),
     highlight:(input:unknown)=>this.highlight(input),clearHighlight:()=>this.sourceSet.clear(),
   };
-  constructor(private readonly host: ReportHost, defaultMode: "report" | "structure" = "report") {
+  constructor(private readonly host: ReportHost, private readonly defaultMode: "report" | "structure" = "report") {
     this.plans=new ReadingPlanController({scope:()=>this.disposed?null:this.host.scope(),version:()=>this.host.scopeVersion?.()??"",
       unavailable:()=>this.host.historical()?"historical-view":this.host.renderer.composing||this.editor.isComposing?"editing-in-progress":null,
       source:async()=>{
@@ -76,7 +77,7 @@ export class WorkViewReport {
         if(!this.valid(scope,lifetime)||port!==this.materialPort)throw new Error("READING_MATERIAL_SCOPE_CHANGED");
         requireLens(views.length<=2000&&new Set(views.map(view=>view.id)).size===views.length,"invalid-reading-material-list");
         this.materialViews=new Map(views.map(view=>[view.id,view]));return new Set(views.filter(view=>view.availability==="available").map(view=>view.id));
-      },changed:()=>this.host.changed(),defaultMode,...(typeof localStorage!=="undefined"?{storage:localStorage}:{})});
+      },materialSnapshots:()=>[...this.materialViews.values()],changed:()=>this.host.changed(),defaultMode,...(typeof localStorage!=="undefined"?{storage:localStorage}:{})});
   }
   readonly readingAPI={
     setMode:async(mode:"report"|"structure")=>{
@@ -89,6 +90,11 @@ export class WorkViewReport {
     submit:async(input:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.submit(input);
       if(result.ok) {this.host.changed();this.host.renderer.restore(bookmark,[],false);}
+      return result;
+    },prepare:(input:unknown)=>this.plans.api.prepare(input),
+    adopt:async()=>{
+      const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.adopt();
+      if(result.ok){this.host.changed();this.host.renderer.restore(bookmark,[],false);}
       return result;
     },select:async(id:unknown)=>{
       const bookmark=this.host.renderer.bookmark(),result=await this.plans.api.select(id);
@@ -103,17 +109,26 @@ export class WorkViewReport {
   }
   async openReadingMaterial(id:string):Promise<void> {
     const scope=this.host.scope(),port=this.materialPort,lifetime=this.lifetime;
-    if(!scope||!port||this.host.historical()||!this.materialViews.has(id))throw new Error("READING_MATERIAL_UNAVAILABLE");
+    if(!scope||!port||this.host.historical())throw new Error("READING_MATERIAL_UNAVAILABLE");
     const materials=await port.list(scope);
     if(!this.valid(scope,lifetime)||port!==this.materialPort||!materials.some(view=>view.id===id&&view.availability==="available"))throw new Error("READING_MATERIAL_SCOPE_CHANGED");
-    await port.open(id,scope);
+    this.materialViews=new Map(materials.map(view=>[view.id,view]));
+    const note=this.materialViews.get(id)?.note;
+    if(note){
+      if(note.kind==="page"&&note.pageName)await this.openPageReference(note.pageName);
+      else{
+        if(!await this.editor.available())throw Error("请先结束原生输入，再打开关联笔记。");
+        const shown=await this.showNative();if(!shown.ok)throw Error(shown.reason);
+        if(this.valid(scope,lifetime)&&await this.editor.available())await logseq.App.pushState("page",{name:note.rootUuid});
+      }
+    }else await port.open(id,scope);
   }
   private remember(): void {
     const scope=this.boundScope;
     if (!scope || this.host.historical()) return;
     const key=JSON.stringify([scope.graphId,scope.rootUuid]);
     this.sessions.delete(key);
-    this.sessions.set(key,{mode:this.mode,folds:[...this.folds],bookmark:this.native?.bookmark??this.suspended??this.host.renderer.bookmark()});
+    this.sessions.set(key,{mode:this.mode,folds:new Map(this.folds),bookmark:this.native?.bookmark??this.suspended??this.host.renderer.bookmark(true)});
     if (this.sessions.size>12) this.sessions.delete(this.sessions.keys().next().value!);
   }
   scopeChanged(): void {
@@ -121,7 +136,7 @@ export class WorkViewReport {
     if (!scope || (this.boundScope && sameLensScope(this.boundScope,scope))) return;
     this.boundScope={...scope};
     const saved=this.sessions.get(JSON.stringify([scope.graphId,scope.rootUuid]));
-    this.folds=new Set(saved?.folds??[]); this.suspended=saved?.bookmark??null;
+    this.folds=new Map(saved?.folds); this.suspended=saved?.bookmark??null;
   }
   async restoreReading(): Promise<void> {
     const bookmark=this.suspended, scope=this.host.scope(), lifetime=this.lifetime;
@@ -133,9 +148,13 @@ export class WorkViewReport {
     }
   }
   get active(): boolean { return this.mode === "report"; }
+  /** Opening a work in the product uses the article surface. Legacy API callers
+   * can still request the original presentation explicitly. */
+  preferArticle(): void { if (this.defaultMode === "report") this.plans.preferArticle(); }
   get nativeActive(): boolean { return !!this.native; }
   get readingActive(): boolean { return !!this.reading; }
   get composing(): boolean { return this.editor.isComposing; }
+  sessionBookmark():ReadingBookmark {return this.native?.bookmark??this.suspended??this.host.renderer.bookmark(true);}
   get rows(): SourceRow[] | null {
     return this.active && this.source ? this.source.blocks.map(block => ({uuid:block.target.blockUuid,content:block.content ?? "来源暂不可用",sourceParent:block.parentUuid,depth:block.depth})) : null;
   }
@@ -166,6 +185,11 @@ export class WorkViewReport {
       if (!sameLensScope(result.value.scope,scope)) return deny("scope-mismatch");
       if ((result.value.page?.availability ?? result.value.blocks[0]?.availability) !== "available") { this.notice="source-unavailable";this.host.changed();return deny("source-unavailable"); }
       this.source=structuredClone(result.value); this.sourceRevision=this.host.revision(); this.notice=null;this.plans.noteSource(this.source); this.host.changed();
+      if(this.plans.progressive(this.source)&&this.materialPort){
+        const port=this.materialPort;
+        try {const materials=await port.list(scope);if(this.valid(scope,lifetime)&&ticket===this.readTicket&&port===this.materialPort){this.materialViews=new Map(materials.map(view=>[view.id,view]));this.host.changed();}}
+        catch {if(this.valid(scope,lifetime)&&ticket===this.readTicket){this.materialViews.clear();this.host.changed();}}
+      }
       return {ok:true,value:structuredClone(this.source)};
     })();
     this.reading=reading;
@@ -238,13 +262,21 @@ export class WorkViewReport {
   }
   compose(personal: ViewPresentation, lens: LensSelection | null, overlay?: ComposedView) {
     if(!this.active||!this.source)return null;
-    const report=composeReport(this.source,personal,lens,this.folds,overlay),reading=!overlay?this.plans.active(this.source):null;
+    const reading = !overlay ? this.plans.active(this.source) : null;
+    const folds = new Set<string>();
+    for (const block of this.source.blocks) {
+      const uuid = block.target.blockUuid;
+      if (this.folds.get(uuid) ?? (!reading && reportCollapsed(block.content ?? ""))) folds.add(uuid);
+    }
+    const report = composeReport(this.source, personal, lens, folds, overlay);
+    const progressive=!overlay&&!lens?this.plans.progressive(this.source):null;
+    if(progressive)return {...report,headings:[],progressive};
     if(!reading)return report;
     const byUuid=new Map(report.view.items.map(item=>[item.uuid,item])),byId=new Map(this.source.blocks.map(block=>[block.sourceId,block]));
     return {...report,headings:[],view:{...report.view,items:reading.primarySourceIds.map(id=>byUuid.get(byId.get(id)!.target.blockUuid)!)},reading:{verified:reading,materials:this.materialViews}};
   }
-  toggleFold(uuid: string): void {
-    if (this.folds.has(uuid)) this.folds.delete(uuid); else this.folds.add(uuid);
+  setFold(uuid: string, collapsed: boolean): void {
+    this.folds.set(uuid, collapsed);
     this.host.changed();
   }
   /** A temporary view of the exact captured raw block; comparison never routes or writes. */
@@ -258,7 +290,7 @@ export class WorkViewReport {
     } catch (error) { return reportFailure(error); }
   }
   /** Layout only: let native writing continue, including an already active draft. */
-  async showNative(): Promise<LensResult> {
+  async showNative(focusSource?: ReadingFocus): Promise<LensResult> {
     const scope=this.host.scope(), lifetime=this.lifetime;
     if (!scope || !this.host.visible() || this.disposed) return deny("view-not-visible");
     if (this.host.historical()) return deny("historical-view");
@@ -270,7 +302,7 @@ export class WorkViewReport {
     // Reuse only the existing input; this view action never routes or resets it.
     const focus=() => { if (typeof editing === "string") this.editor.focusExisting(editing,() => this.valid(scope,lifetime) && !this.host.historical()); };
     focus();
-    const bookmark=this.native?.bookmark??this.host.renderer.bookmark();
+    const bookmark=this.native?.bookmark??this.host.renderer.bookmark(true, focusSource);
     this.yielding=true;
     try {
       const mode=await this.editor.expose(this.host.panel);
@@ -279,10 +311,33 @@ export class WorkViewReport {
       this.native={scope:{...scope},bookmark,mode}; this.host.changed(); return {ok:true,value:null};
     } finally { this.yielding=false; }
   }
-  sessionFolds(): string[] { return [...this.folds]; }
-  restoreFolds(values: unknown[]): void {
-    const available=new Set(this.source?.blocks.map(block=>block.target.blockUuid)??[]);
-    this.folds=new Set(values.filter((id):id is string=>typeof id==="string"&&available.has(id)));this.host.changed();
+  sessionFolds(): { folds: string[]; unfolded: string[] } {
+    const folds: string[] = [], unfolded: string[] = [];
+    for (const [uuid, collapsed] of this.folds) (collapsed ? folds : unfolded).push(uuid);
+    return {folds, unfolded};
+  }
+  restoreFolds(folds: unknown[], unfolded: unknown[]): void {
+    const available = new Set(this.source?.blocks.map(block => block.target.blockUuid));
+    this.folds.clear();
+    for (const uuid of folds) if (typeof uuid === "string" && available.has(uuid)) this.folds.set(uuid, true);
+    for (const uuid of unfolded) if (typeof uuid === "string" && available.has(uuid)) this.folds.set(uuid, false);
+    this.host.changed();
+  }
+
+  async openPageReference(name: string): Promise<void> {
+    const scope = this.host.scope(), lifetime = this.lifetime, ticket = ++this.navigation;
+    if (!scope || !this.host.visible() || this.host.historical()) return;
+    const valid = () => this.valid(scope, lifetime) && ticket === this.navigation;
+    if (this.host.renderer.composing || !await this.editor.available()) throw Error("请先结束原生输入，再打开页面引用。");
+    const page = await logseq.Editor.getPage(name);
+    if (!valid() || await this.host.currentGraph() !== scope.graphId || !valid()) return;
+    if (!page?.name) throw Error(`找不到页面「${name}」。`);
+    if (!await this.editor.available() || !valid()) return;
+    const result = await this.showNative();
+    if (!result.ok) throw Error(`原生页面暂不能打开：${result.reason}`);
+    if (valid() && await this.editor.available() && valid()) {
+      await logseq.App.pushState("page", {name: page.originalName ?? page.name});
+    }
   }
   async resolve(input: unknown): Promise<LensResult<BodyTarget>> {
     if (this.host.historical()) return deny("historical-view");
@@ -304,16 +359,17 @@ export class WorkViewReport {
     return this.resolve({schemaVersion:1,scope:fragment.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,
       structureVersion:source.structureVersion,position:{kind:position}});
   }
-  async navigate(uuid: string): Promise<LensResult> {
+  async navigate(uuid: string, control?: ReadingFocus["control"]): Promise<LensResult> {
+    const focus = control ? {uuid, control} : undefined;
     if (this.source && await this.editor.editing() === uuid) {
       const fragment=reportFragment(this.source,logseqSourceId(this.source.scope.graphId,uuid));
       if (!fragment) return deny("source-not-in-scope");
-      return this.openNative({schemaVersion:1,scope:fragment.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:this.source.structureVersion,position:{kind:"block"}});
+      return this.openNative({schemaVersion:1,scope:fragment.scope,sourceId:fragment.sourceId,contentVersion:fragment.contentVersion,structureVersion:this.source.structureVersion,position:{kind:"block"}}, focus);
     }
     const target=await this.forBlock(uuid);
     if (!target.ok) return target;
     const {schemaVersion,scope,sourceId,contentVersion,structureVersion,position}=target.value;
-    return this.openNative({schemaVersion,scope,sourceId,contentVersion,structureVersion,position});
+    return this.openNative({schemaVersion,scope,sourceId,contentVersion,structureVersion,position}, focus);
   }
   observeNativeDrops(consume: (event: DragEvent, resolve: (position: Exclude<BodyPosition,"block">) => Promise<LensResult<BodyTarget>>) => void): () => void {
     return this.editor.observeDrops((event,uuid)=>{
@@ -328,7 +384,7 @@ export class WorkViewReport {
       });
     });
   }
-  async openNative(input: unknown): Promise<LensResult> {
+  async openNative(input: unknown, focus?: ReadingFocus): Promise<LensResult> {
     const ticket=++this.navigation, lifetime=this.lifetime, scope=this.host.scope();
     if (!scope || !this.host.visible() || this.disposed) return deny("view-not-visible");
     if (this.host.historical()) return deny("historical-view");
@@ -368,7 +424,7 @@ export class WorkViewReport {
         if (!member) return deny("source-not-in-scope");
         if (member.availability !== "available") return deny("source-unavailable");
         if (await this.editor.editing() !== existing || this.editor.isComposing || !valid()) return deny("editing-in-progress");
-        const exposed=await this.showNative(); if (!exposed.ok || !valid()) return exposed.ok ? deny("scope-mismatch") : exposed;
+        const exposed=await this.showNative(focus); if (!exposed.ok || !valid()) return exposed.ok ? deny("scope-mismatch") : exposed;
         if (!this.editor.focusExisting(existing,valid)) return deny("native-input-unavailable");
         return {ok:true,value:null};
       }
@@ -386,7 +442,7 @@ export class WorkViewReport {
       if (!valid() || !page || this.editor.isComposing || (currentEditing && currentEditing !== uuid)) return deny("editing-in-progress");
       if (await this.host.currentGraph() !== scope.graphId || !valid()) return deny("scope-mismatch");
       if (!current()) return deny("source-changed-during-read");
-      const bookmark=this.host.renderer.bookmark();
+      const bookmark=this.host.renderer.bookmark(true, focus);
       this.yielding=true;
       let mode: "beside" | "switch";
       try { mode=await this.editor.expose(this.host.panel); } finally { this.yielding=false; }
@@ -413,12 +469,21 @@ export class WorkViewReport {
     const native=this.native, scope=this.host.scope(), lifetime=this.lifetime;
     if (!scope || (native && !sameLensScope(native.scope,scope))) return deny("scope-mismatch");
     if (await this.host.currentGraph() !== scope.graphId || !this.valid(scope,lifetime)) return deny("scope-mismatch");
+    const editing=await this.editor.editing();
+    if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
+    if (native && !this.host.visible() && (editing || this.editor.isComposing)) {
+      if (typeof editing === "string") this.editor.focusExisting(editing,()=>this.valid(scope,lifetime));
+      return deny("editing-in-progress");
+    }
     await this.host.open(scope.rootUuid);
     if (!this.valid(scope,lifetime)) return deny("scope-mismatch");
     if (this.active) { const source=await this.capture(true); if (!source.ok) return source; }
+    const restoreFocus = await this.editor.available();
+    if (!this.valid(scope,lifetime) || !this.host.visible()) return deny("scope-mismatch");
     this.native=null; this.editor.hideReturn();
     this.host.changed();
-    if (native) this.host.renderer.restore(native.bookmark);
+    if (native) this.host.renderer.restore(native.bookmark, [], restoreFocus);
+    if (!restoreFocus && typeof editing === "string" && await this.editor.editing() === editing) this.editor.focusExisting(editing,()=>this.valid(scope,lifetime));
     return {ok:true,value:null};
     } catch (error) { return reportFailure(error); }
   }
@@ -428,7 +493,7 @@ export class WorkViewReport {
   }
   hide(reason: "switch" | "close"): void {
     if (!this.yielding) {
-      this.navigation++; this.suspended=this.native?.bookmark??this.host.renderer.bookmark(); this.remember(); this.editor.hideReturn();
+      this.navigation++; this.suspended=this.native?.bookmark??this.host.renderer.bookmark(true); this.remember(); this.editor.hideReturn();
     }
     if (reason === "close") this.native=null;
   }

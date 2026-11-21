@@ -258,15 +258,17 @@ export class AgentWorkspaceRouter {
                     this.readingRequests.set(result.value.requestId,owner);
                     const active=new Set(work.readingAPI.read().pendingRequests);
                     for(const id of this.readingRequests.keys())if(!active.has(id))this.readingRequests.delete(id);
+                    return {ok:true,value:{...result.value,materials:result.value.materials.map(material=>{const summary={...material};delete summary.text;delete summary.image;return summary;})}};
                 }
                 return result;
             }
             if(command==="reading.submit") {
                 // These two fields are inspected without accessing a caller getter;
                 // the reading controller owns the complete closed schema validation.
-                const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"]);
+                const raw=workRecord(payload.plan,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout","briefing"]);
                 if(this.readingRequests.get(workText(raw.requestId))!==owner)throw new WorkspaceError("READING_REQUEST_NOT_OWNED");
-                await checked();const result=await work.readingAPI.submit(payload.plan);await checked();
+                await checked();const existing=state.plans.find(plan=>plan.planId===raw.planId&&plan.progressive);
+                const result=raw.briefing&&existing?await work.readingAPI.prepare(payload.plan):await work.readingAPI.submit(payload.plan);await checked();
                 return result;
             }
             if(command==="reading.cancel") {

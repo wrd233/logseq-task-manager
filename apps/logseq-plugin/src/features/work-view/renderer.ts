@@ -9,12 +9,14 @@ import { composeWorkView, type ComposedView } from "./view-composer.ts";
 import type { ReviewChange } from "./review-port.ts";
 import type { ReportComposition } from "./report-model.ts";
 import { ReadingLayoutRenderer } from "./reading-layout.ts";
+import { ProgressiveReader } from "./progressive-reader.ts";
 
 interface Actions {
   operation(op: Record<string, unknown>): void;
-  toggle(name: "collapsed" | "expanded", uuid: string): void;
+  toggle(name: "collapsed" | "expanded", uuid: string, collapsed?: boolean): void;
   raw(uuid: string): void;
-  locate(uuid: string): void;
+  locate(uuid: string, control: ReadingFocus["control"]): void;
+  pageReference?(pageName: string): void;
   enter(uuid: string): void;
   range(uuid: string): void;
   repaint(): void;
@@ -22,22 +24,27 @@ interface Actions {
   sources?(ids:readonly string[],context:boolean,contextIds?:readonly string[]):void;
   clearSources?():void;
   material?(id:string):void;
+  candidate?(anchor:HTMLElement):void;
   fileClick?(event:MouseEvent):boolean;
 }
 interface Entry {
   node: HTMLElement; grip: HTMLButtonElement; fold: HTMLButtonElement; body: HTMLElement;
   select: HTMLSelectElement; controls: HTMLElement; enter?: HTMLButtonElement; raw?: HTMLElement; content?: string;
   menu: HTMLDetailsElement; summary: HTMLElement; expand: HTMLButtonElement; indent: HTMLButtonElement; outdent: HTMLButtonElement; range: HTMLButtonElement;
-  nativeEdit: HTMLButtonElement;
+  nativeEdit: HTMLButtonElement; actionsBar: HTMLElement;
   label: HTMLElement; disposeMenu(): void;
   compare: HTMLButtonElement;
   menuContext: HTMLElement;
   review?: HTMLElement; editor?: HTMLElement; reviewSignature?: string; bodySignature?: string;
 }
+export interface ReadingFocus { uuid: string; control: "row" | "edit" | "menu" }
+
 export interface ReadingBookmark {
   uuid: string | null; offset: number; scrollTop: number; fallback: string[]; focused: HTMLElement | null;
+  sourceFocus?: ReadingFocus;
   selection?: { range: Range; contents: Array<[string, string | undefined]> };
   selectionAnchors?:{start:Node;startOffset:number;end:Node;endOffset:number};
+  progressiveKey?:string; progressiveFocus?:string;
 }
 
 /** The map belongs to one Graph/root, contains only current items, and owns stable UUID callbacks. */
@@ -50,18 +57,30 @@ export class WorkViewRenderer {
   private reporting = false;
   private readonly headings = new Map<string,HTMLElement>();
   private readonly readingLayout:ReadingLayoutRenderer;
+  private readonly progressive:ProgressiveReader;
   get composing(): boolean { return this.composingUuid !== null; }
   constructor(private readonly container: HTMLElement, private readonly actions: Actions) {
     container.addEventListener("focusin",event=>{
       const target=event.target as HTMLElement;
-      if (container.contains(target) && (this.sourceRow(target)===target || [...this.headings.values()].includes(target))) this.lastReadingFocus=target;
+      if (container.contains(target) && (this.sourceRow(target)===target || [...this.headings.values()].includes(target) || target.closest(".wb-progressive"))) this.lastReadingFocus=target;
     });
     this.readingLayout=new ReadingLayoutRenderer({sources:(ids,context,contextIds)=>this.actions.sources?.(ids,context,contextIds),material:id=>this.actions.material?.(id)});
+    this.progressive=new ProgressiveReader({locate:uuid=>this.actions.locate(uuid,"row"),material:id=>this.actions.material?.(id),candidate:anchor=>this.actions.candidate?.(anchor)});
     container.addEventListener("keydown",event=>{
-      if(event.key==="Escape"&&!event.isComposing&&!this.composing&&!this.historical&&!(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]"))this.actions.clearSources?.();
+      const target = event.target as HTMLElement;
+      if (event.isComposing || this.composing || this.historical || target.closest("input,textarea,[contenteditable=true]")) return;
+      if (event.key === "Escape") this.actions.clearSources?.();
+      if (event.key === "Tab" && this.reporting && !target.closest("details[open]")) this.keepTabInView(event, target);
+    });
+    container.addEventListener("pointerdown", event => {
+      if ((event.target as Element).closest("a[data-wb-page-reference]")) event.preventDefault();
     });
     container.addEventListener("click", event => {
-      if(!event.defaultPrevented&&!this.historical)this.actions.fileClick?.(event);
+      const pageName = (event.target as Element).closest<HTMLElement>("a[data-wb-page-reference]")?.dataset.wbPageReference;
+      if (!event.defaultPrevented && !this.historical) {
+        if (pageName) { event.preventDefault(); this.actions.pageReference?.(pageName); }
+        else this.actions.fileClick?.(event);
+      }
       for (const entry of this.entries.values()) if (entry.menu.open && !entry.menu.contains(event.target as Node)) this.closeMenu(entry);
     });
   }
@@ -88,7 +107,8 @@ export class WorkViewRenderer {
         this.actions.operation({ type: "reorder", uuid, target: target.dataset.uuid, mode });
       }
     };
-    const fold = button("·", () => this.actions.toggle("collapsed", uuid));
+    const fold = button("·", () => this.actions.toggle("collapsed", uuid, fold.getAttribute("aria-expanded") === "true"));
+    fold.className = "wb-fold";
     const body = element("div", "", "wb-body"), controls = element("div", "", "wb-controls");
     const menu = element("details", "", "wb-row-menu"), summary = element("summary", "⋯");
     const menuContext = element("small", "", "wb-menu-context");
@@ -96,7 +116,9 @@ export class WorkViewRenderer {
     summary.onpointerdown=event => event.preventDefault();
     menu.append(summary, controls);
     const overlay = bindOverlayMenu(menu, summary, controls);
-    const label = element("h3", "", "wb-local-heading"); label.hidden = true;
+    const label = element("span", "", "wb-local-heading"); label.hidden = true;
+    const content = element("div", "", "wb-row-content"); content.append(label, body);
+    const actionsBar = element("div", "", "wb-row-actions"); actionsBar.append(menu);
     menu.addEventListener("toggle", () => {
       if (menu.open) for (const entry of this.entries.values()) if (entry.menu !== menu && entry.menu.open) this.closeMenu(entry);
     });
@@ -108,13 +130,16 @@ export class WorkViewRenderer {
     const indent = button("增加视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: 1 }));
     const outdent = button("减少视图缩进", () => this.actions.operation({ type: "indent", uuid, delta: -1 }));
     const range = button("只看此处", () => this.actions.range(uuid));
-    const nativeEdit = button("编辑原文", () => { menu.open = false; this.actions.locate(uuid); });
-    nativeEdit.setAttribute("aria-label","编辑此处原文");
+    const nativeEdit = button("编辑原文", () => {
+      menu.open = false;
+      this.actions.locate(uuid, this.reporting ? "edit" : "menu");
+    });
+    nativeEdit.setAttribute("aria-label", "编辑此块"); nativeEdit.title = "在 Logseq 编辑此块";
     nativeEdit.onpointerdown=event => event.preventDefault();
     const compare=button("查看 Markdown 原文", () => this.actions.raw(uuid));
     compare.onpointerdown=event => event.preventDefault();
     controls.append(menuContext, select, expand, nativeEdit, compare, range, indent, outdent);
-    node.append(grip, fold, label, body, menu);
+    node.append(grip, fold, content, actionsBar);
     node.addEventListener("click", event => {
       if(!event.defaultPrevented&&!this.historical&&this.actions.fileClick?.(event))return;
       if(event.defaultPrevented||(event.target as HTMLElement).closest("button,select,a,input,textarea,details,[contenteditable=true]")||this.composing||this.historical||document.getSelection()?.isCollapsed===false)return;
@@ -127,7 +152,7 @@ export class WorkViewRenderer {
     node.addEventListener("compositionstart", () => { this.composingUuid = uuid; });
     node.addEventListener("compositionend", () => { this.composingUuid = null; queueMicrotask(() => this.actions.repaint()); });
     node.addEventListener("dblclick",event => {
-      if (this.reporting && event.altKey && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid);
+      if (this.reporting && event.altKey && !this.composing && !this.historical && !node.classList.contains("wb-review-change") && !(event.target as HTMLElement).closest("a,button,select,details,input,textarea")) this.actions.locate(uuid, "row");
     });
     node.onkeydown = event => {
       if (event.key === "Escape" && menu.open && !event.isComposing && !this.composing && !(event.target as HTMLElement).closest("input,textarea,[contenteditable=true]")) {
@@ -141,7 +166,7 @@ export class WorkViewRenderer {
       }
       if (event.key === "Tab") { event.preventDefault(); this.actions.operation({ type: "indent", uuid, delta: event.shiftKey ? -1 : 1 }); }
     };
-    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, compare, label, disposeMenu: overlay.dispose };
+    return { node, grip, fold, body, select, controls, menu, summary, expand, indent, outdent, range, menuContext, nativeEdit, actionsBar, compare, label, disposeMenu: overlay.dispose };
   }
 
   render(rows: SourceRow[], state: ViewPresentation, rawBodies: ReadonlySet<string>, composition?: ComposedView, review?: {changes: ReadonlyMap<string,ReviewChange>; historical: boolean}, report?: ReportComposition): void {
@@ -151,6 +176,13 @@ export class WorkViewRenderer {
     else {delete this.container.dataset.reportRange;delete this.container.dataset.reportAvailable;delete this.container.dataset.reportShown;}
     const view = composition ?? composeWorkView(rows, state);
     const reading=this.bookmark();
+    if(report?.progressive&&!review?.historical){
+      this.reporting=false;this.readingLayout.clear();delete this.container.dataset.readingPlanId;
+      this.progressive.render(this.container, report.progressive);
+      this.restore(reading,[],!!reading.focused&&this.container.contains(reading.focused)||!!reading.progressiveFocus&&document.activeElement===document.body);
+      this.restoreSelection(reading);return;
+    }
+    this.progressive.detach();
     this.layout = view.items.map(item => ({uuid:item.uuid,depth:item.depth}));
     const focused = document.activeElement as HTMLElement | null;
     const bounds = this.container.getBoundingClientRect(), top = bounds.top, bottom = bounds.bottom ?? Number.POSITIVE_INFINITY;
@@ -197,7 +229,6 @@ export class WorkViewRenderer {
       const groupedHeading = report?.headings.some(section => section.depth===item.depth && section.sourceIds.includes(fragment?.sourceId ?? "") && section.title===({goal:"目标",idea:"思考",note:"记录与说明",record:"记录与说明"} as Record<string,string>)[marker ?? ""]);
       const label = [!sameGroup && !groupedHeading ? projection?.label : null, projection?.task].filter(Boolean).join(" · ");
       entry.label.hidden = !label; if(entry.label.textContent!==label) entry.label.textContent=label;
-      entry.body.style.gridRow = label ? "2" : "1";
       if(marker) entry.node.dataset.reportMarker=marker; else delete entry.node.dataset.reportMarker;
       entry.node.dataset.reportProjection = JSON.stringify(projection?.removed ?? []);
       const change=review?.changes.get(item.uuid);
@@ -210,17 +241,26 @@ export class WorkViewRenderer {
       if (entry.node.dataset.display !== level) entry.node.dataset.display = level;
       entry.grip.disabled = index === 0 || this.historical || !!report; entry.fold.disabled = !child || this.historical;
       entry.grip.style.visibility = index === 0 || this.historical ? "hidden" : "";
-      entry.fold.style.visibility = child ? "" : "hidden";
+      entry.fold.hidden = !child;
       const foldLabel = child ? folded ? "▸" : "▾" : "";
       if (entry.fold.textContent !== foldLabel) entry.fold.textContent = foldLabel;
       entry.fold.setAttribute("aria-label", folded ? "展开子项" : "折叠子项");
+      entry.fold.setAttribute("aria-expanded", String(child && !folded));
       entry.body.classList.toggle("expanded", item.full || state.expanded.includes(item.uuid));
       entry.select.disabled = this.historical;
-      entry.expand.hidden = level !== "compact"; entry.expand.disabled = this.historical || item.full;
+      entry.select.hidden = !!report;
+      entry.expand.hidden = !!report || level !== "compact"; entry.expand.disabled = this.historical || item.full;
       entry.indent.disabled = index === 0 || this.historical || !!report || JSON.stringify(indent(state.items,item.uuid,1)) === JSON.stringify(state.items);
       entry.outdent.disabled = index === 0 || item.depth <= 1 || this.historical || !!report;
+      entry.indent.hidden=entry.outdent.hidden=entry.range.hidden=!!report;
       entry.range.disabled = this.historical;
-      entry.nativeEdit.disabled = this.historical;
+      entry.nativeEdit.disabled = this.historical || (!!report && !fragment);
+      const editParent = report ? entry.actionsBar : entry.controls;
+      if (entry.nativeEdit.parentElement !== editParent) {
+        editParent.insertBefore(entry.nativeEdit, report ? entry.menu : entry.compare);
+        entry.nativeEdit.className = report ? "wb-edit-block" : "";
+        entry.nativeEdit.textContent = report ? "编辑" : "编辑原文";
+      }
       entry.compare.textContent=report ? "对照原文" : "查看 Markdown 原文";
       const menuContext = `条目操作 · ${row.content.split("\n")[0]?.replace(/\*\*|__/g, "").slice(0,48) ?? ""}`;
       if(entry.menuContext.textContent!==menuContext)entry.menuContext.textContent=menuContext;
@@ -231,8 +271,8 @@ export class WorkViewRenderer {
           const range = selection.getRangeAt(0);
           if (entry.body.contains(range.startContainer) || entry.body.contains(range.endContainer)) selection.removeAllRanges();
         }
-        entry.body.innerHTML = renderMarkdown(projection?.markdown ?? row.content);
-        highlightReview(entry.body,change,row.content,!!projection);
+        entry.body.innerHTML = renderMarkdown(projection?.markdown ?? row.content, !this.historical);
+        highlightReview(entry.body,change,row.content,!!projection,!this.historical);
         entry.content = row.content;
         entry.bodySignature=bodySignature;
       }
@@ -285,13 +325,14 @@ export class WorkViewRenderer {
     this.restoreSelection(reading);
   }
 
-  bookmark(retainReadingFocus = false): ReadingBookmark {
+  bookmark(retainReadingFocus = false, sourceFocus?: ReadingFocus): ReadingBookmark {
     const bounds = this.container.getBoundingClientRect();
     const anchor = this.sourceNodes().find(value => {
       const node = value as HTMLElement, rect = node.getBoundingClientRect();
       return !!node.dataset.uuid && !node.hidden && rect.bottom > bounds.top && rect.top < bounds.bottom;
     }) as HTMLElement | undefined;
-    const uuid = anchor?.dataset.uuid ?? null, fallback: string[] = [];
+    const progressiveAnchor=Array.from(this.container.querySelectorAll<HTMLElement>("[data-progressive-anchor]")).find(node=>!node.closest("[hidden]")&&this.isInView(node));
+    const uuid = anchor?.dataset.uuid ?? progressiveAnchor?.closest<HTMLElement>("[data-progressive-uuid]")?.dataset.progressiveUuid ?? null, fallback: string[] = [];
     if (uuid) {
       const at = this.layout.findIndex(item => item.uuid === uuid); let depth = this.layout[at]?.depth ?? 0;
       for (let index = at - 1; index >= 0; index--) {
@@ -301,7 +342,11 @@ export class WorkViewRenderer {
     }
     const focused = document.activeElement as HTMLElement | null;
     const previous = retainReadingFocus && this.lastReadingFocus?.isConnected && this.container.contains(this.lastReadingFocus) && !this.lastReadingFocus.closest("[hidden]") ? this.lastReadingFocus : null;
-    const bookmark: ReadingBookmark = { uuid, offset: anchor ? anchor.getBoundingClientRect().top - bounds.top : 0, scrollTop: this.container.scrollTop, fallback, focused: focused && this.container.contains(focused) ? focused : previous };
+    const bookmark: ReadingBookmark = { uuid, offset: (anchor??progressiveAnchor) ? (anchor??progressiveAnchor)!.getBoundingClientRect().top - bounds.top : 0, scrollTop: this.container.scrollTop, fallback, focused: focused && this.container.contains(focused) ? focused : previous };
+    if(progressiveAnchor?.dataset.progressiveAnchor)bookmark.progressiveKey=progressiveAnchor.dataset.progressiveAnchor;
+    const progressiveFocus=bookmark.focused?.closest<HTMLElement>("[data-progressive-anchor]")?.dataset.progressiveAnchor;
+    if(progressiveFocus)bookmark.progressiveFocus=progressiveFocus;
+    if (sourceFocus) bookmark.sourceFocus = sourceFocus;
     const selected = document.getSelection();
     if (selected?.rangeCount) {
       const range = selected.getRangeAt(0);
@@ -316,15 +361,49 @@ export class WorkViewRenderer {
   }
   restore(bookmark: ReadingBookmark, preferred: readonly string[] = [], restoreFocus = true): void {
     const visible = (uuid: string) => { const node = this.entries.get(uuid)?.node; return node && node.isConnected && !node.hidden ? node : null; };
-    const original = bookmark.uuid ? visible(bookmark.uuid) : null;
+    const progressive=(key:string|undefined)=>Array.from(this.container.querySelectorAll<HTMLElement>("[data-progressive-anchor]")).find(node=>node.dataset.progressiveAnchor===key&&!node.closest("[hidden]"));
+    const original = progressive(bookmark.progressiveKey) ?? (bookmark.uuid ? visible(bookmark.uuid) : null);
     const node = original ?? [...preferred, ...bookmark.fallback].map(visible).find(Boolean);
     if (node) this.container.scrollTop += node.getBoundingClientRect().top - this.container.getBoundingClientRect().top - (original ? bookmark.offset : 0);
-    else this.container.scrollTop = bookmark.uuid ? 0 : bookmark.scrollTop;
-    if (restoreFocus && bookmark.focused?.isConnected && !bookmark.focused.closest("[hidden]")) bookmark.focused.focus({ preventScroll: true });
+    else this.container.scrollTop = bookmark.uuid&&!this.progressive.root.isConnected ? 0 : bookmark.scrollTop;
+    const focus = bookmark.sourceFocus;
+    const entry = focus ? this.entries.get(focus.uuid) : undefined;
+    const control = entry && (focus?.control === "edit" ? entry.nativeEdit : focus?.control === "menu" ? entry.summary : entry.node);
+    const progressiveControl=progressive(bookmark.progressiveFocus);
+    if (progressiveControl?.matches("button,[tabindex]")) this.lastReadingFocus=progressiveControl;
+    if (restoreFocus && progressiveControl?.matches("button,[tabindex]")) progressiveControl.focus({preventScroll:true});
+    else if (restoreFocus && focus) {
+      const target = control && this.isInView(control) && !control.matches(":disabled") ? control : node;
+      target?.focus({ preventScroll: true });
+    } else if (restoreFocus && bookmark.focused?.isConnected && !bookmark.focused.closest("[hidden]")) bookmark.focused.focus({ preventScroll: true });
     else if (restoreFocus && this.container.parentElement?.contains(document.activeElement) && document.activeElement?.closest("[hidden]")) {
       (node ?? Array.from(this.container.children).find(value => !(value as HTMLElement).hidden) as HTMLElement | undefined)?.focus({ preventScroll: true });
     }
     if (restoreFocus) this.restoreSelection(bookmark);
+  }
+  private isInView(node: HTMLElement): boolean {
+    if (!node.isConnected || node.closest("[hidden]")) return false;
+    const {top, bottom} = this.container.getBoundingClientRect();
+    const rect = node.getBoundingClientRect();
+    return bottom <= top || (rect.height > 0 && rect.bottom > top && rect.top < bottom);
+  }
+  private keepTabInView(event: KeyboardEvent, target: HTMLElement): void {
+    const current = this.sourceRow(target);
+    if (!current) return;
+    const bounds = this.container.getBoundingClientRect();
+    const startInView = (row: HTMLElement) => {
+      const rect = row.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.top + Math.min(rect.height, 28) <= bounds.bottom;
+    };
+    if (target === current ? startInView(current) : this.isInView(target)) return;
+    const rows = this.sourceNodes().filter(row => row.tabIndex === 0);
+    if (event.shiftKey) rows.reverse();
+    // Start where the row's controls are visible as well as its prose, so the
+    // following Tab won't scroll back to the clipped top of a long paragraph.
+    const first = rows.find(startInView) ?? rows.find(row => this.isInView(row));
+    if (!first || first === target) return;
+    event.preventDefault();
+    first.focus({ preventScroll: true });
   }
   private restoreSelection(bookmark: ReadingBookmark): void {
     const selection=bookmark.selection;
@@ -349,11 +428,16 @@ export class WorkViewRenderer {
     }
     return null;
   }
+  stopExcerpt():string {
+    const anchor=Array.from(this.container.querySelectorAll<HTMLElement>(".wb-body,.wb-progressive-line,.wb-progressive-detail")).find(node=>this.isInView(node));
+    const text=anchor?.querySelector("h3")?.textContent??anchor?.textContent??"";
+    return text.replace(/\s+/gu," ").trim().slice(0,100);
+  }
   private sourceNodes():HTMLElement[] {
     // DOM order follows both manual layouts and composed nested reading units.
     // Only nodes owned by this renderer can supply a source bookmark.
     return Array.from(this.container.querySelectorAll<HTMLElement>(".wb-row[data-uuid]"))
       .filter(node=>this.entries.get(node.dataset.uuid!)?.node===node&&!node.closest("[hidden]"));
   }
-  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear();this.readingLayout.clear(); this.layout = []; this.composingUuid = null; this.lastReadingFocus=null; this.container.replaceChildren(); }
+  clear(): void { for (const entry of this.entries.values()) entry.disposeMenu(); this.entries.clear(); this.headings.clear();this.readingLayout.clear();this.progressive.clear(); this.layout = []; this.composingUuid = null; this.lastReadingFocus=null; this.container.replaceChildren(); }
 }

@@ -33,16 +33,18 @@ export class CollaborationUI {
     const revision=++this.revision,panelRevision=panels.reserve(),context=await this.boundary.context(root);
     if(this.disposed||revision!==this.revision)return;
     const {binding,guidance}=context,body=element("div","","wb-scroll"),header=element("div","","wb-heading");
-    header.append(element("strong",guideOnly?"共同指导与项目差异":reading?"让 Agent 设计读法":"带当前工作去协作"),button("关闭",()=>this.close()));
-    const status=element("p"),current=()=>!this.disposed&&revision===this.revision;
+    header.append(element("strong",guideOnly?"共同指导与项目差异":reading?"让 Agent 设计读法":"带当前工作去协作"));
+    if(!document.getElementById("workbench-navigation"))header.append(button("关闭",()=>this.close()));
+    const status=element("p","","wb-guidance-status"),current=()=>!this.disposed&&revision===this.revision;
+    status.setAttribute("role","status");
     const check=async()=>{if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");await context.check();if(!current())throw new Error("COLLABORATION_VIEW_CLOSED");};
     const input=(label:string,value:string,rows:number)=>{const wrap=element("label",label),box=element("textarea");box.value=value;box.rows=rows;box.style.cssText="display:block;width:100%;box-sizing:border-box;margin:6px 0 14px";wrap.append(box);body.append(wrap);return box;};
     let busy=false,composing=false;
     const pending=new Set<HTMLButtonElement>();
     const lock=()=>{for(const b of pending)b.disabled=busy||composing;};
     const action=(label:string,run:()=>Promise<void>)=>{const b=button(label,()=>{if(busy||composing||!current())return;busy=true;lock();void check().then(run).catch(error=>{if(current())status.textContent=error instanceof Error?error.message:String(error);}).finally(()=>{busy=false;lock();});});pending.add(b);return b;};
-    body.append(element("p","现场仅含已保存的原文和选择的背景。原生草稿不包含在内；准备现场不会提交原生输入。"));
     if(!guideOnly){
+      body.append(element("p","仅提供已保存的原文和选择的背景，不会提交原生草稿。"));
       const draftKey=`collaboration-form${reading?":reading":""}:${JSON.stringify([binding.scope,binding.workspaceId,binding.directory])}`;
       let draft:{request:string;background:string[]}={request:reading?"请根据我的阅读目的设计这份工作的读法：\n\n阅读目的：\n\n保留完整原句与来源，不修改 Logseq 正文。先读取当前来源并通过 reading.request / reading.submit 提交可切换的阅读方案。":"",background:[]};
       const saved=localStorage.getItem(draftKey);if(saved)try{const raw=JSON.parse(saved);if(typeof raw.request==="string"&&Array.isArray(raw.background)&&raw.background.every((id:unknown)=>typeof id==="string"))draft=raw;}catch{/* Keep malformed UI data out of the saved scene. */}
@@ -70,12 +72,13 @@ export class CollaborationUI {
         status.textContent="当前请求已保存。后续改动先重读现场与指导版本。";
       }),output);
     }
-    const guideDetails=element("details"),guideSummary=element("summary","共同指导：一处维护，各工作只写差异");guideDetails.open=guideOnly;guideDetails.append(guideSummary);body.append(guideDetails);
-    const commonWrap=element("label","共同指导（保存后影响本插件的各工作）"),common=element("textarea");common.value=guidance.common.text;common.rows=14;common.maxLength=65536;common.style.cssText="width:100%;box-sizing:border-box";commonWrap.append(common);
-    const projectWrap=element("label","这份工作的差异（不会改共同指导）"),project=element("textarea");project.value=guidance.project.text;project.rows=5;project.maxLength=65536;project.style.cssText="width:100%;box-sizing:border-box";projectWrap.append(project);
+    const guideFields=element("section","","wb-guidance-fields");
+    if(guideOnly)body.append(element("p","共同指导适用于各项工作；当前工作只需记录差异。"),guideFields);
+    else {const details=element("details");details.append(element("summary","共同指导与项目差异"),guideFields);body.append(details);}
+    const commonWrap=element("label","共同指导"),common=element("textarea");common.value=guidance.common.text;common.rows=8;common.maxLength=65536;commonWrap.append(common);
+    const projectWrap=element("label","当前工作的差异"),project=element("textarea");project.value=guidance.project.text;project.rows=5;project.maxLength=65536;projectWrap.append(project);
     let commonVersion=guidance.common.version,projectVersion=guidance.project.version;
-    const version=element("p",`本次读取：共同 ${commonVersion.slice(0,12)}；项目 ${projectVersion.slice(0,12)}。旧现场保留当时的加载版本。`);
-    guideDetails.append(version,commonWrap,action("明确保存共同指导",async()=>{const saved=await this.boundary.guidance.saveCommon(commonVersion,common.value,check);commonVersion=saved.version;version.textContent=`共同来源已读回核验：${commonVersion.slice(0,12)}。其他入口需重读。`;status.textContent="共同指导已保存；局部请求不会自动成为共同规则。";}),projectWrap,action("仅保存这份工作的差异",async()=>{const saved=await this.boundary.guidance.saveProject(binding,projectVersion,project.value,check);projectVersion=saved.version;status.textContent=`项目差异已读回核验：${projectVersion.slice(0,12)}；共同指导保持。`;}));
+    guideFields.append(commonWrap,action("保存共同指导",async()=>{const saved=await this.boundary.guidance.saveCommon(commonVersion,common.value,check);commonVersion=saved.version;status.textContent="共同指导已保存。";}),projectWrap,action("仅保存当前工作差异",async()=>{const saved=await this.boundary.guidance.saveProject(binding,projectVersion,project.value,check);projectVersion=saved.version;status.textContent="当前工作的差异已保存。";}));
     for(const box of Array.from(body.querySelectorAll("textarea"))){box.addEventListener("compositionstart",()=>{composing=true;lock();});box.addEventListener("compositionend",()=>{composing=false;lock();});}
     body.append(status);this.panel.root.replaceChildren(header,body);await check();
     if(await this.panel.open(panelRevision)&&!current())await this.panel.close(false,"switch",false);

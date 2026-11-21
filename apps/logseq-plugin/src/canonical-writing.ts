@@ -129,6 +129,10 @@ export function extractObjectNavigationLabel(content: string): { kind: "TASK" | 
   return null;
 }
 
+export function existingWorkPageMark(title: string): string | undefined {
+  return /(?:^|[\s/])(Project|Area)(?:[\s/:]|$)/iu.exec(title)?.[1];
+}
+
 function replaceFirstLine(content: string, line: string): string {
   const end = content.search(/\r?\n/u);
   return line + (end < 0 ? "" : content.slice(end));

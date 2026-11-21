@@ -1,10 +1,15 @@
 import { renderMarkdown } from "./review-renderer.ts";
 import { reportProjection } from "./report-body.ts";
 import type { ReadingUnit, VerifiedReadingPlan } from "./reading-plan.ts";
+import type { SourceScope } from "../../workspace/source-protocol.ts";
 
 /** Narrow adapter to the material owner's real list/open service. */
 export interface ReadingMaterial {
   id:string; filename:string; reference:string; availability:"available" | "unavailable";
+  version?:string|null; excerpt?:string; text?:string; truncated?:boolean;
+  note?:SourceScope;
+  media?:"image";
+  image?:string;
 }
 export interface ReadingMaterialPort {
   list(scope:VerifiedReadingPlan["plan"]["scope"]):Promise<readonly ReadingMaterial[]>;
@@ -67,7 +72,7 @@ export class ReadingLayoutRenderer {
         const block=source.get(id)!,node=this.node(`context:${key}:${id}`,"div","wb-reading-context-body",wanted);
         node.dataset.readingContextSourceId=id;
         if(node.dataset.contentVersion!==block.contentVersion) {
-          node.innerHTML=renderMarkdown(reportProjection(block.content!).markdown);node.dataset.contentVersion=block.contentVersion!;
+          node.innerHTML=renderMarkdown(reportProjection(block.content!).markdown, true);node.dataset.contentVersion=block.contentVersion!;
         }
         interaction(node,[id],false);return node;
       });

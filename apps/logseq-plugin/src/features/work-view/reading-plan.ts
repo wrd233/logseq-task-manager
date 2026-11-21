@@ -3,6 +3,7 @@ import { lensArray, lensHash, lensRecord, lensText, requireLens } from "./lens-i
 import { sameLensScope } from "./lens-source.ts";
 import { reportCategory } from "./report-model.ts";
 import { workObject } from "./focus.mjs";
+import { decodeBriefing, validateBriefing, type WorkBriefing } from "./briefing-model.ts";
 
 /** A closed reading vocabulary. Bodies, styles, executable markup and authority
  * never travel in a layout. The plugin supplies source text and material views. */
@@ -17,6 +18,7 @@ export interface ReadingPlan {
   structureVersion:string; sourceSetVersion:string;
   sourceVersions:Array<{sourceId:string; contentVersion:string}>;
   layout:ReadingUnit[];
+  briefing?:WorkBriefing;
 }
 export interface ReadingHeading {
   key:string; title:string;
@@ -37,7 +39,7 @@ function text(value:unknown,limit:number):string {
   return result;
 }
 export function decodeReadingPlan(input:unknown):ReadingPlan {
-  const raw=lensRecord(input,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout"],"invalid-reading-plan");
+  const raw=lensRecord(input,["schemaVersion","requestId","planId","name","scope","structureVersion","sourceSetVersion","sourceVersions","layout","briefing"],"invalid-reading-plan");
   requireLens(raw.schemaVersion===1,"unsupported-reading-schema");
   const rawScope=lensRecord(raw.scope,["graphId","rootUuid","kind","pageName"]);
   let units=0,sources=0;const keys=new Set<string>();
@@ -77,7 +79,7 @@ export function decodeReadingPlan(input:unknown):ReadingPlan {
     sourceVersions:lensArray(raw.sourceVersions,MAX_SOURCES).map(value=>{
       const version=lensRecord(value,["sourceId","contentVersion"]);
       return {sourceId:text(version.sourceId,4096),contentVersion:lensHash(version.contentVersion)};
-    }),layout:lensArray(raw.layout,MAX_UNITS).map(value=>unit(value,0))};
+    }),layout:lensArray(raw.layout,MAX_UNITS).map(value=>unit(value,0)),...(raw.briefing===undefined?{}:{briefing:decodeBriefing(raw.briefing)})};
   requireLens(new TextEncoder().encode(JSON.stringify(plan)).length<=1_048_576,"reading-plan-too-large");
   return plan;
 }
@@ -176,6 +178,7 @@ export function validateReadingPlan(input:unknown,source:SourceSnapshot,material
     requireLens(version.contentVersion===block.contentVersion,"stale-content");
   }
   requireLens(versions.size===source.blocks.length,"reading-full-source-required");
+  if(plan.briefing)validateBriefing(plan.briefing,source,materialIds);
   const primary:string[]=[],materials=new Set<string>(),seen=new Set<string>(),headings:ReadingHeading[]=[],contexts=new Map<string,readonly string[]>(),membership=new Map<string,readonly string[]>();
   const context=(ids:readonly string[]):string[]=>{
     const own=new Set(ids),needed=new Set<string>();
@@ -247,6 +250,7 @@ export function readingBasisChanged(verified:VerifiedReadingPlan,source:SourceSn
 
 /** Keep a reading arrangement over current source IDs. New paragraphs remain visible. */
 export function refreshReadingPlan(plan:ReadingPlan,source:SourceSnapshot):ReadingPlan {
+  if(plan.briefing)return plan;
   const available=new Set(source.blocks.map(block=>block.sourceId)),used=new Set<string>(),keys=new Set<string>();
   const units=(values:ReadingUnit[]):ReadingUnit[]=>values.flatMap<ReadingUnit>(value=>{
     keys.add(value.key);

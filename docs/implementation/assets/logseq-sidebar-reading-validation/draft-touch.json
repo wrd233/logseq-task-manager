@@ -1,0 +1,499 @@
+{
+  "scratch": {
+    "name": "审计草稿验证",
+    "id": "6afe5540-416a-4e9e-81fc-5c7902d8fd9c"
+  },
+  "unsubmitted-before": {
+    "uuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+    "other": "6afe5540-3dd3-4827-b1b3-f5e59cb5fcf3",
+    "raw": "保留未提交原生输入的底稿。",
+    "dbBefore": "保留未提交原生输入的底稿。",
+    "before": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）",
+      "start": 20,
+      "end": 20,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "1",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "返回正文",
+      "status": "",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。\n"
+    }
+  },
+  "blocked-search": {
+    "afterBack": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）",
+      "start": 20,
+      "end": 20,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "1",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "返回正文",
+      "status": "",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。\n"
+    }
+  },
+  "blocked-other-edit": {
+    "afterOther": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）",
+      "start": 20,
+      "end": 20,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "1",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "返回正文",
+      "status": "请先结束原生输入，再切换原块。",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。（临时未提交）\n"
+    }
+  },
+  "blocked-page-reference": {
+    "afterLink": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）",
+      "start": 20,
+      "end": 20,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "1",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "返回正文",
+      "status": "请先结束原生输入，再打开页面引用。",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。（临时未提交）\n"
+    }
+  },
+  "same-input-continuation": {
+    "same": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）",
+      "start": 20,
+      "end": 20,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "1",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "返回正文",
+      "status": "请先结束原生输入，再打开页面引用。",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。（临时未提交）\n"
+    }
+  },
+  "draft-beside": {
+    "id": "805f62b7-695e-4299-8d83-566ab10090d7",
+    "image": {
+      "width": 2160,
+      "height": 1400
+    },
+    "pid": 64529,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 1080,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/profile"
+  },
+  "composition-before": {
+    "sameNode": true,
+    "value": "保留未提交原生输入的底稿。（临时未提交）中文组合态",
+    "start": 22,
+    "end": 23,
+    "focus": true,
+    "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+    "returnButton": false,
+    "mainOpacity": "1",
+    "events": [
+      {
+        "type": "input",
+        "data": "（临时未提交）",
+        "trusted": true,
+        "isComposing": false
+      },
+      {
+        "type": "compositionstart",
+        "data": "",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "compositionupdate",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "input",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": true
+      }
+    ],
+    "page": "审计草稿验证"
+  },
+  "composition-after-resize": {
+    "sameNode": true,
+    "value": "保留未提交原生输入的底稿。（临时未提交）中文组合态",
+    "start": 22,
+    "end": 23,
+    "focus": true,
+    "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+    "returnButton": true,
+    "mainOpacity": "1",
+    "events": [
+      {
+        "type": "input",
+        "data": "（临时未提交）",
+        "trusted": true,
+        "isComposing": false
+      },
+      {
+        "type": "compositionstart",
+        "data": "",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "compositionupdate",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "input",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": true
+      }
+    ],
+    "page": "审计草稿验证"
+  },
+  "composition-native": {
+    "id": "0c827021-ef5e-434c-ba38-099401558c71",
+    "image": {
+      "width": 1080,
+      "height": 1400
+    },
+    "pid": 64529,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 540,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/profile"
+  },
+  "composition-after-return": {
+    "reopened": {
+      "sameNode": true,
+      "value": "保留未提交原生输入的底稿。（临时未提交）中文组合态",
+      "start": 22,
+      "end": 23,
+      "focus": true,
+      "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+      "returnButton": false,
+      "mainOpacity": "0",
+      "events": [
+        {
+          "type": "input",
+          "data": "（临时未提交）",
+          "trusted": true,
+          "isComposing": false
+        },
+        {
+          "type": "compositionstart",
+          "data": "",
+          "trusted": true,
+          "isComposing": null
+        },
+        {
+          "type": "compositionupdate",
+          "data": "中文组合态",
+          "trusted": true,
+          "isComposing": null
+        },
+        {
+          "type": "input",
+          "data": "中文组合态",
+          "trusted": true,
+          "isComposing": true
+        }
+      ],
+      "page": "审计草稿验证"
+    },
+    "ui": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "继续原生输入",
+      "body": "正文",
+      "status": "",
+      "notice": "原生输入尚未结束 · 当前输入保存后更新，阅读显示已保存原文。",
+      "source": "保留未提交原生输入的底稿。（临时未提交）\n"
+    }
+  },
+  "composition-finished": {
+    "sameNode": true,
+    "value": "保留未提交原生输入的底稿。（临时未提交）",
+    "start": 20,
+    "end": 20,
+    "focus": true,
+    "editUuid": "6afe5540-e9dd-4ac7-80b5-a7e48e57c20c",
+    "returnButton": false,
+    "mainOpacity": "0",
+    "events": [
+      {
+        "type": "input",
+        "data": "（临时未提交）",
+        "trusted": true,
+        "isComposing": false
+      },
+      {
+        "type": "compositionstart",
+        "data": "",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "compositionupdate",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "input",
+        "data": "中文组合态",
+        "trusted": true,
+        "isComposing": true
+      },
+      {
+        "type": "compositionupdate",
+        "data": "",
+        "trusted": true,
+        "isComposing": null
+      },
+      {
+        "type": "input",
+        "data": null,
+        "trusted": true,
+        "isComposing": true
+      },
+      {
+        "type": "compositionend",
+        "data": "",
+        "trusted": false,
+        "isComposing": null
+      }
+    ],
+    "page": "审计草稿验证"
+  },
+  "scratch-restored": {
+    "raw": "保留未提交原生输入的底稿。",
+    "now": "保留未提交原生输入的底稿。",
+    "final": {
+      "title": "审计草稿验证",
+      "reader": true,
+      "search": false,
+      "header": "编辑页首",
+      "body": "正文",
+      "status": "",
+      "notice": "",
+      "source": "保留未提交原生输入的底稿。\n"
+    }
+  },
+  "touch-affordance": {
+    "normal": {
+      "opacity": "0",
+      "pointer": "none",
+      "bodyWidth": 236,
+      "buttonHeight": 24,
+      "coarse": false,
+      "hoverNone": false
+    },
+    "coarse": {
+      "opacity": "1",
+      "pointer": "auto",
+      "bodyWidth": 236,
+      "buttonHeight": 28,
+      "coarse": true,
+      "hoverNone": true
+    }
+  },
+  "touch-events": [
+    {
+      "type": "pointerdown",
+      "pointer": "touch",
+      "trusted": true
+    },
+    {
+      "type": "click",
+      "pointer": "touch",
+      "trusted": true
+    }
+  ],
+  "touch-menu": {
+    "id": "9a8502f8-d6ba-4f7f-9f76-482f50406102",
+    "image": {
+      "width": 1520,
+      "height": 1400
+    },
+    "pid": 64529,
+    "offscreen": true,
+    "visible": false,
+    "focused": false,
+    "bounds": {
+      "x": 100,
+      "y": -14,
+      "width": 760,
+      "height": 700
+    },
+    "attempts": {
+      "show": 1,
+      "showInactive": 0,
+      "focus": 0
+    },
+    "electron": "27.1.3",
+    "chromium": "118.0.5993.159",
+    "home": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/home",
+    "userData": "/Users/mac/Library/Caches/task-copilot-package-acceptance/sidebar-reading-offscreen-vobJym/profile"
+  },
+  "touch": {
+    "normal": {
+      "opacity": "0",
+      "pointer": "none",
+      "bodyWidth": 236,
+      "buttonHeight": 24,
+      "coarse": false,
+      "hoverNone": false
+    },
+    "coarse": {
+      "opacity": "1",
+      "pointer": "auto",
+      "bodyWidth": 236,
+      "buttonHeight": 28,
+      "coarse": true,
+      "hoverNone": true
+    },
+    "menu": {
+      "width": 262,
+      "scrollWidth": 262
+    },
+    "events": [
+      {
+        "type": "pointerdown",
+        "pointer": "touch",
+        "trusted": true
+      },
+      {
+        "type": "click",
+        "pointer": "touch",
+        "trusted": true
+      }
+    ]
+  }
+}

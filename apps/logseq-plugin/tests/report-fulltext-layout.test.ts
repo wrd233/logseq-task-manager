@@ -102,7 +102,7 @@ test("collaboration highlights retain literal identity examples in full current 
       assert.doesNotMatch(body.textContent!,new RegExp(`id:: ${id}`));
       assert.ok(body.querySelector("mark"));assert.equal(container.dataset.reportShown,"93");
       body.click();assert.equal(corrections,0,"report text stays readable; correction has an explicit button");
-      assert.equal(Array.from(row.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent==="编辑原文")!.disabled,historical);
+      assert.equal(row.querySelector<HTMLButtonElement>('button[aria-label="编辑此块"]')!.disabled,historical);
       assert.equal(container.querySelectorAll("article").length,current.blocks.length);
     }
   }finally{await browser.happyDOM.abort();delete (globalThis as Partial<typeof globalThis>).window;delete (globalThis as Partial<typeof globalThis>).document;}

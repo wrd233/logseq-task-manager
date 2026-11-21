@@ -15,7 +15,8 @@ test('default body is a complete report even when the older personal structure w
     assert.equal(f.work.reportAPI.read().mode, 'report');
     assert.equal(f.work.reportAPI.read().status, 'current');
     assert.equal(f.work.panel.root.querySelector('.wb-work-title').textContent, '研究材料与引用');
-    assert.equal(f.work.panel.root.querySelector('.wb-work-kind').textContent, 'MiniProject');
+    assert.equal(f.work.panel.root.querySelector('.wb-work-kind'),null);
+    assert.equal(f.work.panel.root.querySelector('.wb-reading-menu'),null);
     assert.ok([...f.work.panel.root.querySelectorAll('.wb-row')].every(node => !node.hidden));
     assert.equal(f.work.reportAPI.read().fragments.length,3);
     assert.equal(JSON.stringify([...f.blocks]),original);
@@ -70,7 +71,7 @@ test('work menu retains focus on source updates and Escape closes locally withou
   const f = await shellFixture();
   try {
     await f.work.open('root'); const menu = f.work.panel.root.querySelector('.wb-menu'), trigger = menu.querySelector('summary');
-    menu.open=true; const refresh = [...menu.querySelectorAll('button')].find(item=>item.dataset.actionLabel==='重新读取正文'); refresh.focus();
+    menu.open=true; const refresh = [...menu.querySelectorAll('button')].find(item=>item.dataset.actionLabel==='重新读取原文'); refresh.closest('details').open=true;refresh.focus();
     f.content('root','TODO **[事务]** 更新工作名'); await delay(70);
     assert.equal(menu.open,true); assert.equal(f.browser.document.activeElement,refresh);
     refresh.dispatchEvent(new f.browser.KeyboardEvent('keydown',{key:'Escape',isComposing:true,bubbles:true,cancelable:true}));

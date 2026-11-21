@@ -46,20 +46,18 @@ function composed(f) {
     {kind:'group',key:'remaining',title:'零散记录与边界',children:[{kind:'paragraphs',key:'remaining-body',sourceIds:ids.slice(51)}]}
   ],'先对照，再继续','two');
 }
-test('reading controls select Agent layouts and restore continuous reading and structure without changing saved source',async()=>{
+test('old reading results remain accessible while the article surface replaces the mode switch; underlying API remains compatible',async()=>{
   const f=await readingFixture();try {
-    f.work.setContextActions(()=>[{area:'reading',label:'让 Agent 设计读法…',run:()=>{}}]);
     assert.equal((await f.work.readingAPI.submit(composed(f))).ok,true);
     const action=label=>f.work.panel.root.querySelector(`[data-action-label="${label}"]`);
-    const menu=f.work.panel.root.querySelector('.wb-reading-menu');
-    assert.match(menu.querySelector('summary').textContent,/先对照，再继续/);
-    assert.equal(action('先对照，再继续').getAttribute('aria-checked'),'true');
-    assert.equal(menu.contains(action('让 Agent 设计读法…')),true);
-    assert.equal(f.work.panel.root.querySelector('.wb-work-line .wb-menu').contains(action('连续阅读')),false);
-    action('连续阅读').click();await until(()=>f.work.readingAPI.read().activePlanId===null);
+    const menu=f.work.panel.root.querySelector('.wb-work-line .wb-menu');
+    assert.equal(f.work.panel.root.querySelector('.wb-reading-menu'),null);
+    assert.equal(action('连续阅读'),null);assert.equal(action('原结构'),null);assert.equal(action('让 Agent 设计读法…'),null);
+    assert.ok(menu.contains(action('回到原文')));
+    action('回到原文').click();await until(()=>f.work.readingAPI.read().activePlanId===null);
     assert.equal(f.work.reportAPI.read().mode,'report');assert.equal(f.work.panel.root.querySelectorAll('.wb-reading-unit').length,0);
-    action('原结构').click();await until(()=>f.work.reportAPI.read().mode==='structure');
-    assert.match(menu.querySelector('summary').textContent,/原结构/);
+    await f.work.reportAPI.setMode('structure');await until(()=>f.work.reportAPI.read().mode==='structure');
+    assert.ok(menu.contains(action('先对照，再继续')));
     action('先对照，再继续').click();await until(()=>f.work.readingAPI.read().activePlanId==='two');
     assert.equal(f.work.reportAPI.read().mode,'report');assert.equal(f.work.panel.root.querySelectorAll('.wb-row[data-report-source-id]').length,101);
     assert.equal(JSON.stringify([...f.blocks].map(([id,block])=>[id,block.content,block.parent,block.children.map(child=>child.uuid)])),f.original);

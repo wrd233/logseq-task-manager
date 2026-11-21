@@ -8,6 +8,7 @@ import { browserDescriptor, waitDshBrowserOffer, localDshUrl } from '../../task-
 import { atomicJson } from '../../task-copilot-cli/src/workspace-files.ts';
 import { installHistoryHost } from './structure-history/host.mjs';
 import { installEvidenceHost } from './work-evidence/host.mjs';
+import { articleEditorialRules, installReadingModel } from './reading-model.mjs';
 import { installPlannerHost } from './planner-host.mjs';
 import { installPersonalInboxHost } from './personal-inbox/host.mjs';
 import { homedir } from 'node:os';
@@ -60,6 +61,7 @@ export async function apply(ctx, config = {}) {
     },
   });
   const routes = {
+    'reading-model': installReadingModel(ctx),
     catalog: async input => {
       request(input, []);
       const graphs = await readCatalog(service.transport.stateDirectory);
@@ -182,7 +184,7 @@ export async function apply(ctx, config = {}) {
       return service.selectReading(exec.agent.session.id, args, exec.signal);
     }],
     ['logseq_reading_request', 'Request an agent-designed finite reading arrangement without changing original Logseq text.', { purpose: { type: 'string' } }, ['purpose'], (args, exec) => service.command(exec.agent.session.id, 'reading.request', args, exec.signal)],
-    ['logseq_reading_submit', 'Add or update a named work reading view using a request owned by this DSH session. Reuse planId to update; selection is shared and user navigation is preserved.', { plan: { type: 'object', additionalProperties: true } }, ['plan'], (args, exec) => service.command(exec.agent.session.id, 'reading.submit', args, exec.signal)],
+    ['logseq_reading_submit', `Add or update a named work reading view using a request owned by this DSH session. Optional briefing: {basisVersion,createdAt,paragraphs:[{key,markdown,sourceIds,kind:fact|inference|suggestion,tone?,cue?,details:[{key,markdown,sourceIds,heading?,kind?,display:quote|table|chart,materialIds?}]}]}. For progressive reading reuse planId work-resume-briefing, exact source versions and a full source sequence layout. Briefing keeps historical source meaning and does not select the view. Preserve stable keys and user navigation. For briefing content:\n${articleEditorialRules}`, { plan: { type: 'object', additionalProperties: true } }, ['plan'], (args, exec) => service.command(exec.agent.session.id, 'reading.submit', args, exec.signal)],
   ]) ctx.tools.register({ name: toolName, description, parameters: { type: 'object', properties, required, additionalProperties: false },
     output: { schema: {}, render: (_args, value) => {
       const text = JSON.stringify(value);

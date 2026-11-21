@@ -1,6 +1,7 @@
 import type { FileIO } from "../host/file-io.ts";
 import type { MaterialDirectories, KeyStorage } from "./material-context.ts";
 import { identifier, scopeOf, type SourceScope } from "./source-protocol.ts";
+import { pageAliases,samePageWork } from "./page-identity.ts";
 import { directoryOf, entryText, guard, managedRoot, manifestOf, optionalRead, replaceVerified, sameScope, uuidOf, type Association, type WorkspaceManifest } from "./workspace-record.ts";
 
 export interface WorkspaceBinding {manifest: WorkspaceManifest; directory: string; materialGraph: string; entryPath: string}
@@ -8,7 +9,14 @@ export interface BindRequest {scope: SourceScope; directory: string; organizatio
 /** Manifest owns identity. MaterialDirectories is the single directory lookup/projection. */
 export class WorkspaceRegistry {
   constructor(readonly io: FileIO, readonly directories: MaterialDirectories, private readonly storage: KeyStorage) {}
-  private key(scope: SourceScope): string { return `workbench:workspace:${JSON.stringify([scope.graphId, scope.rootUuid])}`; }
+  private key(scope: SourceScope): string {
+    const key=(id:string)=>`workbench:workspace:${JSON.stringify([scope.graphId,id])}`;
+    const ids=scope.kind==="page"?pageAliases(scope.graphId,scope.rootUuid,this.storage):[scope.rootUuid];
+    return [scope.rootUuid,...ids].map(key).find(value=>this.storage.getItem(value)!==null)??key(ids[0]!);
+  }
+  private matches(primary:SourceScope,scope:SourceScope):boolean {
+    return sameScope(primary,scope)||samePageWork(primary,scope)&&pageAliases(scope.graphId,scope.rootUuid,this.storage).includes(primary.rootUuid);
+  }
   hint(scope: SourceScope): {workspaceId: string; materialGraph: string} | null {
     const raw = this.storage.getItem(this.key(scope)); if (!raw) return null;
     const data = JSON.parse(raw); return {workspaceId: uuidOf(data.workspaceId), materialGraph: identifier(data.materialGraph)};
@@ -23,9 +31,19 @@ export class WorkspaceRegistry {
     const binding = this.directories.binding(graph, scope.rootUuid); if (!binding?.directory) return null;
     const directory = directoryOf(binding.directory, graph), manifest = await this.manifest(directory);
     if (!manifest) return null; // Existing materials bindings remain usable until explicit adoption.
-    if (!sameScope(manifest.primarySource, scope) || (hint && manifest.workspaceId !== hint.workspaceId)) throw new Error("工作目录的身份或 Graph 入口不吻合，请核对后重新关联。");
+    if (!this.matches(manifest.primarySource, scope) || (hint && manifest.workspaceId !== hint.workspaceId)) throw new Error("工作目录的身份或 Graph 入口不吻合，请核对后重新关联。");
     if (binding.organization !== manifest.organization) throw new Error("工作目录组织约定不吻合，请明确重新关联。");
     return {manifest, directory, materialGraph: graph, entryPath: `${directory}/${manifest.entryFile}`};
+  }
+  /** The host has resolved the actual page in this Graph. Update only our
+   * managed manifest so a new explicit connection can keep strict live-scope
+   * equality. Previous published mirrors and user files remain untouched. */
+  async reindexPage(binding:WorkspaceBinding,scope:SourceScope,valid:()=>boolean):Promise<WorkspaceBinding>{
+    if(sameScope(binding.manifest.primarySource,scope))return binding;
+    if(scope.kind!=="page"||!this.matches(binding.manifest.primarySource,scope))throw Error("工作目录身份已变化，请核对后重新关联。");
+    const manifest={...binding.manifest,primarySource:scope,updatedAt:new Date().toISOString()};
+    await replaceVerified(this.io,`${managedRoot(binding.directory)}/manifest.json`,JSON.stringify(manifest),valid);
+    return {...binding,manifest};
   }
   async bind(input: BindRequest, materialGraph: string, persistRoot: () => Promise<void>, valid: () => boolean): Promise<WorkspaceBinding> {
     const scope = scopeOf(input.scope), directory = directoryOf(input.directory, materialGraph), hint = this.hint(scope);
@@ -40,7 +58,7 @@ export class WorkspaceRegistry {
     if (this.io.stat && (await this.io.stat(directory)).type !== "directory") throw new Error("请选择已有工作目录，或明确新建目录。");
     await this.io.list(directory); guard(valid);
     let manifest = await this.manifest(directory); guard(valid);
-    if (manifest && (!sameScope(manifest.primarySource, scope) || (hint && hint.workspaceId !== manifest.workspaceId))) throw new Error("目录已有另一份工作记录，不能替换其身份或入口。");
+    if (manifest && (!this.matches(manifest.primarySource, scope) || (hint && hint.workspaceId !== manifest.workspaceId))) throw new Error("目录已有另一份工作记录，不能替换其身份或入口。");
     const pendingKey = `workbench:workspace-pending:${JSON.stringify([scope.graphId, scope.rootUuid])}`;
     if (manifest && old?.directory && old.directory !== directory) {
       const previous = await this.manifest(old.directory); guard(valid);
@@ -58,7 +76,7 @@ export class WorkspaceRegistry {
       if (await optionalRead(this.io, `${directory}/${entryFile}`) !== null) entryFile = `WORKSPACE.${workspaceId}.md`;
       if (await optionalRead(this.io, `${directory}/${entryFile}`) !== null) throw new Error("工作读取入口已存在，不能覆盖用户文件。");
       const previous = old?.directory && old.directory !== directory ? await this.manifest(old.directory) : null;
-      if (previous && (!sameScope(previous.primarySource, scope) || previous.workspaceId !== workspaceId)) throw new Error("旧绑定身份不吻合，请核对原目录。");
+      if (previous && (!this.matches(previous.primarySource, scope) || previous.workspaceId !== workspaceId)) throw new Error("旧绑定身份不吻合，请核对原目录。");
       manifest = {schemaVersion: 1, workspaceId, primarySource: scope, organization: input.organization ?? old?.organization ?? "flat", entryFile, associations: previous?.associations ?? [], updatedAt: new Date().toISOString()};
     } else if (input.organization && input.organization !== manifest.organization) manifest = {...manifest, organization: input.organization, updatedAt: new Date().toISOString()};
     await persistRoot(); guard(valid);

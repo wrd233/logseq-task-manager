@@ -1,0 +1,1459 @@
+{
+  "prepared": {
+    "before": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异待现场复核，南侧一台仍在等签字回执。当前计数不能当作验收完成。",
+          "cue": "当前计数不能当作验收完成",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。回执未到，这一条就留在未完成状态。\n\n工作停点定在北侧两台差异和南侧一台待核验上，下回从这里接续，不必重新梳理历史。另外记下一条边界：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、等南侧一台回执，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、回执什么时候回来；14:00–16:00 的窗口也限制了每天可用的推进时间。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外，交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "stale",
+      "candidate": null,
+      "scroll": 118.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": "unit/recheck-status/detail/history-initial-check",
+      "notice": ""
+    },
+    "after": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异待现场复核，南侧一台仍在等签字回执。当前计数不能当作验收完成。",
+          "cue": "当前计数不能当作验收完成",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。回执未到，这一条就留在未完成状态。\n\n工作停点定在北侧两台差异和南侧一台待核验上，下回从这里接续，不必重新梳理历史。另外记下一条边界：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、等南侧一台回执，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、回执什么时候回来；14:00–16:00 的窗口也限制了每天可用的推进时间。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外，交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "stale",
+      "candidate": "ready",
+      "scroll": 118.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "notice": ""
+    },
+    "candidate": {
+      "planId": "work-resume-briefing",
+      "basisVersion": "2cac168b7168ff75ae9c00b3a8651885d82d4e37884e36634bbb0c8edf8a6d96",
+      "createdAt": "2026-11-20T02:22:54.007Z",
+      "paragraphs": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。",
+          "cue": "照片时间关系还没核上",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "south-receipt-1120",
+              "markdown": "11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]"
+              ],
+              "heading": "11 月 20 日新增：南侧回执到，北侧未动",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "ready"
+    }
+  },
+  "adopted": {
+    "original": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异待现场复核，南侧一台仍在等签字回执。当前计数不能当作验收完成。",
+          "cue": "当前计数不能当作验收完成",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。回执未到，这一条就留在未完成状态。\n\n工作停点定在北侧两台差异和南侧一台待核验上，下回从这里接续，不必重新梳理历史。另外记下一条边界：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、等南侧一台回执，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、回执什么时候回来；14:00–16:00 的窗口也限制了每天可用的推进时间。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外，交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "stale",
+      "candidate": "ready",
+      "scroll": 118.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "notice": ""
+    },
+    "box": {
+      "text": "候选修订\n采用修订\n暂不采用\n\n北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。\n\n11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。\n\n南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。\n\n复核表给出的当前计数如下，数据属于合成验收样本。\n\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。\n\n11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。\n\n仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。\n\n“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。\n\n原文稿\n\n先复核再补签，还是只交接已核验设备，两种方案都还没定。\n\n这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。\n\n另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。\n\n临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。\n\n原文稿",
+      "x": 10,
+      "y": 183.9375,
+      "w": 364,
+      "h": 436.796875,
+      "viewport": [
+        384,
+        652
+      ]
+    },
+    "compact": {
+      "text": "候选修订\n采用修订\n暂不采用\n\n北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。\n\n11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。\n\n南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。\n\n复核表给出的当前计数如下，数据属于合成验收样本。\n\n区域\t已核验（台）\t待核验（台）\n北侧\t4 台\t2 台\n南侧\t6 台\t1 台\n东侧\t3 台\t0 台\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。\n\n11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。\n\n仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。\n\n“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。\n\n原文稿\n\n先复核再补签，还是只交接已核验设备，两种方案都还没定。\n\n这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。\n\n另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。\n\n临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。\n\n原文稿",
+      "x": 10,
+      "y": 183.9375,
+      "w": 510,
+      "h": 436.796875,
+      "viewport": [
+        530,
+        652
+      ]
+    },
+    "after": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "2cac168b7168ff75ae9c00b3a8651885d82d4e37884e36634bbb0c8edf8a6d96",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。",
+          "cue": "照片时间关系还没核上",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "south-receipt-1120",
+              "markdown": "11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]"
+              ],
+              "heading": "11 月 20 日新增：南侧回执到，北侧未动",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "current",
+      "candidate": null,
+      "scroll": 18.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "notice": ""
+    }
+  },
+  "history": {
+    "older": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "f165307173875d18bf76bbd76d636b63714e44c8774c4894dc09d378de40c689",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异待现场复核，南侧一台仍在等签字回执。当前计数不能当作验收完成。",
+          "cue": "当前计数不能当作验收完成",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。回执未到，这一条就留在未完成状态。\n\n工作停点定在北侧两台差异和南侧一台待核验上，下回从这里接续，不必重新梳理历史。另外记下一条边界：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、等南侧一台回执，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、回执什么时候回来；14:00–16:00 的窗口也限制了每天可用的推进时间。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外，交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "stale",
+      "candidate": null,
+      "scroll": 18.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "notice": ""
+    },
+    "newer": {
+      "scope": {
+        "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+        "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+        "kind": "page",
+        "pageName": "验收交接计划"
+      },
+      "basis": "2cac168b7168ff75ae9c00b3a8651885d82d4e37884e36634bbb0c8edf8a6d96",
+      "article": [
+        {
+          "key": "recheck-status",
+          "markdown": "北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。",
+          "cue": "照片时间关系还没核上",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+          ],
+          "kind": "fact",
+          "tone": "attention",
+          "details": [
+            {
+              "key": "history-initial-check",
+              "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "历史判断已被复核推翻",
+              "kind": "fact"
+            },
+            {
+              "key": "signature-counterexample",
+              "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "有签字也不等于标签一致",
+              "kind": "inference"
+            },
+            {
+              "key": "recheck-counts",
+              "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+              ],
+              "heading": "复核数据与缺口",
+              "kind": "fact",
+              "display": "table",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+                }
+              ]
+            },
+            {
+              "key": "south-receipt-1120",
+              "markdown": "11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]"
+              ],
+              "heading": "11 月 20 日新增：南侧回执到，北侧未动",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            },
+            {
+              "key": "open-todo",
+              "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "真实待办与停点",
+              "kind": "fact"
+            },
+            {
+              "key": "attachment-check",
+              "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+              ],
+              "heading": "附件核对",
+              "kind": "fact",
+              "materialIds": [
+                "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+                "b658db61-76b1-c51a-c8cc-12885a516cba"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                  "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+                },
+                {
+                  "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                  "quote": "原记录保留，禁止据此宣告全部完成。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "option-pending",
+          "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+          "cue": "两种方案都还没定",
+          "sourceIds": [
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+            "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+          ],
+          "kind": "fact",
+          "details": [
+            {
+              "key": "option-a-audit-first",
+              "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案甲：先复核差异，再补签",
+              "kind": "fact"
+            },
+            {
+              "key": "option-b-partial-handover",
+              "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+              ],
+              "heading": "方案乙：只交接已核验设备",
+              "kind": "fact"
+            },
+            {
+              "key": "contact-window",
+              "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+              "sourceIds": [
+                "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+              ],
+              "heading": "联络窗口与参考笔记",
+              "kind": "fact",
+              "materialIds": [
+                "note:6aff1610-cbb7-48dc-b488-71d453300925"
+              ],
+              "materialQuotes": [
+                {
+                  "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                  "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": "current",
+      "candidate": null,
+      "scroll": 18.5,
+      "expanded": [
+        "unit/recheck-status",
+        "unit/option-pending"
+      ],
+      "focus": null,
+      "notice": ""
+    }
+  },
+  "ask": {
+    "text": "简短结论：计数是状态统计，不是交接凭据，所以“已核验台数”不能当成全部交接完成。\n\n依据最新回执（11 月 20 日）：\n\n南侧那台待核验设备已有签字回执，但照片时间关系仍待核；此前已有反例——签字只证明记录存在，不能证明当时标签一致。\n北侧两台仍待现场复核，且 11 月 18 日已发现北侧机架标签不符；仅凭旧照片的初查判断不能作为最终事实。\n\n再看计数原文：表格（北侧已核验 4 / 待核验 2，南侧 6 / 1，东侧 3 / 0）取自 11 月 18 日复核表，只表示当前计数，不代表签字完成，尚待核对的数据不得并入已完成项；现场复核附件也注明“北侧有两台需再次核验、南侧一台需等待签字回执”，禁止据此宣告全部完成。长附件本身只是隔离演练记录，末尾编号也只是查找线索，不构成签字回执。\n\n因此当前仍缺北侧两台差异的现场复核，以及南侧照片时间的核对；只有这些补齐后，才谈得上全部交接。在此之前只能按“仅含已核验设备的部分交接”办理，不得冒充全部完成。",
+    "refs": [
+      "依据 · 新增复核：11 月 20 日南侧待核验设备已有签字回执，但照片时间关系仍待核。北侧两台仍待现场复核；不能",
+      "依据 · 数据取自 11 月 18 日复核表，仅表示当前计数，不代表签字完成。尚待核对的数据不得合并成已完成项。",
+      "依据 · | 区域 | 已核验（台） | 待核验（台） |",
+      "依据 · 11 月 12 日现场初查：认为三处标签均已核验。当时依据是旧照片，尚未查原表；这个判断不应作为最终事实",
+      "依据 · 11 月 18 日复核：北侧机架标签不符。先保留旧编号和原表截图，再安排现场确认；如设备未通电，不得宣告",
+      "依据 · 反例：南侧设备有签字，但照片日期晚于签字时间；只能确认签字记录存在，不能证明当时标签一致。",
+      "依据 · 方案乙：先办理仅包含已核验设备的部分交接，其余记录待确认。不得冒充全部交接完成。",
+      "依据 · 下回从北侧两台差异和南侧一台待核验继续；工作记录不以消息已发作为签字证明。"
+    ],
+    "sourceStatus": "current",
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+      "kind": "page",
+      "pageName": "验收交接计划"
+    },
+    "request": "为什么不能把核验数量等同于全部交接完成？请依据最新回执、核对原文，简短回答。"
+  },
+  "handoff": {
+    "scope": {
+      "graphId": "graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph",
+      "rootUuid": "6aff160f-9a62-4237-b905-cb94369681da",
+      "kind": "page",
+      "pageName": "验收交接计划"
+    },
+    "basis": "2cac168b7168ff75ae9c00b3a8651885d82d4e37884e36634bbb0c8edf8a6d96",
+    "article": [
+      {
+        "key": "recheck-status",
+        "markdown": "北侧两台标签差异仍待现场复核。南侧那台 11 月 20 日收到签字回执，但照片时间关系还没核上。交接仍不能算完成。",
+        "cue": "照片时间关系还没核上",
+        "sourceIds": [
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]"
+        ],
+        "kind": "fact",
+        "tone": "attention",
+        "details": [
+          {
+            "key": "history-initial-check",
+            "markdown": "11 月 12 日的现场初查找出过“三处标签均已核验”的结论，但依据只是旧照片，原表当时并没有查。11 月 18 日复核时，北侧机架标签不符，初查判断不再成立，也不能再作为最终事实使用。11 月 20 日的补核把这个结论的范围收得更窄：仅凭旧照片，仍有三台待核验。\n\n改正后的处理顺序是：先保留旧编号和原表截图，再安排现场确认。这里有一条硬条件——设备如果没通电，就不得宣告验收完成。保留旧编号、原表截图和复核记录，是为了让差异发生在哪一步可追溯，而不是为了证明谁对谁错。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+            ],
+            "heading": "历史判断已被复核推翻",
+            "kind": "fact"
+          },
+          {
+            "key": "signature-counterexample",
+            "markdown": "南侧设备的签字是存在的，问题在时间关系：照片拍摄日期晚于签字时间。两件材料因此无法相互印证同一时点，能确认的只有“签字记录存在”，推不出签字当时标签与实物一致。\n\n11 月 20 日南侧待核设备拿到签字回执，又落在同一个结上：回执有了，照片时间关系仍待核。它和这条反例是同一种情况，所以南侧的计数不能因为回执到手就翻成已核验。\n\n这个反例的意义在于划清证据边界：签字回执只是回执，标签状态要靠现场复核来确认。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000005\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+            ],
+            "heading": "有签字也不等于标签一致",
+            "kind": "inference"
+          },
+          {
+            "key": "recheck-counts",
+            "markdown": "复核表给出的当前计数如下，数据属于合成验收样本。\n\n| 区域 | 已核验（台） | 待核验（台） |\n| --- | ---: | ---: |\n| 北侧 | 4 台 | 2 台 |\n| 南侧 | 6 台 | 1 台 |\n| 东侧 | 3 台 | 0 台 |\n\n合计 16 台：已核验 13 台，待核验 3 台，缺口集中在北侧两台和南侧一台。计数只表示 11 月 18 日复核时的状态，不代表签字完成，待核验的数据也没有被并进已完成项。复核表补充写明北侧两台需再次核验、南侧一台等待签字回执，现场复核窗口安排在 14:00–16:00。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000006\"]"
+            ],
+            "heading": "复核数据与缺口",
+            "kind": "fact",
+            "display": "table",
+            "materialIds": [
+              "11f387e5-1e54-4dfc-95ef-c9524f141936"
+            ],
+            "materialQuotes": [
+              {
+                "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "quote": "北侧有两台需再次核验。南侧一台需等待签字回执。复核窗口安排 14:00–16:00。"
+              }
+            ]
+          },
+          {
+            "key": "south-receipt-1120",
+            "markdown": "11 月 20 日的复核记录补上了南侧那一台的最新进展：待核验设备的签字回执已经有了，但照片与签字的时间关系还没核上。北侧两台没有任何进展，仍待现场复核。\n\n这条更新改的是状态表述，不是计数。11 月 18 日复核表里的 4/6/3 与 2/1/0 仍是当时的计数，没有因为回执到手而变动；南侧那台从“等回执”变成“回执已到、待核时间关系”，仍未进入已核验。\n\n记录末尾重申了一句边界：不能将计数当作全部交接完成。这与附件里“原记录保留，禁止据此宣告全部完成”是同一个意思，说明即使南侧有了回执，整批交接也还没到宣告完成的时候。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000002\"]"
+            ],
+            "heading": "11 月 20 日新增：南侧回执到，北侧未动",
+            "kind": "fact",
+            "materialIds": [
+              "11f387e5-1e54-4dfc-95ef-c9524f141936"
+            ],
+            "materialQuotes": [
+              {
+                "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "quote": "原记录保留，禁止据此宣告全部完成。"
+              }
+            ]
+          },
+          {
+            "key": "open-todo",
+            "markdown": "仍然开着的一条是 TODO：联系现场值班人复核北侧机架，等签字回执。北侧这条没有变化，回执未到就留在未完成状态。\n\n停点要改一处：南侧那台不再等签字回执，下回从北侧两台差异和南侧照片时间核对继续，不必重新梳理历史。另一条边界照旧：消息已经发出不算签字证明，交接状态只看回执和复核结果。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000004\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000013\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+            ],
+            "heading": "真实待办与停点",
+            "kind": "fact"
+          },
+          {
+            "key": "attachment-check",
+            "markdown": "“11月18日复核表补充”确认了北侧两台、南侧一台和 14:00–16:00 的复核窗口，并注明原记录保留、禁止据此宣告全部完成。\n\n“验收核对长附件”通篇是 130 行合成校验记录，内容一致地声明“不代表签字或通过验收”，真正有用的是末尾的唯一核对编号 QPA-9472，且文中已说明它只是查找线索。这份附件因此只能当索引用，进不了验收依据。\n\n“合成标签示意”是图片附件，没有可读文本，无法从它核对标签内容，标签状态仍以现场复核为准。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]"
+            ],
+            "heading": "附件核对",
+            "kind": "fact",
+            "materialIds": [
+              "11f387e5-1e54-4dfc-95ef-c9524f141936",
+              "741f4647-d6f7-4058-817b-6e0a74cfe37d",
+              "b658db61-76b1-c51a-c8cc-12885a516cba"
+            ],
+            "materialQuotes": [
+              {
+                "materialId": "b658db61-76b1-c51a-c8cc-12885a516cba",
+                "quote": "现场核对唯一编号 QPA-9472；这个编号只是原始附件末尾的查找线索，不视为签字回执。"
+              },
+              {
+                "materialId": "11f387e5-1e54-4dfc-95ef-c9524f141936",
+                "quote": "原记录保留，禁止据此宣告全部完成。"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "option-pending",
+        "markdown": "先复核再补签，还是只交接已核验设备，两种方案都还没定。",
+        "cue": "两种方案都还没定",
+        "sourceIds": [
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+          "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]"
+        ],
+        "kind": "fact",
+        "details": [
+          {
+            "key": "option-a-audit-first",
+            "markdown": "这条路把顺序放在完整追溯链上：先处理北侧两台差异、核清南侧那台的照片时间关系，再补签。好处是旧编号、原表截图、复核记录和签字能按顺序对上，日后要解释任何一台的状态都有材料可查。\n\n代价是交付窗口可能推迟，推迟多久取决于现场确认能否约到、照片时间问题什么时候核清；14:00–16:00 的窗口也限制了每天可用的推进时间。\n\n南侧回执 11 月 20 日已经到手，方案甲现在真正的卡点移到了证据链最后一段——回执与照片能不能对上同一时点，而不是回执本身。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000010\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000003\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000014\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+            ],
+            "heading": "方案甲：先复核差异，再补签",
+            "kind": "fact"
+          },
+          {
+            "key": "option-b-partial-handover",
+            "markdown": "另一条是先办理仅包含已核验设备的部分交接，其余记录留待确认。好处是确定的部分可以先交出去，不必等全部差异清零。\n\n红线写得很清楚：不得把它当成全部交接完成。按当前计数，至少北侧两台和南侧一台还在部分交接之外——南侧那台虽然回执已到，照片时间关系没核上，仍属待确认。交接文本需要逐台列明范围，否则就变成用小范围交接冒充整体验收。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000011\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000007\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000008\"]",
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"6aff992c-c0f3-4721-b389-c318c73b8dff\"]"
+            ],
+            "heading": "方案乙：只交接已核验设备",
+            "kind": "fact"
+          },
+          {
+            "key": "contact-window",
+            "markdown": "临时联络指向验收参考笔记。该页给出的联络窗口是工作日 14:00–16:00，与复核表补充里的现场窗口一致，两个时间可以并到同一次安排里用。\n\n参考笔记同时标注自己不属于 A，也不是新的交接任务；A 的工作现场仍是机房交接这一处，参考页只用来查联络时间，不改变待办归属。",
+            "sourceIds": [
+              "[\"logseq\",\"graph:logseq_local_/Users/mac/Library/Caches/task-copilot-package-acceptance/workbench-productization-offscreen-3wTeig/graph\",\"1aa10000-1111-4111-8111-000000000012\"]"
+            ],
+            "heading": "联络窗口与参考笔记",
+            "kind": "fact",
+            "materialIds": [
+              "note:6aff1610-cbb7-48dc-b488-71d453300925"
+            ],
+            "materialQuotes": [
+              {
+                "materialId": "note:6aff1610-cbb7-48dc-b488-71d453300925",
+                "quote": "联络窗口只在工作日 14:00–16:00 开放，本笔记不属于 A。"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "status": "current",
+    "candidate": null,
+    "scroll": 18.5,
+    "expanded": [
+      "unit/recheck-status",
+      "unit/option-pending"
+    ],
+    "focus": null,
+    "notice": "已交接，请在 DSH 查看草稿。"
+  }
+}

@@ -1,6 +1,8 @@
 # Task Copilot 工作台
 
-Task Copilot 工作台将工作视图、Graph 外的 Markdown 材料和 vNext 任务管理整合为一个 Logseq 插件。工作视图与材料可独立使用，本地 Kernel 继续管理正式任务状态与语义提交。
+Task Copilot 工作台以 Logseq 为个人日常入口：找工作、恢复当前工作、阅读文章与原文、使用材料、轻量 AI 请求。原生 Logseq 负责写作；DSH 负责复杂 Agent 协作，本地 Kernel 按需管理正式事务。普通笔记的阅读、材料和写作不依赖模型、工作目录或正式任务。
+
+当前产品化预览见 [使用指南](docs/user-guide/logseq-workbench.md)、[设计](docs/design/progressive-workspace.md) 和 [实机验证](docs/implementation/logseq-workbench-productization-validation.md)；以下阶段记录保留历史架构与正式 Kernel 能力。
 
 首次安装与一键阅读从[简明说明](docs/user-guide/simple-start-reading.md)开始，可直接[下载本地安装 ZIP](docs/implementation/assets/simple-start-reading/task-copilot-workbench.zip)。基础阅读零必填配置，事务或 MiniProject 标题旁一次点击进入完整原文；不需要 Node、Kernel 或协作连接。
 

@@ -245,7 +245,7 @@ test('damaged image clicks report builtin preview failure and explicit external 
     const path = join(f.workDirectory, '原始图片.png'); await writeFile(path, Buffer.from([137, 80, 78, 71]));
     await f.joinFiles([path]);
     assert.equal(f.materials.panel.root.querySelector<HTMLInputElement>('input[type=file]')!.hidden, true);
-    assert.ok(f.find('选择文件…'));
+    assert.ok(f.find('加入文件…'));
     assert.equal(f.find('加入材料'), undefined);
     await until(async () => (await f.materials.listMaterials(f.c.root)).materials.length === 1, 'picker result');
     const view = (await f.materials.listMaterials(f.c.root)).materials[0]!;

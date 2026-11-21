@@ -1,15 +1,19 @@
 import { extractObjectNavigationLabel } from '../../canonical-writing.ts';
 import { type CatalogWork, type CatalogSnapshot, workKey } from '@task-copilot/contracts';
+export interface CatalogPage {
+  uuid: string; title: string; sourceUuid?: string; reason?: string; updatedAt?: number;
+}
+export type NoteCatalogWork = CatalogWork & { reason?: string };
 
-export interface CatalogBlock {uuid: string; content: string; parent?: {id?: number; uuid?: string}; page?: {id?: number; name?: string; originalName?: string}; 'updated-at'?: number}
+export interface CatalogBlock {uuid: string; content: string; parent?: {id?: number; uuid?: string}; page?: {id?: number; name?: string; originalName?: string}; 'updated-at'?: number; properties?: Record<string, unknown>}
 export interface CatalogFormal {object: {id: string; title: string; kind: string; updatedAt: string}; anchor: unknown}
 /** Reuses navigation recognition; no TODO or prose fallback. */
 export async function collectCatalog(input: {
-  graphId: string; graphName: string; blocks: CatalogBlock[]; pages: Array<{uuid: string; title: string; sourceUuid?: string}>; formal: CatalogFormal[];
+  graphId: string; graphName: string; blocks: CatalogBlock[]; pages: CatalogPage[]; formal: CatalogFormal[];
   getBlock(id: string | number): Promise<{content?: string; parent?: {id?: number; uuid?: string}; page?: {id?: number}} | null>;
   check(): void;
-}): Promise<CatalogSnapshot> {
-  const works = new Map<string, CatalogWork>(), now = Date.now();
+}): Promise<Omit<CatalogSnapshot, "works"> & { works: NoteCatalogWork[] }> {
+  const works = new Map<string, NoteCatalogWork>(), now = Date.now();
   const formal = new Map(input.formal.flatMap(item => {
     const anchor = item.anchor as {graphId?: string; externalId?: string} | null;
     return anchor?.graphId === input.graphId && anchor.externalId ? [[anchor.externalId, item] as const] : [];
@@ -38,7 +42,7 @@ export async function collectCatalog(input: {
   }
   for (const page of input.pages) {
     const workRef = {kind: 'logseq' as const, graphId: input.graphId, rootUuid: page.uuid, sourceKind: 'page' as const};
-    works.set(workKey(workRef), {workRef, title: page.title, objectType: '页面', location: `${input.graphName} / ${page.title}`, updatedAt: now, ...(page.sourceUuid ? {pageSourceUuid: page.sourceUuid} : {})});
+    works.set(workKey(workRef), {workRef, title: page.title.slice(0,800), objectType: '页面', location: `${input.graphName} / ${page.title}`.slice(0,2000), updatedAt: page.updatedAt ?? now, ...(page.sourceUuid ? {pageSourceUuid: page.sourceUuid} : {}), ...(page.reason ? {reason: page.reason.slice(0,240)} : {})});
   }
   input.check();
   return {schemaVersion: 1, graphId: input.graphId, graphName: input.graphName, refreshedAt: now, works: [...works.values()]};

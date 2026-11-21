@@ -9,6 +9,7 @@ import { WorkspaceRegistry, type BindRequest } from "../../workspace/registry.ts
 import { WorkspaceContextService, type ContextReading } from "../../workspace/context-service.ts";
 import { ScopeExpired } from "../../workspace/source-reader.ts";
 import { identifier, object, scopeOf, type SourceScope } from "../../workspace/source-protocol.ts";
+import { rememberPageWork,samePageWork } from "../../workspace/page-identity.ts";
 
 /** Always installed, including tasksEnabled=false. Owns only local commands and known-source observation. */
 export function installWorkspaceContext(readMaterial: (id: string) => Promise<unknown>,activeWork:()=>SourceScope|null=()=>null) {
@@ -23,6 +24,15 @@ export function installWorkspaceContext(readMaterial: (id: string) => Promise<un
   const sourceReader = logseqSourceReader();
   const service = new WorkspaceContextService(new WorkspaceRegistry(desktopFiles(() => graphPath), directories, localStorage), sourceReader, {
     current, readMaterial,
+    resolvePageScope:async (scope,retained)=>{
+      const graph=await current();if(graph.graphId!==scope.graphId)return null;
+      const page=scope.pageName?await logseq.Editor.getPage(scope.pageName):null;
+      if(!page?.uuid||graph.graphId!==(await current()).graphId)return null;
+      const actual:SourceScope={graphId:scope.graphId,rootUuid:page.uuid,kind:"page",pageName:String(page.originalName??page.name)};
+      if(!samePageWork(scope,actual))return null;
+      rememberPageWork(actual,graph.materialGraph,localStorage,retained?scope:undefined);
+      return actual;
+    },
     persistRoot: async (scope, valid) => {
       const check = async () => { if (!valid() || (await current()).graphId !== scope.graphId || !valid()) throw new ScopeExpired(); };
       await check();
