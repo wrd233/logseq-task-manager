@@ -22,6 +22,8 @@ import { sameLensScope } from "./features/work-view/lens-source.ts";
 import { sha256,sourceAvailability,type SourceScope } from "./workspace/source-protocol.ts";
 import type { ReadingMaterial } from "./features/work-view/reading-layout.ts";
 import { previewFormat } from "./features/materials/preview/paths.ts";
+import { copyMaterialLink } from "./host/clipboard.ts";
+import type { CollaborateTargetId } from "./features/work-view/reading-ai.ts";
 
 declare const __WORKBENCH_BUILD__: string;
 const loadedBuild = typeof __WORKBENCH_BUILD__ === "string" ? __WORKBENCH_BUILD__ : "开发源码";
@@ -83,7 +85,7 @@ async function main(): Promise<void> {
   if (logseq.settings?.tasksEnabled !== false && await pluginRuntime.configured()) {
     try {await activateTasks();} catch(error){pluginRuntime.stop();report(error);}
   }
-  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
+  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-docked .ui__notifications{right:var(--tc-sidebar-width)!important;width:auto!important;max-width:calc(100vw - var(--tc-sidebar-width))!important}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
   if (work) actions["找工作"] = () => void workSearch?.open().catch(report);
@@ -173,10 +175,32 @@ async function main(): Promise<void> {
   if (work) {
     workSearch = new WorkCatalogView(catalog, work);
     work.setWorkSearch(actions["找工作"]!);
-    work.setReadingAI({complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),handoff:(scope,intent)=>agentWorkspace!.local.openWork(scope,"continue",false,intent)});
+    work.setReadingAI({
+      complete:(input,signal)=>agentWorkspace!.local.generateReading(input,signal),
+      handoff:(scope,intent,target)=>agentWorkspace!.local.openWork(scope,"continue",false,intent,target),
+      startJob:input=>agentWorkspace!.local.startReadingJob(input),
+      jobStatus:query=>agentWorkspace!.local.readingJobStatus(query),
+      ackJob:jobId=>agentWorkspace!.local.ackReadingJob(jobId),
+      cancelJob:query=>agentWorkspace!.local.cancelReadingJob(query),
+      providers:()=>agentWorkspace!.local.readingProviders(),
+      selectRoute:route=>agentWorkspace!.local.selectReadingRoute(route),
+      collaborateTargets:()=>agentWorkspace!.local.collaborateTargets(),
+      selectCollaborateTarget:target=>agentWorkspace!.local.selectCollaborateTarget(target),
+      setWorkPrivacy:(workKey,privacyMode,scope)=>agentWorkspace!.local.setWorkPrivacy(workKey,privacyMode,scope),
+      noteTidy:(input,signal)=>agentWorkspace!.local.runNoteTidy(input,signal),
+      listWritebackProposals:workKey=>agentWorkspace!.local.listWritebackProposals(workKey),
+      consumeWritebackProposal:(proposalId,action)=>agentWorkspace!.local.consumeWritebackProposal(proposalId,action),
+    });
   }
-  setDshObjectEntry(scope=>agentWorkspace!.local.openWork(scope));
+  setDshObjectEntry(async scope=>{await agentWorkspace!.local.openWork(scope,"continue",false,undefined,"dsh");});
   stages.setCollaboration({status:agentWorkspace.api.status,connect:agentWorkspace.local.connect,stop:agentWorkspace.local.stop});
+  const collaborateFromMenu = async (scope: SourceScope, target: CollaborateTargetId) => {
+    const result = await agentWorkspace!.local.openWork(scope, "continue", false, undefined, target);
+    if (result.target !== "dsh") {
+      if (result.handoffPrompt) await copyMaterialLink(result.handoffPrompt).catch(() => undefined);
+      await logseq.UI.showMsg(`已暂存 ${result.targetLabel} 交接上下文并复制交接指令。`, "success");
+    }
+  };
   work?.setContextActions(() => {
     const scope=work!.readingAPI.read().scope,root=scope?.rootUuid;
     if (!root || !scope) return [];
@@ -184,8 +208,11 @@ async function main(): Promise<void> {
     const connected = !!connection?.connected && !!connection.binding && sameWorkScope(connection.binding.scope, scope);
     const page=scope.kind==="page";
     return [
-      {group:"DSH 协作",label:"新建 DSH 对话",run:()=>agentWorkspace!.local.openWork(scope,"new")},
-      {group:"DSH 协作",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
+      {group:"外部协作",label:"在 Codex 继续",run:()=>collaborateFromMenu(scope,"codex")},
+      {group:"外部协作",label:"在 Antigravity 继续",run:()=>collaborateFromMenu(scope,"antigravity")},
+      {group:"外部协作",label:"在 Claude Code 继续",run:()=>collaborateFromMenu(scope,"claude-code")},
+      {group:"外部协作",label:"新建 DSH 对话",run:()=>agentWorkspace!.local.openWork(scope,"new",false,undefined,"dsh")},
+      {group:"外部协作",label:"共同指导与项目差异",run:()=>agentWorkspace!.local.guidance(scope)},
       {group:"工作目录",label:"关联已有目录",run:()=>workspace.local.bind(scope)},
       {group:"工作目录",label:"打开目录读取入口",run:()=>workspace.local.open(scope)},
       {group:"工作目录",label:"重新关联移动后的目录",run:()=>workspace.local.rebind(scope)},
@@ -195,7 +222,9 @@ async function main(): Promise<void> {
       ...(!page&&connected?[{group:"授权与恢复",label:"允许维护普通 TODO",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
       ...(!page?[{group:"授权与恢复",label:"允许润色并整理原块",run:()=>agentWorkspace!.local.connect(root,true)},
         {group:"授权与恢复",label:"检查写回冲突",run:()=>content!.local.recovery(root)},
-        {group:"维护",label:"核对行首格式",run:()=>agentWorkspace!.local.format(root)}]:[]),
+        {group:"维护",label:"查看整理前原文快照",run:()=>work!.openTidySnapshots()},
+        {group:"维护",label:"核对行首格式",run:()=>agentWorkspace!.local.format(root)}]:[
+        {group:"维护",label:"查看整理前原文快照",run:()=>work!.openTidySnapshots()}]),
       ...(connected?[{group:"授权与恢复",label:"停止本次连接",run:()=>agentWorkspace!.local.stop()}]:[]),
     ];
   });
@@ -204,12 +233,19 @@ async function main(): Promise<void> {
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },
     openPage: async (name?: string) => {requireActive();await work?.openPage(name);},
     openMaterial: async (id: string) => { requireActive(); await materials?.openDoc(id, currentWorkRoot()); },
+    tidyNotes: async (targetRootUuid?: string) => { requireActive(); await work?.tidyNotes(targetRootUuid); },
+    openTidySnapshots: async () => { requireActive(); await work?.openTidySnapshots(); },
     close: async () => { if (!disposed) await panels.closeActive(); },
     apply: (operation: unknown) => disposed ? {ok: false, reason: "workbench-disposed"} : work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     workspace: workspace.api,
     content: content.api,
     agentWorkspace: agentWorkspace.api,
-    dsh: {open:(target?: string | AgentWorkScope, mode: "continue" | "new" = "continue")=>agentWorkspace!.local.openWork(target,mode)},
+    dsh: {open:(target?: string | AgentWorkScope, mode: "continue" | "new" = "continue")=>agentWorkspace!.local.openWork(target,mode,false,undefined,"dsh")},
+    collaborate: {
+      open:(target?: string | AgentWorkScope, targetAgent?: CollaborateTargetId, mode: "continue" | "new" = "continue")=>agentWorkspace!.local.openWork(target,mode,false,undefined,targetAgent),
+      targets:()=>agentWorkspace!.local.collaborateTargets(),
+      selectTarget:(targetAgent: CollaborateTargetId)=>agentWorkspace!.local.selectCollaborateTarget(targetAgent),
+    },
     stages: stages.api,
     materials: {
       list: (input: {sourceUuid?: string; query?: string} = {}) => requireMaterials().listMaterials(input.sourceUuid ?? null, input.query ?? ""),

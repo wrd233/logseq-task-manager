@@ -145,6 +145,18 @@ export class WorkView {
     if(typeof pageCommand==="function")this.disposers.push(pageCommand);
     const unregister = logseq.Editor.registerBlockContextMenuItem("工作台：从此块打开工作视图", ({ uuid }) => this.openCurrentWork(uuid));
     if (typeof unregister === "function") this.disposers.push(unregister);
+    const unregisterTidy = logseq.Editor.registerBlockContextMenuItem("工作台：整理此段笔记", async ({ uuid }) => {
+      if (this.disposed) return;
+      try {
+        if (!this.panel.visible || !this.sourceRows.some(row => row.uuid === uuid)) {
+          await this.openCurrentWork(uuid);
+        }
+        if (!this.disposed) await this.tidyNotes(uuid);
+      } catch (error) {
+        this.fail(error);
+      }
+    });
+    if (typeof unregisterTidy === "function") this.disposers.push(unregisterTidy);
     logseq.App.registerCommandPalette({ key: "workbench-focus-range", label: "工作台（高级）：限定当前块范围" }, () => {
       if (!this.disposed) void logseq.Editor.getCurrentBlock().then(block => this.lenses.api.select(block?.uuid)).catch(this.fail);
     });
@@ -231,6 +243,7 @@ export class WorkView {
   }
 
   private async enter(uuid: string, navigation = panels.reserve(), pageName: string | null = null, _fromSearch = false): Promise<void> {
+    void _fromSearch;
     if (this.disposed) return;
     const ticket = ++this.navigationEpoch;
     const valid = () => ticket === this.navigationEpoch && !this.disposed && panels.isLatest(navigation);
@@ -395,6 +408,14 @@ export class WorkView {
   setReadingAI(port:ReadingAiPort):void {
     this.readingAI?.dispose();this.readingAI=new WorkReadingAI(this.report.readingAPI,port,{locate:uuid=>void this.locate(uuid).catch(this.fail),material:id=>void this.report.openReadingMaterial(id).catch(this.fail),refresh:()=>this.refresh()});
     this.panel.root.insertBefore(this.readingAI.root,this.content);this.renderHeading();
+  }
+  async tidyNotes(targetRootUuid?: string): Promise<void> {
+    if (!this.readingAI) throw new Error("整理助手未启用。");
+    await this.readingAI.tidyLeftNotes(targetRootUuid);
+  }
+  async openTidySnapshots(): Promise<void> {
+    if (!this.readingAI) throw new Error("整理助手未启用。");
+    await this.readingAI.openTidySnapshots();
   }
   /** A native material link inside this work retains its root; an explicit other source keeps its own work. */
   async materialContext(uuid: string): Promise<string | null> {
@@ -573,7 +594,7 @@ export class WorkView {
     const parent=this.trace.objects.filter(crumb=>crumb.uuid!==this.rootUuid && ["miniproject","mini_project"].includes(crumb.type)).at(-1);
     const disabled = !this.rootUuid || this.contentChoice === "materials" || this.historical || !!this.draft || this.renderer.composing || !!this.report?.composing;
     const reading=this.report.readingAPI.read();
-    this.readingAI?.render(this.readingScope(),this.panel.visible&&this.contentChoice==="body"&&!this.historical,!!reading.briefing,!!this.draft||this.report.composing||this.renderer.composing);
+    this.readingAI?.render(this.readingScope(),this.panel.visible&&this.contentChoice==="body"&&!this.historical,!!reading.briefing,this.report.composing||this.renderer.composing);
     const actions: WorkShellAction[] = [
       {label: "显示 Logseq 页面", disabled: !this.rootUuid || this.contentChoice === "materials" || this.historical, preserveInputFocus: true, run: async () => {
         const result = await this.report.api.showNative(); if (!result.ok) throw new Error(result.reason);
@@ -591,11 +612,11 @@ export class WorkView {
     for (const crumb of this.trace.objects) if (crumb.uuid !== this.rootUuid && crumb.uuid!==parent?.uuid) actions.push({group:"上层工作",label: crumb.title, run: () => this.enter(crumb.uuid), disabled: !this.rootUuid || this.historical });
     actions.push(...this.contextActions());
     actions.push({group:"维护",label:"重新读取原文",description:"核对当前已保存记录",disabled,run:async()=>{await this.refresh();const result=await this.report.api.refresh();if(!result.ok)throw Error(result.reason);this.failure="";this.render();}});
-    const notice = this.historical ? "正在查看阶段历史。结束审阅可回到当前文章。" : this.draft ? "写作完成后这里会更新。" : report?.status === "stale" ? "正在重新读取原文…" : "";
+    const notice = this.contentChoice === "materials" ? this.failure : this.historical ? "正在查看阶段历史。结束审阅可回到当前文章。" : this.draft ? "写作完成后这里会更新。" : report?.status === "stale" ? "正在重新读取原文…" : "";
     showCurrentWorkEntry(!!work);
     this.shell.root.hidden = !work;
     this.shell.render({ browsing:this.browsingPage&&this.browsingPage!==this.workOriginPage&&(report?.native||this.browsingPage!==this.initialBrowsingPage)?this.browsingPage:"", parent:parent ? {title:parent.title,run:()=>this.enter(parent.uuid)} : undefined, identity: work, content: this.contentChoice, native: !!report?.native, draft: !!this.draft, historical: this.historical,
-      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, attention: !!review?.attention, notice: (reading.persistenceError?"文章未能保存，请保持窗口打开。":"") || notice || (this.reviewOpen?review?.notice:"") || (this.contentChoice === "materials" ? this.failure : ""), actions });
+      review: this.reviewOpen, reviewAvailable: !!this.review && !this.pageName, attention: !!review?.attention, notice: (this.contentChoice === "materials" ? this.failure : (reading.persistenceError?"文章未能保存，请保持窗口打开。":"") || notice || (this.reviewOpen ? review?.notice ?? "" : "")), actions });
   }
   private async openMaterials(): Promise<void> {
     const root = this.rootUuid, epoch = this.epoch;
@@ -645,6 +666,16 @@ export class WorkView {
     this.commitPresentation(state);
   }
   private async locate(uuid: string, control?: ReadingFocus["control"]): Promise<void> {
+    if (!this.report.composing && !this.renderer.composing && typeof logseq.Editor.exitEditingMode === "function") {
+      const editing = await logseq.Editor.checkEditing();
+      if (typeof editing === "string" && editing !== uuid) {
+        await logseq.Editor.exitEditingMode(false).catch(() => undefined);
+        for (let i = 0; i < 6 && await logseq.Editor.checkEditing(); i++) {
+          await new Promise<void>(resolve => window.setTimeout(resolve, 15));
+        }
+        this.draft = null;
+      }
+    }
     const result=await this.report.navigate(uuid, control);
     if (!result.ok) throw new Error(result.reason === "editing-in-progress" ? "请先完成当前写作，再打开另一原块。" : "原文暂不能打开，请重新读取当前记录后再试。");
   }

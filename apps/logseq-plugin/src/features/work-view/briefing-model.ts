@@ -10,6 +10,7 @@ export interface BriefingDetail {
   sourceIds: string[];
   heading?: string;
   kind?: BriefingKind;
+  tone?: "progress" | "attention";
   display?: "quote" | "table" | "chart";
   materialIds?: string[];
   materialQuotes?: {materialId:string;quote:string}[];
@@ -54,8 +55,9 @@ export function decodeBriefing(input: unknown): WorkBriefing {
     requireLens(kinds.includes(String(paragraph.kind)), "invalid-briefing-kind");
     requireLens(paragraph.tone === undefined || paragraph.tone === "progress" || paragraph.tone === "attention", "invalid-briefing-tone");
     const details = paragraph.details === undefined ? undefined : lensArray(paragraph.details, 100, 1).map(item => {
-      const detail = lensRecord(item, ["key", "markdown", "sourceIds", "heading", "kind", "display", "materialIds","materialQuotes"]);
+      const detail = lensRecord(item, ["key", "markdown", "sourceIds", "heading", "kind", "tone", "display", "materialIds","materialQuotes"]);
       requireLens(detail.kind === undefined || kinds.includes(String(detail.kind)), "invalid-briefing-kind");
+      requireLens(detail.tone === undefined || detail.tone === "progress" || detail.tone === "attention", "invalid-briefing-tone");
       requireLens(detail.display === undefined || ["quote", "table", "chart"].includes(String(detail.display)), "invalid-evidence-display");
       const quotes=detail.materialQuotes===undefined?undefined:lensArray(detail.materialQuotes,30,1).map(item=>{const quote=lensRecord(item,["materialId","quote"]);return {materialId:lensText(quote.materialId,128),quote:lensText(quote.quote,2400)};});
       const materialIds=detail.materialIds===undefined?undefined:ids(detail.materialIds,128);
@@ -63,6 +65,7 @@ export function decodeBriefing(input: unknown): WorkBriefing {
       return {key: uniqueKey(detail.key), markdown: lensText(detail.markdown, 24000), sourceIds: ids(detail.sourceIds),
         ...(detail.heading === undefined ? {} : {heading: lensText(detail.heading, 160)}),
         ...(detail.kind === undefined ? {} : {kind: detail.kind as BriefingKind}),
+        ...(detail.tone === undefined ? {} : {tone: detail.tone as NonNullable<BriefingDetail["tone"]>}),
         ...(detail.display === undefined ? {} : {display: detail.display as NonNullable<BriefingDetail["display"]>}),
         ...(materialIds ? {materialIds} : {}),...(quotes?{materialQuotes:quotes}:{})};
     });
@@ -133,4 +136,4 @@ export function retainUnchangedParagraphs(previous:WorkBriefing,next:BriefingPar
 }
 
 export const progressivePlanId = "work-resume-briefing";
-export const progressivePurpose = "重新组织渐进式阅读：先整理丰富的细读，再提炼一两句几秒内即可读完的工作主线，其他信息下沉到细读和脚注";
+export const progressivePurpose = "保持人话的自然节奏和完整自解释的句意，用轻盈重点标出核心进展与卡点；不套多余分类盒子，不把完整句子拆碎，也不注水扩写";

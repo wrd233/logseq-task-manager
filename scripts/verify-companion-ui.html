@@ -1,0 +1,1350 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Logseq 工作台 · 中立 Companion 与 MCP 隔离验收面板</title>
+<style>
+  :root {
+    --paper: #fbfaf7; --card: #ffffff; --soft: #ebeee8; --edge: #dce1d9;
+    --ink: #29332f; --muted: #63706a; --accent: #356958;
+    --ok: #1f7a4c; --ok-bg: #eaf6ef; --err: #9d4938; --err-bg: #fef3f2; --attn: #805b24; --attn-bg: #fdf6ea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--edge); margin-bottom: 16px; }
+  h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--ok-bg); color: var(--ok); border: 1px solid #c3e6d1; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--edge); background: var(--card); color: var(--muted); cursor: pointer; font-weight: 550; }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab-panel[hidden] { display: none !important; }
+  .card { background: var(--card); border: 1px solid var(--edge); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .sub { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  input[type=password], input[type=text], textarea, select {
+    font: inherit; padding: 8px 11px; border: 1px solid var(--edge); border-radius: 6px; background: var(--paper); color: var(--ink);
+  }
+  input[type=password] { flex: 1 1 280px; }
+  button {
+    font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--edge); background: var(--card); color: var(--ink); cursor: pointer; font-weight: 500;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--err); border-color: #f3c4c0; background: var(--err-bg); }
+  button.small { padding: 5px 10px; font-size: 12.5px; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  .check-list { display: grid; gap: 12px; margin-top: 14px; }
+  .check { border: 1px solid var(--edge); border-radius: 8px; padding: 14px 16px; background: var(--paper); }
+  .check.pass { border-color: #b7e1c8; background: #f8fcf9; }
+  .check.fail { border-color: #f4c2be; background: var(--err-bg); }
+  .check-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .check-title { font-weight: 600; font-size: 14px; }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+  .pill.attn { background: var(--attn-bg); color: var(--attn); }
+  .check.pass .pill { background: var(--ok-bg); color: var(--ok); }
+  .check.fail .pill { background: #fde2e0; color: var(--err); }
+  .check-summary { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .article-preview { margin-top: 12px; padding: 14px 16px; background: var(--card); border: 1px solid var(--edge); border-radius: 8px; }
+  .article-label { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .p-unit { margin-bottom: 12px; }
+  .p-top { font-size: 15px; line-height: 1.85; color: var(--ink); }
+  .cue { color: var(--accent); text-decoration: underline dotted rgba(53,105,88,0.65); text-underline-offset: 4px; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+  .cue:hover { text-decoration-style: solid; }
+  .details-box { margin: 8px 0 4px 4px; padding-left: 14px; border-left: 1px solid var(--edge); font-size: 14px; line-height: 1.82; color: var(--ink); }
+  .detail-item { margin: 0 0 10px; }
+  .detail-item:last-child { margin-bottom: 0; }
+  .detail-heading { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 4px 0 3px; }
+  .detail-item[data-tone="attention"] .detail-heading { color: var(--attn); }
+  .detail-item[data-tone="progress"] .detail-heading { color: var(--accent); }
+  .md-body p { margin: 0 0 7px; } .md-body p:last-child { margin-bottom: 0; }
+  .md-body ul { margin: 4px 0; padding-left: 18px; } .md-body li { margin: 3px 0; }
+  .md-body strong, .p-top strong { font-weight: 600; color: #245747; background: rgba(53,105,88,0.07); padding: 0 2px; border-radius: 3px; }
+  .p-unit[data-tone="attention"] > .p-top strong, .detail-item[data-tone="attention"] .md-body strong { color: #965214; background: rgba(150,82,20,0.09); }
+  .md-body code, .p-top code { font-size: 12px; background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+  .cite-sup { font-size: 11px; color: var(--accent); margin-left: 2px; vertical-align: super; text-decoration: underline dotted; cursor: default; }
+  .quote { margin: 5px 0 0; padding: 5px 10px; border-left: 2px solid var(--edge); font-size: 12px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
+  textarea { width: 100%; min-height: 160px; resize: vertical; }
+  details.raw { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  pre { background: var(--soft); padding: 10px; border-radius: 6px; overflow: auto; max-height: 260px; font-size: 12px; margin: 6px 0 0; }
+  .mock-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--edge); border-radius: 8px; margin-bottom: 12px; }
+  .mock-bar .spacer { flex: 1; }
+  .config-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .config-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .audit-table th, .audit-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--edge); }
+  .audit-table th { color: var(--muted); font-weight: 600; }
+
+  /* Phase 3: Left-Side In-Place Note Tidying + FLIP Anchor Morph */
+  .tidy-outline { display: grid; gap: 8px; }
+  .tidy-block-card { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--edge); background: var(--paper); display: grid; gap: 6px; transition: border-color 180ms ease, background 180ms ease; }
+  .tidy-block-card.protected { border-style: dashed; background: #f6f7f4; }
+  .tidy-block-card.changed { border-color: rgba(53,105,88,0.42); background: #f9fcfa; }
+  .tidy-block-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 11.5px; color: var(--muted); }
+  .tidy-block-body { white-space: pre-wrap; line-height: 1.75; font-size: 13.5px; color: var(--ink); }
+  .tidy-preview-shell { border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 16px; display: grid; gap: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); }
+  .tidy-preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--edge); }
+  .tidy-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--edge); border-radius: 7px; background: var(--paper); }
+  .tidy-toggle button { border: 0; background: transparent; padding: 5px 11px; font-size: 12.5px; color: var(--muted); border-radius: 5px; }
+  .tidy-toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  .tidy-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .tidy-struct { font-size: 12.5px; color: var(--attn); background: var(--attn-bg); border: 1px solid rgba(154,106,33,0.28); border-radius: 7px; padding: 7px 11px; }
+  .tidy-anchor { display: inline-block; padding: 0 4px; border-radius: 4px; font-weight: 550; will-change: transform; }
+  .tidy-anchor[data-slot="0"] { background: rgba(53,105,88,0.14); color: #204d3e; }
+  .tidy-anchor[data-slot="1"] { background: rgba(154,106,33,0.15); color: #744913; }
+  .tidy-anchor[data-slot="2"] { background: rgba(58,95,146,0.14); color: #274876; }
+  .tidy-anchor[data-slot="3"] { background: rgba(124,78,138,0.14); color: #5c316a; }
+  .tidy-anchor[data-slot="4"] { background: rgba(152,82,70,0.14); color: #72362d; }
+  .tidy-anchor.omitted { background: rgba(182,58,48,0.16); color: #8c241b; text-decoration: underline wavy rgba(182,58,48,0.8); text-underline-offset: 3px; }
+  .tidy-undo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; background: var(--ok-bg); border: 1px solid #c3e6d1; color: var(--ok); font-size: 12.5px; margin-bottom: 12px; }
+  .tidy-snap-card { border: 1px solid var(--edge); border-radius: 8px; padding: 10px 12px; background: var(--paper); display: grid; gap: 8px; }
+  .tidy-snap-pre { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; white-space: pre-wrap; font-size: 12.5px; line-height: 1.65; }
+  .wb-writeback-btn { border-color: rgba(154,106,33,0.5) !important; background: var(--attn-bg) !important; color: var(--attn) !important; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Logseq 工作台 · 中立 Companion 隔离验收面板</h1>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;">临时隔离目录运行真实 Companion + 真实 stdio MCP 子进程 · 零 DSH · 绝不触碰日常笔记库</div>
+    </div>
+    <div class="row">
+      <span class="badge"><span class="dot"></span>Companion &amp; MCP 隔离运行中</span>
+      <button class="danger" id="btnShutdown">结束并清理临时目录</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="phase3" role="tab" aria-selected="true">Phase 3 · 左侧原地整理动效与 MCP 回流体验（免 Key 可玩）</button>
+    <button class="tab" data-tab="phase2" role="tab" aria-selected="false">Phase 2 · MCP 外部协作与多目标交接（免 Key 可测）</button>
+    <button class="tab" data-tab="phase1" role="tab" aria-selected="false">Phase 1 · DeepSeek 直连阅读验收（需 API Key）</button>
+  </nav>
+
+  <!-- ================= PHASE 3 TAB ================= -->
+  <div id="tab-phase3" class="tab-panel">
+    <section class="card">
+      <h2>
+        <span>一、直观互动：左侧 Logseq 原地整理 · 关键信息高亮 &amp; FLIP 顺滑位移动效</span>
+        <div class="row">
+          <span class="pill" id="tidyVersionPill">来源版本：loading…</span>
+          <button id="btnTidyReset" class="small">重置初始零散笔记</button>
+        </div>
+      </h2>
+      <p class="sub">
+        严格遵守 D-44～D-46：<strong>不把原文挂到 AI 层级下</strong>，只对普通自然文本块做原地梳理；<code>TODO</code>/正式对象/属性块受硬保护原样不动；默认先看干净成稿，点击「整理前（原文）」或按 <kbd>Space</kbd> 感受高先验重点（<code>[[链接]]</code>、<code>((块引用))</code>、指标、卡点）的 <strong>FLIP 顺滑平移动效</strong>。
+      </p>
+
+      <div class="mock-bar">
+        <button id="btnTidyDemo" class="primary small">整理左侧笔记（免 Key 演示）</button>
+        <button id="btnTidyOmitDemo" class="small">模拟遗漏重点告警（漏 120ms）</button>
+        <button id="btnTidyLive" class="small" disabled title="在 Phase 1 填入 DeepSeek Key 后可用">真实模型整理（需 Key）</button>
+        <button id="btnTidyMcpPropose" class="small">模拟 Codex 通过真实 MCP 推回原文改动</button>
+        <span class="spacer"></span>
+        <button id="btnTidyWritebackEntry" class="small wb-writeback-btn" hidden>待审原文改动（0）</button>
+      </div>
+
+      <div id="tidyUndoBar" class="tidy-undo-bar" hidden>
+        <span id="tidyUndoText">已原地整理左侧笔记，并保留整理前快照。</span>
+        <button id="btnTidyQuickUndo" class="small primary">一键撤销整理</button>
+        <button id="btnTidyContinueWrite" class="small">模拟在原块上继续写作（触发防覆盖保护）</button>
+      </div>
+
+      <div id="tidyStatusMsg" class="check-summary" style="margin:0 0 12px;"></div>
+
+      <div class="grid2">
+        <div>
+          <div class="article-label">左侧 Logseq 原文大纲（所见即所存，可直接接着记录）：</div>
+          <div id="tidyLeftOutline" class="tidy-outline"></div>
+        </div>
+        <div>
+          <div class="article-label">统一原地整理确认预览（点击按钮生成或点「待审原文改动」审阅）：</div>
+          <div id="tidyPreviewHost">
+            <div class="article-preview" style="margin-top:0;">
+              <div class="article-label" style="margin:0;">点击上方「整理左侧笔记（免 Key 演示）」或「模拟 Codex 推回原文改动」，即可在此体验 5 槽低饱和重点高亮、FLIP 位移动效、行内微调与一键落盘。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <details id="tidySnapshotsDetails" class="raw" style="margin-top:14px;">
+        <summary id="tidySnapshotsSummary">查看「整理前原文快照」（最近最多保留 5 份 · 续写后自动切换为只读查阅）</summary>
+        <div id="tidySnapshotsBox" style="display:grid;gap:10px;margin-top:10px;"></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span>二、一键 4 项 Phase 3 自动化验收体检</span>
+        <button id="btnRunAllTidy" class="primary">一键跑完 4 项 Phase 3 验收</button>
+      </h2>
+      <p class="sub">端到端验证高先验锚点与漏项报警、真实 stdio MCP <code>workbench_propose_writeback</code> 回流附带锚点、无损撤销与续写防覆盖保护、以及「仅本地模型」Fail Closed 拦截。</p>
+      <div class="check-list" id="tidyCheckList"></div>
+    </section>
+  </div>
+
+  <!-- ================= PHASE 2 TAB ================= -->
+  <div id="tab-phase2" class="tab-panel" hidden>
+    <section class="card">
+      <h2>
+        <span>一、一键 5 项真实 stdio MCP 协议验收体检</span>
+        <button id="btnRunAllMcp" class="primary">一键跑完 5 项 MCP 验收</button>
+      </h2>
+      <p class="sub">无需任何 API Key：后端启动了真实 Companion 与独立子进程 <code>workspace mcp</code>（stdio JSON-RPC 2.0），直接端到端验证 D-43 的 6 工具安全边界、多目标交接、敏感拦截、候选修订与审计日志。</p>
+      <div class="check-list" id="mcpCheckList"></div>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span>二、直观互动：模拟 Logseq 工作现场 ↔ 外部 Agent（MCP）协作闭环</span>
+        <div class="row">
+          <span class="pill" id="mcpVersionPill">来源版本：loading…</span>
+          <span class="pill" id="mcpWritePill">原块静默写入：0 次</span>
+        </div>
+      </h2>
+      <p class="sub">遵守 D-35 安静工作笔记本原则：主栏始终只保留单一主要交接按钮（随所选协作目标自适应），外部 Agent 提交的修订以「待采用修订」暂存供审阅，绝不静默覆盖。</p>
+
+      <div class="mock-bar">
+        <strong id="mcpWorkTitle">Q4 客户端重构与机房交接</strong>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;">
+          默认协作目标：
+          <select id="mcpTargetSelect"></select>
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="mcpPrivacyToggle" /> 仅本地模型（禁止外部 MCP 读正文）
+        </label>
+        <span class="spacer"></span>
+        <button id="btnMockHandoff" class="primary small">在 DSH 继续</button>
+      </div>
+
+      <div id="mcpHandoffBox" style="display:none;margin-bottom:14px;">
+        <div class="article-label">已暂存至 Companion 的交接指令（不自动发送、不扩大写权限）：</div>
+        <pre id="mcpHandoffPrompt" style="white-space:pre-wrap;"></pre>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnCopyHandoff" class="small">一键复制交接指令</button>
+          <span id="mcpCopyStatus" style="font-size:12px;color:var(--ok);"></span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <button id="btnSimCandidate" class="primary small">模拟外部 Agent 通过 MCP 提交候选修订</button>
+        <button id="btnMutateSource" class="small">模拟修改 Logseq 原文（制造版本变化）</button>
+        <button id="btnAdoptCandidate" class="small" disabled>采用「待采用修订」</button>
+        <span id="mcpActionMsg" style="font-size:12.5px;color:var(--muted);"></span>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="article-label">当前 Logseq 文章（未采用前绝不静默替换）：</div>
+          <div id="mcpCurrentArticle"></div>
+        </div>
+        <div>
+          <div class="article-label">Companion 暂存的「待采用修订」预览（由真实 MCP 提交）：</div>
+          <div id="mcpStagedCandidate"></div>
+        </div>
+      </div>
+
+      <details class="raw" style="margin-top:14px;">
+        <summary>查看实时审计日志（connection-facts.jsonl · 每次 MCP 与交接调用全记录）</summary>
+        <div id="mcpAuditBox"></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>三、一键复制外部客户端 MCP 配置（指向真实 workspace.mjs 绝对路径 · 零明文 Key）</h2>
+      <p class="sub">可直接粘贴到对应客户端配置中，通过本机 <code>0600</code> 私有 <code>workspace.json</code> 自动鉴权对接运行中的 Companion。</p>
+      <div class="config-tabs" id="mcpConfigTabs">
+        <button data-client="codex" class="active small">Codex (config.toml)</button>
+        <button data-client="antigravity" class="small">Antigravity (mcp_config.json)</button>
+        <button data-client="claude-code" class="small">Claude Code (.mcp.json)</button>
+        <button data-client="cursor" class="small">Cursor (mcp.json)</button>
+      </div>
+      <div id="mcpConfigHint" class="article-label"></div>
+      <pre id="mcpConfigSnippet" style="white-space:pre;"></pre>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnCopyConfig" class="primary small">一键复制配置片段</button>
+        <button id="btnCopyClaudeCmd" class="small" style="display:none;">复制 claude mcp add 命令</button>
+        <span id="mcpConfigCopyStatus" style="font-size:12px;color:var(--ok);"></span>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= PHASE 1 TAB ================= -->
+  <div id="tab-phase1" class="tab-panel" hidden>
+    <section class="card">
+      <h2>第一步：粘贴 DeepSeek API Key（仅存本次临时 0600 文件，关闭即销毁）</h2>
+      <p class="sub">只需填一次即可测试连通性并一键跑完 5 项实机验收；前端不保存、不回显明文 Key。</p>
+      <div class="row">
+        <input type="password" id="apiKey" placeholder="sk-... （你的真实 DeepSeek API Key）" autocomplete="off" />
+        <input type="text" id="model" value="deepseek-chat" style="width:170px" title="模型名称" />
+        <input type="text" id="baseUrl" value="https://api.deepseek.com/v1" style="width:240px" title="API Base URL" />
+        <button id="btnSaveTest" class="primary">保存并测试连通</button>
+      </div>
+      <div id="keyStatus" class="check-summary" style="margin-top:8px;"></div>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span>第二步：一键 5 项实机验收体检</span>
+        <button id="btnRunAll" class="primary" disabled>一键跑完 5 项实机验收</button>
+      </h2>
+      <p class="sub">逐项调用真实 Companion + 真实 DeepSeek API，完成后直观渲染极简要点、语义着色重点与护栏证据。</p>
+      <div class="check-list" id="checkList"></div>
+    </section>
+
+    <section class="card">
+      <h2>第三步：自由试玩区（粘贴你的任意笔记，现场感受新提示词与语义着色）</h2>
+      <p class="sub">青绿高亮 = 已确认事实/进展/关键编号，暖琥珀高亮 = 卡点/风险/未决待办；点蓝色虚线短语可展开/收起细读。</p>
+      <div class="grid2">
+        <div>
+          <textarea id="playText">今天同步了 Q4 客户端重构进度：
+1. 登录态迁移已经完成 80%，但离线缓存清理方案还有两种备选：方案 A 按版本重建索引，方案 B 增量清理。
+2. 昨天原本计划周五上线，今天排查出一个冷启动白屏问题，必须先修完再定发布窗口。
+3. TODO 明天上午找测试同学复现低内存设备上的白屏日志。</textarea>
+          <div class="row" style="margin-top:10px;">
+            <select id="playMode">
+              <option value="organize">整理成渐进式备忘</option>
+              <option value="ask">基于原文提问</option>
+            </select>
+            <input type="text" id="playQuestion" placeholder="可选：输入提问或风格要求" style="flex:1" />
+            <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="playLocal" /> 仅本地模型
+            </label>
+            <button id="btnPlay" class="primary" disabled>立即运行</button>
+          </div>
+        </div>
+        <div id="playOutput" class="article-preview" style="margin-top:0;min-height:180px;">
+          <div class="article-label">配置 Key 后点击「立即运行」，结果将显示在这里。</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.onclick = () => {
+    const target = btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach(t => {
+      const active = t.dataset.tab === target;
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-selected", String(active));
+    });
+    document.getElementById("tab-phase3").hidden = target !== "phase3";
+    document.getElementById("tab-phase2").hidden = target !== "phase2";
+    document.getElementById("tab-phase1").hidden = target !== "phase1";
+  };
+});
+
+const TIDY_CHECKS = [
+  { id: "t1-anchors-protection", title: "T1. 硬保护 TODO/正式块 + 高先验重点锚点（链接/引用/指标）与漏项报警", desc: "验证受保护块原样不动、高先验重点自动分配高亮锚点，以及漏掉指标 120ms 时触发暖色告警。" },
+  { id: "t2-mcp-writeback-plan", title: "T2. 真实 stdio MCP 回流原文改动提案（自动附带高先验高亮锚点）", desc: "通过真实 workspace mcp 提交 content-proposal，核对 writesSource=false、自动生成 plan.anchors 并进入「待审原文改动」队列。" },
+  { id: "t3-apply-undo-guard", title: "T3. 原地应用 → 未续写一键无损撤销 → 续写后防覆盖只读保护", desc: "验证未续写时一键 100% 恢复原文；一旦用户在整理后的块上继续写作，撤销绝不覆盖新笔记。" },
+  { id: "t4-local-privacy-guard", title: "T4. 「仅本地模型」调用 /plugin/note-tidy Fail Closed 拦截", desc: "验证标记仅本地且未配本地端点时，原地整理请求直接拒绝且不发往云端。" },
+];
+
+const MCP_CHECKS = [
+  { id: "m1-catalog", title: "M1. 标准 MCP tools/list + workbench_list_works 目录发现", desc: "真实 stdio JSON-RPC 2.0 枚举全部 6 个工具；工作目录清单不含任何正文或密钥。" },
+  { id: "m2-handoff-scope", title: "M2. 多目标交接（Codex）+ 单工作强边界越界拦截", desc: "暂存结构化交接上下文（不扩权）→ MCP 读取交接请求与本工作块 → 尝试读取工作 B 块被 Fail Closed 拒绝。" },
+  { id: "m3-sensitive-privacy", title: "M3. 材料分页查证（QPA-9472）+ .env 敏感拦截 + 仅本地隐私保护", desc: "分页读取长附件与关联笔记，默认硬拦截 .env.production 正文，并验证开启「仅本地模型」后拦截外部读取。" },
+  { id: "m4-candidate-stale", title: "M4. 外部 Agent 提交渐进式候选修订 + 过时版本拒绝", desc: "通过 workbench_submit_reading_candidate 经 readingTask 强引文核验入队待采用，同时验证旧版本提交被拒绝。" },
+  { id: "m5-writeback-audit", title: "M5. 受控写回提案（零静默改写）+ connection-facts.jsonl 审计日志", desc: "验证格式预览与写回提案 writesSource=false、TODO 保护拦截、只读越权写入拒绝及完整审计记录。" },
+];
+
+const CHECKS = [
+  { id: "c1-short", title: "1. 零 DSH + L1 短事项快路径", desc: "直接通过 Companion 调 DeepSeek，1 步生成极简短事项备忘，验证完全不依赖 DSH。" },
+  { id: "c2-agent-privacy", title: "2. L2 四工具长附件查证（QPA-9472）+ .env 敏感文件硬拦截", desc: "含 4357 字长附件与合成 .env.production，验证 Agent 自主查证附件末尾编号，同时硬拦截敏感正文零泄露。" },
+  { id: "c3-async-switch", title: "3. 切页不中断（Companion 异步后台暂存与版本核对）", desc: "通过 /plugin/reading-jobs/start 发起后台修订，模拟切走页面后由 Companion 跑完并按版本检出候选。" },
+  { id: "c4-local-privacy", title: "4. 按工作「仅本地模型」Fail Closed 隐私保护", desc: "开启仅本地模型且未配置本机端点时，验证直接拒绝上云（云端请求增量为 0）。" },
+  { id: "c5-budget-sanitize", title: "5. 后台预算软上限（暂停自动，不阻断手动）+ 零 Key 脱敏", desc: "触发后台小时软上限暂停自动修订，但手动点击整理仍正常完成，且前端配置接口不含任何明文 Key。" },
+];
+
+function buildCheckCards(containerId, items, prefix, disabledDefault) {
+  const el = document.getElementById(containerId);
+  for (const c of items) {
+    const div = document.createElement("div");
+    div.className = "check";
+    div.id = prefix + "card-" + c.id;
+    div.innerHTML = `
+      <div class="check-head">
+        <span class="check-title">${c.title}</span>
+        <div class="row">
+          <span class="pill" id="${prefix}pill-${c.id}">待运行</span>
+          <button data-${prefix}run="${c.id}" class="small" ${disabledDefault ? "disabled" : ""}>单项运行</button>
+        </div>
+      </div>
+      <div class="check-summary" id="${prefix}sum-${c.id}">${c.desc}</div>
+      <div id="${prefix}out-${c.id}"></div>
+    `;
+    el.appendChild(div);
+  }
+}
+
+buildCheckCards("tidyCheckList", TIDY_CHECKS, "tidy-", false);
+buildCheckCards("mcpCheckList", MCP_CHECKS, "mcp-", false);
+buildCheckCards("checkList", CHECKS, "", true);
+
+function setReady(ready) {
+  document.getElementById("btnRunAll").disabled = !ready;
+  document.getElementById("btnPlay").disabled = !ready;
+  document.getElementById("btnTidyLive").disabled = !ready;
+  document.getElementById("btnTidyLive").textContent = ready ? "真实模型整理（DeepSeek 已连通）" : "真实模型整理（需 Key）";
+  document.querySelectorAll("button[data-run]").forEach(b => b.disabled = !ready);
+}
+
+function esc(s) {
+  return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+function renderInlineMd(text) {
+  return esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+function renderMiniMd(text) {
+  const lines = String(text ?? "").split(/\r?\n/u);
+  const html = [];
+  let inList = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      if (inList) { html.push("</ul>"); inList = false; }
+      continue;
+    }
+    const bullet = /^(?:[-*•]|\d+\.)\s+(.*)$/u.exec(line);
+    if (bullet) {
+      if (!inList) { html.push("<ul>"); inList = true; }
+      html.push("<li>" + renderInlineMd(bullet[1]) + "</li>");
+    } else {
+      if (inList) { html.push("</ul>"); inList = false; }
+      html.push("<p>" + renderInlineMd(line) + "</p>");
+    }
+  }
+  if (inList) html.push("</ul>");
+  return html.join("");
+}
+
+function placeCueInDom(container, cueText, onClick) {
+  if (!cueText) return false;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent || "";
+    const idx = text.indexOf(cueText);
+    if (idx < 0) continue;
+    const frag = document.createDocumentFragment();
+    const btn = document.createElement("button");
+    btn.className = "cue";
+    btn.textContent = cueText;
+    btn.onclick = onClick;
+    frag.append(
+      document.createTextNode(text.slice(0, idx)),
+      btn,
+      document.createTextNode(text.slice(idx + cueText.length))
+    );
+    node.parentNode.replaceChild(frag, node);
+    return true;
+  }
+  return false;
+}
+
+function appendInlineSup(container, num, titleText) {
+  const sup = document.createElement("span");
+  sup.className = "cite-sup";
+  sup.textContent = String(num);
+  sup.title = titleText;
+  const last = container.lastElementChild;
+  if (last && /^(P|LI)$/u.test(last.tagName)) last.append(sup);
+  else container.append(sup);
+}
+
+function renderArticle(container, data) {
+  container.innerHTML = "";
+  if (!data) return;
+  const box = document.createElement("div");
+  box.className = "article-preview";
+  if (data.answer) {
+    box.innerHTML = `<div class="article-label">实时回答 · 引用源 ${(data.sourceIds||[]).length} 处</div><div class="md-body">${renderMiniMd(data.answer)}</div>`;
+    container.appendChild(box);
+    return;
+  }
+  const paragraphs = data.paragraphs || [];
+  const head = document.createElement("div");
+  head.className = "row";
+  head.style.justifyContent = "space-between";
+  head.style.marginBottom = "10px";
+  const label = document.createElement("div");
+  label.className = "article-label";
+  label.style.marginBottom = "0";
+  const m = data.agentRun || {};
+  label.textContent = `渐进式阅读预览 · 来源：${m.providerId || m.path || "-"} · 步数：${m.steps || 1}`;
+  const toggleAll = document.createElement("button");
+  toggleAll.textContent = "收起细读";
+  toggleAll.style.padding = "2px 8px";
+  toggleAll.style.fontSize = "11px";
+  const allDetailsBoxes = [];
+  toggleAll.onclick = () => {
+    const anyOpen = allDetailsBoxes.some(el => !el.hidden);
+    allDetailsBoxes.forEach(el => { el.hidden = anyOpen; });
+    toggleAll.textContent = anyOpen ? "展开细读" : "收起细读";
+  };
+  head.append(label, toggleAll);
+  box.appendChild(head);
+
+  let footnoteNo = 1;
+  for (const p of paragraphs) {
+    const unit = document.createElement("div");
+    unit.className = "p-unit";
+    if (p.tone) unit.dataset.tone = p.tone;
+    const top = document.createElement("div");
+    top.className = "p-top";
+    top.innerHTML = renderInlineMd(p.markdown);
+    const hasDetails = Array.isArray(p.details) && p.details.length > 0;
+    const det = document.createElement("div");
+    det.className = "details-box";
+    if (hasDetails) {
+      allDetailsBoxes.push(det);
+      const placed = placeCueInDom(top, p.cue, () => { det.hidden = !det.hidden; });
+      if (!placed) {
+        const btn = document.createElement("button");
+        btn.className = "cue";
+        btn.style.marginLeft = "6px";
+        btn.textContent = "⌄";
+        btn.onclick = () => { det.hidden = !det.hidden; };
+        top.append(btn);
+      }
+    } else {
+      appendInlineSup(top, footnoteNo++, `引用 ${(p.sourceIds || []).length} 处原块`);
+    }
+    unit.appendChild(top);
+
+    if (hasDetails) {
+      for (const d of p.details) {
+        const dp = document.createElement("div");
+        dp.className = "detail-item";
+        if (d.tone) dp.dataset.tone = d.tone;
+        else if (p.tone) dp.dataset.tone = p.tone;
+        if (d.heading) {
+          const h = document.createElement("div");
+          h.className = "detail-heading";
+          h.textContent = d.heading;
+          dp.appendChild(h);
+        }
+        const md = document.createElement("div");
+        md.className = "md-body";
+        md.innerHTML = renderMiniMd(d.markdown);
+        appendInlineSup(md, footnoteNo++, `依据：${(d.sourceIds || []).length} 条原块${d.materialIds?.length ? `、${d.materialIds.length} 份材料` : ""}`);
+        dp.appendChild(md);
+        if (d.materialQuotes?.length) {
+          for (const q of d.materialQuotes) {
+            const qd = document.createElement("div");
+            qd.className = "quote";
+            qd.textContent = "原样引文：「" + q.quote + "」";
+            dp.appendChild(qd);
+          }
+        }
+        det.appendChild(dp);
+      }
+      unit.appendChild(det);
+    }
+    box.appendChild(unit);
+  }
+  if (!allDetailsBoxes.length) toggleAll.hidden = true;
+  container.appendChild(box);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return res.json();
+}
+
+// ================= PHASE 3 UI LOGIC (IN-PLACE TIDY + FLIP + UNDO + MCP RETURN) =================
+let tidyState = null;
+let activeTidyPlan = null;
+let activeTidyProposalId = null;
+let activeTidyView = "after";
+let activeTidyEditingId = null;
+let activeTidyOverrides = {};
+
+function prefersReducedMotion() {
+  try { return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  catch { return false; }
+}
+
+function renderAnchoredTextInto(container, text, matches) {
+  container.replaceChildren();
+  if (!matches.length) {
+    container.textContent = text;
+    return;
+  }
+  const placements = [];
+  for (const m of matches) {
+    if (!m.exactText) continue;
+    const idx = text.indexOf(m.exactText);
+    if (idx < 0) continue;
+    placements.push({ ...m, start: idx, end: idx + m.exactText.length });
+  }
+  placements.sort((a, b) => a.start - b.start || b.end - a.end);
+  let cursor = 0;
+  for (const item of placements) {
+    if (item.start < cursor) continue;
+    if (item.start > cursor) container.append(document.createTextNode(text.slice(cursor, item.start)));
+    const span = document.createElement("span");
+    span.className = "tidy-anchor" + (item.omitted ? " omitted" : "");
+    span.dataset.tidyAnchorId = item.anchorId;
+    span.dataset.slot = String(item.colorSlot);
+    span.title = item.omitted ? `未带入重点：${item.label}（请核对是否需保留）` : `关键信息：${item.label}`;
+    span.textContent = text.slice(item.start, item.end);
+    container.append(span);
+    cursor = item.end;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function computeOmittedAnchors(plan) {
+  const afterBlocks = plan.afterBlocks.map(b => ({ ...b, content: activeTidyOverrides[b.id] ?? b.content }));
+  return (plan.anchors || []).filter(anchor => {
+    if (anchor.after) {
+      const target = afterBlocks.find(b => b.id === anchor.after.targetId);
+      if (target && target.content.includes(anchor.after.exactText)) return false;
+    }
+    return !afterBlocks.some(b => b.content.includes(anchor.before.exactText));
+  });
+}
+
+function switchTidyView(next) {
+  if (!activeTidyPlan || activeTidyView === next) return;
+  activeTidyEditingId = null;
+  const host = document.getElementById("tidyPreviewHost");
+  const animate = !prefersReducedMotion();
+  const beforeRects = new Map();
+  if (animate) {
+    host.querySelectorAll("[data-tidy-anchor-id]").forEach(el => {
+      const id = el.dataset.tidyAnchorId;
+      if (!id) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) beforeRects.set(id, rect);
+    });
+  }
+  activeTidyView = next;
+  renderTidyPreview();
+  if (!animate || !beforeRects.size) return;
+  const body = host.querySelector(".tidy-preview-body");
+  if (body && typeof body.animate === "function") {
+    body.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+  }
+  host.querySelectorAll("[data-tidy-anchor-id]").forEach(el => {
+    const id = el.dataset.tidyAnchorId;
+    const prev = id ? beforeRects.get(id) : null;
+    if (!prev || typeof el.animate !== "function") return;
+    const curr = el.getBoundingClientRect();
+    const dx = prev.left - curr.left;
+    const dy = prev.top - curr.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      el.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
+        { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+      );
+    }
+  });
+}
+
+function openTidyPlanPreview(plan, proposalId = null) {
+  activeTidyPlan = plan;
+  activeTidyProposalId = proposalId || plan?.meta?.proposalId || null;
+  activeTidyView = "after";
+  activeTidyEditingId = null;
+  activeTidyOverrides = {};
+  renderTidyPreview();
+}
+
+function renderTidyPreview() {
+  const host = document.getElementById("tidyPreviewHost");
+  if (!activeTidyPlan) {
+    host.innerHTML = '<div class="article-preview" style="margin-top:0;"><div class="article-label" style="margin:0;">点击上方「整理左侧笔记（免 Key 演示）」或「模拟 Codex 推回原文改动」，即可在此体验 5 槽低饱和重点高亮、FLIP 位移动效、行内微调与一键落盘。</div></div>';
+    return;
+  }
+  const plan = activeTidyPlan;
+  const omitted = computeOmittedAnchors(plan);
+  const omittedSet = new Set(omitted.map(a => a.id));
+  const totalAnchors = (plan.anchors || []).length;
+  const keptCount = totalAnchors - omitted.length;
+
+  const shell = document.createElement("div");
+  shell.className = "tidy-preview-shell";
+
+  const head = document.createElement("div");
+  head.className = "tidy-preview-head";
+  const title = document.createElement("strong");
+  title.textContent = plan.meta?.origin === "external-mcp" ? "外部原文改动提案（MCP）" : "左侧笔记原地整理";
+
+  const toggle = document.createElement("div");
+  toggle.className = "tidy-toggle";
+  const btnAfter = document.createElement("button");
+  btnAfter.textContent = "整理后（成稿）";
+  btnAfter.setAttribute("aria-pressed", String(activeTidyView === "after"));
+  btnAfter.onclick = () => switchTidyView("after");
+  const btnBefore = document.createElement("button");
+  btnBefore.textContent = "整理前（原文）";
+  btnBefore.setAttribute("aria-pressed", String(activeTidyView === "before"));
+  btnBefore.onclick = () => switchTidyView("before");
+  toggle.append(btnAfter, btnBefore);
+
+  const btnApply = document.createElement("button");
+  btnApply.className = "primary small";
+  btnApply.textContent = "应用到左侧";
+  btnApply.disabled = !plan.operations?.length;
+  btnApply.onclick = async () => {
+    btnApply.disabled = true;
+    const res = await api("/api/tidy/apply", { plan, overrides: activeTidyOverrides, proposalId: activeTidyProposalId });
+    if (res.ok) {
+      activeTidyPlan = null;
+      activeTidyProposalId = null;
+      activeTidyOverrides = {};
+      document.getElementById("tidyStatusMsg").textContent = "✓ 已原地应用到左侧笔记并保存整理前快照（可立即一键撤销，或直接接着往下写）。";
+      renderTidyState(res.state);
+      if (res.mcpState) renderMcpState(res.mcpState);
+      renderTidyPreview();
+    } else {
+      btnApply.disabled = false;
+      document.getElementById("tidyStatusMsg").textContent = `✕ 应用失败：${res.error}`;
+    }
+  };
+
+  head.append(title, toggle, btnApply);
+  if (activeTidyProposalId) {
+    const btnDismiss = document.createElement("button");
+    btnDismiss.className = "small";
+    btnDismiss.textContent = "忽略提案";
+    btnDismiss.onclick = async () => {
+      const res = await api("/api/tidy/dismiss", { proposalId: activeTidyProposalId });
+      activeTidyPlan = null;
+      activeTidyProposalId = null;
+      document.getElementById("tidyStatusMsg").textContent = "已忽略该外部原文改动提案，左侧原文零修改。";
+      if (res.state) renderTidyState(res.state);
+      if (res.mcpState) renderMcpState(res.mcpState);
+      renderTidyPreview();
+    };
+    head.append(btnDismiss);
+  }
+  const btnClose = document.createElement("button");
+  btnClose.className = "small";
+  btnClose.textContent = "暂不应用";
+  btnClose.onclick = () => { activeTidyPlan = null; activeTidyProposalId = null; renderTidyPreview(); };
+  head.append(btnClose);
+  shell.append(head);
+
+  const summaryEl = document.createElement("div");
+  summaryEl.className = "check-summary";
+  summaryEl.style.marginTop = "0";
+  summaryEl.textContent = plan.summary;
+  shell.append(summaryEl);
+
+  const badges = document.createElement("div");
+  badges.className = "tidy-badges";
+  if (totalAnchors > 0) {
+    const b = document.createElement("span");
+    b.className = omitted.length === 0 ? "pill" : "pill attn";
+    if (omitted.length === 0) { b.style.background = "var(--ok-bg)"; b.style.color = "var(--ok)"; }
+    b.textContent = omitted.length === 0
+      ? `关键信息 ${keptCount}/${totalAnchors} 已保留`
+      : `注意：${omitted.length} 处原文重点未带入（${omitted.map(a => a.label).join("、")}）`;
+    badges.append(b);
+  }
+  if (plan.protectedBlockCount > 0) {
+    const pb = document.createElement("span");
+    pb.className = "pill";
+    pb.textContent = `${plan.protectedBlockCount} 条受保护块（TODO/正式/属性）原样不动`;
+    badges.append(pb);
+  }
+  const hint = document.createElement("span");
+  hint.style.fontSize = "11.5px";
+  hint.style.color = "var(--muted)";
+  hint.textContent = "按 Space 可快速切换前后对比";
+  badges.append(hint);
+  shell.append(badges);
+
+  if (plan.structuralChanges?.length) {
+    const sc = document.createElement("div");
+    sc.className = "tidy-struct";
+    sc.innerHTML = `<strong>结构调整说明：</strong>${esc(plan.structuralChanges.map(c => c.description).join("；"))}`;
+    shell.append(sc);
+  }
+
+  const body = document.createElement("div");
+  body.className = "tidy-outline tidy-preview-body";
+  const blocks = activeTidyView === "after" ? plan.afterBlocks : plan.beforeBlocks;
+  const matchedAfter = new Set();
+
+  for (const blk of blocks) {
+    const text = activeTidyView === "after" ? (activeTidyOverrides[blk.id] ?? blk.content) : blk.content;
+    const card = document.createElement("div");
+    card.className = "tidy-block-card" + (blk.protected ? " protected" : blk.changed ? " changed" : "");
+    card.style.marginLeft = `${Math.min(blk.depth || 0, 4) * 14}px`;
+
+    const bh = document.createElement("div");
+    bh.className = "tidy-block-head";
+    bh.innerHTML = `<span>${blk.protected ? "受保护块 · 原样保留" : blk.changed ? "已原地整理" : "未改动普通块"} · <code>${esc(blk.id)}</code></span>`;
+    if (!blk.protected && activeTidyView === "after" && blk.changed && activeTidyEditingId !== blk.id) {
+      const tweak = document.createElement("button");
+      tweak.className = "small";
+      tweak.style.padding = "2px 8px";
+      tweak.textContent = "微调";
+      tweak.onclick = () => { activeTidyEditingId = blk.id; renderTidyPreview(); };
+      bh.append(tweak);
+    }
+    card.append(bh);
+
+    if (activeTidyView === "after" && activeTidyEditingId === blk.id) {
+      const ta = document.createElement("textarea");
+      ta.style.minHeight = "76px";
+      ta.value = text;
+      const bar = document.createElement("div");
+      bar.className = "row";
+      const okBtn = document.createElement("button");
+      okBtn.className = "small primary";
+      okBtn.textContent = "完成微调";
+      okBtn.onclick = () => { activeTidyOverrides[blk.id] = ta.value; activeTidyEditingId = null; renderTidyPreview(); };
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "small";
+      cancelBtn.textContent = "取消";
+      cancelBtn.onclick = () => { activeTidyEditingId = null; renderTidyPreview(); };
+      bar.append(okBtn, cancelBtn);
+      card.append(ta, bar);
+    } else {
+      const contentEl = document.createElement("div");
+      contentEl.className = "tidy-block-body";
+      const matches = [];
+      for (const anchor of plan.anchors || []) {
+        if (activeTidyView === "before" && anchor.before.sourceId === blk.id) {
+          matches.push({ anchorId: anchor.id, exactText: anchor.before.exactText, colorSlot: anchor.colorSlot, omitted: omittedSet.has(anchor.id), label: anchor.label });
+        } else if (activeTidyView === "after" && !matchedAfter.has(anchor.id)) {
+          const targetText = anchor.after
+            ? anchor.after.targetId === blk.id
+              ? (text.includes(anchor.after.exactText) ? anchor.after.exactText : (text.includes(anchor.before.exactText) ? anchor.before.exactText : null))
+              : null
+            : (text.includes(anchor.before.exactText) ? anchor.before.exactText : null);
+          if (targetText) {
+            matchedAfter.add(anchor.id);
+            matches.push({ anchorId: anchor.id, exactText: targetText, colorSlot: anchor.colorSlot, omitted: false, label: anchor.label });
+          }
+        }
+      }
+      renderAnchoredTextInto(contentEl, text, matches);
+      card.append(contentEl);
+    }
+    body.append(card);
+  }
+  shell.append(body);
+  host.replaceChildren(shell);
+}
+
+function renderTidyState(state) {
+  if (!state) return;
+  tidyState = state;
+  document.getElementById("tidyVersionPill").textContent = `来源版本：${state.sourceSetVersion}`;
+  if (state.hasLiveModelKey) setReady(true);
+
+  // Left outline
+  const outline = document.getElementById("tidyLeftOutline");
+  outline.replaceChildren();
+  for (const blk of state.blocks || []) {
+    const card = document.createElement("div");
+    card.className = "tidy-block-card" + (blk.protected ? " protected" : "");
+    card.style.marginLeft = `${Math.min(blk.depth || 0, 4) * 14}px`;
+    card.innerHTML = `
+      <div class="tidy-block-head">
+        <span>${blk.protected ? `硬保护（${esc(blk.protectedReason || "TODO/正式")}）· 绝不自动改写` : "普通笔记块 · 可原地整理"}</span>
+        <code>${esc(blk.sourceId)}</code>
+      </div>
+      <div class="tidy-block-body">${esc(blk.content)}</div>
+    `;
+    outline.append(card);
+  }
+
+  // Quiet writeback proposals entry
+  const wbBtn = document.getElementById("btnTidyWritebackEntry");
+  const proposals = state.proposals || [];
+  wbBtn.hidden = proposals.length === 0;
+  wbBtn.textContent = `待审原文改动（${proposals.length}）`;
+
+  // Post-apply undo bar
+  const undoBar = document.getElementById("tidyUndoBar");
+  const latestSnap = (state.snapshots || [])[0];
+  if (latestSnap && !latestSnap.undone) {
+    undoBar.hidden = false;
+    document.getElementById("tidyUndoText").textContent = latestSnap.canUndo
+      ? "已原地整理左侧笔记，未续写前可 1 键无损撤销："
+      : "检测到你已在整理后的块上继续写作，为保护新笔记已锁定只读快照（拒绝覆盖）：";
+    document.getElementById("btnTidyQuickUndo").textContent = latestSnap.canUndo ? "一键撤销整理" : "测试撤销（将被安全拦截）";
+  } else {
+    undoBar.hidden = true;
+  }
+
+  // Snapshots panel
+  const snapSummary = document.getElementById("tidySnapshotsSummary");
+  const snapBox = document.getElementById("tidySnapshotsBox");
+  const snaps = state.snapshots || [];
+  snapSummary.textContent = `查看「整理前原文快照」（当前 ${snaps.length}/5 份 · 续写后自动切换为只读查阅）`;
+  snapBox.replaceChildren();
+  if (!snaps.length) {
+    snapBox.innerHTML = '<div class="check-summary">还没有整理快照。完成一次「应用到左侧」后将自动留存整理前原文。</div>';
+  } else {
+    for (const snap of snaps) {
+      const card = document.createElement("div");
+      card.className = "tidy-snap-card";
+      const head = document.createElement("div");
+      head.className = "row";
+      head.style.justifyContent = "space-between";
+      const badge = snap.undone
+        ? '<span class="pill">已撤销</span>'
+        : snap.canUndo
+          ? '<span class="pill" style="background:var(--ok-bg);color:var(--ok);">未续写 · 可一键撤销</span>'
+          : '<span class="pill attn">已续写 · 仅只读查看</span>';
+      head.innerHTML = `<strong>${esc((snap.createdAt || "").slice(11, 19))} · ${esc(snap.summary)}</strong>${badge}`;
+      card.append(head);
+      for (const b of snap.blocks || []) {
+        const pre = document.createElement("pre");
+        pre.className = "tidy-snap-pre";
+        pre.textContent = b.beforeContent;
+        const cp = document.createElement("button");
+        cp.className = "small";
+        cp.textContent = "复制整理前原句";
+        cp.onclick = async () => {
+          await navigator.clipboard.writeText(b.beforeContent);
+          document.getElementById("tidyStatusMsg").textContent = "✓ 已复制整理前原句，可按需粘贴回笔记。";
+        };
+        card.append(pre, cp);
+      }
+      snapBox.append(card);
+    }
+  }
+}
+
+async function loadTidyState() {
+  const res = await api("/api/tidy/state", {});
+  if (res.ok) renderTidyState(res.state);
+}
+
+document.addEventListener("keydown", (event) => {
+  if (
+    !document.getElementById("tab-phase3").hidden &&
+    activeTidyPlan &&
+    !activeTidyEditingId &&
+    event.key === " " &&
+    !(event.target && event.target.closest && event.target.closest("textarea,input,button,select"))
+  ) {
+    event.preventDefault();
+    switchTidyView(activeTidyView === "after" ? "before" : "after");
+  }
+});
+
+document.getElementById("btnTidyDemo").onclick = async () => {
+  const res = await api("/api/tidy/demo-plan", { simulateOmission: false });
+  if (res.ok) {
+    renderTidyState(res.state);
+    openTidyPlanPreview(res.plan);
+    document.getElementById("tidyStatusMsg").textContent = "已生成原地整理预览（完整保留全部重点）：点击「整理前（原文）」或按 Space 观察 5 槽关键信息 FLIP 平移动效。";
+  }
+};
+
+document.getElementById("btnTidyOmitDemo").onclick = async () => {
+  const res = await api("/api/tidy/demo-plan", { simulateOmission: true });
+  if (res.ok) {
+    renderTidyState(res.state);
+    openTidyPlanPreview(res.plan);
+    document.getElementById("tidyStatusMsg").textContent = "已生成「模拟漏项」预览：上方暖色标签提醒漏掉了 120ms，切到「整理前（原文）」可见红色波浪线标出未带入的原句重点。";
+  }
+};
+
+document.getElementById("btnTidyLive").onclick = async () => {
+  const btn = document.getElementById("btnTidyLive");
+  btn.disabled = true;
+  document.getElementById("tidyStatusMsg").textContent = "正在通过 Companion /plugin/note-tidy 调用真实 DeepSeek 模型原地整理…";
+  try {
+    const res = await api("/api/tidy/live-model", {});
+    if (res.state) renderTidyState(res.state);
+    if (res.ok) {
+      openTidyPlanPreview(res.plan);
+      document.getElementById("tidyStatusMsg").textContent = "✓ 真实模型原地整理预览已生成，可切换前后对比并按需微调后应用。";
+    } else {
+      document.getElementById("tidyStatusMsg").textContent = `✕ ${res.error}`;
+    }
+  } finally { btn.disabled = false; }
+};
+
+document.getElementById("btnTidyMcpPropose").onclick = async () => {
+  const res = await api("/api/tidy/mcp-propose", {});
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  document.getElementById("tidyStatusMsg").textContent = res.ok
+    ? "✓ Codex 已通过真实 stdio MCP 提交原文改动提案（writesSource=false）：请点击右上角「待审原文改动（N）」用同一套 FLIP 预览审阅并应用。"
+    : `✕ MCP 提案失败：${res.response?.error?.code || res.error}`;
+};
+
+document.getElementById("btnTidyWritebackEntry").onclick = () => {
+  const first = tidyState?.proposals?.[0];
+  if (!first?.plan) return;
+  openTidyPlanPreview(first.plan, first.proposalId);
+  document.getElementById("tidyStatusMsg").textContent = "正在审阅来自外部 MCP（Codex）的原文改动提案：点「整理前（原文）」对比或直接点「应用到左侧」。";
+};
+
+document.getElementById("btnTidyQuickUndo").onclick = async () => {
+  const latest = tidyState?.snapshots?.[0];
+  if (!latest) return;
+  const res = await api("/api/tidy/undo", { snapshotId: latest.snapshotId });
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  if (res.ok) {
+    document.getElementById("tidyStatusMsg").textContent = "✓ 已 1 键无损恢复整理前原文！";
+  } else {
+    document.getElementById("tidyStatusMsg").textContent = `🛡 已拦截覆盖：${res.reason}`;
+    document.getElementById("tidySnapshotsDetails").open = true;
+  }
+};
+
+document.getElementById("btnTidyContinueWrite").onclick = async () => {
+  const res = await api("/api/tidy/continue-writing", {});
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  document.getElementById("tidyStatusMsg").textContent = "已模拟在整理后的原块上继续追加新笔记；此时点击撤销将被安全拦截，并自动保留只读快照。";
+};
+
+document.getElementById("btnTidyReset").onclick = async () => {
+  const res = await api("/api/tidy/reset", {});
+  activeTidyPlan = null;
+  activeTidyProposalId = null;
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  renderTidyPreview();
+  document.getElementById("tidyStatusMsg").textContent = "已重置为初始零散笔记，可重新体验。";
+};
+
+async function runSingleTidyCheck(id) {
+  const card = document.getElementById("tidy-card-" + id);
+  const pill = document.getElementById("tidy-pill-" + id);
+  const sum = document.getElementById("tidy-sum-" + id);
+  const out = document.getElementById("tidy-out-" + id);
+  card.className = "check";
+  pill.textContent = "运行中…";
+  out.innerHTML = "";
+  const res = await api("/api/tidy/check", { id });
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  if (res.ok && res.result?.ok) {
+    card.className = "check pass";
+    pill.textContent = `✓ 通过 (${res.result.durationMs}ms)`;
+    sum.textContent = res.result.summary;
+    const det = document.createElement("details");
+    det.className = "raw";
+    det.innerHTML = `<summary>查看技术回执（JSON）</summary><pre>${esc(JSON.stringify(res.result.meta, null, 2))}</pre>`;
+    out.appendChild(det);
+  } else {
+    card.className = "check fail";
+    pill.textContent = "✕ 未通过";
+    sum.textContent = res.error || res.result?.summary || "执行失败";
+  }
+}
+
+document.querySelectorAll("button[data-tidy-run]").forEach(btn => {
+  btn.onclick = () => runSingleTidyCheck(btn.dataset.tidyRun);
+});
+
+document.getElementById("btnRunAllTidy").onclick = async () => {
+  const btn = document.getElementById("btnRunAllTidy");
+  btn.disabled = true;
+  try {
+    for (const c of TIDY_CHECKS) await runSingleTidyCheck(c.id);
+  } finally { btn.disabled = false; }
+};
+
+void loadTidyState();
+
+// ================= PHASE 2 UI LOGIC =================
+let mcpState = null;
+let selectedConfigClient = "codex";
+
+function renderConfigView() {
+  if (!mcpState?.mcpConfigs) return;
+  const cfg = mcpState.mcpConfigs[selectedConfigClient];
+  if (!cfg) return;
+  document.getElementById("mcpConfigHint").textContent = `推荐写入位置：${cfg.configPathHint} · 格式：${cfg.format.toUpperCase()} · 不含任何明文 API Key`;
+  document.getElementById("mcpConfigSnippet").textContent = cfg.snippet;
+  const claudeBtn = document.getElementById("btnCopyClaudeCmd");
+  claudeBtn.style.display = cfg.cliCommand ? "inline-block" : "none";
+  claudeBtn.dataset.cmd = cfg.cliCommand || "";
+}
+
+function renderMcpState(state) {
+  if (!state) return;
+  mcpState = state;
+  document.getElementById("mcpWorkTitle").textContent = state.title;
+  document.getElementById("mcpVersionPill").textContent = `来源版本：${state.sourceSetVersion}`;
+  document.getElementById("mcpWritePill").textContent = `原块静默写入：${state.rawWriteCount} 次`;
+  document.getElementById("mcpPrivacyToggle").checked = state.privacyMode === "local-only";
+
+  const targetSel = document.getElementById("mcpTargetSelect");
+  targetSel.innerHTML = "";
+  for (const t of state.targets?.targets || []) {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.label;
+    opt.selected = t.id === state.targets.defaultTarget;
+    targetSel.appendChild(opt);
+  }
+  const activeTarget = (state.targets?.targets || []).find(t => t.id === state.targets.defaultTarget);
+  document.getElementById("btnMockHandoff").textContent = activeTarget ? activeTarget.buttonLabel : "在 DSH 继续";
+
+  renderArticle(document.getElementById("mcpCurrentArticle"), state.currentArticle);
+
+  const stagedEl = document.getElementById("mcpStagedCandidate");
+  const adoptBtn = document.getElementById("btnAdoptCandidate");
+  if (state.stagedCandidate?.result) {
+    adoptBtn.disabled = false;
+    adoptBtn.textContent = state.stagedCandidate.versionValid ? "采用「待采用修订」" : "检验并清理过时候选";
+    renderArticle(stagedEl, state.stagedCandidate.result);
+    const note = document.createElement("div");
+    note.className = "check-summary";
+    note.style.marginTop = "8px";
+    note.innerHTML = state.stagedCandidate.versionValid
+      ? `<span class="pill" style="background:var(--ok-bg);color:var(--ok);">待采用修订 · 版本核对一致 (${esc(state.stagedCandidate.sourceSetVersion)})</span>`
+      : `<span class="pill attn">候选依据已过时（候选=${esc(state.stagedCandidate.sourceSetVersion)} ≠ 当前=${esc(state.sourceSetVersion)}）· 绝不覆盖</span>`;
+    stagedEl.prepend(note);
+  } else {
+    adoptBtn.disabled = true;
+    adoptBtn.textContent = "采用「待采用修订」";
+    stagedEl.innerHTML = '<div class="article-preview"><div class="article-label">暂无外部 Agent 提交的候选修订。点击上方「模拟外部 Agent 通过 MCP 提交候选修订」即可体验。</div></div>';
+  }
+
+  const auditBox = document.getElementById("mcpAuditBox");
+  const rows = (state.recentAudit || []).slice().reverse();
+  if (!rows.length) {
+    auditBox.innerHTML = '<div class="check-summary">暂无审计记录。</div>';
+  } else {
+    auditBox.innerHTML = `<table class="audit-table"><thead><tr><th>时间</th><th>调用方</th><th>命令</th><th>结果</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc((r.at || "").slice(11, 19))}</td><td>${esc(r.clientId)}</td><td><code>${esc(r.command)}</code></td><td>${esc(r.outcome)}</td></tr>`).join("")}</tbody></table>`;
+  }
+
+  renderConfigView();
+}
+
+async function loadMcpState() {
+  const res = await api("/api/mcp/state", {});
+  if (res.ok) renderMcpState(res.state);
+}
+
+async function runSingleMcpCheck(id) {
+  const card = document.getElementById("mcp-card-" + id);
+  const pill = document.getElementById("mcp-pill-" + id);
+  const sum = document.getElementById("mcp-sum-" + id);
+  const out = document.getElementById("mcp-out-" + id);
+  card.className = "check";
+  pill.textContent = "运行中…";
+  out.innerHTML = "";
+  const res = await api("/api/mcp/check", { id });
+  if (res.state) renderMcpState(res.state);
+  if (res.ok && res.result?.ok) {
+    card.className = "check pass";
+    pill.textContent = `✓ 通过 (${res.result.durationMs}ms)`;
+    sum.textContent = res.result.summary;
+    if (res.result.article) renderArticle(out, res.result.article);
+    const det = document.createElement("details");
+    det.className = "raw";
+    det.innerHTML = `<summary>查看 MCP JSON 回执</summary><pre>${esc(JSON.stringify(res.result.meta, null, 2))}</pre>`;
+    out.appendChild(det);
+  } else {
+    card.className = "check fail";
+    pill.textContent = "✕ 未通过";
+    sum.textContent = res.error || res.result?.summary || "执行失败";
+  }
+}
+
+document.querySelectorAll("button[data-mcp-run]").forEach(btn => {
+  btn.onclick = () => runSingleMcpCheck(btn.dataset.mcpRun);
+});
+
+document.getElementById("btnRunAllMcp").onclick = async () => {
+  const btn = document.getElementById("btnRunAllMcp");
+  btn.disabled = true;
+  try {
+    for (const c of MCP_CHECKS) await runSingleMcpCheck(c.id);
+  } finally { btn.disabled = false; }
+};
+
+async function triggerTargetSwitch(target) {
+  const res = await api("/api/mcp/target", { target });
+  if (res.ok) {
+    renderMcpState(res.state);
+    const box = document.getElementById("mcpHandoffBox");
+    if (res.handoff?.handoffPrompt) {
+      box.style.display = "block";
+      document.getElementById("mcpHandoffPrompt").textContent = res.handoff.handoffPrompt;
+    } else {
+      box.style.display = "none";
+    }
+  }
+}
+
+document.getElementById("mcpTargetSelect").onchange = (e) => triggerTargetSwitch(e.target.value);
+document.getElementById("btnMockHandoff").onclick = () => triggerTargetSwitch(document.getElementById("mcpTargetSelect").value);
+
+document.getElementById("btnCopyHandoff").onclick = async () => {
+  const text = document.getElementById("mcpHandoffPrompt").textContent;
+  await navigator.clipboard.writeText(text);
+  document.getElementById("mcpCopyStatus").textContent = "✓ 已复制交接指令";
+  setTimeout(() => { document.getElementById("mcpCopyStatus").textContent = ""; }, 2500);
+};
+
+document.getElementById("mcpPrivacyToggle").onchange = async (e) => {
+  const res = await api("/api/mcp/privacy", { privacyMode: e.target.checked ? "local-only" : "default" });
+  if (res.ok) {
+    renderMcpState(res.state);
+    document.getElementById("mcpActionMsg").textContent = e.target.checked
+      ? "已开启「仅本地模型」：外部 MCP 读取正文将被 Fail Closed 拦截。"
+      : "已恢复常规隐私策略。";
+  }
+};
+
+document.getElementById("btnSimCandidate").onclick = async () => {
+  const res = await api("/api/mcp/simulate-candidate", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = res.ok
+    ? "✓ 外部 Agent 已通过真实 MCP 提交候选修订（右侧可见预览，当前文章未静默替换）。"
+    : `✕ 提交被拒：${res.response?.error?.code || res.error}`;
+};
+
+document.getElementById("btnMutateSource").onclick = async () => {
+  const res = await api("/api/mcp/mutate-source", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = "已模拟保存新原文，来源版本已推进；旧版候选现已标为过时。";
+};
+
+document.getElementById("btnAdoptCandidate").onclick = async () => {
+  const res = await api("/api/mcp/adopt-candidate", {});
+  if (res.state) renderMcpState(res.state);
+  document.getElementById("mcpActionMsg").textContent = res.ok
+    ? "✓ 已按你的确认采用修订；原块保持零改动。"
+    : `ℹ ${res.error}`;
+};
+
+document.querySelectorAll("#mcpConfigTabs button").forEach(btn => {
+  btn.onclick = () => {
+    selectedConfigClient = btn.dataset.client;
+    document.querySelectorAll("#mcpConfigTabs button").forEach(b => b.classList.toggle("active", b === btn));
+    renderConfigView();
+  };
+});
+
+document.getElementById("btnCopyConfig").onclick = async () => {
+  const text = document.getElementById("mcpConfigSnippet").textContent;
+  await navigator.clipboard.writeText(text);
+  document.getElementById("mcpConfigCopyStatus").textContent = "✓ 配置已复制到剪贴板";
+  setTimeout(() => { document.getElementById("mcpConfigCopyStatus").textContent = ""; }, 2500);
+};
+
+document.getElementById("btnCopyClaudeCmd").onclick = async (e) => {
+  const cmd = e.target.dataset.cmd;
+  if (!cmd) return;
+  await navigator.clipboard.writeText(cmd);
+  document.getElementById("mcpConfigCopyStatus").textContent = "✓ claude mcp add 命令已复制";
+  setTimeout(() => { document.getElementById("mcpConfigCopyStatus").textContent = ""; }, 2500);
+};
+
+void loadMcpState();
+
+// ================= PHASE 1 UI LOGIC (PRESERVED) =================
+document.getElementById("btnSaveTest").onclick = async () => {
+  const statusEl = document.getElementById("keyStatus");
+  const apiKey = document.getElementById("apiKey").value.trim();
+  const model = document.getElementById("model").value.trim();
+  const baseUrl = document.getElementById("baseUrl").value.trim();
+  statusEl.textContent = "正在保存配置并向模型发送探活请求…";
+  const btn = document.getElementById("btnSaveTest");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/configure", { apiKey, model, baseUrl });
+    if (res.ok) {
+      document.getElementById("apiKey").value = "";
+      statusEl.innerHTML = `<span style="color:var(--ok);font-weight:600;">✓ 连通成功！</span> 模型：${esc(res.model)} · 延迟：${res.latencyMs} ms · Key：${esc(res.keyMask)}（已写入隔离 0600 文件）`;
+      setReady(true);
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--err);font-weight:600;">✕ 连通失败：</span>${esc(res.error)}`;
+    }
+  } finally { btn.disabled = false; }
+};
+
+async function runSingleCheck(id) {
+  const card = document.getElementById("card-" + id);
+  const pill = document.getElementById("pill-" + id);
+  const sum = document.getElementById("sum-" + id);
+  const out = document.getElementById("out-" + id);
+  card.className = "check";
+  pill.textContent = "运行中…";
+  out.innerHTML = "";
+  const res = await api("/api/check", { id });
+  if (res.ok && res.result?.ok) {
+    card.className = "check pass";
+    pill.textContent = `✓ 通过 (${(res.result.durationMs/1000).toFixed(1)}s)`;
+    sum.textContent = res.result.summary;
+    if (res.result.article) renderArticle(out, res.result.article);
+    const det = document.createElement("details");
+    det.className = "raw";
+    det.innerHTML = `<summary>查看技术回执（JSON）</summary><pre>${esc(JSON.stringify(res.result.meta, null, 2))}</pre>`;
+    out.appendChild(det);
+  } else {
+    card.className = "check fail";
+    pill.textContent = "✕ 未通过";
+    sum.textContent = res.error || res.result?.summary || "执行失败";
+    if (res.result?.article) renderArticle(out, res.result.article);
+  }
+}
+
+document.querySelectorAll("button[data-run]").forEach(btn => {
+  btn.onclick = () => runSingleCheck(btn.dataset.run);
+});
+
+document.getElementById("btnRunAll").onclick = async () => {
+  const btn = document.getElementById("btnRunAll");
+  btn.disabled = true;
+  try {
+    for (const c of CHECKS) await runSingleCheck(c.id);
+  } finally { btn.disabled = false; }
+};
+
+document.getElementById("btnPlay").onclick = async () => {
+  const out = document.getElementById("playOutput");
+  const btn = document.getElementById("btnPlay");
+  btn.disabled = true;
+  out.innerHTML = '<div class="article-label">正在通过本机 Companion 调用 DeepSeek…</div>';
+  try {
+    const res = await api("/api/playground", {
+      text: document.getElementById("playText").value,
+      mode: document.getElementById("playMode").value,
+      question: document.getElementById("playQuestion").value,
+      localOnly: document.getElementById("playLocal").checked,
+    });
+    if (res.ok) {
+      renderArticle(out, res.value);
+    } else {
+      out.innerHTML = `<div style="color:var(--err);font-weight:600;">${esc(res.error)}</div>`;
+    }
+  } finally { btn.disabled = false; }
+};
+
+document.getElementById("btnShutdown").onclick = async () => {
+  if (!confirm("确认结束验收并销毁本次临时隔离目录（含临时 Key 文件）吗？")) return;
+  await api("/api/shutdown", {});
+  document.body.innerHTML = '<div class="wrap"><div class="card"><h2>已安全关闭并彻底清理临时隔离目录</h2><p class="sub">日常 Logseq、笔记库和系统自启项均未被触碰，可直接关闭此标签页。</p></div></div>';
+};
+</script>
+</body>
+</html>

@@ -87,7 +87,9 @@ html,body{margin:0;height:100%;overflow:hidden}
 .wb-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px}
 .wb-search-row>button{padding:5px 7px;margin:2px 0}
 .wb-search-row>.wb-search-entry{text-align:left;min-width:0;padding:6px 5px;font-weight:500;overflow-wrap:anywhere}
-.wb-search-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wb-search-title-line{display:flex;align-items:center;gap:6px;min-width:0}
+.wb-search-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-width:0}
+.wb-search-badge{flex:none;font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:4px;background:var(--wb-soft);color:var(--wb-muted)}
 .wb-search-entry small{display:block;color:var(--wb-muted);font-size:12px;font-weight:400;margin-top:2px}
 .wb-search-section{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--wb-muted);margin:15px 5px 4px}
 .wb-search-recent{margin-bottom:14px;background:var(--wb-paper)}.wb-search-recent[hidden]{display:none}.wb-search-recent button{display:block;padding:6px 5px;text-align:start;width:100%;font-weight:500}.wb-search-recent small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

@@ -4,6 +4,13 @@ import type { MaterialRecord } from "./store.ts";
 import type { MaterialView } from "./service.ts";
 import {previewFormat} from "./preview/paths.ts";
 
+const SENSITIVE_NAME_PATTERN =
+  /(?:^|[/\\])(?:\.env(?:\..+)?|id_rsa|id_ed25519|.*\.(?:pem|key|p12|pfx|jks|kdbx)|.*(?:secret|token|credential|password|private[-_]?key).*)$/iu;
+
+function isSensitiveFilename(path: string): boolean {
+  return SENSITIVE_NAME_PATTERN.test(fileName(path));
+}
+
 export function fileDetails(view: Pick<MaterialView, "path" | "capabilities" | "availability">): string {
   const type = extension(view.path).slice(1).toUpperCase() || "文件";
   return `${type}${view.availability === "unavailable" ? " · 文件失联" : ["spreadsheet", "legacy-doc", "unsupported"].includes(previewFormat(view.path)) ? " · 外部阅读" : ""}`;
@@ -11,7 +18,12 @@ export function fileDetails(view: Pick<MaterialView, "path" | "capabilities" | "
 export function materialEntry(view: MaterialView, open: () => void, draft: boolean): HTMLButtonElement {
   const entry = button("", open); entry.className = "wb-material"; entry.dataset.materialId = view.id;
   entry.append(element("span", fileName(view.path), "wb-material-name"));
-  entry.append(element("small", `${fileDetails(view)}${draft ? " · 有保留草稿" : ""}`, "wb-material-meta"));
+  if (isSensitiveFilename(view.path)) {
+    const lock = element("span", "仅本地", "wb-material-local-badge");
+    lock.title = "敏感文件：默认不发往云端模型与外部 MCP";
+    entry.append(lock);
+  }
+  entry.append(element("small", `${fileDetails(view)}${draft ? " · 有草稿" : ""}`, "wb-material-meta"));
   entry.title = [view.path, view.summary].filter(Boolean).join("\n");
   return entry;
 }
@@ -23,7 +35,7 @@ export function referenceNotice(record: MaterialRecord): string | null {
 export function materialDropArea(root: string | null): HTMLElement {
   const area = element("section", "", "wb-material-drop-area"); area.dataset.materialDropList = root ?? "";
   area.setAttribute("aria-label", "拖入文件加入材料");
-  area.append(element("p", "拖入文件或文件夹"));area.title="加入文件副本，原文件不变。";
+  area.append(element("p", "拖入文件到此加入当前工作")); area.title = "加入文件副本，原文件不变。";
   return area;
 }
 /** Local material styles; the shared shell continues to own navigation and theme. */
@@ -46,19 +58,24 @@ export function installMaterialReadingStyle(): () => void {
     .wb-material-folder small{display:block;overflow-wrap:anywhere;color:var(--ls-secondary-text-color,#666)}
 
     .wb-material-work{width:100%;color:var(--ls-secondary-text-color,#666);font-size:12px;overflow-wrap:anywhere}
-    .wb-material-tools{display:flex;align-items:center;gap:8px;margin:0 0 14px;flex-wrap:wrap}
-    .wb-material-tools input{flex:1;min-width:130px}
-    .wb-material-tools>.wb-material-count{flex:none;white-space:nowrap}
-    .wb-material-empty{font-size:13px;color:var(--wb-muted);margin:12px 0}
-    .wb-material-drop-area{border:1px dashed var(--ls-border-color,#c8cfcc);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:13px}
-    .wb-material-drop-area p{margin:0 0 2px}.wb-material-drop-area small{color:var(--ls-secondary-text-color,#666)}
-    .wb-material-drag-target{outline:2px solid var(--ls-link-text-color,#6d8c7d);outline-offset:2px}
+    .wb-material-tools{display:flex;align-items:center;gap:6px;margin:0 0 10px;flex-wrap:wrap}
+    .wb-material-tools input{flex:1;min-width:120px;font-size:13px;padding:4px 8px}
+    .wb-material-tools>.wb-material-count{flex:none;white-space:nowrap;font-size:12px;color:var(--wb-muted);margin-inline-end:auto}
+    .wb-material-add{flex:none;font-size:12.5px;color:var(--wb-accent);font-weight:550;padding:4px 8px;border-radius:6px}
+    .wb-material-add:hover{background:var(--wb-soft)}
+    .wb-material-empty{font-size:13px;color:var(--wb-muted);margin:10px 0 6px}
+    .wb-material-drop-area{border:1px dashed var(--wb-edge);border-radius:7px;padding:12px 14px;margin-top:8px;font-size:12.5px;color:var(--wb-muted);text-align:center}
+    .wb-material-drop-area p{margin:0}.wb-material-drop-area small{color:var(--ls-secondary-text-color,#666)}
+    .wb-material-drag-target{outline:2px solid var(--ls-link-text-color,#6d8c7d);outline-offset:2px;border-radius:7px}
     .wb-material-drop-hint{font-size:12px;font-weight:400;margin:4px 0;color:var(--ls-secondary-text-color,#666)}
-    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;padding:4px 0;min-height:38px;position:relative}
-    [data-workbench-feature=materials] .wb-material{display:flex;align-items:center;gap:8px;grid-column:1;grid-row:1;border:0;margin:0;padding:7px 3px;min-width:0;white-space:nowrap;font-size:14px}
+    .wb-material-entry{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;padding:2px 4px;min-height:36px;border-radius:6px;position:relative}
+    .wb-material-entry:hover{background:color-mix(in srgb,var(--wb-soft) 72%,transparent)}
+    [data-workbench-feature=materials] .wb-material{display:flex;align-items:center;gap:7px;grid-column:1;grid-row:1;border:0;margin:0;padding:6px 4px;min-width:0;white-space:nowrap;font-size:13.5px;background:transparent}
     .wb-material-note{width:100%}
-    .wb-material-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}.wb-material-meta{flex:none;color:var(--wb-muted)}
-    .wb-material-meta,.wb-material-filename{font-size:12px;font-weight:400;line-height:1.6}
+    .wb-material-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+    .wb-material-local-badge{flex:none;font-size:10.5px;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,#d98a2b 16%,transparent);color:var(--wb-attention);font-weight:550}
+    .wb-material-meta{flex:none;color:var(--wb-muted);font-size:11px;padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--wb-soft) 85%,transparent);font-weight:450;line-height:1.45}
+    .wb-material-filename{font-size:12px;font-weight:400;line-height:1.6}
     .wb-material-entry>.wb-menu{grid-column:3;grid-row:1;font-size:12px}.wb-material-entry>.wb-menu>summary{font-size:12px}
     .wb-material-feedback{grid-column:2;grid-row:1;font-size:12px;color:var(--wb-accent);display:flex;align-items:center;gap:4px;max-width:100px;overflow-wrap:anywhere}.wb-material-feedback:empty{display:none}.wb-material-feedback button{font-size:12px;padding:0 4px;min-height:28px}
     .wb-material-problem{grid-column:1 / -1;margin:0;font-size:13px}
@@ -66,9 +83,7 @@ export function installMaterialReadingStyle(): () => void {
     .wb-material-rename label{font-size:12px;color:var(--wb-muted);width:100%}.wb-material-rename input{display:block;width:100%;margin-top:4px;font-size:14px}.wb-material-rename p{width:100%;margin:2px 0;font-size:13px}
     .wb-material-entry:has(.wb-material-rename)>.wb-material-feedback{display:none}
     .wb-material-path{font-size:12px;margin-top:4px;color:var(--wb-muted)}.wb-material-path summary{cursor:pointer}.wb-material-path small{margin-top:4px}
-    .wb-material-drop-compact{border:1px dashed var(--wb-edge)!important;background:transparent;padding:7px 10px!important;margin-top:10px}
-    .wb-material-drop-area{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:5px 8px;padding:6px 10px!important;margin-bottom:8px!important;color:var(--wb-muted)}.wb-material-drop-area p{margin:0;font-size:12px}.wb-material-drop-area button{font-size:12px;color:var(--wb-accent);font-weight:500}
-    .wb-material-directory-extra{margin-top:18px;font-size:12px;color:var(--wb-muted)}.wb-material-directory-extra>summary{cursor:pointer;padding:8px 0}.wb-material-folder-heading{flex-wrap:wrap}.wb-material-folder-heading select{flex:1;min-width:0;max-width:100%}
+    .wb-material-directory-extra{margin-top:14px;padding-top:10px;border-top:1px solid var(--wb-edge);font-size:12px;color:var(--wb-muted)}.wb-material-directory-extra>summary{cursor:pointer;padding:4px 0;font-weight:500}.wb-material-folder-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0}.wb-material-folder-heading select{flex:1;min-width:0;max-width:100%;font-size:12px}.wb-material-read-grant{padding:8px 10px;margin:6px 0;border-radius:6px;background:var(--wb-soft);font-size:12px;line-height:1.55;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
     .wb-material-heading[data-material-reading]>strong{display:block!important;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wb-material-heading[data-material-reading]>small{font-size:11px;color:var(--wb-muted)}
     .wb-material-heading{border-bottom:1px solid var(--wb-edge)}
     .wb-materials-in-work .wb-material-heading[data-material-list=true]{display:none}

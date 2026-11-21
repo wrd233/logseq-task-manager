@@ -7,6 +7,24 @@ import type { installCatalogPublisher } from "./catalog-publisher.ts";
 type NoteCatalog = ReturnType<typeof installCatalogPublisher>;
 type CatalogList = Awaited<ReturnType<NoteCatalog["read"]>>;
 
+const SYSTEM_PAGES = new Set(["contents", "favorites", "templates", "card", "journals"]);
+const JOURNAL_NAME_PATTERN =
+  /^(?:\d{4}[-_/]\d{2}[-_/]\d{2}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?,\s+\d{4})$/iu;
+
+function normalizeWorkTitle(value: string): string {
+  return value
+    .replace(/^\*\*\[(?:任务|事务|Project|MiniProject|Area)\]\*\*\s*/u, "")
+    .replace(/^\[(?:任务|事务|Project|MiniProject|Area)\]\s*/u, "")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function isNoiseNote(name: string, isJournal?: boolean): boolean {
+  if (isJournal) return true;
+  const normalized = name.trim().toLocaleLowerCase();
+  return !normalized || SYSTEM_PAGES.has(normalized) || JOURNAL_NAME_PATTERN.test(name.trim());
+}
+
 /** A local notebook search: opening a page is not enrollment. */
 export class WorkCatalogView {
   private readonly panel = new FeaturePanel("work-search", "工作搜索");
@@ -56,7 +74,7 @@ export class WorkCatalogView {
   }
 
   async open(): Promise<void> {
-    if(await logseq.Editor.checkEditing()){void logseq.UI.showMsg("请先完成本次写作，再找其他工作。","warning");return;}
+    if(await logseq.Editor.checkEditing()){await logseq.Editor.exitEditingMode?.(false).catch(()=>undefined);}
     if (!await this.panel.open()) return;
     if (!this.catalog) this.status.textContent="正在查找笔记…";
     await this.load();
@@ -85,23 +103,73 @@ export class WorkCatalogView {
     const catalog=this.catalog;if(!catalog)return;
     const query=this.input.value.trim().toLocaleLowerCase(),words=query.split(/\s+/u);
     const matches=(name:string)=>words.every(word=>name.toLocaleLowerCase().includes(word));
-    const recent=this.work.recentReadings(catalog.graphId).slice(0,5);
-    const recentKeys=new Set(recent.map(item=>item.scope.kind==="page"?item.scope.pageName?.toLocaleLowerCase():item.scope.rootUuid));
-    const works=catalog.works.filter(work=>query?matches(`${work.title} ${work.location}`):
-      (catalog.enabled||work.reason==="你手动加入的笔记")&&!recentKeys.has(work.workRef.kind==="logseq"&&work.workRef.sourceKind==="block"?work.workRef.rootUuid:work.title.toLocaleLowerCase()))
-      .sort((a,b)=>b.updatedAt-a.updatedAt||a.title.localeCompare(b.title,"zh-CN"));
-    const listedPages=new Set(works.flatMap(work=>work.pageSourceUuid?[work.pageSourceUuid]:[]));
-    const ordinary=catalog.notes.filter(note=>!listedPages.has(note.uuid)&&(query?matches(note.name):note.hasFile&&!recentKeys.has(note.name.toLocaleLowerCase())))
-      .sort((a,b)=>b.updatedAt-a.updatedAt||a.name.localeCompare(b.name,"zh-CN"));
-    const visibleWorks=works.slice(0,query?50:20),visibleNotes=ordinary.slice(0,query?50:recent.length?8:12);
-    const sig=JSON.stringify([query,recent,visibleWorks.map(work=>[work.workRef,work.title,work.location,work.pageSourceUuid]),visibleNotes.map(note=>[note.uuid,note.name]),catalog.enabled,works.length,ordinary.length]);
+
+    // Strictly deduplicate recent items by rootUuid, pageName, AND normalized title
+    const rawRecent = this.work.recentReadings(catalog.graphId);
+    const recent: typeof rawRecent = [];
+    const seenRecentIds = new Set<string>();
+    const seenRecentTitles = new Set<string>();
+    for (const item of rawRecent) {
+      const idKey = item.scope.kind === "page" ? `page:${(item.scope.pageName ?? "").toLocaleLowerCase()}` : `block:${item.scope.rootUuid}`;
+      const titleKey = normalizeWorkTitle(item.title || item.scope.pageName || "");
+      if (seenRecentIds.has(idKey) || (titleKey && seenRecentTitles.has(titleKey))) continue;
+      seenRecentIds.add(idKey);
+      if (titleKey) seenRecentTitles.add(titleKey);
+      recent.push(item);
+      if (recent.length >= 4) break;
+    }
+
+    const recentKeys = new Set<string>();
+    for (const item of recent) {
+      recentKeys.add(item.scope.rootUuid);
+      if (item.scope.pageName) recentKeys.add(item.scope.pageName.toLocaleLowerCase());
+      const t = normalizeWorkTitle(item.title || "");
+      if (t) recentKeys.add(t);
+    }
+
+    // Genuine works: marked objects + user-enrolled works, deduplicated against recent
+    const works = catalog.works
+      .filter((work) => {
+        if (query) return matches(`${work.title} ${work.location} ${work.objectType}`);
+        const refId = work.workRef.kind === "logseq" && work.workRef.sourceKind === "block" ? work.workRef.rootUuid : work.title.toLocaleLowerCase();
+        const titleKey = normalizeWorkTitle(work.title);
+        return !recentKeys.has(refId) && !recentKeys.has(titleKey);
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt || a.title.localeCompare(b.title, "zh-CN"));
+
+    const listedPages = new Set(works.flatMap((work) => (work.pageSourceUuid ? [work.pageSourceUuid] : [])));
+    const listedTitles = new Set([...seenRecentTitles, ...works.map((work) => normalizeWorkTitle(work.title))]);
+
+    // Default homepage shows ONLY genuine works (no system/journal noise pages);
+    // ordinary notes appear when searching or when no works exist yet.
+    const ordinary = catalog.notes
+      .filter((note) => {
+        if (listedPages.has(note.uuid)) return false;
+        const titleKey = normalizeWorkTitle(note.name);
+        if (query) return matches(note.name);
+        if (recent.length > 0 || works.length > 0) return false;
+        return note.hasFile && !isNoiseNote(note.name, note.journal) && !listedTitles.has(titleKey);
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name, "zh-CN"));
+
+    const visibleWorks = works.slice(0, query ? 50 : 18);
+    const visibleNotes = ordinary.slice(0, query ? 50 : 8);
+    const sig = JSON.stringify([
+      query,
+      recent,
+      visibleWorks.map((work) => [work.workRef, work.title, work.location, work.pageSourceUuid, work.objectType]),
+      visibleNotes.map((note) => [note.uuid, note.name]),
+      catalog.enabled,
+      works.length,
+      ordinary.length,
+    ]);
     if (sig===this.shown)return;this.shown=sig;
     const focused=document.activeElement as HTMLElement|null,key=focused?.closest<HTMLElement>("[data-key]")?.dataset.key;
     const scroll=this.results.scrollTop;
     for(const menu of this.rowMenus)menu.dispose();this.rowMenus=[];
     this.recent.replaceChildren();this.recent.hidden=!!query||!recent.length;
     if(!this.recent.hidden){
-      this.recent.append(element("div","最近工作","wb-search-section"));
+      this.recent.append(element("div","最近在做","wb-search-section"));
       recent.forEach((item,index)=>{
         const entry=button("",()=>void this.perform(()=>this.work.resumeRecent(item.scope)));
         entry.dataset.key=item.scope.rootUuid;entry.className="wb-search-entry"+(index===0?" wb-search-resume":"");
@@ -111,16 +179,16 @@ export class WorkCatalogView {
       });
     }
     const nodes:HTMLElement[]=[];
-    if(visibleWorks.length){nodes.push(element("li","已有工作","wb-search-section"));nodes.push(...visibleWorks.map(work=>this.renderWork(work)));}
+    if(visibleWorks.length){nodes.push(element("li",query?"匹配的工作":"进行中的工作","wb-search-section"));nodes.push(...visibleWorks.map(work=>this.renderWork(work)));}
     if(visibleNotes.length){
-      nodes.push(element("li",query?"其他笔记":"近期笔记","wb-search-section"));
+      nodes.push(element("li",query?"其他笔记":"可打开的笔记","wb-search-section"));
       for(const note of visibleNotes){
         const row=element("li","","wb-search-row");row.dataset.key=note.uuid;
         const open=button(note.name,()=>void this.perform(()=>this.work.openPage(note.name,true).then(()=>this.work.focusReading())));
         open.className="wb-search-entry";open.title=note.name;row.append(open);nodes.push(row);
       }
     }
-    if(!nodes.length&&this.recent.hidden)nodes.push(element("li",query?"没有找到匹配的笔记。试试简短的名称。":"还没有打开过笔记。可以直接阅读当前页。","wb-search-empty"));
+    if(!nodes.length&&this.recent.hidden)nodes.push(element("li",query?"没有找到匹配的工作或笔记，可换个关键词。":"还没有正在进行的工作，可点上方「阅读当前页」或直接在标题旁点「阅读」。","wb-search-empty"));
     if(works.length>visibleWorks.length||ordinary.length>visibleNotes.length&&query)nodes.push(element("li","输入更具体的名称以缩小范围。","wb-search-empty"));
     this.rows.replaceChildren(...nodes);this.results.scrollTop=scroll;
     if(key){const target=Array.from(this.results.querySelectorAll<HTMLElement>("[data-key]")).find(node=>node.dataset.key===key);
@@ -138,14 +206,20 @@ export class WorkCatalogView {
       this.work.focusReading();
     }));
     open.className="wb-search-entry";open.title=work.title;
-    open.append(element("span",work.title,"wb-search-title"));
+    const titleLine = element("span", "", "wb-search-title-line");
+    titleLine.append(element("span", work.title, "wb-search-title"));
+    if (work.objectType && work.objectType !== "Page" && work.objectType !== "笔记") {
+      titleLine.append(element("span", work.objectType, "wb-search-badge"));
+    }
+    open.append(titleLine);
+    const subLocation = work.workRef.kind==="logseq"&&work.workRef.sourceKind==="block" ? work.location.split(" / ").slice(1).join(" / ").trim() : "";
     if(missing)open.append(element("small","原笔记失联 · 可用当前页重新关联"));
-    else if(work.workRef.kind==="logseq"&&work.workRef.sourceKind==="block")open.append(element("small",work.location.split(" / ").slice(1).join(" / ")));
+    else if(subLocation && normalizeWorkTitle(subLocation) !== normalizeWorkTitle(work.title))open.append(element("small",subLocation));
     const menu=disclosureMenu("···",`${work.title} 的选项`);menu.root.classList.add("wb-icon-menu");this.rowMenus.push(menu);
     const original=button("打开 Logseq 原页",()=>void this.perform(async()=>{
       const source=await this.notes.resolve(work);
       if(!source)throw Error("暂时找不到原笔记。");
-      if(await logseq.Editor.checkEditing())throw Error("请先结束当前输入。");
+      if(await logseq.Editor.checkEditing())await logseq.Editor.exitEditingMode?.(false).catch(()=>undefined);
       await this.panel.close();await logseq.App.pushState("page",{name:source.name},source.kind==="block"?{anchor:`block-content-${source.uuid}`}:undefined);
     }));
     original.hidden=missing;

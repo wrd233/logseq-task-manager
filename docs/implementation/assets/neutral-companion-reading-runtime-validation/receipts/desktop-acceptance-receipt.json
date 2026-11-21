@@ -1,0 +1,129 @@
+{
+  "acceptedAt": "2026-11-21T06:18:18.432Z",
+  "logseqVersion": "0.10.15",
+  "nodeVersion": "20.20.2",
+  "commit": "7615f8b60e1886326498f9e84fa7cd74d83099b9",
+  "buildVersion": "0.2.0 · 预览 2026-11-21T06:14:35Z · 7615f8b6",
+  "zipHash": "2e1db3b1fbefb71a9877c06be9495305cdd13586d854116656af8f7f3fe759b1",
+  "packagedDistFiles": 616,
+  "checks": {
+    "bootAndPackage": {
+      "ok": true,
+      "hasCore": true,
+      "pluginUrl": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/neutral-phase3-mwq0o7ty/installation/task-copilot-workbench",
+      "version": "0.2.0 · 预览 2026-11-21T06:14:35Z · 7615f8b6",
+      "hasWorkbench": true,
+      "graphPath": "/Users/wangrundong/Library/Caches/task-copilot-package-acceptance/neutral-phase3-mwq0o7ty/graph",
+      "hasTrigger": false
+    },
+    "phase1NeutralCompanion": {
+      "ok": true,
+      "noteTidyLocalOnlyCode": "READING_LOCAL_MODEL_REQUIRED",
+      "readingLocalOnlyCode": "READING_LOCAL_MODEL_REQUIRED",
+      "profiles": [
+        "0",
+        "1"
+      ]
+    },
+    "phase2PackagedStdioMcp": {
+      "ok": true,
+      "serverInfo": {
+        "name": "task-copilot-workbench",
+        "version": "0.2.0"
+      },
+      "tools": [
+        "workbench_list_works",
+        "workbench_get_active_work",
+        "workbench_read_sources",
+        "workbench_read_material",
+        "workbench_submit_reading_candidate",
+        "workbench_propose_writeback"
+      ],
+      "handoffLabel": "在 Codex 继续",
+      "receiptNotice": [
+        "已切换默认协作目标：Codex",
+        "请先关联这份工作的目录，并选择它的工作入口块。"
+      ],
+      "materialsImported": 2,
+      "sourcesCount": 4,
+      "crossWorkError": "SCOPE_MISMATCH",
+      "foundTailQpa9472": true,
+      "envError": "SENSITIVE_MATERIAL_BLOCKED",
+      "envZeroLeak": true
+    },
+    "phase3DesktopRoundtrip": {
+      "mcpTodoDeniedCode": "PROTECTED_TARGET_FORBIDDEN",
+      "mcpProposalAccepted": true,
+      "mcpCandidateStaged": true,
+      "writebackBtnCheck": {
+        "found": true,
+        "label": "待审原文改动（1）",
+        "overlayMounted": true,
+        "inMainContainer": true,
+        "placement": "inline",
+        "overlayButtons": [
+          "整理后（成稿）",
+          "整理前（原文）",
+          "应用到左侧",
+          "忽略提案",
+          "暂不应用",
+          "微调",
+          "微调"
+        ],
+        "anchorCount": 8,
+        "sampleAnchors": [
+          "80%",
+          "冷启动白屏",
+          "[[缓存方案对比]]",
+          "QPA-9472",
+          "方案 A",
+          "((673e2222-2222-4222-8222-000000000002))",
+          "120ms",
+          "14:00-16:00"
+        ]
+      },
+      "applyRes": {
+        "clicked": true,
+        "overlayClosed": true,
+        "b1Updated": true,
+        "todoUnchanged": true,
+        "b3PreservesRef": true,
+        "hasUndoBtn": true
+      },
+      "undoRes": {
+        "clicked": true,
+        "b1Verbatim": true,
+        "b3Verbatim": true
+      },
+      "postEditGuard": {
+        "ok": true,
+        "newWritingPreserved": true,
+        "snapshotViewerOpened": true,
+        "snapshotBlockedNotice": true
+      }
+    }
+  },
+  "screenshots": [
+    "00-workbench-after-codex-handoff.png",
+    "01-workbench-after-mcp-return.png",
+    "02-note-tidy-overlay-after.png",
+    "03-note-tidy-overlay-before.png",
+    "04-after-apply-safe-undo-bar.png",
+    "05-post-edit-readonly-snapshot.png",
+    "06-materials-ultra-clean.png"
+  ],
+  "windowAudit": {
+    "pid": 54665,
+    "windows": [
+      {
+        "id": 1,
+        "offscreen": true,
+        "visible": false,
+        "focused": false
+      }
+    ],
+    "blockedShow": 1,
+    "blockedFocus": 0,
+    "offscreenViolations": 0
+  }
+}

@@ -206,6 +206,8 @@ export class ProgressiveReader {
     }
     const article=existing?.node??element("section","","wb-progressive-unit");article.dataset.progressiveAnchor=`${key}/text`;
     article.dataset.progressiveUuid=(current.get(paragraph.sourceIds[0]!)??old.get(paragraph.sourceIds[0]!))?.target.blockUuid??"";
+    if(paragraph.tone)article.dataset.tone=paragraph.tone;else delete article.dataset.tone;
+    article.dataset.kind=paragraph.kind;
     const line=rich(paragraph.markdown);line.classList.add("wb-progressive-line");
     if(details.length){
       const context=element("div","","wb-progressive-context"),control=this.disclose(key,context);
@@ -214,6 +216,8 @@ export class ProgressiveReader {
       for(const [index,detail] of details.entries()){
         const detailKey=`${key}/detail/${detail.key}`,item=element("section","","wb-progressive-detail"),body=rich(detail.markdown);
         item.dataset.progressiveAnchor=`${detailKey}/text`;item.dataset.progressiveUuid=(current.get(detail.sourceIds[0]!)??old.get(detail.sourceIds[0]!))?.target.blockUuid??"";
+        if(detail.tone)item.dataset.tone=detail.tone;
+        if(detail.kind)item.dataset.kind=detail.kind;
         if(detail.heading)item.append(element("h3",detail.heading));
         appendInline(body,this.cite(detailKey,firstNumber+index,detail,changed(detail)));item.append(body);context.append(item);
       }
