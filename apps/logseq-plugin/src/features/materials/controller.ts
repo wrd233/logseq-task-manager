@@ -311,7 +311,16 @@ export class Materials {
     const count = element("small", "", "wb-material-count");
     const query=element("input");query.type="search";query.className="wb-material-search";query.placeholder=rootUuid?"搜索当前材料":"搜索全部材料";query.setAttribute("aria-label",query.placeholder);
     if(this.listPosition?.graph===this.graph&&this.listPosition.root===rootUuid)query.value=this.listPosition.query;
-    const controls=element("div","","wb-material-tools");controls.append(query,count);
+    const choose = element("input"); choose.type = "file"; choose.multiple = true; choose.hidden = true;
+    choose.setAttribute("aria-label", "选择材料文件");
+    choose.onchange = () => {
+      const files = Array.from(choose.files ?? []); choose.value = "";
+      if (this.disposed || epoch !== this.epoch || !choose.isConnected || !this.panel.visible) return;
+      void this.transfers.addFiles(files, rootUuid).catch(this.fail);
+    };
+    const addFileBtn = button("加入文件…", () => choose.click());
+    addFileBtn.className = "wb-material-add";
+    const controls=element("div","","wb-material-tools");controls.append(count,addFileBtn,choose);
     if(this.readerMenu)controls.append(this.readerMenu.root);
     this.body.prepend(controls);
     let searchEpoch = 0;
@@ -324,7 +333,11 @@ export class Materials {
         const owners=rootUuid?this.directories.sourceUuids(this.graph,rootUuid):[];
         const visible = rootUuid ? entries.filter(item => associationsOf(item).some(association => association.graph === this.graph && owners.includes(association.sourceUuid)) || related.has(item.id)||associated.materialIds.includes(item.id)) : entries;
         const linkedNotes=associated.notes.filter(note=>note.title.toLocaleLowerCase().includes(term.toLocaleLowerCase()));
-        count.textContent = visible.length+linkedNotes.length>0?`${visible.length+linkedNotes.length} 项`:"";
+        const totalCount = visible.length + linkedNotes.length;
+        count.textContent = totalCount > 0 ? `${totalCount} 项` : "暂无材料";
+        const showSearch = Boolean(term) || totalCount >= 4;
+        if (showSearch && !query.isConnected) controls.prepend(query);
+        else if (!showSearch && query.isConnected) query.remove();
         const views = await Promise.all(visible.map(item => service.read(item.id, false).catch(error => unavailableMaterialView(item, this.directories.hint(this.graph, item.id) ?? "", error))));
         if (ticket !== searchEpoch || epoch !== this.epoch) return;
         const rendered: HTMLElement[]=[];
@@ -347,25 +360,22 @@ export class Materials {
           rendered.push(entry);
         }
         this.transfers.prune(new Set(visible.map(item=>item.id)));
-        if(!rendered.length)rendered.push(element("p",term?"没有匹配的材料。":"还没有材料。可在下面加入文件。","wb-material-empty"));
+        if(!rendered.length && term)rendered.push(element("p","没有匹配的材料。","wb-material-empty"));
         const keep=new Set(rendered);for(const node of Array.from(results.children))if(!keep.has(node as HTMLElement))node.remove();
         let cursor=results.firstElementChild;for(const row of rendered){if(row!==cursor)results.insertBefore(row,cursor);cursor=row.nextElementSibling;}
-        drop.classList.toggle("wb-material-drop-compact",true);
+        drop.hidden = rendered.length > 0 || Boolean(term);
         this.message(service.listProblems.length ? `${visible.length} 份材料 · 部分目录暂不可读，已有关联保留。` : "");
       } catch (error) { if (epoch === this.epoch) { results.replaceChildren(element("p", error instanceof Error ? error.message : String(error))); this.fail(error); } }
     };
     let searchTimer:number|undefined;
     query.oninput=()=>{window.clearTimeout(searchTimer);searchTimer=window.setTimeout(()=>{if(epoch===this.epoch&&this.panel.visible)void search();},200);};
-    const choose = element("input"); choose.type = "file"; choose.multiple = true; choose.hidden = true;
-    choose.setAttribute("aria-label", "选择材料文件");
-    choose.onchange = () => {
-      const files = Array.from(choose.files ?? []); choose.value = "";
-      if (this.disposed || epoch !== this.epoch || !choose.isConnected || !this.panel.visible) return;
-      void this.transfers.addFiles(files, rootUuid).catch(this.fail);
-    };
-    drop.append(button("加入文件…", () => choose.click()), choose);
+    const folderOwner = context.ownerUuid ?? context.sourceUuid ?? rootUuid;
+    const explicitFolders = folderOwner ? this.directories.folders(this.graph, folderOwner) : [];
     const directory = element("details", "", "wb-material-directory-extra"), directoryBody = element("div");
-    directory.append(element("summary", "目录中的其他文件"), directoryBody); this.body.append(directory);
+    const folderLabel = explicitFolders.length > 0 ? `关联目录 · ${fileName(explicitFolders[0]!.directory)}` : "目录中的其他文件";
+    directory.append(element("summary", folderLabel), directoryBody);
+    directory.hidden = Boolean(rootUuid) && explicitFolders.length === 0;
+    this.body.append(directory);
     let directoryUI: Awaited<ReturnType<typeof renderMaterialDirectory>> | null = null, directoryTicket = 0;
     const positionKey = JSON.stringify([this.graph, context.ownerUuid ?? context.sourceUuid]);
     const toggleDirectory = () => {

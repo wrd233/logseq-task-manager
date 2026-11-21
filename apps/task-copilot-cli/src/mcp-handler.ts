@@ -11,9 +11,13 @@ import {
   type WorkRef,
 } from "@task-copilot/contracts";
 import {
+  buildNoteTidyPlanFromOperations,
   filterReadingMaterialsForLocality,
   isSensitiveMaterialName,
   readingTask,
+  type NoteTidyOperation,
+  type NoteTidySourceBlock,
+  type NoteTidyStructuralChange,
   type ReadingMaterialInput,
   type ReadingModelInput,
   type ReadingOrganizeOutput,
@@ -187,6 +191,19 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         labels: { type: "array", items: { type: "string" } },
         sourceSetVersion: { type: "string" },
         structureVersion: { type: "string" },
+        structuralChanges: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["group", "reorder", "merge", "insert"] },
+              description: { type: "string" },
+              sourceIds: { type: "array", items: { type: "string" } },
+            },
+            required: ["kind", "description"],
+            additionalProperties: false,
+          },
+        },
         operations: {
           type: "array",
           items: {
@@ -1049,6 +1066,7 @@ async function runTool(
       "labels",
       "sourceSetVersion",
       "structureVersion",
+      "structuralChanges",
       "operations",
       "patch",
       "stageId",
@@ -1135,6 +1153,71 @@ async function runTool(
         };
       });
 
+      const tidyBlocks: NoteTidySourceBlock[] = live.blocks
+        .filter((b) => b.availability === "available" && typeof b.content === "string" && typeof b.contentVersion === "string")
+        .map((b) => ({
+          sourceId: b.sourceId,
+          blockUuid: b.target.blockUuid,
+          parentUuid: b.parentUuid ?? null,
+          depth: b.depth ?? 0,
+          content: b.content!,
+          contentVersion: b.contentVersion!,
+        }));
+      const tidyOps: NoteTidyOperation[] = validatedOps.map((op) => {
+        if (op.type === "insert-child") {
+          return {
+            operationId: op.operationId,
+            type: "insert-child",
+            parentSourceId: op.sourceId,
+            parentBlockUuid: op.blockUuid,
+            expectedParentContentVersion: op.expectedContentVersion,
+            afterText: op.proposedText,
+          };
+        }
+        const afterText =
+          op.type === "insert-text" && op.range
+            ? op.beforeText.slice(0, op.range.start) + op.proposedText + op.beforeText.slice(op.range.start)
+            : op.type === "replace-text" && op.range
+              ? op.beforeText.slice(0, op.range.start) + op.proposedText + op.beforeText.slice(op.range.end)
+              : op.proposedText;
+        return {
+          operationId: op.operationId,
+          type: "replace-text",
+          sourceId: op.sourceId,
+          blockUuid: op.blockUuid,
+          expectedContentVersion: op.expectedContentVersion,
+          beforeText: op.beforeText,
+          afterText,
+          ...(op.range ? { range: op.range } : {}),
+        };
+      });
+      const structuralChanges: NoteTidyStructuralChange[] = [];
+      if (Array.isArray(args.structuralChanges)) {
+        for (const item of args.structuralChanges) {
+          const rec = workRecord(item, ["kind", "description", "sourceIds"]);
+          const k = workText(rec.kind, 32);
+          if (k !== "group" && k !== "reorder" && k !== "merge" && k !== "insert") {
+            throw new WorkspaceError("INVALID_INPUT", "无效的 structuralChanges.kind。");
+          }
+          structuralChanges.push({
+            kind: k,
+            description: workText(rec.description, 240),
+            sourceIds: Array.isArray(rec.sourceIds) ? rec.sourceIds.map((id) => workText(id, 4096)) : [],
+          });
+        }
+      }
+      const plan = buildNoteTidyPlanFromOperations({
+        sourceSetVersion: live.sourceSetVersion,
+        structureVersion: live.structureVersion,
+        summary,
+        blocks: tidyBlocks,
+        operations: tidyOps,
+        structuralChanges,
+        origin: "external-mcp",
+        providerId: `mcp:${clientId}`,
+        proposalId: proposalRequestId,
+      });
+
       const staged = await addWritebackProposal(ctx.stateDirectory, {
         proposalId: proposalRequestId,
         workKey: active.workKey,
@@ -1147,6 +1230,7 @@ async function runTool(
         writesSource: false,
         status: "pending-review",
         operations: validatedOps,
+        plan,
       });
 
       return {

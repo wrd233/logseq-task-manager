@@ -13,7 +13,7 @@ import {
   type AgentWorkScope,
   type WorkRef,
 } from "@task-copilot/contracts";
-import type { ReadingPrivacyMode } from "@task-copilot/reading-runtime";
+import type { NoteTidyPlan, ReadingPrivacyMode } from "@task-copilot/reading-runtime";
 import { createDshHandoff, dshReadingIntent, type DshMode, type DshReadingIntent } from "./dsh-handoff.ts";
 import { atomicJson } from "./workspace-files.ts";
 
@@ -93,6 +93,7 @@ export interface StagedWritebackProposal {
     proposedText: string;
     range?: { start: number; end: number };
   }>;
+  plan?: NoteTidyPlan;
 }
 
 export const collaborateConfigPath = (stateDir: string): string => join(stateDir, "collaborate.json");

@@ -18,6 +18,7 @@ import { OrdinaryTodoUI } from "../ordinary-todo/ui.ts";
 import { WritingFormatService } from "../writing-format/service.ts";
 import { WritingFormatUI } from "../writing-format/ui.ts";
 import { pageWorkIds } from "../../workspace/page-identity.ts";
+import type { NoteTidyInput, NoteTidyPlan, StagedWritebackProposalView } from "../note-tidy/types.ts";
 import type { CollaborateHandoffResult, CollaborateTargetId, CollaborateTargetsView, ReadingModelInput, ReadingHandoff, ReadingJobStartRequest, ReadingJobSnapshot, ReadingPrivacyMode, ReadingProvidersView } from "../work-view/reading-ai.ts";
 export function workspaceBindingPort(service: WorkspaceContextService): WorkspaceBindingPort {
     const witnesses=new WeakMap<AgentWorkBinding,()=>boolean>();
@@ -243,6 +244,22 @@ export function installAgentWorkspace(options: {
     const setWorkPrivacy=async(workKey:string,privacyMode:ReadingPrivacyMode,scope?:ScopeLease["scope"]):Promise<void>=>{
         const descriptor=await currentDescriptor();
         await post(descriptor,"/plugin/work-privacy",{workKey,privacyMode,...(scope?{scope}:{})},10000);
+    };
+    const runNoteTidy=async(input:{privacyMode:ReadingPrivacyMode;input:NoteTidyInput},signal?:AbortSignal):Promise<NoteTidyPlan>=>{
+        const epoch=graphGeneration,scope=input.input.scope;
+        const check=async()=>{const work=options.work?.readingAPI.read().scope;if(disposed||graphGeneration!==epoch||graphIdentity(await logseq.App.getCurrentGraph())!==scope.graphId||!work||!sameWorkScope(work,scope))throw new WorkspaceError("SCOPE_MISMATCH");};
+        await check();const {descriptor}=await readDescriptor(scope.graphId);await check();
+        const response=await post(descriptor,"/plugin/note-tidy",input,190000,signal);await check();
+        return response.value as NoteTidyPlan;
+    };
+    const listWritebackProposals=async(workKey:string):Promise<StagedWritebackProposalView[]>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/writeback-proposals",{action:"list",workKey},10000);
+        return ((response.value as {proposals?:StagedWritebackProposalView[]})?.proposals)??[];
+    };
+    const consumeWritebackProposal=async(proposalId:string,action:"consume"|"dismiss"="consume"):Promise<void>=>{
+        const descriptor=await currentDescriptor();
+        await post(descriptor,"/plugin/writeback-proposals",{action,proposalId},10000);
     };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)
@@ -470,7 +487,7 @@ export function installAgentWorkspace(options: {
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,runNoteTidy,listWritebackProposals,consumeWritebackProposal,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

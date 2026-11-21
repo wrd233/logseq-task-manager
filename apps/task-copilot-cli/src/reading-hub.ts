@@ -9,8 +9,11 @@ import {
   isProfileConfigured,
   parseReadingConfig,
   resolveSelectedProfile,
+  runNoteTidyTask,
   runReadingTask,
   sanitizeReadingProviders,
+  type NoteTidyInput,
+  type NoteTidyPlan,
   type ReadingModelInput,
   type ReadingParagraph,
   type ReadingPrivacyMode,
@@ -342,6 +345,31 @@ export class ReadingJobHub {
     } finally {
       this.schedulePersist();
     }
+  }
+
+  async runNoteTidy(raw: unknown, signal?: AbortSignal): Promise<NoteTidyPlan> {
+    await this.ensureLoaded();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new WorkspaceError("INVALID_INPUT");
+    }
+    const obj = raw as Record<string, unknown>;
+    const privacyMode: ReadingPrivacyMode = obj.privacyMode === "local-only" ? "local-only" : "default";
+    const role: ReadingRole | undefined =
+      obj.role === "fast" || obj.role === "deep" || obj.role === "local" ? obj.role : undefined;
+    const profileId = typeof obj.profileId === "string" && obj.profileId.trim() ? obj.profileId.trim() : undefined;
+    const core = (obj.input && typeof obj.input === "object" ? obj.input : obj) as NoteTidyInput;
+    const { config, dshAvailable, env } = await this.currentConfig();
+    return runNoteTidyTask({
+      input: core,
+      config,
+      env,
+      privacyMode,
+      ...(role ? { role } : {}),
+      ...(profileId ? { profileId } : {}),
+      ...(signal ? { signal } : {}),
+      fetchImpl: this.fetchImpl,
+      dshAvailable,
+    });
   }
 
   async startJob(raw: unknown): Promise<{ job: StagedReadingJob; deduplicated: boolean }> {

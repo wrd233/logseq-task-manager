@@ -11,6 +11,10 @@ import { renderMarkdown } from "./markdown.ts";
 import type { ReadingMaterial } from "./reading-layout.ts";
 import type { WorkViewReport } from "./report-controller.ts";
 import { pageWorkIds } from "../../workspace/page-identity.ts";
+import { applyNoteTidyPlan, buildNoteTidyInputFromSnapshot } from "../note-tidy/executor.ts";
+import { NoteTidyPreviewOverlay } from "../note-tidy/preview-ui.ts";
+import { listTidySnapshots, undoTidySnapshot, type TidySnapshotRecord } from "../note-tidy/snapshots.ts";
+import type { NoteTidyInput, NoteTidyPlan, StagedWritebackProposalView } from "../note-tidy/types.ts";
 
 type Mode = "organize" | "ask" | "rewrite";
 export type ReadingPrivacyMode = "default" | "local-only";
@@ -114,6 +118,9 @@ export interface ReadingAiPort {
   collaborateTargets?(): Promise<CollaborateTargetsView>;
   selectCollaborateTarget?(target: CollaborateTargetId): Promise<CollaborateTargetsView>;
   setWorkPrivacy?(workKey: string, privacyMode: ReadingPrivacyMode, scope?: SourceScope): Promise<void>;
+  noteTidy?(input: { privacyMode: ReadingPrivacyMode; input: NoteTidyInput }, signal?: AbortSignal): Promise<NoteTidyPlan>;
+  listWritebackProposals?(workKey: string): Promise<StagedWritebackProposalView[]>;
+  consumeWritebackProposal?(proposalId: string, action?: "consume" | "dismiss"): Promise<void>;
 }
 
 interface Selection { text: string; uuid?: string }
@@ -124,6 +131,8 @@ interface State {
   selection: Selection | null;
   answer: Answer | null;
   handoffReceipt: CollaborateHandoffResult | null;
+  proposals: StagedWritebackProposalView[];
+  lastTidySnapshot: TidySnapshotRecord | null;
   busy: boolean;
   notice: string;
   confirm: boolean;
@@ -141,6 +150,8 @@ const initial = (automatic = false, localOnly = false): State => ({
   selection: null,
   answer: null,
   handoffReceipt: null,
+  proposals: [],
+  lastTidySnapshot: null,
   busy: false,
   notice: "",
   confirm: false,
@@ -169,6 +180,10 @@ const text = (error: unknown) => {
     READING_BACKGROUND_BUDGET_PAUSED: "后台自动修订已达配额上限，暂不自动触发；你仍可手动更新文章或提问。",
     READING_CONFIG_NOT_PRIVATE: "providers.json 权限不安全，请将其设为仅当前用户可读写（chmod 600）。",
     READING_CONFIG_INVALID: "工作台模型配置 providers.json 格式有误，请检查后重试。",
+    NOTE_TIDY_DIRECT_MODEL_REQUIRED: "原地整理左侧笔记需要直连模型 Profile（如 DeepSeek 或本地 Ollama），请切换模型或通过外部 Agent 回流。",
+    NOTE_TIDY_SOURCE_REQUIRED: "当前范围内没有可整理的笔记块。",
+    NOTE_TIDY_OUTPUT_INVALID: "未收到可用的原地整理方案，原笔记未改动，请重试。",
+    PROTECTED_TARGET_FORBIDDEN: "当前范围包含受保护的 TODO、正式对象或属性块，已保持原样未修改。",
     DSH_NOT_RUNNING: "请启动 DSH（或在工作台配置直连模型）。",
     PLUGIN_DESCRIPTOR_REQUIRED: "请先启动工作台服务（Companion）。",
     READING_MATERIAL_SCOPE_CHANGED: "关联材料已变化，请重新读取后再试。",
@@ -199,6 +214,7 @@ function ordinary(block: BlockSnapshot, scope: SourceScope): boolean {
 export class WorkReadingAI {
   readonly root = element("section", "", "wb-reading-ai");
   private readonly organize: HTMLButtonElement;
+  private readonly tidyLeft: HTMLButtonElement;
   private readonly toggle: HTMLButtonElement;
   private readonly form = element("div", "", "wb-ai-form");
   private readonly selectionLabel = element("div", "", "wb-ai-selection");
@@ -207,6 +223,7 @@ export class WorkReadingAI {
   private readonly optionsBar = element("div", "", "wb-ai-options");
   private readonly status = element("div", "", "wb-ai-status");
   private readonly handoffReady = element("div", "", "wb-ai-handoff-ready");
+  private readonly undoBar = element("div", "", "wb-ai-undo-bar");
   private readonly result = element("div", "", "wb-ai-result");
   private readonly ask: HTMLButtonElement;
   private readonly rewrite: HTMLButtonElement;
@@ -217,7 +234,9 @@ export class WorkReadingAI {
   private readonly providerSelect: HTMLSelectElement;
   private readonly targetSelect: HTMLSelectElement;
   private readonly candidateButton: HTMLButtonElement;
+  private readonly writebackButton: HTMLButtonElement;
   private readonly candidateBox = element("section", "", "wb-ai-candidate");
+  private readonly tidyOverlay: NoteTidyPreviewOverlay;
   private candidateFocus: HTMLElement | null = null;
   private candidateSignature = "";
   private providersView: ReadingProvidersView | null = null;
@@ -245,7 +264,9 @@ export class WorkReadingAI {
     private readonly actions: { locate(uuid: string): void; material(id: string): void; refresh(): Promise<void> }
   ) {
     const bar = element("div", "", "wb-ai-bar");
-    this.organize = button("整理文章", () => void this.run("organize", !!this.state.question.trim()));
+    this.organize = button("整理阅读文章", () => void this.run("organize", !!this.state.question.trim()));
+    this.tidyLeft = button("整理左侧笔记", () => void this.tidyLeftNotes());
+    this.tidyLeft.title = "原地整理左侧普通笔记（保留上下文与链接，不套 AI 外壳，预览动效确认后再落盘）";
     this.toggle = button("AI 助手", () => {
       this.state.open = !this.state.open;
       if (this.state.open) {
@@ -263,13 +284,23 @@ export class WorkReadingAI {
     this.cancel = button("取消", () => void this.cancelActiveJob());
     this.cancel.setAttribute("aria-label", "取消 AI 阅读任务");
     this.candidateButton = button("待采用修订", () => this.reviewCandidate(this.candidateButton));
+    this.writebackButton = button("待审原文改动", () => this.openWritebackReview());
+    this.writebackButton.className = "wb-ai-writeback";
+    this.writebackButton.hidden = true;
     this.handoff = button("在 DSH 继续", () => void this.continueCollaborate());
     this.handoff.className = "wb-ai-handoff";
     this.handoff.title = "带上本次阅读和请求，交接到当前协作目标继续";
     this.handoff.onpointerdown = (event) => { this.pointerSelection = selectedText(); event.preventDefault(); };
-    bar.append(this.toggle, this.cancel, this.candidateButton, this.handoff);
+    bar.append(this.toggle, this.cancel, this.candidateButton, this.writebackButton, this.handoff);
     this.handoffReady.hidden = true;
-    this.root.append(bar, this.form, this.status, this.handoffReady, this.candidateBox);
+    this.undoBar.hidden = true;
+    this.tidyOverlay = new NoteTidyPreviewOverlay({
+      onApply: async (plan, overrides) => this.applyTidyPlan(plan, overrides),
+      onDismissProposal: async (proposalId) => this.dismissProposal(proposalId),
+      onUndoSnapshot: async (snapshot) => this.undoSnapshot(snapshot),
+      getBlock: (uuid) => logseq.Editor.getBlock(uuid),
+    });
+    this.root.append(bar, this.form, this.status, this.handoffReady, this.undoBar, this.candidateBox, this.tidyOverlay.root);
     this.status.setAttribute("role", "status");
     this.input.rows = 2;
     this.input.placeholder = "问当前工作，或说明希望怎样整理";
@@ -284,7 +315,7 @@ export class WorkReadingAI {
     };
     this.ask = button("提问", () => void this.run("ask", true));
     this.rewrite = button("改写选中原块", () => void this.run("rewrite", true));
-    this.tools.append(this.organize, this.ask, this.rewrite);
+    this.tools.append(this.organize, this.tidyLeft, this.ask, this.rewrite);
 
     const autoLabel = element("label", "", "wb-ai-auto");
     this.auto = element("input");
@@ -469,9 +500,239 @@ export class WorkReadingAI {
   }
 
   private onWindowFocus = (): void => {
-    if (this.disposed || !this.visible || !this.scope || !this.key || this.state.busy || !this.port.jobStatus) return;
-    void this.reconcileStagedJob(this.scope, this.state, this.key);
+    if (this.disposed || !this.visible || !this.scope || !this.key || this.state.busy) return;
+    if (this.port.jobStatus) void this.reconcileStagedJob(this.scope, this.state, this.key);
+    if (this.port.listWritebackProposals) void this.reconcileWritebackProposals(this.scope, this.state, this.key);
   };
+
+  private paintUndoBar(): void {
+    const snap = this.state.lastTidySnapshot;
+    this.undoBar.replaceChildren();
+    this.undoBar.hidden = !snap || snap.undone === true;
+    if (!snap || snap.undone) return;
+    this.undoBar.append(
+      element("span", `已原地整理左侧笔记（${snap.blocks.length + snap.inserted.length} 处）`),
+      button("撤销整理", () => {
+        void this.undoSnapshot(snap).then((res) => {
+          if (!res.restored) {
+            this.state.notice = res.reason ?? "已续写新内容，请从整理前快照查阅复制。";
+            this.paint();
+            void this.openTidySnapshots();
+          }
+        }).catch((error) => {
+          this.state.notice = text(error);
+          this.paint();
+        });
+      }),
+      button("查看整理前快照", () => void this.openTidySnapshots()),
+      button("×", () => {
+        this.state.lastTidySnapshot = null;
+        this.paintUndoBar();
+      })
+    );
+  }
+
+  private async reconcileWritebackProposals(scope: SourceScope, state: State, workKey: string): Promise<void> {
+    if (!this.port.listWritebackProposals || this.disposed || !this.same(scope, state)) return;
+    try {
+      const proposals = await this.port.listWritebackProposals(workKey);
+      if (!this.same(scope, state) || this.disposed) return;
+      state.proposals = proposals;
+      this.paintControls();
+    } catch {
+      // Companion offline: never disrupt reading.
+    }
+  }
+
+  private fallbackPlanFromProposal(proposal: StagedWritebackProposalView): NoteTidyPlan {
+    const beforeBlocks = proposal.operations.map((op) => ({
+      id: op.sourceId,
+      sourceId: op.sourceId,
+      blockUuid: op.blockUuid,
+      parentId: null,
+      depth: 0,
+      content: op.beforeText,
+      protected: false,
+      changed: false,
+    }));
+    const afterBlocks = proposal.operations.map((op) => ({
+      id: op.type === "insert-child" ? `new:${op.operationId}` : op.sourceId,
+      sourceId: op.type === "insert-child" ? null : op.sourceId,
+      blockUuid: op.type === "insert-child" ? null : op.blockUuid,
+      parentId: op.type === "insert-child" ? op.sourceId : null,
+      depth: op.type === "insert-child" ? 1 : 0,
+      content: op.proposedText,
+      protected: false,
+      changed: true,
+    }));
+    return {
+      schemaVersion: 1,
+      summary: proposal.summary,
+      sourceSetVersion: proposal.sourceSetVersion,
+      structureVersion: proposal.structureVersion,
+      hasExistingStructure: false,
+      structuralChanges: [],
+      operations: proposal.operations.map((op) =>
+        op.type === "insert-child"
+          ? {
+              operationId: op.operationId,
+              type: "insert-child",
+              parentSourceId: op.sourceId,
+              parentBlockUuid: op.blockUuid,
+              expectedParentContentVersion: op.expectedContentVersion,
+              afterText: op.proposedText,
+            }
+          : {
+              operationId: op.operationId,
+              type: "replace-text",
+              sourceId: op.sourceId,
+              blockUuid: op.blockUuid,
+              expectedContentVersion: op.expectedContentVersion,
+              beforeText: op.beforeText,
+              afterText: op.proposedText,
+              ...(op.range ? { range: op.range } : {}),
+            }
+      ),
+      beforeBlocks,
+      afterBlocks,
+      anchors: [],
+      omittedAnchorIds: [],
+      protectedBlockCount: 0,
+      meta: { origin: "external-mcp", providerId: `mcp:${proposal.clientId}`, proposalId: proposal.proposalId },
+    };
+  }
+
+  private openWritebackReview(): void {
+    const latest = this.state.proposals.at(-1);
+    if (!latest) return;
+    const plan = latest.plan ?? this.fallbackPlanFromProposal(latest);
+    this.tidyOverlay.openPlan(plan, { proposalId: latest.proposalId, anchor: this.writebackButton });
+  }
+
+  async openTidySnapshots(): Promise<void> {
+    if (!this.key) return;
+    const snapshots = listTidySnapshots(this.key);
+    await this.tidyOverlay.openSnapshots(snapshots, this.toggle);
+  }
+
+  private async settleNativeEditing(): Promise<void> {
+    if (await logseq.Editor.checkEditing()) {
+      await logseq.Editor.exitEditingMode?.(false).catch(() => undefined);
+      await this.actions.refresh().catch(() => undefined);
+    }
+  }
+
+  async tidyLeftNotes(targetRootUuid?: string): Promise<void> {
+    const scope = this.scope, state = this.state;
+    if (!scope || state.busy) return;
+    if (!this.port.noteTidy) {
+      state.notice = "当前环境未连接 Companion 原地整理服务。";
+      this.paint();
+      return;
+    }
+    const job = new AbortController();
+    state.busy = true;
+    state.job = job;
+    state.notice = "正在整理左侧笔记并提取关键信息锚点…";
+    this.paint();
+    let requestId: string | undefined;
+    try {
+      await this.settleNativeEditing();
+      const requested = await this.reading.request({ schemaVersion: 1, purpose: "原地整理左侧笔记" });
+      if (!requested.ok) throw new Error(requested.reason);
+      requestId = requested.value.requestId;
+      if (!this.same(scope, state)) throw new Error("scope-mismatch");
+      job.signal.throwIfAborted();
+      const targetUuid = targetRootUuid ?? state.selection?.uuid;
+      const input = buildNoteTidyInputFromSnapshot(requested.value.source, {
+        ...(state.question.trim() ? { instruction: state.question.trim() } : {}),
+        ...(targetUuid ? { targetRootUuid: targetUuid } : {}),
+      });
+      const plan = await this.port.noteTidy(
+        { privacyMode: state.localOnly ? "local-only" : "default", input },
+        job.signal
+      );
+      if (!this.same(scope, state)) throw new Error("scope-mismatch");
+      job.signal.throwIfAborted();
+      if (!plan.operations.length) {
+        state.notice = "当前笔记已经很清晰，无需改动。";
+      } else {
+        state.notice = "";
+        this.tidyOverlay.openPlan(plan, { anchor: this.tidyLeft });
+      }
+    } catch (error) {
+      state.notice = job.signal.aborted ? "已取消；原笔记未改动。" : text(error);
+    } finally {
+      if (requestId) this.reading.cancel(requestId);
+      state.busy = false;
+      state.job = null;
+      if (this.same(scope, state)) this.paint();
+    }
+  }
+
+  private async applyTidyPlan(plan: NoteTidyPlan, overrides: ReadonlyMap<string, string>): Promise<void> {
+    const scope = this.scope, state = this.state, workKey = this.key;
+    if (!scope || !workKey) throw new Error("当前工作不可用。");
+    if (await logseq.Editor.checkEditing()) {
+      await logseq.Editor.exitEditingMode?.(false).catch(() => undefined);
+    }
+    const { appliedCount, snapshot } = await applyNoteTidyPlan({
+      workKey,
+      scope,
+      plan,
+      overrides,
+      checkActive: async () => {
+        if (!this.same(scope, state) || this.disposed) throw new Error("工作已切换，已安全取消落盘。");
+      },
+    });
+    if (plan.meta.proposalId && this.port.consumeWritebackProposal) {
+      await this.port.consumeWritebackProposal(plan.meta.proposalId, "consume").catch(() => undefined);
+      state.proposals = state.proposals.filter((p) => p.proposalId !== plan.meta.proposalId);
+    }
+    state.lastTidySnapshot = snapshot;
+    state.notice = `已将 ${appliedCount} 处整理应用到左侧原块；未续写前可随时一键撤销。`;
+    await this.actions.refresh();
+    if (this.same(scope, state)) this.paint();
+  }
+
+  private async dismissProposal(proposalId: string): Promise<void> {
+    if (this.port.consumeWritebackProposal) {
+      await this.port.consumeWritebackProposal(proposalId, "dismiss");
+    }
+    this.state.proposals = this.state.proposals.filter((p) => p.proposalId !== proposalId);
+    this.state.notice = "已忽略该外部原文改动提案；原块未改动。";
+    this.paint();
+  }
+
+  private async undoSnapshot(snapshot: TidySnapshotRecord): Promise<{ restored: boolean; reason?: string }> {
+    const scope = this.scope, state = this.state;
+    if (!scope) return { restored: false, reason: "当前工作不可用。" };
+    if (await logseq.Editor.checkEditing()) {
+      await logseq.Editor.exitEditingMode?.(false).catch(() => undefined);
+    }
+    const result = await undoTidySnapshot(snapshot, {
+      checkSafe: async () => {
+        if (!this.same(scope, state) || this.disposed) throw new Error("工作已切换，已取消撤回。");
+        if (graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId || (await logseq.Editor.checkEditing())) {
+          throw new Error("请先结束原生输入并保持在当前工作，再撤销整理。");
+        }
+      },
+      getBlock: (uuid) => logseq.Editor.getBlock(uuid),
+      updateBlock: (uuid, content) => logseq.Editor.updateBlock(uuid, content),
+      ...(typeof logseq.Editor.removeBlock === "function"
+        ? { removeBlock: (uuid: string) => logseq.Editor.removeBlock(uuid) }
+        : {}),
+    });
+    if (result.restored) {
+      if (state.lastTidySnapshot?.snapshotId === snapshot.snapshotId) {
+        state.lastTidySnapshot = { ...snapshot, undone: true };
+      }
+      state.notice = "已一键撤销刚才的原地整理，原块已无损恢复。";
+      await this.actions.refresh();
+      if (this.same(scope, state)) this.paint();
+    }
+    return result;
+  }
 
   private async switchProvider(profileId: string): Promise<void> {
     if (!this.port.selectRoute || !profileId) return;
@@ -523,6 +784,7 @@ export class WorkReadingAI {
       this.clearTimers();
       this.clearPollTimer();
       this.state.review = false;
+      this.tidyOverlay.close();
       this.candidateSignature = "";
       this.key = key;
       const previous = this.states.get(key);
@@ -540,6 +802,9 @@ export class WorkReadingAI {
     this.hasBriefing = hasBriefing;
     if (scope && visible && (keyChanged || !wasVisible) && this.port.jobStatus) {
       void this.reconcileStagedJob(scope, this.state, key);
+    }
+    if (scope && visible && (keyChanged || !wasVisible) && this.port.listWritebackProposals) {
+      void this.reconcileWritebackProposals(scope, this.state, key);
     }
     if (scope && visible && !this.targetsView && this.port.collaborateTargets) {
       void this.loadCollaborateTargets();
@@ -559,11 +824,17 @@ export class WorkReadingAI {
     const question = !!this.state.question.trim();
     this.ask.disabled = this.state.busy || blocked || !question;
     this.rewrite.disabled = this.handoff.disabled = this.state.busy || blocked;
-    this.organize.textContent = question ? "按要求整理" : this.hasBriefing ? "更新文章" : "整理文章";
+    this.organize.textContent = question ? "按要求整理阅读" : this.hasBriefing ? "更新阅读文章" : "整理阅读文章";
+    this.tidyLeft.disabled = this.state.busy || blocked || !this.port.noteTidy;
+    this.tidyLeft.hidden = !this.port.noteTidy;
     this.rewrite.hidden = !this.state.selection?.uuid;
     this.organize.disabled = this.state.busy || blocked;
     this.toggle.setAttribute("aria-expanded", String(this.state.open));
     this.cancel.hidden = !this.state.job && !this.state.activeJobId;
+    this.writebackButton.hidden = !this.state.proposals.length;
+    if (this.state.proposals.length) {
+      this.writebackButton.textContent = `待审原文改动（${this.state.proposals.length}）`;
+    }
     this.auto.checked = this.state.automatic;
     this.localOnlyInput.checked = this.state.localOnly;
     this.paintProviderSelect();
@@ -575,6 +846,7 @@ export class WorkReadingAI {
     this.status.textContent = this.state.notice;
     this.paintControls();
     this.paintHandoffReceipt();
+    this.paintUndoBar();
     this.selectionLabel.replaceChildren();
     if (this.state.selection) {
       this.selectionLabel.append(
@@ -779,6 +1051,7 @@ export class WorkReadingAI {
       this.paint();
       let requestId: string | undefined;
       try {
+        if (!background) await this.settleNativeEditing();
         const requested = await this.reading.request({ schemaVersion: 1, purpose: progressivePurpose, planId });
         if (!requested.ok) throw new Error(requested.reason);
         const { source, materials, previous, changes } = requested.value;
@@ -845,6 +1118,7 @@ export class WorkReadingAI {
     this.paint();
     let requestId: string | undefined;
     try {
+      if (!background) await this.settleNativeEditing();
       const requested = await this.reading.request({ schemaVersion: 1, purpose: mode === "organize" ? progressivePurpose : "用户对当前工作提问", ...(mode === "organize" ? { planId } : {}) });
       if (!requested.ok) throw new Error(requested.reason);
       const { source, materials, previous, changes } = requested.value;
@@ -1072,6 +1346,7 @@ export class WorkReadingAI {
     this.disposed = true;
     this.clearTimers();
     this.clearPollTimer();
+    this.tidyOverlay.dispose();
     window.removeEventListener("resize", this.positionCandidate);
     window.removeEventListener("focus", this.onWindowFocus);
     for (const state of this.states.values()) state.job?.abort();
@@ -1174,6 +1449,7 @@ export class WorkReadingAI {
     this.paint();
     let requestId: string | undefined;
     try {
+      await this.settleNativeEditing();
       const requested = await this.reading.request({ schemaVersion: 1, purpose: "继续当前工作" });
       if (!requested.ok) throw new Error(requested.reason);
       requestId = requested.value.requestId;
@@ -1199,11 +1475,21 @@ export class WorkReadingAI {
         window.setTimeout(() => { if (state.notice === notice) { state.notice = ""; if (this.same(scope, state) && !this.disposed) this.paint(); } }, 8000);
       } else {
         state.handoffReceipt = handoffResult;
-        if (handoffResult.target === "clipboard" && handoffResult.handoffPrompt) {
-          await copyMaterialLink(handoffResult.handoffPrompt).catch(() => undefined);
-          state.notice = "已暂存交接上下文并复制指令，粘贴给外部 Agent 即可继续。";
+        if (handoffResult.handoffPrompt) {
+          let copied = false;
+          try {
+            await copyMaterialLink(handoffResult.handoffPrompt);
+            copied = true;
+          } catch {
+            copied = false;
+          }
+          state.notice = copied
+            ? handoffResult.target === "clipboard"
+              ? "已暂存交接上下文并自动复制指令，粘贴给外部 Agent 即可继续。"
+              : `已暂存 ${handoffResult.targetLabel} 交接上下文并自动复制指令；可直接粘贴或打开工作目录继续。`
+            : `已暂存 ${handoffResult.targetLabel} 交接上下文；请点击下方「复制交接指令」后粘贴继续。`;
         } else {
-          state.notice = `已暂存 ${handoffResult.targetLabel} 交接上下文；可一键复制指令或打开工作目录。`;
+          state.notice = `已暂存 ${handoffResult.targetLabel} 交接上下文；可打开工作目录继续。`;
         }
       }
     } catch (error) {

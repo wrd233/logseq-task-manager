@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   if (logseq.settings?.tasksEnabled !== false && await pluginRuntime.configured()) {
     try {await activateTasks();} catch(error){pluginRuntime.stop();report(error);}
   }
-  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
+  logseq.provideStyle("body.tc-sidebar-docked #main-content-container{margin-right:var(--tc-sidebar-width)}body.tc-sidebar-docked .ui__notifications{right:var(--tc-sidebar-width)!important;width:auto!important;max-width:calc(100vw - var(--tc-sidebar-width))!important}body.tc-sidebar-compact #main-content-container{opacity:0;pointer-events:none}");
   if (materials && work) materials.setWorkChrome((surface, scope) => work!.mountMaterialChrome(surface, scope), scope => work!.rememberMaterials(scope), uuid => work!.materialContext(uuid));
   const actions: Record<string, () => void> = {};
   if (work) actions["找工作"] = () => void workSearch?.open().catch(report);
@@ -187,6 +187,9 @@ async function main(): Promise<void> {
       collaborateTargets:()=>agentWorkspace!.local.collaborateTargets(),
       selectCollaborateTarget:target=>agentWorkspace!.local.selectCollaborateTarget(target),
       setWorkPrivacy:(workKey,privacyMode,scope)=>agentWorkspace!.local.setWorkPrivacy(workKey,privacyMode,scope),
+      noteTidy:(input,signal)=>agentWorkspace!.local.runNoteTidy(input,signal),
+      listWritebackProposals:workKey=>agentWorkspace!.local.listWritebackProposals(workKey),
+      consumeWritebackProposal:(proposalId,action)=>agentWorkspace!.local.consumeWritebackProposal(proposalId,action),
     });
   }
   setDshObjectEntry(async scope=>{await agentWorkspace!.local.openWork(scope,"continue",false,undefined,"dsh");});
@@ -219,7 +222,9 @@ async function main(): Promise<void> {
       ...(!page&&connected?[{group:"授权与恢复",label:"允许维护普通 TODO",run:()=>agentWorkspace!.local.allowTodo()}]:[]),
       ...(!page?[{group:"授权与恢复",label:"允许润色并整理原块",run:()=>agentWorkspace!.local.connect(root,true)},
         {group:"授权与恢复",label:"检查写回冲突",run:()=>content!.local.recovery(root)},
-        {group:"维护",label:"核对行首格式",run:()=>agentWorkspace!.local.format(root)}]:[]),
+        {group:"维护",label:"查看整理前原文快照",run:()=>work!.openTidySnapshots()},
+        {group:"维护",label:"核对行首格式",run:()=>agentWorkspace!.local.format(root)}]:[
+        {group:"维护",label:"查看整理前原文快照",run:()=>work!.openTidySnapshots()}]),
       ...(connected?[{group:"授权与恢复",label:"停止本次连接",run:()=>agentWorkspace!.local.stop()}]:[]),
     ];
   });
@@ -228,6 +233,8 @@ async function main(): Promise<void> {
     open: async (uuid?: string) => { requireActive(); await work?.open(uuid); },
     openPage: async (name?: string) => {requireActive();await work?.openPage(name);},
     openMaterial: async (id: string) => { requireActive(); await materials?.openDoc(id, currentWorkRoot()); },
+    tidyNotes: async (targetRootUuid?: string) => { requireActive(); await work?.tidyNotes(targetRootUuid); },
+    openTidySnapshots: async () => { requireActive(); await work?.openTidySnapshots(); },
     close: async () => { if (!disposed) await panels.closeActive(); },
     apply: (operation: unknown) => disposed ? {ok: false, reason: "workbench-disposed"} : work?.apply(operation) ?? {ok: false, reason: "work-view-disabled"},
     workspace: workspace.api,

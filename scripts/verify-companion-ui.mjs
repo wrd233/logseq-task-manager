@@ -13,7 +13,7 @@ import { startWorkspaceServer } from "../apps/task-copilot-cli/src/workspace-ser
 import { loadReadingConfig, loadReadingEnv, saveReadingConfig, secretsEnvPath } from "../apps/task-copilot-cli/src/reading-hub.ts";
 import { workKeyForScope } from "../apps/task-copilot-cli/src/collaborate.ts";
 import { renderMcpClientConfig } from "../apps/task-copilot-cli/src/mcp-stdio.ts";
-import { testProviderProfile } from "@task-copilot/reading-runtime";
+import { buildNoteTidyPlanFromOperations, detectBlockProtection, testProviderProfile } from "@task-copilot/reading-runtime";
 
 const PORT = Number(process.env.VERIFY_PORT ?? 47920);
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
@@ -75,12 +75,17 @@ const mcpLongDoc = `${mcpFiller}\n\n---\n【附件末尾定位信息】\n现场�
 const mcpEnvSecret = "DB_PASSWORD=FAKE_SECRET_DO_NOT_LEAK_999\nSTRIPE_SECRET=SHOULD_NEVER_APPEAR";
 const mcpAssocNote = "关联周会纪要：客户端必须在修完冷启动白屏后再锁定发布窗口。";
 
+const INITIAL_BLOCK_1 = "登录态迁移已完成 80%，但冷启动白屏尚未在低内存设备复现（关联 [[缓存方案对比]]，现场编号 QPA-9472）。";
+const INITIAL_BLOCK_2 = "TODO 明天上午找测试同学复现低内存白屏日志，并核对附件编号。";
+const INITIAL_BLOCK_3 = "[想法] 离线缓存清理待比较方案 A（重建索引）和方案 B（增量清理），感觉老索引加载慢导致低端机还有 120ms 偶发抖动，回头把结论和 ((00000000-0000-4000-8000-000000000099)) 串起来，另外值班复核窗口是 14:00-16:00。";
+
 let mcpSourceRevision = 1;
 let mcpPrivacyMode = "default";
 let mcpRawWrites = 0;
-let mcpBlock1 = "登录态迁移已完成 80%，但冷启动白屏尚未在低内存设备复现。";
-const mcpBlock2 = "TODO 明天上午找测试同学复现低内存白屏日志，并核对附件编号。";
-const mcpBlock3 = "[想法] 离线缓存清理待比较方案 A（重建索引）和方案 B（增量清理）。";
+let mcpBlock1 = INITIAL_BLOCK_1;
+const mcpBlock2 = INITIAL_BLOCK_2;
+let mcpBlock3 = INITIAL_BLOCK_3;
+const tidySnapshots = [];
 
 let mcpCurrentArticle = {
   paragraphs: [
@@ -539,6 +544,332 @@ async function runMcpCheck(id) {
 }
 
 // ============================================================================
+// Phase 3 In-Place Note Tidying + FLIP Preview + Safe Undo + MCP Return Loop
+// ============================================================================
+function getLiveBlockContent(sourceId) {
+  if (sourceId === "src-a-1") return mcpBlock1;
+  if (sourceId === "src-a-2") return mcpBlock2;
+  if (sourceId === "src-a-3") return mcpBlock3;
+  return null;
+}
+
+function setLiveBlockContent(sourceId, nextText) {
+  if (sourceId === "src-a-1") {
+    mcpBlock1 = nextText;
+    return true;
+  }
+  if (sourceId === "src-a-3") {
+    mcpBlock3 = nextText;
+    return true;
+  }
+  return false;
+}
+
+function toTidySourceBlocks(snapshot) {
+  return snapshot.blocks.map((block) => {
+    const protection = detectBlockProtection(block.content);
+    return {
+      sourceId: block.sourceId,
+      blockUuid: block.target.blockUuid,
+      parentUuid: block.parentUuid ?? null,
+      depth: block.depth ?? 0,
+      content: block.content,
+      contentVersion: block.contentVersion,
+      protected: protection.protected,
+      ...(protection.reason ? { protectedReason: protection.reason } : {}),
+    };
+  });
+}
+
+function computeSnapshotUndoStatus(snapshotRecord) {
+  if (snapshotRecord.undone) {
+    return { canUndo: false, reason: "已撤销。" };
+  }
+  for (const item of snapshotRecord.blocks) {
+    const live = getLiveBlockContent(item.sourceId);
+    if (live === null) {
+      return { canUndo: false, reason: "目标原块已不存在，已切换为只读快照。" };
+    }
+    if (sha(live) !== item.afterVersion) {
+      return {
+        canUndo: false,
+        reason: "你已在整理后的原块上继续写作，为保护新笔记已阻止覆盖还原；请直接从快照查阅或复制原句。",
+      };
+    }
+  }
+  return { canUndo: true };
+}
+
+async function getTidyDashboardState() {
+  const snapshot = makeMcpSnapshot();
+  const blocks = toTidySourceBlocks(snapshot);
+  const proposalsRes = await postCompanion("/plugin/writeback-proposals", { action: "list", workKey: workAKey });
+  const proposals = proposalsRes.data.value?.proposals ?? [];
+  return {
+    workKey: workAKey,
+    title: "Q4 客户端重构与机房交接",
+    sourceSetVersion: snapshot.sourceSetVersion,
+    structureVersion: snapshot.structureVersion,
+    privacyMode: mcpPrivacyMode,
+    hasLiveModelKey: Boolean(configuredKeyMask),
+    blocks,
+    proposals,
+    snapshots: tidySnapshots.map((snap, idx) => {
+      const undoCheck = idx === 0 ? computeSnapshotUndoStatus(snap) : { canUndo: false, reason: "仅最近一次整理支持一键撤销。" };
+      return { ...snap, ...undoCheck };
+    }),
+  };
+}
+
+function buildDemoNoteTidyPlan({ simulateOmission = false } = {}) {
+  const snapshot = makeMcpSnapshot();
+  const blocks = toTidySourceBlocks(snapshot);
+  const b1 = blocks.find((b) => b.sourceId === "src-a-1");
+  const b3 = blocks.find((b) => b.sourceId === "src-a-3");
+
+  const nextB1 =
+    "进展与阻塞：登录态迁移已完成 80%，当前阻塞在低内存设备上的冷启动白屏复现（参考 [[缓存方案对比]]，现场编号 QPA-9472）。";
+  const nextB3 = simulateOmission
+    ? "[想法] 离线缓存清理方案对比：待在方案 A（重建索引）与方案 B（增量清理）间定型，需结合 ((00000000-0000-4000-8000-000000000099)) 核对老索引加载瓶颈，并于工作日 14:00-16:00 值班复核窗口前收口。"
+    : "[想法] 离线缓存清理方案对比：待在方案 A（重建索引）与方案 B（增量清理）间定型；结合 ((00000000-0000-4000-8000-000000000099)) 排查老索引加载慢及低端机 120ms 偶发抖动，于工作日 14:00-16:00 值班复核窗口前收口。";
+
+  const operations = [];
+  if (b1 && b1.content !== nextB1) {
+    operations.push({
+      operationId: "demo-tidy-1",
+      type: "replace-text",
+      sourceId: b1.sourceId,
+      blockUuid: b1.blockUuid,
+      expectedContentVersion: b1.contentVersion,
+      beforeText: b1.content,
+      afterText: nextB1,
+    });
+  }
+  if (b3 && b3.content !== nextB3) {
+    operations.push({
+      operationId: "demo-tidy-3",
+      type: "replace-text",
+      sourceId: b3.sourceId,
+      blockUuid: b3.blockUuid,
+      expectedContentVersion: b3.contentVersion,
+      beforeText: b3.content,
+      afterText: nextB3,
+    });
+  }
+
+  return buildNoteTidyPlanFromOperations({
+    sourceSetVersion: snapshot.sourceSetVersion,
+    structureVersion: snapshot.structureVersion,
+    summary: simulateOmission
+      ? "演示「遗漏重点告警」：特意漏掉 120ms 指标，观察上方暖色告警与整理前虚线标注。"
+      : "原地梳理普通笔记块：保留原思路、[[缓存方案对比]]、((块引用)) 与全部关键指标；TODO 块受硬保护原样不动。",
+    blocks,
+    operations,
+    structuralChanges: [
+      {
+        kind: "group",
+        description: "保持原大纲 3 条层级不变，仅在普通块内部理顺因果语序并提前核心结论，方便直接续写",
+        sourceIds: ["src-a-1", "src-a-3"],
+      },
+    ],
+    anchors: [
+      {
+        label: "冷启动白屏",
+        category: "blocker",
+        before: { sourceId: "src-a-1", exactText: "冷启动白屏" },
+        after: { targetId: "src-a-1", exactText: "冷启动白屏" },
+      },
+    ],
+    origin: "local-model",
+    providerId: "demo-offline-runtime",
+  });
+}
+
+async function applyDemoTidyPlan(plan, overrides = {}, proposalId = null) {
+  const snapshot = makeMcpSnapshot();
+  if (plan.sourceSetVersion !== snapshot.sourceSetVersion || plan.structureVersion !== snapshot.structureVersion) {
+    throw new Error("左侧原文版本已变化，请重新生成整理方案。");
+  }
+  const appliedBlocks = [];
+  for (const op of plan.operations) {
+    if (op.type !== "replace-text") continue;
+    const live = getLiveBlockContent(op.sourceId);
+    if (live === null) throw new Error(`原块 ${op.sourceId} 不存在。`);
+    if (detectBlockProtection(live).protected) {
+      throw new Error("受保护的 TODO / 正式对象 / 属性块禁止原地改写。");
+    }
+    if (sha(live) !== op.expectedContentVersion) {
+      throw new Error(`原块 ${op.sourceId} 已被修改，已拒绝覆盖。`);
+    }
+    const nextText = typeof overrides[op.sourceId] === "string" ? overrides[op.sourceId] : op.afterText;
+    if (!nextText.trim() || detectBlockProtection(nextText).protected) {
+      throw new Error("微调结果无效或触发了受保护块语法，请调整后再应用。");
+    }
+    appliedBlocks.push({
+      sourceId: op.sourceId,
+      blockUuid: op.blockUuid,
+      beforeContent: live,
+      beforeVersion: op.expectedContentVersion,
+      afterContent: nextText,
+      afterVersion: sha(nextText),
+    });
+  }
+  if (!appliedBlocks.length) throw new Error("没有可应用的改动。");
+
+  for (const item of appliedBlocks) {
+    setLiveBlockContent(item.sourceId, item.afterContent);
+  }
+  mcpSourceRevision++;
+
+  const record = {
+    snapshotId: randomUUID(),
+    createdAt: new Date().toISOString(),
+    summary: plan.summary,
+    origin: plan.meta?.origin ?? "local-model",
+    blocks: appliedBlocks,
+    undone: false,
+  };
+  tidySnapshots.unshift(record);
+  if (tidySnapshots.length > 5) tidySnapshots.length = 5;
+
+  if (proposalId) {
+    await postCompanion("/plugin/writeback-proposals", { action: "consume", proposalId });
+  }
+  return record;
+}
+
+function undoTidyRecord(snapshotId) {
+  const target = snapshotId ? tidySnapshots.find((s) => s.snapshotId === snapshotId) : tidySnapshots[0];
+  if (!target) return { ok: false, blockedByEdit: false, reason: "没有可撤销的整理快照。" };
+  const check = computeSnapshotUndoStatus(target);
+  if (!check.canUndo) {
+    return { ok: false, blockedByEdit: true, reason: check.reason, snapshot: target };
+  }
+  for (const item of target.blocks) {
+    setLiveBlockContent(item.sourceId, item.beforeContent);
+  }
+  mcpSourceRevision++;
+  target.undone = true;
+  return { ok: true, blockedByEdit: false, snapshot: target };
+}
+
+async function runTidyCheck(id) {
+  const started = Date.now();
+  if (id === "t1-anchors-protection") {
+    const planFull = buildDemoNoteTidyPlan({ simulateOmission: false });
+    const planOmit = buildDemoNoteTidyPlan({ simulateOmission: true });
+    const hasWiki = planFull.anchors.some((a) => a.before.exactText === "[[缓存方案对比]]" && a.after !== null);
+    const hasBlockRef = planFull.anchors.some((a) => a.before.exactText.startsWith("((") && a.after !== null);
+    const hasMetric = planFull.anchors.some((a) => a.before.exactText === "80%" && a.after !== null);
+    const todoProtected = planFull.protectedBlockCount >= 1 && planFull.beforeBlocks.some((b) => b.id === "src-a-2" && b.protected);
+    const omitCaught = planOmit.omittedAnchorIds.length >= 1 && planOmit.anchors.some((a) => a.before.exactText === "120ms" && a.after === null);
+    const ok = hasWiki && hasBlockRef && hasMetric && todoProtected && omitCaught;
+    return {
+      ok,
+      durationMs: Date.now() - started,
+      summary: `硬保护 TODO 原样不动(${planFull.protectedBlockCount} 条) · 高先验锚点命中 [[链接]]/((引用))/指标 共 ${planFull.anchors.length} 处 · 模拟漏项 120ms 自动报警=${omitCaught ? "是" : "否"}`,
+      meta: { fullAnchors: planFull.anchors, omittedIds: planOmit.omittedAnchorIds },
+    };
+  }
+  if (id === "t2-mcp-writeback-plan") {
+    const snap = makeMcpSnapshot();
+    const b1 = snap.blocks[0];
+    const proposedText = `${b1.content.replace(/（Codex 复核补充）/gu, "")}（Codex 复核补充）`;
+    const prop = await mcpClient.callTool("workbench_propose_writeback", {
+      kind: "content-proposal",
+      sourceSetVersion: snap.sourceSetVersion,
+      structureVersion: snap.structureVersion,
+      summary: "Codex 外部提案：在首块补充复核说明并保留全部链接",
+      structuralChanges: [{ kind: "group", description: "保持原大纲层级，仅原地增补复核状态" }],
+      operations: [
+        {
+          operationId: `t2-op-${Date.now()}`,
+          type: "replace-text",
+          sourceId: b1.sourceId,
+          expectedContentVersion: b1.contentVersion,
+          text: proposedText,
+        },
+      ],
+    });
+    const plan = prop.data?.proposal?.plan;
+    const listRes = await postCompanion("/plugin/writeback-proposals", { action: "list", workKey: workAKey });
+    const listed = (listRes.data.value?.proposals ?? []).some((p) => p.proposalId === prop.data?.proposal?.proposalId);
+    if (prop.data?.proposal?.proposalId) {
+      await postCompanion("/plugin/writeback-proposals", { action: "dismiss", proposalId: prop.data.proposal.proposalId });
+    }
+    const ok =
+      !prop.isError &&
+      prop.data.writesSource === false &&
+      Boolean(plan) &&
+      plan.meta?.origin === "external-mcp" &&
+      Array.isArray(plan.anchors) &&
+      plan.anchors.length >= 2 &&
+      listed;
+    return {
+      ok,
+      durationMs: Date.now() - started,
+      summary: `真实 stdio MCP 提交 content-proposal → 自动附带 ${plan?.anchors?.length ?? 0} 个高先验高亮锚点 · writesSource=false · 已同步进入「待审原文改动」队列`,
+      meta: { proposalId: prop.data?.proposal?.proposalId, planAnchors: plan?.anchors, structuralChanges: plan?.structuralChanges },
+    };
+  }
+  if (id === "t3-apply-undo-guard") {
+    const savedB1 = mcpBlock1;
+    const savedB3 = mcpBlock3;
+    const savedRev = mcpSourceRevision;
+    const savedSnapCount = tidySnapshots.length;
+    try {
+      mcpBlock1 = INITIAL_BLOCK_1;
+      mcpBlock3 = INITIAL_BLOCK_3;
+      mcpSourceRevision++;
+      const plan1 = buildDemoNoteTidyPlan({ simulateOmission: false });
+      const snap1 = await applyDemoTidyPlan(plan1, {});
+      const changedAfterApply = mcpBlock1 !== INITIAL_BLOCK_1 && mcpBlock2 === INITIAL_BLOCK_2;
+      const undoOk = undoTidyRecord(snap1.snapshotId);
+      const restoredVerbatim = undoOk.ok && mcpBlock1 === INITIAL_BLOCK_1 && mcpBlock3 === INITIAL_BLOCK_3;
+
+      const plan2 = buildDemoNoteTidyPlan({ simulateOmission: false });
+      const snap2 = await applyDemoTidyPlan(plan2, {});
+      mcpBlock3 = `${mcpBlock3}\n[续写] 今晚补充低内存实测数据`;
+      const blockedUndo = undoTidyRecord(snap2.snapshotId);
+      const userTextPreserved = !blockedUndo.ok && blockedUndo.blockedByEdit && mcpBlock3.includes("[续写] 今晚补充低内存实测数据");
+      const ok = changedAfterApply && restoredVerbatim && userTextPreserved;
+      return {
+        ok,
+        durationMs: Date.now() - started,
+        summary: `原地落盘(TODO 零改动)=${changedAfterApply ? "是" : "否"} · 未续写一键无损撤销=${restoredVerbatim ? "是" : "否"} · 续写后拒绝覆盖保护新笔记=${userTextPreserved ? "是" : "否"}`,
+        meta: { undoOk, blockedUndo },
+      };
+    } finally {
+      mcpBlock1 = savedB1;
+      mcpBlock3 = savedB3;
+      mcpSourceRevision = savedRev + 1;
+      tidySnapshots.splice(0, tidySnapshots.length - savedSnapCount);
+    }
+  }
+  if (id === "t4-local-privacy-guard") {
+    const snapshot = makeMcpSnapshot();
+    const res = await postCompanion("/plugin/note-tidy", {
+      privacyMode: "local-only",
+      input: {
+        scope: bindingA.scope,
+        sourceSetVersion: snapshot.sourceSetVersion,
+        structureVersion: snapshot.structureVersion,
+        blocks: toTidySourceBlocks(snapshot),
+      },
+    });
+    const code = res.data?.error?.code;
+    const ok = !res.ok && code === "READING_LOCAL_MODEL_REQUIRED";
+    return {
+      ok,
+      durationMs: Date.now() - started,
+      summary: `标记「仅本地模型」调用 /plugin/note-tidy 时 Fail Closed 拦截(${code}) · 绝不上云`,
+      meta: res.data?.error,
+    };
+  }
+  throw new Error(`Unknown Phase 3 check: ${id}`);
+}
+
+// ============================================================================
 // Phase 1 Direct Model Helpers (Preserved Intact)
 // ============================================================================
 async function applyProviderConfig({ apiKey, model, baseUrl, backgroundMaxPerHour = 12 }) {
@@ -868,6 +1199,109 @@ const server = createServer(async (req, res) => {
       mcpSourceRevision++;
       mcpBlock1 = `登录态迁移已推进至 **${Math.min(99, 80 + mcpSourceRevision * 4)}%**（第 ${mcpSourceRevision} 次原文保存，低内存白屏日志正在复现）。`;
       sendJson(200, { ok: true, state: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/state") {
+      sendJson(200, { ok: true, state: await getTidyDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/demo-plan") {
+      const body = await readBody(req);
+      const plan = buildDemoNoteTidyPlan({ simulateOmission: body.simulateOmission === true });
+      sendJson(200, { ok: true, plan, state: await getTidyDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/live-model") {
+      const body = await readBody(req);
+      const snapshot = makeMcpSnapshot();
+      const resTidy = await postCompanion("/plugin/note-tidy", {
+        privacyMode: body.localOnly ? "local-only" : "default",
+        input: {
+          scope: bindingA.scope,
+          sourceSetVersion: snapshot.sourceSetVersion,
+          structureVersion: snapshot.structureVersion,
+          instruction: typeof body.instruction === "string" && body.instruction.trim() ? body.instruction.trim() : undefined,
+          blocks: toTidySourceBlocks(snapshot),
+        },
+      });
+      if (!resTidy.ok) {
+        sendJson(200, { ok: false, error: `${resTidy.data.error?.code}: ${resTidy.data.error?.message}`, state: await getTidyDashboardState() });
+        return;
+      }
+      sendJson(200, { ok: true, plan: resTidy.data.value, state: await getTidyDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/mcp-propose") {
+      const snap = makeMcpSnapshot();
+      const b1 = snap.blocks[0];
+      const b3 = snap.blocks[2];
+      const resProp = await mcpClient.callTool("workbench_propose_writeback", {
+        kind: "content-proposal",
+        sourceSetVersion: snap.sourceSetVersion,
+        structureVersion: snap.structureVersion,
+        summary: "Codex 外部协作提案：梳理冷启动白屏与缓存对比表述，完整保留 [[缓存方案对比]] 与编号 QPA-9472",
+        structuralChanges: [
+          { kind: "group", description: "保持原大纲 3 条结构不动，仅原地整理两处普通块表述并前置关键结论" },
+        ],
+        operations: [
+          {
+            operationId: `codex-tidy-1-${Date.now()}`,
+            type: "replace-text",
+            sourceId: b1.sourceId,
+            expectedContentVersion: b1.contentVersion,
+            text: "核心进展与卡点：登录态迁移已达 80%；当前卡在低内存设备的冷启动白屏复现（[[缓存方案对比]] · 现场编号 QPA-9472）。",
+          },
+          {
+            operationId: `codex-tidy-3-${Date.now()}`,
+            type: "replace-text",
+            sourceId: b3.sourceId,
+            expectedContentVersion: b3.contentVersion,
+            text: "[想法] 离线缓存清理方案选型（方案 A 重建索引 vs 方案 B 增量清理）：待结合 ((00000000-0000-4000-8000-000000000099)) 确认老索引加载慢与低端机 120ms 偶发抖动，于 14:00-16:00 复核窗口前定案。",
+          },
+        ],
+      });
+      sendJson(200, { ok: !resProp.isError, response: resProp.data, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/apply") {
+      const body = await readBody(req);
+      const record = await applyDemoTidyPlan(body.plan, body.overrides ?? {}, body.proposalId ?? null);
+      sendJson(200, { ok: true, snapshot: record, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/dismiss") {
+      const body = await readBody(req);
+      if (body.proposalId) {
+        await postCompanion("/plugin/writeback-proposals", { action: "dismiss", proposalId: String(body.proposalId) });
+      }
+      sendJson(200, { ok: true, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/undo") {
+      const body = await readBody(req);
+      const outcome = undoTidyRecord(body.snapshotId ?? null);
+      sendJson(200, { ...outcome, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/continue-writing") {
+      const body = await readBody(req);
+      const extra = String(body.text ?? "").trim() || "补记：刚才实测低内存机型复现了白屏，问题出在同步读缓存阶段。";
+      mcpBlock3 = `${mcpBlock3}\n${extra}`;
+      mcpSourceRevision++;
+      sendJson(200, { ok: true, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/reset") {
+      mcpBlock1 = INITIAL_BLOCK_1;
+      mcpBlock3 = INITIAL_BLOCK_3;
+      mcpSourceRevision++;
+      sendJson(200, { ok: true, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/tidy/check") {
+      const body = await readBody(req);
+      const result = await runTidyCheck(body.id);
+      sendJson(200, { ok: true, result, state: await getTidyDashboardState(), mcpState: await getMcpDashboardState() });
       return;
     }
     if (req.method === "POST" && req.url === "/api/configure") {

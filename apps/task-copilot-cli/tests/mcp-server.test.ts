@@ -604,7 +604,35 @@ test("Companion stdio MCP server enforces single-work scope, sensitive blocking,
     assert.equal(contentProposal.data.status, "pending-review");
 
     const proposalsListed = await postPlugin("/plugin/writeback-proposals", { workKey: workAKey });
-    assert.equal(((proposalsListed.body.value as { proposals: unknown[] }).proposals).length, 1);
+    const proposalsArr = (proposalsListed.body.value as {
+      proposals: Array<{ proposalId: string; plan?: { anchors: Array<{ before: { exactText: string } }>; beforeBlocks: unknown[]; afterBlocks: unknown[] } }>;
+    }).proposals;
+    assert.equal(proposalsArr.length, 1);
+    assert.ok(proposalsArr[0]!.plan, "staged content-proposal must include enriched NoteTidyPlan for FLIP anchor preview");
+    assert.ok(proposalsArr[0]!.plan!.beforeBlocks.length >= 2);
+    assert.ok(proposalsArr[0]!.plan!.anchors.length >= 1);
+
+    // Consuming proposal clears it cleanly
+    const consumed = await postPlugin("/plugin/writeback-proposals", { action: "consume", proposalId: proposalsArr[0]!.proposalId });
+    assert.equal(consumed.status, 200);
+    assert.equal((consumed.body.value as { dismissed: boolean }).dismissed, true);
+    const afterConsume = await postPlugin("/plugin/writeback-proposals", { workKey: workAKey });
+    assert.equal(((afterConsume.body.value as { proposals: unknown[] }).proposals).length, 0);
+
+    // /plugin/note-tidy respects local-only fail-closed privacy when no local profile is configured
+    const localTidyDenied = await postPlugin("/plugin/note-tidy", {
+      privacyMode: "local-only",
+      input: {
+        scope: bindingA.scope,
+        structureVersion: "sv-a-2",
+        sourceSetVersion: "ss-a-2",
+        blocks: [
+          { sourceId: "src-a-1", blockUuid: workARootUuid, parentUuid: null, depth: 0, content: block1Text, contentVersion: sha(block1Text) },
+        ],
+      },
+    });
+    assert.equal(localTidyDenied.status, 400);
+    assert.equal((localTidyDenied.body.error as { code: string }).code, "READING_LOCAL_MODEL_REQUIRED");
 
     // Attempting to touch TODO block in content-proposal fails closed!
     const todoProtected = await client.callTool("workbench_propose_writeback", {

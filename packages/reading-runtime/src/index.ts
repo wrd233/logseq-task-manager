@@ -72,3 +72,21 @@ export {
   type ReadingRunOptions,
   type ReadingRunResult,
 } from "./runner.ts";
+
+export {
+  buildNoteTidyPlanFromOperations,
+  detectBlockProtection,
+  detectExistingStructure,
+  extractHighPriorAnchors,
+  noteTidyInstructions,
+  runNoteTidyTask,
+  type NoteTidyAnchor,
+  type NoteTidyAnchorCategory,
+  type NoteTidyInput,
+  type NoteTidyOperation,
+  type NoteTidyPlan,
+  type NoteTidyPreviewBlock,
+  type NoteTidyRunOptions,
+  type NoteTidySourceBlock,
+  type NoteTidyStructuralChange,
+} from "./note-tidy.ts";

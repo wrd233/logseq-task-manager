@@ -5,6 +5,12 @@ import type {MaterialRecord} from "./store.ts";
 import {fileName} from "./names.ts";
 import {MaterialDirectoryBrowser, MaterialDirectorySync, type DirectoryLocation, type MaterialDirectoryPage} from "./directory.ts";
 
+const UUID_NAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+function friendlyRootName(root: string): string {
+  const name = fileName(root);
+  return UUID_NAME_PATTERN.test(name) ? "当前工作目录" : name;
+}
+
 export interface MaterialDirectoryUIOptions {
   valid(): void;
   open(path: string): Promise<void>;
@@ -23,20 +29,23 @@ export async function renderMaterialDirectory(parent: HTMLElement, service: Mate
   const browser = new MaterialDirectoryBrowser(service.io, service.directories, context.graph, service.globalRoot), roots = browser.roots(context);
   const header = element("div", "", "wb-material-folder-heading"), breadcrumbs = element("nav", "", "wb-material-breadcrumb"), problem = element("p", "", "wb-preview-notice"), rows = element("div"), grant = element("div", "", "wb-material-read-grant");
   breadcrumbs.setAttribute("aria-label", "材料目录位置"); problem.setAttribute("role", "status"); rows.dataset.materialDirectoryRows = "true";
-  grant.tabIndex = 0; grant.setAttribute("role", "group"); grant.setAttribute("aria-label", "粘贴目录以启用只读同步"); grant.textContent = "首次读取：在访达复制当前目录，点击这里并粘贴，启用只读自动同步。"; grant.onclick = () => grant.focus();
+  grant.tabIndex = 0; grant.setAttribute("role", "group"); grant.setAttribute("aria-label", "粘贴目录以启用只读同步");
+  grant.append(element("span", "如需浏览此目录内未加入文件，请在访达复制该目录后点此处粘贴启用只读同步。"));
+  grant.onclick = () => grant.focus();
   grant.append(button("继续只读同步", () => {
     if (!location) return;
     void options.resume(location.root).then(() => {options.valid(); start();}).catch(showError);
   }));
   const selector = element("select"); selector.setAttribute("aria-label", "当前材料根目录");
-  for (const [index, root] of roots.entries()) {const item = element("option", `${index + 1}. ${fileName(root)} · ${root}`); item.value = root; selector.append(item);}
+  for (const root of roots) {const item = element("option", friendlyRootName(root)); item.value = root; item.title = root; selector.append(item);}
+  selector.hidden = roots.length <= 1;
   header.append(selector, button("刷新", () => void refresh().catch(showError)));
   if (!options.uncollectedOnly) header.append(button("已收纳材料", () => void options.history().catch(showError)));
   parent.append(header, breadcrumbs, problem, grant, rows);
   let location: DirectoryLocation | null = roots.length ? options.position && roots.includes(options.position.root) ? {...options.position} : {root: roots[0]!, relative: ""} : null;
   let disposed = false, records = new Map<string, MaterialRecord>(), recordRead = 0, publishedLocation = "";
   const pages = new Map<string, MaterialDirectoryPage>(), sync = new MaterialDirectorySync<MaterialDirectoryPage>(), plainRows = new Map<string, HTMLElement>(), knownRows = new Map<string, {signature: string; row: HTMLElement}>();
-  if (!location) {selector.disabled = true; grant.hidden = true; problem.textContent = "当前工作尚未关联材料目录。可在目录管理中添加。";}
+  if (!location) {selector.disabled = true; grant.hidden = true; problem.textContent = "当前工作尚未关联外部目录。可在右上角「··· → 管理目录」中添加。";}
   const nativePaste = (event: ClipboardEvent) => {
     if (!location || !event.clipboardData?.files.length) return;
     event.preventDefault(); event.stopImmediatePropagation(); const root = location.root;
@@ -49,19 +58,24 @@ export async function renderMaterialDirectory(parent: HTMLElement, service: Mate
   function start(): void {
     if (!location || disposed) return;
     const selected = {...location}; selector.value = selected.root; breadcrumbs.replaceChildren();
-    breadcrumbs.append(button(fileName(selected.root), () => navigate({root: selected.root, relative: ""})));
     const parts = selected.relative ? selected.relative.split("/") : [];
-    parts.forEach((part, index) => {breadcrumbs.append(element("span", " / "), button(part, () => navigate({root: selected.root, relative: parts.slice(0, index + 1).join("/")})));});
-    if (parts.length) breadcrumbs.append(button("返回上层", () => navigate({root: selected.root, relative: parts.slice(0, -1).join("/")})));
+    breadcrumbs.hidden = parts.length === 0;
+    if (parts.length) {
+      breadcrumbs.append(button(friendlyRootName(selected.root), () => navigate({root: selected.root, relative: ""})));
+      parts.forEach((part, index) => {breadcrumbs.append(element("span", " / "), button(part, () => navigate({root: selected.root, relative: parts.slice(0, index + 1).join("/")})));});
+      breadcrumbs.append(button("返回上层", () => navigate({root: selected.root, relative: parts.slice(0, -1).join("/")})));
+    }
     const key = JSON.stringify(selected);
     sync.start(signal => {options.valid(); return browser.read(context, selected, signal, pages.get(key));}, page => {options.valid(); pages.set(key, page); publish(page);}, showError, window);
   }
   function publish(page: MaterialDirectoryPage): void {
     if (disposed) return;
     const pageKey = JSON.stringify(page.location), sameLocation = pageKey === publishedLocation;
-    const message = page.problem ?? (page.complete ? "" : "当前层仅部分可读，旧观察仍保留；未把未读取项当成删除。");
-    if (problem.textContent !== message) problem.textContent = message;
     grant.hidden = page.availability === "available";
+    const rawMessage = page.problem ?? (page.complete ? "" : "当前层仅部分可读，旧观察仍保留；未把未读取项当成删除。");
+    const message = !grant.hidden && /访达复制/u.test(rawMessage) ? "" : rawMessage;
+    problem.hidden = !message;
+    if (problem.textContent !== message) problem.textContent = message;
     const rendered: HTMLElement[] = [];
     for (const file of page.entries) {
       const record = records.get(file.path);

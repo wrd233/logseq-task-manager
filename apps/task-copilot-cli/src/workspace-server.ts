@@ -355,6 +355,12 @@ export async function startWorkspaceServer(options: {
                 const value=await readingHub.runSync(input,cancellation.signal);
                 if(!response.destroyed)send(response,200,{value});return;
             }
+            if (request.url === "/plugin/note-tidy") {
+                const cancellation=new AbortController();
+                response.once("close",()=>{if(!response.writableEnded)cancellation.abort();});
+                const value=await readingHub.runNoteTidy(input,cancellation.signal);
+                if(!response.destroyed)send(response,200,{value});return;
+            }
             if (request.url === "/plugin/reading-providers") {
                 const value = await readingHub.providers();
                 send(response, 200, { value }); return;
@@ -433,9 +439,9 @@ export async function startWorkspaceServer(options: {
             }
             if (request.url === "/plugin/writeback-proposals") {
                 const raw = workRecord(input, ["action", "workKey", "proposalId"]);
-                if (raw.action === "dismiss") {
+                if (raw.action === "dismiss" || raw.action === "consume") {
                     const dismissed = await dismissWritebackProposal(state, workText(raw.proposalId, 128));
-                    send(response, 200, { value: { dismissed } }); return;
+                    send(response, 200, { value: { dismissed, action: raw.action } }); return;
                 }
                 const workKey = raw.workKey !== undefined ? workText(raw.workKey, 512) : undefined;
                 const proposals = await listWritebackProposals(state, workKey);

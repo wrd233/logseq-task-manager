@@ -38,7 +38,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     // Local search is available even without discovery or a work directory.
     // Ordinary pages are not collected/published to DSH by searching them.
     const notes=allPages.filter(page=>page.uuid&&page.name&&!["whiteboard","property","hidden"].includes(page.type??""))
-      .map(page=>({uuid:page.uuid,name:page.originalName??page.name,updatedAt:page.updatedAt??0,hasFile:!!page.file||!!page["journal?"]}));
+      .map(page=>({uuid:page.uuid,name:page.originalName??page.name,updatedAt:page.updatedAt??0,hasFile:!!page.file||!!page["journal?"],journal:!!page["journal?"]}));
     return { ...snapshot, works, notes, enabled: preferences.enabled };
   };
 

@@ -78,6 +78,32 @@
   .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
   .audit-table th, .audit-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--edge); }
   .audit-table th { color: var(--muted); font-weight: 600; }
+
+  /* Phase 3: Left-Side In-Place Note Tidying + FLIP Anchor Morph */
+  .tidy-outline { display: grid; gap: 8px; }
+  .tidy-block-card { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--edge); background: var(--paper); display: grid; gap: 6px; transition: border-color 180ms ease, background 180ms ease; }
+  .tidy-block-card.protected { border-style: dashed; background: #f6f7f4; }
+  .tidy-block-card.changed { border-color: rgba(53,105,88,0.42); background: #f9fcfa; }
+  .tidy-block-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 11.5px; color: var(--muted); }
+  .tidy-block-body { white-space: pre-wrap; line-height: 1.75; font-size: 13.5px; color: var(--ink); }
+  .tidy-preview-shell { border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 16px; display: grid; gap: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.04); }
+  .tidy-preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--edge); }
+  .tidy-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--edge); border-radius: 7px; background: var(--paper); }
+  .tidy-toggle button { border: 0; background: transparent; padding: 5px 11px; font-size: 12.5px; color: var(--muted); border-radius: 5px; }
+  .tidy-toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  .tidy-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .tidy-struct { font-size: 12.5px; color: var(--attn); background: var(--attn-bg); border: 1px solid rgba(154,106,33,0.28); border-radius: 7px; padding: 7px 11px; }
+  .tidy-anchor { display: inline-block; padding: 0 4px; border-radius: 4px; font-weight: 550; will-change: transform; }
+  .tidy-anchor[data-slot="0"] { background: rgba(53,105,88,0.14); color: #204d3e; }
+  .tidy-anchor[data-slot="1"] { background: rgba(154,106,33,0.15); color: #744913; }
+  .tidy-anchor[data-slot="2"] { background: rgba(58,95,146,0.14); color: #274876; }
+  .tidy-anchor[data-slot="3"] { background: rgba(124,78,138,0.14); color: #5c316a; }
+  .tidy-anchor[data-slot="4"] { background: rgba(152,82,70,0.14); color: #72362d; }
+  .tidy-anchor.omitted { background: rgba(182,58,48,0.16); color: #8c241b; text-decoration: underline wavy rgba(182,58,48,0.8); text-underline-offset: 3px; }
+  .tidy-undo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; background: var(--ok-bg); border: 1px solid #c3e6d1; color: var(--ok); font-size: 12.5px; margin-bottom: 12px; }
+  .tidy-snap-card { border: 1px solid var(--edge); border-radius: 8px; padding: 10px 12px; background: var(--paper); display: grid; gap: 8px; }
+  .tidy-snap-pre { margin: 0; padding: 8px 10px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; white-space: pre-wrap; font-size: 12.5px; line-height: 1.65; }
+  .wb-writeback-btn { border-color: rgba(154,106,33,0.5) !important; background: var(--attn-bg) !important; color: var(--attn) !important; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -94,12 +120,75 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="phase2" role="tab" aria-selected="true">Phase 2 · MCP 外部协作与多目标交接（免 Key 开箱可测）</button>
+    <button class="tab active" data-tab="phase3" role="tab" aria-selected="true">Phase 3 · 左侧原地整理动效与 MCP 回流体验（免 Key 可玩）</button>
+    <button class="tab" data-tab="phase2" role="tab" aria-selected="false">Phase 2 · MCP 外部协作与多目标交接（免 Key 可测）</button>
     <button class="tab" data-tab="phase1" role="tab" aria-selected="false">Phase 1 · DeepSeek 直连阅读验收（需 API Key）</button>
   </nav>
 
+  <!-- ================= PHASE 3 TAB ================= -->
+  <div id="tab-phase3" class="tab-panel">
+    <section class="card">
+      <h2>
+        <span>一、直观互动：左侧 Logseq 原地整理 · 关键信息高亮 &amp; FLIP 顺滑位移动效</span>
+        <div class="row">
+          <span class="pill" id="tidyVersionPill">来源版本：loading…</span>
+          <button id="btnTidyReset" class="small">重置初始零散笔记</button>
+        </div>
+      </h2>
+      <p class="sub">
+        严格遵守 D-44～D-46：<strong>不把原文挂到 AI 层级下</strong>，只对普通自然文本块做原地梳理；<code>TODO</code>/正式对象/属性块受硬保护原样不动；默认先看干净成稿，点击「整理前（原文）」或按 <kbd>Space</kbd> 感受高先验重点（<code>[[链接]]</code>、<code>((块引用))</code>、指标、卡点）的 <strong>FLIP 顺滑平移动效</strong>。
+      </p>
+
+      <div class="mock-bar">
+        <button id="btnTidyDemo" class="primary small">整理左侧笔记（免 Key 演示）</button>
+        <button id="btnTidyOmitDemo" class="small">模拟遗漏重点告警（漏 120ms）</button>
+        <button id="btnTidyLive" class="small" disabled title="在 Phase 1 填入 DeepSeek Key 后可用">真实模型整理（需 Key）</button>
+        <button id="btnTidyMcpPropose" class="small">模拟 Codex 通过真实 MCP 推回原文改动</button>
+        <span class="spacer"></span>
+        <button id="btnTidyWritebackEntry" class="small wb-writeback-btn" hidden>待审原文改动（0）</button>
+      </div>
+
+      <div id="tidyUndoBar" class="tidy-undo-bar" hidden>
+        <span id="tidyUndoText">已原地整理左侧笔记，并保留整理前快照。</span>
+        <button id="btnTidyQuickUndo" class="small primary">一键撤销整理</button>
+        <button id="btnTidyContinueWrite" class="small">模拟在原块上继续写作（触发防覆盖保护）</button>
+      </div>
+
+      <div id="tidyStatusMsg" class="check-summary" style="margin:0 0 12px;"></div>
+
+      <div class="grid2">
+        <div>
+          <div class="article-label">左侧 Logseq 原文大纲（所见即所存，可直接接着记录）：</div>
+          <div id="tidyLeftOutline" class="tidy-outline"></div>
+        </div>
+        <div>
+          <div class="article-label">统一原地整理确认预览（点击按钮生成或点「待审原文改动」审阅）：</div>
+          <div id="tidyPreviewHost">
+            <div class="article-preview" style="margin-top:0;">
+              <div class="article-label" style="margin:0;">点击上方「整理左侧笔记（免 Key 演示）」或「模拟 Codex 推回原文改动」，即可在此体验 5 槽低饱和重点高亮、FLIP 位移动效、行内微调与一键落盘。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <details id="tidySnapshotsDetails" class="raw" style="margin-top:14px;">
+        <summary id="tidySnapshotsSummary">查看「整理前原文快照」（最近最多保留 5 份 · 续写后自动切换为只读查阅）</summary>
+        <div id="tidySnapshotsBox" style="display:grid;gap:10px;margin-top:10px;"></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span>二、一键 4 项 Phase 3 自动化验收体检</span>
+        <button id="btnRunAllTidy" class="primary">一键跑完 4 项 Phase 3 验收</button>
+      </h2>
+      <p class="sub">端到端验证高先验锚点与漏项报警、真实 stdio MCP <code>workbench_propose_writeback</code> 回流附带锚点、无损撤销与续写防覆盖保护、以及「仅本地模型」Fail Closed 拦截。</p>
+      <div class="check-list" id="tidyCheckList"></div>
+    </section>
+  </div>
+
   <!-- ================= PHASE 2 TAB ================= -->
-  <div id="tab-phase2" class="tab-panel">
+  <div id="tab-phase2" class="tab-panel" hidden>
     <section class="card">
       <h2>
         <span>一、一键 5 项真实 stdio MCP 协议验收体检</span>
@@ -246,10 +335,18 @@ document.querySelectorAll(".tab").forEach(btn => {
       t.classList.toggle("active", active);
       t.setAttribute("aria-selected", String(active));
     });
+    document.getElementById("tab-phase3").hidden = target !== "phase3";
     document.getElementById("tab-phase2").hidden = target !== "phase2";
     document.getElementById("tab-phase1").hidden = target !== "phase1";
   };
 });
+
+const TIDY_CHECKS = [
+  { id: "t1-anchors-protection", title: "T1. 硬保护 TODO/正式块 + 高先验重点锚点（链接/引用/指标）与漏项报警", desc: "验证受保护块原样不动、高先验重点自动分配高亮锚点，以及漏掉指标 120ms 时触发暖色告警。" },
+  { id: "t2-mcp-writeback-plan", title: "T2. 真实 stdio MCP 回流原文改动提案（自动附带高先验高亮锚点）", desc: "通过真实 workspace mcp 提交 content-proposal，核对 writesSource=false、自动生成 plan.anchors 并进入「待审原文改动」队列。" },
+  { id: "t3-apply-undo-guard", title: "T3. 原地应用 → 未续写一键无损撤销 → 续写后防覆盖只读保护", desc: "验证未续写时一键 100% 恢复原文；一旦用户在整理后的块上继续写作，撤销绝不覆盖新笔记。" },
+  { id: "t4-local-privacy-guard", title: "T4. 「仅本地模型」调用 /plugin/note-tidy Fail Closed 拦截", desc: "验证标记仅本地且未配本地端点时，原地整理请求直接拒绝且不发往云端。" },
+];
 
 const MCP_CHECKS = [
   { id: "m1-catalog", title: "M1. 标准 MCP tools/list + workbench_list_works 目录发现", desc: "真实 stdio JSON-RPC 2.0 枚举全部 6 个工具；工作目录清单不含任何正文或密钥。" },
@@ -288,12 +385,15 @@ function buildCheckCards(containerId, items, prefix, disabledDefault) {
   }
 }
 
+buildCheckCards("tidyCheckList", TIDY_CHECKS, "tidy-", false);
 buildCheckCards("mcpCheckList", MCP_CHECKS, "mcp-", false);
 buildCheckCards("checkList", CHECKS, "", true);
 
 function setReady(ready) {
   document.getElementById("btnRunAll").disabled = !ready;
   document.getElementById("btnPlay").disabled = !ready;
+  document.getElementById("btnTidyLive").disabled = !ready;
+  document.getElementById("btnTidyLive").textContent = ready ? "真实模型整理（DeepSeek 已连通）" : "真实模型整理（需 Key）";
   document.querySelectorAll("button[data-run]").forEach(b => b.disabled = !ready);
 }
 
@@ -467,6 +567,508 @@ async function api(path, body) {
   });
   return res.json();
 }
+
+// ================= PHASE 3 UI LOGIC (IN-PLACE TIDY + FLIP + UNDO + MCP RETURN) =================
+let tidyState = null;
+let activeTidyPlan = null;
+let activeTidyProposalId = null;
+let activeTidyView = "after";
+let activeTidyEditingId = null;
+let activeTidyOverrides = {};
+
+function prefersReducedMotion() {
+  try { return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  catch { return false; }
+}
+
+function renderAnchoredTextInto(container, text, matches) {
+  container.replaceChildren();
+  if (!matches.length) {
+    container.textContent = text;
+    return;
+  }
+  const placements = [];
+  for (const m of matches) {
+    if (!m.exactText) continue;
+    const idx = text.indexOf(m.exactText);
+    if (idx < 0) continue;
+    placements.push({ ...m, start: idx, end: idx + m.exactText.length });
+  }
+  placements.sort((a, b) => a.start - b.start || b.end - a.end);
+  let cursor = 0;
+  for (const item of placements) {
+    if (item.start < cursor) continue;
+    if (item.start > cursor) container.append(document.createTextNode(text.slice(cursor, item.start)));
+    const span = document.createElement("span");
+    span.className = "tidy-anchor" + (item.omitted ? " omitted" : "");
+    span.dataset.tidyAnchorId = item.anchorId;
+    span.dataset.slot = String(item.colorSlot);
+    span.title = item.omitted ? `未带入重点：${item.label}（请核对是否需保留）` : `关键信息：${item.label}`;
+    span.textContent = text.slice(item.start, item.end);
+    container.append(span);
+    cursor = item.end;
+  }
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function computeOmittedAnchors(plan) {
+  const afterBlocks = plan.afterBlocks.map(b => ({ ...b, content: activeTidyOverrides[b.id] ?? b.content }));
+  return (plan.anchors || []).filter(anchor => {
+    if (anchor.after) {
+      const target = afterBlocks.find(b => b.id === anchor.after.targetId);
+      if (target && target.content.includes(anchor.after.exactText)) return false;
+    }
+    return !afterBlocks.some(b => b.content.includes(anchor.before.exactText));
+  });
+}
+
+function switchTidyView(next) {
+  if (!activeTidyPlan || activeTidyView === next) return;
+  activeTidyEditingId = null;
+  const host = document.getElementById("tidyPreviewHost");
+  const animate = !prefersReducedMotion();
+  const beforeRects = new Map();
+  if (animate) {
+    host.querySelectorAll("[data-tidy-anchor-id]").forEach(el => {
+      const id = el.dataset.tidyAnchorId;
+      if (!id) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) beforeRects.set(id, rect);
+    });
+  }
+  activeTidyView = next;
+  renderTidyPreview();
+  if (!animate || !beforeRects.size) return;
+  const body = host.querySelector(".tidy-preview-body");
+  if (body && typeof body.animate === "function") {
+    body.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+  }
+  host.querySelectorAll("[data-tidy-anchor-id]").forEach(el => {
+    const id = el.dataset.tidyAnchorId;
+    const prev = id ? beforeRects.get(id) : null;
+    if (!prev || typeof el.animate !== "function") return;
+    const curr = el.getBoundingClientRect();
+    const dx = prev.left - curr.left;
+    const dy = prev.top - curr.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      el.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
+        { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+      );
+    }
+  });
+}
+
+function openTidyPlanPreview(plan, proposalId = null) {
+  activeTidyPlan = plan;
+  activeTidyProposalId = proposalId || plan?.meta?.proposalId || null;
+  activeTidyView = "after";
+  activeTidyEditingId = null;
+  activeTidyOverrides = {};
+  renderTidyPreview();
+}
+
+function renderTidyPreview() {
+  const host = document.getElementById("tidyPreviewHost");
+  if (!activeTidyPlan) {
+    host.innerHTML = '<div class="article-preview" style="margin-top:0;"><div class="article-label" style="margin:0;">点击上方「整理左侧笔记（免 Key 演示）」或「模拟 Codex 推回原文改动」，即可在此体验 5 槽低饱和重点高亮、FLIP 位移动效、行内微调与一键落盘。</div></div>';
+    return;
+  }
+  const plan = activeTidyPlan;
+  const omitted = computeOmittedAnchors(plan);
+  const omittedSet = new Set(omitted.map(a => a.id));
+  const totalAnchors = (plan.anchors || []).length;
+  const keptCount = totalAnchors - omitted.length;
+
+  const shell = document.createElement("div");
+  shell.className = "tidy-preview-shell";
+
+  const head = document.createElement("div");
+  head.className = "tidy-preview-head";
+  const title = document.createElement("strong");
+  title.textContent = plan.meta?.origin === "external-mcp" ? "外部原文改动提案（MCP）" : "左侧笔记原地整理";
+
+  const toggle = document.createElement("div");
+  toggle.className = "tidy-toggle";
+  const btnAfter = document.createElement("button");
+  btnAfter.textContent = "整理后（成稿）";
+  btnAfter.setAttribute("aria-pressed", String(activeTidyView === "after"));
+  btnAfter.onclick = () => switchTidyView("after");
+  const btnBefore = document.createElement("button");
+  btnBefore.textContent = "整理前（原文）";
+  btnBefore.setAttribute("aria-pressed", String(activeTidyView === "before"));
+  btnBefore.onclick = () => switchTidyView("before");
+  toggle.append(btnAfter, btnBefore);
+
+  const btnApply = document.createElement("button");
+  btnApply.className = "primary small";
+  btnApply.textContent = "应用到左侧";
+  btnApply.disabled = !plan.operations?.length;
+  btnApply.onclick = async () => {
+    btnApply.disabled = true;
+    const res = await api("/api/tidy/apply", { plan, overrides: activeTidyOverrides, proposalId: activeTidyProposalId });
+    if (res.ok) {
+      activeTidyPlan = null;
+      activeTidyProposalId = null;
+      activeTidyOverrides = {};
+      document.getElementById("tidyStatusMsg").textContent = "✓ 已原地应用到左侧笔记并保存整理前快照（可立即一键撤销，或直接接着往下写）。";
+      renderTidyState(res.state);
+      if (res.mcpState) renderMcpState(res.mcpState);
+      renderTidyPreview();
+    } else {
+      btnApply.disabled = false;
+      document.getElementById("tidyStatusMsg").textContent = `✕ 应用失败：${res.error}`;
+    }
+  };
+
+  head.append(title, toggle, btnApply);
+  if (activeTidyProposalId) {
+    const btnDismiss = document.createElement("button");
+    btnDismiss.className = "small";
+    btnDismiss.textContent = "忽略提案";
+    btnDismiss.onclick = async () => {
+      const res = await api("/api/tidy/dismiss", { proposalId: activeTidyProposalId });
+      activeTidyPlan = null;
+      activeTidyProposalId = null;
+      document.getElementById("tidyStatusMsg").textContent = "已忽略该外部原文改动提案，左侧原文零修改。";
+      if (res.state) renderTidyState(res.state);
+      if (res.mcpState) renderMcpState(res.mcpState);
+      renderTidyPreview();
+    };
+    head.append(btnDismiss);
+  }
+  const btnClose = document.createElement("button");
+  btnClose.className = "small";
+  btnClose.textContent = "暂不应用";
+  btnClose.onclick = () => { activeTidyPlan = null; activeTidyProposalId = null; renderTidyPreview(); };
+  head.append(btnClose);
+  shell.append(head);
+
+  const summaryEl = document.createElement("div");
+  summaryEl.className = "check-summary";
+  summaryEl.style.marginTop = "0";
+  summaryEl.textContent = plan.summary;
+  shell.append(summaryEl);
+
+  const badges = document.createElement("div");
+  badges.className = "tidy-badges";
+  if (totalAnchors > 0) {
+    const b = document.createElement("span");
+    b.className = omitted.length === 0 ? "pill" : "pill attn";
+    if (omitted.length === 0) { b.style.background = "var(--ok-bg)"; b.style.color = "var(--ok)"; }
+    b.textContent = omitted.length === 0
+      ? `关键信息 ${keptCount}/${totalAnchors} 已保留`
+      : `注意：${omitted.length} 处原文重点未带入（${omitted.map(a => a.label).join("、")}）`;
+    badges.append(b);
+  }
+  if (plan.protectedBlockCount > 0) {
+    const pb = document.createElement("span");
+    pb.className = "pill";
+    pb.textContent = `${plan.protectedBlockCount} 条受保护块（TODO/正式/属性）原样不动`;
+    badges.append(pb);
+  }
+  const hint = document.createElement("span");
+  hint.style.fontSize = "11.5px";
+  hint.style.color = "var(--muted)";
+  hint.textContent = "按 Space 可快速切换前后对比";
+  badges.append(hint);
+  shell.append(badges);
+
+  if (plan.structuralChanges?.length) {
+    const sc = document.createElement("div");
+    sc.className = "tidy-struct";
+    sc.innerHTML = `<strong>结构调整说明：</strong>${esc(plan.structuralChanges.map(c => c.description).join("；"))}`;
+    shell.append(sc);
+  }
+
+  const body = document.createElement("div");
+  body.className = "tidy-outline tidy-preview-body";
+  const blocks = activeTidyView === "after" ? plan.afterBlocks : plan.beforeBlocks;
+  const matchedAfter = new Set();
+
+  for (const blk of blocks) {
+    const text = activeTidyView === "after" ? (activeTidyOverrides[blk.id] ?? blk.content) : blk.content;
+    const card = document.createElement("div");
+    card.className = "tidy-block-card" + (blk.protected ? " protected" : blk.changed ? " changed" : "");
+    card.style.marginLeft = `${Math.min(blk.depth || 0, 4) * 14}px`;
+
+    const bh = document.createElement("div");
+    bh.className = "tidy-block-head";
+    bh.innerHTML = `<span>${blk.protected ? "受保护块 · 原样保留" : blk.changed ? "已原地整理" : "未改动普通块"} · <code>${esc(blk.id)}</code></span>`;
+    if (!blk.protected && activeTidyView === "after" && blk.changed && activeTidyEditingId !== blk.id) {
+      const tweak = document.createElement("button");
+      tweak.className = "small";
+      tweak.style.padding = "2px 8px";
+      tweak.textContent = "微调";
+      tweak.onclick = () => { activeTidyEditingId = blk.id; renderTidyPreview(); };
+      bh.append(tweak);
+    }
+    card.append(bh);
+
+    if (activeTidyView === "after" && activeTidyEditingId === blk.id) {
+      const ta = document.createElement("textarea");
+      ta.style.minHeight = "76px";
+      ta.value = text;
+      const bar = document.createElement("div");
+      bar.className = "row";
+      const okBtn = document.createElement("button");
+      okBtn.className = "small primary";
+      okBtn.textContent = "完成微调";
+      okBtn.onclick = () => { activeTidyOverrides[blk.id] = ta.value; activeTidyEditingId = null; renderTidyPreview(); };
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "small";
+      cancelBtn.textContent = "取消";
+      cancelBtn.onclick = () => { activeTidyEditingId = null; renderTidyPreview(); };
+      bar.append(okBtn, cancelBtn);
+      card.append(ta, bar);
+    } else {
+      const contentEl = document.createElement("div");
+      contentEl.className = "tidy-block-body";
+      const matches = [];
+      for (const anchor of plan.anchors || []) {
+        if (activeTidyView === "before" && anchor.before.sourceId === blk.id) {
+          matches.push({ anchorId: anchor.id, exactText: anchor.before.exactText, colorSlot: anchor.colorSlot, omitted: omittedSet.has(anchor.id), label: anchor.label });
+        } else if (activeTidyView === "after" && !matchedAfter.has(anchor.id)) {
+          const targetText = anchor.after
+            ? anchor.after.targetId === blk.id
+              ? (text.includes(anchor.after.exactText) ? anchor.after.exactText : (text.includes(anchor.before.exactText) ? anchor.before.exactText : null))
+              : null
+            : (text.includes(anchor.before.exactText) ? anchor.before.exactText : null);
+          if (targetText) {
+            matchedAfter.add(anchor.id);
+            matches.push({ anchorId: anchor.id, exactText: targetText, colorSlot: anchor.colorSlot, omitted: false, label: anchor.label });
+          }
+        }
+      }
+      renderAnchoredTextInto(contentEl, text, matches);
+      card.append(contentEl);
+    }
+    body.append(card);
+  }
+  shell.append(body);
+  host.replaceChildren(shell);
+}
+
+function renderTidyState(state) {
+  if (!state) return;
+  tidyState = state;
+  document.getElementById("tidyVersionPill").textContent = `来源版本：${state.sourceSetVersion}`;
+  if (state.hasLiveModelKey) setReady(true);
+
+  // Left outline
+  const outline = document.getElementById("tidyLeftOutline");
+  outline.replaceChildren();
+  for (const blk of state.blocks || []) {
+    const card = document.createElement("div");
+    card.className = "tidy-block-card" + (blk.protected ? " protected" : "");
+    card.style.marginLeft = `${Math.min(blk.depth || 0, 4) * 14}px`;
+    card.innerHTML = `
+      <div class="tidy-block-head">
+        <span>${blk.protected ? `硬保护（${esc(blk.protectedReason || "TODO/正式")}）· 绝不自动改写` : "普通笔记块 · 可原地整理"}</span>
+        <code>${esc(blk.sourceId)}</code>
+      </div>
+      <div class="tidy-block-body">${esc(blk.content)}</div>
+    `;
+    outline.append(card);
+  }
+
+  // Quiet writeback proposals entry
+  const wbBtn = document.getElementById("btnTidyWritebackEntry");
+  const proposals = state.proposals || [];
+  wbBtn.hidden = proposals.length === 0;
+  wbBtn.textContent = `待审原文改动（${proposals.length}）`;
+
+  // Post-apply undo bar
+  const undoBar = document.getElementById("tidyUndoBar");
+  const latestSnap = (state.snapshots || [])[0];
+  if (latestSnap && !latestSnap.undone) {
+    undoBar.hidden = false;
+    document.getElementById("tidyUndoText").textContent = latestSnap.canUndo
+      ? "已原地整理左侧笔记，未续写前可 1 键无损撤销："
+      : "检测到你已在整理后的块上继续写作，为保护新笔记已锁定只读快照（拒绝覆盖）：";
+    document.getElementById("btnTidyQuickUndo").textContent = latestSnap.canUndo ? "一键撤销整理" : "测试撤销（将被安全拦截）";
+  } else {
+    undoBar.hidden = true;
+  }
+
+  // Snapshots panel
+  const snapSummary = document.getElementById("tidySnapshotsSummary");
+  const snapBox = document.getElementById("tidySnapshotsBox");
+  const snaps = state.snapshots || [];
+  snapSummary.textContent = `查看「整理前原文快照」（当前 ${snaps.length}/5 份 · 续写后自动切换为只读查阅）`;
+  snapBox.replaceChildren();
+  if (!snaps.length) {
+    snapBox.innerHTML = '<div class="check-summary">还没有整理快照。完成一次「应用到左侧」后将自动留存整理前原文。</div>';
+  } else {
+    for (const snap of snaps) {
+      const card = document.createElement("div");
+      card.className = "tidy-snap-card";
+      const head = document.createElement("div");
+      head.className = "row";
+      head.style.justifyContent = "space-between";
+      const badge = snap.undone
+        ? '<span class="pill">已撤销</span>'
+        : snap.canUndo
+          ? '<span class="pill" style="background:var(--ok-bg);color:var(--ok);">未续写 · 可一键撤销</span>'
+          : '<span class="pill attn">已续写 · 仅只读查看</span>';
+      head.innerHTML = `<strong>${esc((snap.createdAt || "").slice(11, 19))} · ${esc(snap.summary)}</strong>${badge}`;
+      card.append(head);
+      for (const b of snap.blocks || []) {
+        const pre = document.createElement("pre");
+        pre.className = "tidy-snap-pre";
+        pre.textContent = b.beforeContent;
+        const cp = document.createElement("button");
+        cp.className = "small";
+        cp.textContent = "复制整理前原句";
+        cp.onclick = async () => {
+          await navigator.clipboard.writeText(b.beforeContent);
+          document.getElementById("tidyStatusMsg").textContent = "✓ 已复制整理前原句，可按需粘贴回笔记。";
+        };
+        card.append(pre, cp);
+      }
+      snapBox.append(card);
+    }
+  }
+}
+
+async function loadTidyState() {
+  const res = await api("/api/tidy/state", {});
+  if (res.ok) renderTidyState(res.state);
+}
+
+document.addEventListener("keydown", (event) => {
+  if (
+    !document.getElementById("tab-phase3").hidden &&
+    activeTidyPlan &&
+    !activeTidyEditingId &&
+    event.key === " " &&
+    !(event.target && event.target.closest && event.target.closest("textarea,input,button,select"))
+  ) {
+    event.preventDefault();
+    switchTidyView(activeTidyView === "after" ? "before" : "after");
+  }
+});
+
+document.getElementById("btnTidyDemo").onclick = async () => {
+  const res = await api("/api/tidy/demo-plan", { simulateOmission: false });
+  if (res.ok) {
+    renderTidyState(res.state);
+    openTidyPlanPreview(res.plan);
+    document.getElementById("tidyStatusMsg").textContent = "已生成原地整理预览（完整保留全部重点）：点击「整理前（原文）」或按 Space 观察 5 槽关键信息 FLIP 平移动效。";
+  }
+};
+
+document.getElementById("btnTidyOmitDemo").onclick = async () => {
+  const res = await api("/api/tidy/demo-plan", { simulateOmission: true });
+  if (res.ok) {
+    renderTidyState(res.state);
+    openTidyPlanPreview(res.plan);
+    document.getElementById("tidyStatusMsg").textContent = "已生成「模拟漏项」预览：上方暖色标签提醒漏掉了 120ms，切到「整理前（原文）」可见红色波浪线标出未带入的原句重点。";
+  }
+};
+
+document.getElementById("btnTidyLive").onclick = async () => {
+  const btn = document.getElementById("btnTidyLive");
+  btn.disabled = true;
+  document.getElementById("tidyStatusMsg").textContent = "正在通过 Companion /plugin/note-tidy 调用真实 DeepSeek 模型原地整理…";
+  try {
+    const res = await api("/api/tidy/live-model", {});
+    if (res.state) renderTidyState(res.state);
+    if (res.ok) {
+      openTidyPlanPreview(res.plan);
+      document.getElementById("tidyStatusMsg").textContent = "✓ 真实模型原地整理预览已生成，可切换前后对比并按需微调后应用。";
+    } else {
+      document.getElementById("tidyStatusMsg").textContent = `✕ ${res.error}`;
+    }
+  } finally { btn.disabled = false; }
+};
+
+document.getElementById("btnTidyMcpPropose").onclick = async () => {
+  const res = await api("/api/tidy/mcp-propose", {});
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  document.getElementById("tidyStatusMsg").textContent = res.ok
+    ? "✓ Codex 已通过真实 stdio MCP 提交原文改动提案（writesSource=false）：请点击右上角「待审原文改动（N）」用同一套 FLIP 预览审阅并应用。"
+    : `✕ MCP 提案失败：${res.response?.error?.code || res.error}`;
+};
+
+document.getElementById("btnTidyWritebackEntry").onclick = () => {
+  const first = tidyState?.proposals?.[0];
+  if (!first?.plan) return;
+  openTidyPlanPreview(first.plan, first.proposalId);
+  document.getElementById("tidyStatusMsg").textContent = "正在审阅来自外部 MCP（Codex）的原文改动提案：点「整理前（原文）」对比或直接点「应用到左侧」。";
+};
+
+document.getElementById("btnTidyQuickUndo").onclick = async () => {
+  const latest = tidyState?.snapshots?.[0];
+  if (!latest) return;
+  const res = await api("/api/tidy/undo", { snapshotId: latest.snapshotId });
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  if (res.ok) {
+    document.getElementById("tidyStatusMsg").textContent = "✓ 已 1 键无损恢复整理前原文！";
+  } else {
+    document.getElementById("tidyStatusMsg").textContent = `🛡 已拦截覆盖：${res.reason}`;
+    document.getElementById("tidySnapshotsDetails").open = true;
+  }
+};
+
+document.getElementById("btnTidyContinueWrite").onclick = async () => {
+  const res = await api("/api/tidy/continue-writing", {});
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  document.getElementById("tidyStatusMsg").textContent = "已模拟在整理后的原块上继续追加新笔记；此时点击撤销将被安全拦截，并自动保留只读快照。";
+};
+
+document.getElementById("btnTidyReset").onclick = async () => {
+  const res = await api("/api/tidy/reset", {});
+  activeTidyPlan = null;
+  activeTidyProposalId = null;
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  renderTidyPreview();
+  document.getElementById("tidyStatusMsg").textContent = "已重置为初始零散笔记，可重新体验。";
+};
+
+async function runSingleTidyCheck(id) {
+  const card = document.getElementById("tidy-card-" + id);
+  const pill = document.getElementById("tidy-pill-" + id);
+  const sum = document.getElementById("tidy-sum-" + id);
+  const out = document.getElementById("tidy-out-" + id);
+  card.className = "check";
+  pill.textContent = "运行中…";
+  out.innerHTML = "";
+  const res = await api("/api/tidy/check", { id });
+  if (res.state) renderTidyState(res.state);
+  if (res.mcpState) renderMcpState(res.mcpState);
+  if (res.ok && res.result?.ok) {
+    card.className = "check pass";
+    pill.textContent = `✓ 通过 (${res.result.durationMs}ms)`;
+    sum.textContent = res.result.summary;
+    const det = document.createElement("details");
+    det.className = "raw";
+    det.innerHTML = `<summary>查看技术回执（JSON）</summary><pre>${esc(JSON.stringify(res.result.meta, null, 2))}</pre>`;
+    out.appendChild(det);
+  } else {
+    card.className = "check fail";
+    pill.textContent = "✕ 未通过";
+    sum.textContent = res.error || res.result?.summary || "执行失败";
+  }
+}
+
+document.querySelectorAll("button[data-tidy-run]").forEach(btn => {
+  btn.onclick = () => runSingleTidyCheck(btn.dataset.tidyRun);
+});
+
+document.getElementById("btnRunAllTidy").onclick = async () => {
+  const btn = document.getElementById("btnRunAllTidy");
+  btn.disabled = true;
+  try {
+    for (const c of TIDY_CHECKS) await runSingleTidyCheck(c.id);
+  } finally { btn.disabled = false; }
+};
+
+void loadTidyState();
 
 // ================= PHASE 2 UI LOGIC =================
 let mcpState = null;
