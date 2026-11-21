@@ -90,12 +90,17 @@ export async function applyNoteTidyPlan(options: {
     throw new Error("本次整理没有需要落盘的改动。");
   }
 
+  const affectedBlockUuids = new Set<string>(
+    plan.operations.map((op) => (op.type === "replace-text" ? op.blockUuid : op.parentBlockUuid))
+  );
+
   const assertEnvironmentSafe = async () => {
     await options.checkActive();
     if (graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId) {
       throw new Error("当前 Graph 已切换，已取消落盘。");
     }
-    if (await logseq.Editor.checkEditing()) {
+    const editing = await logseq.Editor.checkEditing();
+    if (editing && (typeof editing !== "string" || affectedBlockUuids.has(editing))) {
       throw new Error("请先结束原生编辑输入，再点击应用到左侧。");
     }
   };

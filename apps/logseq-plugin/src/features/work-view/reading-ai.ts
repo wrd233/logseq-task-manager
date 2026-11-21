@@ -707,13 +707,18 @@ export class WorkReadingAI {
   private async undoSnapshot(snapshot: TidySnapshotRecord): Promise<{ restored: boolean; reason?: string }> {
     const scope = this.scope, state = this.state;
     if (!scope) return { restored: false, reason: "当前工作不可用。" };
-    if (await logseq.Editor.checkEditing()) {
-      await logseq.Editor.exitEditingMode?.(false).catch(() => undefined);
-    }
+    const affectedBlockUuids = new Set<string>([
+      ...snapshot.blocks.map((b) => b.blockUuid),
+      ...snapshot.inserted.map((i) => i.blockUuid),
+    ]);
     const result = await undoTidySnapshot(snapshot, {
       checkSafe: async () => {
         if (!this.same(scope, state) || this.disposed) throw new Error("工作已切换，已取消撤回。");
-        if (graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId || (await logseq.Editor.checkEditing())) {
+        const editing = await logseq.Editor.checkEditing();
+        if (
+          graphIdentity(await logseq.App.getCurrentGraph()) !== scope.graphId ||
+          (editing && (typeof editing !== "string" || affectedBlockUuids.has(editing)))
+        ) {
           throw new Error("请先结束原生输入并保持在当前工作，再撤销整理。");
         }
       },

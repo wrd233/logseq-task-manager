@@ -372,7 +372,9 @@ export class Materials {
     const folderOwner = context.ownerUuid ?? context.sourceUuid ?? rootUuid;
     const explicitFolders = folderOwner ? this.directories.folders(this.graph, folderOwner) : [];
     const directory = element("details", "", "wb-material-directory-extra"), directoryBody = element("div");
-    const folderLabel = explicitFolders.length > 0 ? `关联目录 · ${fileName(explicitFolders[0]!.directory)}` : "目录中的其他文件";
+    const primaryFolderName = explicitFolders.length > 0 ? fileName(explicitFolders[0]!.directory) : "";
+    const friendlyFolderName = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(primaryFolderName) ? "当前工作目录" : primaryFolderName;
+    const folderLabel = explicitFolders.length > 0 ? `关联目录 · ${friendlyFolderName}` : "目录中的其他文件";
     directory.append(element("summary", folderLabel), directoryBody);
     directory.hidden = Boolean(rootUuid) && explicitFolders.length === 0;
     this.body.append(directory);

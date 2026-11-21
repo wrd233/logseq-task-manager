@@ -588,3 +588,79 @@ test("NoteTidyPreviewOverlay mounts in-place over target left Logseq block insid
     await f.cleanup();
   }
 });
+
+test("Phase 3: applyNoteTidyPlan tolerates unrelated background Journal checkEditing UUID while blocking active edits on affected blocks", async () => {
+  const f = await contentFixture();
+  try {
+    const { applyNoteTidyPlan } = await import("../../src/features/note-tidy/executor.ts");
+    const { sha256 } = await import("../../src/workspace/source-protocol.ts");
+    const targetUuid = f.a;
+    const original = f.blocks.get(targetUuid).content;
+    const originalVersion = await sha256(original);
+    const makePlan = (afterText) => ({
+      schemaVersion: 1,
+      sourceSetVersion: "ss-1",
+      structureVersion: "sv-1",
+      summary: "测试无关块编辑态放行与受影响块拦截",
+      structuralChanges: [],
+      operations: [
+        {
+          operationId: "op-check-editing",
+          type: "replace-text",
+          sourceId: targetUuid,
+          blockUuid: targetUuid,
+          expectedContentVersion: originalVersion,
+          beforeText: original,
+          afterText,
+        },
+      ],
+      beforeBlocks: [],
+      afterBlocks: [],
+      anchors: [],
+      omittedAnchorIds: [],
+      protectedBlockCount: 0,
+      meta: { origin: "local-model" },
+    });
+
+    // 1. Active edit on the affected target block itself -> MUST refuse
+    f.editing(targetUuid);
+    await assert.rejects(
+      () =>
+        applyNoteTidyPlan({
+          workKey: "test-work-editing",
+          scope: f.scope,
+          plan: makePlan("不应落盘"),
+          checkActive: async () => {},
+        }),
+      /请先结束原生编辑输入/
+    );
+    assert.equal(f.blocks.get(targetUuid).content, original);
+
+    // 2. Boolean true (unknown editing block) -> MUST refuse (fail closed)
+    f.editing(true);
+    await assert.rejects(
+      () =>
+        applyNoteTidyPlan({
+          workKey: "test-work-editing",
+          scope: f.scope,
+          plan: makePlan("不应落盘"),
+          checkActive: async () => {},
+        }),
+      /请先结束原生编辑输入/
+    );
+    assert.equal(f.blocks.get(targetUuid).content, original);
+
+    // 3. Stale/unrelated background Journal block UUID -> MUST allow clean apply!
+    f.editing("00000000-0000-4000-8000-999999999999");
+    const applied = await applyNoteTidyPlan({
+      workKey: "test-work-editing",
+      scope: f.scope,
+      plan: makePlan("整理后顺畅句子，原链接保留"),
+      checkActive: async () => {},
+    });
+    assert.equal(applied.appliedCount, 1);
+    assert.equal(f.blocks.get(targetUuid).content, "整理后顺畅句子，原链接保留");
+  } finally {
+    await f.cleanup();
+  }
+});
