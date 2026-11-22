@@ -170,6 +170,7 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
   const timeEngine = new TimeEngine();
   const navigated: string[] = [];
   const notices: string[] = [];
+  const lifecycleEvents: string[] = [];
   let openedStageCount = 0;
 
   const buildSnap = (now = Date.now()): StageSnapshot =>
@@ -185,6 +186,9 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
       },
       onOpenStage: () => { openedStageCount++; },
       onNavigateWork: async (session) => { navigated.push(session.title); },
+      onEnterFocusMode: (session) => { lifecycleEvents.push(`enter:${session.title}`); },
+      onZenModeChange: (enabled) => { lifecycleEvents.push(`zen:${enabled}`); },
+      onExitFocusMode: (prev) => { lifecycleEvents.push(`exit:${prev?.title ?? ""}`); },
       notify: (m) => { notices.push(m); },
     });
 
@@ -256,6 +260,29 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     assert.doesNotMatch(capsuleEl.textContent ?? "", /\p{Extended_Pictographic}/u);
     assert.match(capsuleEl.textContent ?? "", /上午 · .*完成核心告警降噪闭环 · 已进行 \d+m/);
 
+    // Verify titlebar clickability CSS (-webkit-app-region: no-drag) and Zen focus mode activation
+    const capsuleStyleText = document.getElementById("tcs-lsq-focus-style")?.textContent ?? "";
+    assert.match(capsuleStyleText, /-webkit-app-region:\s*no-drag/);
+    assert.match(capsuleStyleText, /pointer-events:\s*auto/);
+    assert.equal(document.body.classList.contains("tc-focus-zen"), true, "Zen class should activate on running focus");
+    assert.ok(lifecycleEvents.includes("enter:完成核心告警降噪闭环"));
+
+    // Toggle 静心 off and back on without stopping focus
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zen]")!.click();
+    assert.equal(document.body.classList.contains("tc-focus-zen"), false);
+    assert.ok(lifecycleEvents.includes("zen:false"));
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zen]")!.click();
+    assert.equal(document.body.classList.contains("tc-focus-zen"), true);
+    assert.ok(lifecycleEvents.includes("zen:true"));
+
+    // Pause lifts Zen dimming cleanly; resume restores it
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-pause]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(document.body.classList.contains("tc-focus-zen"), false);
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-pause]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(document.body.classList.contains("tc-focus-zen"), true);
+
     // Verify exact 28m count-up formatting helper
     const sampleLine = formatFocusStatusLine(
       {
@@ -277,7 +304,7 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zoom]")!.click();
     assert.equal(openedStageCount, 1);
 
-    // 5. Finish focus with stop note removes capsule and records stopNote
+    // 5. Finish focus with stop note removes capsule, lifts Zen class, restores scene, and records stopNote
     capsuleEl.querySelector<HTMLButtonElement>("[data-fc-finish-open]")!.click();
     const stopInput = document.querySelector<HTMLInputElement>("[data-fc-stop-input]")!;
     assert.ok(stopInput);
@@ -287,9 +314,130 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     await new Promise((r) => setTimeout(r, 30));
 
     assert.equal(document.querySelector(".tcs-lsq-focus-bar"), null);
+    assert.equal(document.body.classList.contains("tc-focus-zen"), false);
+    assert.ok(lifecycleEvents.includes("exit:完成核心告警降噪闭环"));
     assert.equal(timeEngine.buildSnapshot().recentFocusRecords[0]!.stopNote, "已写完核心验证，明日继续收尾");
 
     capsule.dispose();
+    overlay.dispose();
+  } finally {
+    restore();
+  }
+});
+
+test("Stage overlay supports direct zero-copy DSH jump across Area/Project/Nested Child and cross-area secondary projection", async () => {
+  const restore = installDom();
+  const now = Date.now();
+  const gId = "graph:/para-dsh";
+  const catalog: CatalogSnapshot = {
+    schemaVersion: 1,
+    graphId: gId,
+    graphName: "MainGraph",
+    refreshedAt: now,
+    works: [
+      {
+        workRef: { kind: "logseq", graphId: gId, rootUuid: "pg-area-ops", sourceKind: "page" },
+        title: "Area/运维能力",
+        objectType: "Area",
+        location: "MainGraph / Area/运维能力",
+        updatedAt: now - 1000,
+        lifecycleState: "active",
+      },
+      {
+        workRef: { kind: "logseq", graphId: gId, rootUuid: "pg-area-ai", sourceKind: "page" },
+        title: "Area/AI 自动化能力",
+        objectType: "Area",
+        location: "MainGraph / Area/AI 自动化能力",
+        updatedAt: now - 2000,
+        lifecycleState: "active",
+      },
+      {
+        workRef: { kind: "logseq", graphId: gId, rootUuid: "pg-agent", sourceKind: "page" },
+        title: "任务-运维智能体开发",
+        objectType: "Project",
+        location: "MainGraph / 任务-运维智能体开发",
+        directory: "/tmp/work-agent",
+        updatedAt: now - 500,
+        parentAreas: ["Area/运维能力", "Area/AI 自动化能力"],
+        lifecycleState: "active",
+      },
+      {
+        workRef: { kind: "logseq", graphId: gId, rootUuid: "blk-sub-1", sourceKind: "block" },
+        title: "Dify + Zabbix 同步联调",
+        objectType: "事务",
+        location: "MainGraph / 任务-运维智能体开发 / **[推进结构]** / **[阶段]** 联调验证",
+        updatedAt: now - 100,
+        parentAreas: ["Area/运维能力"],
+      },
+    ],
+  };
+
+  const engine = new StageEngine();
+  const draft = engine.proposeAreas({ agent: "user", catalog: [catalog] }, now);
+  engine.resolveProposals([{ proposalId: draft.id, action: "accept" }], now);
+
+  const dshOpened: string[] = [];
+  const discussed: string[] = [];
+
+  try {
+    const overlay = new GlobalStageOverlay({
+      remote: {
+        stageState: async () => engine.buildSnapshot([catalog], [], now),
+        stageAction: async (action) => {
+          const r = engine.applyUserAction(action, { catalog: [catalog], inbox: [], now });
+          return { snapshot: engine.buildSnapshot([catalog], [], now), archivedInboxIds: r.archivedInboxIds };
+        },
+        stageAnchor: async () => engine.buildSnapshot([catalog], [], now),
+      },
+      readLocalCatalog: async () => catalog,
+      openProject: async () => undefined,
+      openInDsh: async (target) => { dshOpened.push(target.title); },
+      openTargetInLogseq: async () => undefined,
+      discussInDsh: async (summary) => { discussed.push(summary); },
+      promoteTodo: async () => undefined,
+      openExternalUrl: async () => undefined,
+      notify: () => undefined,
+    });
+
+    await overlay.open();
+
+    // Top bar discuss button dispatches directly to DSH without clipboard copy
+    const discussBtn = document.querySelector<HTMLButtonElement>("[data-tcs-discuss]")!;
+    assert.match(discussBtn.textContent ?? "", /在 DSH 讨论当前画面/);
+    discussBtn.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(discussed.length, 1);
+
+    // Drill into Area 运维能力 (L1) -> open Area directly in DSH & click secondary chip to jump to AI 自动化能力
+    const opsCard = Array.from(document.querySelectorAll<HTMLElement>("[data-area-open]")).find((el) =>
+      (el.textContent ?? "").includes("运维能力"),
+    )!;
+    opsCard.click();
+    await new Promise((r) => setTimeout(r, 20));
+    document.querySelector<HTMLButtonElement>("[data-open-dsh-area]")!.click();
+    document.querySelector<HTMLButtonElement>("[data-open-dsh-proj]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(dshOpened, ["Area/运维能力", "任务-运维智能体开发"]);
+
+    // Click secondary Area pill -> lands in AI 自动化能力 L1 with cross-area projection card
+    document.querySelector<HTMLButtonElement>("[data-sec-area-open]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.match(document.body.textContent ?? "", /跨领域关联/);
+    assert.match(document.body.textContent ?? "", /主归：运维能力/);
+
+    // Click cross-area card -> enters same Project L2 with nested child branch and clean subtitle!
+    document.querySelector<HTMLElement>(".tcs-cross-card")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.match(document.body.textContent ?? "", /原生嵌套子对象（1）/);
+    assert.match(document.body.textContent ?? "", /Dify \+ Zabbix 同步联调/);
+    assert.match(document.body.textContent ?? "", /联调验证/);
+    assert.doesNotMatch(document.body.textContent ?? "", /MainGraph \/ 任务-运维智能体开发 \/ \*\*\[推进结构\]\*\*/);
+
+    // Click nested child "在 DSH 打开" directly opens child work in DSH!
+    document.querySelector<HTMLButtonElement>("[data-open-dsh-child]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(dshOpened.at(-1), "Dify + Zabbix 同步联调");
+
     overlay.dispose();
   } finally {
     restore();

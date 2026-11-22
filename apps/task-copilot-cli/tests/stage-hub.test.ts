@@ -103,14 +103,18 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     assert.doesNotMatch(html, /[✨💡📖]/u, "standalone stage HTML must contain zero emojis");
 
     // 3. Call stage_propose_areas via /mcp/call (Codex/Antigravity path) without active single-work connection
-    const callMcp = async (name: string, args: Record<string, unknown>, clientId = "codex") => {
+    const callMcpRaw = async (name: string, args: Record<string, unknown>, clientId = "codex") => {
       const res = await fetch(`${baseUrl}/mcp/call`, {
         method: "POST",
         headers: cliHeaders,
         body: JSON.stringify({ name, arguments: args, clientId }),
       });
       const json = (await res.json()) as { value?: Record<string, unknown>; error?: { code: string; message: string } };
-      assert.equal(res.status, 200, JSON.stringify(json));
+      return { status: res.status, json };
+    };
+    const callMcp = async (name: string, args: Record<string, unknown>, clientId = "codex") => {
+      const { status, json } = await callMcpRaw(name, args, clientId);
+      assert.equal(status, 200, JSON.stringify(json));
       return json.value!;
     };
 
@@ -181,6 +185,39 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     assert.equal((view.viewport as { zoomLevel: number }).zoomLevel, 1);
     assert.match(String(view.gazeSummary), /L1 领域/);
 
+    // 5b. /plugin/stage/open-dsh fails clearly when DSH is offline, and returns #stage-discuss=1 URL + gaze when running
+    const prevSkip = process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+    process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = "1";
+    try {
+      const offlineRes = await fetch(`${baseUrl}/plugin/stage/open-dsh`, {
+        method: "POST",
+        headers: pluginHeaders,
+        body: JSON.stringify({}),
+      });
+      assert.equal(offlineRes.status, 400);
+      const offlineBody = (await offlineRes.json()) as { error?: { code?: string } };
+      assert.equal(offlineBody.error?.code, "DSH_NOT_RUNNING");
+
+      await writeFile(
+        join(stateDir, "dsh-browser.json"),
+        JSON.stringify({ url: "http://127.0.0.1:3080/?token=test-token", pid: process.pid }),
+        { mode: 0o600 },
+      );
+      const onlineRes = await fetch(`${baseUrl}/plugin/stage/open-dsh`, {
+        method: "POST",
+        headers: pluginHeaders,
+        body: JSON.stringify({}),
+      });
+      assert.equal(onlineRes.status, 200);
+      const onlineBody = (await onlineRes.json()) as { value: { url: string; gaze: string; viewport: { zoomLevel: number } } };
+      assert.equal(onlineBody.value.url, "http://127.0.0.1:3080/?token=test-token#stage-discuss=1");
+      assert.match(onlineBody.value.gaze, /L1 领域/);
+      assert.equal(onlineBody.value.viewport.zoomLevel, 1);
+    } finally {
+      if (prevSkip === undefined) delete process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE;
+      else process.env.TASK_COPILOT_SKIP_WINDOW_ACTIVATE = prevSkip;
+    }
+
     // 6. Sprout Ghost branches & verify SSE receives update
     const sseAbort = new AbortController();
     const ssePromise = fetch(`${baseUrl}/stage/events?token=${token}&instanceId=${instanceId}`, {
@@ -209,6 +246,73 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     });
     assert.deepEqual(committed.archivedInboxIds, [inboxId]);
     assert.equal((committed.createdAdvancements as unknown[]).length, 1);
+
+    // 6b. Strict guardrails & pagination checks:
+    // - stage_propose_move rejects nonexistent targetAreaId
+    const badMove = await callMcpRaw("stage_propose_move", {
+      targetAreaId: "area-nonexistent-9999",
+      title: "无效移动",
+      reason: "测试校验",
+    });
+    assert.equal(badMove.status, 400);
+    assert.equal(badMove.json.error?.code, "INVALID_INPUT");
+
+    // - stage_resolve_proposals rejects nonexistent proposalId
+    const badResolve = await callMcpRaw("stage_resolve_proposals", {
+      decisions: [{ proposalId: "ghost-missing-9999", action: "accept" }],
+    });
+    assert.equal(badResolve.status, 400);
+    assert.equal(badResolve.json.error?.code, "PROPOSAL_NOT_FOUND");
+
+    // - stage_propose_area_role rejects two competing pending main proposals
+    const allAreas = (await callMcp("stage_get_pulse", { projectLimit: 1 })).areas as Array<{
+      id: string;
+      totalProjects: number;
+      projects: unknown[];
+    }>;
+    assert.ok(allAreas.length >= 2);
+    assert.equal(allAreas[0]!.projects.length, 1);
+    const drillArea = await callMcp("stage_get_pulse", { areaId: allAreas[0]!.id, projectLimit: 10 });
+    assert.equal((drillArea.areas as unknown[]).length, 1);
+
+    const firstMain = await callMcp("stage_propose_area_role", {
+      areaId: allAreas[0]!.id,
+      focusRole: "main",
+      reason: "先提议第一个主线",
+    });
+    const secondMain = await callMcpRaw("stage_propose_area_role", {
+      areaId: allAreas[1]!.id,
+      focusRole: "main",
+      reason: "同时提议第二个主线应被拦截",
+    });
+    assert.equal(secondMain.status, 400);
+    assert.equal(secondMain.json.error?.code, "INVALID_INPUT");
+    await callMcp("stage_resolve_proposals", {
+      decisions: [{ proposalId: (firstMain.proposal as { id: string }).id, action: "dismiss" }],
+    });
+
+    // - stage_highlight creates radar when targeting out-of-view area & clear:true clears it
+    const hl = await callMcp("stage_highlight", {
+      targetIds: [allAreas[1]!.id],
+      reason: "提醒视野外领域",
+    });
+    assert.ok(hl.nudgedRadar);
+    const cleared = await callMcp("stage_highlight", { clear: true });
+    assert.equal(cleared.clearedRadar, true);
+    const viewAfterClear = await callMcp("stage_get_view", { projectLimit: 5 });
+    assert.equal(viewAfterClear.activeRadar, null);
+
+    // - stage_resolve_proposals({ undoLast: true }) rolls back last commit cleanly, then re-commit for restart check
+    const tempBranch = await callMcp("stage_sprout_branches", {
+      projectWorkKey: obsKey,
+      branches: [{ title: "可撤销验证项", reason: "验证 undoLast" }],
+    });
+    const tempId = ((tempBranch.proposals as Array<{ id: string }>)[0]!).id;
+    await callMcp("stage_resolve_proposals", { decisions: [{ proposalId: tempId, action: "accept" }] });
+    const undone = await callMcp("stage_resolve_proposals", { undoLast: true });
+    assert.equal(undone.undone, true);
+    assert.equal(undone.canUndo, false);
+    await callMcp("stage_resolve_proposals", { decisions: [{ proposalId: tempId, action: "dismiss" }] });
   } finally {
     await server.close();
   }

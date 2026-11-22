@@ -45,9 +45,11 @@ test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when w
   });
   const registeredTools = new Map();
   let gazeProvider = null;
+  let assembleHook = null;
   const fakeCtx = {
     tools: { register: spec => registeredTools.set(spec.name, spec) },
     systemPrompt: { context: spec => { if (spec.name === 'logseq-stage:viewport') gazeProvider = spec.text; } },
+    on: (event, fn) => { if (event === 'system-prompt/assemble') assembleHook = fn; },
   };
   const stage = installStageHost(fakeCtx, {
     service: { transport: { stateDirectory: stateDir } },
@@ -92,6 +94,19 @@ test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when w
     const pulseAfterRole = await registeredTools.get('stage_get_pulse').execute({}, { agent: { session: { id: 'sess-1' } } });
     assert.equal(pulseAfterRole.areas.find(a => a.id === firstAreaId).focusRole, 'main');
 
+    // Navigating viewport in Companion (e.g. from Logseq) is picked up on system-prompt/assemble with exact layer & object!
+    await server.stageHub.applyAction({
+      type: 'set-viewport',
+      source: 'logseq',
+      viewport: { activeTab: 'season', zoomLevel: 2, areaId: firstAreaId, projectWorkKey: workKey(workRef), taskId: null },
+    });
+    assert.ok(assembleHook, 'system-prompt/assemble hook should be registered');
+    const assembled = await assembleHook({}, {}, async () => ({ contexts: [] }));
+    const stageCtx = assembled.contexts.find(c => c.name === 'logseq-stage:viewport');
+    assert.ok(stageCtx, 'assembled system prompt must contain live logseq-stage:viewport');
+    assert.match(stageCtx.text, /当前层次：L2 项目结构树/);
+    assert.match(stageCtx.text, /核心告警降噪升级/);
+
     // Time tools proxy cleanly through Companion
     const timeProposed = await registeredTools.get('time_propose_plan').execute(
       { proposals: [{ kind: 'week-add-move', title: '完成核心告警降噪闭环', areaId: firstAreaId, reason: '本周主线块' }] },
@@ -103,6 +118,22 @@ test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when w
     );
     const timeOverview = await registeredTools.get('time_get_overview').execute({}, { agent: { session: { id: 'sess-1' } } });
     assert.equal(timeOverview.weekMoves.length, 1);
+
+    // Companion 400 validation errors propagate directly instead of falling back to offline local engine
+    await assert.rejects(
+      () => registeredTools.get('stage_resolve_proposals').execute(
+        { decisions: [{ proposalId: 'ghost-missing', action: 'accept' }] },
+        { agent: { session: { id: 'sess-1' } } },
+      ),
+      { code: 'PROPOSAL_NOT_FOUND' },
+    );
+    await assert.rejects(
+      () => registeredTools.get('time_focus_control').execute(
+        { command: 'finish' },
+        { agent: { session: { id: 'sess-1' } } },
+      ),
+      { code: 'NO_ACTIVE_FOCUS' },
+    );
 
     const sprouted = await registeredTools.get('stage_sprout_branches').execute(
       {

@@ -138,6 +138,7 @@ export interface StageGhostProposal {
   sourceInboxId?: string;
   sourceInboxText?: string;
   proposedAreas?: ColdStartAreaDraft[];
+  proposedDormantAreas?: ColdStartAreaDraft[];
   unassignedTitles?: string[];
   proposedRole?: StageFocusRole;
   proposedDomain?: StageAreaDomain;
@@ -172,6 +173,49 @@ export interface StageAgentPresence {
   updatedAt: number;
 }
 
+export interface StageWorkTarget {
+  workRef: WorkRef;
+  workKey?: string;
+  title: string;
+  directory?: string;
+}
+
+export interface StageAreaRef {
+  areaId: string | null;
+  areaName: string;
+}
+
+export interface StageChildWorkItem {
+  workKey: string;
+  workRef: WorkRef;
+  title: string;
+  objectType: string;
+  location: string;
+  subtitle: string;
+  directory?: string;
+  lifecycleState?: string;
+  updatedAt: number;
+  recencyDays: number;
+  pulseLabel: string;
+}
+
+export interface StageCrossAreaProjectRef {
+  workKey: string;
+  workRef: WorkRef;
+  title: string;
+  objectType: string;
+  subtitle: string;
+  directory?: string;
+  lifecycleState?: string;
+  primaryAreaId: string;
+  primaryAreaName: string;
+  childCount: number;
+  recencyDays: number;
+  pulseLabel: string;
+  tone: StageTone;
+  signalLabel: string;
+}
+
 export interface StageProjectNode {
   workKey: string;
   workRef: WorkRef;
@@ -180,7 +224,11 @@ export interface StageProjectNode {
   title: string;
   objectType: string;
   location: string;
+  subtitle: string;
   directory?: string;
+  lifecycleState?: string;
+  secondaryAreas: StageAreaRef[];
+  childWorks: StageChildWorkItem[];
   updatedAt: number;
   recencyDays: number;
   pulseLabel: string;
@@ -205,6 +253,9 @@ export interface StageAreaNode {
   pos: StagePoint;
   focusRole: StageFocusRole;
   domain: StageAreaDomain;
+  areaWorkRef?: WorkRef;
+  areaPageTitle?: string;
+  areaDirectory?: string;
   quarterGoal?: string;
   antiGoal?: string;
   weeklyMinimum?: string;
@@ -217,6 +268,7 @@ export interface StageAreaNode {
   signalLabel: string;
   mismatch?: StageMismatchSignal;
   projects: StageProjectNode[];
+  crossAreaProjects: StageCrossAreaProjectRef[];
   areaAdvancements: StageAdvancementItem[];
   inboxMatchCount: number;
 }

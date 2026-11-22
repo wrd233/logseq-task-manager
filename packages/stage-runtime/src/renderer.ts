@@ -1,4 +1,4 @@
-import { areaDomainLabel, focusRoleLabel } from "./pulse.ts";
+import { areaDomainLabel, defaultAreaPositionForRole, focusRoleLabel } from "./pulse.ts";
 import {
   WORK_RESUME_RESTART_DAYS,
   buildWorkRestartDeck,
@@ -28,6 +28,7 @@ import type {
   StageSnapshot,
   StageUserAction,
   StageViewportSource,
+  StageWorkTarget,
   StageZoomLevel,
 } from "./types.ts";
 
@@ -36,6 +37,9 @@ export interface StageViewPort {
   dispatch(action: StageUserAction): Promise<StageSnapshot | void> | StageSnapshot | void;
   onOpenWork?(project: StageProjectNode): void | Promise<void>;
   onOpenInLogseq?(project: StageProjectNode): void | Promise<void>;
+  onOpenInDsh?(target: StageWorkTarget): void | Promise<void>;
+  onOpenTargetInLogseq?(target: StageWorkTarget): void | Promise<void>;
+  onDiscussInDsh?(summary: string, snapshot: StageSnapshot): void | Promise<void>;
   onPromoteTodo?(item: StageAdvancementItem, project: StageProjectNode | null): void | Promise<void>;
   onQuoteToChat?(text: string): void;
   onOpenStandalone?(url: string): void;
@@ -43,6 +47,8 @@ export interface StageViewPort {
   onFocusStarted?(session: ActiveFocusSession): void | Promise<void>;
   /** Optional header label for open-work button (e.g. "在 DSH 打开" / "回到 Logseq 原文"). */
   openWorkLabel?: string;
+  /** Optional label for the direct DSH handoff button (defaults to "在 DSH 打开"). */
+  openDshLabel?: string;
   showStandaloneButton?: boolean;
   showCloseButton?: boolean;
 }
@@ -369,7 +375,8 @@ export const STAGE_VIEW_CSS = `
               0 10px 24px -8px color-mix(in srgb, var(--tcs-primary) 38%, transparent) !important;
 }
 
-.tcs-l0-board { position: relative; min-width: 620px; min-height: 520px; height: 100%; }
+.tcs-l0-shell { display: flex; flex-direction: column; min-width: 640px; min-height: 100%; padding-bottom: 16px; }
+.tcs-l0-board { position: relative; min-width: 640px; min-height: 460px; flex: 1 0 auto; }
 .tcs-area-card {
   position: absolute; width: 274px; border-radius: 13px; border: 1px solid var(--tcs-border);
   background: var(--tcs-card); padding: 13px; cursor: pointer;
@@ -388,10 +395,10 @@ export const STAGE_VIEW_CSS = `
 .tcs-mini-row:hover { border-color: var(--tcs-primary); }
 
 .tcs-dormant-bar {
-  position: absolute; bottom: 4px; left: 12px; right: 12px;
+  margin-top: 16px;
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding: 7px 12px; border-radius: 10px; border: 1px solid var(--tcs-card-border);
-  background: color-mix(in srgb, var(--tcs-card) 82%, transparent);
+  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--tcs-card-border);
+  background: color-mix(in srgb, var(--tcs-card) 86%, transparent);
   font-size: 11.5px; color: var(--tcs-muted);
 }
 
@@ -405,8 +412,43 @@ export const STAGE_VIEW_CSS = `
   position: relative; border-radius: 13px; border: 1px solid var(--tcs-border);
   background: var(--tcs-card); padding: 14px; cursor: pointer;
   transition: all 170ms ease; box-shadow: var(--tcs-shadow-sm);
+  display: flex; flex-direction: column; justify-content: space-between;
 }
 .tcs-proj-card:hover { transform: translateY(-2px); box-shadow: var(--tcs-shadow-md); }
+.tcs-card-sub {
+  font-size: 11.5px; color: var(--tcs-muted); line-height: 1.45; margin-bottom: 8px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tcs-secondary-row {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.tcs-secondary-chip {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--tcs-primary) 8%, var(--tcs-bg));
+  border: 1px solid color-mix(in srgb, var(--tcs-primary) 24%, var(--tcs-card-border));
+  color: var(--tcs-muted); cursor: pointer;
+}
+.tcs-secondary-chip:hover { color: var(--tcs-primary); border-color: var(--tcs-primary); }
+.tcs-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  font-size: 11.5px; color: var(--tcs-muted); padding-top: 8px;
+  border-top: 1px solid var(--tcs-card-border);
+}
+.tcs-cross-box {
+  margin-top: 4px; padding: 12px 14px; border-radius: 13px;
+  border: 1px dashed var(--tcs-border);
+  background: color-mix(in srgb, var(--tcs-card) 68%, var(--tcs-bg));
+}
+.tcs-cross-card {
+  border-radius: 11px; border: 1px dashed var(--tcs-border); background: var(--tcs-card);
+  padding: 11px 13px; cursor: pointer; transition: border-color 150ms, transform 150ms;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 6px;
+}
+.tcs-cross-card:hover { border-color: var(--tcs-primary); transform: translateY(-1px); }
+.tcs-branch-section {
+  font-size: 11.5px; font-weight: 600; color: var(--tcs-muted);
+  padding: 2px 2px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
 
 .tcs-l2-wrap { position: relative; min-width: 520px; max-width: 880px; margin: 10px auto 0; padding-bottom: 80px; }
 .tcs-l2-flex { position: relative; z-index: 2; display: flex; align-items: flex-start; gap: 42px; }
@@ -571,7 +613,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <div class="tcs-bc" data-tcs-bc></div>
       </div>
       <div class="tcs-bar-right">
-        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-discuss>向 Agent 讨论当前画面</button>
+        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-discuss>${port.onDiscussInDsh ? "在 DSH 讨论当前画面" : "向 Agent 讨论当前画面"}</button>
         <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">↶ 撤销</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>Inbox · 0</button>
@@ -637,6 +679,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   const bodyEl = root.querySelector<HTMLElement>(".tcs-body")!;
 
   let snapshot: StageSnapshot | null = null;
+  let lastRenderSignature = "";
+  let prevViewKey = "";
   let prevZoomLevel: StageZoomLevel = 0;
   let hoveredInboxId: string | null = null;
   let draggingInboxId: string | null = null;
@@ -895,6 +939,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
   const renderColdStart = (proposal: StageGhostProposal) => {
     const drafts = proposal.proposedAreas ?? [];
+    const dormantDrafts = proposal.proposedDormantAreas ?? [];
     const unassigned = proposal.unassignedTitles ?? [];
     hintEl.textContent = "冷启动防乱护栏：硬控 4–7 主领域 + 四态分流 · 微调后一键凝固";
     stageEl.innerHTML = `
@@ -942,6 +987,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             )
             .join("")}
         </div>
+        ${
+          dormantDrafts.length > 0
+            ? `<div style="border-radius:11px;border:1px solid var(--tcs-card-border);background:color-mix(in srgb,var(--tcs-card) 86%,transparent);padding:12px;">
+                <div style="font-size:11.5px;color:var(--tcs-muted);margin-bottom:7px;">其余 Logseq 显式领域（凝固后暂放底栏休眠区，可随时一键唤醒）：</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${dormantDrafts.map((d) => `<span style="font-size:11.5px;padding:3px 8px;border-radius:7px;background:var(--tcs-bg);border:1px solid var(--tcs-card-border);color:var(--tcs-fg)">${esc(d.name)}${d.domain === "life" ? " · 生活" : ""}（${d.workKeys.length} 项）</span>`).join("")}
+                </div>
+              </div>`
+            : ""
+        }
         ${
           unassigned.length > 0
             ? `<div style="border-radius:11px;border:1px solid var(--tcs-card-border);background:color-mix(in srgb,var(--tcs-card) 80%,transparent);padding:12px;">
@@ -1049,9 +1104,28 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       })
       .join("");
 
-    const dormantHtml =
-      snap.dormantAreas.length > 0 || snap.unassignedWorks.length > 0
-        ? `
+    const estimatedCardHeight = (area: StageAreaNode): number => {
+      let h = 112 + Math.min(3, area.projects.length) * 38;
+      if (area.signalLabel) h += 28;
+      if (area.mismatch) h += 54;
+      if (area.focusRole === "main" && area.quarterGoal) h += 38;
+      if (area.focusRole === "maintenance" && area.weeklyMinimum) h += 38;
+      if (area.annotation) h += 38;
+      const areaGhosts = snap.ghostProposals.filter((g) => g.areaId === area.id || g.targetAreaId === area.id);
+      if (areaGhosts.some((g) => g.kind === "propose-area-role")) h += 110;
+      else if (areaGhosts.length > 0) h += 38;
+      return Math.max(256, h);
+    };
+    const boardHeight = snap.areas.reduce(
+      (maxH, area) => Math.max(maxH, Math.round(area.pos.y + estimatedCardHeight(area) + 24)),
+      460,
+    );
+    const boardWidth = snap.areas.reduce(
+      (maxW, area) => Math.max(maxW, Math.round(area.pos.x + 296)),
+      640,
+    );
+
+    const dormantHtml = `
         <div class="tcs-dormant-bar">
           <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
             ${snap.dormantAreas.length > 0 ? `<span>搁置 / 休眠：</span>` : ""}
@@ -1061,13 +1135,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                   `<button type="button" class="tcs-btn tcs-btn-sm" data-unpark-area="${esc(d.id)}" title="点击唤醒">${esc(d.name)}${d.domain === "life" ? " · 生活" : ""} · ${d.parked ? "已搁置" : `${d.recencyDays}天`}</button>`,
               )
               .join("")}
-            ${snap.unassignedWorks.length > 0 ? `<span style="margin-left:6px">暂放未归类：${snap.unassignedWorks.length} 项</span>` : ""}
+            ${snap.unassignedWorks.length > 0 ? `<span style="margin-left:${snap.dormantAreas.length > 0 ? "6px" : "0"}">暂放未归类：${snap.unassignedWorks.length} 项</span>` : ""}
+            ${snap.dormantAreas.length === 0 && snap.unassignedWorks.length === 0 ? `<span>当前活跃领域：${snap.areas.length} 个</span>` : ""}
           </div>
-          <span>空间方位已锚定</span>
-        </div>`
-        : "";
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>空间方位已锚定</span>
+            ${snap.areas.length > 0 ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-tidy-l0 title="按防重叠网格重新对齐当前领域坐标">整理排布</button>` : ""}
+          </div>
+        </div>`;
 
-    stageEl.innerHTML = `<div class="tcs-l0-board ${animCls}">${cards}${dormantHtml}</div>`;
+    stageEl.innerHTML = `<div class="tcs-l0-shell ${animCls}"><div class="tcs-l0-board" style="min-height:${boardHeight}px;min-width:${boardWidth}px;">${cards}</div>${dormantHtml}</div>`;
   };
 
   const renderL1 = (snap: StageSnapshot, animCls: string) => {
@@ -1114,14 +1191,25 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           ${area.quarterGoal ? `<div class="tcs-meta-line">季度目标：${esc(area.quarterGoal)}</div>` : ""}
           ${area.antiGoal ? `<div class="tcs-meta-line">反目标：${esc(area.antiGoal)}</div>` : ""}
           ${area.weeklyMinimum ? `<div class="tcs-meta-line">每周底线：${esc(area.weeklyMinimum)}</div>` : ""}
-          <div class="tcs-role-bar">
-            ${roleOptions
-              .map(
-                (opt) =>
-                  `<button type="button" class="tcs-btn tcs-btn-sm ${area.focusRole === opt.role ? "is-active" : "tcs-btn-ghost"}" data-set-role="${esc(area.id)}|${opt.role}">${opt.label}</button>`,
-              )
-              .join("")}
-            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-set-domain="${esc(area.id)}|${area.domain === "work" ? "life" : "work"}">切至${area.domain === "work" ? "生活" : "工作"}</button>
+          <div class="tcs-role-bar" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+              ${roleOptions
+                .map(
+                  (opt) =>
+                    `<button type="button" class="tcs-btn tcs-btn-sm ${area.focusRole === opt.role ? "is-active" : "tcs-btn-ghost"}" data-set-role="${esc(area.id)}|${opt.role}">${opt.label}</button>`,
+                )
+                .join("")}
+              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-set-domain="${esc(area.id)}|${area.domain === "work" ? "life" : "work"}">切至${area.domain === "work" ? "生活" : "工作"}</button>
+            </div>
+            ${
+              area.areaWorkRef && (port.onOpenInDsh || port.onOpenTargetInLogseq)
+                ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    ${area.areaDirectory ? `<span class="tcs-badge tcs-badge-mist">已绑定目录</span>` : ""}
+                    ${port.onOpenTargetInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-open-logseq-area="${esc(area.id)}">领域原文</button>` : ""}
+                    ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-open-dsh-area="${esc(area.id)}">${esc(port.source === "dsh" ? "进入领域对话" : "在 DSH 打开此领域")}</button>` : ""}
+                  </div>`
+                : ""
+            }
           </div>
           ${roleGhosts
             .map(
@@ -1147,21 +1235,38 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
               const badgeCls = badgeClassForTone(p.tone);
               const pGhosts = snap.ghostProposals.filter((g) => g.projectWorkKey === p.workKey);
               const hi = highlightSet.has(p.workKey) ? "tcs-highlight-ring" : "";
+              const activeAdvCount = p.advancements.filter((a) => a.state === "active").length;
+              const secHtml =
+                p.secondaryAreas.length > 0
+                  ? `<div class="tcs-secondary-row">${p.secondaryAreas
+                      .map((ref) =>
+                        ref.areaId && snap.areas.some((a) => a.id === ref.areaId)
+                          ? `<button type="button" class="tcs-secondary-chip" data-sec-area-open="${esc(ref.areaId)}" title="切换到关联领域">另关联：${esc(ref.areaName)}</button>`
+                          : `<span class="tcs-secondary-chip" style="cursor:default;">另关联：${esc(ref.areaName)}</span>`,
+                      )
+                      .join("")}</div>`
+                  : "";
+              const dshLabel = port.source === "dsh" ? "进入对话" : (port.openDshLabel ?? "在 DSH 打开");
               return `
                 <div class="tcs-proj-card ${toneCls} ${hi}"
                   data-node-id="${esc(p.workKey)}"
                   data-project-open="${esc(area.id)}|${esc(p.workKey)}"
                   data-drop-project="${esc(area.id)}|${esc(p.workKey)}">
-                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">
-                    <strong style="font-size:13.5px">${esc(p.title)}</strong>
-                    ${p.signalLabel ? `<span class="tcs-badge ${badgeCls}">${esc(p.signalLabel)}</span>` : ""}
+                  <div>
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                      <strong style="font-size:13.5px">${esc(p.title)}</strong>
+                      ${p.signalLabel ? `<span class="tcs-badge ${badgeCls}">${esc(p.signalLabel)}</span>` : ""}
+                    </div>
+                    <div class="tcs-card-sub">${esc(p.subtitle)}</div>
+                    ${secHtml}
                   </div>
-                  <div style="font-size:11.5px;color:var(--tcs-muted);margin-bottom:10px;">${esc(p.objectType)} · ${esc(p.location || p.graphName)}</div>
-                  <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--tcs-muted);padding-top:8px;border-top:1px solid var(--tcs-card-border);">
-                    <span>${esc(p.pulseLabel)}</span>
-                    <span>${p.advancements.filter((a) => a.state === "active").length} 项推进</span>
+                  <div>
+                    <div class="tcs-card-foot">
+                      <span>${esc(p.pulseLabel)}${p.childWorks.length > 0 ? ` · ${p.childWorks.length} 子项` : activeAdvCount > 0 ? ` · ${activeAdvCount} 项推进` : ""}</span>
+                      ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-dsh-proj="${esc(area.id)}|${esc(p.workKey)}">${esc(dshLabel)}</button>` : `<span>${activeAdvCount} 项推进</span>`}
+                    </div>
+                    ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>${pGhosts.length} 条虚态分支待定</span><span>进入 L2 →</span></div>` : ""}
                   </div>
-                  ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>${pGhosts.length} 条虚态分支待定</span><span>进入 L2 →</span></div>` : ""}
                   ${renderPresence(p.workKey)}
                 </div>
               `;
@@ -1202,6 +1307,37 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             )
             .join("")}
         </div>
+        ${
+          area.crossAreaProjects.length > 0
+            ? `<div class="tcs-cross-box">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
+                  <span style="font-size:12px;font-weight:600;color:var(--tcs-muted)">跨领域关联（${area.crossAreaProjects.length}）</span>
+                  <span style="font-size:11px;color:var(--tcs-muted)">主归属在其他领域 · 不重复计入本领域负荷 · 点击进入同一工作对象</span>
+                </div>
+                <div class="tcs-grid">
+                  ${area.crossAreaProjects
+                    .map((ref) => {
+                      const dshLabel = port.source === "dsh" ? "进入对话" : (port.openDshLabel ?? "在 DSH 打开");
+                      return `
+                        <div class="tcs-cross-card" data-project-open="${esc(ref.primaryAreaId)}|${esc(ref.workKey)}">
+                          <div>
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:5px;">
+                              <strong style="font-size:13px">${esc(ref.title)}</strong>
+                              <span class="tcs-badge tcs-badge-mist">主归：${esc(ref.primaryAreaName)}</span>
+                            </div>
+                            <div class="tcs-card-sub" style="margin-bottom:4px;">${esc(ref.subtitle)}</div>
+                          </div>
+                          <div class="tcs-card-foot" style="padding-top:6px;">
+                            <span>${esc(ref.pulseLabel)}${ref.childCount > 0 ? ` · ${ref.childCount} 子项` : ""}</span>
+                            ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-dsh-cross="${esc(ref.primaryAreaId)}|${esc(ref.workKey)}">${esc(dshLabel)}</button>` : `<span>查看 L2 →</span>`}
+                          </div>
+                        </div>`;
+                    })
+                    .join("")}
+                </div>
+              </div>`
+            : ""
+        }
       </div>
     `;
   };
@@ -1213,9 +1349,44 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       renderL1(snap, animCls);
       return;
     }
-    hintEl.textContent = "人机共编黄金层：Agent 可在此生长虚态分支 · 点选推进项可写入 Logseq TODO";
+    hintEl.textContent = "人机共编黄金层：展示原生嵌套子对象与 Agent 虚态推演 · 可直接跳入对应工作目录";
     const highlightSet = new Set(snap.highlights.map((h) => h.targetId));
     const ghosts = snap.ghostProposals.filter((g) => g.projectWorkKey === proj.workKey);
+    const showSeparateDshBtn = Boolean(port.onOpenInDsh && port.source !== "dsh");
+    const dshLabel = port.openDshLabel ?? "在 DSH 打开";
+    const childDshLabel = port.source === "dsh" ? "进入对话" : dshLabel;
+    const renderChildNode = (child: StageProjectNode["childWorks"][number], connected: boolean) => `
+      <div class="tcs-l2-node" ${connected ? "data-tcs-l2-branch" : ""} data-node-id="${esc(child.workKey)}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+            <span class="tcs-dot" style="background:var(--tcs-primary)"></span>
+            <span style="font-size:12.5px;font-weight:500;">${esc(child.title)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            ${child.directory ? `<span class="tcs-badge tcs-badge-mist">已绑定目录</span>` : ""}
+            <span class="tcs-badge tcs-badge-mist">${esc(child.objectType)}</span>
+          </div>
+        </div>
+        <div style="margin-top:5px;padding-left:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11.5px;color:var(--tcs-muted);">${esc(child.subtitle)} · ${esc(child.pulseLabel)}</span>
+          <div style="display:flex;align-items:center;gap:5px;">
+            ${port.onOpenTargetInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-logseq-child="${esc(proj.workKey)}|${esc(child.workKey)}">原文</button>` : ""}
+            ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm" data-open-dsh-child="${esc(proj.workKey)}|${esc(child.workKey)}">${esc(childDshLabel)}</button>` : ""}
+          </div>
+        </div>
+      </div>`;
+    const visibleChildren = proj.childWorks.slice(0, 6);
+    const hiddenChildren = proj.childWorks.slice(6);
+    const secHtml =
+      proj.secondaryAreas.length > 0
+        ? `<div class="tcs-secondary-row" style="margin-top:8px;margin-bottom:0;">${proj.secondaryAreas
+            .map((ref) =>
+              ref.areaId && snap.areas.some((a) => a.id === ref.areaId)
+                ? `<button type="button" class="tcs-secondary-chip" data-sec-area-open="${esc(ref.areaId)}">另关联：${esc(ref.areaName)}</button>`
+                : `<span class="tcs-secondary-chip" style="cursor:default;">另关联：${esc(ref.areaName)}</span>`,
+            )
+            .join("")}</div>`
+        : "";
 
     stageEl.innerHTML = `
       <div class="tcs-l2-wrap ${animCls}" data-tcs-l2-wrap>
@@ -1227,10 +1398,12 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             data-drop-project="${esc(area.id)}|${esc(proj.workKey)}">
             <div style="font-size:11px;color:var(--tcs-muted);margin-bottom:4px;">${esc(area.name)} · L2 结构</div>
             <div style="font-size:15px;font-weight:600;">${esc(proj.title)}</div>
-            <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:5px;">${esc(proj.objectType)} · ${esc(proj.location || proj.graphName)}</div>
+            <div class="tcs-card-sub" style="margin-top:5px;margin-bottom:0;">${esc(proj.subtitle)}</div>
+            ${secHtml}
             <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--tcs-card-border);font-size:11.5px;color:var(--tcs-muted);">${esc(proj.pulseLabel)}</div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
-              ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l2-open-work>${esc(port.openWorkLabel ?? "进入此工作")}</button>` : ""}
+              ${showSeparateDshBtn ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l2-open-dsh>${esc(dshLabel)}</button>` : ""}
+              ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm ${showSeparateDshBtn ? "" : "tcs-btn-primary"}" data-l2-open-work>${esc(port.openWorkLabel ?? "进入此工作")}</button>` : ""}
               ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-open-logseq>Logseq 原文</button>` : ""}
               ${proj.recencyDays >= WORK_RESUME_RESTART_DAYS ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l2-restart="${esc(proj.workKey)}">久别重启</button>` : ""}
               ${port.onQuoteToChat ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l2-quote>引用到对话</button>` : ""}
@@ -1241,10 +1414,29 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
           <div class="tcs-l2-children">
             ${
-              proj.advancements.length === 0 && ghosts.length === 0
+              proj.childWorks.length === 0 && proj.advancements.length === 0 && ghosts.length === 0
                 ? `<div class="tcs-l2-node" data-tcs-l2-branch style="color:var(--tcs-muted);font-size:12px;">
-                    暂无下级推进分支。你可以在旁边对话里问 Agent：“最近这个东西还能衍生出什么任务？”，或把右侧 Inbox 拖到左侧卡片上。
+                    暂无下级推进分支。可直接点左侧「${esc(showSeparateDshBtn ? dshLabel : port.openWorkLabel ?? "进入此工作")}」进入专属工作目录，或在对话里让 Agent 帮你衍生下一步。
                   </div>`
+                : ""
+            }
+            ${
+              proj.childWorks.length > 0
+                ? `<div class="tcs-branch-section"><span>原生嵌套子对象（${proj.childWorks.length}）</span><span>源自 Logseq 内部结构</span></div>
+                   ${visibleChildren.map((child) => renderChildNode(child, true)).join("")}
+                   ${
+                     hiddenChildren.length > 0
+                       ? `<details class="tcs-cooled-box" style="margin-top:2px;">
+                            <summary><span>展开其余 ${hiddenChildren.length} 项嵌套子对象</span></summary>
+                            <div class="tcs-cooled-list">${hiddenChildren.map((child) => renderChildNode(child, false)).join("")}</div>
+                          </details>`
+                       : ""
+                   }`
+                : ""
+            }
+            ${
+              proj.childWorks.length > 0 && (proj.advancements.length > 0 || ghosts.length > 0)
+                ? `<div class="tcs-branch-section" style="margin-top:6px;"><span>轻量推进与虚态推演</span></div>`
                 : ""
             }
             ${proj.advancements
@@ -1401,6 +1593,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       l3El.style.display = "none";
       return;
     }
+    const showSeparateDshBtn = Boolean(port.onOpenInDsh && port.source !== "dsh");
+    const dshLabel = port.openDshLabel ?? "在 DSH 打开";
     l3El.style.display = "flex";
     l3El.innerHTML = `
       <div class="tcs-l3-card tcs-anim-in">
@@ -1417,10 +1611,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-top:8px;border-top:1px solid var(--tcs-card-border);">
           <button type="button" class="tcs-btn tcs-btn-sm" data-toggle-adv="${esc(adv.id)}">${adv.state === "done" ? "重新打开" : "✓ 标记完成"}</button>
-          <div style="display:flex;gap:7px;">
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
             ${port.onPromoteTodo && !adv.promotedToLogseqAt ? `<button type="button" class="tcs-btn tcs-btn-sm" data-promote-adv="${esc(adv.id)}">写入 Logseq TODO</button>` : ""}
             ${port.onOpenInLogseq ? `<button type="button" class="tcs-btn tcs-btn-sm" data-l3-open-logseq>Logseq 原文</button>` : ""}
-            ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l3-open-work>${esc(port.openWorkLabel ?? "进入执行")}</button>` : ""}
+            ${showSeparateDshBtn ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-l3-open-dsh>${esc(dshLabel)}</button>` : ""}
+            ${port.onOpenWork ? `<button type="button" class="tcs-btn tcs-btn-sm ${showSeparateDshBtn ? "" : "tcs-btn-primary"}" data-l3-open-work>${esc(port.openWorkLabel ?? "进入执行")}</button>` : ""}
           </div>
         </div>
       </div>
@@ -1849,6 +2044,13 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   };
 
   const update = (next: StageSnapshot) => {
+    const sig = JSON.stringify({ ...next, generatedAt: 0 });
+    if (sig === lastRenderSignature) {
+      snapshot = next;
+      return;
+    }
+    lastRenderSignature = sig;
+
     const prevAdvIds = new Set(
       (snapshot?.areas ?? []).flatMap((a) => [
         ...a.areaAdvancements.map((x) => x.id),
@@ -1869,11 +2071,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       }
     }
 
-    const animCls = next.viewport.zoomLevel >= prevZoomLevel ? "tcs-anim-in" : "tcs-anim-out";
+    const activeTab: StageViewTab = next.viewport.activeTab ?? "season";
+    const coldProposal = next.ghostProposals.find((g) => g.kind === "propose-areas");
+    const nextViewKey = `${activeTab}|${next.viewport.zoomLevel}|${next.viewport.areaId ?? ""}|${next.viewport.projectWorkKey ?? ""}|${coldProposal?.id ?? ""}`;
+    const viewChanged = nextViewKey !== prevViewKey;
+    const prevScrollTop = stageEl.scrollTop;
+    const animCls = viewChanged ? (next.viewport.zoomLevel >= prevZoomLevel ? "tcs-anim-in" : "tcs-anim-out") : "";
+    prevViewKey = nextViewKey;
     prevZoomLevel = next.viewport.zoomLevel;
     snapshot = next;
 
-    const activeTab: StageViewTab = next.viewport.activeTab ?? "season";
     root.querySelectorAll<HTMLButtonElement>("[data-tcs-tab]").forEach((btn) => {
       const isCurrent = btn.dataset.tcsTab === activeTab;
       btn.classList.toggle("is-active", isCurrent);
@@ -1885,7 +2092,6 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
 
     // Header contextual controls
-    const coldProposal = next.ghostProposals.find((g) => g.kind === "propose-areas");
     const isSeason = activeTab === "season";
     zoomOutBtn.style.display = isSeason ? "inline-flex" : "none";
     zoomOutBtn.disabled = next.viewport.zoomLevel === 0 && !coldProposal && !port.onRequestClose;
@@ -1927,6 +2133,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       renderL1(next, animCls);
     } else {
       renderL2(next, animCls);
+    }
+    if (!viewChanged) {
+      stageEl.scrollTop = prevScrollTop;
     }
 
     renderInbox(next);
@@ -2042,6 +2251,12 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     if (port.onQuoteToChat) {
       port.onQuoteToChat(text);
       showToast("已将当前画面摘要填入对话输入框");
+      return;
+    }
+    if (port.onDiscussInDsh) {
+      void Promise.resolve(port.onDiscussInDsh(text, snapshot))
+        .then(() => showToast("已在 DSH 打开当前画面共视（悬浮星图自动同步当前层次与对象）"))
+        .catch((err) => showToast(err instanceof Error ? err.message : "跳转 DSH 失败"));
       return;
     }
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
@@ -2501,6 +2716,30 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       void runAction({ type: "archive-cooled-inbox" }, "已归档超过 14 天的冷却碎片");
       return;
     }
+    if (target.closest("[data-tidy-l0]")) {
+      const areas = snapshot.areas;
+      const hasSingleMain = areas.filter((a) => a.focusRole === "main").length === 1;
+      let nonMainIdx = 0;
+      let mainIdx = 0;
+      const moves = areas.map((area) => {
+        const pos =
+          area.focusRole === "main" && hasSingleMain
+            ? defaultAreaPositionForRole(0, "main", true)
+            : area.focusRole === "main"
+              ? defaultAreaPositionForRole(mainIdx++, "side", false)
+              : defaultAreaPositionForRole(nonMainIdx++, area.focusRole, hasSingleMain);
+        return { areaId: area.id, pos };
+      });
+      void (async () => {
+        let latest: StageSnapshot | void = undefined;
+        for (const m of moves) {
+          latest = await port.dispatch({ type: "move-area", areaId: m.areaId, pos: m.pos });
+        }
+        if (latest && !disposed) update(latest);
+        showToast("已按防重叠网格重新排布领域坐标");
+      })().catch((err) => showToast(err instanceof Error ? err.message : "整理排布失败"));
+      return;
+    }
     const unparkArea = target.closest<HTMLElement>("[data-unpark-area]")?.dataset.unparkArea;
     if (unparkArea) {
       void runAction({ type: "toggle-park-area", areaId: unparkArea, parked: false }, "已唤醒领域");
@@ -2529,6 +2768,111 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     if (target.closest("[data-l3-back]")) {
       zoomOut();
+      return;
+    }
+    const openDshTarget = (targetObj: StageWorkTarget) => {
+      if (!port.onOpenInDsh) return;
+      void Promise.resolve(port.onOpenInDsh(targetObj))
+        .then(() => showToast(`已在 DSH 打开「${targetObj.title.slice(0, 28)}」工作区`))
+        .catch((err) => showToast(err instanceof Error ? err.message : "打开 DSH 工作区失败"));
+    };
+    const openLogseqTarget = (targetObj: StageWorkTarget) => {
+      if (!port.onOpenTargetInLogseq) return;
+      void Promise.resolve(port.onOpenTargetInLogseq(targetObj)).catch((err) =>
+        showToast(err instanceof Error ? err.message : "打开 Logseq 原文失败"),
+      );
+    };
+    const secAreaOpen = target.closest<HTMLElement>("[data-sec-area-open]")?.dataset.secAreaOpen;
+    if (secAreaOpen) {
+      event.stopPropagation();
+      setZoom(1, secAreaOpen, null, null);
+      return;
+    }
+    const openDshArea = target.closest<HTMLElement>("[data-open-dsh-area]")?.dataset.openDshArea;
+    if (openDshArea) {
+      event.stopPropagation();
+      const area = findArea(openDshArea);
+      if (area?.areaWorkRef) {
+        openDshTarget({
+          workRef: area.areaWorkRef,
+          title: area.areaPageTitle ?? area.name,
+          ...(area.areaDirectory ? { directory: area.areaDirectory } : {}),
+        });
+      }
+      return;
+    }
+    const openLogseqArea = target.closest<HTMLElement>("[data-open-logseq-area]")?.dataset.openLogseqArea;
+    if (openLogseqArea) {
+      event.stopPropagation();
+      const area = findArea(openLogseqArea);
+      if (area?.areaWorkRef) {
+        openLogseqTarget({
+          workRef: area.areaWorkRef,
+          title: area.areaPageTitle ?? area.name,
+          ...(area.areaDirectory ? { directory: area.areaDirectory } : {}),
+        });
+      }
+      return;
+    }
+    const openDshProj =
+      target.closest<HTMLElement>("[data-open-dsh-proj]")?.dataset.openDshProj ??
+      target.closest<HTMLElement>("[data-open-dsh-cross]")?.dataset.openDshCross;
+    if (openDshProj) {
+      event.stopPropagation();
+      const [areaId, projKey] = openDshProj.split("|");
+      const proj = findProject(areaId ?? null, projKey ?? null);
+      if (proj) {
+        openDshTarget({
+          workRef: proj.workRef,
+          workKey: proj.workKey,
+          title: proj.title,
+          ...(proj.directory ? { directory: proj.directory } : {}),
+        });
+      }
+      return;
+    }
+    const openDshChild = target.closest<HTMLElement>("[data-open-dsh-child]")?.dataset.openDshChild;
+    if (openDshChild) {
+      event.stopPropagation();
+      const [projKey, childKey] = openDshChild.split("|");
+      const proj = findProject(snapshot.viewport.areaId, projKey ?? null);
+      const child = proj?.childWorks.find((c) => c.workKey === childKey);
+      if (child) {
+        openDshTarget({
+          workRef: child.workRef,
+          workKey: child.workKey,
+          title: child.title,
+          ...(child.directory ? { directory: child.directory } : {}),
+        });
+      }
+      return;
+    }
+    const openLogseqChild = target.closest<HTMLElement>("[data-open-logseq-child]")?.dataset.openLogseqChild;
+    if (openLogseqChild) {
+      event.stopPropagation();
+      const [projKey, childKey] = openLogseqChild.split("|");
+      const proj = findProject(snapshot.viewport.areaId, projKey ?? null);
+      const child = proj?.childWorks.find((c) => c.workKey === childKey);
+      if (child) {
+        openLogseqTarget({
+          workRef: child.workRef,
+          workKey: child.workKey,
+          title: child.title,
+          ...(child.directory ? { directory: child.directory } : {}),
+        });
+      }
+      return;
+    }
+    if (target.closest("[data-l2-open-dsh]") || target.closest("[data-l3-open-dsh]")) {
+      const proj = findProject(snapshot.viewport.areaId, snapshot.viewport.projectWorkKey);
+      if (proj) {
+        openDshTarget({
+          workRef: proj.workRef,
+          workKey: proj.workKey,
+          title: proj.title,
+          ...(proj.directory ? { directory: proj.directory } : {}),
+        });
+      }
       return;
     }
     if (target.closest("[data-l2-open-work]") || target.closest("[data-l3-open-work]")) {

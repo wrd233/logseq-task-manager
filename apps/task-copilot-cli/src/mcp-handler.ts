@@ -262,35 +262,44 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "stage_get_view",
     description:
-      "Read the user's live Shared Stage viewport (L0-L3 zoom level, focused Area/Project with four-state focusRole/domain, main-line mismatch alerts, selected Inbox item, cooled Inbox count, iCloud diagnostics, and pending Ghost proposals). Wide-and-shallow executive gaze only; never returns private project file bodies.",
+      "Read the user's live Shared Stage viewport (L0-L3 zoom level, focused Area/Project with four-state focusRole/domain, structured subtitle/directory/parentArea/secondaryAreas/childWorks, main-line mismatch alerts, selected Inbox item, cooled Inbox count, iCloud diagnostics, active Edge Radar, and pending Ghost proposals). Supports projectLimit/projectOffset pagination on large Areas; never returns private project file bodies.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        projectLimit: { type: "integer", minimum: 1, maximum: 50 },
+        projectOffset: { type: "integer", minimum: 0 },
+      },
       additionalProperties: false,
     },
   },
   {
     name: "stage_get_pulse",
     description:
-      "Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, bottom-up recent activity pulse, unassigned catalog works, active/cooled Inbox list (including iPhone voice captures and Flomo), and iCloud diagnostics without scanning private files.",
+      "Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, bottom-up recent activity pulse, unassigned catalog works, active/cooled Inbox list, and iCloud diagnostics without scanning private files. Compact per-Area project preview by default (projectLimit=8) so full constellation fits without truncation; pass areaId + projectOffset/projectLimit to paginate a single Area in full.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        areaId: { type: "string" },
+        projectLimit: { type: "integer", minimum: 1, maximum: 50 },
+        projectOffset: { type: "integer", minimum: 0 },
+        unassignedLimit: { type: "integer", minimum: 0, maximum: 50 },
+        inboxLimit: { type: "integer", minimum: 0, maximum: 50 },
+      },
       additionalProperties: false,
     },
   },
   {
     name: "stage_highlight",
     description:
-      "Temporarily highlight target Area/Project node(s) in the live Stage with a short reason. Targets outside the user's current viewport automatically downgrade to a non-intrusive Edge Radar pill (never hijacks camera).",
+      "Temporarily highlight target Area/Project node(s) in the live Stage with a short reason, or pass { clear: true } to dismiss active highlights and any Edge Radar pill. Targets outside the user's current viewport automatically downgrade to a 90s Edge Radar pill (never hijacks camera).",
     inputSchema: {
       type: "object",
       properties: {
+        clear: { type: "boolean" },
         targetIds: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 8 },
         reason: { type: "string" },
         tone: { type: "string", enum: ["primary", "amber", "teal"] },
       },
-      required: ["targetIds", "reason"],
       additionalProperties: false,
     },
   },
@@ -410,10 +419,11 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "stage_resolve_proposals",
     description:
-      "Apply user-confirmed decisions (accept / optional renamed title / dismiss) to Ghost proposals. Accepted branches solidify into Companion Plan A operational state with 1-step Undo.",
+      "Apply user-confirmed decisions (accept / optional renamed title / dismiss) to Ghost proposals, or pass { undoLast: true } on explicit user request to roll back the single most recent Plan A operational commit. Rejects nonexistent proposalIds.",
     inputSchema: {
       type: "object",
       properties: {
+        undoLast: { type: "boolean" },
         decisions: {
           type: "array",
           minItems: 1,
@@ -430,7 +440,6 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
           },
         },
       },
-      required: ["decisions"],
       additionalProperties: false,
     },
   },
@@ -483,10 +492,11 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
   {
     name: "time_resolve_proposals",
     description:
-      "Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals, solidifying them into Companion's lightweight operational time layer with 1-step Undo.",
+      "Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals, or pass { undoLast: true } on explicit user request to roll back the single most recent Time commit. Rejects nonexistent proposalIds.",
     inputSchema: {
       type: "object",
       properties: {
+        undoLast: { type: "boolean" },
         decisions: {
           type: "array",
           minItems: 1,
@@ -503,7 +513,6 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
           },
         },
       },
-      required: ["decisions"],
       additionalProperties: false,
     },
   },
@@ -880,17 +889,36 @@ async function runTool(
       throw new WorkspaceError("STAGE_UNAVAILABLE", "当前 Companion 实例未启用全局活画布服务。");
     }
     if (toolName === "stage_get_view") {
-      workRecord(rawArgs, []);
-      return stageHub.mcpGetView(clientId);
+      const args = workRecord(rawArgs, ["projectLimit", "projectOffset"]);
+      const projectLimit = args.projectLimit !== undefined ? integerArg(args.projectLimit, 15, 1, 50) : undefined;
+      const projectOffset = args.projectOffset !== undefined ? integerArg(args.projectOffset, 0, 0, 10_000) : undefined;
+      return stageHub.mcpGetView(clientId, {
+        ...(projectLimit !== undefined ? { projectLimit } : {}),
+        ...(projectOffset !== undefined ? { projectOffset } : {}),
+      });
     }
     if (toolName === "stage_get_pulse") {
-      workRecord(rawArgs, []);
-      return stageHub.mcpGetPulse();
+      const args = workRecord(rawArgs, ["areaId", "projectLimit", "projectOffset", "unassignedLimit", "inboxLimit"]);
+      const areaId = args.areaId !== undefined ? workText(args.areaId, 128) : undefined;
+      const projectLimit = args.projectLimit !== undefined ? integerArg(args.projectLimit, areaId ? 30 : 8, 1, 50) : undefined;
+      const projectOffset = args.projectOffset !== undefined ? integerArg(args.projectOffset, 0, 0, 10_000) : undefined;
+      const unassignedLimit = args.unassignedLimit !== undefined ? integerArg(args.unassignedLimit, 20, 0, 50) : undefined;
+      const inboxLimit = args.inboxLimit !== undefined ? integerArg(args.inboxLimit, 20, 0, 50) : undefined;
+      return stageHub.mcpGetPulse({
+        ...(areaId ? { areaId } : {}),
+        ...(projectLimit !== undefined ? { projectLimit } : {}),
+        ...(projectOffset !== undefined ? { projectOffset } : {}),
+        ...(unassignedLimit !== undefined ? { unassignedLimit } : {}),
+        ...(inboxLimit !== undefined ? { inboxLimit } : {}),
+      });
     }
     if (toolName === "stage_highlight") {
-      const args = workRecord(rawArgs, ["targetIds", "reason", "tone"]);
+      const args = workRecord(rawArgs, ["clear", "targetIds", "reason", "tone"]);
+      if (args.clear === true) {
+        return stageHub.mcpHighlight({ clear: true });
+      }
       if (!Array.isArray(args.targetIds) || args.targetIds.length === 0 || args.targetIds.length > 8) {
-        throw new WorkspaceError("INVALID_INPUT", "targetIds 需包含 1-8 个节点 ID。");
+        throw new WorkspaceError("INVALID_INPUT", "targetIds 需包含 1-8 个节点 ID（或传入 clear: true 清除高亮与雷达）。");
       }
       const targetIds = args.targetIds.map((id) => workText(id, 512));
       const reason = workText(args.reason, 200);
@@ -1103,9 +1131,15 @@ async function runTool(
       });
     }
     if (toolName === "stage_resolve_proposals") {
-      const args = workRecord(rawArgs, ["decisions"]);
+      const args = workRecord(rawArgs, ["decisions", "undoLast"]);
+      if (args.undoLast === true) {
+        if (args.decisions !== undefined) {
+          throw new WorkspaceError("INVALID_INPUT", "undoLast 与 decisions 不可同时传入。");
+        }
+        return stageHub.mcpUndoLastCommit();
+      }
       if (!Array.isArray(args.decisions) || args.decisions.length === 0 || args.decisions.length > 20) {
-        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策。");
+        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策（或传入 undoLast: true 撤销上一步）。");
       }
       const decisions: StageResolveDecision[] = args.decisions.map((item) => {
         const rec = workRecord(item, ["proposalId", "action", "title"]);
@@ -1196,13 +1230,21 @@ async function runTool(
         };
       });
       const result = await timeHub.mcpProposePlan({ agent: clientId, proposals });
-      await ctx.stageHub?.notifyExternalChange();
-      return result;
+      const stageSnap = await ctx.stageHub?.notifyExternalChange();
+      return { ...result, ...(stageSnap ? { version: stageSnap.version } : {}) };
     }
     if (toolName === "time_resolve_proposals") {
-      const args = workRecord(rawArgs, ["decisions"]);
+      const args = workRecord(rawArgs, ["decisions", "undoLast"]);
+      if (args.undoLast === true) {
+        if (args.decisions !== undefined) {
+          throw new WorkspaceError("INVALID_INPUT", "undoLast 与 decisions 不可同时传入。");
+        }
+        const result = await timeHub.mcpUndoLastCommit();
+        const stageSnap = await ctx.stageHub?.notifyExternalChange();
+        return { ...result, ...(stageSnap ? { version: stageSnap.version } : {}) };
+      }
       if (!Array.isArray(args.decisions) || args.decisions.length === 0 || args.decisions.length > 20) {
-        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策。");
+        throw new WorkspaceError("INVALID_INPUT", "decisions 需包含 1-20 条确认决策（或传入 undoLast: true 撤销上一步）。");
       }
       const decisions: TimeResolveDecision[] = args.decisions.map((item) => {
         const rec = workRecord(item, ["proposalId", "action", "title"]);
@@ -1219,8 +1261,8 @@ async function runTool(
         };
       });
       const result = await timeHub.mcpResolveProposals(decisions);
-      await ctx.stageHub?.notifyExternalChange();
-      return result;
+      const stageSnap = await ctx.stageHub?.notifyExternalChange();
+      return { ...result, ...(stageSnap ? { version: stageSnap.version } : {}) };
     }
     if (toolName === "time_focus_control") {
       const args = workRecord(rawArgs, [
@@ -1284,8 +1326,8 @@ async function runTool(
         ...(args.startTime !== undefined ? { startTime: workText(args.startTime, 8) } : {}),
         ...(args.endTime !== undefined ? { endTime: workText(args.endTime, 8) } : {}),
       });
-      await ctx.stageHub?.notifyExternalChange();
-      return result;
+      const stageSnap = await ctx.stageHub?.notifyExternalChange();
+      return { ...result, ...(stageSnap ? { version: stageSnap.version } : {}) };
     }
   }
 

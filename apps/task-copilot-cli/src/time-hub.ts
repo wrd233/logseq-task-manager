@@ -193,8 +193,7 @@ export class TimeHub {
 
   // ==================== TIME MCP OPERATIONS ====================
 
-  async mcpGetOverview(now = Date.now()) {
-    const snap = await this.snapshot(now);
+  private formatOverview(snap: TimeSnapshot) {
     return {
       today: snap.today,
       weekKey: snap.weekKey,
@@ -226,6 +225,11 @@ export class TimeHub {
     };
   }
 
+  async mcpGetOverview(now = Date.now()) {
+    const snap = await this.snapshot(now);
+    return this.formatOverview(snap);
+  }
+
   async mcpProposePlan(input: {
     agent: string;
     proposals: Array<{
@@ -246,6 +250,27 @@ export class TimeHub {
     await this.ensureLoaded();
     const now = Date.now();
     const snapBefore = await this.snapshot(now);
+    const reg = this.engine.getRegistry();
+    for (const p of input.proposals) {
+      if (p.kind === "carryover-triage") {
+        if (!p.dayItemId || !snapBefore.carryoverItems.some((c) => c.id === p.dayItemId)) {
+          throw new WorkspaceError("INVALID_INPUT", "carryover-triage 需指定当前遗留抽屉中存在的 dayItemId。");
+        }
+      }
+      if (p.kind === "day-rescue") {
+        const targetDate = p.date ?? snapBefore.today;
+        const openOnTarget = reg.dayItems.filter((i) => i.state === "open" && i.date === targetDate);
+        if (openOnTarget.length === 0) {
+          throw new WorkspaceError(
+            "INVALID_INPUT",
+            `日期 ${targetDate} 的三槽当前为空，没有需要退回本周的事项；请改用 day-place-item 直接安排。`,
+          );
+        }
+        if (p.dayItemId && !openOnTarget.some((i) => i.id === p.dayItemId)) {
+          throw new WorkspaceError("INVALID_INPUT", `未在 ${targetDate} 的待办槽位中找到保留项 dayItemId：${p.dayItemId}`);
+        }
+      }
+    }
     const proposals = this.engine.proposeTimePlan(
       {
         agent: input.agent,
@@ -263,11 +288,31 @@ export class TimeHub {
 
   async mcpResolveProposals(decisions: readonly TimeResolveDecision[]) {
     await this.ensureLoaded();
+    const missing = this.engine.findMissingProposalIds(decisions);
+    if (missing.length > 0) {
+      throw new WorkspaceError("PROPOSAL_NOT_FOUND", `未找到待确认的时间虚态提议：${missing.join(", ")}`);
+    }
     const result = this.engine.resolveTimeProposals(decisions, Date.now());
     if (result.committedIds.length > 0) {
       await this.persist();
     }
     return { ...result, operationalLayer: "companion-time-stage" };
+  }
+
+  async mcpUndoLastCommit() {
+    await this.ensureLoaded();
+    if (!this.engine.canUndo()) {
+      throw new WorkspaceError("NOTHING_TO_UNDO", "当前没有可撤销的上一步时间层凝固操作。");
+    }
+    const undone = this.engine.undoLastCommit();
+    if (undone) {
+      await this.persist();
+    }
+    return {
+      undone,
+      canUndo: this.engine.canUndo(),
+      operationalLayer: "companion-time-stage",
+    };
   }
 
   async mcpFocusControl(input: {
@@ -285,9 +330,24 @@ export class TimeHub {
     startTime?: string;
     endTime?: string;
   }) {
+    await this.ensureLoaded();
     const now = Date.now();
+    const formatFocusResult = (
+      out: Awaited<ReturnType<TimeHub["applyAction"]>>,
+    ) => ({
+      command: input.command,
+      activeFocus: out.snapshot.activeFocus,
+      overview: this.formatOverview(out.snapshot),
+      ...(out.startedFocus ? { startedFocus: out.startedFocus } : {}),
+      ...(out.finishedFocus ? { finishedFocus: out.finishedFocus } : {}),
+      ...(out.shield ? { shield: out.shield } : {}),
+      ...(out.activatedLogseq ? { activatedLogseq: out.activatedLogseq } : {}),
+      ...(out.footprintWritten !== undefined ? { footprintWritten: out.footprintWritten } : {}),
+      ...(out.warning ? { warning: out.warning } : {}),
+    });
+
     if (input.command === "start") {
-      return this.applyAction(
+      const out = await this.applyAction(
         {
           type: "start-focus",
           ...(input.dayItemId ? { dayItemId: input.dayItemId } : {}),
@@ -300,36 +360,49 @@ export class TimeHub {
         },
         now,
       );
+      return formatFocusResult(out);
     }
     if (input.command === "pause") {
-      return this.applyAction({ type: "pause-focus" }, now);
+      const active = this.engine.getActiveFocus();
+      if (!active) throw new WorkspaceError("NO_ACTIVE_FOCUS", "当前没有进行中的专注会话。");
+      if (active.status === "paused") throw new WorkspaceError("FOCUS_ALREADY_PAUSED", "当前专注会话已处于暂停状态。");
+      return formatFocusResult(await this.applyAction({ type: "pause-focus" }, now));
     }
     if (input.command === "resume") {
-      return this.applyAction({ type: "resume-focus" }, now);
+      const active = this.engine.getActiveFocus();
+      if (!active) throw new WorkspaceError("NO_ACTIVE_FOCUS", "当前没有进行中的专注会话。");
+      if (active.status === "running") throw new WorkspaceError("FOCUS_ALREADY_RUNNING", "当前专注会话正在进行中。");
+      return formatFocusResult(await this.applyAction({ type: "resume-focus" }, now));
     }
     if (input.command === "finish") {
-      return this.applyAction(
-        {
-          type: "finish-focus",
-          ...(input.stopNote !== undefined ? { stopNote: input.stopNote } : {}),
-          ...(input.markDayItemDone !== undefined ? { markDayItemDone: input.markDayItemDone } : {}),
-          ...(input.writeFootprint !== undefined ? { writeFootprint: input.writeFootprint } : {}),
-        },
-        now,
+      const active = this.engine.getActiveFocus();
+      if (!active) throw new WorkspaceError("NO_ACTIVE_FOCUS", "当前没有进行中的专注会话。");
+      return formatFocusResult(
+        await this.applyAction(
+          {
+            type: "finish-focus",
+            ...(input.stopNote !== undefined ? { stopNote: input.stopNote } : {}),
+            ...(input.markDayItemDone !== undefined ? { markDayItemDone: input.markDayItemDone } : {}),
+            ...(input.writeFootprint !== undefined ? { writeFootprint: input.writeFootprint } : {}),
+          },
+          now,
+        ),
       );
     }
     if (input.command === "create_shield") {
       if (!input.dayItemId) {
         throw new WorkspaceError("INVALID_INPUT", "create_shield 需要提供目标今日事项 dayItemId。");
       }
-      return this.applyAction(
-        {
-          type: "create-calendar-shield",
-          itemId: input.dayItemId,
-          ...(input.startTime ? { startTime: input.startTime } : {}),
-          ...(input.endTime ? { endTime: input.endTime } : {}),
-        },
-        now,
+      return formatFocusResult(
+        await this.applyAction(
+          {
+            type: "create-calendar-shield",
+            itemId: input.dayItemId,
+            ...(input.startTime ? { startTime: input.startTime } : {}),
+            ...(input.endTime ? { endTime: input.endTime } : {}),
+          },
+          now,
+        ),
       );
     }
     throw new WorkspaceError("INVALID_INPUT", `未知的专注控制命令：${String(input.command)}`);

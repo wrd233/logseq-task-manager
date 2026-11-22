@@ -6,10 +6,14 @@ import {
   computeTone,
   defaultAreaPosition,
   defaultAreaPositionForRole,
+  entryPageSegment,
   flattenCatalog,
   focusRoleLabel,
   formatRecencyLabel,
+  formatWorkSubtitle,
   matchInboxLocally,
+  normalizeAreaDisplayName,
+  normalizeAreaKey,
   recencyDays,
 } from "./pulse.ts";
 import { buildWorkbenchRestartDeck } from "./restart-deck.ts";
@@ -21,7 +25,10 @@ import type {
   StageArea,
   StageAreaDomain,
   StageAreaNode,
+  StageAreaRef,
   StageCatalogEntry,
+  StageChildWorkItem,
+  StageCrossAreaProjectRef,
   StageDormantArea,
   StageEdgeRadar,
   StageFocusRole,
@@ -44,6 +51,7 @@ import type {
 } from "./types.ts";
 
 const HIGHLIGHT_TTL_MS = 20_000;
+const RADAR_TTL_MS = 90_000;
 const PRESENCE_TTL_MS = 35_000;
 const DORMANT_DAYS = 21;
 
@@ -361,6 +369,42 @@ export class StageEngine {
     }
   }
 
+  clearHighlightsAndRadar(): { clearedHighlights: number; clearedRadar: boolean } {
+    const clearedHighlights = this.highlights.length;
+    const clearedRadar = this.edgeRadar !== null;
+    if (clearedHighlights > 0 || clearedRadar) {
+      this.highlights = [];
+      this.edgeRadar = null;
+      this.version++;
+    }
+    return { clearedHighlights, clearedRadar };
+  }
+
+  hasArea(areaId: string): boolean {
+    return this.registry.areas.some((a) => a.id === areaId);
+  }
+
+  hasAreas(): boolean {
+    return this.registry.areas.length > 0;
+  }
+
+  findPendingMainRoleConflict(areaId: string): StageGhostProposal | null {
+    return (
+      this.ghostProposals.find(
+        (p) => p.kind === "propose-area-role" && p.proposedRole === "main" && p.areaId !== areaId,
+      ) ?? null
+    );
+  }
+
+  findMissingProposalIds(decisions: readonly StageResolveDecision[]): string[] {
+    const pending = new Set(this.ghostProposals.map((g) => g.id));
+    return decisions.map((d) => d.proposalId).filter((id) => !pending.has(id));
+  }
+
+  canUndo(): boolean {
+    return this.undoSnapshot !== null;
+  }
+
   // ==================== LAYER 2: GHOST STAGING (Never commits until user resolves) ====================
 
   proposeAreas(
@@ -384,6 +428,7 @@ export class StageEngine {
     const byKey = new Map(entries.map((e) => [e.workKey, e]));
 
     let drafts: ColdStartAreaDraft[];
+    let dormantDrafts: ColdStartAreaDraft[] = [];
     let unassignedTitles: string[];
 
     if (input.areas && input.areas.length > 0) {
@@ -427,7 +472,12 @@ export class StageEngine {
       unassignedTitles = explicitUnassigned.slice(0, 8).map((k) => byKey.get(k)?.title ?? k);
     } else {
       const built = buildColdStartAreaDrafts(entries, 7);
-      drafts = built.areas.map((d) => ({ ...d, focusRole: "side" as const, domain: "work" as const }));
+      drafts = built.areas.map((d) => ({
+        ...d,
+        focusRole: d.focusRole ?? "side",
+        domain: d.domain ?? "work",
+      }));
+      dormantDrafts = built.dormantAreas;
       unassignedTitles = built.unassignedTitles;
     }
 
@@ -439,8 +489,12 @@ export class StageEngine {
       agent: input.agent,
       createdAt: now,
       title: `初始领域星图（${drafts.length} 个主领域）`,
-      reason: `按防乱护栏聚合为 ${drafts.length} 个主领域，未归类零散项留入暂放池。`,
+      reason:
+        dormantDrafts.length > 0
+          ? `已识别 Logseq 中的 ${drafts.length + dormantDrafts.length} 个显式领域：主画布展示 ${drafts.length} 个重点领域，其余 ${dormantDrafts.length} 个暂放底栏休眠区可随时一键唤醒。`
+          : `按防乱护栏聚合为 ${drafts.length} 个主领域，未归类零散项留入暂放池。`,
       proposedAreas: drafts,
+      ...(dormantDrafts.length > 0 ? { proposedDormantAreas: dormantDrafts } : {}),
       unassignedTitles,
     };
     this.ghostProposals.push(proposal);
@@ -464,6 +518,16 @@ export class StageEngine {
   ): StageGhostProposal | null {
     const area = this.registry.areas.find((a) => a.id === input.areaId);
     if (!area) return null;
+
+    if (input.focusRole === "main") {
+      const pendingMain = this.findPendingMainRoleConflict(area.id);
+      if (pendingMain) {
+        const conflictArea = this.registry.areas.find((a) => a.id === pendingMain.areaId);
+        throw new Error(
+          `MAIN_ROLE_CONFLICT:${conflictArea?.name ?? pendingMain.areaId ?? "未知领域"}:${pendingMain.id}`,
+        );
+      }
+    }
 
     // Replace older pending role proposal targeting the same Area
     this.ghostProposals = this.ghostProposals.filter(
@@ -598,7 +662,10 @@ export class StageEngine {
       reason: string;
     },
     now = Date.now(),
-  ): StageGhostProposal {
+  ): StageGhostProposal | null {
+    if (this.registry.areas.length > 0 && !this.registry.areas.some((a) => a.id === input.targetAreaId)) {
+      return null;
+    }
     const proposal: StageGhostProposal = {
       id: makeId("ghost-mv", this.seq++, now),
       kind: input.sourceInboxId ? "intake-inbox" : "propose-move",
@@ -664,7 +731,7 @@ export class StageEngine {
 
       if (proposal.kind === "propose-areas" && proposal.proposedAreas) {
         let mainSeen = false;
-        this.registry.areas = proposal.proposedAreas.slice(0, 7).map((draft, i) => {
+        const activeCommitted = proposal.proposedAreas.slice(0, 7).map((draft, i) => {
           let focusRole: StageFocusRole = draft.focusRole ?? "side";
           if (focusRole === "main") {
             if (mainSeen) focusRole = "side";
@@ -686,6 +753,19 @@ export class StageEngine {
             updatedAt: now,
           };
         });
+        const dormantCommitted = (proposal.proposedDormantAreas ?? []).map((draft, i) => ({
+          id: draft.id.startsWith("area-draft-") ? `area-dormant-${i + 1}-${now.toString(36)}` : draft.id,
+          name: draft.name,
+          workKeys: [...new Set(draft.workKeys)],
+          pos: draft.pos ?? defaultAreaPosition(activeCommitted.length + i),
+          focusRole: "parked" as const,
+          domain: draft.domain ?? ("work" as const),
+          parked: true,
+          parkedReason: "冷启动暂放休眠区（点击可随时唤醒）",
+          createdAt: now,
+          updatedAt: now,
+        }));
+        this.registry.areas = [...activeCommitted, ...dormantCommitted];
         const claimed = new Set(this.registry.areas.flatMap((a) => a.workKeys));
         this.registry.unassignedWorkKeys = this.registry.unassignedWorkKeys.filter((k) => !claimed.has(k));
         this.registry.updatedAt = now;
@@ -895,7 +975,22 @@ export class StageEngine {
         area.parkedReason = reason.trim().slice(0, 160);
       }
     } else {
-      if (area.focusRole === "parked") area.focusRole = "side";
+      const activeCount = this.registry.areas.filter((a) => a.id !== area.id && !a.parked && a.focusRole !== "parked").length;
+      const hasMain = this.registry.areas.some((a) => a.id !== area.id && !a.parked && a.focusRole === "main");
+      if (area.focusRole === "parked") {
+        area.focusRole = area.domain === "life" ? "maintenance" : "side";
+      }
+      const overlaps = this.registry.areas.some(
+        (other) =>
+          other.id !== area.id &&
+          !other.parked &&
+          other.focusRole !== "parked" &&
+          Math.abs(other.pos.x - area.pos.x) < 260 &&
+          Math.abs(other.pos.y - area.pos.y) < 240,
+      );
+      if (overlaps) {
+        area.pos = defaultAreaPositionForRole(hasMain ? Math.max(0, activeCount - 1) : activeCount, area.focusRole, hasMain);
+      }
       delete area.parkedReason;
     }
     area.updatedAt = now;
@@ -1057,6 +1152,9 @@ export class StageEngine {
 
   private pruneEphemeral(now: number): void {
     this.highlights = this.highlights.filter((h) => h.expiresAt > now);
+    if (this.edgeRadar && now - this.edgeRadar.createdAt > RADAR_TTL_MS) {
+      this.edgeRadar = null;
+    }
     for (const [agent, p] of this.presence) {
       if (now - p.updatedAt > PRESENCE_TTL_MS) this.presence.delete(agent);
     }
@@ -1084,19 +1182,84 @@ export class StageEngine {
       : undefined;
 
     const assignedKeys = new Set<string>();
+    const allTopLevelWorkKeys = new Set<string>(effectiveAreas.flatMap((a) => a.workKeys));
 
-    // Pass 1: gather real bottom-up work progress per Area (ignoring metadata-only edits)
+    // Index explicit Area pages (e.g., Area/运维能力) so L1 hero can open the Area folder directly in DSH/Logseq
+    const areaPageByNormName = new Map<string, StageCatalogEntry>();
+    // Index native block-level child works by owning Logseq page title so L2 displays true nesting
+    const childBlocksByPageTitle = new Map<string, StageCatalogEntry[]>();
+    for (const entry of entries) {
+      if (entry.objectType.toLowerCase() === "area") {
+        const norm = normalizeAreaKey(entry.title);
+        if (norm && !areaPageByNormName.has(norm)) areaPageByNormName.set(norm, entry);
+        continue;
+      }
+      if (entry.workRef.kind === "logseq" && entry.workRef.sourceKind === "block") {
+        const cleanTitle = entry.title.trim();
+        if (/^<[^>]{1,40}>$/.test(cleanTitle)) continue;
+        const pageSeg = entryPageSegment(entry);
+        if (!pageSeg) continue;
+        const key = pageSeg.toLocaleLowerCase();
+        const list = childBlocksByPageTitle.get(key) ?? [];
+        list.push(entry);
+        childBlocksByPageTitle.set(key, list);
+      }
+    }
+
+    const areaByNormName = new Map<string, StageArea>();
+    for (const area of effectiveAreas) {
+      areaByNormName.set(normalizeAreaKey(area.name), area);
+    }
+
+    const crossAreaByTargetId = new Map<string, StageCrossAreaProjectRef[]>();
+
+    // Pass 1: gather real bottom-up work progress per Area (Primary Ownership only — never double-counted)
     const precomputed = effectiveAreas.map((area) => {
       const projects: StageProjectNode[] = [];
       let workNewestMs = 0;
       let recentCount = 0;
+      const areaNorm = normalizeAreaKey(area.name);
+      const areaPageEntry = areaPageByNormName.get(areaNorm);
+      if (areaPageEntry) assignedKeys.add(areaPageEntry.workKey);
 
       for (const pKey of area.workKeys) {
         const entry = byKey.get(pKey);
         if (!entry) continue;
         assignedKeys.add(pKey);
+
+        // Attach nested Logseq child blocks belonging to this Project page (excluding blocks separately listed as top-level)
+        const isPageWork = entry.workRef.kind === "logseq" && entry.workRef.sourceKind === "page";
+        const rawChildren = isPageWork
+          ? (childBlocksByPageTitle.get(entry.title.trim().toLocaleLowerCase()) ?? []).filter(
+              (c) => c.workKey !== pKey && !allTopLevelWorkKeys.has(c.workKey),
+            )
+          : [];
+        const childWorks: StageChildWorkItem[] = rawChildren
+          .sort((a, b) => b.updatedAt - a.updatedAt || a.title.localeCompare(b.title))
+          .map((child) => {
+            assignedKeys.add(child.workKey);
+            const cDays = recencyDays(child.updatedAt, now);
+            return {
+              workKey: child.workKey,
+              workRef: child.workRef,
+              title: child.title,
+              objectType: child.objectType,
+              location: child.location,
+              subtitle: formatWorkSubtitle(child, { omitPageTitle: entry.title }),
+              ...(child.directory ? { directory: child.directory } : {}),
+              ...(child.lifecycleState ? { lifecycleState: child.lifecycleState } : {}),
+              updatedAt: child.updatedAt,
+              recencyDays: cDays,
+              pulseLabel: formatRecencyLabel(cDays),
+            };
+          });
+
         const pAdv = this.registry.advancements.filter((a) => a.areaId === area.id && a.projectWorkKey === pKey);
-        const pLastMs = Math.max(entry.updatedAt, ...pAdv.map((a) => a.updatedAt));
+        const pLastMs = Math.max(
+          entry.updatedAt,
+          ...childWorks.map((c) => c.updatedAt),
+          ...pAdv.map((a) => a.updatedAt),
+        );
         if (pLastMs > workNewestMs) workNewestMs = pLastMs;
         const pDays = recencyDays(pLastMs, now);
         if (pDays <= 7) recentCount++;
@@ -1110,6 +1273,45 @@ export class StageEngine {
           hasActiveAdvancement: pAdv.some((a) => a.state === "active"),
         });
         const pAnn = this.projectAnnotations.get(pKey);
+        const subtitle = formatWorkSubtitle(entry, { childCount: childWorks.length });
+
+        // Compute secondary associated Areas (Multi-parent cross-area projection without double counting)
+        const secondaryAreas: StageAreaRef[] = [];
+        const seenSec = new Set<string>();
+        for (const rawParent of entry.parentAreas ?? []) {
+          const displayName = normalizeAreaDisplayName(rawParent);
+          const norm = displayName.toLocaleLowerCase();
+          if (!displayName || norm === areaNorm || seenSec.has(norm)) continue;
+          seenSec.add(norm);
+          const matchedArea = areaByNormName.get(norm);
+          secondaryAreas.push({
+            areaId: matchedArea?.id ?? null,
+            areaName: matchedArea?.name ?? displayName,
+          });
+          if (matchedArea && matchedArea.id !== area.id && !matchedArea.workKeys.includes(pKey)) {
+            const list = crossAreaByTargetId.get(matchedArea.id) ?? [];
+            if (!list.some((item) => item.workKey === pKey)) {
+              list.push({
+                workKey: pKey,
+                workRef: entry.workRef,
+                title: entry.title,
+                objectType: entry.objectType,
+                subtitle,
+                ...(entry.directory ? { directory: entry.directory } : {}),
+                ...(entry.lifecycleState ? { lifecycleState: entry.lifecycleState } : {}),
+                primaryAreaId: area.id,
+                primaryAreaName: area.name,
+                childCount: childWorks.length,
+                recencyDays: pDays,
+                pulseLabel: formatRecencyLabel(pDays),
+                tone: pTone.tone,
+                signalLabel: pTone.signalLabel,
+              });
+              crossAreaByTargetId.set(matchedArea.id, list);
+            }
+          }
+        }
+
         projects.push({
           workKey: pKey,
           workRef: entry.workRef,
@@ -1118,7 +1320,11 @@ export class StageEngine {
           title: entry.title,
           objectType: entry.objectType,
           location: entry.location,
+          subtitle,
           ...(entry.directory ? { directory: entry.directory } : {}),
+          ...(entry.lifecycleState ? { lifecycleState: entry.lifecycleState } : {}),
+          secondaryAreas,
+          childWorks,
           updatedAt: pLastMs,
           recencyDays: pDays,
           pulseLabel: formatRecencyLabel(pDays),
@@ -1142,6 +1348,7 @@ export class StageEngine {
 
       return {
         area,
+        areaPageEntry,
         projects,
         areaAdv,
         recentCount,
@@ -1184,7 +1391,7 @@ export class StageEngine {
     const dormantAreas: StageDormantArea[] = [];
 
     for (const item of precomputed) {
-      const { area, projects, areaAdv, recentCount, aDays, effectiveIdleDays, aInboxCount, aInboxHighlight } = item;
+      const { area, areaPageEntry, projects, areaAdv, recentCount, aDays, effectiveIdleDays, aInboxCount, aInboxHighlight } = item;
       const isParked = area.parked || area.focusRole === "parked";
       const isDormant =
         isParked ||
@@ -1222,6 +1429,8 @@ export class StageEngine {
           pos: area.pos,
           focusRole: area.focusRole,
           domain: area.domain,
+          ...(areaPageEntry ? { areaWorkRef: areaPageEntry.workRef, areaPageTitle: areaPageEntry.title } : {}),
+          ...(areaPageEntry?.directory ? { areaDirectory: areaPageEntry.directory } : {}),
           ...(area.quarterGoal ? { quarterGoal: area.quarterGoal } : {}),
           ...(area.antiGoal ? { antiGoal: area.antiGoal } : {}),
           ...(area.weeklyMinimum ? { weeklyMinimum: area.weeklyMinimum } : {}),
@@ -1234,6 +1443,7 @@ export class StageEngine {
           signalLabel: aTone.signalLabel,
           ...(mismatch ? { mismatch } : {}),
           projects,
+          crossAreaProjects: crossAreaByTargetId.get(area.id) ?? [],
           areaAdvancements: areaAdv,
           inboxMatchCount: aInboxCount,
         });

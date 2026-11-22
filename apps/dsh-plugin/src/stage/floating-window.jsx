@@ -1,8 +1,24 @@
-/* global window, localStorage, AbortController, setTimeout, clearTimeout */
+/* global window, localStorage, AbortController, setTimeout, clearTimeout, URLSearchParams */
 import React, { useEffect, useRef, useState } from 'react';
 import { compactGazeSummary, mountSharedStageView } from '@task-copilot/stage-runtime';
 
 const STORAGE_KEY = 'tc-dsh-stage-window-v1';
+
+function shortGazeLabel(snap) {
+  if (!snap?.viewport) return '';
+  const { activeTab = 'season', zoomLevel = 0, areaId, projectWorkKey } = snap.viewport;
+  if (activeTab === 'week') return '本周容器';
+  if (activeTab === 'today') return '今日容器';
+  const area = areaId ? snap.areas?.find(a => a.id === areaId) : null;
+  const proj = projectWorkKey
+    ? (area?.projects?.find(p => p.workKey === projectWorkKey) ??
+      snap.areas?.flatMap(a => a.projects ?? []).find(p => p.workKey === projectWorkKey))
+    : null;
+  if (zoomLevel === 3 && proj) return `L3 ${proj.title.slice(0, 14)}`;
+  if (zoomLevel === 2 && proj) return `L2 ${proj.title.slice(0, 14)}`;
+  if (zoomLevel === 1 && area) return `L1 ${area.name.slice(0, 14)}`;
+  return 'L0 季节星区';
+}
 
 function loadWindowRect() {
   try {
@@ -133,6 +149,39 @@ export const stageWindowStyles = `
   margin-left: 4px;
   vertical-align: middle;
 }
+.tcs-dsh-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2f855a;
+  flex-shrink: 0;
+}
+.tcs-dsh-coview-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(47, 133, 90, 0.12);
+  color: #276749;
+  border: 1px solid rgba(47, 133, 90, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 340px;
+}
+.tcs-dsh-peek-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+}
+.tcs-dsh-peek-close:hover { opacity: 1; }
 `;
 
 /**
@@ -149,7 +198,9 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
   const setMode = next => {
     if (mode === next) return;
     mode = next;
-    void rpc('stage-visibility', { open: next === 'floating' || next === 'full' }).catch(() => {});
+    // Keep live Agent co-view active across floating, full, and peek (minimized) modes;
+    // only explicitly closing ('closed') turns off viewport context injection.
+    void rpc('stage-visibility', { open: next !== 'closed' }).catch(() => {});
     emit();
   };
 
@@ -159,17 +210,39 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
 
   function StageHeaderButton() {
     const [, setTick] = useState(0);
-    useEffect(() => subscribe(() => setTick(t => t + 1)), []);
+    useEffect(() => {
+      const off = subscribe(() => setTick(t => t + 1));
+      if (!latestSnapshot) {
+        void rpc('stage-state', {})
+          .then(res => {
+            if (res?.snapshot && !latestSnapshot) {
+              latestSnapshot = res.snapshot;
+              emit();
+            }
+          })
+          .catch(() => {});
+      }
+      return off;
+    }, []);
     const hasGhosts = (latestSnapshot?.ghostProposals?.length ?? 0) > 0;
+    const coViewOn = mode !== 'closed';
+    const label = shortGazeLabel(latestSnapshot);
+    const gazeFull = latestSnapshot ? compactGazeSummary(latestSnapshot) : '';
     return (
       <button
         type="button"
         className="lq-header"
         aria-label="打开全局共视活画布独立悬浮窗"
-        title="全局态势与共视活画布（独立悬浮窗 · Cmd+Shift+G）"
+        title={
+          coViewOn
+            ? `Agent 正在实时共视：${gazeFull || label || '星图'}（点击展开或收为胶囊 · Cmd+Shift+G）`
+            : `全局态势与共视活画布（当前：${gazeFull || '星图'}；点击开启后 DSH Agent 实时共视 · Cmd+Shift+G）`
+        }
         onClick={toggle}
       >
-        ◎ 星图{hasGhosts ? <span className="tcs-dsh-header-dot" /> : null}
+        {coViewOn ? <span className="tcs-dsh-live-dot" style={{ marginRight: '4px' }} /> : null}
+        {coViewOn ? `◎ 共视${label ? ` · ${label}` : ''}` : `◎ 星图${label ? ` · ${label}` : ''}`}
+        {hasGhosts ? <span className="tcs-dsh-header-dot" /> : null}
       </button>
     );
   }
@@ -187,6 +260,42 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
       setCurMode(mode);
       setSnap(latestSnapshot);
     }), []);
+
+    // Auto-open floating Stage window when jumped from Logseq "在 DSH 讨论当前画面" (#stage-discuss=1)
+    useEffect(() => {
+      const checkDiscussHash = () => {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        if (params.get('stage-discuss') !== '1') return;
+        params.delete('stage-discuss');
+        const nextHash = params.toString();
+        window.history.replaceState(
+          window.history.state,
+          '',
+          window.location.pathname + window.location.search + (nextHash ? `#${nextHash}` : ''),
+        );
+        setMode('floating');
+        void rpc('stage-state', {})
+          .then(res => {
+            if (res?.snapshot) {
+              latestSnapshot = res.snapshot;
+              versionRef.current = res.snapshot.version;
+              setSnap(res.snapshot);
+              viewRef.current?.update(res.snapshot);
+              emit();
+              const label = shortGazeLabel(res.snapshot) || '星图';
+              flash?.(`已同步当前画面共视：${label}（DSH Agent 已看到当前层次与对象）`);
+            } else {
+              flash?.('已打开星图悬浮窗（DSH Agent 正在实时共视当前画面）');
+            }
+          })
+          .catch(() => {
+            flash?.('已打开星图悬浮窗（DSH Agent 正在实时共视当前画面）');
+          });
+      };
+      checkDiscussHash();
+      window.addEventListener('hashchange', checkDiscussHash);
+      return () => window.removeEventListener('hashchange', checkDiscussHash);
+    }, []);
 
     // Global shortcut Cmd/Ctrl + Shift + G to summon/minimize independent floating window
     useEffect(() => {
@@ -230,11 +339,29 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
             flash?.(error?.message ?? '无法切入该工作', 'error');
           }
         },
+        onOpenInDsh: async target => {
+          try {
+            await enterWork({ workRef: target.workRef, title: target.title }, enterOpsRef.current);
+            setMode('peek');
+            flash?.(`已切入工作「${target.title}」`);
+          } catch (error) {
+            flash?.(error?.message ?? '无法切入该工作', 'error');
+          }
+        },
         onOpenInLogseq: async project => {
           try {
             const res = await rpc('stage-open-logseq', { workRef: project.workRef });
             if (res?.url) window.open(res.url, '_blank', 'noopener');
             else flash?.('此工作暂无可直接打开的 Logseq 锚点', 'error');
+          } catch {
+            flash?.('打开 Logseq 失败', 'error');
+          }
+        },
+        onOpenTargetInLogseq: async target => {
+          try {
+            const res = await rpc('stage-open-logseq', { workRef: target.workRef });
+            if (res?.url) window.open(res.url, '_blank', 'noopener');
+            else flash?.('此对象暂无可直接打开的 Logseq 锚点', 'error');
           } catch {
             flash?.('打开 Logseq 失败', 'error');
           }
@@ -304,11 +431,26 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
       const gaze = snap ? compactGazeSummary(snap) : '全局共视活画布';
       const ghostCount = snap?.ghostProposals?.length ?? 0;
       return (
-        <button type="button" className="tcs-dsh-peek" onClick={() => setMode('floating')}>
-          <span className="tcs-dsh-dot" style={{ background: ghostCount > 0 ? '#3b6ea5' : '#c27824' }} />
-          <span>{gaze}</span>
-          <span style={{ color: '#3b6ea5', fontWeight: 500 }}>展开</span>
-        </button>
+        <div className="tcs-dsh-peek" role="status" title={`DSH Agent 正在实时共视：${gaze}`}>
+          <span className="tcs-dsh-dot" style={{ background: ghostCount > 0 ? '#3b6ea5' : '#2f855a' }} />
+          <span onClick={() => setMode('floating')} style={{ cursor: 'pointer' }}>Agent 共视中 · {gaze}</span>
+          <button
+            type="button"
+            style={{ border: 'none', background: 'transparent', color: '#3b6ea5', fontWeight: 500, cursor: 'pointer', padding: 0, fontSize: '12px' }}
+            onClick={() => setMode('floating')}
+          >
+            展开
+          </button>
+          <button
+            type="button"
+            className="tcs-dsh-peek-close"
+            title="关闭共视悬浮窗"
+            aria-label="关闭共视悬浮窗"
+            onClick={() => setMode('closed')}
+          >
+            ✕
+          </button>
+        </div>
       );
     }
 
@@ -368,7 +510,13 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
         <div className="tcs-dsh-titlebar" onMouseDown={startMove}>
           <div className="tcs-dsh-titlebar-left">
             <span style={{ fontWeight: 600 }}>◎ 全局共视活画布</span>
-            <span style={{ opacity: 0.65, fontSize: '11px' }}>与当前 DSH 对话及外部 MCP 实时同频</span>
+            <span
+              className="tcs-dsh-coview-pill"
+              title={snap ? `DSH Agent 实时共视内容：${compactGazeSummary(snap)}` : 'DSH Agent 实时共视已开启'}
+            >
+              <span className="tcs-dsh-live-dot" />
+              <span>Agent 共视中 · {shortGazeLabel(snap) || '同步中'}</span>
+            </span>
           </div>
           <div className="tcs-dsh-titlebar-right">
             <button type="button" className="tcs-dsh-win-btn" onClick={() => setMode('peek')}>收为胶囊</button>

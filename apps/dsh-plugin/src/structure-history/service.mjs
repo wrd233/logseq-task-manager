@@ -68,7 +68,7 @@ export class HistoryService {
             catch (error) {
                 if (signal?.aborted || error.code === 'BINDING_CHANGED')
                     throw error;
-                issues.push(`Logseq 历史暂不可读取；已保存副本仍可浏览：${error.code ?? error.message}`);
+                issues.push(`Logseq 实时连接离线（${error.code ?? error.message}）；已保存的本地历史快照（work_history_*）仍可浏览，实时读写需在 Logseq 重新连接。`);
             }
         }
         return { project, issues };

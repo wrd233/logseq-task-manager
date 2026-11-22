@@ -942,6 +942,19 @@ export class TimeEngine {
     return count;
   }
 
+  findMissingProposalIds(decisions: readonly TimeResolveDecision[]): string[] {
+    const pending = new Set(this.ghostProposals.map((g) => g.id));
+    return decisions.map((d) => d.proposalId).filter((id) => !pending.has(id));
+  }
+
+  canUndo(): boolean {
+    return this.undoSnapshot !== null;
+  }
+
+  getActiveFocus(): ActiveFocusSession | null {
+    return this.registry.activeFocus ? structuredClone(this.registry.activeFocus) : null;
+  }
+
   undoLastCommit(): boolean {
     if (!this.undoSnapshot) return false;
     this.registry = structuredClone(this.undoSnapshot.registry);

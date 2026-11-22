@@ -38,7 +38,7 @@ export class WorkViewShell {
     const identity = element("div", "", "wb-work-identity"); identity.append(this.title);
     const line = element("div", "", "wb-work-line");
     if (actions.zoomOut) {
-      this.zoomOutBtn = button("拉远 ↖", actions.zoomOut);
+      this.zoomOutBtn = button("拉远", actions.zoomOut);
       this.zoomOutBtn.className = "wb-zoomout-entry";
       this.zoomOutBtn.title = "从当前工作拉远到全局领域星图";
       this.zoomOutBtn.onpointerdown = event => event.preventDefault();

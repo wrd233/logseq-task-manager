@@ -7,7 +7,7 @@ import { graphIdentity } from "../../graph-adapter.ts";
 import { readSelectedPages, saveSelectedPages, resolveSelectedPage } from "./catalog-pages.ts";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { collectCatalog, type CatalogBlock, type CatalogFormal } from "./work-catalog.ts";
-import { catalogChoiceKeys, catalogContext, explainBlockWork, isIncluded, readCatalogBlocks, readCatalogPages, readDiscovery, selectedPageFor, writeDiscovery } from "./catalog-local.ts";
+import { buildPageMetaMap, catalogChoiceKeys, catalogContext, explainBlockWork, isIncluded, readCatalogBlocks, readCatalogPages, readDiscovery, selectedPageFor, writeDiscovery } from "./catalog-local.ts";
 
 /** The local index works independently of the optional DSH metadata publisher. */
 export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, resolveDirectory: (scope: SourceScope) => Promise<string | undefined>) {
@@ -21,9 +21,13 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
   type Context = Awaited<ReturnType<typeof context>>;
   const notes = async (scope: Context, forDsh = false) => {
     const preferences = await readDiscovery(scope);
-    const blocks = preferences.enabled || forDsh ? await readCatalogBlocks(scope.check) : [];
-    const pages = await readCatalogPages(scope, preferences.enabled);
-    return { preferences, blocks, pages };
+    const discover = preferences.enabled || forDsh;
+    const allPages = discover ? await logseq.Editor.getAllPages() ?? [] : [];
+    if (discover) scope.check();
+    const blocks = discover ? await readCatalogBlocks(scope.check) : [];
+    const pages = await readCatalogPages(scope, discover, allPages);
+    const pageMeta = discover ? buildPageMetaMap(allPages) : undefined;
+    return { preferences, blocks, pages, pageMeta };
   };
   const read = async () => {
     const scope = await context();
@@ -31,7 +35,8 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     scope.check();
     const blocks=await readCatalogBlocks(scope.check);
     const pages=await readCatalogPages(scope,true,allPages);
-    const snapshot = await collectCatalog({ ...scope, blocks, pages, formal: [], getBlock: id => logseq.Editor.getBlock(id) });
+    const pageMeta = buildPageMetaMap(allPages);
+    const snapshot = await collectCatalog({ ...scope, blocks, pages, pageMeta, formal: [], getBlock: id => logseq.Editor.getBlock(id) });
     const markById = new Map(blocks.map(block => [block.uuid, block]));
     const works = snapshot.works.filter(work => isIncluded(work, preferences)).map(work =>
       work.workRef.kind === "logseq" && work.workRef.sourceKind === "block" ? explainBlockWork(work, markById.get(work.workRef.rootUuid)) : work);
@@ -53,7 +58,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     }
     if (!path.startsWith("/")) return;
     const descriptor = parseWorkspaceDescriptor(JSON.parse(await desktopFiles(() => graphId).read(path)), true) as WorkspacePluginDescriptor; check();
-    const { preferences, blocks, pages } = await notes(scope, true);
+    const { preferences, blocks, pages, pageMeta } = await notes(scope, true);
     // Legacy DSH discovery had already established native IDs for marked
     // blocks. The opt-in local discovery mode indexes only existing IDs.
     if (!preferences.enabled && blocks.some(block => extractObjectNavigationLabel(block.content) && block.properties?.id !== block.uuid)) {
@@ -74,10 +79,9 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
       objects = await formal(); check();
       const text = JSON.stringify(objects);
       if (cachedFormal !== text) await writeScopedPrivateItem(logseq.FileStorage, "work-catalog-formal-metadata", graphId, text, check);
-    } catch (error) {
+    } catch {
       check();
-      if (typeof cachedFormal !== "string") throw error;
-      objects = JSON.parse(cachedFormal) as CatalogFormal[];
+      objects = typeof cachedFormal === "string" ? JSON.parse(cachedFormal) as CatalogFormal[] : [];
     }
     check();
     const byUuid = new Map(blocks.map(block => [block.uuid, block]));
@@ -88,7 +92,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
         if (block) { blocks.push(block as CatalogBlock); byUuid.set(anchor.externalId, block as CatalogBlock); }
       }
     }
-    const snapshot = await collectCatalog({ ...scope, blocks, pages, formal: objects, getBlock: id => logseq.Editor.getBlock(id) });
+    const snapshot = await collectCatalog({ ...scope, blocks, pages, ...(pageMeta ? { pageMeta } : {}), formal: objects, getBlock: id => logseq.Editor.getBlock(id) });
     snapshot.works = snapshot.works.filter(work => isIncluded(work, preferences)).map(work =>
       preferences.enabled && work.workRef.kind === "logseq" && work.workRef.sourceKind === "block" ? explainBlockWork(work, byUuid.get(work.workRef.rootUuid)) : work);
     for (const work of snapshot.works) {
@@ -100,7 +104,8 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
         if (anchor?.graphId === graphId) rootUuid = anchor.externalId;
       }
       if (!rootUuid) continue;
-      const directory = await resolveDirectory({graphId, rootUuid, ...(work.objectType === "页面" ? {kind:"page",pageName:work.title} : {})}); check();
+      const isPageWork = work.workRef.kind === "logseq" && work.workRef.sourceKind === "page";
+      const directory = await resolveDirectory({graphId, rootUuid, ...(isPageWork ? {kind:"page",pageName:work.title} : {})}); check();
       if (directory) work.directory = directory;
     }
     if (graphIdentity(await logseq.App.getCurrentGraph()) !== graphId) throw new WorkspaceError("GRAPH_SCOPE_CHANGED");

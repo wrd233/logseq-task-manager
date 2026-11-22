@@ -3,6 +3,7 @@ import { WorkCatalogView } from './features/agent-workspace/catalog-view.ts';
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
 import { WorkspaceError, sameWorkScope, workKey, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
+import type { StageWorkTarget } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "./features/stage/overlay.ts";
 import { QuietFocusCapsule } from "./features/stage/focus-capsule.ts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
@@ -12,7 +13,7 @@ import { WorkView } from "./features/work-view/controller.ts";
 import type { CaptureRequest } from "./features/materials/service.ts";
 import { Materials } from "./features/materials/controller.ts";
 import { installMaterialTransfers } from "./features/materials/install-transfer.ts";
-import { installNavigation, installWorkbenchStyle } from "./host/panel-host.ts";
+import { enterFullscreenMainUI, hostDocument, installNavigation, installWorkbenchStyle, isHostSidebarVisible, leaveFullscreenMainUI } from "./host/panel-host.ts";
 import { installReadingEntries } from "./host/reading-entry.ts";
 import { panels } from "./workspace/context.ts";
 import { installWorkspaceContext } from "./features/workspace-context/install.ts";
@@ -192,11 +193,135 @@ async function main(): Promise<void> {
   }});
   const catalog = installCatalogPublisher(async () => await pluginRuntime.configured() ? (await (await pluginRuntime.client()).listObjectAnchorIndex()).objects : [], async scope => (await workspace.api.resolve(scope))?.directory);
   removeCatalog = catalog.dispose;
-  const navigateFocusWork = async (session: { workRef?: { kind: string; rootUuid?: string; sourceKind?: string } | null; title: string }) => {
-    if (!work) return;
-    if (session.workRef?.kind === "logseq" && session.workRef.rootUuid) {
-      if (session.workRef.sourceKind === "page") await work.openPage(session.title);
-      else await work.open(session.workRef.rootUuid);
+  interface PreFocusScene {
+    leftSidebarOpen: boolean;
+    rightSidebarOpen: boolean;
+    workbenchPanel: string | null;
+    page:
+      | { kind: "home" }
+      | { kind: "page"; name: string }
+      | { kind: "block"; uuid: string }
+      | null;
+    navigatedByFocus: boolean;
+  }
+  let preFocusScene: PreFocusScene | null = null;
+  let pendingEnterFocus: Promise<void> | null = null;
+  let enteredFocusSessionId: string | null = null;
+
+  const captureCurrentPage = async (): Promise<PreFocusScene["page"]> => {
+    try {
+      const current = await logseq.Editor.getCurrentPage();
+      if (!current) return { kind: "home" };
+      const pageLike = current as { originalName?: unknown; name?: unknown; uuid?: unknown };
+      if (typeof pageLike.originalName === "string" && pageLike.originalName.trim()) {
+        return { kind: "page", name: pageLike.originalName };
+      }
+      if (typeof pageLike.name === "string" && pageLike.name.trim()) {
+        return { kind: "page", name: pageLike.name };
+      }
+      if (typeof pageLike.uuid === "string" && pageLike.uuid.trim()) {
+        return { kind: "block", uuid: pageLike.uuid };
+      }
+    } catch {
+      // Fail open if Logseq page API is temporarily unavailable.
+    }
+    return null;
+  };
+
+  const applyZenDistractionHide = async (enabled: boolean) => {
+    if (enabled) {
+      if (panels.active) await panels.closeActive().catch(() => undefined);
+      try { logseq.App.setLeftSidebarVisible(false); } catch { /* ignore */ }
+      try { logseq.App.setRightSidebarVisible(false); } catch { /* ignore */ }
+      return;
+    }
+    if (preFocusScene) {
+      try { logseq.App.setLeftSidebarVisible(preFocusScene.leftSidebarOpen); } catch { /* ignore */ }
+      try { logseq.App.setRightSidebarVisible(preFocusScene.rightSidebarOpen); } catch { /* ignore */ }
+    }
+  };
+
+  const enterFocusMode = (session: { id: string }): Promise<void> => {
+    if (enteredFocusSessionId === session.id && pendingEnterFocus) return pendingEnterFocus;
+    enteredFocusSessionId = session.id;
+    const task = (async () => {
+      if (!preFocusScene) {
+        const doc = hostDocument();
+        const leftSidebarOpen =
+          isHostSidebarVisible("#left-sidebar") ||
+          Boolean(doc?.querySelector("#main-container.is-left-sidebar-open"));
+        const rightSidebarOpen = isHostSidebarVisible(".cp__right-sidebar");
+        const workbenchPanel = panels.active;
+        const page = await captureCurrentPage();
+        preFocusScene = {
+          leftSidebarOpen,
+          rightSidebarOpen,
+          workbenchPanel,
+          page,
+          navigatedByFocus: false,
+        };
+      }
+      await applyZenDistractionHide(true);
+    })();
+    pendingEnterFocus = task;
+    return task;
+  };
+
+  const restorePreFocusScene = async () => {
+    if (pendingEnterFocus) await pendingEnterFocus.catch(() => undefined);
+    pendingEnterFocus = null;
+    enteredFocusSessionId = null;
+    const scene = preFocusScene;
+    preFocusScene = null;
+    if (!scene || disposed) return;
+    try { logseq.App.setLeftSidebarVisible(scene.leftSidebarOpen); } catch { /* ignore */ }
+    try { logseq.App.setRightSidebarVisible(scene.rightSidebarOpen); } catch { /* ignore */ }
+    if (scene.navigatedByFocus && scene.page) {
+      try {
+        if (scene.page.kind === "home") {
+          logseq.App.pushState("home");
+        } else if (scene.page.kind === "page") {
+          logseq.App.pushState("page", { name: scene.page.name });
+        } else {
+          logseq.App.pushState("page", { name: scene.page.uuid });
+        }
+      } catch {
+        // ignore navigation failure on exit
+      }
+    }
+    if (!globalStage?.isOpen && scene.workbenchPanel) {
+      try {
+        if (scene.workbenchPanel === "work") await work?.openToolbar();
+        else if (scene.workbenchPanel === "search") await workSearch?.open();
+        else if (scene.workbenchPanel === "materials") await materials?.library(null);
+        else if (scene.workbenchPanel === "tasks") await openTaskCenter();
+      } catch {
+        // ignore panel reopen error
+      }
+    }
+  };
+
+  const navigateFocusWork = async (session: { id: string; workRef?: { kind: string; rootUuid?: string; sourceKind?: string } | null; title: string }) => {
+    await enterFocusMode(session);
+    if (session.workRef?.kind !== "logseq" || !session.workRef.rootUuid) return;
+    if (preFocusScene) preFocusScene.navigatedByFocus = true;
+    try {
+      if (session.workRef.sourceKind === "page") {
+        logseq.App.pushState("page", { name: session.title });
+        return;
+      }
+      const blk = await logseq.Editor.getBlock(session.workRef.rootUuid);
+      const pageEntity = blk?.page?.id ? await logseq.Editor.getPage(blk.page.id) : null;
+      const pageName =
+        (pageEntity as { originalName?: string; name?: string } | null)?.originalName ??
+        (pageEntity as { name?: string } | null)?.name;
+      if (pageName) {
+        logseq.Editor.scrollToBlockInPage(pageName, session.workRef.rootUuid);
+      } else {
+        logseq.App.pushState("page", { name: session.workRef.rootUuid });
+      }
+    } catch {
+      // Fallback gracefully if block cannot be navigated natively
     }
   };
   focusCapsule = new QuietFocusCapsule({
@@ -217,10 +342,51 @@ async function main(): Promise<void> {
     onNavigateWork: async session => {
       await navigateFocusWork(session);
     },
+    onEnterFocusMode: async session => {
+      await enterFocusMode(session);
+    },
+    onZenModeChange: async enabled => {
+      await applyZenDistractionHide(enabled);
+    },
+    onExitFocusMode: async () => {
+      await restorePreFocusScene();
+    },
     notify: (message, status) => {
       void logseq.UI.showMsg(message, status ?? "success");
     },
   });
+  const resolveStageTargetScope = async (target: StageWorkTarget): Promise<SourceScope> => {
+    if (target.workRef.kind !== "logseq") {
+      throw new Error("该工作对象暂不支持直接从 Logseq 跳入 DSH。");
+    }
+    if (target.workRef.sourceKind === "page") {
+      const page = await logseq.Editor.getPage(target.title);
+      const pageName = String(page?.originalName ?? page?.name ?? target.title);
+      return {
+        graphId: target.workRef.graphId,
+        rootUuid: page?.uuid ?? target.workRef.rootUuid,
+        kind: "page",
+        pageName,
+      };
+    }
+    return {
+      graphId: target.workRef.graphId,
+      rootUuid: target.workRef.rootUuid,
+    };
+  };
+  const openStageTargetInDsh = async (target: StageWorkTarget): Promise<void> => {
+    const scope = await resolveStageTargetScope(target);
+    await agentWorkspace!.local.openWork(scope, "continue", false, undefined, "dsh");
+  };
+  const openStageTargetInLogseq = async (target: StageWorkTarget): Promise<void> => {
+    if (!work) return;
+    if (target.workRef.kind === "logseq") {
+      if (target.workRef.sourceKind === "page") await work.openPage(target.title);
+      else await work.open(target.workRef.rootUuid);
+      return;
+    }
+    await work.openPage(target.title);
+  };
   globalStage = new GlobalStageOverlay({
     remote: {
       stageState: () => agentWorkspace!.local.stageState(),
@@ -238,13 +404,28 @@ async function main(): Promise<void> {
       };
     },
     openProject: async project => {
-      if (!work) return;
-      if (project.workRef.kind === "logseq") {
-        if (project.workRef.sourceKind === "page") await work.openPage(project.title);
-        else await work.open(project.workRef.rootUuid);
-      } else {
-        await work.openPage(project.title);
+      await openStageTargetInLogseq({ workRef: project.workRef, workKey: project.workKey, title: project.title });
+    },
+    openInDsh: async target => {
+      await openStageTargetInDsh(target);
+    },
+    openTargetInLogseq: async target => {
+      await openStageTargetInLogseq(target);
+    },
+    discussInDsh: async (summary) => {
+      try {
+        const res = await agentWorkspace!.local.stageOpenDsh();
+        if (res.url) {
+          await logseq.App.openExternalLink(res.url);
+          return;
+        }
+      } catch (err) {
+        await copyMaterialLink(summary).catch(() => undefined);
+        const detail = err instanceof Error ? err.message : "请确认 Companion 与 DSH 已启动";
+        throw new Error(`未能直连 DSH（${detail}），已复制当前画面摘要到剪贴板。`, { cause: err });
       }
+      await copyMaterialLink(summary).catch(() => undefined);
+      throw new Error("未能取得 DSH 入口，已复制当前画面摘要到剪贴板。");
     },
     openFocusWork: async session => {
       await navigateFocusWork(session);
@@ -271,6 +452,12 @@ async function main(): Promise<void> {
     },
     openExternalUrl: async url => {
       await logseq.App.openExternalLink(url);
+    },
+    onOpenSurface: () => {
+      enterFullscreenMainUI();
+    },
+    onCloseSurface: () => {
+      leaveFullscreenMainUI();
     },
     notify: (message, status) => {
       void logseq.UI.showMsg(message, status ?? "success");

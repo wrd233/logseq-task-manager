@@ -75,7 +75,13 @@ export function installAgentWorkspace(options: {
             void logseq.UI.showMsg(error instanceof Error ? error.message : String(error), "warning");
     };
     const post = async (descriptor: WorkspacePluginDescriptor, path: string, input: unknown, timeout=30000,signal?:AbortSignal) => {
-        const response = await fetch(`${descriptor.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId }, body: JSON.stringify(input), signal: signal?AbortSignal.any([signal,AbortSignal.timeout(timeout)]):AbortSignal.timeout(timeout) });
+        let response: Response;
+        try {
+            response = await fetch(`${descriptor.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId }, body: JSON.stringify(input), signal: signal?AbortSignal.any([signal,AbortSignal.timeout(timeout)]):AbortSignal.timeout(timeout) });
+        } catch (error) {
+            if (signal?.aborted) throw error;
+            throw new WorkspaceError("CHANNEL_UNAVAILABLE", `无法连接本机 Companion 服务（${descriptor.baseUrl}），请确认 Companion 已启动。`);
+        }
         const result = await response.json() as {
             error?: {
                 code: string;
@@ -277,6 +283,11 @@ export function installAgentWorkspace(options: {
         const response=await post(descriptor,"/plugin/stage/anchor",{workKey,source:"logseq"},10000);
         return response.value as StageSnapshot;
     };
+    const stageOpenDsh=async():Promise<{url:string;gaze?:string}>=>{
+        const descriptor=await currentDescriptor();
+        const response=await post(descriptor,"/plugin/stage/open-dsh",{},10000);
+        return response.value as {url:string;gaze?:string};
+    };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)
             throw new WorkspaceError("MATERIALS_UNAVAILABLE");
@@ -469,7 +480,10 @@ export function installAgentWorkspace(options: {
         });
         if (!options.ensureDshWork) throw new WorkspaceError("MATERIALS_UNAVAILABLE");
         await options.ensureDshWork(resolved.scope, check); await check();
-        if (!connection || !sameWorkScope(connection.binding.scope, resolved.scope)) await allow(resolved.scope, false, true, true);
+        const live = await readDescriptor(initialGraph); await check();
+        if (!connection || connection.descriptor.instanceId !== live.descriptor.instanceId || !sameWorkScope(connection.binding.scope, resolved.scope)) {
+            await allow(resolved.scope, false, true, true);
+        }
         const value = connection; if (!value) throw new WorkspaceError("CHANNEL_UNAVAILABLE");
         await valid(value); await check();
         const block = resolved.scope.kind === "page" ? null : await logseq.Editor.getBlock(resolved.scope.rootUuid);
@@ -504,7 +518,7 @@ export function installAgentWorkspace(options: {
     if(typeof todoCommand==="function")disposers.push(todoCommand);
     const formatCommand=logseq.App.registerCommandPalette({key:"agent-workspace-format",label:"工作台：查看并整理行首格式"},()=>{if(!disposed)return formatUI.open().catch(report);});
     if(typeof formatCommand==="function")disposers.push(formatCommand);
-    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,runNoteTidy,listWritebackProposals,consumeWritebackProposal,stageState,stageAction,stageAnchor,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
+    return { api: { status: () => ({ connected: connection !== null, binding: connection?.binding ?? null, formalWorkspace: connection?.binding.provider === "workspace" ? "connected" : "unavailable", permissions:permissions() }) }, local: {openWork,collaborateTargets,selectCollaborateTarget,setWorkPrivacy,runNoteTidy,listWritebackProposals,consumeWritebackProposal,stageState,stageAction,stageAnchor,stageOpenDsh,generateReading,readingProviders,selectReadingRoute,startReadingJob,readingJobStatus,ackReadingJob,cancelReadingJob,connect:allow,connectRead,allowFiles,allowTodo:()=>todoUI.open(),format:(root?:string)=>formatUI.open(root),collaborate:(root?:string|ScopeLease["scope"])=>ui.open(root),designReading:(root?:string|ScopeLease["scope"])=>ui.open(root,false,true),guidance:(root?:string|ScopeLease["scope"])=>ui.open(root,true),stop:()=>revoke()}, dispose: () => {
             if (disposed)
                 return;
             disposed = true;

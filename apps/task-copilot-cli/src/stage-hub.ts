@@ -433,20 +433,35 @@ export class StageHub {
 
   // ==================== STAGE MCP OPERATIONS ====================
 
-  async mcpGetView(agent: string) {
+  async mcpGetView(agent: string, options: { projectLimit?: number; projectOffset?: number } = {}) {
     const snap = await this.snapshot();
     const { zoomLevel, areaId, projectWorkKey, selectedInboxId } = snap.viewport;
     const focusedArea = areaId ? snap.areas.find((a) => a.id === areaId) ?? null : null;
     const focusedProject =
-      focusedArea && projectWorkKey
-        ? focusedArea.projects.find((p) => p.workKey === projectWorkKey) ?? null
+      projectWorkKey
+        ? (focusedArea?.projects.find((p) => p.workKey === projectWorkKey) ??
+          snap.areas.flatMap((a) => a.projects).find((p) => p.workKey === projectWorkKey) ??
+          null)
+        : null;
+    const focusedProjectOwnerArea =
+      focusedProject
+        ? (focusedArea?.projects.some((p) => p.workKey === focusedProject.workKey)
+            ? focusedArea
+            : snap.areas.find((a) => a.projects.some((p) => p.workKey === focusedProject.workKey)) ?? null)
         : null;
     const selectedInbox = selectedInboxId ? snap.inbox.find((i) => i.id === selectedInboxId) ?? null : null;
 
     if (focusedProject) this.engine.setPresence(agent, focusedProject.workKey, "viewing");
     else if (focusedArea) this.engine.setPresence(agent, focusedArea.id, "viewing");
 
+    const defaultLimit = zoomLevel >= 2 ? 10 : 15;
+    const projectLimit = Math.max(1, Math.min(50, Math.floor(options.projectLimit ?? defaultLimit)));
+    const projectOffset = Math.max(0, Math.floor(options.projectOffset ?? 0));
+    const areaProjects = focusedArea ? focusedArea.projects.slice(projectOffset, projectOffset + projectLimit) : [];
+    const hasMoreAreaProjects = focusedArea ? projectOffset + areaProjects.length < focusedArea.projects.length : false;
+
     return {
+      version: snap.version,
       gazeSummary: compactGazeSummary(snap),
       viewport: snap.viewport,
       focusedArea: focusedArea
@@ -455,6 +470,7 @@ export class StageHub {
             name: focusedArea.name,
             focusRole: focusedArea.focusRole,
             domain: focusedArea.domain,
+            areaDirectory: focusedArea.areaDirectory ?? null,
             quarterGoal: focusedArea.quarterGoal ?? null,
             antiGoal: focusedArea.antiGoal ?? null,
             weeklyMinimum: focusedArea.weeklyMinimum ?? null,
@@ -462,13 +478,31 @@ export class StageHub {
             pulseLabel: focusedArea.pulseLabel,
             signalLabel: focusedArea.signalLabel,
             projectCount: focusedArea.projects.length,
-            projects: focusedArea.projects.map((p) => ({
+            projectOffset,
+            hasMoreProjects: hasMoreAreaProjects,
+            ...(hasMoreAreaProjects ? { nextProjectOffset: projectOffset + areaProjects.length } : {}),
+            projects: areaProjects.map((p) => ({
               workKey: p.workKey,
               title: p.title,
               objectType: p.objectType,
+              subtitle: p.subtitle,
+              directory: p.directory ?? null,
               pulseLabel: p.pulseLabel,
               signalLabel: p.signalLabel,
+              childCount: p.childWorks.length,
               advancementCount: p.advancements.length,
+              secondaryAreas: p.secondaryAreas,
+            })),
+            crossAreaProjectCount: focusedArea.crossAreaProjects.length,
+            crossAreaProjects: focusedArea.crossAreaProjects.slice(0, 10).map((c) => ({
+              workKey: c.workKey,
+              title: c.title,
+              objectType: c.objectType,
+              subtitle: c.subtitle,
+              primaryAreaId: c.primaryAreaId,
+              primaryAreaName: c.primaryAreaName,
+              directory: c.directory ?? null,
+              pulseLabel: c.pulseLabel,
             })),
           }
         : null,
@@ -477,9 +511,24 @@ export class StageHub {
             workKey: focusedProject.workKey,
             title: focusedProject.title,
             objectType: focusedProject.objectType,
+            subtitle: focusedProject.subtitle,
             location: focusedProject.location,
+            directory: focusedProject.directory ?? null,
+            lifecycleState: focusedProject.lifecycleState ?? null,
+            parentAreaId: focusedProjectOwnerArea?.id ?? focusedArea?.id ?? null,
+            parentAreaName: focusedProjectOwnerArea?.name ?? focusedArea?.name ?? null,
+            secondaryAreas: focusedProject.secondaryAreas,
             pulseLabel: focusedProject.pulseLabel,
             signalLabel: focusedProject.signalLabel,
+            childCount: focusedProject.childWorks.length,
+            childWorks: focusedProject.childWorks.slice(0, 20).map((c) => ({
+              workKey: c.workKey,
+              title: c.title,
+              objectType: c.objectType,
+              subtitle: c.subtitle,
+              directory: c.directory ?? null,
+              pulseLabel: c.pulseLabel,
+            })),
             advancements: focusedProject.advancements,
           }
         : null,
@@ -491,6 +540,7 @@ export class StageHub {
               name: a.name,
               focusRole: a.focusRole,
               domain: a.domain,
+              areaDirectory: a.areaDirectory ?? null,
               quarterGoal: a.quarterGoal ?? null,
               antiGoal: a.antiGoal ?? null,
               weeklyMinimum: a.weeklyMinimum ?? null,
@@ -499,6 +549,7 @@ export class StageHub {
               tone: a.tone,
               signalLabel: a.signalLabel,
               projectCount: a.projects.length,
+              crossAreaProjectCount: a.crossAreaProjects.length,
               inboxMatchCount: a.inboxMatchCount,
             }))
           : undefined,
@@ -507,57 +558,122 @@ export class StageHub {
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
       restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
+      activeRadar: snap.edgeRadar ?? null,
+      canUndo: snap.canUndo,
       needsColdStart: snap.needsColdStart,
       appUrl: snap.appUrl,
     };
   }
 
-  async mcpGetPulse() {
+  async mcpGetPulse(
+    options: {
+      areaId?: string;
+      projectLimit?: number;
+      projectOffset?: number;
+      unassignedLimit?: number;
+      inboxLimit?: number;
+    } = {},
+  ) {
     const snap = await this.snapshot();
+    const isAreaDrilldown = typeof options.areaId === "string" && options.areaId.length > 0;
+    const filteredAreas = isAreaDrilldown ? snap.areas.filter((a) => a.id === options.areaId) : snap.areas;
+    if (isAreaDrilldown && filteredAreas.length === 0) {
+      throw new WorkspaceError("INVALID_INPUT", `未找到目标领域：${options.areaId}`);
+    }
+    const projectLimit = Math.max(1, Math.min(50, Math.floor(options.projectLimit ?? (isAreaDrilldown ? 30 : 8))));
+    const projectOffset = Math.max(0, Math.floor(options.projectOffset ?? 0));
+    const unassignedLimit = Math.max(0, Math.min(50, Math.floor(options.unassignedLimit ?? 20)));
+    const inboxLimit = Math.max(0, Math.min(50, Math.floor(options.inboxLimit ?? 20)));
+
+    const unassignedSlice = snap.unassignedWorks.slice(0, unassignedLimit);
+    const inboxSlice = snap.inbox.slice(0, inboxLimit);
+
     return {
       version: snap.version,
       gazeSummary: compactGazeSummary(snap),
       needsColdStart: snap.needsColdStart,
       mismatchSignals: snap.mismatchSignals,
-      areas: snap.areas.map((a) => ({
-        id: a.id,
-        name: a.name,
-        focusRole: a.focusRole,
-        domain: a.domain,
-        quarterGoal: a.quarterGoal ?? null,
-        antiGoal: a.antiGoal ?? null,
-        weeklyMinimum: a.weeklyMinimum ?? null,
-        mismatch: a.mismatch ?? null,
-        pulseLabel: a.pulseLabel,
-        recencyDays: a.recencyDays,
-        tone: a.tone,
-        signalLabel: a.signalLabel,
-        annotation: a.annotation ?? null,
-        inboxMatchCount: a.inboxMatchCount,
-        projects: a.projects.map((p) => ({
-          workKey: p.workKey,
-          title: p.title,
-          objectType: p.objectType,
-          pulseLabel: p.pulseLabel,
-          tone: p.tone,
-          signalLabel: p.signalLabel,
-          advancements: p.advancements,
-        })),
-        areaAdvancements: a.areaAdvancements,
-      })),
+      areas: filteredAreas.map((a) => {
+        const slicedProjects = a.projects.slice(projectOffset, projectOffset + projectLimit);
+        const hasMoreProjects = projectOffset + slicedProjects.length < a.projects.length;
+        return {
+          id: a.id,
+          name: a.name,
+          focusRole: a.focusRole,
+          domain: a.domain,
+          areaDirectory: a.areaDirectory ?? null,
+          quarterGoal: a.quarterGoal ?? null,
+          antiGoal: a.antiGoal ?? null,
+          weeklyMinimum: a.weeklyMinimum ?? null,
+          mismatch: a.mismatch ?? null,
+          pulseLabel: a.pulseLabel,
+          recencyDays: a.recencyDays,
+          tone: a.tone,
+          signalLabel: a.signalLabel,
+          annotation: a.annotation ?? null,
+          inboxMatchCount: a.inboxMatchCount,
+          totalProjects: a.projects.length,
+          projectOffset,
+          hasMoreProjects,
+          ...(hasMoreProjects ? { nextProjectOffset: projectOffset + slicedProjects.length } : {}),
+          projects: slicedProjects.map((p) => ({
+            workKey: p.workKey,
+            title: p.title,
+            objectType: p.objectType,
+            subtitle: p.subtitle,
+            pulseLabel: p.pulseLabel,
+            tone: p.tone,
+            signalLabel: p.signalLabel,
+            childCount: p.childWorks.length,
+            advancementCount: p.advancements.length,
+            hasDirectory: Boolean(p.directory),
+            ...(isAreaDrilldown
+              ? {
+                  directory: p.directory ?? null,
+                  secondaryAreas: p.secondaryAreas,
+                  advancements: p.advancements,
+                }
+              : {}),
+          })),
+          crossAreaProjectCount: a.crossAreaProjects.length,
+          ...(isAreaDrilldown ? { crossAreaProjects: a.crossAreaProjects } : {}),
+          areaAdvancements: a.areaAdvancements,
+        };
+      }),
       dormantAreas: snap.dormantAreas,
-      unassignedWorks: snap.unassignedWorks.slice(0, 30),
-      inbox: snap.inbox,
+      totalUnassignedWorks: snap.unassignedWorks.length,
+      hasMoreUnassigned: unassignedSlice.length < snap.unassignedWorks.length,
+      unassignedWorks: unassignedSlice.map((u) => ({
+        workKey: u.workKey,
+        title: u.title,
+        objectType: u.objectType,
+        pulseLabel: u.pulseLabel,
+        recencyDays: u.recencyDays,
+      })),
+      totalInbox: snap.inbox.length,
+      hasMoreInbox: inboxSlice.length < snap.inbox.length,
+      inbox: inboxSlice,
       cooledInboxCount: snap.cooledInboxCount,
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
       restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
+      activeRadar: snap.edgeRadar ?? null,
+      canUndo: snap.canUndo,
       appUrl: snap.appUrl,
     };
   }
 
-  async mcpHighlight(input: { targetIds: string[]; reason: string; tone?: "primary" | "amber" | "teal"; agent: string }) {
+  async mcpHighlight(
+    input:
+      | { clear: true }
+      | { targetIds: string[]; reason: string; tone?: "primary" | "amber" | "teal"; agent: string; clear?: false },
+  ) {
     await this.ensureLoaded();
+    if (input.clear) {
+      const cleared = this.engine.clearHighlightsAndRadar();
+      const snap = await this.broadcast();
+      return { ...cleared, version: snap.version };
+    }
     const res = this.engine.highlight(input, Date.now());
     const snap = await this.broadcast();
     return { ...res, version: snap.version };
@@ -602,7 +718,19 @@ export class StageHub {
     reason: string;
   }) {
     await this.ensureLoaded();
-    const proposal = this.engine.proposeAreaRole(input, Date.now());
+    let proposal: ReturnType<StageEngine["proposeAreaRole"]>;
+    try {
+      proposal = this.engine.proposeAreaRole(input, Date.now());
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("MAIN_ROLE_CONFLICT:")) {
+        const [, conflictArea, conflictProposalId] = error.message.split(":");
+        throw new WorkspaceError(
+          "INVALID_INPUT",
+          `四态护栏：已有待确认的本季主线提议（领域「${conflictArea}」，proposalId=${conflictProposalId}），同一轮最多只能提议 1 个主线；请先确认或驳回原提议。`,
+        );
+      }
+      throw error;
+    }
     if (!proposal) {
       throw new WorkspaceError("INVALID_INPUT", `未找到目标领域：${input.areaId}`);
     }
@@ -617,6 +745,9 @@ export class StageHub {
     branches: Array<{ title: string; reason: string; sourceInboxId?: string; sourceInboxText?: string }>;
   }) {
     await this.ensureLoaded();
+    if (input.areaId && this.engine.hasAreas() && !this.engine.hasArea(input.areaId)) {
+      throw new WorkspaceError("INVALID_INPUT", `未找到目标领域：${input.areaId}`);
+    }
     const proposals = this.engine.sproutBranches(input, Date.now());
     const snap = await this.broadcast();
     return { proposals, version: snap.version, writesFormalState: false };
@@ -634,18 +765,39 @@ export class StageHub {
   }) {
     await this.ensureLoaded();
     const proposal = this.engine.proposeMove(input, Date.now());
+    if (!proposal) {
+      throw new WorkspaceError("INVALID_INPUT", `未找到目标领域：${input.targetAreaId}`);
+    }
     const snap = await this.broadcast();
     return { proposal, version: snap.version, writesFormalState: false };
   }
 
   async mcpResolveProposals(decisions: readonly StageResolveDecision[]) {
     await this.ensureLoaded();
+    const missing = this.engine.findMissingProposalIds(decisions);
+    if (missing.length > 0) {
+      throw new WorkspaceError("PROPOSAL_NOT_FOUND", `未找到待确认的虚态提议：${missing.join(", ")}`);
+    }
     const result = this.engine.resolveProposals(decisions, Date.now());
     const inboxChanged = this.recordArchivedInboxIds(result.archivedInboxIds);
     if (result.committedIds.length > 0) await this.persistRegistry();
     if (inboxChanged) await this.persistInboxState();
     const snap = await this.broadcast();
     return { ...result, version: snap.version, operationalLayer: "companion-plan-a" };
+  }
+
+  async mcpUndoLastCommit() {
+    await this.ensureLoaded();
+    if (!this.engine.canUndo()) {
+      throw new WorkspaceError("NOTHING_TO_UNDO", "当前没有可撤销的上一步领域层凝固操作。");
+    }
+    const out = await this.applyAction({ type: "undo" });
+    return {
+      undone: true,
+      canUndo: out.snapshot.canUndo,
+      version: out.snapshot.version,
+      operationalLayer: "companion-plan-a",
+    };
   }
 
   dispose(): void {
@@ -779,7 +931,9 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           if (snap.areas.length === 0) {
             stageHtml = '<div class="tcs-empty ' + anim + '"><strong>尚未建立季节领域星图</strong><div style="font-size:12px;color:var(--tcs-muted)">已发现 ' + snap.catalogCount + ' 项工作目录与 ' + snap.inbox.length + ' 条 Inbox。可一键生成初始虚态星图，或在 Codex / Antigravity 中调用 stage_propose_areas。</div><button class="tcs-btn tcs-btn-primary" data-coldstart>生成初始星图</button></div>';
           } else {
-            stageHtml = '<div class="tcs-l0-board ' + anim + '">' + snap.areas.map((a) => {
+            const maxH = snap.areas.reduce((m, a) => Math.max(m, Math.round((a.pos ? a.pos.y : 0) + 290)), 460);
+            const maxW = snap.areas.reduce((m, a) => Math.max(m, Math.round((a.pos ? a.pos.x : 0) + 296)), 640);
+            stageHtml = '<div class="tcs-l0-shell ' + anim + '"><div class="tcs-l0-board" style="min-height:' + maxH + 'px;min-width:' + maxW + 'px">' + snap.areas.map((a) => {
               const tc = toneCls(a.tone);
               const bc = badgeCls(a.tone);
               const rc = a.focusRole === "main" ? "tcs-role-main" : a.focusRole === "maintenance" ? "tcs-role-maintenance" : "";
@@ -797,7 +951,7 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
                 (roleGhost ? '<div class="tcs-tone-ghost" style="margin-top:7px;padding:6px 8px;border-radius:7px;font-size:11.5px"><div style="font-weight:600;color:var(--tcs-primary)">' + esc(roleGhost.title) + '</div><div style="color:var(--tcs-muted);margin-top:2px">' + esc(roleGhost.reason) + '</div><div style="display:flex;justify-content:flex-end;gap:5px;margin-top:5px"><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss="' + esc(roleGhost.id) + '">× 散去</button><button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept="' + esc(roleGhost.id) + '">✓ 确认</button></div></div>' : '') +
                 (a.annotation ? '<div class="tcs-badge-ghost" style="margin-top:8px;padding:4px 8px;border-radius:7px;font-size:11.5px">注：' + esc(a.annotation) + '</div>' : '') +
                 '</div>';
-            }).join("") + '</div>';
+            }).join("") + '</div><div class="tcs-dormant-bar"><span>当前活跃领域：' + snap.areas.length + ' 个' + (snap.unassignedWorks && snap.unassignedWorks.length > 0 ? ' · 暂放未归类：' + snap.unassignedWorks.length + ' 项' : '') + '</span><span>空间方位已锚定</span></div></div>';
           }
         } else if (snap.viewport.zoomLevel === 1 && area) {
           stageHtml = '<div class="tcs-l1-wrap ' + anim + '"><div class="tcs-l1-hero"><strong>' + esc(area.name) + '</strong> <span class="tcs-badge ' + (area.focusRole === "main" ? "tcs-badge-main" : "tcs-badge-mist") + '">' + esc(roleLabel(area.focusRole)) + '</span><div style="font-size:12px;color:var(--tcs-muted);margin-top:3px">' + esc(area.pulseLabel) + '</div>' +
@@ -806,13 +960,16 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
             (area.antiGoal ? '<div class="tcs-meta-line">反目标：' + esc(area.antiGoal) + '</div>' : '') +
             (area.weeklyMinimum ? '<div class="tcs-meta-line">每周底线：' + esc(area.weeklyMinimum) + '</div>' : '') +
             '</div><div class="tcs-grid">' +
-            area.projects.map((p) => '<div class="tcs-proj-card" data-node-id="' + esc(p.workKey) + '" data-drop-proj="' + esc(area.id) + '|' + esc(p.workKey) + '" data-open-proj="' + esc(area.id) + '|' + esc(p.workKey) + '"><strong>' + esc(p.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin-top:4px">' + esc(p.pulseLabel) + '</div></div>').join("") +
+            area.projects.map((p) => '<div class="tcs-proj-card" data-node-id="' + esc(p.workKey) + '" data-drop-proj="' + esc(area.id) + '|' + esc(p.workKey) + '" data-open-proj="' + esc(area.id) + '|' + esc(p.workKey) + '"><strong>' + esc(p.title) + '</strong><div class="tcs-card-sub" style="margin-top:4px">' + esc(p.subtitle || p.pulseLabel) + '</div><div style="font-size:11px;color:var(--tcs-muted)">' + esc(p.pulseLabel) + (p.childWorks && p.childWorks.length > 0 ? ' · ' + p.childWorks.length + ' 子项' : '') + '</div></div>').join("") +
             snap.ghostProposals.filter((g) => g.areaId === area.id && !g.projectWorkKey).map((g) => '<div class="tcs-tone-ghost tcs-anim-sprout" style="border-radius:12px;padding:13px"><strong>' + esc(g.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin:4px 0 8px">' + esc(g.reason) + '</div><div style="display:flex;justify-content:flex-end;gap:6px"><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss="' + esc(g.id) + '">× 散去</button><button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept="' + esc(g.id) + '">✓ 留下</button></div></div>').join("") +
-            '</div></div>';
+            '</div>' +
+            (area.crossAreaProjects && area.crossAreaProjects.length > 0 ? '<div class="tcs-cross-box"><div style="font-size:12px;font-weight:600;color:var(--tcs-muted);margin-bottom:8px">跨领域关联（' + area.crossAreaProjects.length + ' · 不重复计数）</div><div class="tcs-grid">' + area.crossAreaProjects.map((r) => '<div class="tcs-cross-card" data-open-proj="' + esc(r.primaryAreaId) + '|' + esc(r.workKey) + '"><div style="display:flex;justify-content:space-between;gap:6px"><strong>' + esc(r.title) + '</strong><span class="tcs-badge tcs-badge-mist">主归：' + esc(r.primaryAreaName) + '</span></div><div class="tcs-card-sub">' + esc(r.subtitle) + '</div></div>').join("") + '</div></div>' : '') +
+            '</div>';
         } else if (area && proj) {
           const ghosts = snap.ghostProposals.filter((g) => g.projectWorkKey === proj.workKey);
-          stageHtml = '<div class="tcs-l2-wrap ' + anim + '"><div class="tcs-l2-flex"><div class="tcs-l2-parent" data-node-id="' + esc(proj.workKey) + '" data-drop-proj="' + esc(area.id) + '|' + esc(proj.workKey) + '"><div style="font-size:11px;color:var(--tcs-muted)">' + esc(area.name) + '</div><strong style="font-size:15px">' + esc(proj.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin-top:6px">' + esc(proj.pulseLabel) + '</div></div>' +
+          stageHtml = '<div class="tcs-l2-wrap ' + anim + '"><div class="tcs-l2-flex"><div class="tcs-l2-parent" data-node-id="' + esc(proj.workKey) + '" data-drop-proj="' + esc(area.id) + '|' + esc(proj.workKey) + '"><div style="font-size:11px;color:var(--tcs-muted)">' + esc(area.name) + '</div><strong style="font-size:15px">' + esc(proj.title) + '</strong><div class="tcs-card-sub" style="margin-top:5px">' + esc(proj.subtitle || proj.pulseLabel) + '</div><div style="font-size:11.5px;color:var(--tcs-muted);margin-top:6px">' + esc(proj.pulseLabel) + '</div></div>' +
             '<div class="tcs-l2-children">' +
+            (proj.childWorks && proj.childWorks.length > 0 ? '<div class="tcs-branch-section"><span>原生嵌套子对象（' + proj.childWorks.length + '）</span></div>' + proj.childWorks.slice(0, 8).map((c) => '<div class="tcs-l2-node"><strong>' + esc(c.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px">' + esc(c.subtitle) + '</div></div>').join("") : '') +
             proj.advancements.map((adv) => '<div class="tcs-l2-node"><strong>' + esc(adv.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px">' + esc(adv.reason) + '</div></div>').join("") +
             ghosts.map((g, i) => '<div class="tcs-l2-node tcs-tone-ghost tcs-anim-sprout" style="animation-delay:' + (i * 120) + 'ms"><strong>' + esc(g.title) + '</strong><div style="font-size:11.5px;color:var(--tcs-muted);margin:4px 0 8px">' + esc(g.reason) + '</div><div style="display:flex;justify-content:flex-end;gap:6px"><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss="' + esc(g.id) + '">× 散去</button><button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept="' + esc(g.id) + '">✓ 留下</button></div></div>').join("") +
             '</div></div></div>';

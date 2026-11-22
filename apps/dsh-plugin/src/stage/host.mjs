@@ -24,13 +24,23 @@ const SOURCE_LABELS = {
 };
 
 const STAGE_TOOL_SPECS = [
-  ['stage_get_view', 'Read the user\'s live Shared Stage floating canvas viewport (L0-L3 zoom level, focused Area/Project with four-state focusRole/domain, main-line mismatch alerts, selected Inbox item, cooled Inbox count, iCloud diagnostics, and pending Ghost proposals). Wide-and-shallow gaze only; never exposes private files.', {}, []],
-  ['stage_get_pulse', 'Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, recent activity pulse, unassigned works, active/cooled Inbox list, and iCloud diagnostics.', {}, []],
-  ['stage_highlight', 'Highlight Area/Project node(s) in the live floating Stage. Out-of-viewport targets automatically become a non-intrusive Edge Radar pill (never hijacks camera).', {
+  ['stage_get_view', 'Read the user\'s live Shared Stage floating canvas viewport (L0-L3 zoom level, focused Area/Project with structured subtitle/directory/parentArea/secondaryAreas/childWorks, four-state focusRole/domain, main-line mismatch alerts, selected Inbox item, cooled Inbox count, active Edge Radar, and pending Ghost proposals). Supports projectLimit/projectOffset pagination; never exposes private files.', {
+    projectLimit: { type: 'integer', minimum: 1, maximum: 50 },
+    projectOffset: { type: 'integer', minimum: 0 },
+  }, []],
+  ['stage_get_pulse', 'Read global Areas with four-state focusRole/domain/goals, main-line mismatch facts, dormant Areas, recent activity pulse, unassigned works, active/cooled Inbox list, and iCloud diagnostics. Returns compact project previews (default 8 per Area) so all Areas fit without truncation; pass areaId + projectLimit/projectOffset to paginate a single Area in full.', {
+    areaId: { type: 'string' },
+    projectLimit: { type: 'integer', minimum: 1, maximum: 50 },
+    projectOffset: { type: 'integer', minimum: 0 },
+    unassignedLimit: { type: 'integer', minimum: 0, maximum: 50 },
+    inboxLimit: { type: 'integer', minimum: 0, maximum: 50 },
+  }, []],
+  ['stage_highlight', 'Highlight Area/Project node(s) in the live floating Stage, or pass { clear: true } to dismiss active highlights and any Edge Radar pill. Out-of-viewport targets automatically become a 90s Edge Radar pill (never hijacks camera).', {
+    clear: { type: 'boolean' },
     targetIds: { type: 'array', items: { type: 'string' } },
     reason: { type: 'string' },
     tone: { type: 'string', enum: ['primary', 'amber', 'teal'] },
-  }, ['targetIds', 'reason']],
+  }, []],
   ['stage_annotate', 'Attach or clear a concise Agent insight note on an Area or Project node.', {
     targetId: { type: 'string' },
     insight: { type: ['string', 'null'] },
@@ -92,7 +102,8 @@ const STAGE_TOOL_SPECS = [
     title: { type: 'string' },
     reason: { type: 'string' },
   }, ['targetAreaId', 'title', 'reason']],
-  ['stage_resolve_proposals', 'Apply user-confirmed accept/dismiss decisions to Ghost proposals (commits accepted branches into Plan A lightweight operational state with 1-step Undo).', {
+  ['stage_resolve_proposals', 'Apply user-confirmed accept/dismiss decisions to Ghost proposals, or pass { undoLast: true } on explicit user request to roll back the single most recent Plan A commit. Rejects nonexistent proposalIds.', {
+    undoLast: { type: 'boolean' },
     decisions: {
       type: 'array',
       items: {
@@ -106,7 +117,7 @@ const STAGE_TOOL_SPECS = [
         additionalProperties: false,
       },
     },
-  }, ['decisions']],
+  }, []],
   ['time_get_overview', 'Read-only snapshot of pure semantic time containers: current week container (3-5 moves, dynamic capacity from Apple Calendar), today\'s 3 semantic slots with remaining space, carryover tray (>=3 repeat flags), active focus, and Apple Calendar diagnostics.', {}, []],
   ['time_propose_plan', 'Stage Ghost proposals for semantic time containers (week-add-move, day-place-item, carryover-triage, day-rescue) with automatic soft-cap friction warnings. Remains Ghost until user confirms via time_resolve_proposals.', {
     proposals: {
@@ -132,7 +143,8 @@ const STAGE_TOOL_SPECS = [
       },
     },
   }, ['proposals']],
-  ['time_resolve_proposals', 'Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals with 1-step Undo.', {
+  ['time_resolve_proposals', 'Apply user-confirmed accept/dismiss decisions to pending Ghost time proposals, or pass { undoLast: true } on explicit user request to roll back the single most recent Time commit. Rejects nonexistent proposalIds.', {
+    undoLast: { type: 'boolean' },
     decisions: {
       type: 'array',
       items: {
@@ -146,7 +158,7 @@ const STAGE_TOOL_SPECS = [
         additionalProperties: false,
       },
     },
-  }, ['decisions']],
+  }, []],
   ['time_focus_control', 'Explicit user-triggered focus session control (start/pause/resume/finish with optional stopNote & footprint) or single-click morning main-line Apple Calendar shield creation (create_shield).', {
     command: { type: 'string', enum: ['start', 'pause', 'resume', 'finish', 'create_shield'] },
     dayItemId: { type: 'string' },
@@ -178,6 +190,70 @@ export function installStageHost(ctx, { service, inboxStore }) {
   let localLoaded = false;
   let stageOpen = false;
   let lastGazeText = '';
+  let lastViewportCtx = null;
+
+  function extractViewportContext(snap) {
+    if (!snap?.viewport) return null;
+    const {
+      activeTab = 'season',
+      zoomLevel = 0,
+      areaId = null,
+      projectWorkKey = null,
+      taskId = null,
+      selectedInboxId = null,
+    } = snap.viewport;
+    const area = areaId ? snap.areas?.find(a => a.id === areaId) : null;
+    const proj = projectWorkKey
+      ? (area?.projects?.find(p => p.workKey === projectWorkKey) ??
+        snap.areas?.flatMap(a => a.projects ?? []).find(p => p.workKey === projectWorkKey))
+      : null;
+    const task = taskId && proj ? proj.advancements?.find(t => t.id === taskId) : null;
+    let layer = 'L0 季节星区';
+    let focusObject;
+    if (activeTab === 'week') {
+      layer = '本周容器（Week）';
+      const openMoves = snap.time?.weekMoves?.filter(m => m.state === 'open') ?? [];
+      focusObject = openMoves.length > 0
+        ? `本周已排 ${openMoves.length} 块：${openMoves.slice(0, 5).map(m => m.title).join('；')}`
+        : '本周容器暂无排入项';
+    } else if (activeTab === 'today') {
+      layer = '今日容器（Today）';
+      focusObject = snap.time?.activeFocus
+        ? `正在专注「${snap.time.activeFocus.title}」`
+        : `今日 ${snap.time?.today ?? ''}（昨日遗留 ${snap.time?.carryoverItems?.length ?? 0} 项）`;
+    } else if (zoomLevel === 1) {
+      layer = 'L1 领域切面';
+      focusObject = area
+        ? `领域「${area.name}」（areaId=${area.id}，角色=${area.focusRole}，域=${area.domain}，项目=${area.projects?.length ?? 0}，跨领域关联=${area.crossAreaProjects?.length ?? 0}${area.areaDirectory ? `，目录=${area.areaDirectory}` : ''}）`
+        : `areaId=${areaId ?? '未知'}`;
+    } else if (zoomLevel === 2) {
+      layer = 'L2 项目结构树';
+      focusObject = proj
+        ? `项目「${proj.title}」（projectWorkKey=${proj.workKey}，主领域=${area?.name ?? areaId ?? '未知'}${proj.directory ? `，目录=${proj.directory}` : ''}，嵌套子对象=${proj.childWorks?.length ?? 0}，推进项=${proj.advancements?.length ?? 0}）`
+        : `projectWorkKey=${projectWorkKey ?? '未知'}`;
+    } else if (zoomLevel === 3) {
+      layer = 'L3 执行入口';
+      focusObject = `${proj ? `项目「${proj.title}」` : '当前项目'}${task ? ` / 推进项「${task.title}」` : ''}`;
+    } else {
+      const areaNames = (snap.areas ?? []).map(a => `${a.name}(${a.id}/${a.focusRole})`).slice(0, 8).join('、');
+      focusObject = areaNames ? `活跃领域：${areaNames}` : '尚未生成初始星图';
+    }
+    return { activeTab, zoomLevel, areaId, projectWorkKey, taskId, selectedInboxId, layer, focusObject };
+  }
+
+  function rememberSnapshot(snap) {
+    if (!snap) return;
+    lastGazeText = compactGazeSummary(snap);
+    lastViewportCtx = extractViewportContext(snap);
+  }
+
+  function formatViewportPrompt() {
+    if (!stageOpen || !lastGazeText) return '';
+    const detail = lastViewportCtx
+      ? `当前层次：${lastViewportCtx.layer}；当前焦点对象：${lastViewportCtx.focusObject}。`
+      : '';
+    return `[全局共视活画布已打开] 用户当前视角：${lastGazeText}。${detail}当你回答用户关于「当前画面 / 这个领域 / 这个项目 / 这一层」的问题时，直接基于上述层次与对象回答；需要更多细节时可用 stage_get_view / stage_get_pulse / time_get_overview，用 stage_highlight 点亮节点（视野外自动转为边缘雷达不抢镜头），用 stage_propose_area_role / stage_sprout_branches / time_propose_plan 生成虚态提议，经用户拍板后用 stage_resolve_proposals / time_resolve_proposals 凝固落盘。`;
+  }
 
   async function ensureLocalLoaded() {
     if (localLoaded) return;
@@ -254,10 +330,15 @@ export function installStageHost(ctx, { service, inboxStore }) {
         body: JSON.stringify(payload ?? {}),
       });
       const json = await response.json();
-      if (!response.ok) throw Object.assign(Error(json?.error?.message ?? 'STAGE_COMPANION_FAILED'), { code: json?.error?.code ?? 'STAGE_COMPANION_FAILED' });
+      if (!response.ok) {
+        throw Object.assign(Error(json?.error?.message ?? 'STAGE_COMPANION_FAILED'), {
+          code: json?.error?.code ?? 'STAGE_COMPANION_FAILED',
+          fromCompanion: response.status >= 400 && response.status < 500 && response.status !== 401,
+        });
+      }
       return json.value;
     } catch (error) {
-      if (error?.name === 'AbortError' || error?.code === 'INVALID_INPUT') throw error;
+      if (error?.name === 'AbortError' || error?.fromCompanion) throw error;
       // Companion unreachable -> fail open to local engine.
       return null;
     }
@@ -280,14 +361,14 @@ export function installStageHost(ctx, { service, inboxStore }) {
     const [catalog, inbox] = await Promise.all([readCatalog(stateDir), listInboxRaw()]);
     const timeSnap = localTimeEngine.buildSnapshot(now);
     const snap = localEngine.buildSnapshot(catalog, inbox, now, undefined, undefined, timeSnap);
-    lastGazeText = compactGazeSummary(snap);
+    rememberSnapshot(snap);
     return snap;
   }
 
   async function readState(signal) {
     const remote = await companionPost('/stage/state', {}, signal);
     if (remote) {
-      lastGazeText = compactGazeSummary(remote);
+      rememberSnapshot(remote);
       return { snapshot: remote, mode: 'companion' };
     }
     return { snapshot: await localSnapshot(), mode: 'local' };
@@ -297,7 +378,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
     const remote = await companionPost('/stage/action', { action }, signal);
     if (remote?.snapshot) {
       await archiveInDshInbox(remote.archivedInboxIds);
-      lastGazeText = compactGazeSummary(remote.snapshot);
+      rememberSnapshot(remote.snapshot);
       return {
         snapshot: remote.snapshot,
         archivedInboxIds: remote.archivedInboxIds ?? [],
@@ -329,7 +410,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
   async function waitUpdate(sinceVersion, signal) {
     const remote = await companionPost('/stage/wait', { sinceVersion, timeoutMs: 22000 }, signal, 26000);
     if (remote) {
-      lastGazeText = compactGazeSummary(remote);
+      rememberSnapshot(remote);
       return { snapshot: remote, mode: 'companion' };
     }
     const current = await localSnapshot();
@@ -396,6 +477,11 @@ export function installStageHost(ctx, { service, inboxStore }) {
       };
     }
     if (toolName === 'stage_highlight') {
+      if (args?.clear === true) {
+        const out = localEngine.clearHighlightsAndRadar();
+        await notifyLocalWaiters();
+        return out;
+      }
       const out = localEngine.highlight({ targetIds: args.targetIds, reason: args.reason, ...(args.tone ? { tone: args.tone } : {}), agent: clientId }, now);
       await notifyLocalWaiters();
       return out;
@@ -412,22 +498,43 @@ export function installStageHost(ctx, { service, inboxStore }) {
       return { proposal, writesFormalState: false };
     }
     if (toolName === 'stage_propose_area_role') {
-      const proposal = localEngine.proposeAreaRole({ agent: clientId, ...args }, now);
+      let proposal;
+      try {
+        proposal = localEngine.proposeAreaRole({ agent: clientId, ...args }, now);
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('MAIN_ROLE_CONFLICT:')) {
+          throw Object.assign(Error('四态护栏：已有待确认的本季主线提议，同一轮最多只能提议 1 个主线；请先确认或驳回原提议。'), { code: 'INVALID_INPUT' });
+        }
+        throw error;
+      }
       if (!proposal) throw Object.assign(Error(`未找到目标领域：${args?.areaId ?? ''}`), { code: 'INVALID_INPUT' });
       await notifyLocalWaiters();
       return { proposal, writesFormalState: false };
     }
     if (toolName === 'stage_sprout_branches') {
+      if (args?.areaId && localEngine.hasAreas() && !localEngine.hasArea(args.areaId)) {
+        throw Object.assign(Error(`未找到目标领域：${args.areaId}`), { code: 'INVALID_INPUT' });
+      }
       const proposals = localEngine.sproutBranches({ agent: clientId, ...(args.areaId ? { areaId: args.areaId } : {}), ...(args.projectWorkKey ? { projectWorkKey: args.projectWorkKey } : {}), branches: args.branches }, now);
       await notifyLocalWaiters();
       return { proposals, writesFormalState: false };
     }
     if (toolName === 'stage_propose_move') {
       const proposal = localEngine.proposeMove({ agent: clientId, ...args }, now);
+      if (!proposal) throw Object.assign(Error(`未找到目标领域：${args?.targetAreaId ?? ''}`), { code: 'INVALID_INPUT' });
       await notifyLocalWaiters();
       return { proposal, writesFormalState: false };
     }
     if (toolName === 'stage_resolve_proposals') {
+      if (args?.undoLast === true) {
+        if (!localEngine.canUndo()) throw Object.assign(Error('当前没有可撤销的上一步领域层凝固操作。'), { code: 'NOTHING_TO_UNDO' });
+        localEngine.undoLastCommit();
+        await atomicJson(registryPath, localEngine.getRegistry());
+        await notifyLocalWaiters();
+        return { undone: true, canUndo: false, operationalLayer: 'local-plan-a' };
+      }
+      const missing = localEngine.findMissingProposalIds(args.decisions ?? []);
+      if (missing.length > 0) throw Object.assign(Error(`未找到待确认的虚态提议：${missing.join(', ')}`), { code: 'PROPOSAL_NOT_FOUND' });
       const result = localEngine.resolveProposals(args.decisions, now);
       if (result.committedIds.length > 0) await atomicJson(registryPath, localEngine.getRegistry());
       await archiveInDshInbox(result.archivedInboxIds);
@@ -444,6 +551,16 @@ export function installStageHost(ctx, { service, inboxStore }) {
       return { proposals, writesFormalState: false };
     }
     if (toolName === 'time_resolve_proposals') {
+      if (args?.undoLast === true) {
+        if (!localTimeEngine.canUndo()) throw Object.assign(Error('当前没有可撤销的上一步时间层凝固操作。'), { code: 'NOTHING_TO_UNDO' });
+        localTimeEngine.undoLastCommit();
+        await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
+        localEngine.touchVersion();
+        await notifyLocalWaiters();
+        return { undone: true, canUndo: false, operationalLayer: 'local-time-stage' };
+      }
+      const missing = localTimeEngine.findMissingProposalIds(args.decisions ?? []);
+      if (missing.length > 0) throw Object.assign(Error(`未找到待确认的时间虚态提议：${missing.join(', ')}`), { code: 'PROPOSAL_NOT_FOUND' });
       const result = localTimeEngine.resolveTimeProposals(args.decisions ?? [], now);
       if (result.committedIds.length > 0) await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
       localEngine.touchVersion();
@@ -452,6 +569,9 @@ export function installStageHost(ctx, { service, inboxStore }) {
     }
     if (toolName === 'time_focus_control') {
       const cmd = args?.command;
+      if ((cmd === 'pause' || cmd === 'resume' || cmd === 'finish') && !localTimeEngine.getActiveFocus()) {
+        throw Object.assign(Error('当前没有进行中的专注会话。'), { code: 'NO_ACTIVE_FOCUS' });
+      }
       const actionMap = {
         start: { type: 'start-focus', ...args },
         pause: { type: 'pause-focus' },
@@ -463,7 +583,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
       if (res.mutatedRegistry) await atomicJson(timeRegistryPath, localTimeEngine.getRegistry());
       localEngine.touchVersion();
       await notifyLocalWaiters();
-      return { snapshot: localTimeEngine.buildSnapshot(now), ...res };
+      return { command: cmd, overview: localTimeEngine.buildSnapshot(now), ...res };
     }
     throw Error(`UNKNOWN_STAGE_TOOL:${toolName}`);
   }
@@ -479,7 +599,7 @@ export function installStageHost(ctx, { service, inboxStore }) {
           schema: {},
           render: (_args, value) => {
             const text = JSON.stringify(value);
-            return [{ type: 'text', text: text.length <= 24000 ? text : text.slice(0, 24000) + '\n[Truncated]' }];
+            return [{ type: 'text', text: text.length <= 48000 ? text : text.slice(0, 48000) + '\n[Truncated]' }];
           },
         },
         execute: (args, exec) => executeStageTool(toolName, args, exec),
@@ -487,17 +607,32 @@ export function installStageHost(ctx, { service, inboxStore }) {
     }
   }
 
-  // Live Shared Gaze context injection (only when floating Stage window is open!)
+  // Live Shared Gaze context injection (only when floating/peek Stage window is active!)
   if (ctx?.systemPrompt?.context) {
     ctx.systemPrompt.context({
       name: 'logseq-stage:viewport',
       order: 310,
       required: false,
       interpolate: false,
-      text: () => {
-        if (!stageOpen || !lastGazeText) return '';
-        return `[全局共视活画布已打开] 用户当前视角：${lastGazeText}。可用 stage_get_view / stage_get_pulse 读取当前画布与错配事实，用 stage_highlight 点亮节点（视野外自动转为边缘雷达不抢镜头），用 stage_propose_area_role / stage_sprout_branches 生成虚态提议，经用户拍板后用 stage_resolve_proposals 凝固落盘。`;
-      },
+      text: () => formatViewportPrompt(),
+    });
+  }
+  if (typeof ctx?.on === 'function') {
+    ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+      if (stageOpen) {
+        try {
+          const remote = await companionPost('/stage/state', {}, undefined, 800);
+          if (remote) rememberSnapshot(remote);
+        } catch {
+          // Keep last known snapshot on timeout or offline fallback.
+        }
+      }
+      const formed = await next();
+      const text = formatViewportPrompt();
+      const others = (formed.contexts ?? []).filter(c => c.name !== 'logseq-stage:viewport');
+      return text
+        ? { ...formed, contexts: [...others, { name: 'logseq-stage:viewport', text, interpolate: false }] }
+        : { ...formed, contexts: others };
     });
   }
 

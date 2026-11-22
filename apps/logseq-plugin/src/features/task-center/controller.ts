@@ -917,8 +917,13 @@ let dshOpenObject: ((scope: {graphId: string; rootUuid: string}) => Promise<void
 export function setDshObjectEntry(open: typeof dshOpenObject): void {dshOpenObject = open;}
 export async function dshFormalTarget(uuid: string): Promise<{objectId: string; title: string} | null> {
   if (!taskUiActive) return null;
-  const api = await client(), entry = await revalidateBlockIdentity(api, uuid);
-  return entry ? {objectId: entry.object.id, title: entry.object.title ?? "正式工作"} : null;
+  try {
+    const api = await client(), entry = await revalidateBlockIdentity(api, uuid);
+    return entry ? {objectId: entry.object.id, title: entry.object.title ?? "正式工作"} : null;
+  } catch {
+    // Kernel offline or stale kernelDescriptorJson -> fail open cleanly so DSH/Stage collaboration never crashes.
+    return null;
+  }
 }
 async function openObjectConversation(api: KernelClient, workObjectId: string, title: string): Promise<void> {
   const graphId = graphIdentity(await logseq.App.getCurrentGraph());

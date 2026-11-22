@@ -138,14 +138,18 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
     "x-workspace-instance": instanceId,
   };
 
-  const callMcp = async (name: string, args: Record<string, unknown>) => {
+  const callMcpRaw = async (name: string, args: Record<string, unknown>) => {
     const res = await fetch(`${baseUrl}/mcp/call`, {
       method: "POST",
       headers: cliHeaders,
       body: JSON.stringify({ name, arguments: args, clientId: "attention-navigator" }),
     });
-    const json = (await res.json()) as { value?: Record<string, unknown>; error?: { message: string } };
-    assert.equal(res.status, 200, JSON.stringify(json));
+    const json = (await res.json()) as { value?: Record<string, unknown>; error?: { code?: string; message: string } };
+    return { status: res.status, json };
+  };
+  const callMcp = async (name: string, args: Record<string, unknown>) => {
+    const { status, json } = await callMcpRaw(name, args);
+    assert.equal(status, 200, JSON.stringify(json));
     return json.value!;
   };
 
@@ -175,7 +179,24 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
     assert.equal(slots1.find((s) => s.slotId === "afternoon")!.busyMinutes, 90);
     assert.equal(slots1.find((s) => s.slotId === "afternoon")!.hardEvents.length, 1);
 
-    // 4. time_propose_plan (Ghost) -> time_resolve_proposals (Commit)
+    // 3b. Guardrails on empty day & idle focus:
+    const emptyRescue = await callMcpRaw("time_propose_plan", {
+      proposals: [{ kind: "day-rescue", title: "无事项可救火", reason: "测试前置条件" }],
+    });
+    assert.equal(emptyRescue.status, 400);
+    assert.equal(emptyRescue.json.error?.code, "INVALID_INPUT");
+
+    const idleFinish = await callMcpRaw("time_focus_control", { command: "finish" });
+    assert.equal(idleFinish.status, 400);
+    assert.equal(idleFinish.json.error?.code, "NO_ACTIVE_FOCUS");
+
+    const badTimeResolve = await callMcpRaw("time_resolve_proposals", {
+      decisions: [{ proposalId: "tghost-nonexistent", action: "accept" }],
+    });
+    assert.equal(badTimeResolve.status, 400);
+    assert.equal(badTimeResolve.json.error?.code, "PROPOSAL_NOT_FOUND");
+
+    // 4. time_propose_plan (Ghost) -> time_resolve_proposals (Commit) -> undoLast -> re-commit
     const proposed = await callMcp("time_propose_plan", {
       proposals: [
         { kind: "week-add-move", title: "落地核心告警降噪", areaId: "area-1", reason: "本周主线推进块" },
@@ -190,6 +211,16 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
       decisions: proposals.map((p) => ({ proposalId: p.id, action: "accept" })),
     });
     assert.equal((resolved.committedIds as string[]).length, 2);
+    assert.equal(typeof resolved.version, "number");
+
+    const undoneTime = await callMcp("time_resolve_proposals", { undoLast: true });
+    assert.equal(undoneTime.undone, true);
+    assert.equal(undoneTime.canUndo, false);
+    assert.equal(typeof undoneTime.version, "number");
+    // Re-accept restored proposals so the rest of the test proceeds cleanly
+    await callMcp("time_resolve_proposals", {
+      decisions: proposals.map((p) => ({ proposalId: p.id, action: "accept" })),
+    });
 
     const overview2 = await callMcp("time_get_overview", {});
     const morningItem = ((overview2.todaySlots as Array<{ slotId: string; items: Array<{ id: string }> }>).find(
@@ -217,12 +248,14 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
     await callMcp("time_focus_control", { command: "pause" });
     await callMcp("time_focus_control", { command: "resume" });
 
-    // Finish focus with stopNote
+    // Finish focus with stopNote & verify unified overview schema (pendingTimeProposals, not raw ghostProposals)
     const finished = await callMcp("time_focus_control", {
       command: "finish",
       stopNote: "已完成 3 条规则，待补充回放测试",
     });
     assert.equal((finished.finishedFocus as { stopNote: string }).stopNote, "已完成 3 条规则，待补充回放测试");
+    assert.ok(Array.isArray((finished.overview as { pendingTimeProposals: unknown[] }).pendingTimeProposals));
+    assert.equal((finished.overview as Record<string, unknown>).ghostProposals, undefined);
   } finally {
     await server.close();
   }

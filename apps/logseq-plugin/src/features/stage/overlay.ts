@@ -9,6 +9,7 @@ import {
   type StageProjectNode,
   type StageSnapshot,
   type StageUserAction,
+  type StageWorkTarget,
 } from "@task-copilot/stage-runtime";
 
 export interface GlobalStageRemotePort {
@@ -21,10 +22,15 @@ export interface GlobalStageHostPort {
   remote?: GlobalStageRemotePort | null;
   readLocalCatalog(): Promise<CatalogSnapshot>;
   openProject(project: StageProjectNode): Promise<void>;
+  openInDsh?(target: StageWorkTarget): Promise<void>;
+  openTargetInLogseq?(target: StageWorkTarget): Promise<void>;
+  discussInDsh?(summary: string, snapshot: StageSnapshot): Promise<void>;
   openFocusWork?(session: ActiveFocusSession): Promise<void>;
   onSnapshot?(snapshot: StageSnapshot): void;
   promoteTodo(item: StageAdvancementItem, project: StageProjectNode | null): Promise<void>;
   openExternalUrl(url: string): Promise<void>;
+  onOpenSurface?(): void;
+  onCloseSurface?(): void;
   notify(message: string, status?: "success" | "warning"): void;
 }
 
@@ -32,7 +38,7 @@ const OVERLAY_CSS = `
 .tcs-lsq-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 980;
+  z-index: 1200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,6 +66,7 @@ export class GlobalStageOverlay {
   private localTimeEngine = new TimeEngine();
   private usingLocal = false;
   private pollTimer: number | null = null;
+  private lastPollSignature = "";
   private previousFocus: HTMLElement | null = null;
   private disposed = false;
 
@@ -135,6 +142,7 @@ export class GlobalStageOverlay {
     if (this.disposed) return;
     this.ensureStyle();
     if (!this.backdrop) {
+      this.port.onOpenSurface?.();
       this.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const backdrop = document.createElement("div");
       backdrop.className = "tcs-lsq-backdrop";
@@ -153,6 +161,7 @@ export class GlobalStageOverlay {
       this.mounted = mountSharedStageView(dialog, {
         source: "logseq",
         openWorkLabel: "回到 Logseq 原文现场",
+        openDshLabel: "在 DSH 打开",
         showStandaloneButton: true,
         showCloseButton: true,
         dispatch: (action) => this.dispatchAction(action),
@@ -160,6 +169,28 @@ export class GlobalStageOverlay {
           this.close();
           await this.port.openProject(project);
         },
+        ...(this.port.openInDsh
+          ? {
+              onOpenInDsh: async (target) => {
+                await this.port.openInDsh!(target);
+              },
+            }
+          : {}),
+        ...(this.port.openTargetInLogseq
+          ? {
+              onOpenTargetInLogseq: async (target) => {
+                this.close();
+                await this.port.openTargetInLogseq!(target);
+              },
+            }
+          : {}),
+        ...(this.port.discussInDsh
+          ? {
+              onDiscussInDsh: async (summary, snap) => {
+                await this.port.discussInDsh!(summary, snap);
+              },
+            }
+          : {}),
         onPromoteTodo: async (item, project) => {
           await this.port.promoteTodo(item, project);
           this.port.notify(`已写入 Logseq TODO：${item.title}`, "success");
@@ -181,6 +212,7 @@ export class GlobalStageOverlay {
 
     const snap = await this.fetchSnapshot(anchorWorkKey);
     if (this.disposed || !this.backdrop) return;
+    this.lastPollSignature = JSON.stringify({ ...snap, generatedAt: 0 });
     this.mounted?.update(snap);
 
     if (this.pollTimer === null && !this.usingLocal && this.port.remote) {
@@ -189,7 +221,11 @@ export class GlobalStageOverlay {
         void this.port.remote
           .stageState()
           .then((latest) => {
-            if (!this.disposed && this.backdrop) this.mounted?.update(latest);
+            if (this.disposed || !this.backdrop) return;
+            const sig = JSON.stringify({ ...latest, generatedAt: 0 });
+            if (sig === this.lastPollSignature) return;
+            this.lastPollSignature = sig;
+            this.mounted?.update(latest);
           })
           .catch(() => undefined);
       }, 2400);
@@ -197,6 +233,7 @@ export class GlobalStageOverlay {
   }
 
   close(): void {
+    const wasOpen = this.backdrop !== null;
     if (this.pollTimer !== null) {
       window.clearInterval(this.pollTimer);
       this.pollTimer = null;
@@ -206,6 +243,9 @@ export class GlobalStageOverlay {
     this.mounted = null;
     this.backdrop?.remove();
     this.backdrop = null;
+    if (wasOpen) {
+      this.port.onCloseSurface?.();
+    }
     if (this.previousFocus && document.contains(this.previousFocus)) {
       this.previousFocus.focus({ preventScroll: true });
     }

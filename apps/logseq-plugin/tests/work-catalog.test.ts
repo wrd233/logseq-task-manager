@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {collectCatalog} from '../src/features/agent-workspace/work-catalog.ts';
+import {buildPageMetaMap, classifyCatalogPage, parsePropertyLinks} from '../src/features/agent-workspace/catalog-local.ts';
 import {parseCatalogSnapshot} from '@task-copilot/contracts';
 
 test('catalog recognizes navigation objects, genuine Kernel anchors and explicitly selected pages only', async () => {
@@ -41,4 +42,62 @@ test('selected pages follow native anchors across rename/reindex, never a same-t
     missing=true;assert.equal(await resolveSelectedPage(selection,()=>{}),null);
     assert.deepEqual(await readSelectedPages('g',()=>{}),[selection]);
   } finally {globalThis.logseq=previous;}
+});
+
+test('PARA Area and Project page classification extracts parentAreas, skips archived pages/blocks, and ignores workflow docs', async () => {
+  const allowed = new Set(['项目', 'project']);
+  assert.deepEqual(parsePropertyLinks('[[Area/运维能力]] [[Area/AI 自动化能力]]'), ['Area/运维能力', 'Area/AI 自动化能力']);
+  assert.deepEqual(parsePropertyLinks('NA'), []);
+  assert.deepEqual(parsePropertyLinks('state:: paused'), []);
+
+  const areaPage = { uuid: 'p-area', name: 'area/运维能力', originalName: 'Area/运维能力', properties: { para: ['PARA/Area'], state: 'active', tags: ['领域'] } } as never;
+  const lifeAreaPage = { uuid: 'p-life', name: 'area/身体健康', originalName: 'Area/身体健康', properties: { para: '[[PARA/Area]]', state: 'active' } } as never;
+  const activeProj = { uuid: 'p-proj', name: '项目-海丝', originalName: '项目-海丝', properties: { para: '[[PARA/Project]]', areas: '[[Area/运维能力]] [[Area/AI 自动化能力]]', state: 'active' } } as never;
+  const archivedProj = { uuid: 'p-arch', name: '旅游-日本旅游', originalName: '旅游-日本旅游', properties: { para: '[[PARA/Project]]', state: 'archived' } } as never;
+  const paraArchive = { uuid: 'p-arch2', name: '英语-bec体系学习', originalName: '英语-BEC体系学习', properties: { para: '[[PARA/Archive]]', state: 'archived' } } as never;
+  const workflowDoc = { uuid: 'p-wf', name: '工作流/领域', originalName: '工作流/领域', properties: { tags: ['领域'] } } as never;
+  const paraSystem = { uuid: 'p-sys', name: 'para/area', originalName: 'PARA/Area', properties: { para: '[[PARA/Area]]' } } as never;
+
+  assert.equal(classifyCatalogPage(areaPage, allowed).kind, 'area');
+  assert.equal(classifyCatalogPage(lifeAreaPage, allowed).kind, 'area');
+  const projInfo = classifyCatalogPage(activeProj, allowed);
+  assert.equal(projInfo.kind, 'project');
+  assert.deepEqual(projInfo.parentAreas, ['Area/运维能力', 'Area/AI 自动化能力']);
+  assert.equal(projInfo.lifecycleState, 'active');
+  assert.equal(classifyCatalogPage(archivedProj, allowed).kind, 'archived');
+  assert.equal(classifyCatalogPage(paraArchive, allowed).kind, 'archived');
+  assert.equal(classifyCatalogPage(workflowDoc, allowed).kind, 'other');
+  assert.equal(classifyCatalogPage(paraSystem, allowed).kind, 'other');
+
+  const prevLogseq = globalThis.logseq;
+  globalThis.logseq = { settings: {} } as unknown as typeof logseq;
+  try {
+    const pageMeta = buildPageMetaMap([areaPage, activeProj, archivedProj, paraArchive]);
+    const snap = await collectCatalog({
+      graphId: 'graph',
+      graphName: '主图谱',
+      blocks: [
+        { uuid: 'b-active', content: '[事务] 海丝方案', page: { id: 1, originalName: '项目-海丝' }, parent: { id: 1 } },
+        { uuid: 'b-archived', content: '[事务] <活动细节>', page: { id: 2, originalName: '旅游-日本旅游' }, parent: { id: 2 } },
+      ],
+      pages: [
+        { uuid: 'p-area', title: 'Area/运维能力', objectType: 'Area', lifecycleState: 'active' },
+        { uuid: 'p-proj', title: '项目-海丝', objectType: 'Project', parentAreas: ['Area/运维能力'], lifecycleState: 'active' },
+      ],
+      pageMeta,
+      formal: [],
+      getBlock: async () => null,
+      check: () => {},
+    });
+    assert.equal(snap.works.some((w) => w.title === '<活动细节>'), false, 'blocks inside archived pages must be skipped');
+    const areaWork = snap.works.find((w) => w.title === 'Area/运维能力')!;
+    const projWork = snap.works.find((w) => w.title === '项目-海丝')!;
+    assert.equal(areaWork.objectType, 'Area');
+    assert.equal(projWork.objectType, 'Project');
+    assert.deepEqual(projWork.parentAreas, ['Area/运维能力']);
+    assert.equal(projWork.lifecycleState, 'active');
+    assert.deepEqual(parseCatalogSnapshot(snap), snap);
+  } finally {
+    globalThis.logseq = prevLogseq;
+  }
 });

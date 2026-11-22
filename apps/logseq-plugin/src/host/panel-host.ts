@@ -6,6 +6,84 @@ export function hostDocument(): Document | null {
   try { return window.top?.document ?? null; } catch { return null; }
 }
 
+export function isHostSidebarVisible(selector: string): boolean {
+  const doc = hostDocument();
+  if (!doc) return false;
+  const node = doc.querySelector(selector);
+  if (!node) return false;
+  const view = doc.defaultView;
+  const style = view?.getComputedStyle(node);
+  if (!style || style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+  const viewportWidth = doc.documentElement.clientWidth || view?.innerWidth || 0;
+  const rect = node.getBoundingClientRect();
+  return rect.width > 0 && rect.right > 0 && (viewportWidth <= 0 || rect.left < viewportWidth);
+}
+
+function mainUiContainer(): HTMLElement | null {
+  const doc = hostDocument();
+  if (!doc) return null;
+  try {
+    const byFrame = (window.frameElement as HTMLElement | null)?.closest<HTMLElement>(".lsp-iframe-sandbox-container");
+    if (byFrame) return byFrame;
+  } catch {
+    // ignore cross-origin frame access
+  }
+  return doc.querySelector<HTMLElement>("#task-copilot-vnext_lsp_main");
+}
+
+function applyMainUiGeometry(style: Record<string, string>): void {
+  if (typeof logseq !== "undefined" && typeof logseq.setMainUIInlineStyle === "function") {
+    logseq.setMainUIInlineStyle(style);
+  }
+  const container = mainUiContainer();
+  if (container) {
+    Object.assign(container.style, style);
+  }
+}
+
+let activePanelRelayout: (() => void) | null = null;
+let fullscreenSurfaceActive = false;
+
+export function enterFullscreenMainUI(): void {
+  fullscreenSurfaceActive = true;
+  const fullStyle: Record<string, string> = {
+    display: "block",
+    position: "fixed",
+    top: "0px",
+    left: "0px",
+    right: "0px",
+    bottom: "0px",
+    width: "100vw",
+    height: "100vh",
+    transform: "none",
+    margin: "0",
+    borderLeft: "none",
+    background: "transparent",
+    zIndex: "10020",
+  };
+  applyMainUiGeometry(fullStyle);
+  if (typeof logseq !== "undefined" && typeof logseq.showMainUI === "function") {
+    logseq.showMainUI({ autoFocus: true });
+  }
+  const reinforce = () => {
+    if (fullscreenSurfaceActive) applyMainUiGeometry(fullStyle);
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(reinforce);
+  window.setTimeout(reinforce, 40);
+}
+
+export function leaveFullscreenMainUI(): void {
+  if (!fullscreenSurfaceActive) return;
+  fullscreenSurfaceActive = false;
+  if (activePanelRelayout) {
+    activePanelRelayout();
+    return;
+  }
+  if (typeof logseq !== "undefined" && typeof logseq.hideMainUI === "function") {
+    logseq.hideMainUI({ restoreEditingCursor: true });
+  }
+}
+
 export function element<K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag); node.textContent = text; node.className = className; return node;
 }
@@ -108,9 +186,10 @@ export function installNavigation(actions: Record<string, () => void>): () => vo
   const menu = disclosureMenu("其他", "其他工作台入口");
   for (const [name, action] of Object.entries(actions)) {
     const item = button(name, () => { menu.close(); action(); }); item.dataset.module = name;
-    if (name === "找工作" || name === "当前工作") {
+    if (name === "找工作" || name === "当前工作" || name === "全局星图") {
       primary.append(item); item.hidden = name === "当前工作";item.onpointerdown=event=>event.preventDefault();
       if (name === "找工作") item.title = "搜索笔记与最近工作";
+      if (name === "全局星图") item.title = "拉远到季节星区 / 本周容器 / 今日容器";
     } else menu.content.append(item);
   }
   const close = button("×", () => void panels.closeActive());
@@ -165,6 +244,7 @@ export class FeaturePanel {
     this.nativeExposure=false;
     this.onNativeSwitch=null;
     this.root.hidden = false; markNavigation(this.label);
+    activePanelRelayout = () => { if (this.visible && !this.disposed) this.layout(); };
     logseq.setMainUIInlineStyle({ display: "" });
     hostDocument()?.body.append(this.splitter);
     this.layout();
@@ -180,6 +260,10 @@ export class FeaturePanel {
       this.observeLayout();
     }
     logseq.showMainUI({ autoFocus: false });
+    // Re-apply docked geometry after Logseq's showMainUI restores any stale saved layout coordinates.
+    const reinforce = () => { if (this.visible && !this.disposed && !fullscreenSurfaceActive) this.layout(); };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(reinforce);
+    window.setTimeout(reinforce, 60);
     return true;
   }
   async close(cancelPending = true, reason: PanelCloseReason = "close", restoreEditingCursor = true): Promise<void> {
@@ -196,6 +280,7 @@ export class FeaturePanel {
     this.stopLayout?.(); this.stopLayout=null;
     this.hostStyle?.remove(); this.hostStyle=null;
     if (panels.active === this.name) {
+      activePanelRelayout = null;
       hostDocument()?.body.classList.remove("tc-sidebar-docked", "tc-sidebar-compact");
       panels.release(this.name);
       const doc=hostDocument(), focused=doc?.activeElement;
@@ -227,11 +312,18 @@ export class FeaturePanel {
   }
   private layout(): SidebarLayoutSpec | null {
     const doc = hostDocument(); if (!doc) return null;
+    if (fullscreenSurfaceActive) return null;
+    const viewportWidth = doc.documentElement.clientWidth || doc.defaultView?.innerWidth || 0;
     const visibleWidth = (selector: string) => {
-      const node = doc.querySelector(selector), style=node && doc.defaultView?.getComputedStyle(node);
-      return node && style?.display !== "none" && style?.visibility !== "hidden" ? Math.round(node.getBoundingClientRect().width) : 0;
+      const node = doc.querySelector(selector);
+      if (!node) return 0;
+      const style = doc.defaultView?.getComputedStyle(node);
+      if (!style || style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return 0;
+      const rect = node.getBoundingClientRect();
+      if (rect.width <= 0 || rect.right <= 0 || (viewportWidth > 0 && rect.left >= viewportWidth)) return 0;
+      return Math.round(rect.width);
     };
-    const spec = readingLayoutSpec({ viewportWidth: doc.documentElement.clientWidth, sidebarWidth: this.width, mainMinWidth:440, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
+    const spec = readingLayoutSpec({ viewportWidth, sidebarWidth: this.width, mainMinWidth:440, leftReserved: visibleWidth("#left-sidebar"), rightReserved: visibleWidth(".cp__right-sidebar") });
     if (!this.hostStyle) {
       this.hostStyle=doc.createElement("style"); this.hostStyle.dataset.workbenchHostLayout=this.name;
       // Cover native content without visibility:hidden, which blurs a live
@@ -246,7 +338,20 @@ export class FeaturePanel {
     }
     const top = Math.round(doc.querySelector(".cp__header")?.getBoundingClientRect().height ?? 48);
     this.splitter.style.left=`${spec.panelLeft}px`; this.splitter.style.top=`${top+36}px`;
-    logseq.setMainUIInlineStyle({ position: "fixed", top: `${top}px`, left: `${spec.panelLeft}px`, right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`, width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto", height: `calc(100vh - ${top}px)`, zIndex: 10000 });
+    applyMainUiGeometry({
+      display: "block",
+      position: "fixed",
+      top: `${top}px`,
+      bottom: "auto",
+      left: `${spec.panelLeft}px`,
+      right: spec.mode === "DOCKED" ? "auto" : `${spec.panelRight}px`,
+      width: spec.mode === "DOCKED" ? `${spec.panelWidth}px` : "auto",
+      height: `calc(100vh - ${top}px)`,
+      transform: "none",
+      margin: "0",
+      borderLeft: spec.mode === "DOCKED" ? "1px solid var(--ls-border-color, #dcd8ce)" : "none",
+      zIndex: "10000",
+    });
     return spec;
   }
   async dispose(): Promise<void> {

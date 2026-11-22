@@ -1,20 +1,20 @@
 import { publishCatalog } from './work-catalog.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
-import { mkdir, lstat, realpath, writeFile, rm, appendFile } from "node:fs/promises";
+import { mkdir, lstat, realpath, readFile, writeFile, rm, appendFile } from "node:fs/promises";
 import { basename, join, resolve, dirname } from "node:path";
 import { WorkspaceError, sameWorkScope, parseWorkRef, parseWorkBinding, parseWorkspaceCall, workRecord, workText, workspaceCommands, type AgentWorkBinding, type WorkspaceCall, type WorkspaceDelivery, type WorkspaceReply, type WorkspacePluginDescriptor, type WorkRef } from "@task-copilot/contracts";
 import { isSensitiveMaterialName, type ReadingMaterialInput } from "@task-copilot/reading-runtime";
 import { authorizedRoot, materialWritePaths, scopedPath, discoverFiles, previewFile, atomicJson, metadataDirectory, sessionRecords, type FileObservation, type KnownMaterial } from "./workspace-files.ts";
-import { createDshHandoff, dshReadingIntent, type DshMode } from "./dsh-handoff.ts";
+import { browserDescriptor, createDshHandoff, dshReadingIntent, localDshUrl, type DshMode } from "./dsh-handoff.ts";
 import { isDshRunning, ReadingJobHub, type ReadingHubOptions, type StagedReadingJob } from "./reading-hub.ts";
 import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, resolveWorkPrivacy, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
-import { activateRunningLogseq } from "./macos-focus.ts";
+import { activateRunningBrowser, activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
 import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
 import type { IcloudInboxFsOps } from "./icloud-inbox.ts";
-import type { StageUserAction, StageViewportSource, TimeUserAction } from "@task-copilot/stage-runtime";
+import { compactGazeSummary, type StageUserAction, type StageViewportSource, type TimeUserAction } from "@task-copilot/stage-runtime";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const equal = (a: unknown, b: string): boolean => typeof a === "string" && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 type Entry = {
@@ -51,7 +51,7 @@ export class WorkspaceBroker {
     }
     assert(connectionId: string): AgentWorkBinding {
         if (!this.online())
-            throw new WorkspaceError("WORKSPACE_OFFLINE");
+            throw new WorkspaceError("WORKSPACE_OFFLINE", "WORKSPACE_OFFLINE: Logseq 实时工作连接已离线（当前无活跃插件租约，实时读写暂停；请在 Logseq 点「在 DSH 打开」或「允许连接」重建连接）。");
         if (connectionId !== this.connectionId)
             throw new WorkspaceError("CONNECTION_STALE");
         return this.binding!;
@@ -471,6 +471,9 @@ export async function startWorkspaceServer(options: {
                     payload: { target: result.target, mode: record.mode, workKey: record.workKey, privacyMode: record.privacyMode },
                     outcome: "returned",
                 });
+                if (result.target === "dsh" && !result.url) {
+                    void activateRunningBrowser().catch(() => undefined);
+                }
                 send(response, 200, { value: result }); return;
             }
             if (request.url === "/plugin/work-privacy") {
@@ -598,6 +601,30 @@ export async function startWorkspaceServer(options: {
                 const src = raw.source === "dsh" || raw.source === "standalone" || raw.source === "agent" ? raw.source : "logseq";
                 const value = await stageHub.anchorWork(workText(raw.workKey, 512), src as StageViewportSource);
                 send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/plugin/stage/open-dsh" || request.url === "/stage/open-dsh") {
+                workRecord(input, ["prompt"]);
+                let browser: { url: string; pid: number };
+                try {
+                    browser = JSON.parse(await readFile(browserDescriptor(state), "utf8")) as { url: string; pid: number };
+                    if (typeof browser.url !== "string" || typeof browser.pid !== "number") throw new Error("INVALID");
+                    process.kill(browser.pid, 0);
+                } catch {
+                    throw new WorkspaceError("DSH_NOT_RUNNING", "请先启动 DSH（dsh web），再从星图进入共视讨论。");
+                }
+                const url = localDshUrl(browser.url);
+                url.hash = "stage-discuss=1";
+                const snap = await stageHub.snapshot();
+                void activateRunningBrowser().catch(() => undefined);
+                send(response, 200, {
+                    instanceId,
+                    value: {
+                        url: url.href,
+                        gaze: compactGazeSummary(snap),
+                        viewport: snap.viewport,
+                    },
+                });
                 return;
             }
             if (request.url === "/stage/wait") {
