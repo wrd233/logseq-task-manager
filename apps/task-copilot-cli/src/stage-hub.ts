@@ -8,6 +8,7 @@ import {
   StageEngine,
   STAGE_VIEW_CSS,
   compactGazeSummary,
+  formatRecencyLabel,
   parseStageRegistry,
   recencyDays,
   type StageAreaDomain,
@@ -31,9 +32,11 @@ import {
 import { readCatalog } from "./work-catalog.ts";
 import { atomicJson } from "./workspace-files.ts";
 import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
+import { resolveStageWorkspace, stageGraphLocation, type StageGraphLocation, type StageWorkspaceInfo } from "./stage-workspace.ts";
 
 export interface StageHubOptions {
   stateDirectory: string;
+  stageWorkspaceDirectory?: string;
   inboxDirectory?: string;
   icloudInboxDirectory?: string;
   icloudFsOps?: Partial<IcloudInboxFsOps>;
@@ -147,6 +150,8 @@ export class StageHub {
   private readonly stateDirectory: string;
   private readonly registryPath: string;
   private readonly inboxStatePath: string;
+  private readonly workspacePath: string;
+  private readonly configuredWorkspaceDirectory: string | undefined;
   private readonly inboxDirectory: string;
   private readonly icloudInboxDirectory: string;
   private readonly icloudFsOps: Partial<IcloudInboxFsOps> | undefined;
@@ -161,12 +166,17 @@ export class StageHub {
   private icloudWatcher: { close(): void } | null = null;
   private loaded = false;
   private writeQueue: Promise<unknown> = Promise.resolve();
+  private workspaceQueue: Promise<unknown> = Promise.resolve();
+  private activeGraph: StageGraphLocation | undefined;
+  private resolvedWorkspace: StageWorkspaceInfo | undefined;
   private appUrl: string | undefined;
 
   constructor(options: StageHubOptions) {
     this.stateDirectory = resolve(options.stateDirectory);
     this.registryPath = join(this.stateDirectory, "stage-areas.json");
     this.inboxStatePath = join(this.stateDirectory, "stage-inbox-state.json");
+    this.workspacePath = join(this.stateDirectory, "stage-workspace.json");
+    this.configuredWorkspaceDirectory = options.stageWorkspaceDirectory;
     this.inboxDirectory = resolve(options.inboxDirectory ?? defaultInboxDirectory());
     this.icloudInboxDirectory = resolve(options.icloudInboxDirectory ?? defaultIcloudInboxDirectory());
     this.icloudFsOps = options.icloudFsOps;
@@ -196,6 +206,53 @@ export class StageHub {
 
   getAppUrl(): string | undefined {
     return this.appUrl;
+  }
+
+  private async readActiveGraph(): Promise<StageGraphLocation> {
+    if (!this.activeGraph) {
+      try {
+        const saved = JSON.parse(await readFile(this.workspacePath, "utf8")) as Record<string, unknown>;
+        this.activeGraph = stageGraphLocation(saved);
+        if (typeof saved.stageWorkspaceDir === "string" &&
+            (saved.source === "configured" || saved.source === "graph" || saved.source === "fallback")) {
+          this.resolvedWorkspace = { stageWorkspaceDir: saved.stageWorkspaceDir, source: saved.source };
+        }
+      } catch {
+        // This is derived local metadata. The next Logseq heartbeat can rebuild it.
+        this.activeGraph = {};
+      }
+    }
+    return this.activeGraph;
+  }
+
+  private async saveActiveGraph(graph: StageGraphLocation): Promise<void> {
+    if (JSON.stringify(graph) === JSON.stringify(await this.readActiveGraph())) return;
+    await atomicJson(this.workspacePath, graph);
+    this.activeGraph = graph;
+    this.resolvedWorkspace = undefined;
+  }
+
+  private withWorkspace<T>(operation: () => Promise<T>): Promise<T> {
+    const pending = this.workspaceQueue.then(operation);
+    this.workspaceQueue = pending.catch(() => undefined);
+    return pending;
+  }
+
+  reportActiveGraph(graph: StageGraphLocation): Promise<void> {
+    return this.withWorkspace(() => this.saveActiveGraph(graph));
+  }
+
+  workspace(graph?: StageGraphLocation): Promise<StageWorkspaceInfo> {
+    return this.withWorkspace(async () => {
+      if (graph) await this.saveActiveGraph(graph);
+      const currentGraph = await this.readActiveGraph();
+      const workspace = await resolveStageWorkspace(this.stateDirectory, currentGraph, this.configuredWorkspaceDirectory);
+      if (workspace.stageWorkspaceDir !== this.resolvedWorkspace?.stageWorkspaceDir || workspace.source !== this.resolvedWorkspace?.source) {
+        await atomicJson(this.workspacePath, { ...currentGraph, ...workspace });
+        this.resolvedWorkspace = workspace;
+      }
+      return workspace;
+    });
   }
 
   private async ensureLoaded(): Promise<void> {
@@ -647,8 +704,8 @@ export class StageHub {
         workKey: u.workKey,
         title: u.title,
         objectType: u.objectType,
-        pulseLabel: u.pulseLabel,
-        recencyDays: u.recencyDays,
+        pulseLabel: formatRecencyLabel(recencyDays(u.updatedAt, snap.generatedAt)),
+        recencyDays: recencyDays(u.updatedAt, snap.generatedAt),
       })),
       totalInbox: snap.inbox.length,
       hasMoreInbox: inboxSlice.length < snap.inbox.length,
@@ -947,7 +1004,7 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
                 (a.mismatch ? '<div class="tcs-mismatch-note">' + esc(a.mismatch.summary) + '</div>' : '') +
                 (a.focusRole === "main" && a.quarterGoal ? '<div class="tcs-meta-line">目标：' + esc(a.quarterGoal) + '</div>' : '') +
                 (a.focusRole === "maintenance" && a.weeklyMinimum ? '<div class="tcs-meta-line">周底线：' + esc(a.weeklyMinimum) + '</div>' : '') +
-                a.projects.slice(0, 3).map((p) => '<div class="tcs-mini-row" data-open-proj="' + esc(a.id) + '|' + esc(p.workKey) + '"><span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.title) + '</span><span>→</span></div>').join("") +
+                a.projects.slice(0, 3).map((p) => '<div class="tcs-mini-row" data-open-proj="' + esc(a.id) + '|' + esc(p.workKey) + '"><span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.title) + '</span><span>查看</span></div>').join("") +
                 (roleGhost ? '<div class="tcs-tone-ghost" style="margin-top:7px;padding:6px 8px;border-radius:7px;font-size:11.5px"><div style="font-weight:600;color:var(--tcs-primary)">' + esc(roleGhost.title) + '</div><div style="color:var(--tcs-muted);margin-top:2px">' + esc(roleGhost.reason) + '</div><div style="display:flex;justify-content:flex-end;gap:5px;margin-top:5px"><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-dismiss="' + esc(roleGhost.id) + '">× 散去</button><button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-accept="' + esc(roleGhost.id) + '">✓ 确认</button></div></div>' : '') +
                 (a.annotation ? '<div class="tcs-badge-ghost" style="margin-top:8px;padding:4px 8px;border-radius:7px;font-size:11.5px">注：' + esc(a.annotation) + '</div>' : '') +
                 '</div>';
@@ -980,7 +1037,7 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           ? '<div class="tcs-change-pill"><span class="tcs-dot tcs-pulse" style="background:var(--tcs-primary)"></span><strong>' + esc(nonCold[0].agent) + ' 提议 +' + nonCold.length + ' 项</strong><button class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-primary" data-accept-all>全部留下</button><button class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-ghost" data-dismiss-all>散去</button></div>'
           : "";
         const radarHtml = snap.edgeRadar && snap.viewport.zoomLevel > 0
-          ? '<div class="tcs-radar"><button class="tcs-btn tcs-btn-pill" style="background:var(--tcs-card);border-color:var(--tcs-warning)" data-open-area="' + esc(snap.edgeRadar.targetAreaId) + '">→ ' + esc(snap.edgeRadar.label) + '</button></div>'
+          ? '<div class="tcs-radar"><button class="tcs-btn tcs-btn-pill" style="background:var(--tcs-card);border-color:var(--tcs-warning)" data-open-area="' + esc(snap.edgeRadar.targetAreaId) + '">定位 ' + esc(snap.edgeRadar.label) + '</button></div>'
           : "";
 
         const activeInbox = snap.inbox.filter((i) => !i.cooled);
@@ -1005,13 +1062,13 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
             '<div class="tcs-restart-main"><div class="tcs-restart-heading">' + esc(sl.heading) + '</div><div class="tcs-restart-lines">' +
             sl.lines.slice(0, 3).map((l) => '<div class="tcs-restart-line">' + esc(l) + '</div>').join("") +
             '</div></div>' +
-            '<div class="tcs-restart-foot"><span class="tcs-restart-kbd">' + (isLast ? "← 上一页 · Esc 跳过" : "空格 / → 下一页 · Esc 跳过") + '</span><div class="tcs-restart-actions">' +
-            (!isFirst ? '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-prev>← 上一页</button>' : '') +
+            '<div class="tcs-restart-foot"><span class="tcs-restart-kbd">' + (isLast ? "方向左键 上一页 · Esc 跳过" : "空格 / 方向右键 下一页 · Esc 跳过") + '</span><div class="tcs-restart-actions">' +
+            (!isFirst ? '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-prev>上一页</button>' : '') +
             (isLast
               ? (activeRestart.canSettleCarryover ? '<button class="tcs-btn tcs-btn-sm" data-sa-restart-settle>旧遗留退回本周</button>' : '') +
                 (activeRestart.exitAreaId ? '<button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-exit="maintenance">转入维护</button><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-restart-exit="parked">移入搁置</button>' : '') +
                 '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-restart-start>' + esc(activeRestart.primaryActionLabel) + '</button>'
-              : '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-restart-next>下一页 →</button>') +
+              : '<button class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sa-restart-next>下一页</button>') +
             '</div></div></div></div>';
         }
 
@@ -1019,11 +1076,11 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           '<div class="tcs-root" data-theme="' + theme + '">' +
           '<div class="tcs-bar"><div class="tcs-bar-left">' +
           '<div class="tcs-tabs"><button class="tcs-tab ' + (activeTab === "season" ? "is-active" : "") + '" data-sa-tab="season">季节星区</button><button class="tcs-tab ' + (activeTab === "week" ? "is-active" : "") + '" data-sa-tab="week">本周容器</button><button class="tcs-tab ' + (activeTab === "today" ? "is-active" : "") + '" data-sa-tab="today">今日容器</button></div>' +
-          (activeTab === "season" ? '<button class="tcs-btn" data-zoom-out ' + (snap.viewport.zoomLevel === 0 && !cold ? "disabled" : "") + '>← 拉远</button><span style="font-size:12px;font-weight:600">' + (area ? esc(area.name) + (proj ? " / " + esc(proj.title) : "") : "") + '</span>' : '') +
+          (activeTab === "season" ? '<button class="tcs-btn" data-zoom-out ' + (snap.viewport.zoomLevel === 0 && !cold ? "disabled" : "") + '>拉远</button><span style="font-size:12px;font-weight:600">' + (area ? esc(area.name) + (proj ? " / " + esc(proj.title) : "") : "") + '</span>' : '') +
           '</div>' +
           '<div class="tcs-bar-right"><span class="tcs-standalone-status"><span class="tcs-dot" style="background:var(--tcs-success)"></span>SSE 实时共视</span>' +
           (activeTab === "season" ? '<button class="tcs-btn" data-coldstart>生成初始星图</button>' : '') +
-          (snap.canUndo ? '<button class="tcs-btn tcs-btn-ghost" data-undo>↶ 撤销</button>' : '') +
+          (snap.canUndo ? '<button class="tcs-btn tcs-btn-ghost" data-undo>撤销</button>' : '') +
           '<button class="tcs-btn tcs-btn-ghost" data-toggle-theme>' + (theme === "dark" ? "浅色" : "深色") + '</button></div></div>' +
           '<div class="tcs-body"><div class="tcs-stage-wrap"><div class="tcs-stage">' + stageHtml + '</div>' + radarHtml + pillHtml + restartHtml + '</div>' +
           '<aside class="tcs-inbox-pane"><div class="tcs-inbox-head"><strong>Inbox 浮带 (' + activeInbox.length + ')</strong><span style="font-size:11px;color:var(--tcs-muted)">0ms</span></div>' + icloudDiag + '<div class="tcs-inbox-list">' +

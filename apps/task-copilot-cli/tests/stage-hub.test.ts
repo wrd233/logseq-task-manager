@@ -100,7 +100,7 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     assert.equal(okApp.status, 200);
     const html = await okApp.text();
     assert.match(html, /Task Copilot · 全局态势活画布/);
-    assert.doesNotMatch(html, /[✨💡📖]/u, "standalone stage HTML must contain zero emojis");
+    assert.doesNotMatch(html, /[\p{Extended_Pictographic}\u2190-\u21ff]/u, "standalone stage HTML must contain zero emoji or pictographic arrows");
 
     // 3. Call stage_propose_areas via /mcp/call (Codex/Antigravity path) without active single-work connection
     const callMcpRaw = async (name: string, args: Record<string, unknown>, clientId = "codex") => {

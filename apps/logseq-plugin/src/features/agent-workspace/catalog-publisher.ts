@@ -1,9 +1,8 @@
 import { readScopedPrivateItem, writeScopedPrivateItem } from "../../scoped-private-storage.ts";
-import { extractObjectNavigationLabel } from "../../canonical-writing.ts";
-import { currentGraphIsDb, ensurePersistentSourceIdentity } from "../../source-identity.ts";
 import { parseWorkspaceDescriptor, type CatalogWork, type WorkspacePluginDescriptor, WorkspaceError } from "@task-copilot/contracts";
 import { desktopBridge, desktopFiles } from "../../host/desktop-files.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
+import { stageGraphMetadata } from "./stage-graph.ts";
 import { readSelectedPages, saveSelectedPages, resolveSelectedPage } from "./catalog-pages.ts";
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { collectCatalog, type CatalogBlock, type CatalogFormal } from "./work-catalog.ts";
@@ -48,9 +47,11 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
   };
 
   const publish = async () => {
-    if (!await logseq.App.getCurrentGraph()) return;
-    const scope = await context();
-    const { graphId, check } = scope;
+    const epoch = generation;
+    const check = () => { if (disposed || epoch !== generation) throw new WorkspaceError("GRAPH_SCOPE_CHANGED"); };
+    const graph = await logseq.App.getCurrentGraph(); check();
+    const metadata = await stageGraphMetadata(graph, logseq.App); check();
+    const graphId = metadata.graphId ?? "";
     let path = String(logseq.settings?.agentWorkspaceDescriptor ?? "").trim();
     if (!path) {
       const dot = await desktopBridge().doAction(["getLogseqDotDirRoot"]); check();
@@ -58,21 +59,17 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     }
     if (!path.startsWith("/")) return;
     const descriptor = parseWorkspaceDescriptor(JSON.parse(await desktopFiles(() => graphId).read(path)), true) as WorkspacePluginDescriptor; check();
+    const headers = {"content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId};
+    // Report the live Graph before catalog collection. A DB Graph or no Graph clears the previous file path.
+    await fetch(`${descriptor.baseUrl}/plugin/stage/graph`, {method: "POST", headers, body: JSON.stringify(metadata), signal: AbortSignal.timeout(10000)})
+      .catch(() => undefined);
+    check();
+    if (!graph) return;
+    const scope = { graphId, graphName: graph.name || graphId, check };
     const { preferences, blocks, pages, pageMeta } = await notes(scope, true);
-    // Legacy DSH discovery had already established native IDs for marked
-    // blocks. The opt-in local discovery mode indexes only existing IDs.
-    if (!preferences.enabled && blocks.some(block => extractObjectNavigationLabel(block.content) && block.properties?.id !== block.uuid)) {
-      const isDbGraph = await currentGraphIsDb({getCurrentGraph: () => logseq.App.getCurrentGraph(), checkCurrentIsDbGraph: () => logseq.App.checkCurrentIsDbGraph()}); check();
-      if (!isDbGraph) {
-        for (const block of blocks) {
-          if (!extractObjectNavigationLabel(block.content) || block.properties?.id === block.uuid || !isIncluded({ workRef: { kind: "logseq", graphId, rootUuid: block.uuid, sourceKind: "block" } }, preferences)) continue;
-          // The discovery switch may be saved while an earlier publish is running.
-          if ((await readDiscovery(scope)).enabled) return;
-          await ensurePersistentSourceIdentity({getBlock: async uuid => {check(); const value = await logseq.Editor.getBlock(uuid); check(); return value;},
-            upsertBlockProperty: async (uuid, key, value) => {check(); await logseq.Editor.upsertBlockProperty(uuid, key, value); check();}}, {...block, isDbGraph}); check();
-        }
-      }
-    }
+    // Background discovery and publication are read-only for the Graph.
+    // Persisting a block's native ID belongs to an explicit user operation,
+    // never to catalog refresh (including the legacy discovery path).
     const cachedFormal = await readScopedPrivateItem(logseq.FileStorage, "work-catalog-formal-metadata", graphId, check);
     let objects: CatalogFormal[];
     try {
@@ -113,7 +110,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     const works = snapshot.works.map(({ reason, ...work }) => ({
       ...work, location: preferences.enabled && reason ? `${work.location} · ${reason}`.slice(0,2000) : work.location,
     }));
-    const response = await fetch(`${descriptor.baseUrl}/plugin/catalog`, {method: "POST", headers: {"content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId}, body: JSON.stringify({ ...snapshot, works }), signal: AbortSignal.timeout(10000)});
+    const response = await fetch(`${descriptor.baseUrl}/plugin/catalog`, {method: "POST", headers, body: JSON.stringify({ ...snapshot, works }), signal: AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error("工作目录暂未发布");
   };
   const refresh = async () => {

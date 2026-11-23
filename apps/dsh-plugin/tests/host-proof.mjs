@@ -14,8 +14,10 @@ const repo = process.cwd();
 await mkdir(join(repo, "tmp/dsh-research"), { recursive: true });
 const f = await contentFixture();
 const root = await realpath(await mkdtemp(join(tmpdir(), "dsh-logseq-proof-"))), directory = join(root, "work"), state = join(root, "state");
-await mkdir(directory);
-let server = await startWorkspaceServer({ stateDirectory: state });
+const stageGraph = join(root, 'stage-graph');
+await Promise.all([mkdir(directory), mkdir(stageGraph)]);
+let server = await startWorkspaceServer({ stateDirectory: state, inboxDirectory: join(root, 'inbox'),
+  icloudInboxDirectory: join(root, 'icloud'), watchIcloud: false, appleCalendar: { disabled: true } });
 let ctx;
 try {
   f.browser.apis = { doAction: async (args) => {
@@ -51,6 +53,11 @@ try {
   }, openPath: async () => {
   } };
   logseq.settings = { disabled: false, tasksEnabled: false, materialsEnabled: true, workViewEnabled: true, materialsAutoCapture: false, agentWorkspaceDescriptor: server.pluginDescriptorPath };
+  const readGraph = logseq.App.getCurrentGraph.bind(logseq.App);
+  logseq.App.getCurrentGraph = async () => {
+    const graph = await readGraph();
+    return graph ? {...graph, path: stageGraph} : graph;
+  };
   const insert = logseq.Editor.insertBlock.bind(logseq.Editor);
   logseq.Editor.insertBlock = ((target, text, options = {}) => {
     assert.equal(options.focus, false);
@@ -105,15 +112,29 @@ try {
   await ctx.plugin(SystemPrompt, {});
   await ctx.plugin(Tools, {});
   const routes = new Map();
+  const nativeSessions = new Map(), nativeWorkspaces = new Map();
   await ctx.plugin({ name: 'test-desktop-host', apply(host) {
     host.reflect.provide('connection', { fetch: { register(route) {
       assert.match(route.path, /^\/api\/logseq-workbench\//); routes.set(route.path, route);
       return host.effect(() => () => routes.delete(route.path));
     } } });
-    host.reflect.provide('workspaceController', {});
+    host.reflect.provide('workspaceController', {
+      create: async ({path}) => {
+        const created = !nativeWorkspaces.has(path);
+        if (created) nativeWorkspaces.set(path, {workspaceId: path, path});
+        return {created, workspace: nativeWorkspaces.get(path)};
+      },
+      rename: async ({workspaceId, title}) => {nativeWorkspaces.get(workspaceId).title = title;},
+    });
     host.reflect.provide('workspaceRegistry', {archivedSessionIds: []});
     host.reflect.provide('sessionController', {
-      inspect: async () => ({ meta: { cwd: directory } }),
+      inspect: async sessionId => nativeSessions.get(sessionId) ?? ({ meta: { cwd: directory } }),
+      list: async () => ({items: [...nativeSessions.keys()].map(sessionId => ({sessionId}))}),
+      create: async ({workspaceId, sessionId}) => {
+        nativeSessions.set(sessionId, {meta: {cwd: nativeWorkspaces.get(workspaceId).path}});
+        return {sessionId};
+      },
+      rename: async ({sessionId, title}) => {nativeSessions.get(sessionId).title = title;},
       openWorkspacePath: async input => { assert.equal(input.path, join(directory, 'proposal.md')); return { opened: true }; }
     });
   } });
@@ -206,6 +227,22 @@ try {
   assert.notEqual(first.sourceBundleVersion, second.sourceBundleVersion);
   assert.match(JSON.stringify(second), /New saved source/);
   checks.push({ check: 'Production async context assembly refreshes saved Logseq changes', ok: true });
+  await server.stageHub.reportActiveGraph({graphPath: stageGraph});
+  const stageEntry = await rpc('stage-enter-global', {});
+  assert.equal(stageEntry.directory, join(stageGraph, 'pages', 'stage-reviews'));
+  assert.equal((await rpc('stage-enter-global', {})).sessionId, stageEntry.sessionId);
+  await rpc('opened', {sessionId: stageEntry.sessionId});
+  assert.equal((await rpc('status', {sessionId: stageEntry.sessionId})).bound, false);
+  await rpc('stage-visibility', {open: true});
+  const stageAgent = {id: stageEntry.sessionId, session: {id: stageEntry.sessionId}, ctx};
+  const globalAssembly = await ctx.systemPrompt.assemble({scope: stageAgent});
+  assert.ok(!globalAssembly.contexts.some(c => c.name === 'logseq-workbench:current'));
+  assert.match(globalAssembly.contexts.find(c => c.name === 'logseq-stage:viewport').text, /复盘___YYYY-Www\.md/);
+  const projectAssembly = await ctx.systemPrompt.assemble({scope: agent});
+  assert.ok(projectAssembly.contexts.some(c => c.name === 'logseq-workbench:current'));
+  assert.doesNotMatch(projectAssembly.contexts.find(c => c.name === 'logseq-stage:viewport').text, /复盘___/);
+  await rpc('stage-visibility', {open: false});
+  checks.push({check: 'Global Stage enters a separate weekly workspace and actual DSH prompt assembly preserves project/global isolation', ok: true});
   const before = f.counts();
   const reading = await value('logseq_reading_request', { purpose: '连续阅读完整原句' });
   const source = reading.value.source;

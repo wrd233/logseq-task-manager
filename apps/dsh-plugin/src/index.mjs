@@ -85,7 +85,11 @@ export async function apply(ctx, config = {}) {
       return {ticket: await waitDshBrowserOffer(service.transport.stateDirectory, signal)};
     },
     handoff: async (input, signal) => {const value = request(input, ['ticket']); return handoffs.open(value.ticket, signal);},
-    opened: async (input, signal) => {const value = request(input, ['sessionId']); return handoffs.opened(value.sessionId, signal);},
+    opened: async (input, signal) => {
+      const value = request(input, ['sessionId']);
+      if (await stage.ownsSession(value.sessionId)) return { sessionId: value.sessionId };
+      return handoffs.opened(value.sessionId, signal);
+    },
     newWork: async (input, signal) => {
       const value = request(input, ['sessionId', 'operationId']), association = store.associations.get(value.sessionId), ref = association?.workRef;
       const graphs = await readCatalog(service.transport.stateDirectory);
@@ -101,8 +105,16 @@ export async function apply(ctx, config = {}) {
     ...stage.routes,
     ...installEvidenceHost(ctx, service, history.store),
     status: async (input, signal) => { const value = request(input, ['sessionId']); return service.status(value.sessionId, signal); },
-    bind: async (input, signal) => { const value = request(input, ['sessionId', 'directory']); return service.bind(value.sessionId, value.directory, signal); },
-    unbind: async (input, signal) => { const value = request(input, ['sessionId']); return service.unbind(value.sessionId, signal); },
+    bind: async (input, signal) => {
+      const value = request(input, ['sessionId', 'directory']);
+      if (await stage.ownsSession(value.sessionId)) throw new WorkspaceError('STAGE_SESSION_UNBOUND');
+      return service.bind(value.sessionId, value.directory, signal);
+    },
+    unbind: async (input, signal) => {
+      const value = request(input, ['sessionId']);
+      if (await stage.ownsSession(value.sessionId)) throw new WorkspaceError('STAGE_SESSION_UNBOUND');
+      return service.unbind(value.sessionId, signal);
+    },
     read: async (input, signal) => { const value = request(input, ['sessionId']); return service.sourceView(value.sessionId, signal); },
     connection: async (input, signal) => {
       const {sessionId} = request(input, ['sessionId']);
@@ -190,7 +202,11 @@ export async function apply(ctx, config = {}) {
   ctx.systemPrompt.context({ name: 'logseq-workbench:current', order: 300, required: true, interpolate: false, text: context => contexts.get(context.scope) ?? '' });
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const agent = context.scope, sessionId = agent?.session?.id;
-    if (!sessionId || !store.bindings.has(sessionId)) { if (agent) contexts.delete(agent); return next(); }
+    if (!sessionId || !store.bindings.has(sessionId)) {
+      if (agent) contexts.delete(agent);
+      const formed = await next();
+      return { ...formed, contexts: (formed.contexts ?? []).filter(c => c.name !== 'logseq-workbench:current') };
+    }
     try { contexts.set(agent, modelContext(await service.read(sessionId))); }
     catch (error) { contexts.set(agent, JSON.stringify({ connection: 'unavailable', code: error.code ?? 'LOGSEQ_UNAVAILABLE', instruction: 'Do not use previous Logseq context as current. Reconnect or reread before acting.' })); }
     const formed = await next();

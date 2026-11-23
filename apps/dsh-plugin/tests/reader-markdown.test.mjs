@@ -8,8 +8,14 @@ import { marked } from '../../logseq-plugin/src/features/work-view/vendor/marked
 // Render the production JSX to an element tree without bringing a second React runtime into tests.
 const bundle = await build({ entryPoints: [fileURLToPath(new URL('../src/work-experience/markdown.jsx', import.meta.url))], bundle: true, write: false, format: 'esm',
   plugins: [{name: 'element-tree', setup(build) {
-    build.onResolve({filter: /^react$/}, () => ({path: 'react', namespace: 'element-tree'}));
-    build.onLoad({filter: /.*/, namespace: 'element-tree'}, () => ({contents: 'export default {createElement(type,props,...children){return {type,props,children}}}'}));
+    build.onResolve({filter: /^react(?:\/jsx-runtime)?$/}, args => ({path: args.path, namespace: 'element-tree'}));
+    build.onLoad({filter: /^react$/, namespace: 'element-tree'}, () => ({contents: 'export default {createElement(type,props,...children){return {type,props,children}}}'}));
+    build.onLoad({filter: /^react\/jsx-runtime$/, namespace: 'element-tree'}, () => ({contents: `
+      export function jsx(type, { children, ...props }) {
+        return { type, props, children: Array.isArray(children) ? children : [children] };
+      }
+      export const jsxs = jsx;
+    `}));
   }}] });
 const { Markdown } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 function spans(node) {
