@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -5,14 +6,23 @@ import type { ServerResponse } from "node:http";
 import { WorkspaceError } from "@task-copilot/contracts";
 import {
   COOLED_INBOX_DAYS,
+  DEFAULT_SWEEP_WINDOW_TIME,
   StageEngine,
   STAGE_VIEW_CSS,
+  classifyInboxItem,
   compactGazeSummary,
+  dateKeyFromMs,
+  formatRecencyLabel,
   parseStageRegistry,
+  pocketLabel,
   recencyDays,
   type StageAreaDomain,
   type StageFocusRole,
+  type StageInboxAiHint,
   type StageInboxDiagnostics,
+  type StageInboxFlowDestination,
+  type StageInboxFlowLedgerEntry,
+  type StageInboxPocket,
   type StageInboxRawItem,
   type StageInboxSourceDiagnostic,
   type StageResolveDecision,
@@ -27,7 +37,21 @@ import {
   watchIcloudInbox,
   writeStageInboxState,
   type IcloudInboxFsOps,
+  type StageInboxCalibrationRecord,
+  type StageInboxCarryoverRecord,
 } from "./icloud-inbox.ts";
+import {
+  appendToWeeklyReview,
+  formatJournalCaptureLine,
+  readJournalSignals,
+  readPendingJournalCaptures,
+  refineInboxItemsWithFastModel,
+  writeJournalSignals,
+  writePendingJournalCaptures,
+  type JournalInboxSignalRecord,
+  type JournalSignalsFile,
+  type PendingJournalCapture,
+} from "./stage-inbox-store.ts";
 import { readCatalog } from "./work-catalog.ts";
 import { atomicJson } from "./workspace-files.ts";
 import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
@@ -36,11 +60,13 @@ export interface StageHubOptions {
   stateDirectory: string;
   inboxDirectory?: string;
   icloudInboxDirectory?: string;
+  stageWorkspaceDirectory?: string;
   icloudFsOps?: Partial<IcloudInboxFsOps>;
   watchIcloud?: boolean;
   timeHub?: TimeHub;
   appleCalendar?: TimeHubOptions["appleCalendar"];
   activateLogseq?: TimeHubOptions["activateLogseq"];
+  fetchImpl?: typeof fetch;
 }
 
 interface Waiter {
@@ -49,8 +75,24 @@ interface Waiter {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface PendingCapturePollWaiter {
+  resolve: (captures: PendingJournalCapture[]) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface CaptureAckResult {
+  blockUuid: string;
+  pageName: string;
+  journalDate: string;
+}
+
+const FLOW_LEDGER_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const FLOW_LEDGER_MAX_ENTRIES = 80;
+
 const SOURCE_LABELS: Record<string, string> = {
   "ios-shortcut": "iPhone 随口记",
+  "logseq-journal": "Logseq 日记",
+  "agent-capture": "Agent 收录",
   manual: "手动捕获",
   flomo: "Flomo",
   logseq: "Logseq",
@@ -149,8 +191,10 @@ export class StageHub {
   private readonly inboxStatePath: string;
   private readonly inboxDirectory: string;
   private readonly icloudInboxDirectory: string;
+  private readonly stageWorkspaceDirectory: string | undefined;
   private readonly icloudFsOps: Partial<IcloudInboxFsOps> | undefined;
   private readonly shouldWatchIcloud: boolean;
+  private readonly fetchImpl: typeof fetch | undefined;
   private readonly timeHub: TimeHub;
   private readonly engine = new StageEngine();
   private readonly sseClients = new Set<ServerResponse>();
@@ -158,6 +202,18 @@ export class StageHub {
   private readonly consumedInboxIds = new Set<string>();
   private readonly archivedInboxSignatures = new Set<string>();
   private readonly latestSignatureById = new Map<string, string>();
+  private readonly trackOverrides = new Map<string, StageInboxPocket>();
+  private readonly tomorrowCarryover = new Map<string, StageInboxCarryoverRecord>();
+  private readonly captureToBlockMap = new Map<string, string>();
+  private readonly aiHints = new Map<string, StageInboxAiHint>();
+  private flowLedger: StageInboxFlowLedgerEntry[] = [];
+  private calibrationLog: StageInboxCalibrationRecord[] = [];
+  private sweepWindowTime = DEFAULT_SWEEP_WINDOW_TIME;
+  private journalSignals: JournalSignalsFile | null = null;
+  private pendingCaptures: PendingJournalCapture[] = [];
+  private readonly pendingPollWaiters = new Set<PendingCapturePollWaiter>();
+  private readonly pendingCaptureAckWaiters = new Map<string, (ack: CaptureAckResult) => void>();
+  private lastPluginHeartbeatAt = 0;
   private icloudWatcher: { close(): void } | null = null;
   private loaded = false;
   private writeQueue: Promise<unknown> = Promise.resolve();
@@ -169,8 +225,10 @@ export class StageHub {
     this.inboxStatePath = join(this.stateDirectory, "stage-inbox-state.json");
     this.inboxDirectory = resolve(options.inboxDirectory ?? defaultInboxDirectory());
     this.icloudInboxDirectory = resolve(options.icloudInboxDirectory ?? defaultIcloudInboxDirectory());
+    this.stageWorkspaceDirectory = options.stageWorkspaceDirectory ? resolve(options.stageWorkspaceDirectory) : undefined;
     this.icloudFsOps = options.icloudFsOps;
     this.shouldWatchIcloud = options.watchIcloud ?? !options.icloudFsOps;
+    this.fetchImpl = options.fetchImpl;
     this.timeHub =
       options.timeHub ??
       new TimeHub({
@@ -213,9 +271,22 @@ export class StageHub {
         // Corrupt registry falls back cleanly to empty operational state; never blocks Companion.
       }
     }
-    const inboxState = await readStageInboxState(this.inboxStatePath);
+    const [inboxState, journalSignals, pendingCaptures] = await Promise.all([
+      readStageInboxState(this.inboxStatePath),
+      readJournalSignals(this.stateDirectory),
+      readPendingJournalCaptures(this.stateDirectory),
+    ]);
     for (const id of inboxState.archivedIds) this.consumedInboxIds.add(id);
     for (const sig of inboxState.archivedSignatures) this.archivedInboxSignatures.add(sig);
+    for (const [k, v] of Object.entries(inboxState.trackOverrides ?? {})) this.trackOverrides.set(k, v);
+    for (const [k, v] of Object.entries(inboxState.tomorrowCarryover ?? {})) this.tomorrowCarryover.set(k, v);
+    for (const [k, v] of Object.entries(inboxState.captureToBlockMap ?? {})) this.captureToBlockMap.set(k, v);
+    for (const [k, v] of Object.entries(inboxState.aiHints ?? {})) this.aiHints.set(k, v);
+    this.flowLedger = inboxState.flowLedger ?? [];
+    this.calibrationLog = inboxState.calibrationLog ?? [];
+    this.sweepWindowTime = inboxState.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME;
+    this.journalSignals = journalSignals;
+    this.pendingCaptures = pendingCaptures;
 
     if (this.shouldWatchIcloud && !this.icloudWatcher) {
       this.icloudWatcher = watchIcloudInbox(this.icloudInboxDirectory, () => {
@@ -233,15 +304,77 @@ export class StageHub {
   }
 
   private persistInboxState(): Promise<void> {
+    const cutoff = Date.now() - FLOW_LEDGER_RETENTION_MS;
+    this.flowLedger = this.flowLedger
+      .filter((entry) => entry.at >= cutoff)
+      .slice(0, FLOW_LEDGER_MAX_ENTRIES);
     const state = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       archivedIds: [...this.consumedInboxIds],
       archivedSignatures: [...this.archivedInboxSignatures],
+      trackOverrides: Object.fromEntries(this.trackOverrides.entries()),
+      tomorrowCarryover: Object.fromEntries(this.tomorrowCarryover.entries()),
+      captureToBlockMap: Object.fromEntries(this.captureToBlockMap.entries()),
+      flowLedger: this.flowLedger,
+      calibrationLog: this.calibrationLog.slice(-200),
+      aiHints: Object.fromEntries(this.aiHints.entries()),
+      sweepWindowTime: this.sweepWindowTime,
       updatedAt: Date.now(),
     };
     const pending = this.writeQueue.then(() => writeStageInboxState(this.inboxStatePath, state));
     this.writeQueue = pending.catch(() => undefined);
     return pending;
+  }
+
+  private persistPendingCaptures(): Promise<void> {
+    const copy = structuredClone(this.pendingCaptures);
+    const pending = this.writeQueue.then(() => writePendingJournalCaptures(this.stateDirectory, copy));
+    this.writeQueue = pending.catch(() => undefined);
+    return pending;
+  }
+
+  private persistJournalSignals(): Promise<void> {
+    if (!this.journalSignals) return Promise.resolve();
+    const copy = structuredClone(this.journalSignals);
+    const pending = this.writeQueue.then(() => writeJournalSignals(this.stateDirectory, copy));
+    this.writeQueue = pending.catch(() => undefined);
+    return pending;
+  }
+
+  private appendLedgerEntry(input: {
+    inboxId: string;
+    text: string;
+    sourceType: string;
+    sourceLabel: string;
+    fromPocket: StageInboxPocket;
+    destination: StageInboxFlowDestination;
+    destinationLabel: string;
+    targetId?: string;
+    targetTitle?: string;
+    reviewFilePath?: string;
+    originRef?: string;
+    now: number;
+  }): StageInboxFlowLedgerEntry {
+    const entry: StageInboxFlowLedgerEntry = {
+      id: `flow-${input.now.toString(36)}-${randomUUID().slice(0, 6)}`,
+      inboxId: input.inboxId,
+      text: input.text.slice(0, 200),
+      sourceType: input.sourceType,
+      sourceLabel: input.sourceLabel,
+      fromPocket: input.fromPocket,
+      destination: input.destination,
+      destinationLabel: input.destinationLabel,
+      ...(input.targetId ? { targetId: input.targetId } : {}),
+      ...(input.targetTitle ? { targetTitle: input.targetTitle.slice(0, 80) } : {}),
+      ...(input.reviewFilePath ? { reviewFilePath: input.reviewFilePath } : {}),
+      ...(input.originRef ? { originRef: input.originRef } : {}),
+      at: input.now,
+    };
+    this.flowLedger.unshift(entry);
+    if (this.flowLedger.length > FLOW_LEDGER_MAX_ENTRIES) {
+      this.flowLedger = this.flowLedger.slice(0, FLOW_LEDGER_MAX_ENTRIES);
+    }
+    return entry;
   }
 
   private recordArchivedInboxIds(ids: readonly string[]): boolean {
@@ -257,8 +390,67 @@ export class StageHub {
         this.archivedInboxSignatures.add(sig);
         changed = true;
       }
+      if (this.tomorrowCarryover.delete(id)) {
+        changed = true;
+      }
     }
     return changed;
+  }
+
+  private buildJournalInboxItems(): StageInboxRawItem[] {
+    if (!this.journalSignals) return [];
+    const out: StageInboxRawItem[] = [];
+    for (const sig of this.journalSignals.signals) {
+      const id = `logseq-block:${sig.blockUuid}`;
+      if (this.consumedInboxIds.has(id)) continue;
+      const carryover = this.tomorrowCarryover.get(id);
+      const hint = this.aiHints.get(id);
+      out.push({
+        id,
+        text: sig.text,
+        status: "open",
+        createdAt: sig.updatedAt,
+        updatedAt: sig.updatedAt,
+        sourceType: "logseq-journal",
+        sourceLabel: sig.journalDate ? `Logseq 日记 · ${sig.journalDate}` : "Logseq 日记",
+        blockUuid: sig.blockUuid,
+        ...(sig.journalDate ? { journalDate: sig.journalDate } : {}),
+        ...(sig.pageName ? { pageName: sig.pageName } : {}),
+        ...(sig.links && sig.links.length > 0 ? { links: sig.links } : {}),
+        originRef: `logseq-block:${sig.blockUuid}`,
+        ...(carryover ? { carryoverDays: carryover.days } : {}),
+        ...(hint ? { aiHint: hint } : {}),
+      });
+    }
+    return out;
+  }
+
+  private buildPendingCaptureItems(): StageInboxRawItem[] {
+    const out: StageInboxRawItem[] = [];
+    for (const cap of this.pendingCaptures) {
+      // Anti-echo: if already flushed to a known blockUuid, skip pending shadow
+      if (this.captureToBlockMap.has(cap.captureId)) continue;
+      const id = `capture:${cap.captureId}`;
+      if (this.consumedInboxIds.has(id)) continue;
+      const carryover = this.tomorrowCarryover.get(id);
+      const hint = this.aiHints.get(id);
+      out.push({
+        id,
+        text: cap.text,
+        status: "open",
+        createdAt: cap.createdAt,
+        updatedAt: cap.createdAt,
+        sourceType: "agent-capture",
+        sourceLabel: `${cap.sourceAgent} 收录（待落日记）`,
+        journalDate: cap.journalDate,
+        ...(cap.pocketHint ? { pocketHint: cap.pocketHint } : {}),
+        pendingJournalFlush: true,
+        originRef: `capture:${cap.captureId}`,
+        ...(carryover ? { carryoverDays: carryover.days } : {}),
+        ...(hint ? { aiHint: hint } : {}),
+      });
+    }
+    return out;
   }
 
   private async loadSources(now = Date.now()) {
@@ -277,17 +469,45 @@ export class StageHub {
     for (const [id, sig] of icloud.signatureById) {
       this.latestSignatureById.set(id, sig);
     }
+    const journalItems = this.buildJournalInboxItems();
+    const pendingCaptureItems = this.buildPendingCaptureItems();
     const seen = new Set<string>();
     const inbox: StageInboxRawItem[] = [];
-    for (const item of [...icloud.items, ...personal.items]) {
+    for (const item of [...pendingCaptureItems, ...icloud.items, ...journalItems, ...personal.items]) {
       if (seen.has(item.id)) continue;
       seen.add(item.id);
-      inbox.push(item);
+      const carryover = this.tomorrowCarryover.get(item.id);
+      const hint = this.aiHints.get(item.id);
+      inbox.push({
+        ...item,
+        ...(carryover && !item.carryoverDays ? { carryoverDays: carryover.days } : {}),
+        ...(hint && !item.aiHint ? { aiHint: hint } : {}),
+      });
     }
     inbox.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
     const inboxDiagnostics: StageInboxDiagnostics = {
       icloud: icloud.diagnostic,
       personalInbox: personal.diagnostic,
+      logseqJournal: {
+        source: "logseq-journal",
+        directory: this.journalSignals?.graphPath ?? this.journalSignals?.graphName ?? "Logseq",
+        status: this.journalSignals ? "ok" : "missing",
+        itemCount: journalItems.length,
+        checkedAt: this.journalSignals?.updatedAt ?? now,
+        ...(this.journalSignals
+          ? {}
+          : { message: "等待 Logseq 插件上报最近 30 天日记回捞信号。" }),
+      },
+      agentSpool: {
+        source: "agent-spool",
+        directory: join(this.stateDirectory, "stage-pending-journal.json"),
+        status: "ok",
+        itemCount: pendingCaptureItems.length,
+        checkedAt: now,
+        ...(pendingCaptureItems.length > 0
+          ? { message: `有 ${pendingCaptureItems.length} 条离线 Agent 收录待 Logseq 上线后自动补写进日记。` }
+          : {}),
+      },
     };
     return { catalog, inbox, inboxDiagnostics };
   }
@@ -303,7 +523,13 @@ export class StageHub {
       this.loadSources(now),
       this.timeHub.snapshot(now),
     ]);
-    return this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics, timeSnapshot);
+    const cutoff = now - FLOW_LEDGER_RETENTION_MS;
+    const recentLedger = this.flowLedger.filter((entry) => entry.at >= cutoff).slice(0, 50);
+    return this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics, timeSnapshot, {
+      trackOverrides: Object.fromEntries(this.trackOverrides.entries()),
+      flowLedger: recentLedger,
+      sweepWindowTime: this.sweepWindowTime,
+    });
   }
 
   private async broadcast(): Promise<StageSnapshot> {
@@ -376,11 +602,13 @@ export class StageHub {
     snapshot: StageSnapshot;
     archivedInboxIds: string[];
     warning?: string;
+    reviewFilePath?: string;
     activatedLogseq?: { activated: boolean; appPath: string | null; pid: number | null };
   }> {
+    const now = Date.now();
     if (action.type === "time") {
       await this.ensureLoaded();
-      const timeResult = await this.timeHub.applyAction(action.action, Date.now());
+      const timeResult = await this.timeHub.applyAction(action.action, now);
       this.engine.touchVersion();
       const snapshot = await this.broadcast();
       return {
@@ -390,13 +618,227 @@ export class StageHub {
         ...(timeResult.activatedLogseq ? { activatedLogseq: timeResult.activatedLogseq } : {}),
       };
     }
-    const { catalog, inbox } = await this.loadSources();
+
+    const { catalog, inbox } = await this.loadSources(now);
+    const overridesObj = Object.fromEntries(this.trackOverrides.entries());
+
+    if (action.type === "set-inbox-pocket") {
+      const target = inbox.find((i) => i.id === action.inboxId);
+      if (!target) {
+        return { snapshot: await this.snapshot(), archivedInboxIds: [], warning: "未找到对应的随想条目。" };
+      }
+      const prevCls = classifyInboxItem(target, this.trackOverrides.get(target.id));
+      this.trackOverrides.set(target.id, action.pocket);
+      this.calibrationLog.push({
+        inboxId: target.id,
+        fromPocket: prevCls.pocket,
+        toPocket: action.pocket,
+        ...(prevCls.prefixDetected ? { prefixDetected: prevCls.prefixDetected } : {}),
+        sourceType: target.sourceType ?? "manual",
+        at: now,
+      });
+      if (this.calibrationLog.length > 200) this.calibrationLog = this.calibrationLog.slice(-200);
+      await this.persistInboxState();
+      this.engine.touchVersion();
+      const snapshot = await this.broadcast();
+      return { snapshot, archivedInboxIds: [] };
+    }
+
+    if (action.type === "sweep-complete") {
+      const target = inbox.find((i) => i.id === action.inboxId);
+      if (!target) {
+        return { snapshot: await this.snapshot(), archivedInboxIds: [], warning: "未找到对应的小尾巴条目。" };
+      }
+      const cls = classifyInboxItem(target, this.trackOverrides.get(target.id));
+      if (action.disposition === "done") {
+        this.recordArchivedInboxIds([target.id]);
+        this.appendLedgerEntry({
+          inboxId: target.id,
+          text: target.text,
+          sourceType: target.sourceType ?? "manual",
+          sourceLabel: target.sourceLabel ?? "Inbox",
+          fromPocket: cls.pocket,
+          destination: "sweep-done",
+          destinationLabel: "清扫完成",
+          ...(target.originRef ? { originRef: target.originRef } : {}),
+          now,
+        });
+        await this.persistInboxState();
+        this.engine.touchVersion();
+        const snapshot = await this.broadcast();
+        return { snapshot, archivedInboxIds: [target.id] };
+      }
+      const todayKey = dateKeyFromMs(now);
+      const prevCarry = this.tomorrowCarryover.get(target.id);
+      const nextDays = prevCarry
+        ? prevCarry.lastDeferredDate === todayKey
+          ? prevCarry.days
+          : prevCarry.days + 1
+        : 1;
+      this.tomorrowCarryover.set(target.id, {
+        inboxId: target.id,
+        firstDeferredDate: prevCarry?.firstDeferredDate ?? todayKey,
+        lastDeferredDate: todayKey,
+        days: nextDays,
+      });
+      this.appendLedgerEntry({
+        inboxId: target.id,
+        text: target.text,
+        sourceType: target.sourceType ?? "manual",
+        sourceLabel: target.sourceLabel ?? "Inbox",
+        fromPocket: cls.pocket,
+        destination: "sweep-tomorrow",
+        destinationLabel: nextDays >= 2 ? `已顺延 ${nextDays} 天` : "锁进明日",
+        ...(target.originRef ? { originRef: target.originRef } : {}),
+        now,
+      });
+      await this.persistInboxState();
+      this.engine.touchVersion();
+      const snapshot = await this.broadcast();
+      return { snapshot, archivedInboxIds: [] };
+    }
+
+    if (action.type === "archive-to-review") {
+      const target = inbox.find((i) => i.id === action.inboxId);
+      if (!target) {
+        return { snapshot: await this.snapshot(), archivedInboxIds: [], warning: "未找到对应的随想条目。" };
+      }
+      const cls = classifyInboxItem(target, this.trackOverrides.get(target.id));
+      const snap = await this.snapshot();
+      const matchedArea = action.areaId
+        ? snap.areas.find((a) => a.id === action.areaId)
+        : snap.inbox.find((i) => i.id === target.id)?.matchAreaIds[0]
+          ? snap.areas.find((a) => a.id === snap.inbox.find((i) => i.id === target.id)?.matchAreaIds[0])
+          : undefined;
+      const matchedProj = action.projectWorkKey
+        ? snap.areas.flatMap((a) => a.projects).find((p) => p.workKey === action.projectWorkKey)
+        : undefined;
+
+      const written = await appendToWeeklyReview({
+        stateDirectory: this.stateDirectory,
+        graphPath: this.journalSignals?.graphPath,
+        configuredDir: this.stageWorkspaceDirectory,
+        summary: action.summary?.trim() || target.text,
+        sourceLabel: target.sourceLabel ?? "Inbox",
+        areaName: matchedArea?.name,
+        projectTitle: matchedProj?.title,
+        now,
+      });
+      this.recordArchivedInboxIds([target.id]);
+      this.appendLedgerEntry({
+        inboxId: target.id,
+        text: target.text,
+        sourceType: target.sourceType ?? "manual",
+        sourceLabel: target.sourceLabel ?? "Inbox",
+        fromPocket: cls.pocket,
+        destination: "weekly-review",
+        destinationLabel: `沉淀至 ${written.pageTitle}`,
+        ...(matchedArea ? { targetId: matchedArea.id, targetTitle: matchedArea.name } : {}),
+        reviewFilePath: written.filePath,
+        ...(target.originRef ? { originRef: target.originRef } : {}),
+        now,
+      });
+      await this.persistInboxState();
+      this.engine.touchVersion();
+      const nextSnap = await this.broadcast();
+      return { snapshot: nextSnap, archivedInboxIds: [target.id], reviewFilePath: written.filePath };
+    }
+
+    if (action.type === "undo-ledger-entry") {
+      const entry = this.flowLedger.find((e) => e.id === action.entryId && !e.undone);
+      if (!entry) {
+        return { snapshot: await this.snapshot(), archivedInboxIds: [], warning: "未找到可撤销的流转记录。" };
+      }
+      entry.undone = true;
+      this.consumedInboxIds.delete(entry.inboxId);
+      const sig = this.latestSignatureById.get(entry.inboxId);
+      if (sig) this.archivedInboxSignatures.delete(sig);
+      if (entry.destination === "sweep-tomorrow") {
+        this.tomorrowCarryover.delete(entry.inboxId);
+      }
+      await this.persistInboxState();
+      this.engine.touchVersion();
+      const snapshot = await this.broadcast();
+      return { snapshot, archivedInboxIds: [] };
+    }
+
+    if (action.type === "refine-inbox-ai") {
+      const currentSnap = await this.snapshot();
+      const targets =
+        action.inboxIds && action.inboxIds.length > 0
+          ? currentSnap.inbox.filter((i) => action.inboxIds!.includes(i.id))
+          : currentSnap.inbox;
+      const refined = await refineInboxItemsWithFastModel({
+        stateDirectory: this.stateDirectory,
+        items: targets,
+        ...(this.fetchImpl ? { fetchImpl: this.fetchImpl } : {}),
+        now,
+      });
+      if ("error" in refined) {
+        return { snapshot: currentSnap, archivedInboxIds: [], warning: refined.error };
+      }
+      for (const [id, hint] of Object.entries(refined.hints)) {
+        this.aiHints.set(id, hint);
+      }
+      await this.persistInboxState();
+      this.engine.touchVersion();
+      const snapshot = await this.broadcast();
+      return { snapshot, archivedInboxIds: [] };
+    }
+
     const prevAdvInboxIds =
       action.type === "undo"
         ? new Set(this.engine.getRegistry().advancements.map((a) => a.sourceInboxId).filter((id): id is string => Boolean(id)))
         : null;
-    const result = this.engine.applyUserAction(action, { catalog, inbox, now: Date.now() });
+    const result = this.engine.applyUserAction(action, {
+      catalog,
+      inbox,
+      now,
+      trackOverrides: overridesObj,
+    });
     let inboxStateChanged = this.recordArchivedInboxIds(result.archivedInboxIds);
+
+    // Log processed inbox items to the 7-day Flow Ledger
+    if (result.archivedInboxIds.length > 0) {
+      const inboxById = new Map(inbox.map((i) => [i.id, i]));
+      const areasById = new Map(this.engine.getRegistry().areas.map((a) => [a.id, a]));
+      for (const id of result.archivedInboxIds) {
+        const rawItem = inboxById.get(id);
+        if (!rawItem) continue;
+        const cls = classifyInboxItem(rawItem, this.trackOverrides.get(id));
+        if (action.type === "drop-inbox") {
+          const areaName = areasById.get(action.areaId)?.name;
+          this.appendLedgerEntry({
+            inboxId: id,
+            text: rawItem.text,
+            sourceType: rawItem.sourceType ?? "manual",
+            sourceLabel: rawItem.sourceLabel ?? "Inbox",
+            fromPocket: cls.pocket,
+            destination: "area-advancement",
+            destinationLabel: areaName ? `安放至「${areaName}」` : "已安放至星区",
+            targetId: action.areaId,
+            ...(areaName ? { targetTitle: areaName } : {}),
+            ...(rawItem.originRef ? { originRef: rawItem.originRef } : {}),
+            now,
+          });
+          inboxStateChanged = true;
+        } else if (action.type === "archive-inbox-items" || action.type === "archive-cooled-inbox") {
+          this.appendLedgerEntry({
+            inboxId: id,
+            text: rawItem.text,
+            sourceType: rawItem.sourceType ?? "manual",
+            sourceLabel: rawItem.sourceLabel ?? "Inbox",
+            fromPocket: cls.pocket,
+            destination: "released",
+            destinationLabel: action.type === "archive-cooled-inbox" ? "已释怀冷却项" : "已归档释怀",
+            ...(rawItem.originRef ? { originRef: rawItem.originRef } : {}),
+            now,
+          });
+          inboxStateChanged = true;
+        }
+      }
+    }
+
     if (action.type === "undo" && prevAdvInboxIds) {
       const nextAdvInboxIds = new Set(
         this.engine.getRegistry().advancements.map((a) => a.sourceInboxId).filter((id): id is string => Boolean(id)),
@@ -423,6 +865,261 @@ export class StageHub {
     }
     const snapshot = await this.broadcast();
     return { snapshot, archivedInboxIds: result.archivedInboxIds };
+  }
+
+  // ==================== LOGSEQ JOURNAL RECALL & AGENT CAPTURE SPOOL ====================
+
+  async publishJournalSignals(input: {
+    graphId: string;
+    graphName: string;
+    graphPath?: string;
+    signals: JournalInboxSignalRecord[];
+  }): Promise<{ accepted: number; pendingCaptures: number }> {
+    await this.ensureLoaded();
+    this.lastPluginHeartbeatAt = Date.now();
+    const prevSig = this.journalSignals ? JSON.stringify(this.journalSignals.signals) : "";
+    const normalized: JournalSignalsFile = {
+      schemaVersion: 1,
+      graphId: input.graphId.slice(0, 128),
+      graphName: input.graphName.slice(0, 128),
+      ...(input.graphPath && input.graphPath.startsWith("/") ? { graphPath: input.graphPath } : {}),
+      updatedAt: Date.now(),
+      signals: input.signals.slice(0, 200).map((s) => ({
+        blockUuid: s.blockUuid.slice(0, 128),
+        journalDate: s.journalDate.slice(0, 16),
+        pageName: s.pageName.slice(0, 128),
+        text: s.text.replace(/\s+/gu, " ").trim().slice(0, 400),
+        ...(s.links && s.links.length > 0 ? { links: s.links.slice(0, 12) } : {}),
+        updatedAt: Number.isFinite(s.updatedAt) ? s.updatedAt : Date.now(),
+      })),
+    };
+    this.journalSignals = normalized;
+    await this.persistJournalSignals();
+    if (JSON.stringify(normalized.signals) !== prevSig) {
+      this.engine.touchVersion();
+      void this.broadcast();
+    }
+    return {
+      accepted: normalized.signals.length,
+      pendingCaptures: this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId)).length,
+    };
+  }
+
+  async getPendingJournalCaptures(): Promise<PendingJournalCapture[]> {
+    await this.ensureLoaded();
+    this.lastPluginHeartbeatAt = Date.now();
+    return structuredClone(this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId)));
+  }
+
+  async waitForPendingJournalCaptures(signal?: AbortSignal, timeoutMs = 20_000): Promise<PendingJournalCapture[]> {
+    await this.ensureLoaded();
+    this.lastPluginHeartbeatAt = Date.now();
+    const immediate = this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId));
+    if (immediate.length > 0) return structuredClone(immediate);
+    return await new Promise<PendingJournalCapture[]>((resolveWait) => {
+      const waiter: PendingCapturePollWaiter = {
+        resolve: resolveWait,
+        timer: setTimeout(() => {
+          this.pendingPollWaiters.delete(waiter);
+          resolveWait([]);
+        }, timeoutMs),
+      };
+      this.pendingPollWaiters.add(waiter);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          if (this.pendingPollWaiters.delete(waiter)) {
+            clearTimeout(waiter.timer);
+            resolveWait([]);
+          }
+        },
+        { once: true },
+      );
+    });
+  }
+
+  private wakePendingPollWaiters(): void {
+    const active = this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId));
+    if (active.length === 0) return;
+    for (const waiter of [...this.pendingPollWaiters]) {
+      clearTimeout(waiter.timer);
+      this.pendingPollWaiters.delete(waiter);
+      waiter.resolve(structuredClone(active));
+    }
+  }
+
+  async ackPendingJournalCapture(input: {
+    captureId: string;
+    blockUuid: string;
+    pageName: string;
+    journalDate: string;
+  }): Promise<{ acknowledged: boolean; remaining: number }> {
+    await this.ensureLoaded();
+    this.lastPluginHeartbeatAt = Date.now();
+    const idx = this.pendingCaptures.findIndex((c) => c.captureId === input.captureId);
+    const oldInboxId = `capture:${input.captureId}`;
+    const newInboxId = `logseq-block:${input.blockUuid}`;
+    this.captureToBlockMap.set(input.captureId, input.blockUuid);
+
+    // Carry over any offline user triage decisions seamlessly to the canonical Logseq block ID
+    if (this.consumedInboxIds.has(oldInboxId)) {
+      this.consumedInboxIds.add(newInboxId);
+    }
+    const oldOverride = this.trackOverrides.get(oldInboxId);
+    if (oldOverride && !this.trackOverrides.has(newInboxId)) {
+      this.trackOverrides.set(newInboxId, oldOverride);
+    }
+    const oldCarry = this.tomorrowCarryover.get(oldInboxId);
+    if (oldCarry && !this.tomorrowCarryover.has(newInboxId)) {
+      this.tomorrowCarryover.set(newInboxId, { ...oldCarry, inboxId: newInboxId });
+      this.tomorrowCarryover.delete(oldInboxId);
+    }
+    const oldHint = this.aiHints.get(oldInboxId);
+    if (oldHint && !this.aiHints.has(newInboxId)) {
+      this.aiHints.set(newInboxId, oldHint);
+    }
+
+    const removed = idx >= 0 ? this.pendingCaptures.splice(idx, 1)[0] : undefined;
+    // Also proactively insert into local journalSignals cache so the stage reflects canonical block immediately
+    if (removed && this.journalSignals && !this.journalSignals.signals.some((s) => s.blockUuid === input.blockUuid)) {
+      this.journalSignals.signals.unshift({
+        blockUuid: input.blockUuid,
+        journalDate: input.journalDate || removed.journalDate,
+        pageName: input.pageName || removed.journalDate,
+        text: removed.formattedLine,
+        updatedAt: removed.createdAt,
+      });
+      await this.persistJournalSignals();
+    }
+
+    await Promise.all([this.persistPendingCaptures(), this.persistInboxState()]);
+
+    const ackWaiter = this.pendingCaptureAckWaiters.get(input.captureId);
+    if (ackWaiter) {
+      this.pendingCaptureAckWaiters.delete(input.captureId);
+      ackWaiter({
+        blockUuid: input.blockUuid,
+        pageName: input.pageName,
+        journalDate: input.journalDate,
+      });
+    }
+
+    this.engine.touchVersion();
+    void this.broadcast();
+    return {
+      acknowledged: true,
+      remaining: this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId)).length,
+    };
+  }
+
+  async mcpCaptureInbox(input: {
+    text: string;
+    sourceAgent: string;
+    contextTitle?: string;
+    contextWorkKey?: string;
+    pocketHint?: StageInboxPocket;
+    prefixHint?: "想法" | "注" | "急" | "承诺";
+    waitOnlineMs?: number;
+  }) {
+    await this.ensureLoaded();
+    const now = Date.now();
+    const cleanText = input.text.replace(/\s+/gu, " ").trim().slice(0, 360);
+    if (!cleanText) {
+      throw new WorkspaceError("INVALID_INPUT", "收录内容不可为空。");
+    }
+    const captureId = `cap-${now.toString(36)}-${randomUUID().slice(0, 8)}`;
+    const journalDate = dateKeyFromMs(now);
+    const formattedLine = formatJournalCaptureLine({
+      text: cleanText,
+      sourceAgent: input.sourceAgent,
+      ...(input.contextTitle ? { contextTitle: input.contextTitle } : {}),
+      ...(input.pocketHint ? { pocketHint: input.pocketHint } : {}),
+      ...(input.prefixHint ? { prefixHint: input.prefixHint } : {}),
+    });
+
+    const record: PendingJournalCapture = {
+      captureId,
+      text: cleanText,
+      formattedLine,
+      sourceAgent: input.sourceAgent.slice(0, 64),
+      ...(input.contextTitle ? { contextTitle: input.contextTitle.slice(0, 120) } : {}),
+      ...(input.contextWorkKey ? { contextWorkKey: input.contextWorkKey.slice(0, 512) } : {}),
+      ...(input.pocketHint ? { pocketHint: input.pocketHint } : {}),
+      journalDate,
+      createdAt: now,
+    };
+
+    this.pendingCaptures.push(record);
+    await this.persistPendingCaptures();
+
+    const cls = classifyInboxItem({
+      id: `capture:${captureId}`,
+      text: formattedLine,
+      sourceType: "agent-capture",
+      ...(input.pocketHint ? { pocketHint: input.pocketHint } : {}),
+    });
+
+    // If Logseq plugin is actively polling/connected, wake it immediately and wait briefly for direct Journal append
+    const pluginLikelyOnline =
+      this.pendingPollWaiters.size > 0 || (this.lastPluginHeartbeatAt > 0 && now - this.lastPluginHeartbeatAt < 20_000);
+    const waitMs = input.waitOnlineMs ?? (pluginLikelyOnline ? 2500 : 0);
+
+    let acked: CaptureAckResult | null = null;
+    if (waitMs > 0) {
+      const ackPromise = new Promise<CaptureAckResult | null>((resolveAck) => {
+        const timer = setTimeout(() => {
+          this.pendingCaptureAckWaiters.delete(captureId);
+          resolveAck(null);
+        }, waitMs);
+        this.pendingCaptureAckWaiters.set(captureId, (res) => {
+          clearTimeout(timer);
+          resolveAck(res);
+        });
+      });
+      this.wakePendingPollWaiters();
+      acked = await ackPromise;
+    } else {
+      this.wakePendingPollWaiters();
+    }
+
+    this.engine.touchVersion();
+    const snap = await this.broadcast();
+
+    if (acked) {
+      return {
+        captured: true,
+        mode: "journal-appended" as const,
+        captureId,
+        inboxId: `logseq-block:${acked.blockUuid}`,
+        blockUuid: acked.blockUuid,
+        pageName: acked.pageName,
+        journalDate: acked.journalDate,
+        formattedLine,
+        pocket: cls.pocket,
+        pocketLabel: cls.pocketLabel,
+        routingReason: cls.routingReason,
+        immuneToCooling: cls.immuneToCooling,
+        pendingJournalFlush: false,
+        version: snap.version,
+        message: `已直接追加至 Logseq 今日日记（${acked.pageName}），并归入「${cls.pocketLabel}」。`,
+      };
+    }
+
+    return {
+      captured: true,
+      mode: "offline-spooled" as const,
+      captureId,
+      inboxId: `capture:${captureId}`,
+      journalDate,
+      formattedLine,
+      pocket: cls.pocket,
+      pocketLabel: cls.pocketLabel,
+      routingReason: cls.routingReason,
+      immuneToCooling: cls.immuneToCooling,
+      pendingJournalFlush: true,
+      version: snap.version,
+      message: `Logseq 当前未在线，已安全暂存至 Companion 并同步进入活舞台「${cls.pocketLabel}」；下次打开 Logseq 将自动补写进 ${journalDate} 日记（零直接改写磁盘文件）。`,
+    };
   }
 
   async anchorWork(workKey: string, source: StageViewportSource = "logseq"): Promise<StageSnapshot> {
@@ -555,6 +1252,8 @@ export class StageHub {
           : undefined,
       mismatchSignals: snap.mismatchSignals,
       cooledInboxCount: snap.cooledInboxCount,
+      inboxPockets: snap.inboxPockets ?? null,
+      flowLedger: (snap.flowLedger ?? []).slice(0, 10),
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
       restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
@@ -643,17 +1342,22 @@ export class StageHub {
       dormantAreas: snap.dormantAreas,
       totalUnassignedWorks: snap.unassignedWorks.length,
       hasMoreUnassigned: unassignedSlice.length < snap.unassignedWorks.length,
-      unassignedWorks: unassignedSlice.map((u) => ({
-        workKey: u.workKey,
-        title: u.title,
-        objectType: u.objectType,
-        pulseLabel: u.pulseLabel,
-        recencyDays: u.recencyDays,
-      })),
+      unassignedWorks: unassignedSlice.map((u) => {
+        const uDays = recencyDays(u.updatedAt, snap.generatedAt);
+        return {
+          workKey: u.workKey,
+          title: u.title,
+          objectType: u.objectType,
+          pulseLabel: formatRecencyLabel(uDays),
+          recencyDays: uDays,
+        };
+      }),
       totalInbox: snap.inbox.length,
       hasMoreInbox: inboxSlice.length < snap.inbox.length,
       inbox: inboxSlice,
       cooledInboxCount: snap.cooledInboxCount,
+      inboxPockets: snap.inboxPockets ?? null,
+      flowLedger: (snap.flowLedger ?? []).slice(0, 20),
       inboxDiagnostics: snap.inboxDiagnostics ?? null,
       restartDeck: snap.restartDeck ?? null,
       pendingGhostProposals: snap.ghostProposals,
@@ -815,6 +1519,11 @@ export class StageHub {
       clearTimeout(waiter.timer);
     }
     this.waiters.clear();
+    for (const waiter of this.pendingPollWaiters) {
+      clearTimeout(waiter.timer);
+    }
+    this.pendingPollWaiters.clear();
+    this.pendingCaptureAckWaiters.clear();
   }
 }
 
@@ -856,6 +1565,8 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
       let prevZoom = 0;
       let restartSlideIndex = 0;
       const dismissedRestarts = new Set();
+      let saInboxTab = "sweep";
+      let saPickedTab = false;
 
       const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
       const darkPref = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -985,13 +1696,51 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
 
         const activeInbox = snap.inbox.filter((i) => !i.cooled);
         const cooledInbox = snap.inbox.filter((i) => i.cooled);
-        const icloudDiag = snap.inboxDiagnostics && snap.inboxDiagnostics.icloud && snap.inboxDiagnostics.icloud.status === "permission-denied"
-          ? '<div class="tcs-diag-notice"><strong>iCloud 语音目录暂未授权</strong><div style="color:var(--tcs-muted);margin-top:3px">' + esc(snap.inboxDiagnostics.icloud.guidance || snap.inboxDiagnostics.icloud.message || "") + '</div></div>'
+        const sweepInbox = activeInbox.filter((i) => i.pocket === "sweep");
+        const commitInbox = activeInbox.filter((i) => i.pocket === "commit");
+        const sparkInbox = activeInbox.filter((i) => i.pocket === "spark");
+        const ledgerList = snap.flowLedger || [];
+        if (!saPickedTab) {
+          if (sweepInbox.length > 0) saInboxTab = "sweep";
+          else if (commitInbox.length > 0) saInboxTab = "commit";
+          else if (sparkInbox.length > 0) saInboxTab = "spark";
+          else if (ledgerList.length > 0) saInboxTab = "ledger";
+        }
+        const icloudInfo = snap.inboxDiagnostics && snap.inboxDiagnostics.icloud;
+        let icloudDiag = "";
+        if (icloudInfo && icloudInfo.status === "permission-denied") {
+          icloudDiag = '<div class="tcs-diag-notice"><strong>iCloud 语音目录暂未授权</strong><div style="color:var(--tcs-muted);margin-top:3px">' + esc(icloudInfo.guidance || icloudInfo.message || "") + '</div></div>';
+        } else if (icloudInfo && (icloudInfo.evictedCount || 0) > 0) {
+          icloudDiag = '<div class="tcs-diag-notice"><strong>发现 ' + icloudInfo.evictedCount + ' 条云端占位语音</strong><div style="color:var(--tcs-muted);margin-top:3px">' + esc(icloudInfo.guidance || icloudInfo.message || "") + '</div></div>';
+        }
+        const renderInboxCard = (i) => {
+          const badges = [];
+          if (i.immuneToCooling) badges.push('<span class="tcs-badge tcs-badge-mismatch">免 14 天冷却</span>');
+          if (i.failSafe) badges.push('<span class="tcs-badge tcs-badge-amber">兜底防漏</span>');
+          if (i.sprouting && i.threadLabel) badges.push('<span class="tcs-badge tcs-badge-teal">' + esc(i.threadLabel) + '</span>');
+          if (i.pendingJournalFlush) badges.push('<span class="tcs-badge tcs-badge-ghost">待落日记</span>');
+          const acts = i.cooled ? "" : i.pocket === "sweep"
+            ? '<div class="tcs-inbox-actions"><button class="tcs-inbox-chip-btn is-primary" data-sa-sweep-done="' + esc(i.id) + '">办完划掉</button><button class="tcs-inbox-chip-btn" data-sa-sweep-tomorrow="' + esc(i.id) + '">锁进明日</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|commit">转别忘</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|spark">退回想法</button></div>'
+            : i.pocket === "commit"
+              ? '<div class="tcs-inbox-actions"><button class="tcs-inbox-chip-btn is-primary" data-sa-sweep-done="' + esc(i.id) + '">已办妥</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|sweep">降为小尾巴</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|spark">退回想法</button></div>'
+              : '<div class="tcs-inbox-actions"><button class="tcs-inbox-chip-btn is-primary" data-sa-review="' + esc(i.id) + '">沉淀周复盘</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|sweep">转小尾巴</button><button class="tcs-inbox-chip-btn" data-sa-pocket="' + esc(i.id) + '|commit">转别忘</button><button class="tcs-inbox-chip-btn" data-sa-archive-one="' + esc(i.id) + '">释怀</button></div>';
+          return '<div class="tcs-inbox-card ' + (snap.viewport.selectedInboxId === i.id ? "tcs-tone-amber tcs-amber-resonate" : "") + (i.cooled ? " is-dimmed" : "") + '" draggable="true" data-inbox-id="' + esc(i.id) + '">' +
+            (badges.length > 0 ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">' + badges.join("") + '</div>' : '') +
+            '<div style="font-size:12px">' + esc(i.text) + '</div><div style="font-size:10.5px;color:var(--tcs-muted);margin-top:4px">' + esc(i.sourceLabel) + (i.ageDays > 0 ? ' · ' + i.ageDays + '天前' : '') + '</div>' + acts + '</div>';
+        };
+        const cooledHtml = saInboxTab === "spark" && cooledInbox.length > 0
+          ? '<details class="tcs-cooled-box"><summary><span>14 天自然收起（' + cooledInbox.length + ' · 不含承诺）</span><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键释怀</button></summary><div class="tcs-cooled-list">' + cooledInbox.map(renderInboxCard).join("") + '</div></details>'
           : "";
-        const renderInboxCard = (i) => '<div class="tcs-inbox-card ' + (snap.viewport.selectedInboxId === i.id ? "tcs-tone-amber tcs-amber-resonate" : "") + (i.cooled ? " is-dimmed" : "") + '" draggable="true" data-inbox-id="' + esc(i.id) + '"><div style="font-size:12px">' + esc(i.text) + '</div><div style="font-size:11px;color:var(--tcs-muted);margin-top:4px">' + esc(i.sourceLabel) + (i.cooled ? ' · ' + i.ageDays + '天前' : '') + '</div></div>';
-        const cooledHtml = cooledInbox.length > 0
-          ? '<details class="tcs-cooled-box"><summary><span>已冷却 · 14 天以上（' + cooledInbox.length + '）</span><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键归档</button></summary><div class="tcs-cooled-list">' + cooledInbox.map(renderInboxCard).join("") + '</div></details>'
-          : "";
+        const saPocketTabs = '<div class="tcs-pocket-tabs">' +
+          '<button class="tcs-pocket-tab ' + (saInboxTab === "sweep" ? "is-active" : "") + '" data-sa-inbox-tab="sweep">小尾巴 ' + sweepInbox.length + '</button>' +
+          '<button class="tcs-pocket-tab ' + (saInboxTab === "commit" ? "is-active" : "") + '" data-sa-inbox-tab="commit">别忘 ' + commitInbox.length + '</button>' +
+          '<button class="tcs-pocket-tab ' + (saInboxTab === "spark" ? "is-active" : "") + '" data-sa-inbox-tab="spark">想法 ' + sparkInbox.length + '</button>' +
+          '<button class="tcs-pocket-tab ' + (saInboxTab === "ledger" ? "is-active" : "") + '" data-sa-inbox-tab="ledger">台账 ' + ledgerList.filter((e) => !e.undone).length + '</button>' +
+          '</div>';
+        const curSaList = saInboxTab === "sweep" ? sweepInbox : saInboxTab === "commit" ? commitInbox : sparkInbox;
+        const saInboxBody = saInboxTab === "ledger"
+          ? (ledgerList.length === 0 ? '<div style="padding:14px;font-size:12px;color:var(--tcs-muted)">近 7 天暂无流转记录</div>' : ledgerList.map((e) => '<div class="tcs-ledger-row ' + (e.undone ? "is-undone" : "") + '"><div style="display:flex;justify-content:space-between;gap:6px"><span class="tcs-badge tcs-badge-teal">' + esc(e.destinationLabel) + '</span>' + (!e.undone ? '<button class="tcs-inbox-chip-btn" data-sa-undo-ledger="' + esc(e.id) + '">撤回</button>' : '<span>已撤回</span>') + '</div><div>' + esc(e.text) + '</div></div>').join(""))
+          : (curSaList.length === 0 ? '<div style="padding:14px;font-size:12px;color:var(--tcs-muted)">当前口袋为空</div>' : curSaList.map(renderInboxCard).join("")) + cooledHtml;
 
         const activeRestart = snap.restartDeck && !dismissedRestarts.has(snap.restartDeck.id) ? snap.restartDeck : null;
         let restartHtml = "";
@@ -1026,14 +1775,22 @@ export function renderStandaloneStageHtml(token: string, instanceId: string): st
           (snap.canUndo ? '<button class="tcs-btn tcs-btn-ghost" data-undo>↶ 撤销</button>' : '') +
           '<button class="tcs-btn tcs-btn-ghost" data-toggle-theme>' + (theme === "dark" ? "浅色" : "深色") + '</button></div></div>' +
           '<div class="tcs-body"><div class="tcs-stage-wrap"><div class="tcs-stage">' + stageHtml + '</div>' + radarHtml + pillHtml + restartHtml + '</div>' +
-          '<aside class="tcs-inbox-pane"><div class="tcs-inbox-head"><strong>Inbox 浮带 (' + activeInbox.length + ')</strong><span style="font-size:11px;color:var(--tcs-muted)">0ms</span></div>' + icloudDiag + '<div class="tcs-inbox-list">' +
-          (snap.inbox.length === 0 ? '<div style="padding:14px;font-size:12px;color:var(--tcs-muted)">暂无待处理 Inbox</div>' : (activeInbox.length === 0 ? '<div style="padding:10px;font-size:12px;color:var(--tcs-muted)">近期无未处理碎片</div>' : activeInbox.map(renderInboxCard).join("")) + cooledHtml) +
+          '<aside class="tcs-inbox-pane"><div class="tcs-inbox-head"><strong>随想三口袋 (' + activeInbox.length + ')</strong><button class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-sa-refine-ai>AI 轻梳理</button></div>' + saPocketTabs + icloudDiag + '<div class="tcs-inbox-list">' +
+          saInboxBody +
           '</div></aside></div></div>';
       }
 
       rootEl.addEventListener("click", (e) => {
-        const t = e.target.closest("[data-sa-restart-skip],[data-sa-restart-prev],[data-sa-restart-next],[data-sa-restart-settle],[data-sa-restart-exit],[data-sa-restart-start],[data-sa-tab],[data-sa-week-day],[data-sa-week-toggle],[data-sa-carry],[data-sa-focus],[data-sa-shield],[data-sa-day-toggle],[data-sa-focus-pause],[data-sa-focus-finish],[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
+        const t = e.target.closest("[data-sa-inbox-tab],[data-sa-refine-ai],[data-sa-sweep-done],[data-sa-sweep-tomorrow],[data-sa-pocket],[data-sa-review],[data-sa-archive-one],[data-sa-undo-ledger],[data-sa-restart-skip],[data-sa-restart-prev],[data-sa-restart-next],[data-sa-restart-settle],[data-sa-restart-exit],[data-sa-restart-start],[data-sa-tab],[data-sa-week-day],[data-sa-week-toggle],[data-sa-carry],[data-sa-focus],[data-sa-shield],[data-sa-day-toggle],[data-sa-focus-pause],[data-sa-focus-finish],[data-zoom-out],[data-coldstart],[data-undo],[data-toggle-theme],[data-cs-commit],[data-cs-dismiss],[data-accept],[data-dismiss],[data-accept-all],[data-dismiss-all],[data-archive-cooled],[data-open-proj],[data-open-area],[data-inbox-id]");
         if (!t || !snap) return;
+        if (t.dataset.saInboxTab) { saInboxTab = t.dataset.saInboxTab; saPickedTab = true; render(); return; }
+        if (t.hasAttribute("data-sa-refine-ai")) { void dispatch({ type: "refine-inbox-ai" }); return; }
+        if (t.dataset.saSweepDone) { e.stopPropagation(); void dispatch({ type: "sweep-complete", inboxId: t.dataset.saSweepDone, disposition: "done" }); return; }
+        if (t.dataset.saSweepTomorrow) { e.stopPropagation(); void dispatch({ type: "sweep-complete", inboxId: t.dataset.saSweepTomorrow, disposition: "tomorrow" }); return; }
+        if (t.dataset.saPocket) { e.stopPropagation(); const [id, pk] = t.dataset.saPocket.split("|"); void dispatch({ type: "set-inbox-pocket", inboxId: id, pocket: pk }); return; }
+        if (t.dataset.saReview) { e.stopPropagation(); void dispatch({ type: "archive-to-review", inboxId: t.dataset.saReview }); return; }
+        if (t.dataset.saArchiveOne) { e.stopPropagation(); void dispatch({ type: "archive-inbox-items", inboxIds: [t.dataset.saArchiveOne] }); return; }
+        if (t.dataset.saUndoLedger) { e.stopPropagation(); void dispatch({ type: "undo-ledger-entry", entryId: t.dataset.saUndoLedger }); return; }
         const activeRestart = snap.restartDeck && !dismissedRestarts.has(snap.restartDeck.id) ? snap.restartDeck : null;
         if (t.hasAttribute("data-sa-restart-skip") && activeRestart) {
           dismissedRestarts.add(activeRestart.id);

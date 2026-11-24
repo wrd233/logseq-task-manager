@@ -36,6 +36,7 @@ import type { TimeHub } from "./time-hub.ts";
 import type {
   StageAreaDomain,
   StageFocusRole,
+  StageInboxPocket,
   StageResolveDecision,
   TimeGhostProposal,
   TimeResolveDecision,
@@ -413,6 +414,32 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         reason: { type: "string" },
       },
       required: ["targetAreaId", "title", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "stage_capture_inbox",
+    description:
+      "Capture a fleeting thought, commitment, or short-loop follow-up directly from an Agent conversation (Antigravity/Codex/Claude Code/DSH) into the unified Three-Pocket Inbox and Logseq daily Journal. When Logseq Desktop is online, appends directly to today's Journal via plugin API with idempotent deduplication; when offline, safely spools to Companion (never mutates journals/*.md on disk) and immediately projects into the live Stage until auto-flushed on reconnect.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The captured thought, commitment, or short-loop follow-up text." },
+        sourceAgent: { type: "string", description: "Optional originating agent label (defaults to clientId)." },
+        contextTitle: { type: "string", description: "Optional short title of the current discussion/project context." },
+        contextWorkKey: { type: "string", description: "Optional related workKey." },
+        pocketHint: {
+          type: "string",
+          enum: ["sweep", "commit", "spark"],
+          description: "Optional pocket hint (sweep=今日小尾巴, commit=别忘/已答应, spark=随手想法). Content commitment/deadline semantics still take precedence.",
+        },
+        prefixHint: {
+          type: "string",
+          enum: ["想法", "注", "急", "承诺"],
+          description: "Optional Logseq recall prefix tag written when appending to Journal.",
+        },
+      },
+      required: ["text"],
       additionalProperties: false,
     },
   },
@@ -1128,6 +1155,40 @@ async function runTool(
         ...(args.sourceInboxText !== undefined ? { sourceInboxText: workText(args.sourceInboxText, 240) } : {}),
         title: workText(args.title, 160),
         reason: workText(args.reason, 320),
+      });
+    }
+    if (toolName === "stage_capture_inbox") {
+      const args = workRecord(rawArgs, [
+        "text",
+        "sourceAgent",
+        "contextTitle",
+        "contextWorkKey",
+        "pocketHint",
+        "prefixHint",
+      ]);
+      const pocketHint: StageInboxPocket | undefined =
+        args.pocketHint === undefined
+          ? undefined
+          : args.pocketHint === "sweep" || args.pocketHint === "commit" || args.pocketHint === "spark"
+            ? args.pocketHint
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "pocketHint 仅允许 sweep / commit / spark。");
+              })();
+      const prefixHint: "想法" | "注" | "急" | "承诺" | undefined =
+        args.prefixHint === undefined
+          ? undefined
+          : args.prefixHint === "想法" || args.prefixHint === "注" || args.prefixHint === "急" || args.prefixHint === "承诺"
+            ? args.prefixHint
+            : (() => {
+                throw new WorkspaceError("INVALID_INPUT", "prefixHint 仅允许 想法 / 注 / 急 / 承诺。");
+              })();
+      return stageHub.mcpCaptureInbox({
+        text: workText(args.text, 400),
+        sourceAgent: args.sourceAgent !== undefined ? workText(args.sourceAgent, 64) : clientId,
+        ...(args.contextTitle !== undefined ? { contextTitle: workText(args.contextTitle, 120) } : {}),
+        ...(args.contextWorkKey !== undefined ? { contextWorkKey: workText(args.contextWorkKey, 512) } : {}),
+        ...(pocketHint ? { pocketHint } : {}),
+        ...(prefixHint ? { prefixHint } : {}),
       });
     }
     if (toolName === "stage_resolve_proposals") {

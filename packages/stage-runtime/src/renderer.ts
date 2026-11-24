@@ -1,3 +1,4 @@
+import { DEFAULT_SWEEP_WINDOW_TIME, pocketLabel } from "./inbox-classifier.ts";
 import { areaDomainLabel, defaultAreaPositionForRole, focusRoleLabel } from "./pulse.ts";
 import {
   WORK_RESUME_RESTART_DAYS,
@@ -23,6 +24,8 @@ import type {
   StageAreaNode,
   StageFocusRole,
   StageGhostProposal,
+  StageInboxFlowLedgerEntry,
+  StageInboxPocket,
   StageInboxViewItem,
   StageProjectNode,
   StageSnapshot,
@@ -159,17 +162,39 @@ export const STAGE_VIEW_CSS = `
 .tcs-stage { flex: 1; position: relative; overflow: auto; padding: 18px 20px; }
 
 .tcs-inbox-pane {
-  width: 248px; flex-shrink: 0; border-left: 1px solid var(--tcs-border);
+  width: 292px; flex-shrink: 0; border-left: 1px solid var(--tcs-border);
   background: var(--tcs-sidebar); display: flex; flex-direction: column; min-height: 0; z-index: 3;
 }
 .tcs-inbox-head {
-  padding: 10px 12px; border-bottom: 1px solid var(--tcs-card-border);
-  display: flex; align-items: center; justify-content: space-between; font-size: 12px;
+  padding: 9px 11px; border-bottom: 1px solid var(--tcs-card-border);
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px;
 }
 .tcs-inbox-sub {
-  padding: 6px 12px; font-size: 11px; color: var(--tcs-muted);
+  padding: 5px 11px; font-size: 11px; color: var(--tcs-muted);
   border-bottom: 1px solid var(--tcs-card-border);
   background: color-mix(in srgb, var(--tcs-bg) 60%, transparent);
+}
+.tcs-pocket-tabs {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px;
+  padding: 6px 8px; border-bottom: 1px solid var(--tcs-card-border);
+  background: color-mix(in srgb, var(--tcs-bg) 50%, var(--tcs-sidebar));
+}
+.tcs-pocket-tab {
+  border: 1px solid transparent; background: transparent; border-radius: 7px;
+  padding: 4px 3px; font-size: 11px; color: var(--tcs-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap;
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+.tcs-pocket-tab:hover { background: var(--tcs-subtle); color: var(--tcs-fg); }
+.tcs-pocket-tab.is-active {
+  background: var(--tcs-card); color: var(--tcs-fg); font-weight: 600;
+  border-color: var(--tcs-card-border); box-shadow: var(--tcs-shadow-sm);
+}
+.tcs-pocket-tab.is-alert { color: var(--tcs-warning); }
+.tcs-btn.is-sweep-ready {
+  border-color: color-mix(in srgb, var(--tcs-warning) 55%, var(--tcs-card-border));
+  background: color-mix(in srgb, var(--tcs-warning) 10%, var(--tcs-card));
+  color: var(--tcs-fg);
 }
 .tcs-inbox-list { flex: 1; overflow-y: auto; padding: 9px; display: flex; flex-direction: column; gap: 8px; }
 .tcs-inbox-card {
@@ -180,6 +205,50 @@ export const STAGE_VIEW_CSS = `
 .tcs-inbox-card:hover { border-color: var(--tcs-warning); }
 .tcs-inbox-card.is-dimmed { opacity: 0.56; }
 .tcs-inbox-card.is-dimmed:hover { opacity: 1; }
+.tcs-inbox-actions {
+  margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--tcs-card-border);
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.tcs-inbox-chip-btn {
+  border: 1px solid var(--tcs-card-border); background: var(--tcs-bg); color: var(--tcs-muted);
+  border-radius: 6px; padding: 2px 6px; font-size: 10.5px; cursor: pointer;
+  transition: border-color 140ms, color 140ms, background 140ms;
+}
+.tcs-inbox-chip-btn:hover { border-color: var(--tcs-primary); color: var(--tcs-fg); }
+.tcs-inbox-chip-btn.is-primary {
+  border-color: color-mix(in srgb, var(--tcs-success) 42%, var(--tcs-card-border));
+  background: color-mix(in srgb, var(--tcs-success) 10%, var(--tcs-card));
+  color: var(--tcs-success);
+}
+.tcs-ai-hint {
+  margin-top: 6px; padding: 5px 7px; border-radius: 7px; font-size: 11px;
+  border: 1px dashed color-mix(in srgb, var(--tcs-primary) 50%, var(--tcs-card-border));
+  background: color-mix(in srgb, var(--tcs-primary) 6%, var(--tcs-card));
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tcs-ledger-row {
+  border-radius: 9px; border: 1px solid var(--tcs-card-border); background: var(--tcs-card);
+  padding: 8px 9px; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px;
+}
+.tcs-ledger-row.is-undone { opacity: 0.52; text-decoration: line-through; }
+.tcs-sweep-strip {
+  border-radius: 12px; border: 1px solid var(--tcs-card-border);
+  background: color-mix(in srgb, var(--tcs-card) 92%, var(--tcs-sidebar));
+  padding: 10px 13px;
+}
+.tcs-sweep-strip.is-ready {
+  border-color: color-mix(in srgb, var(--tcs-warning) 48%, var(--tcs-card-border));
+  background: color-mix(in srgb, var(--tcs-warning) 6%, var(--tcs-card));
+}
+.tcs-sweep-strip > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; gap: 8px; flex-wrap: wrap;
+}
+.tcs-sweep-strip > summary::-webkit-details-marker { display: none; }
+.tcs-sweep-body {
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--tcs-card-border);
+  display: flex; flex-direction: column; gap: 7px;
+}
 
 .tcs-tone-amber {
   background: color-mix(in srgb, var(--tcs-warning) 9%, var(--tcs-card));
@@ -616,7 +685,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-discuss>${port.onDiscussInDsh ? "在 DSH 讨论当前画面" : "向 Agent 讨论当前画面"}</button>
         <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">↶ 撤销</button>
-        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>Inbox · 0</button>
+        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>小尾巴 0 · 别忘 0 · 想法 0</button>
         ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">独立窗</button>` : ""}
         ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">✕</button>` : ""}
       </div>
@@ -641,9 +710,10 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       </div>
       <aside class="tcs-inbox-pane" data-tcs-inbox-pane>
         <div class="tcs-inbox-head">
-          <span style="font-weight:600">Inbox 浮带 <span data-tcs-inbox-count class="tcs-badge tcs-badge-mist" style="margin-left:4px">0</span></span>
-          <span style="font-size:11px;color:var(--tcs-muted)">0ms 匹配</span>
+          <span style="font-weight:600">随想三口袋 <span data-tcs-inbox-count class="tcs-badge tcs-badge-mist" style="margin-left:4px">0</span></span>
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-refine-inbox-ai title="使用已配置的轻量模型梳理拆分与归类建议（仅提示不改原笔记）">AI 轻梳理</button>
         </div>
+        <div class="tcs-pocket-tabs" data-tcs-inbox-tabs></div>
         <div class="tcs-inbox-sub" data-tcs-inbox-sub>悬停照亮归属 · 拖拽直接安放</div>
         <div data-tcs-inbox-diag></div>
         <div class="tcs-inbox-list" data-tcs-inbox-list></div>
@@ -672,6 +742,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   const restartEl = root.querySelector<HTMLElement>("[data-tcs-restart]")!;
   const inboxPaneEl = root.querySelector<HTMLElement>("[data-tcs-inbox-pane]")!;
   const inboxCountEl = root.querySelector<HTMLElement>("[data-tcs-inbox-count]")!;
+  const inboxTabsEl = root.querySelector<HTMLElement>("[data-tcs-inbox-tabs]")!;
   const inboxSubEl = root.querySelector<HTMLElement>("[data-tcs-inbox-sub]")!;
   const inboxDiagEl = root.querySelector<HTMLElement>("[data-tcs-inbox-diag]")!;
   const inboxListEl = root.querySelector<HTMLElement>("[data-tcs-inbox-list]")!;
@@ -685,6 +756,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   let hoveredInboxId: string | null = null;
   let draggingInboxId: string | null = null;
   let inboxCollapsed = false;
+  let activeInboxTab: "sweep" | "commit" | "spark" | "ledger" = "sweep";
+  let userPickedInboxTab = false;
+  let refiningAi = false;
   let finishingFocusInline = false;
   let pendingFriction: {
     slotId: TimeSlotId;
@@ -1492,36 +1566,230 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     `;
   };
 
+  const isSweepWindowActive = (sweepWindowTime = DEFAULT_SWEEP_WINDOW_TIME): boolean => {
+    const [hh, mm] = sweepWindowTime.split(":").map(Number);
+    const nowDt = new Date();
+    const curMin = nowDt.getHours() * 60 + nowDt.getMinutes();
+    const targetMin = (Number.isFinite(hh) ? hh! : 17) * 60 + (Number.isFinite(mm) ? mm! : 15);
+    return curMin >= Math.max(0, targetMin - 15);
+  };
+
+  const formatShortTime = (ms: number): string => {
+    const d = new Date(ms);
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${mm}-${dd} ${hh}:${min}`;
+  };
+
   const renderInbox = (snap: StageSnapshot) => {
     const activeItems = snap.inbox.filter((i) => !i.cooled);
     const cooledItems = snap.inbox.filter((i) => i.cooled);
+    const sweepItems = activeItems.filter((i) => i.pocket === "sweep");
+    const commitItems = activeItems.filter((i) => i.pocket === "commit");
+    const sparkItems = activeItems.filter((i) => i.pocket === "spark");
+    const ledgerItems: StageInboxFlowLedgerEntry[] = snap.flowLedger ?? [];
+    const pockets = snap.inboxPockets;
+    const sweepWindowTime = pockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME;
+
+    if (!userPickedInboxTab) {
+      if (sweepItems.length > 0) activeInboxTab = "sweep";
+      else if (commitItems.length > 0) activeInboxTab = "commit";
+      else if (sparkItems.length > 0) activeInboxTab = "spark";
+      else if (ledgerItems.length > 0) activeInboxTab = "ledger";
+      else activeInboxTab = "sweep";
+    }
+
     inboxCountEl.textContent = String(activeItems.length);
+    const refineBtn = root.querySelector<HTMLButtonElement>("[data-refine-inbox-ai]");
+    if (refineBtn) {
+      refineBtn.disabled = refiningAi || activeItems.length === 0;
+      refineBtn.textContent = refiningAi ? "梳理中..." : "AI 轻梳理";
+    }
+
+    inboxTabsEl.innerHTML = `
+      <button type="button" class="tcs-pocket-tab ${activeInboxTab === "sweep" ? "is-active" : ""} ${isSweepWindowActive(sweepWindowTime) && sweepItems.length > 0 ? "is-alert" : ""}" data-inbox-tab="sweep">小尾巴 ${sweepItems.length}</button>
+      <button type="button" class="tcs-pocket-tab ${activeInboxTab === "commit" ? "is-active" : ""} ${(pockets?.commitOverload ?? false) ? "is-alert" : ""}" data-inbox-tab="commit">别忘 ${commitItems.length}</button>
+      <button type="button" class="tcs-pocket-tab ${activeInboxTab === "spark" ? "is-active" : ""}" data-inbox-tab="spark">想法 ${sparkItems.length}</button>
+      <button type="button" class="tcs-pocket-tab ${activeInboxTab === "ledger" ? "is-active" : ""}" data-inbox-tab="ledger">台账 ${ledgerItems.filter((e) => !e.undone).length}</button>
+    `;
+
     const focusedArea = findArea(snap.viewport.areaId);
     const focusedProjKey = snap.viewport.projectWorkKey;
-    inboxSubEl.textContent = focusedArea
-      ? `反向共振：「${focusedArea.name}」相关项已上浮`
-      : "悬停照亮归属 · 拖拽安放 · 点选供 Agent 指代";
+    if (activeInboxTab === "sweep") {
+      inboxSubEl.textContent = `今日小尾巴 · 平时静默，${sweepWindowTime} 清扫统一收尾`;
+    } else if (activeInboxTab === "commit") {
+      inboxSubEl.textContent = "别忘 / 已答应 · 硬编码免 14 天冷却，不悄悄消失";
+    } else if (activeInboxTab === "spark") {
+      inboxSubEl.textContent = focusedArea
+        ? `随手想法 · 「${focusedArea.name}」相关项已上浮`
+        : "随手想法 · 零负罪沉淀，拖拽安放或沉淀周复盘";
+    } else {
+      inboxSubEl.textContent = "流转台账 · 近 7 天处理去向，支持一键撤回";
+    }
 
+    const diagNotices: string[] = [];
     const icloudDiag = snap.inboxDiagnostics?.icloud;
     if (icloudDiag && icloudDiag.status === "permission-denied") {
-      inboxDiagEl.innerHTML = `
+      diagNotices.push(`
         <div class="tcs-diag-notice">
           <div style="font-weight:600">iCloud 语音目录暂未授权</div>
           <div style="color:var(--tcs-muted);margin-top:3px;">${esc(icloudDiag.guidance ?? icloudDiag.message ?? "请在系统设置开启文件与文件夹权限。")}</div>
         </div>
-      `;
-    } else {
-      inboxDiagEl.innerHTML = "";
+      `);
+    } else if (icloudDiag && (icloudDiag.evictedCount ?? 0) > 0) {
+      diagNotices.push(`
+        <div class="tcs-diag-notice">
+          <div style="font-weight:600">发现 ${icloudDiag.evictedCount} 条 iCloud 云端占位语音</div>
+          <div style="color:var(--tcs-muted);margin-top:3px;">${esc(icloudDiag.guidance ?? icloudDiag.message ?? "已自动触发下载，建议在 Finder 右键 TaskCopilotInbox 选择「保持下载」。")}</div>
+        </div>
+      `);
+    }
+    if ((pockets?.pendingJournalCount ?? 0) > 0) {
+      diagNotices.push(`
+        <div class="tcs-diag-notice">
+          <div style="font-weight:600">${pockets!.pendingJournalCount} 条离线收录待回落日记</div>
+          <div style="color:var(--tcs-muted);margin-top:2px;">下次打开 Logseq 将自动补写进对应日期日记，去重不重复。</div>
+        </div>
+      `);
+    }
+    inboxDiagEl.innerHTML = diagNotices.join("");
+
+    if (activeInboxTab === "ledger") {
+      if (ledgerItems.length === 0) {
+        inboxListEl.innerHTML = `<div style="padding:18px;text-align:center;font-size:12px;color:var(--tcs-muted)">近 7 天暂无随想流转记录</div>`;
+        return;
+      }
+      inboxListEl.innerHTML = ledgerItems
+        .map(
+          (entry) => `
+          <div class="tcs-ledger-row ${entry.undone ? "is-undone" : ""}">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span class="tcs-badge tcs-badge-teal">${esc(entry.destinationLabel)}</span>
+              <span style="font-size:10.5px;color:var(--tcs-muted);">${esc(formatShortTime(entry.at))}</span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;">${esc(entry.text)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10.5px;color:var(--tcs-muted);">
+              <span>${esc(entry.sourceLabel)} · 原属 ${esc(pocketLabel(entry.fromPocket))}</span>
+              ${
+                !entry.undone
+                  ? `<button type="button" class="tcs-inbox-chip-btn" data-undo-ledger="${esc(entry.id)}">撤回</button>`
+                  : `<span>已撤回</span>`
+              }
+            </div>
+          </div>`,
+        )
+        .join("");
+      return;
     }
 
-    if (snap.inbox.length === 0) {
-      inboxListEl.innerHTML = `<div style="padding:18px;text-align:center;font-size:12px;color:var(--tcs-muted)">Inbox 暂无待处理线索</div>`;
-      return;
+    const renderAiHint = (item: StageInboxViewItem): string => {
+      const hint = item.aiHint;
+      if (!hint) return "";
+      const suggestDiff = hint.suggestedPocket && hint.suggestedPocket !== item.pocket;
+      return `
+        <div class="tcs-ai-hint">
+          <div style="color:var(--tcs-primary);font-weight:600;">AI 轻梳理${hint.summary ? ` · ${esc(hint.summary)}` : ""}</div>
+          ${hint.reason ? `<div style="color:var(--tcs-muted);">${esc(hint.reason)}</div>` : ""}
+          ${
+            hint.splitCandidates && hint.splitCandidates.length >= 2
+              ? `<div style="color:var(--tcs-muted);">建议拆分：${hint.splitCandidates.map((s) => esc(s)).join(" / ")}</div>`
+              : ""
+          }
+          ${
+            suggestDiff
+              ? `<div><button type="button" class="tcs-inbox-chip-btn is-primary" data-move-pocket="${esc(item.id)}|${hint.suggestedPocket}">采纳建议 -> ${esc(pocketLabel(hint.suggestedPocket!))}</button></div>`
+              : ""
+          }
+        </div>
+      `;
+    };
+
+    const renderCard = (item: StageInboxViewItem, bubbled: boolean, dimmed: boolean) => {
+      const selected = snap.viewport.selectedInboxId === item.id;
+      const areaTags = item.matchAreaIds
+        .map((id) => snap.areas.find((a) => a.id === id)?.name)
+        .filter((n): n is string => Boolean(n));
+
+      const statusBadges: string[] = [];
+      if (item.immuneToCooling) statusBadges.push(`<span class="tcs-badge tcs-badge-mismatch">免 14 天冷却</span>`);
+      if (item.failSafe) statusBadges.push(`<span class="tcs-badge tcs-badge-amber">兜底防漏</span>`);
+      if ((item.carryoverDays ?? 0) >= 2) {
+        statusBadges.push(`<span class="tcs-badge tcs-badge-mismatch">已顺延 ${item.carryoverDays} 天</span>`);
+      } else if (item.carryoverDays === 1) {
+        statusBadges.push(`<span class="tcs-badge tcs-badge-mist">已锁进明日</span>`);
+      }
+      if (item.sprouting && item.threadLabel) {
+        statusBadges.push(`<span class="tcs-badge tcs-badge-teal">${esc(item.threadLabel)}${item.threadCount ? ` (${item.threadCount})` : ""}</span>`);
+      }
+      if (item.isFeed && !item.sprouting) {
+        statusBadges.push(`<span class="tcs-badge tcs-badge-mist">项目共振</span>`);
+      }
+      if (item.pendingJournalFlush) {
+        statusBadges.push(`<span class="tcs-badge tcs-badge-ghost">待落日记</span>`);
+      }
+
+      let actionRow = "";
+      if (!item.cooled) {
+        if (item.pocket === "sweep") {
+          actionRow = `
+            <button type="button" class="tcs-inbox-chip-btn is-primary" data-sweep-done="${esc(item.id)}">办完划掉</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-sweep-tomorrow="${esc(item.id)}">锁进明日</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|commit">转别忘</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|spark">退回想法</button>
+          `;
+        } else if (item.pocket === "commit") {
+          actionRow = `
+            <button type="button" class="tcs-inbox-chip-btn is-primary" data-inbox-to-week="${esc(item.id)}">装入本周</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-sweep-done="${esc(item.id)}">已办妥</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|sweep">降为小尾巴</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|spark">退回想法</button>
+          `;
+        } else {
+          actionRow = `
+            <button type="button" class="tcs-inbox-chip-btn is-primary" data-archive-review="${esc(item.id)}">沉淀周复盘</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|sweep">转小尾巴</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-move-pocket="${esc(item.id)}|commit">转别忘</button>
+            <button type="button" class="tcs-inbox-chip-btn" data-archive-one="${esc(item.id)}">释怀</button>
+          `;
+        }
+      }
+
+      return `
+        <div class="tcs-inbox-card ${selected ? "tcs-tone-amber tcs-amber-resonate" : bubbled ? "tcs-tone-amber" : ""} ${dimmed && !selected ? "is-dimmed" : ""}"
+          draggable="true"
+          data-inbox-id="${esc(item.id)}">
+          ${statusBadges.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">${statusBadges.join("")}</div>` : ""}
+          <div style="font-size:12px;line-height:1.45;margin-bottom:5px;">${esc(item.text)}</div>
+          <div style="display:flex;justify-content:space-between;gap:6px;font-size:10.5px;color:var(--tcs-muted);">
+            <span>${esc(item.sourceLabel)}${item.ageDays > 0 ? ` · ${item.ageDays}天前` : ""}</span>
+            ${selected ? `<span style="color:var(--tcs-warning);font-weight:600;">已选指代</span>` : ""}
+          </div>
+          ${
+            areaTags.length > 0
+              ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">${areaTags.map((n) => `<span class="tcs-badge tcs-badge-amber">-> ${esc(n)}</span>`).join("")}</div>`
+              : ""
+          }
+          ${renderAiHint(item)}
+          ${actionRow ? `<div class="tcs-inbox-actions">${actionRow}</div>` : ""}
+        </div>
+      `;
+    };
+
+    const currentList =
+      activeInboxTab === "sweep" ? sweepItems : activeInboxTab === "commit" ? commitItems : sparkItems;
+
+    let topAlert = "";
+    if (activeInboxTab === "commit" && (pockets?.commitOverload ?? false)) {
+      topAlert = `<div class="tcs-diag-notice" style="margin:0;"><strong>待兑现承诺已有 ${commitItems.length} 条</strong><div style="color:var(--tcs-muted);margin-top:2px;">建议挑 1 条装入本周容器，或直接处理掉最轻的一条。</div></div>`;
+    } else if (activeInboxTab === "sweep" && (pockets?.sweepCarryoverCount ?? 0) > 0) {
+      topAlert = `<div class="tcs-diag-notice" style="margin:0;"><strong>有 ${pockets!.sweepCarryoverCount} 条小尾巴连续顺延 >= 2 天</strong><div style="color:var(--tcs-muted);margin-top:2px;">超过 15 分钟的事请直接点「转别忘」，不要长期滞留小尾巴。</div></div>`;
     }
 
     const matched: StageInboxViewItem[] = [];
     const others: StageInboxViewItem[] = [];
-    for (const item of activeItems) {
+    for (const item of currentList) {
       const hit = focusedProjKey
         ? item.matchProjectWorkKeys.includes(focusedProjKey) || (focusedArea ? item.matchAreaIds.includes(focusedArea.id) : false)
         : focusedArea
@@ -1531,46 +1799,30 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       else others.push(item);
     }
 
-    const renderCard = (item: StageInboxViewItem, bubbled: boolean, dimmed: boolean) => {
-      const selected = snap.viewport.selectedInboxId === item.id;
-      const areaTags = item.matchAreaIds
-        .map((id) => snap.areas.find((a) => a.id === id)?.name)
-        .filter((n): n is string => Boolean(n));
-      return `
-        <div class="tcs-inbox-card ${selected ? "tcs-tone-amber tcs-amber-resonate" : bubbled ? "tcs-tone-amber" : ""} ${dimmed && !selected ? "is-dimmed" : ""}"
-          draggable="true"
-          data-inbox-id="${esc(item.id)}">
-          <div style="font-size:12px;line-height:1.45;margin-bottom:5px;">${esc(item.text)}</div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--tcs-muted);">
-            <span>${esc(item.sourceLabel)}${item.cooled ? ` · ${item.ageDays}天前` : ""}</span>
-            ${selected ? `<span style="color:var(--tcs-warning);font-weight:600;">已选指代</span>` : ""}
-          </div>
-          ${
-            areaTags.length > 0
-              ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">${areaTags.map((n) => `<span class="tcs-badge tcs-badge-amber">→ ${esc(n)}</span>`).join("")}</div>`
-              : ""
-          }
-        </div>
-      `;
-    };
+    const emptyCopy =
+      activeInboxTab === "sweep"
+        ? "今日小尾巴为空，安心推进当前主线"
+        : activeInboxTab === "commit"
+          ? "暂无未兑现承诺与模糊责任"
+          : "暂无近期随手想法线索";
 
-    const activeHtml =
-      activeItems.length === 0
-        ? `<div style="padding:12px;text-align:center;font-size:12px;color:var(--tcs-muted)">近期无未处理碎片</div>`
+    const listHtml =
+      currentList.length === 0
+        ? `<div style="padding:16px 10px;text-align:center;font-size:12px;color:var(--tcs-muted)">${emptyCopy}</div>`
         : focusedArea && matched.length > 0
           ? `<div style="font-size:11px;font-weight:600;color:var(--tcs-warning);padding:2px 4px;">本领域共振（${matched.length}）</div>` +
             matched.map((i) => renderCard(i, true, false)).join("") +
-            (others.length > 0 ? `<div style="font-size:11px;color:var(--tcs-muted);padding:6px 4px 2px;">其他 Inbox（${others.length}）</div>` : "") +
+            (others.length > 0 ? `<div style="font-size:11px;color:var(--tcs-muted);padding:6px 4px 2px;">其他条目（${others.length}）</div>` : "") +
             others.map((i) => renderCard(i, false, true)).join("")
-          : activeItems.map((i) => renderCard(i, false, false)).join("");
+          : currentList.map((i) => renderCard(i, false, false)).join("");
 
     const cooledHtml =
-      cooledItems.length > 0
+      activeInboxTab === "spark" && cooledItems.length > 0
         ? `
         <details class="tcs-cooled-box">
           <summary>
-            <span>已冷却 · 14 天以上（${cooledItems.length}）</span>
-            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键归档</button>
+            <span>14 天自然收起（${cooledItems.length} · 不含承诺项）</span>
+            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-archive-cooled>一键释怀</button>
           </summary>
           <div class="tcs-cooled-list">
             ${cooledItems.map((i) => renderCard(i, false, true)).join("")}
@@ -1578,7 +1830,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         </details>`
         : "";
 
-    inboxListEl.innerHTML = activeHtml + cooledHtml;
+    inboxListEl.innerHTML = topAlert + listHtml + cooledHtml;
   };
 
   const renderL3 = (snap: StageSnapshot) => {
@@ -1982,6 +2234,52 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       })
       .join("");
 
+    const sweepItems = snap.inbox.filter((i) => !i.cooled && i.pocket === "sweep");
+    const sweepWindowTime = snap.inboxPockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME;
+    const sweepReady = isSweepWindowActive(sweepWindowTime) && sweepItems.length > 0;
+    const sweepStripHtml = `
+      <details class="tcs-sweep-strip ${sweepReady ? "is-ready" : ""}" ${sweepReady ? "open" : ""}>
+        <summary>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <strong style="font-size:13px;">下午清扫时刻（${esc(sweepWindowTime)}）</strong>
+            <span class="tcs-badge ${sweepReady ? "tcs-badge-amber" : "tcs-badge-mist"}">今日小尾巴 ${sweepItems.length} 条</span>
+          </div>
+          <span style="font-size:11.5px;color:var(--tcs-muted);">${
+            sweepReady
+              ? "已到清扫窗口，一次收尾清空大脑工作记忆"
+              : "平时静默不打扰 · 间隙可随时展开顺手拉出 1 条"
+          }</span>
+        </summary>
+        <div class="tcs-sweep-body">
+          ${
+            sweepItems.length === 0
+              ? `<div class="tcs-blank-hint">当前没有挂起的今日小尾巴。</div>`
+              : sweepItems
+                  .map(
+                    (item) => `
+                  <div class="tcs-move-row">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                      <div style="min-width:0;flex:1;">
+                        <div style="font-size:12.5px;font-weight:500;">${esc(item.text)}</div>
+                        <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
+                          ${esc(item.sourceLabel)}${(item.carryoverDays ?? 0) >= 2 ? ` · 已顺延 ${item.carryoverDays} 天（建议超过 15 分钟转别忘）` : item.failSafe ? " · 兜底防漏" : ""}
+                        </div>
+                      </div>
+                      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sweep-done="${esc(item.id)}">办完划掉</button>
+                        <button type="button" class="tcs-btn tcs-btn-sm" data-sweep-tomorrow="${esc(item.id)}">锁进明日</button>
+                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-move-pocket="${esc(item.id)}|commit">转别忘</button>
+                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-move-pocket="${esc(item.id)}|spark">退回想法</button>
+                      </div>
+                    </div>
+                  </div>`,
+                  )
+                  .join("")
+          }
+        </div>
+      </details>
+    `;
+
     stageEl.innerHTML = `
       <div class="tcs-time-wrap ${animCls}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -1997,6 +2295,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         ${frictionHtml}
         ${ghostHtml}
         ${slotsHtml}
+        ${sweepStripHtml}
       </div>
     `;
   };
@@ -2087,8 +2386,15 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       btn.setAttribute("aria-selected", String(isCurrent));
     });
 
-    const activeInboxCount = next.inbox.filter((i) => !i.cooled).length;
-    inboxToggleBtn.textContent = `Inbox · ${activeInboxCount}`;
+    const pockets = next.inboxPockets;
+    const sweepCnt = pockets?.sweepCount ?? next.inbox.filter((i) => !i.cooled && i.pocket === "sweep").length;
+    const commitCnt = pockets?.commitCount ?? next.inbox.filter((i) => !i.cooled && i.pocket === "commit").length;
+    const sparkCnt = pockets?.sparkCount ?? next.inbox.filter((i) => !i.cooled && i.pocket === "spark").length;
+    inboxToggleBtn.textContent = `小尾巴 ${sweepCnt} · 别忘 ${commitCnt} · 想法 ${sparkCnt}`;
+    inboxToggleBtn.classList.toggle(
+      "is-sweep-ready",
+      isSweepWindowActive(pockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME) && sweepCnt > 0,
+    );
     inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
 
     // Header contextual controls
@@ -2713,7 +3019,106 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     if (target.closest("[data-archive-cooled]")) {
       event.preventDefault();
       event.stopPropagation();
-      void runAction({ type: "archive-cooled-inbox" }, "已归档超过 14 天的冷却碎片");
+      void runAction({ type: "archive-cooled-inbox" }, "已释怀超过 14 天的自然收起项（承诺项已保留）");
+      return;
+    }
+    const inboxTabTarget = target.closest<HTMLElement>("[data-inbox-tab]")?.dataset.inboxTab;
+    if (inboxTabTarget && (inboxTabTarget === "sweep" || inboxTabTarget === "commit" || inboxTabTarget === "spark" || inboxTabTarget === "ledger")) {
+      event.stopPropagation();
+      activeInboxTab = inboxTabTarget;
+      userPickedInboxTab = true;
+      renderInbox(snapshot);
+      drawTethers();
+      return;
+    }
+    if (target.closest("[data-refine-inbox-ai]")) {
+      event.stopPropagation();
+      if (refiningAi) return;
+      refiningAi = true;
+      renderInbox(snapshot);
+      void Promise.resolve(port.dispatch({ type: "refine-inbox-ai" }))
+        .then((res) => {
+          refiningAi = false;
+          if (res && !disposed) update(res);
+          showToast("AI 轻梳理完成（仅展示建议，未改动任何原笔记）");
+        })
+        .catch((err) => {
+          refiningAi = false;
+          if (snapshot && !disposed) renderInbox(snapshot);
+          showToast(err instanceof Error ? err.message : "AI 轻梳理失败，已保持本地规则结果");
+        });
+      return;
+    }
+    const sweepDoneId = target.closest<HTMLElement>("[data-sweep-done]")?.dataset.sweepDone;
+    if (sweepDoneId) {
+      event.stopPropagation();
+      void runAction({ type: "sweep-complete", inboxId: sweepDoneId, disposition: "done" }, "已完成并记入近 7 天流转台账");
+      return;
+    }
+    const sweepTomorrowId = target.closest<HTMLElement>("[data-sweep-tomorrow]")?.dataset.sweepTomorrow;
+    if (sweepTomorrowId) {
+      event.stopPropagation();
+      void runAction({ type: "sweep-complete", inboxId: sweepTomorrowId, disposition: "tomorrow" }, "已锁进明日小尾巴，不再在脑中挂念");
+      return;
+    }
+    const movePocketRaw = target.closest<HTMLElement>("[data-move-pocket]")?.dataset.movePocket;
+    if (movePocketRaw) {
+      event.stopPropagation();
+      const [inboxId, pocket] = movePocketRaw.split("|");
+      if (inboxId && (pocket === "sweep" || pocket === "commit" || pocket === "spark")) {
+        void runAction(
+          { type: "set-inbox-pocket", inboxId, pocket: pocket as StageInboxPocket },
+          `已移入「${pocketLabel(pocket as StageInboxPocket)}」`,
+        );
+      }
+      return;
+    }
+    const inboxToWeekId = target.closest<HTMLElement>("[data-inbox-to-week]")?.dataset.inboxToWeek;
+    if (inboxToWeekId) {
+      event.stopPropagation();
+      const inboxItem = snapshot.inbox.find((i) => i.id === inboxToWeekId);
+      if (inboxItem) {
+        void runAction(
+          {
+            type: "time",
+            action: {
+              type: "add-week-move",
+              title: inboxItem.text.slice(0, 120),
+              areaId: inboxItem.matchAreaIds[0] ?? null,
+              projectWorkKey: inboxItem.matchProjectWorkKeys[0] ?? null,
+              sourceInboxId: inboxItem.id,
+            },
+          },
+          "已装入本周容器",
+        ).then(() => void runAction({ type: "archive-inbox-items", inboxIds: [inboxItem.id] }));
+      }
+      return;
+    }
+    const archiveReviewId = target.closest<HTMLElement>("[data-archive-review]")?.dataset.archiveReview;
+    if (archiveReviewId) {
+      event.stopPropagation();
+      const inboxItem = snapshot.inbox.find((i) => i.id === archiveReviewId);
+      void runAction(
+        {
+          type: "archive-to-review",
+          inboxId: archiveReviewId,
+          areaId: inboxItem?.matchAreaIds[0] ?? null,
+          projectWorkKey: inboxItem?.matchProjectWorkKeys[0] ?? null,
+        },
+        "已沉淀至本周复盘文档（带领域/项目反链）",
+      );
+      return;
+    }
+    const archiveOneId = target.closest<HTMLElement>("[data-archive-one]")?.dataset.archiveOne;
+    if (archiveOneId) {
+      event.stopPropagation();
+      void runAction({ type: "archive-inbox-items", inboxIds: [archiveOneId] }, "已释怀归档（原文安全保留，可在台账一键撤回）");
+      return;
+    }
+    const undoLedgerId = target.closest<HTMLElement>("[data-undo-ledger]")?.dataset.undoLedger;
+    if (undoLedgerId) {
+      event.stopPropagation();
+      void runAction({ type: "undo-ledger-entry", entryId: undoLedgerId }, "已撤回该条流转，随想已回到对应口袋");
       return;
     }
     if (target.closest("[data-tidy-l0]")) {

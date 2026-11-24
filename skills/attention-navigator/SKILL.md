@@ -33,13 +33,14 @@ description: 个人主力工作台的顶层注意力参谋。结合实时活舞�
 
 ### 第一档 · 观察（Watch，静默只读）
 先拉事实，再开口：
-- `stage_get_pulse`：读取全局四态星区（`focusRole / domain / quarterGoal / antiGoal / weeklyMinimum`）、`mismatchSignals`（主线错配事实）、休眠/搁置区、`unassignedWorks`、活跃与已冷却（>14 天）Inbox（含 `ios-shortcut` iPhone 随口记与 `flomo`）、以及 `inboxDiagnostics`（若 iCloud 目录被 macOS TCC 拦截，如实向用户展示授权指引）。
+- `stage_get_pulse`：读取全局四态星区（`focusRole / domain / quarterGoal / antiGoal / weeklyMinimum`）、`mismatchSignals`（主线错配事实）、休眠/搁置区、`unassignedWorks`、三口袋 Inbox 统计（`inboxPockets`：今日小尾巴 `sweep` / 别忘·已答应 `commit`（硬编码免疫 14 天冷却）/ 随手想法 `spark` 及正在发芽簇）、近 7 天流转台账（`flowLedger`）、以及 `inboxDiagnostics`（若 iCloud 目录被 TCC 拦截或存在云端占位文件 `evictedCount > 0`，如实向用户展示指引）。
 - `time_get_overview`：读取纯语义时间中心实况——本周推进块与 Apple 日历硬日程密度推导的建议容量（常规 3–5 块，密集周 1–3 块）、今日三槽（上午·深潜 / 下午·推进 / 晚上·轻放）与剩余空间、昨日遗留托盘（含 `repeatCarryoverItems` 连续 >= 3 次遗留项）、各领域本周真实专注时长（`weeklyAreaFocusMinutes`）、以及 `calendarDiagnostics`。
-- `stage_get_view`：读取用户当前悬浮活舞台视角（季节星区 / 本周容器 / 今日容器、选中的 Inbox、待拍板虚态提案）。
+- `stage_get_view`：读取用户当前悬浮活舞台视角（季节星区 / 本周容器 / 今日容器、选中的 Inbox、三口袋水位、待拍板虚态提案）。
 - `workbench_list_works`：需要核对全量 Logseq 工作目录与近期更新脉搏时只读查询。
 
-### 第二档 · 推演（Draft，活舞台虚态预览）
+### 第二档 · 推演与随手收录（Draft & Capture）
 结构与排期提案一律放到画布上，对话区只给 1–2 句直击要害的理由：
+- `stage_capture_inbox`：当用户在任意 Agent 对话中突然冒出一个临时小尾巴、外部承诺或随手想法（“先帮我记一下…”）时直接调用。Logseq 在线时零弹窗追加进今日日记并做防回声去重；Logseq 离线时安全暂存至 Companion 并即时投影进三口袋活舞台，严禁直接写盘改 `journals/*.md`。
 - `stage_propose_areas`：整图冷启动或换季重塑（硬控 4–7 个 Area，至多 1 个 `main`，支持 `focusRole`、`domain`、`quarterGoal`、`antiGoal`、`weeklyMinimum`）。
 - `stage_propose_area_role`：针对单个已有 Area 提议四态升降级、领域切换或更新目标/反目标/每周底线；升为 `main` 时通过 `demoteCurrentMainTo` 明确被置换原主线的去向。
 - `stage_sprout_branches`：在具体领域或项目下生长 1–3 条轻量推进分支，可绑定 `sourceInboxId`。
@@ -108,8 +109,8 @@ description: 个人主力工作台的顶层注意力参谋。结合实时活舞�
 ### 剧本 B：周日复盘与下周装盒（10–12 分钟）
 1. **5 行客观事实镜**
    - 静默调用 `stage_get_pulse`，用不超过 5 行列出：本季主线近 7 天真实脉搏、是否存在错配、其他活跃领域、待处理语音 Inbox 数（含已冷却 >14 天条数）、以及 iCloud 权限若异常则附一句提示。
-2. **Inbox 批量分流**
-   - 按领域将本周 iPhone 随口记 / Flomo 碎片预聚，单独点出超过 14 天的冷却项，让用户一轮拍板：收进目标领域（`stage_propose_move` / `stage_sprout_branches`）或直接清理归档。
+2. **三口袋随想分流与下午清扫协同**
+   - 核对 `inboxPockets`：优先点出「别忘 / 已答应（`commit`，免 14 天冷却）」中超过 3 条的堆积与「今日小尾巴（`sweep`）」连续顺延 >= 2 天的条目；对「随手想法（`spark`）」中 `sprouting` 正在发芽的主题簇提议安放进目标领域或沉淀至本周复盘，对已冷却 >14 天条目提供零负罪一键释怀。
 3. **直面错配与做减法**
    - 若存在主线错配或超载，只抛 1 个锋利问题完成取舍；需要升降级时调用 `stage_propose_area_role` 虚态预览。
 4. **装盒与预置周一开局**

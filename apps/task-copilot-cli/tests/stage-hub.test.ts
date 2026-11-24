@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { workKey } from "@task-copilot/contracts";
@@ -334,6 +334,245 @@ test("Companion StageHub serves stage_* MCP tools, /stage/app, SSE, Inbox resona
     assert.equal(snap.inbox.length, 0, "Consumed inbox item must remain archived from Stage queue");
   } finally {
     await restarted.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("D-63 Phase A: stage_capture_inbox online/offline spool with anti-echo dedup, journal recall, sweep, weekly review backlink, flow ledger undo, and AI refine", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "tc-stage-d63-")));
+  const stateDir = join(root, "state");
+  const inboxDir = join(root, "inbox");
+  const icloudDir = join(root, "icloud");
+  const graphDir = join(root, "mock-graph");
+  await mkdir(stateDir, { recursive: true, mode: 0o700 });
+  await mkdir(inboxDir, { recursive: true, mode: 0o700 });
+  await mkdir(icloudDir, { recursive: true, mode: 0o700 });
+  await mkdir(join(graphDir, "pages"), { recursive: true, mode: 0o700 });
+
+  // Configure a mock DeepSeek fast provider in providers.json (0600)
+  await writeFile(
+    join(stateDir, "providers.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      routes: { fast: "mock-fast", deep: "mock-fast", local: null },
+      profiles: {
+        "mock-fast": {
+          label: "Mock Fast",
+          kind: "openai-compatible",
+          locality: "remote",
+          baseUrl: "https://mock.deepseek.local/v1",
+          model: "deepseek-chat",
+          apiKey: "test-key",
+        },
+      },
+    }),
+    { mode: 0o600 },
+  );
+
+  const mockFetch: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: JSON.stringify({
+                items: [
+                  {
+                    id: "logseq-block:blk-journal-1",
+                    suggestedPocket: "commit",
+                    summary: "明天创好大数据服务器",
+                    reason: "已和庆南约定且有明日截止",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+  const server = await startWorkspaceServer({
+    stateDirectory: stateDir,
+    inboxDirectory: inboxDir,
+    icloudInboxDirectory: icloudDir,
+    watchIcloud: false,
+    appleCalendar: { disabled: true },
+    reading: { fetchImpl: mockFetch, dshAvailable: async () => false },
+  });
+  const { baseUrl, token, instanceId } = server.descriptor;
+  const pluginDescriptor = JSON.parse(await readFile(join(stateDir, "workspace-plugin.json"), "utf8")) as {
+    pluginToken: string;
+  };
+  const cliHeaders = {
+    "content-type": "application/json",
+    authorization: `Bearer ${token}`,
+    "x-workspace-instance": instanceId,
+  };
+  const pluginHeaders = {
+    "content-type": "application/json",
+    "x-workspace-plugin": pluginDescriptor.pluginToken,
+    "x-workspace-instance": instanceId,
+  };
+
+  async function callMcp(name: string, args: Record<string, unknown> = {}) {
+    const res = await fetch(`${baseUrl}/mcp/call`, {
+      method: "POST",
+      headers: cliHeaders,
+      body: JSON.stringify({ name, arguments: args, clientId: "antigravity" }),
+    });
+    assert.equal(res.status, 200, `MCP ${name} failed`);
+    return ((await res.json()) as { value: Record<string, unknown> }).value;
+  }
+
+  try {
+    // 1. Offline Agent capture via stage_capture_inbox (no Logseq plugin polling yet)
+    const offlineCap = await callMcp("stage_capture_inbox", {
+      text: "别忘了给郭工开一下测试库权限",
+      contextTitle: "运维支持",
+    });
+    assert.equal(offlineCap.captured, true);
+    assert.equal(offlineCap.mode, "offline-spooled");
+    assert.equal(offlineCap.pocket, "sweep");
+    assert.equal(offlineCap.pendingJournalFlush, true);
+    const offlineCapId = String(offlineCap.captureId);
+    const offlineInboxId = String(offlineCap.inboxId);
+
+    // Stage snapshot immediately reflects the offline-spooled item!
+    const snapOffline = await server.stageHub.snapshot();
+    assert.equal(snapOffline.inbox.some((i) => i.id === offlineInboxId && i.pendingJournalFlush === true), true);
+    assert.equal(snapOffline.inboxPockets?.pendingJournalCount, 1);
+
+    // User manually re-pockets the offline item to `commit` BEFORE Logseq comes online
+    await server.stageHub.applyAction({ type: "set-inbox-pocket", inboxId: offlineInboxId, pocket: "commit" });
+
+    // 2. Logseq comes online: publishes Journal recall signals + drains & acks pending capture
+    const pubRes = await fetch(`${baseUrl}/plugin/stage/journal-signals`, {
+      method: "POST",
+      headers: pluginHeaders,
+      body: JSON.stringify({
+        graphId: "g-d63",
+        graphName: "主力库",
+        graphPath: graphDir,
+        signals: [
+          {
+            blockUuid: "blk-journal-1",
+            journalDate: "2026-11-24",
+            pageName: "2026-11-24",
+            text: "**[注]** 大数据的那几个服务器注意一下，明天要创好，下午和庆南说过了",
+            updatedAt: Date.now() - 1000,
+          },
+          {
+            blockUuid: "blk-journal-2",
+            journalDate: "2026-11-24",
+            pageName: "2026-11-24",
+            text: "**[想法]** 给个人工作区设计一套跨端文件同步方案",
+            updatedAt: Date.now() - 2000,
+          },
+        ],
+      }),
+    });
+    assert.equal(pubRes.status, 200);
+    const pubBody = (await pubRes.json()) as { value: { accepted: number; pendingCaptures: number } };
+    assert.equal(pubBody.value.accepted, 2);
+    assert.equal(pubBody.value.pendingCaptures, 1);
+
+    const pendingRes = await fetch(`${baseUrl}/plugin/stage/pending-captures`, {
+      method: "POST",
+      headers: pluginHeaders,
+      body: JSON.stringify({}),
+    });
+    const pendingBody = (await pendingRes.json()) as { value: { captures: Array<{ captureId: string }> } };
+    assert.equal(pendingBody.value.captures.length, 1);
+    assert.equal(pendingBody.value.captures[0]!.captureId, offlineCapId);
+
+    // Ack flush with canonical blockUuid -> anti-echo dedup + carry over user's `commit` override!
+    const ackRes = await fetch(`${baseUrl}/plugin/stage/pending-captures/ack`, {
+      method: "POST",
+      headers: pluginHeaders,
+      body: JSON.stringify({
+        captureId: offlineCapId,
+        blockUuid: "blk-flushed-1",
+        pageName: "2026-11-24",
+        journalDate: "2026-11-24",
+      }),
+    });
+    assert.equal(ackRes.status, 200);
+
+    const snapFlushed = await server.stageHub.snapshot();
+    assert.equal(snapFlushed.inboxPockets?.pendingJournalCount, 0);
+    assert.equal(snapFlushed.inbox.some((i) => i.id === offlineInboxId), false, "pending shadow must disappear after ack");
+    const canonicalFlushed = snapFlushed.inbox.find((i) => i.id === "logseq-block:blk-flushed-1");
+    assert.ok(canonicalFlushed, "canonical journal block must appear");
+    assert.equal(canonicalFlushed.pocket, "commit", "user offline pocket override must carry over seamlessly");
+
+    // 3. Online Agent capture via concurrent long-poll wait + immediate ack
+    const waitPromise = fetch(`${baseUrl}/plugin/stage/pending-captures/wait`, {
+      method: "POST",
+      headers: pluginHeaders,
+      body: JSON.stringify({ timeoutMs: 5000 }),
+    });
+    await new Promise((r) => setTimeout(r, 40));
+    const onlineCapPromise = callMcp("stage_capture_inbox", {
+      text: "顺手回一下运维群里的审批消息",
+      prefixHint: "急",
+    });
+    const waitRes = await waitPromise;
+    const waitBody = (await waitRes.json()) as { value: { captures: Array<{ captureId: string; journalDate: string }> } };
+    assert.equal(waitBody.value.captures.length, 1);
+    await fetch(`${baseUrl}/plugin/stage/pending-captures/ack`, {
+      method: "POST",
+      headers: pluginHeaders,
+      body: JSON.stringify({
+        captureId: waitBody.value.captures[0]!.captureId,
+        blockUuid: "blk-online-1",
+        pageName: waitBody.value.captures[0]!.journalDate,
+        journalDate: waitBody.value.captures[0]!.journalDate,
+      }),
+    });
+    const onlineCap = await onlineCapPromise;
+    assert.equal(onlineCap.mode, "journal-appended");
+    assert.equal(onlineCap.blockUuid, "blk-online-1");
+
+    // 4. Optional AI light refinement via mocked DeepSeek fast profile (non-destructive ghost hint)
+    const aiOut = await server.stageHub.applyAction({ type: "refine-inbox-ai" });
+    assert.equal(aiOut.warning, undefined);
+    const hinted = aiOut.snapshot.inbox.find((i) => i.id === "logseq-block:blk-journal-1");
+    assert.equal(hinted?.aiHint?.summary, "明天创好大数据服务器");
+
+    // 5. Sweep complete + Flow Ledger + 1-click Undo
+    const swept = await server.stageHub.applyAction({
+      type: "sweep-complete",
+      inboxId: "logseq-block:blk-online-1",
+      disposition: "done",
+    });
+    assert.equal(swept.snapshot.inbox.some((i) => i.id === "logseq-block:blk-online-1"), false);
+    const ledgerEntry = swept.snapshot.flowLedger?.find((e) => e.inboxId === "logseq-block:blk-online-1");
+    assert.ok(ledgerEntry);
+    assert.equal(ledgerEntry.destination, "sweep-done");
+
+    const undone = await server.stageHub.applyAction({ type: "undo-ledger-entry", entryId: ledgerEntry.id });
+    assert.equal(undone.snapshot.inbox.some((i) => i.id === "logseq-block:blk-online-1"), true);
+
+    // 6. Archive spark thought to weekly review file in <graphPath>/pages/stage-reviews/复盘___YYYY-Www.md
+    const reviewed = await server.stageHub.applyAction({
+      type: "archive-to-review",
+      inboxId: "logseq-block:blk-journal-2",
+    });
+    assert.ok(reviewed.reviewFilePath);
+    assert.match(reviewed.reviewFilePath, /pages\/stage-reviews\/复盘___\d{4}-W\d{2}\.md$/u);
+    const reviewContent = await readFile(reviewed.reviewFilePath, "utf8");
+    assert.match(reviewContent, /type:: 周复盘/);
+    assert.match(reviewContent, /跨端文件同步方案/);
+    assert.equal(reviewed.snapshot.inbox.some((i) => i.id === "logseq-block:blk-journal-2"), false);
+
+    // 7. stage_get_pulse exposes inboxPockets & flowLedger cleanly
+    const pulse = await callMcp("stage_get_pulse");
+    assert.ok(pulse.inboxPockets);
+    assert.ok(Array.isArray(pulse.flowLedger) && pulse.flowLedger.length >= 2);
+  } finally {
+    await server.close();
     await rm(root, { recursive: true, force: true });
   }
 });

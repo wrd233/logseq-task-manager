@@ -122,13 +122,25 @@ export async function runStageSelfCheck(options: StageSelfCheckOptions): Promise
     ...(options.icloudFsOps ? { fsOps: options.icloudFsOps } : {}),
   });
   if (icloud.diagnostic.status === "ok") {
-    items.push({
-      id: "icloud-inbox",
-      label: "iCloud 语音入池",
-      status: "ok",
-      summary: `可读（当前 ${icloud.diagnostic.itemCount} 条，其中冷却 ${icloud.diagnostic.cooledCount ?? 0} 条）`,
-      detail: icloudDir,
-    });
+    const evictedCount = icloud.diagnostic.evictedCount ?? 0;
+    if (evictedCount > 0) {
+      items.push({
+        id: "icloud-inbox",
+        label: "iCloud 语音入池",
+        status: "warn",
+        summary: `可读（本地 ${icloud.diagnostic.itemCount} 条，另有 ${evictedCount} 条处于云端占位待下载，已自动触发拉取）`,
+        detail: icloudDir,
+        ...(icloud.diagnostic.guidance ? { fixHint: icloud.diagnostic.guidance } : {}),
+      });
+    } else {
+      items.push({
+        id: "icloud-inbox",
+        label: "iCloud 语音入池",
+        status: "ok",
+        summary: `可读（当前 ${icloud.diagnostic.itemCount} 条，其中冷却 ${icloud.diagnostic.cooledCount ?? 0} 条）`,
+        detail: icloudDir,
+      });
+    }
   } else if (icloud.diagnostic.status === "permission-denied") {
     items.push({
       id: "icloud-inbox",

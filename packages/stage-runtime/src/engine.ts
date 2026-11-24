@@ -1,6 +1,5 @@
 import type { CatalogSnapshot } from "@task-copilot/contracts";
 import {
-  COOLED_INBOX_DAYS,
   MAIN_MISMATCH_DAYS,
   buildColdStartAreaDrafts,
   computeTone,
@@ -16,6 +15,7 @@ import {
   normalizeAreaKey,
   recencyDays,
 } from "./pulse.ts";
+import { DEFAULT_SWEEP_WINDOW_TIME, summarizeInboxPockets } from "./inbox-classifier.ts";
 import { buildWorkbenchRestartDeck } from "./restart-deck.ts";
 import type { StageViewTab, TimeSnapshot } from "./time-types.ts";
 import type {
@@ -35,6 +35,8 @@ import type {
   StageGhostProposal,
   StageHighlight,
   StageInboxDiagnostics,
+  StageInboxFlowLedgerEntry,
+  StageInboxPocket,
   StageInboxRawItem,
   StageMismatchSignal,
   StagePoint,
@@ -1047,7 +1049,12 @@ export class StageEngine {
 
   applyUserAction(
     action: StageUserAction,
-    context: { catalog: readonly CatalogSnapshot[]; inbox: readonly StageInboxRawItem[]; now?: number },
+    context: {
+      catalog: readonly CatalogSnapshot[];
+      inbox: readonly StageInboxRawItem[];
+      now?: number;
+      trackOverrides?: Readonly<Record<string, StageInboxPocket>>;
+    },
   ): { mutatedRegistry: boolean; archivedInboxIds: string[]; resolved?: StageResolveResult } {
     const now = context.now ?? Date.now();
     switch (action.type) {
@@ -1118,10 +1125,11 @@ export class StageEngine {
         return { mutatedRegistry: false, archivedInboxIds: archivedIds };
       }
       case "archive-cooled-inbox": {
-        const cooledIds = context.inbox
-          .filter((item) => item.status !== "archived" && item.status !== "deleted")
-          .filter((item) => recencyDays(item.updatedAt || item.createdAt, now) >= COOLED_INBOX_DAYS)
-          .map((item) => item.id);
+        const entries = flattenCatalog(context.catalog);
+        const byKey = new Map<string, StageCatalogEntry>(entries.map((e) => [e.workKey, e]));
+        const classified = matchInboxLocally(context.inbox, this.registry.areas, byKey, now, context.trackOverrides);
+        // Commitment items (`immuneToCooling: true`) and active sprouting threads are never swept away.
+        const cooledIds = classified.filter((item) => item.cooled && !item.immuneToCooling).map((item) => item.id);
         if (cooledIds.length > 0) {
           if (this.viewport.selectedInboxId && cooledIds.includes(this.viewport.selectedInboxId)) {
             this.viewport.selectedInboxId = null;
@@ -1130,6 +1138,12 @@ export class StageEngine {
         }
         return { mutatedRegistry: false, archivedInboxIds: cooledIds };
       }
+      case "set-inbox-pocket":
+      case "sweep-complete":
+      case "archive-to-review":
+      case "undo-ledger-entry":
+      case "refine-inbox-ai":
+        return { mutatedRegistry: false, archivedInboxIds: [] };
       case "toggle-advancement-done":
         return { mutatedRegistry: this.toggleAdvancementDone(action.advancementId, now), archivedInboxIds: [] };
       case "mark-promoted-logseq":
@@ -1167,6 +1181,11 @@ export class StageEngine {
     appUrl?: string,
     inboxDiagnostics?: StageInboxDiagnostics,
     timeSnapshot?: TimeSnapshot,
+    inboxMeta?: {
+      trackOverrides?: Readonly<Record<string, StageInboxPocket>>;
+      flowLedger?: readonly StageInboxFlowLedgerEntry[];
+      sweepWindowTime?: string;
+    },
   ): StageSnapshot {
     this.pruneEphemeral(now);
     const entries = flattenCatalog(catalogSnapshots);
@@ -1174,9 +1193,11 @@ export class StageEngine {
 
     // Build effective areas (use committed registry; if empty, show unassigned pool + needsColdStart)
     const effectiveAreas = this.registry.areas;
-    const inboxView = matchInboxLocally(inboxItems, effectiveAreas, byKey, now);
+    const inboxView = matchInboxLocally(inboxItems, effectiveAreas, byKey, now, inboxMeta?.trackOverrides);
     const activeInboxView = inboxView.filter((i) => !i.cooled);
     const cooledInboxCount = inboxView.length - activeInboxView.length;
+    const inboxPockets = summarizeInboxPockets(inboxView, inboxMeta?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME);
+    const flowLedger = inboxMeta?.flowLedger ? structuredClone([...inboxMeta.flowLedger]) : [];
     const selectedInbox = this.viewport.selectedInboxId
       ? inboxView.find((i) => i.id === this.viewport.selectedInboxId)
       : undefined;
@@ -1470,6 +1491,8 @@ export class StageEngine {
       unassignedWorks,
       inbox: inboxView,
       cooledInboxCount,
+      inboxPockets,
+      flowLedger,
       mismatchSignals,
       ...(inboxDiagnostics ? { inboxDiagnostics } : {}),
       ...(timeSnapshot ? { time: timeSnapshot } : {}),

@@ -554,3 +554,136 @@ test("explicit PARA Area pages anchor L0 constellation, nest Projects under decl
   assert.equal(snapAfterWake.areas.length, 8);
   assert.equal(snapAfterWake.dormantAreas.length, 1);
 });
+
+test("D-63 empirical three-pocket classifier: content overrides [注], commitments are immune to 14d cooling, and burst thoughts form sprouting threads", () => {
+  const engine = new StageEngine();
+  const baseTs = NOW - 60 * 60 * 1000;
+  const inbox: StageInboxRawItem[] = [
+    // 1. Short-loop voice interruption -> sweep
+    {
+      id: "emp-1",
+      text: "别忘了给微信里的郭工开一下权限",
+      status: "open",
+      createdAt: baseTs,
+      updatedAt: baseTs,
+      sourceType: "ios-shortcut",
+      sourceLabel: "iPhone 随口记",
+    },
+    // 2. Logseq default [注] with hard deadline + external collaborator -> MUST route to commit (NOT spark) and be immune to cooling!
+    {
+      id: "emp-2",
+      text: "**[注]** 大数据的那几个服务器注意一下，明天要创好，下午和庆南说过了",
+      status: "open",
+      createdAt: NOW - 25 * DAY,
+      updatedAt: NOW - 25 * DAY,
+      sourceType: "logseq-journal",
+      sourceLabel: "Logseq 日记",
+    },
+    // 3-6. Four consecutive exploratory thoughts within 3 minutes -> spark + sprouting thread!
+    {
+      id: "emp-3",
+      text: "我需要一个文件同步的工具，云盘可行吗？ #思考 #注意力",
+      status: "open",
+      createdAt: baseTs + 10_000,
+      updatedAt: baseTs + 10_000,
+      sourceType: "flomo",
+      sourceLabel: "Flomo",
+    },
+    {
+      id: "emp-4",
+      text: "我需要多端同步，这样能够节省很多的文件传输的时间 #思考 #注意力",
+      status: "open",
+      createdAt: baseTs + 30_000,
+      updatedAt: baseTs + 30_000,
+      sourceType: "flomo",
+      sourceLabel: "Flomo",
+    },
+    {
+      id: "emp-5",
+      text: "一个统一的大的工作区也许能够给agent更多的上下文，我可能在一个地方语音输入，它就能够知道我所指的xx文件是什么。 #思考 #注意力",
+      status: "open",
+      createdAt: baseTs + 80_000,
+      updatedAt: baseTs + 80_000,
+      sourceType: "flomo",
+      sourceLabel: "Flomo",
+    },
+    {
+      id: "emp-6",
+      text: "是否可以在一台一直运行的机器上运行agent，然后默默处理相关的文件(也许我的工作电脑上的的一些文件也能够通过同步的方式来放到我的大的工作区当中？) #思考 #注意力",
+      status: "open",
+      createdAt: baseTs + 130_000,
+      updatedAt: baseTs + 130_000,
+      sourceType: "flomo",
+      sourceLabel: "Flomo",
+    },
+    // 7. Ambiguous unprefixed voice -> Fail-Safe sweep
+    {
+      id: "emp-7",
+      text: "关于机房巡检那个表",
+      status: "open",
+      createdAt: baseTs + 200_000,
+      updatedAt: baseTs + 200_000,
+      sourceType: "ios-shortcut",
+      sourceLabel: "iPhone 随口记",
+    },
+    // 8. Pure linked Logseq [注] without deadline -> spark feed
+    {
+      id: "emp-8",
+      text: "**[注]** 看了 [[监控平台]] 文档，指标字段命名可以统一",
+      status: "open",
+      createdAt: baseTs + 210_000,
+      updatedAt: baseTs + 210_000,
+      sourceType: "logseq-journal",
+      sourceLabel: "Logseq 日记",
+      links: ["监控平台"],
+    },
+    // 9. Truly cooled 20-day-old non-commitment spark -> cooled: true
+    {
+      id: "emp-9",
+      text: "**[想法]** 买个新的机械键盘玩玩",
+      status: "open",
+      createdAt: NOW - 20 * DAY,
+      updatedAt: NOW - 20 * DAY,
+      sourceType: "logseq-journal",
+      sourceLabel: "Logseq 日记",
+    },
+  ];
+
+  const snap = engine.buildSnapshot([], inbox, NOW);
+  const byId = new Map(snap.inbox.map((i) => [i.id, i]));
+
+  assert.equal(byId.get("emp-1")!.pocket, "sweep");
+  assert.equal(byId.get("emp-1")!.failSafe, undefined);
+
+  assert.equal(byId.get("emp-2")!.pocket, "commit");
+  assert.equal(byId.get("emp-2")!.immuneToCooling, true);
+  assert.equal(byId.get("emp-2")!.cooled, false, "25-day-old commitment MUST remain immune to 14-day cooling");
+
+  for (const id of ["emp-3", "emp-4", "emp-5", "emp-6"]) {
+    const item = byId.get(id)!;
+    assert.equal(item.pocket, "spark");
+    assert.equal(item.sprouting, true, `${id} should belong to sprouting burst thread`);
+    assert.equal(item.threadCount, 4);
+    assert.ok(item.threadLabel && item.threadLabel.includes("正在发芽"));
+  }
+  assert.equal(byId.get("emp-3")!.threadId, byId.get("emp-6")!.threadId);
+
+  assert.equal(byId.get("emp-7")!.pocket, "sweep");
+  assert.equal(byId.get("emp-7")!.failSafe, true);
+
+  assert.equal(byId.get("emp-8")!.pocket, "spark");
+  assert.equal(byId.get("emp-8")!.isFeed, true);
+
+  assert.equal(byId.get("emp-9")!.pocket, "spark");
+  assert.equal(byId.get("emp-9")!.cooled, true);
+
+  // archive-cooled-inbox MUST archive emp-9 while NEVER touching 25-day-old commitment emp-2
+  const archived = engine.applyUserAction({ type: "archive-cooled-inbox" }, { catalog: [], inbox, now: NOW });
+  assert.deepEqual(archived.archivedInboxIds, ["emp-9"]);
+
+  assert.equal(snap.inboxPockets?.sweepCount, 2);
+  assert.equal(snap.inboxPockets?.commitCount, 1);
+  assert.equal(snap.inboxPockets?.sparkCount, 5);
+  assert.equal(snap.inboxPockets?.sproutingCount, 1);
+  assert.equal(snap.inboxPockets?.cooledCount, 1);
+});

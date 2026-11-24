@@ -1,10 +1,12 @@
 import { workKey, type CatalogSnapshot } from "@task-copilot/contracts";
+import { classifyInboxItem, enrichInboxThreads } from "./inbox-classifier.ts";
 import type {
   ColdStartAreaDraft,
   StageArea,
   StageAreaDomain,
   StageCatalogEntry,
   StageFocusRole,
+  StageInboxPocket,
   StageInboxRawItem,
   StageInboxViewItem,
   StagePoint,
@@ -172,6 +174,7 @@ export function matchInboxLocally(
   areas: readonly StageArea[],
   catalogByKey: ReadonlyMap<string, StageCatalogEntry>,
   now = Date.now(),
+  trackOverrides?: Readonly<Record<string, StageInboxPocket>>,
 ): StageInboxViewItem[] {
   const areaTokenMap = new Map<string, Set<string>>();
   const projTokenMap = new Map<string, { areaId: string; tokens: Set<string> }>();
@@ -188,7 +191,7 @@ export function matchInboxLocally(
     areaTokenMap.set(area.id, bag);
   }
 
-  return inboxItems
+  const mapped: StageInboxViewItem[] = inboxItems
     .filter((item) => item.status !== "archived" && item.status !== "deleted")
     .map((item) => {
       const itemTokens = extractSemanticTokens(item.text);
@@ -221,6 +224,8 @@ export function matchInboxLocally(
       }
 
       const ageDays = recencyDays(item.updatedAt || item.createdAt, now);
+      const cls = classifyInboxItem(item, trackOverrides?.[item.id]);
+      const cooled = !cls.immuneToCooling && ageDays >= COOLED_INBOX_DAYS;
       return {
         id: item.id,
         text: item.text,
@@ -229,11 +234,26 @@ export function matchInboxLocally(
         sourceType: item.sourceType ?? "manual",
         sourceLabel: item.sourceLabel ?? "Inbox",
         ageDays,
-        cooled: ageDays >= COOLED_INBOX_DAYS,
+        cooled,
         matchAreaIds,
         matchProjectWorkKeys,
+        pocket: cls.pocket,
+        pocketLabel: cls.pocketLabel,
+        routingReason: cls.routingReason,
+        ...(cls.prefixDetected ? { prefixDetected: cls.prefixDetected } : {}),
+        ...(cls.failSafe ? { failSafe: true } : {}),
+        immuneToCooling: cls.immuneToCooling,
+        ...(cls.isFeed ? { isFeed: true } : {}),
+        ...(item.carryoverDays ? { carryoverDays: item.carryoverDays } : {}),
+        ...(item.pendingJournalFlush ? { pendingJournalFlush: true } : {}),
+        ...(item.blockUuid ? { blockUuid: item.blockUuid } : {}),
+        ...(item.journalDate ? { journalDate: item.journalDate } : {}),
+        ...(item.originRef ? { originRef: item.originRef } : {}),
+        ...(item.aiHint ? { aiHint: item.aiHint } : {}),
       };
     });
+
+  return enrichInboxThreads(mapped, COOLED_INBOX_DAYS);
 }
 
 export function defaultAreaPosition(index: number): StagePoint {

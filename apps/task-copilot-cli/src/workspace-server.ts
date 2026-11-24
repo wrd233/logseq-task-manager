@@ -154,6 +154,7 @@ export async function startWorkspaceServer(options: {
     timeoutMs?: number;
     inboxDirectory?: string;
     icloudInboxDirectory?: string;
+    stageWorkspaceDirectory?: string;
     icloudFsOps?: Partial<IcloudInboxFsOps>;
     watchIcloud?: boolean;
     appleCalendar?: TimeHubOptions["appleCalendar"];
@@ -181,8 +182,10 @@ export async function startWorkspaceServer(options: {
         timeHub,
         ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}),
         ...(options.icloudInboxDirectory ? { icloudInboxDirectory: options.icloudInboxDirectory } : {}),
+        ...(options.stageWorkspaceDirectory ? { stageWorkspaceDirectory: options.stageWorkspaceDirectory } : {}),
         ...(options.icloudFsOps ? { icloudFsOps: options.icloudFsOps } : {}),
         ...(options.watchIcloud !== undefined ? { watchIcloud: options.watchIcloud } : {}),
+        ...(options.reading?.fetchImpl ? { fetchImpl: options.reading.fetchImpl } : {}),
     });
     let baseUrl = "", root: string | null = null, observations: FileObservation | undefined, cache: unknown = null;
     let activeMeta: { workKey?: string; title?: string; workRef?: WorkRef } = {};
@@ -600,6 +603,92 @@ export async function startWorkspaceServer(options: {
                 const raw = workRecord(input, ["workKey", "source"]);
                 const src = raw.source === "dsh" || raw.source === "standalone" || raw.source === "agent" ? raw.source : "logseq";
                 const value = await stageHub.anchorWork(workText(raw.workKey, 512), src as StageViewportSource);
+                send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/plugin/stage/journal-signals") {
+                const raw = workRecord(input, ["graphId", "graphName", "graphPath", "signals"]);
+                const graphId = workText(raw.graphId, 128);
+                const graphName = raw.graphName !== undefined ? workText(raw.graphName, 128) : graphId;
+                const graphPath = typeof raw.graphPath === "string" && raw.graphPath.startsWith("/") ? raw.graphPath : undefined;
+                if (!Array.isArray(raw.signals)) {
+                    throw new WorkspaceError("INVALID_INPUT", "signals 必须为数组。");
+                }
+                const signals = raw.signals
+                    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+                    .map((rec) => ({
+                        blockUuid: workText(rec.blockUuid, 128),
+                        journalDate: typeof rec.journalDate === "string" ? rec.journalDate.slice(0, 16) : "",
+                        pageName: typeof rec.pageName === "string" ? rec.pageName.slice(0, 128) : "",
+                        text: workText(rec.text, 400),
+                        ...(Array.isArray(rec.links)
+                            ? { links: rec.links.filter((l): l is string => typeof l === "string" && l.length > 0).slice(0, 12) }
+                            : {}),
+                        updatedAt: typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : Date.now(),
+                    }));
+                const value = await stageHub.publishJournalSignals({
+                    graphId,
+                    graphName,
+                    ...(graphPath ? { graphPath } : {}),
+                    signals,
+                });
+                send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/plugin/stage/pending-captures") {
+                workRecord(input, []);
+                const captures = await stageHub.getPendingJournalCaptures();
+                send(response, 200, { instanceId, value: { captures } });
+                return;
+            }
+            if (request.url === "/plugin/stage/pending-captures/wait") {
+                const raw = workRecord(input, ["timeoutMs"]);
+                const timeoutMs =
+                    typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs)
+                        ? Math.min(25_000, Math.max(500, raw.timeoutMs))
+                        : 20_000;
+                const cancellation = new AbortController();
+                response.once("close", () => { if (!response.writableEnded) cancellation.abort(); });
+                const captures = await stageHub.waitForPendingJournalCaptures(cancellation.signal, timeoutMs);
+                if (!response.destroyed) send(response, 200, { instanceId, value: { captures } });
+                return;
+            }
+            if (request.url === "/plugin/stage/pending-captures/ack") {
+                const raw = workRecord(input, ["captureId", "blockUuid", "pageName", "journalDate"]);
+                const value = await stageHub.ackPendingJournalCapture({
+                    captureId: workText(raw.captureId, 128),
+                    blockUuid: workText(raw.blockUuid, 128),
+                    pageName: typeof raw.pageName === "string" ? raw.pageName.slice(0, 128) : "",
+                    journalDate: typeof raw.journalDate === "string" ? raw.journalDate.slice(0, 16) : "",
+                });
+                send(response, 200, { instanceId, value });
+                return;
+            }
+            if (request.url === "/plugin/stage/capture" || request.url === "/stage/capture") {
+                const raw = workRecord(input, ["text", "sourceAgent", "contextTitle", "contextWorkKey", "pocketHint", "prefixHint", "waitOnlineMs"]);
+                const pocketHint =
+                    raw.pocketHint === undefined
+                        ? undefined
+                        : raw.pocketHint === "sweep" || raw.pocketHint === "commit" || raw.pocketHint === "spark"
+                          ? raw.pocketHint
+                          : (() => { throw new WorkspaceError("INVALID_INPUT", "无效的 pocketHint。"); })();
+                const prefixHint =
+                    raw.prefixHint === undefined
+                        ? undefined
+                        : raw.prefixHint === "想法" || raw.prefixHint === "注" || raw.prefixHint === "急" || raw.prefixHint === "承诺"
+                          ? raw.prefixHint
+                          : (() => { throw new WorkspaceError("INVALID_INPUT", "无效的 prefixHint。"); })();
+                const value = await stageHub.mcpCaptureInbox({
+                    text: workText(raw.text, 400),
+                    sourceAgent: raw.sourceAgent !== undefined ? workText(raw.sourceAgent, 64) : "stage-ui",
+                    ...(raw.contextTitle !== undefined ? { contextTitle: workText(raw.contextTitle, 120) } : {}),
+                    ...(raw.contextWorkKey !== undefined ? { contextWorkKey: workText(raw.contextWorkKey, 512) } : {}),
+                    ...(pocketHint ? { pocketHint } : {}),
+                    ...(prefixHint ? { prefixHint } : {}),
+                    ...(typeof raw.waitOnlineMs === "number" && Number.isFinite(raw.waitOnlineMs)
+                        ? { waitOnlineMs: Math.min(5000, Math.max(0, raw.waitOnlineMs)) }
+                        : {}),
+                });
                 send(response, 200, { instanceId, value });
                 return;
             }

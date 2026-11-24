@@ -4,6 +4,7 @@ import { access, mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  MACOS_ICLOUD_KEEP_DOWNLOADED_GUIDANCE,
   MACOS_ICLOUD_TCC_GUIDANCE,
   parseShortcutFilenameTimestamp,
   scanIcloudInbox,
@@ -221,6 +222,48 @@ test("Companion StageHub integrates iCloud Inbox, cools >14d fragments, archives
     assert.match(diag.icloud.guidance ?? "", /隐私与安全性/);
   } finally {
     await epermServer.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("scanIcloudInbox detects evicted .icloud placeholders, triggers downloadPlaceholder, ignores materialized duplicates, and fails open", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "tc-icloud-evicted-")));
+  try {
+    const now = new Date(2026, 10, 24, 15, 0, 0).getTime();
+    await writeFile(join(root, "20261124-090000.md"), "本地已下载的一条随口记", "utf8");
+    // Coexisting placeholder for already-materialized file must NOT count as evicted
+    await writeFile(join(root, ".20261124-090000.md.icloud"), "placeholder", "utf8");
+    // Purely evicted placeholders
+    await writeFile(join(root, ".20261124-091500.md.icloud"), "placeholder", "utf8");
+    await writeFile(join(root, ".20261124-103000.txt.icloud"), "placeholder", "utf8");
+
+    const downloaded: string[] = [];
+    const scan = await scanIcloudInbox({
+      directory: root,
+      archivedIds: new Set(),
+      archivedSignatures: new Set(),
+      now,
+      fsOps: {
+        downloadPlaceholder: async (fullPath) => {
+          downloaded.push(fullPath);
+          if (fullPath.includes("103000")) {
+            throw new Error("simulated brctl failure");
+          }
+          return true;
+        },
+      },
+    });
+
+    assert.equal(scan.diagnostic.status, "ok");
+    assert.equal(scan.items.length, 1);
+    assert.equal(scan.diagnostic.evictedCount, 2);
+    assert.deepEqual(scan.diagnostic.evictedFiles, ["20261124-091500.md", "20261124-103000.txt"]);
+    assert.equal(scan.diagnostic.guidance, MACOS_ICLOUD_KEEP_DOWNLOADED_GUIDANCE);
+    assert.match(scan.diagnostic.message ?? "", /2 条/);
+    assert.equal(downloaded.length, 2);
+    assert.ok(downloaded.some((p) => p.endsWith(".20261124-091500.md.icloud")));
+    assert.ok(downloaded.some((p) => p.endsWith(".20261124-103000.txt.icloud")));
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

@@ -8,11 +8,21 @@ import { readSelectedPages, saveSelectedPages, resolveSelectedPage } from "./cat
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { collectCatalog, type CatalogBlock, type CatalogFormal } from "./work-catalog.ts";
 import { buildPageMetaMap, catalogChoiceKeys, catalogContext, explainBlockWork, isIncluded, readCatalogBlocks, readCatalogPages, readDiscovery, selectedPageFor, writeDiscovery } from "./catalog-local.ts";
+import { appendCaptureToJournalDate, collectJournalInboxSignals, readRecentJournalBlocks } from "./journal-inbox.ts";
+
+interface PendingJournalCapturePayload {
+  captureId: string;
+  formattedLine: string;
+  journalDate: string;
+}
 
 /** The local index works independently of the optional DSH metadata publisher. */
 export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, resolveDirectory: (scope: SourceScope) => Promise<string | undefined>) {
   let disposed = false, generation = 0, publishing = false, publishAgain = false, timer: number;
   let preferencesQueue = Promise.resolve();
+  let captureLoopRunning = false;
+  let captureLoopAbort: AbortController | null = null;
+  const processedCaptureIds = new Set<string>();
   const listeners = new Set<() => void>();
   const context = () => {
     const epoch = generation;
@@ -115,6 +125,149 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     }));
     const response = await fetch(`${descriptor.baseUrl}/plugin/catalog`, {method: "POST", headers: {"content-type": "application/json", "x-workspace-plugin": descriptor.pluginToken, "x-workspace-instance": descriptor.instanceId}, body: JSON.stringify({ ...snapshot, works }), signal: AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error("工作目录暂未发布");
+
+    // Non-fatal D-63 journal recall projection & pending capture flush
+    try {
+      const currentGraph = await logseq.App.getCurrentGraph();
+      check();
+      const graphPath = typeof currentGraph?.path === "string" && currentGraph.path.startsWith("/") ? currentGraph.path : undefined;
+      const journalBlocks = await readRecentJournalBlocks(check, 30);
+      const archivedNames = new Set<string>();
+      if (pageMeta) {
+        for (const [key, meta] of pageMeta) {
+          if (meta.archived) archivedNames.add(key);
+        }
+      }
+      const signals = collectJournalInboxSignals({ blocks: journalBlocks, archivedPageNames: archivedNames });
+      const sigRes = await fetch(`${descriptor.baseUrl}/plugin/stage/journal-signals`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-workspace-plugin": descriptor.pluginToken,
+          "x-workspace-instance": descriptor.instanceId,
+        },
+        body: JSON.stringify({
+          graphId,
+          graphName: scope.graphName,
+          ...(graphPath ? { graphPath } : {}),
+          signals,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (sigRes.ok) {
+        const parsedSig = (await sigRes.json()) as { value?: { pendingCaptures?: number } };
+        if ((parsedSig.value?.pendingCaptures ?? 0) > 0) {
+          await drainPendingCaptures(descriptor);
+        }
+      }
+      ensureCaptureLoop(descriptor);
+    } catch {
+      // Fail open: older Companion or transient error never interrupts catalog publishing.
+    }
+  };
+
+  const flushCaptures = async (descriptor: WorkspacePluginDescriptor, captures: readonly PendingJournalCapturePayload[]) => {
+    if (disposed || captures.length === 0) return;
+    if (!await logseq.App.getCurrentGraph()) return;
+    const allPages = (await logseq.Editor.getAllPages()) ?? [];
+    for (const cap of captures) {
+      if (disposed || processedCaptureIds.has(cap.captureId)) continue;
+      processedCaptureIds.add(cap.captureId);
+      try {
+        const appended = await appendCaptureToJournalDate({
+          journalDate: cap.journalDate,
+          formattedLine: cap.formattedLine,
+          allPages,
+        });
+        if (!appended) {
+          processedCaptureIds.delete(cap.captureId);
+          continue;
+        }
+        await fetch(`${descriptor.baseUrl}/plugin/stage/pending-captures/ack`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-workspace-plugin": descriptor.pluginToken,
+            "x-workspace-instance": descriptor.instanceId,
+          },
+          body: JSON.stringify({
+            captureId: cap.captureId,
+            blockUuid: appended.blockUuid,
+            pageName: appended.pageName,
+            journalDate: appended.journalDate,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch {
+        processedCaptureIds.delete(cap.captureId);
+      }
+    }
+  };
+
+  const drainPendingCaptures = async (descriptor: WorkspacePluginDescriptor) => {
+    try {
+      const res = await fetch(`${descriptor.baseUrl}/plugin/stage/pending-captures`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-workspace-plugin": descriptor.pluginToken,
+          "x-workspace-instance": descriptor.instanceId,
+        },
+        body: "{}",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return;
+      const parsed = (await res.json()) as { value?: { captures?: PendingJournalCapturePayload[] } };
+      const captures = parsed.value?.captures ?? [];
+      if (captures.length > 0) {
+        await flushCaptures(descriptor, captures);
+      }
+    } catch {
+      // Fail open
+    }
+  };
+
+  let latestDescriptor: WorkspacePluginDescriptor | null = null;
+  const ensureCaptureLoop = (descriptor: WorkspacePluginDescriptor) => {
+    latestDescriptor = descriptor;
+    if (captureLoopRunning || disposed) return;
+    captureLoopRunning = true;
+    const loop = async () => {
+      while (!disposed && latestDescriptor) {
+        const activeDesc = latestDescriptor;
+        const controller = new AbortController();
+        captureLoopAbort = controller;
+        try {
+          const res = await fetch(`${activeDesc.baseUrl}/plugin/stage/pending-captures/wait`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-workspace-plugin": activeDesc.pluginToken,
+              "x-workspace-instance": activeDesc.instanceId,
+            },
+            body: JSON.stringify({ timeoutMs: 20_000 }),
+            signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25_000)]),
+          });
+          if (disposed) break;
+          if (!res.ok) {
+            await new Promise((r) => window.setTimeout(r, 8000));
+            continue;
+          }
+          const parsed = (await res.json()) as { value?: { captures?: PendingJournalCapturePayload[] } };
+          const captures = parsed.value?.captures ?? [];
+          if (captures.length > 0) {
+            await flushCaptures(activeDesc, captures);
+          }
+        } catch {
+          if (disposed) break;
+          await new Promise((r) => window.setTimeout(r, 8000));
+        } finally {
+          if (captureLoopAbort === controller) captureLoopAbort = null;
+        }
+      }
+      captureLoopRunning = false;
+    };
+    void loop();
   };
   const refresh = async () => {
     if (disposed) return;
@@ -221,6 +374,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
     subscribe(callback: () => void) { listeners.add(callback); return () => { listeners.delete(callback); }; },
     dispose() {
       disposed = true; generation++; window.clearTimeout(timer); window.clearInterval(heartbeat);
+      captureLoopAbort?.abort(); captureLoopAbort = null; latestDescriptor = null;
       listeners.clear(); graphOff(); dbOff(); settingsOff?.();
       if (typeof refreshOff === "function") refreshOff();
       for (const off of commands) if (typeof off === "function") off();

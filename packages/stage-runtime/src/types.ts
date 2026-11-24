@@ -69,6 +69,57 @@ export interface StageRegistryFile {
   updatedAt: number;
 }
 
+export type StageInboxPocket = "sweep" | "commit" | "spark";
+
+export type StageInboxFlowDestination =
+  | "sweep-done"
+  | "sweep-tomorrow"
+  | "area-advancement"
+  | "week-move"
+  | "day-slot"
+  | "weekly-review"
+  | "released"
+  | "reclassified";
+
+export interface StageInboxAiHint {
+  suggestedPocket?: StageInboxPocket;
+  summary?: string;
+  splitCandidates?: string[];
+  threadTitle?: string;
+  reason?: string;
+  model?: string;
+  updatedAt: number;
+}
+
+export interface StageInboxFlowLedgerEntry {
+  id: string;
+  inboxId: string;
+  text: string;
+  sourceType: string;
+  sourceLabel: string;
+  fromPocket: StageInboxPocket;
+  destination: StageInboxFlowDestination;
+  destinationLabel: string;
+  targetId?: string;
+  targetTitle?: string;
+  reviewFilePath?: string;
+  originRef?: string;
+  at: number;
+  undone?: boolean;
+}
+
+export interface StageInboxPocketCounts {
+  sweepCount: number;
+  commitCount: number;
+  sparkCount: number;
+  sproutingCount: number;
+  cooledCount: number;
+  pendingJournalCount: number;
+  sweepWindowTime: string;
+  commitOverload: boolean;
+  sweepCarryoverCount: number;
+}
+
 export interface StageInboxRawItem {
   id: string;
   text: string;
@@ -78,6 +129,15 @@ export interface StageInboxRawItem {
   sourceType?: string;
   sourceLabel?: string;
   sourcePath?: string;
+  blockUuid?: string;
+  journalDate?: string;
+  pageName?: string;
+  links?: string[];
+  pocketHint?: StageInboxPocket;
+  pendingJournalFlush?: boolean;
+  originRef?: string;
+  carryoverDays?: number;
+  aiHint?: StageInboxAiHint;
 }
 
 export interface StageInboxViewItem {
@@ -91,14 +151,33 @@ export interface StageInboxViewItem {
   cooled: boolean;
   matchAreaIds: string[];
   matchProjectWorkKeys: string[];
+  pocket: StageInboxPocket;
+  pocketLabel: string;
+  routingReason: string;
+  prefixDetected?: string;
+  failSafe?: boolean;
+  immuneToCooling: boolean;
+  isFeed?: boolean;
+  sprouting?: boolean;
+  threadId?: string;
+  threadLabel?: string;
+  threadCount?: number;
+  carryoverDays?: number;
+  pendingJournalFlush?: boolean;
+  blockUuid?: string;
+  journalDate?: string;
+  originRef?: string;
+  aiHint?: StageInboxAiHint;
 }
 
 export interface StageInboxSourceDiagnostic {
-  source: "icloud" | "personal-inbox";
+  source: "icloud" | "personal-inbox" | "logseq-journal" | "agent-spool";
   directory: string;
   status: "ok" | "missing" | "permission-denied" | "error";
   itemCount: number;
   cooledCount?: number;
+  evictedCount?: number;
+  evictedFiles?: string[];
   errorCode?: string;
   message?: string;
   guidance?: string;
@@ -108,6 +187,8 @@ export interface StageInboxSourceDiagnostic {
 export interface StageInboxDiagnostics {
   icloud: StageInboxSourceDiagnostic;
   personalInbox?: StageInboxSourceDiagnostic;
+  logseqJournal?: StageInboxSourceDiagnostic;
+  agentSpool?: StageInboxSourceDiagnostic;
 }
 
 export interface ColdStartAreaDraft {
@@ -302,6 +383,8 @@ export interface StageSnapshot {
   unassignedWorks: StageUnassignedWork[];
   inbox: StageInboxViewItem[];
   cooledInboxCount: number;
+  inboxPockets?: StageInboxPocketCounts;
+  flowLedger?: StageInboxFlowLedgerEntry[];
   mismatchSignals: StageMismatchSignal[];
   inboxDiagnostics?: StageInboxDiagnostics;
   time?: TimeSnapshot;
@@ -359,6 +442,11 @@ export type StageUserAction =
   | { type: "drop-inbox"; inboxId: string; areaId: string; projectWorkKey?: string | null }
   | { type: "archive-inbox-items"; inboxIds: string[] }
   | { type: "archive-cooled-inbox" }
+  | { type: "set-inbox-pocket"; inboxId: string; pocket: StageInboxPocket }
+  | { type: "sweep-complete"; inboxId: string; disposition: "done" | "tomorrow" }
+  | { type: "archive-to-review"; inboxId: string; areaId?: string | null; projectWorkKey?: string | null; summary?: string }
+  | { type: "undo-ledger-entry"; entryId: string }
+  | { type: "refine-inbox-ai"; inboxIds?: string[] }
   | { type: "toggle-advancement-done"; advancementId: string }
   | { type: "mark-promoted-logseq"; advancementId: string }
   | { type: "clear-radar" }
