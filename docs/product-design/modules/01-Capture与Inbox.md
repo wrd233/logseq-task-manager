@@ -129,8 +129,8 @@
 | :--- | :--- | :--- | :--- |
 | **1. Logseq 每日日记** | Logseq Journal 原块（`blockUuid`） | 复用 `catalog-local.ts` 只读扫描近 30 天 Journals 中以 `TODO` 或任意 `**[xx]**`（含用户默认标记 `**[注]**`、`[想法]` 等）开头的未完成块；**行首标记仅作“重要度召回信号”，绝不迷信前缀机械定类**——正文语义权重绝对高于前缀权重（例如 `**[注]**` 中若包含“明天/下周/截止”或“和某人说过/答应”等时间死线与外部承诺，强制锁进「别忘/已答应」或「今日小尾巴」，严禁降级为挥发想法）；普通无标记流水账零噪音留在日记；已带 `[[项目]]`/`[[Area]]` 链接且无死线承诺的纯笔记结论进背景共鸣流 Feed；Project 页内部写的 `[想法]` 留在各自项目 L2 局部视图 | **严格只读，绝不回头改写或删改日记原文** |
 | **2. Agent 对话泊车** | 追加为今日 Logseq Journal 一行（`stage_capture_inbox`） | **Logseq 在线**：遵循 `D-09` 明确指令免弹窗调用插件 API 安全追加 `- [想法] 正文 — 来源: Agent · [[上下文]]`，并绑定 `captureId -> blockUuid` 防回声去重（界面永不出现双胞胎）。**Logseq 离线**：严禁直接硬写磁盘 `journals/*.md` 引发同步冲突，先存入 Companion `stage-pending-journal.json` 即时呈现，待 Logseq 重连上线后按原日期自动幂等补写 | 补写完成后无缝切回 Logseq 单真值只读投影 |
-| **3. iPhone 随口记** | iCloud `TaskCopilotInbox/*.md`（`D-55`） | 保持零分类语音落盘、冲突副本自动去重与 0ms 本地关键词共振；覆盖“别忘了/记得给 XX/开权限”等自然口语快清词；去口语与“一句话夹多件事”拆条后置到周日复盘或对话加工 | **严格只读，绝不删改或移动 iCloud 原文件** |
-| **4. Flomo PRO** | Flomo 官方远程 MCP（`https://flomoapp.com/mcp`） | **不强依赖用户手动改打 `#inbox` 标签**（实测确认连发发散思考时用户不会在 Flomo 手改标签）：(1) 短时（如 30 分钟内）或同主题连发的 `>= 2` 条递进思考/问句，自动聚合成 1 张**「演化线程卡（Thought Thread）」**直接浮入「随手想法」并标「正在发芽」；(2) 带 `#inbox / #行动 / #承诺` 的单条卡片按语义分轨入活跃口袋；(3) 其余孤立慢思考留作背景共鸣流 Feed（零待办计数压力）。首期零代码由 Agent 直调官方 MCP 磨合，成熟后再按需补 Companion 定时缓存 | 只读消费，不破坏 Flomo 原卡片 |
+| **3. iPhone 随口记** | iCloud `TaskCopilotInbox/*.md`（`D-55`） | 保持零分类语音落盘、冲突副本自动去重与 0ms 本地关键词共振；覆盖“别忘了/记得给 XX/开权限”等自然口语快清词；**加固云端占位文件处理**：扫到 macOS 回收成的 `.xxx.md.icloud` 占位符时自动调用 `brctl download` 拉回本地并在诊断中暴露 `evictedCount`（同时建议 Finder 开启文件夹「保持下载」）；去口语与“一句话夹多件事”拆条后置到清扫/周复盘由 Companion `fast` Profile（DeepSeek）或外部 Agent 加工 | **严格只读，绝不删改或移动 iCloud 原文件** |
+| **4. Flomo（首期暂缓）** | 保留可插拔适配位 | **实测确认 Flomo 官方远程 MCP（`https://flomoapp.com/mcp`）仅限 MAX 会员，PRO 不可用，首期暂缓接入**；架构上保留「短时连发自动聚成演化线程卡（Thought Thread）」与「慢思考共鸣 Feed」接口（先服务于 Logseq / iPhone / Agent 三入口），后续若升级 MAX 或改用 iOS 快捷指令双写/离线导出可无缝接入 | 只读消费，不破坏原卡片 |
 
 ### 4. 五套防失效机制
 
@@ -142,6 +142,6 @@
 
 ### 5. 分期落地与验收基线
 
-- **Phase A（本地最小闭环）**：`catalog-local.ts` 接入近 30 天 Journal `[想法]`/`[注]`/`[急]`/`[承诺]` 单真值投影 + MCP 新增 `stage_capture_inbox`（含在线插件直写、离线 Spool 与 `captureId -> blockUuid` 去重）+ Companion 三口袋状态与「下班清扫时刻」视图 + 非行动养分一键写入 `D-62` 周复盘页反链。
-- **Phase B（承诺澄清与项目待发育）**：落地轨道 2 免疫挥发红线、3 分钟 Agent 澄清模板、项目级「待发育口袋」及 DSH 进入项目现场自动带出共视。
-- **Phase C（Flomo PRO 与重复涌现）**：Flomo PRO 官方 MCP 门控拉取与 Feed 共鸣融合，以及独立种子的跨来源「正在发芽」聚类提示。
+- **Phase A（本地最小闭环，当前立刻推进）**：`icloud-inbox.ts` 加固 `.xxx.md.icloud` 云端占位符自动 `brctl download` 与 `evictedCount` 诊断 + `catalog-local.ts` 接入近 30 天 Journal `TODO`/`**[xx]**` 单真值投影（正文语义权重 > 前缀权重）+ MCP 新增 `stage_capture_inbox`（在线插件直写今日日记、离线 Spool 补写与 `captureId -> blockUuid` 去重）+ Companion 三口袋状态、近 7 天流转台账（Flow Ledger）与今日容器「下班清扫时刻」视图 + 非行动养分一键写入 `D-62` 周复盘页反链（并接入 DeepSeek `deepseek-flash` 做按节拍轻量语义辅助）。
+- **Phase B（承诺澄清与项目待发育）**：落地轨道 2 免疫挥发红线、3 分钟 Agent 澄清模板、项目级「待发育口袋」及 DSH 进入项目现场自动带出共视 + 右侧阅读镜/L2 轻露最近周复盘反链养分 + 跨来源短时连发演化线程聚合。
+- **Phase C（外部扩展与按需接入）**：待后续决定 Flomo 方案（MAX / 快捷指令双写 / 导出转换）及跨设备大工作区同步方案时无缝挂载。
