@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Copilot · 全天表现原型（浏览器版）</title>
+  <style>
+    .proto-app {
+      --p-bg: var(--background);
+      --p-elev: var(--card);
+      --p-subtle: color-mix(in srgb, var(--foreground) 4%, transparent);
+      --p-fg: var(--foreground);
+      --p-muted: var(--muted-foreground);
+      --p-faint: color-mix(in srgb, var(--muted-foreground) 54%, transparent);
+      --p-hair: color-mix(in srgb, var(--border) 66%, transparent);
+      --p-border: var(--border);
+      --p-accent: var(--primary);
+      --p-accent-soft: color-mix(in srgb, var(--primary) 10%, transparent);
+      --p-amber: var(--warning);
+      --p-sage: var(--success);
+      --p-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.2);
+      --p-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+
+      font-family: var(--p-font);
+      background: var(--p-bg);
+      color: var(--p-fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.72;
+      font-size: 14.5px;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 220ms ease, color 220ms ease;
+    }
+
+    .proto-app[data-surface="paper-light"] {
+      --p-bg: #faf9f5;
+      --p-elev: #ffffff;
+      --p-subtle: #f2f0e9;
+      --p-fg: #1e2124;
+      --p-muted: #6c7179;
+      --p-faint: #9fa4ab;
+      --p-hair: #e8e5dc;
+      --p-border: #dad6cb;
+      --p-accent: #316292;
+      --p-accent-soft: rgba(49, 98, 146, 0.08);
+      --p-amber: #a86c25;
+      --p-sage: #2e7358;
+      --p-shadow: 0 18px 42px -18px rgba(30, 33, 36, 0.16);
+    }
+
+    .proto-app[data-surface="paper-dark"] {
+      --p-bg: #16181a;
+      --p-elev: #1e2126;
+      --p-subtle: #202429;
+      --p-fg: #e5e3dc;
+      --p-muted: #8b919a;
+      --p-faint: #5b616a;
+      --p-hair: #25292f;
+      --p-border: #323740;
+      --p-accent: #6c99c7;
+      --p-accent-soft: rgba(108, 153, 199, 0.13);
+      --p-amber: #cf964e;
+      --p-sage: #5da688;
+      --p-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.56);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; }
+    button, input, textarea { font-family: inherit; color: inherit; }
+
+    /* 顶栏：进入心流 600ms 丝滑渐隐 */
+    .proto-bar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 44px;
+      background: var(--p-bg);
+      border-bottom: 1px solid var(--p-hair);
+      font-size: 13px;
+      transition: opacity 600ms ease;
+    }
+    .proto-app.in-flow .proto-bar { opacity: 0.04; }
+    .proto-app.in-flow .proto-bar:hover { opacity: 1; transition-duration: 180ms; }
+    .proto-brand { font-weight: 500; color: var(--p-muted); white-space: nowrap; }
+    .proto-nav { display: flex; align-items: center; gap: 6px; height: 100%; }
+    .proto-tab {
+      position: relative;
+      height: 100%;
+      padding: 0 12px;
+      border: 0;
+      background: transparent;
+      color: var(--p-muted);
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: color 150ms ease;
+    }
+    .proto-tab:hover { color: var(--p-fg); }
+    .proto-tab.active { color: var(--p-fg); font-weight: 500; }
+    .proto-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 1.5px;
+      background: var(--p-fg);
+    }
+
+    .t-btn {
+      border: 0;
+      background: transparent;
+      color: var(--p-muted);
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 140ms ease, background-color 140ms ease;
+    }
+    .t-btn:hover { color: var(--p-fg); background: var(--p-subtle); }
+    .t-btn.active { color: var(--p-accent); font-weight: 500; }
+    .t-btn.accent { color: var(--p-accent); font-weight: 500; }
+    .t-btn.accent:hover { background: var(--p-accent-soft); }
+
+    .t-pill {
+      border: 1px solid var(--p-border);
+      background: transparent;
+      color: var(--p-fg);
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .t-pill:hover { border-color: var(--p-fg); background: var(--p-subtle); }
+
+    .t-solid {
+      border: 1px solid var(--p-accent);
+      background: var(--p-accent);
+      color: #ffffff;
+      padding: 4px 13px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .t-solid:hover { opacity: 0.9; }
+
+    .kbd {
+      font-size: 11px;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--p-border);
+      color: var(--p-faint);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    @keyframes softBeacon {
+      0% { background-color: var(--p-accent-soft); }
+      65% { background-color: var(--p-accent-soft); }
+      100% { background-color: transparent; }
+    }
+    .beacon-flash { animation: softBeacon 1500ms ease-out; border-radius: 5px; }
+    @keyframes slideSoft { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .stage-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .view-panel { display: none; flex: 1; flex-direction: column; }
+    .view-panel.active { display: flex; }
+
+    /* ============================================================
+       1. 日程模块（本周 | 今日 · 早间拍板 | 明日 · 前晚构思）
+       ============================================================ */
+    .ov-wrap { max-width: 1040px; width: 100%; margin: 0 auto; padding: 36px 32px 72px; }
+    .ov-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 34px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--p-hair);
+      flex-wrap: wrap;
+    }
+    .ov-date-group { display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap; }
+    .ov-date { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+    .seg-text { display: inline-flex; gap: 18px; font-size: 13.5px; }
+    .seg-text button {
+      border: 0;
+      background: transparent;
+      color: var(--p-faint);
+      padding: 0 0 3px;
+      cursor: pointer;
+      border-bottom: 1.5px solid transparent;
+      font-size: 13.5px;
+    }
+    .seg-text button:hover { color: var(--p-muted); }
+    .seg-text button.active { color: var(--p-fg); font-weight: 500; border-bottom-color: var(--p-accent); }
+
+    .ov-cols { display: grid; grid-template-columns: 1.32fr 0.92fr; gap: 56px; align-items: start; }
+    @media (max-width: 860px) { .ov-cols { grid-template-columns: 1fr; gap: 40px; } }
+    .ov-right {
+      padding-left: 36px;
+      border-left: 1px solid var(--p-hair);
+      opacity: 0.76;
+      transition: opacity 220ms ease;
+    }
+    .ov-right:hover, .ov-right:focus-within { opacity: 1; }
+    @media (max-width: 860px) { .ov-right { padding-left: 0; border-left: 0; border-top: 1px solid var(--p-hair); padding-top: 28px; opacity: 1; } }
+
+    .ov-carry {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 0 18px 12px;
+      margin-bottom: 24px;
+      border-left: 2px solid var(--p-amber);
+      border-bottom: 1px solid var(--p-hair);
+    }
+
+    .ov-slot {
+      margin-bottom: 32px;
+      padding: 6px 10px 8px 12px;
+      margin-left: -12px;
+      border-left: 2px solid transparent;
+      border-radius: 0 6px 6px 0;
+      transition: border-color 180ms ease, background-color 180ms ease;
+    }
+    .ov-slot:last-child { margin-bottom: 0; }
+    .ov-slot.slot-target-hint { border-left-color: var(--p-accent); background: var(--p-accent-soft); }
+    .ov-slot-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .ov-slot-name { font-size: 12.5px; font-weight: 600; color: var(--p-muted); letter-spacing: 0.03em; }
+    .cap-dots { display: inline-flex; gap: 5px; }
+    .cap-dot { width: 6px; height: 6px; border-radius: 50%; border: 1.25px solid var(--p-border); }
+    .cap-dot.filled { background: var(--p-accent); border-color: var(--p-accent); }
+    .cap-dot.filled.soft { background: var(--p-muted); border-color: var(--p-muted); }
+    .cap-dot.over { background: var(--p-amber); border-color: var(--p-amber); }
+
+    .ov-cal { font-size: 12.5px; color: var(--p-faint); font-variant-numeric: tabular-nums; margin-bottom: 10px; display: flex; gap: 12px; }
+    .ov-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 8px 10px 8px 12px;
+      margin-left: -12px;
+      border-left: 2px solid transparent;
+      border-radius: 0 6px 6px 0;
+      transition: background-color 140ms ease;
+    }
+    .ov-row:hover { background: var(--p-subtle); }
+    .ov-row.is-main { border-left-color: var(--p-accent); }
+    .ov-row-title { font-size: 15px; color: var(--p-fg); line-height: 1.5; }
+    .ov-row.is-main .ov-row-title { font-weight: 500; }
+    .ov-row-ctx { font-size: 13px; color: var(--p-muted); margin-top: 2px; line-height: 1.55; }
+    .ov-row-proj { color: var(--p-accent); opacity: 0.85; margin-right: 7px; font-size: 12.5px; }
+    .ov-kind-tag { font-size: 11px; color: var(--p-faint); margin-left: 6px; }
+    .ov-hover-acts { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 140ms ease; }
+    .ov-row:hover .ov-hover-acts, .ov-row:focus-within .ov-hover-acts { opacity: 1; }
+    @media (hover: none) { .ov-hover-acts { opacity: 1; } }
+    .ov-empty { padding: 6px 0; color: var(--p-faint); font-size: 13px; }
+    .ov-friction {
+      margin-top: 10px;
+      padding: 8px 0 8px 12px;
+      border-left: 2px solid var(--p-amber);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* 本周极简 7 日硬日程密度条 */
+    .week-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--p-hair);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .week-day { display: flex; flex-direction: column; gap: 3px; color: var(--p-faint); }
+    .week-day.is-today { color: var(--p-fg); font-weight: 500; }
+    .week-day.is-tmr { color: var(--p-accent); }
+    .week-bar { height: 2px; background: var(--p-hair); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+    .week-bar-fill { height: 100%; background: var(--p-muted); }
+    .week-day.is-today .week-bar-fill { background: var(--p-accent); }
+
+    .r-section { margin-bottom: 30px; }
+    .r-section:last-child { margin-bottom: 0; }
+    .r-label { font-size: 12px; font-weight: 600; color: var(--p-muted); letter-spacing: 0.03em; margin-bottom: 12px; }
+    .r-quote { border-left: 2px solid var(--p-fg); padding: 2px 0 2px 12px; margin-bottom: 16px; }
+    .r-quote-meta { font-size: 12px; color: var(--p-faint); margin-bottom: 2px; }
+    .r-quote-text { font-size: 13.5px; color: var(--p-fg); line-height: 1.6; }
+    .r-proj { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--p-hair); }
+    .r-proj:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+    .r-proj-head { display: flex; align-items: baseline; justify-content: space-between; }
+    .r-proj-name { font-size: 14px; font-weight: 500; }
+    .r-proj-role { font-size: 12px; color: var(--p-faint); }
+    .r-proj-role.main { color: var(--p-accent); }
+    .line-input {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid var(--p-hair);
+      background: transparent;
+      padding: 6px 0;
+      font-size: 13px;
+      outline: none;
+      color: var(--p-fg);
+    }
+    .line-input:focus { border-bottom-color: var(--p-accent); }
+    .line-input::placeholder { color: var(--p-faint); }
+
+    /* ============================================================
+       2. 笔记现场（原生 Page + Block Zoom-in 双粒度 · 取消 Logseq 自动收尾）
+       ============================================================ */
+    .ls-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+    .ls-ribbon {
+      border-top: 2px solid var(--p-accent);
+      padding: 7px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 12.5px;
+      color: var(--p-muted);
+      transition: opacity 600ms ease, border-color 400ms ease;
+    }
+    .ls-ribbon.is-ordinary { border-top-color: transparent; border-bottom: 1px solid var(--p-hair); }
+    .proto-app.in-flow .ls-ribbon { opacity: 0.03; border-top-color: transparent; }
+    .proto-app.in-flow .ls-ribbon:hover { opacity: 1; border-top-color: var(--p-accent); transition-duration: 180ms; }
+    .ls-rib-l { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ls-rib-r { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+    .ls-body { flex: 1; display: flex; min-height: 600px; position: relative; }
+
+    .ls-left {
+      width: 224px;
+      border-right: 1px solid var(--p-hair);
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex-shrink: 0;
+      transition: opacity 600ms ease;
+    }
+    .ls-left.closed { display: none; }
+    .proto-app.in-flow .ls-left { opacity: 0.05; }
+    .proto-app.in-flow .ls-left:hover { opacity: 1; transition-duration: 180ms; }
+    .ls-nav-group { display: flex; flex-direction: column; gap: 2px; }
+    .ls-nav-head { font-size: 11.5px; color: var(--p-faint); padding: 0 8px 6px; letter-spacing: 0.03em; }
+    .ls-page-btn {
+      border: 0;
+      background: transparent;
+      color: var(--p-muted);
+      text-align: left;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .ls-page-btn:hover { background: var(--p-subtle); color: var(--p-fg); }
+    .ls-page-btn.active { background: var(--p-subtle); color: var(--p-fg); font-weight: 500; }
+    .ls-sub-badge { font-size: 11px; color: var(--p-faint); flex-shrink: 0; }
+    .ls-dot-accent { width: 5px; height: 5px; border-radius: 50%; background: var(--p-accent); flex-shrink: 0; }
+
+    .ls-paper { flex: 1; padding: 38px 32px 130px; display: flex; justify-content: center; overflow-y: auto; }
+    .ls-col { width: 100%; max-width: 680px; }
+
+    /* Logseq 原生 Block Zoom-in 面包屑（只在块级事务时出现，点上级立刻回父页） */
+    .ls-crumb {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--p-muted);
+      margin-bottom: 12px;
+      transition: opacity 500ms ease;
+    }
+    .ls-crumb.show { display: flex; }
+    .proto-app.in-flow .ls-crumb { opacity: 0.28; }
+    .ls-crumb-parent {
+      border: 0;
+      background: transparent;
+      color: var(--p-accent);
+      cursor: pointer;
+      padding: 0;
+      font-size: 13px;
+    }
+    .ls-crumb-parent:hover { text-decoration: underline; }
+
+    .breathe-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 9px 14px;
+      background: var(--p-subtle);
+      border-radius: 6px;
+      font-size: 12.5px;
+      color: var(--p-muted);
+    }
+    .breathe-bar.show { display: flex; animation: fadeUp 160ms ease-out; }
+
+    .ls-title {
+      font-size: 25px;
+      font-weight: 600;
+      letter-spacing: -0.022em;
+      margin: 0 0 8px;
+      color: var(--p-fg);
+      outline: none;
+      transition: opacity 500ms ease;
+    }
+    .ls-props {
+      font-size: 12.5px;
+      color: var(--p-faint);
+      margin-bottom: 26px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      transition: opacity 500ms ease;
+    }
+    .proto-app.in-flow .ls-title,
+    .proto-app.in-flow .ls-props { opacity: 0.3; }
+
+    .ls-blocks { display: flex; flex-direction: column; gap: 6px; }
+    .ls-block {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      border-radius: 5px;
+      transition: opacity 520ms ease, background-color 220ms ease;
+    }
+    .ls-col.para-focus.typing-dim .ls-block { opacity: 0.3; }
+    .ls-col.para-focus.typing-dim .ls-block.is-active { opacity: 1; }
+    .ls-col.para-focus.typing-dim .ls-block:hover { opacity: 0.78; }
+    .ls-col.para-focus.typing-dim .ls-block.is-active:hover { opacity: 1; }
+
+    .ls-block-row { display: flex; align-items: flex-start; gap: 9px; padding: 4px 6px; border-radius: 5px; }
+    .ls-bullet-btn {
+      width: 18px;
+      height: 24px;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .ls-bullet {
+      width: 5.5px;
+      height: 5.5px;
+      border-radius: 50%;
+      background: var(--p-faint);
+      transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+    }
+    .ls-bullet-btn:hover .ls-bullet { background: var(--p-fg); transform: scale(1.2); }
+    .ls-block.is-collapsed .ls-bullet { background: var(--p-accent); box-shadow: 0 0 0 3.5px var(--p-accent-soft); }
+
+    .ls-block-text { flex: 1; outline: none; font-size: 15.5px; line-height: 1.78; color: var(--p-fg); min-width: 0; word-break: break-word; }
+    .ls-block-text:empty::before { content: attr(data-placeholder); color: var(--p-faint); pointer-events: none; }
+    .ls-link { color: var(--p-accent); cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--p-accent) 28%, transparent); }
+    .ls-todo-chk {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 1.4px solid var(--p-muted);
+      border-radius: 3px;
+      margin-right: 7px;
+      vertical-align: -1.5px;
+      cursor: pointer;
+    }
+    .ls-todo-chk.done { background: var(--p-sage); border-color: var(--p-sage); }
+
+    .ls-block.role-stop .ls-block-row { border-left: 2px solid var(--p-accent); padding-left: 10px; cursor: pointer; }
+    .ls-block.role-stop .ls-bullet { background: var(--p-accent); }
+    .ls-block.role-free { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--p-hair); }
+    .ls-block.role-free.marked-agent .ls-bullet { background: var(--p-accent); }
+    .ls-inline-tag { font-size: 12px; color: var(--p-accent); margin-right: 7px; font-weight: 500; }
+
+    .ls-block-tools { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 150ms ease; margin-top: 2px; }
+    .ls-block-row:hover .ls-block-tools,
+    .ls-block.role-free.marked-agent .ls-block-tools { opacity: 1; }
+
+    .float-pad {
+      position: fixed;
+      right: 28px;
+      bottom: 60px;
+      width: min(370px, calc(100vw - 32px));
+      background: var(--p-elev);
+      border: 1px solid var(--p-border);
+      border-radius: 8px;
+      box-shadow: var(--p-shadow);
+      padding: 13px 16px;
+      z-index: 48;
+      display: none;
+    }
+    .float-pad.open { display: block; animation: fadeUp 160ms ease-out; }
+    .float-input { width: 100%; border: 0; background: transparent; outline: none; resize: vertical; font-size: 14px; line-height: 1.75; color: var(--p-fg); min-height: 92px; }
+
+    .blind-bar {
+      position: fixed;
+      left: 50%;
+      top: 24%;
+      transform: translateX(-50%);
+      width: min(520px, calc(100vw - 32px));
+      background: var(--p-elev);
+      border: 1px solid var(--p-border);
+      border-radius: 8px;
+      box-shadow: var(--p-shadow);
+      padding: 12px 16px;
+      z-index: 55;
+      display: none;
+    }
+    .blind-bar.open { display: block; animation: fadeUp 140ms ease-out; }
+    .blind-input { width: 100%; border: 0; background: transparent; outline: none; font-size: 15px; color: var(--p-fg); }
+
+    .wb-pane {
+      width: 310px;
+      border-left: 1px solid var(--p-hair);
+      background: var(--p-bg);
+      display: none;
+      flex-direction: column;
+      flex-shrink: 0;
+      padding: 20px 22px;
+      gap: 20px;
+    }
+    .wb-pane.open { display: flex; }
+    @media (max-width: 900px) { .wb-pane.open { position: absolute; right: 0; top: 0; bottom: 0; z-index: 30; box-shadow: var(--p-shadow); } }
+    .wb-phrase { border-bottom: 1px dashed var(--p-accent); cursor: pointer; color: var(--p-fg); }
+    .wb-expand { display: none; margin: 8px 0; padding-left: 12px; border-left: 1px solid var(--p-hair); font-size: 13px; color: var(--p-muted); }
+    .wb-expand.open { display: block; }
+
+    .demo-corner { position: fixed; left: 20px; bottom: 14px; z-index: 42; transition: opacity 600ms ease; }
+    .proto-app.in-flow .demo-corner { opacity: 0.04; }
+    .proto-app.in-flow .demo-corner:hover { opacity: 1; transition-duration: 180ms; }
+    .demo-pop {
+      position: absolute;
+      left: 0;
+      bottom: 34px;
+      width: 210px;
+      background: var(--p-elev);
+      border: 1px solid var(--p-border);
+      border-radius: 8px;
+      box-shadow: var(--p-shadow);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .demo-pop.open { display: flex; }
+
+    .slip-dock {
+      position: fixed;
+      right: 28px;
+      bottom: 58px;
+      width: min(410px, calc(100vw - 32px));
+      background: var(--p-elev);
+      border: 1px solid var(--p-border);
+      border-radius: 8px;
+      box-shadow: var(--p-shadow);
+      padding: 16px 18px;
+      z-index: 52;
+      display: none;
+    }
+    .slip-dock.open { display: block; animation: fadeUp 160ms ease-out; }
+
+    /* ============================================================
+       3. 冷启动恢复
+       ============================================================ */
+    .rs-wrap { max-width: 660px; width: 100%; margin: 0 auto; padding: 48px 28px 72px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .rs-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 44px; }
+    .rs-bar { cursor: pointer; display: flex; flex-direction: column; gap: 7px; }
+    .rs-bar-line { height: 1.5px; background: var(--p-hair); transition: background-color 200ms ease; }
+    .rs-bar.passed .rs-bar-line, .rs-bar.active .rs-bar-line { background: var(--p-fg); }
+    .rs-bar-label { font-size: 12px; color: var(--p-faint); }
+    .rs-bar.active .rs-bar-label { color: var(--p-fg); font-weight: 500; }
+    .rs-slide-anim { animation: slideSoft 220ms ease-out; }
+    .rs-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 24px; }
+    .rs-body { display: flex; flex-direction: column; gap: 20px; font-size: 16px; line-height: 1.82; }
+    .rs-quote { border-left: 2px solid var(--p-fg); padding-left: 16px; color: var(--p-fg); }
+    .rs-note { border-left: 1px dashed var(--p-border); padding-left: 16px; color: var(--p-muted); font-size: 15px; }
+    .rs-meta { font-size: 12px; color: var(--p-faint); display: block; margin-bottom: 4px; }
+    .kw-focus { font-weight: 600; color: var(--p-accent); }
+    .kw-risk { font-weight: 600; color: var(--p-amber); }
+    .kw-strong { font-weight: 600; color: var(--p-fg); }
+    .rs-foot { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--p-hair); display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--p-faint); }
+
+    /* ============================================================
+       4. 安静回望室
+       ============================================================ */
+    .rf-wrap { max-width: 980px; width: 100%; margin: 0 auto; padding: 40px 32px 96px; }
+    .rf-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 36px; padding-bottom: 14px; border-bottom: 1px solid var(--p-hair); }
+    .rf-grid { display: grid; grid-template-columns: 0.76fr 1.32fr; gap: 64px; align-items: start; }
+    @media (max-width: 840px) { .rf-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+    .rf-traces { opacity: 0.76; transition: opacity 220ms ease; }
+    .rf-traces:hover { opacity: 1; }
+    .rf-trace-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+    .rf-trace {
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--p-muted);
+      padding: 6px 8px 6px 12px;
+      margin-left: -12px;
+      border-left: 2px solid transparent;
+      border-radius: 0 6px 6px 0;
+      transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, opacity 220ms ease;
+    }
+    .rf-trace:hover { background: var(--p-subtle); color: var(--p-fg); }
+    .rf-trace-list.has-focus .rf-trace { opacity: 0.36; }
+    .rf-trace-list.has-focus .rf-trace.is-companion { opacity: 1; color: var(--p-fg); border-left-color: var(--p-accent); background: var(--p-accent-soft); }
+    .rf-trace-time { font-size: 11.5px; color: var(--p-faint); font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+    .rf-trace-acts { opacity: 0; transition: opacity 150ms ease; display: inline-flex; gap: 4px; }
+    .rf-trace:hover .rf-trace-acts, .rf-trace.is-companion .rf-trace-acts { opacity: 1; }
+    .rf-src-detail { display: none; margin-top: 5px; padding-left: 10px; border-left: 1px solid var(--p-hair); font-size: 12px; color: var(--p-faint); }
+    .rf-src-detail.open { display: block; }
+
+    .rf-companion-chip { display: none; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--p-accent); padding-left: 10px; border-left: 2px solid var(--p-accent); margin-bottom: 12px; }
+    .rf-companion-chip.show { display: flex; }
+
+    .rf-editor { width: 100%; border: 0; background: transparent; outline: none; resize: none; font-size: 16px; line-height: 1.9; color: var(--p-fg); min-height: 190px; }
+    .rf-editor::placeholder { color: var(--p-faint); }
+    .rf-prompt-line { display: none; margin: 8px 0 14px; padding: 4px 0 4px 12px; border-left: 1.5px solid var(--p-border); font-size: 13.5px; color: var(--p-muted); align-items: baseline; justify-content: space-between; gap: 12px; }
+    .rf-prompt-line.show { display: flex; }
+    .rf-journal-bar { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--p-hair); margin-bottom: 48px; }
+
+    .idea-block { padding-top: 26px; border-top: 1px solid var(--p-hair); }
+    .idea-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+    .idea-name { font-size: 15px; font-weight: 500; }
+    .idea-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; padding-left: 14px; border-left: 1px solid var(--p-hair); }
+    .idea-line { font-size: 14px; line-height: 1.75; }
+    .idea-date { font-size: 12px; color: var(--p-faint); margin-right: 10px; font-variant-numeric: tabular-nums; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(8px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 60;
+      background: var(--p-elev);
+      border: 1px solid var(--p-border);
+      box-shadow: var(--p-shadow);
+      border-radius: 999px;
+      padding: 6px 15px;
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div id="app" class="proto-app" data-surface="paper-light">
+
+    <header class="proto-bar">
+      <div class="proto-brand">Task Copilot</div>
+      <nav class="proto-nav">
+        <button class="proto-tab active" data-view="overview">日程模块</button>
+        <button class="proto-tab" data-view="workspace">笔记现场</button>
+        <button class="proto-tab" data-view="resume">冷启动恢复</button>
+        <button class="proto-tab" data-view="reflect">安静回望室</button>
+      </nav>
+      <div>
+        <button id="cycleSurface" class="t-btn">暖白宣纸</button>
+      </div>
+    </header>
+
+    <main class="stage-main">
+
+      <!-- =========================================================
+           1. 日程模块（本周 | 今日 · 早间拍板 | 明日 · 前晚构思，共享同一份真实数据）
+           ========================================================= -->
+      <section id="view-overview" class="view-panel active">
+        <div class="ov-wrap">
+          <div class="ov-top">
+            <div class="ov-date-group">
+              <span id="leftDayLabel" class="ov-date">11 月 25 日 · 周三</span>
+              <div class="seg-text">
+                <button id="modeWeek">本周</button>
+                <button id="modeToday" class="active">今日 · 早间拍板</button>
+                <button id="modeTomorrow">明日 · 前晚构思</button>
+              </div>
+            </div>
+            <button id="btnStartMorningFocus" class="t-solid">进入上午主线</button>
+          </div>
+
+          <!-- 本周视图（对应 TimeHub weekMoves + 7 日日程概览） -->
+          <div id="weekPanel" style="display:none;">
+            <div class="week-strip">
+              <div class="week-day"><span>周一 23</span><span>1.5h 会议</span><div class="week-bar"><div class="week-bar-fill" style="width:35%"></div></div></div>
+              <div class="week-day"><span>周二 24</span><span>2.0h 会议</span><div class="week-bar"><div class="week-bar-fill" style="width:45%"></div></div></div>
+              <div class="week-day is-today"><span>周三 25 · 今</span><span>1.2h 会议</span><div class="week-bar"><div class="week-bar-fill" style="width:30%"></div></div></div>
+              <div class="week-day is-tmr"><span>周四 26 · 明</span><span>2.5h 会议</span><div class="week-bar"><div class="week-bar-fill" style="width:62%"></div></div></div>
+              <div class="week-day"><span>周五 27</span><span>1.0h 会议</span><div class="week-bar"><div class="week-bar-fill" style="width:25%"></div></div></div>
+              <div class="week-day"><span>周六 28</span><span>留白</span><div class="week-bar"><div class="week-bar-fill" style="width:0%"></div></div></div>
+              <div class="week-day"><span>周日 29</span><span>复盘</span><div class="week-bar"><div class="week-bar-fill" style="width:10%"></div></div></div>
+            </div>
+
+            <div class="ov-cols">
+              <div>
+                <div class="ov-slot-head" style="margin-bottom:14px;">
+                  <span class="ov-slot-name">本周推进块</span>
+                  <span id="cap-week" class="cap-dots"></span>
+                </div>
+                <div id="weekMovesList"></div>
+              </div>
+              <div class="ov-right">
+                <div class="r-label">本季方向 · 可拉入本周</div>
+                <div id="seasonHintList"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 今日 / 明日双视角（同一套语义槽，今日早间拍板 ↔ 明日前晚构思接力） -->
+          <div id="dayPanel" class="ov-cols">
+            <div>
+              <div id="carryoverStrip" class="ov-carry">
+                <div>
+                  <div style="font-size:14px;">补齐接口超时日志字段 <span style="font-size:12px; color:var(--p-amber); margin-left:6px;">昨日遗留</span></div>
+                  <div class="ov-row-ctx">昨天下班前因临时加会中断，还差把网关 traceId 补进告警日志</div>
+                </div>
+                <div style="display:flex; gap:2px; flex-shrink:0;">
+                  <button class="t-btn" data-carry="afternoon">下午</button>
+                  <button class="t-btn" data-carry="week">本周</button>
+                  <button class="t-btn" data-carry="drop">撤掉</button>
+                </div>
+              </div>
+
+              <div class="ov-slot" id="slotWrap-morning">
+                <div class="ov-slot-head">
+                  <span class="ov-slot-name">上午 · 深潜</span>
+                  <span id="cap-morning" class="cap-dots"></span>
+                </div>
+                <div id="cal-morning" class="ov-cal"></div>
+                <div id="slot-morning"></div>
+                <div id="friction-morning"></div>
+              </div>
+
+              <div class="ov-slot" id="slotWrap-afternoon">
+                <div class="ov-slot-head">
+                  <span class="ov-slot-name">下午 · 推进</span>
+                  <span id="cap-afternoon" class="cap-dots"></span>
+                </div>
+                <div id="cal-afternoon" class="ov-cal"></div>
+                <div id="slot-afternoon"></div>
+              </div>
+
+              <div class="ov-slot" id="slotWrap-evening">
+                <div class="ov-slot-head">
+                  <span class="ov-slot-name">晚上 · 轻放</span>
+                  <span id="cap-evening" class="cap-dots"></span>
+                </div>
+                <div id="slot-evening"></div>
+              </div>
+            </div>
+
+            <div class="ov-right">
+              <div class="r-section">
+                <div id="readyPoolTitle" class="r-label">待办</div>
+                <div id="readyPoolList"></div>
+              </div>
+
+              <div id="morningQuietFold" style="padding-top:16px; border-top:1px solid var(--p-hair);">
+                <button id="btnPeekTomorrow" class="t-btn" style="padding-left:0;">去「明日 · 前晚构思」澄清承诺 (3) 与项目 (3)</button>
+              </div>
+
+              <div id="tomorrowOnlyZones" style="display:none;">
+                <div class="r-section" style="padding-top:20px; border-top:1px solid var(--p-hair);">
+                  <div class="r-label">承诺原话</div>
+                  <div id="fuzzyPromiseList"></div>
+                </div>
+                <div class="r-section" style="padding-top:20px; border-top:1px solid var(--p-hair);">
+                  <div class="r-label">上层项目方向</div>
+                  <div id="projectDirectionsList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =========================================================
+           2. 笔记现场（Page 事务 + Block 级事务 Zoom-in + 普通笔记；取消自动收尾）
+           ========================================================= -->
+      <section id="view-workspace" class="view-panel">
+        <div id="workspaceShell" class="ls-shell">
+          <div class="ls-ribbon" id="wsRibbon">
+            <div class="ls-rib-l">
+              <button id="btnToggleLeft" class="t-btn active">目录</button>
+              <span id="ribbonPageName" style="color:var(--p-fg); font-weight:500;">发布校验自动化</span>
+              <span id="flowIndicator" style="color:var(--p-faint);"></span>
+            </div>
+            <div class="ls-rib-r" id="workOnlyActions">
+              <button id="btnParaFocus" class="t-btn active">逐段聚焦</button>
+              <button id="btnBreathe" class="t-btn">抬头换气</button>
+              <button id="btnQuickPause" class="t-btn">暂停</button>
+              <button id="btnToggleWb" class="t-btn">工作台</button>
+            </div>
+          </div>
+
+          <div class="ls-body">
+            <!-- 左侧极素目录：覆盖 Journal / Page 事务 / 仅在块中的事务 / 普通笔记 -->
+            <aside id="lsLeft" class="ls-left">
+              <div class="ls-nav-group">
+                <div class="ls-nav-head">今天</div>
+                <button class="ls-page-btn" data-page="journal">
+                  <span>2026-11-25</span>
+                  <span class="ls-sub-badge">日记</span>
+                </button>
+              </div>
+              <div class="ls-nav-group">
+                <div class="ls-nav-head">独立页事务</div>
+                <button class="ls-page-btn active" data-page="project">
+                  <span>发布校验自动化</span>
+                  <span class="ls-dot-accent"></span>
+                </button>
+              </div>
+              <div class="ls-nav-group">
+                <div class="ls-nav-head">块级事务（Zoom-in）</div>
+                <button class="ls-page-btn" data-page="block-reconcile">
+                  <span>整理对账异常样本</span>
+                  <span class="ls-sub-badge">块</span>
+                </button>
+                <button class="ls-page-btn" data-page="block-rollback">
+                  <span>灰度回滚边界核查</span>
+                  <span class="ls-sub-badge">块</span>
+                </button>
+              </div>
+              <div class="ls-nav-group">
+                <div class="ls-nav-head">普通笔记</div>
+                <button class="ls-page-btn" data-page="reading">
+                  <span>数据密集型应用</span>
+                </button>
+              </div>
+            </aside>
+
+            <div class="ls-paper">
+              <article id="lsCol" class="ls-col para-focus">
+
+                <div id="breatheBar" class="breathe-bar">
+                  <span id="breatheSummary">已专注 34 分钟 · 后台备好 1 份报表工单小抄</span>
+                  <div style="display:flex; gap:6px;">
+                    <button id="btnOpenTicketFromBreathe" class="t-btn accent">看小抄</button>
+                    <button id="btnResumeFlow" class="t-btn">回到刚写的那行</button>
+                  </div>
+                </div>
+
+                <!-- Logseq 原生块聚焦面包屑（点上级可退回完整父页） -->
+                <div id="lsCrumb" class="ls-crumb">
+                  <button id="lsCrumbParent" class="ls-crumb-parent"></button>
+                  <span>/</span>
+                  <span id="lsCrumbSelf" style="color:var(--p-faint);"></span>
+                </div>
+
+                <h1 id="lsTitle" class="ls-title" contenteditable="true" spellcheck="false">发布校验自动化</h1>
+                <div id="lsProps" class="ls-props"></div>
+                <div id="lsBlocks" class="ls-blocks"></div>
+
+                <div style="margin-top:26px; font-size:12px; color:var(--p-faint);">
+                  <span class="kbd">Enter</span> 新建块 · <span class="kbd">Tab</span> / <span class="kbd">Shift+Tab</span> 缩进 · 点圆点折叠 · <span class="kbd">Ctrl+.</span> 盲记进「自由随记」块
+                </div>
+              </article>
+            </div>
+
+            <!-- 右侧：复用 Logseq 渐进工作台（收尾交由与 Agent 对话完成） -->
+            <aside id="wbPane" class="wb-pane">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid var(--p-hair);">
+                <div class="seg-text" style="font-size:13px;">
+                  <button class="active" data-wbtab="article">文章</button>
+                  <button data-wbtab="materials">材料</button>
+                </div>
+                <button id="btnCloseWb" class="t-btn">收起</button>
+              </div>
+              <div id="wb-article" style="font-size:13.5px; line-height:1.78; color:var(--p-muted); flex:1;">
+                <p style="margin:0;">
+                  核心是把发布检查做成 <span class="wb-phrase" data-expand="ex1">旁路只读校验</span>，
+                  眼下补完 <span class="wb-phrase" data-expand="ex2">历史空版本边界</span> 就能合入主干。
+                </p>
+                <div id="ex1" class="wb-expand">11-18 定论：不改业务代码，先跑 dry-run 输出差异。</div>
+                <div id="ex2" class="wb-expand">release-guard.test.ts 第 84 行，覆盖老项目 version 为空的记录。</div>
+              </div>
+              <div id="wb-materials" style="display:none; flex-direction:column; gap:12px; font-size:13px; flex:1;">
+                <div><div style="color:var(--p-fg);">release-guard.ts</div><div style="font-size:12px; color:var(--p-faint);">昨日修改</div></div>
+                <div><div style="color:var(--p-fg);">release-guard.test.ts</div><div style="font-size:12px; color:var(--p-faint);">第 84 行待补</div></div>
+              </div>
+              <div style="padding-top:12px; border-top:1px solid var(--p-hair); display:flex; flex-direction:column; gap:4px;">
+                <button id="btnOpenDsh" class="t-btn accent" style="padding-left:0;">在 DSH 与 Agent 对话（协作 / 复盘收尾）</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="floatPad" class="float-pad">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:12px; color:var(--p-muted);">
+            <span style="color:var(--p-fg); font-weight:500;">自由随记 · 悬浮同步</span>
+            <div style="display:flex; gap:4px;">
+              <button id="btnMarkAgentFloat" class="t-btn">标给 Agent</button>
+              <button id="btnDockScratch" class="t-btn">贴回页内</button>
+            </div>
+          </div>
+          <textarea id="floatFreeText" class="float-input" placeholder="写在这里的内容会同步回当前页/当前块的「自由随记」子块..."></textarea>
+        </div>
+
+        <div id="blindBar" class="blind-bar">
+          <input id="blindInput" class="blind-input" placeholder="记一句刚冒出的想法，回车直接写入当前「自由随记」块..." />
+        </div>
+
+        <div class="demo-corner">
+          <div id="demoPop" class="demo-pop">
+            <button class="t-btn" id="simBlindCapture">盲写卸闪念（Ctrl+.）</button>
+            <button class="t-btn" id="simDropNewTicket">丢入首次新工单</button>
+            <button class="t-btn" id="simMiddayMood">午间记一句感受</button>
+          </div>
+          <button id="demoCornerBtn" class="t-btn" style="font-size:12px; color:var(--p-faint);">演练</button>
+        </div>
+      </section>
+
+      <!-- 3. 冷启动恢复 -->
+      <section id="view-resume" class="view-panel">
+        <div class="rs-wrap">
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:32px;">
+              <div class="seg-text">
+                <button id="resumeLongBtn" class="active">久别 9 天</button>
+                <button id="resumeShortBtn">昨日刚碰</button>
+              </div>
+              <span style="font-size:12px; color:var(--p-faint);"><span class="kbd">Space</span> 翻页 · <span class="kbd">Esc</span> 跳过</span>
+            </div>
+
+            <div id="resumeLongView">
+              <div class="rs-bars">
+                <div class="rs-bar active" data-step="0"><div class="rs-bar-line"></div><span class="rs-bar-label">总体意图</span></div>
+                <div class="rs-bar" data-step="1"><div class="rs-bar-line"></div><span class="rs-bar-label">最近选型</span></div>
+                <div class="rs-bar" data-step="2"><div class="rs-bar-line"></div><span class="rs-bar-label">上次落脚点</span></div>
+              </div>
+              <div id="deckSlideContent"></div>
+            </div>
+
+            <div id="resumeShortView" style="display:none;">
+              <div style="padding-left:16px; border-left:2px solid var(--p-accent); margin-bottom:28px;">
+                <div style="font-size:12px; color:var(--p-faint); margin-bottom:4px;">昨日 17:42 留下的停点</div>
+                <div style="font-size:16px;">主链路已跑通，回来直接补 <span class="kw-risk">历史空版本边界用例</span>。</div>
+              </div>
+              <button id="btnShortEnter" class="t-solid">直达上次那一行</button>
+            </div>
+          </div>
+
+          <div id="deckFoot" class="rs-foot">
+            <span id="deckCounter">1 / 3</span>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button id="deckPrev" class="t-btn">上一页</button>
+              <button id="deckNext" class="t-solid">下一页</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 安静回望室 -->
+      <section id="view-reflect" class="view-panel">
+        <div class="rf-wrap">
+          <div class="rf-top">
+            <span style="font-size:21px; font-weight:600; letter-spacing:-0.02em;">11 月 25 日 · 晚间手记</span>
+            <span style="font-size:12.5px; color:var(--p-faint);">今日脚印已自动汇齐</span>
+          </div>
+
+          <div class="rf-grid">
+            <aside class="rf-traces">
+              <div class="r-label" style="margin-bottom:14px;">今天发生过</div>
+              <ul id="rfTraceList" class="rf-trace-list">
+                <li class="rf-trace" data-tid="t1" data-summary="上午专心写了一个多小时发布校验脚本，停在老项目空版本边界">
+                  <div class="rf-trace-time">
+                    <span>09:12 – 11:11</span>
+                    <span class="rf-trace-acts">
+                      <button class="t-btn accent" style="padding:0 5px; font-size:11.5px;" data-follow="t1">顺着写</button>
+                      <button class="t-btn" style="padding:0 4px; font-size:11.5px;" data-src="s1">原记录</button>
+                    </span>
+                  </div>
+                  <div>专心写了一个多小时发布校验脚本，停在老项目空版本边界上。</div>
+                  <div id="src-s1" class="rf-src-detail">停点原话：“先补空版本边界再合入”</div>
+                </li>
+                <li class="rf-trace" data-tid="t2" data-summary="中午有人临时插进来加需求，当时特别烦，直接冷着脸回绝了">
+                  <div class="rf-trace-time">
+                    <span>12:38 · 随口记</span>
+                    <span class="rf-trace-acts">
+                      <button class="t-btn accent" style="padding:0 5px; font-size:11.5px;" data-follow="t2">顺着写</button>
+                      <button class="t-btn" style="padding:0 4px; font-size:11.5px;" data-src="s2">原记录</button>
+                    </span>
+                  </div>
+                  <div>“有人临时插进来加需求，当时特别烦，直接冷着脸回绝了。”</div>
+                  <div id="src-s2" class="rf-src-detail">iCloud / 20261125-123814.md</div>
+                </li>
+                <li class="rf-trace" data-tid="t3" data-summary="下午间隙清了两个工单，新工单存成了 3 行避坑步骤">
+                  <div class="rf-trace-time">
+                    <span>14:40 / 16:15</span>
+                    <span class="rf-trace-acts">
+                      <button class="t-btn accent" style="padding:0 5px; font-size:11.5px;" data-follow="t3">顺着写</button>
+                      <button class="t-btn" style="padding:0 4px; font-size:11.5px;" data-src="s3">原记录</button>
+                    </span>
+                  </div>
+                  <div>间隙清了两个工单，新工单顺手存成了 3 行避坑步骤。</div>
+                  <div id="src-s3" class="rf-src-detail">报表导出（3 分钟） / 权限加白（已存新小抄）</div>
+                </li>
+                <li class="rf-trace" data-tid="t4" data-summary="下午四点半自己多开了一件不在计划里的旧脚本重构，写了 35 分钟">
+                  <div class="rf-trace-time">
+                    <span>16:30 · 日记</span>
+                    <span class="rf-trace-acts">
+                      <button class="t-btn accent" style="padding:0 5px; font-size:11.5px;" data-follow="t4">顺着写</button>
+                      <button class="t-btn" style="padding:0 4px; font-size:11.5px;" data-src="s4">原记录</button>
+                    </span>
+                  </div>
+                  <div>自己多开了一件不在计划里的旧脚本重构，写了 35 分钟。</div>
+                  <div id="src-s4" class="rf-src-detail">journals/2026_11_25.md · 16:30 新增</div>
+                </li>
+                <li class="rf-trace" data-tid="t5" data-summary="下班前理清了答应老张的事，排好明天上午主线">
+                  <div class="rf-trace-time">
+                    <span>17:40</span>
+                    <span class="rf-trace-acts"><button class="t-btn accent" style="padding:0 5px; font-size:11.5px;" data-follow="t5">顺着写</button></span>
+                  </div>
+                  <div>下班前理清了答应老张的事，排好明天上午主线。</div>
+                </li>
+              </ul>
+            </aside>
+
+            <div>
+              <div id="rfCompanionChip" class="rf-companion-chip">
+                <span id="rfCompanionText"></span>
+                <button id="btnClearCompanion" class="t-btn" style="font-size:12px;">取消对照</button>
+              </div>
+              <div style="font-size:13px; font-weight:500; color:var(--p-muted); margin-bottom:10px;">今晚我想留下的</div>
+              <textarea id="myJournalInput" class="rf-editor" placeholder="扫一眼左边今天发生的事，顺着自己的感觉随便写几句。这里只留你自己的话，不写也没关系..."></textarea>
+
+              <div id="gentlePromptLine" class="rf-prompt-line">
+                <span id="gentlePromptText"></span>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  <button id="btnNextPrompt" class="t-btn" style="font-size:12px;">换一句</button>
+                  <button id="btnHidePrompt" class="t-btn" style="font-size:12px;">关掉</button>
+                </div>
+              </div>
+
+              <div class="rf-journal-bar">
+                <button id="btnAskOneQuestion" class="t-btn" style="padding-left:0; color:var(--p-faint);">写不出来时，给 1 句简单提问</button>
+                <button id="btnSaveMyJournal" class="t-pill">存进今天日记</button>
+              </div>
+
+              <div class="idea-block">
+                <div class="idea-head">
+                  <span class="idea-name">想法 · 怎么把踩过的坑低成本留下来</span>
+                  <span style="font-size:12px; color:var(--p-faint);">个人工作流</span>
+                </div>
+                <div id="ideaTimeline" class="idea-list">
+                  <div class="idea-line"><span class="idea-date">11-11</span>写文档最难的不是不会写，是刚修完坑整个人都累空了。要是顺手只记 3 行就能留下来，后面肯定用得上。</div>
+                  <div class="idea-line"><span class="idea-date">11-18</span>试了两次发现，真正管用的是写清“去哪个页面改”和“最容易踩的那个坑”，前面来龙去脉其实没人看。</div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input id="ideaAppendInput" class="line-input" placeholder="有新体会就顺手往后补两句，回车记下..." />
+                  <button id="btnAppendIdea" class="t-btn accent" style="flex-shrink:0;">补充</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <div id="slipDock" class="slip-dock">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <span id="slipTitle" style="font-size:13.5px; font-weight:500;"></span>
+        <span id="slipMeta" style="font-size:12px; color:var(--p-faint);"></span>
+      </div>
+      <div id="slipBody" style="margin-bottom:14px;"></div>
+      <div id="slipActions" style="display:flex; justify-content:flex-end; gap:6px;"></div>
+    </div>
+
+    <div id="toast" class="toast" role="status">
+      <span id="toastText"></span>
+      <button id="toastUndo" class="t-btn accent" style="padding:2px 6px; display:none;">撤销</button>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      const app = document.getElementById("app");
+
+      /* ------------------ 多粒度 Logseq 节点模型（独立 Page + Block Zoom-in + 普通笔记） ------------------ */
+      const PAGES = {
+        project: {
+          title: "发布校验自动化",
+          isWork: true,
+          sourceKind: "page",
+          props: ["Area / 运维能力", "独立页事务", "主线"],
+          anchorBlockId: "b3",
+          blocks: [
+            { id: "b-stop", indent: 0, role: "stop", tag: "上次停点", text: "主链路已跑通，直接从第 84 行补「历史空版本字段」边界用例（点此跳至停笔行）" },
+            { id: "b1", indent: 0, text: "目标：把上线前人工核对收口成旁路脚本，每次发布省下 40 分钟重复排查，关联 [[发布网关架构]]。" },
+            { id: "b2", indent: 0, zoomTarget: "block-rollback", text: "灰度回滚边界核查（悬停可 Zoom-in 仅聚焦此块事务）" },
+            { id: "b2a", indent: 1, text: "主链路 dry-run 差异输出已经跑通，没有改动原业务代码。" },
+            { id: "b3", indent: 1, text: "待补 release-guard.test.ts 第 84 行「历史空版本字段」边界用例，避免老项目回滚空指针。" },
+            { id: "b4", indent: 1, text: "旧网关高峰期响应偶尔到 42 秒，超时阈值准备放到 45 秒。" },
+            { id: "b-free", indent: 0, role: "free", text: "自由随记" },
+            { id: "b-free-1", indent: 1, freeChild: true, text: "回滚前需要先锁住并发写入，不然老张那边的批处理任务会把状态写脏。" }
+          ]
+        },
+        journal: {
+          title: "2026-11-25",
+          isWork: true,
+          sourceKind: "page",
+          props: ["今日默认工作区 · Journal", "周三"],
+          anchorBlockId: "j2",
+          blocks: [
+            { id: "j1", indent: 0, text: "上午推进 [[发布校验自动化]]，评审会后合入边界修复。" },
+            { id: "j2", indent: 0, todo: true, done: false, zoomTarget: "block-reconcile", text: "整理本周对账异常样本（仅在块中的小事务，可 Zoom-in 聚焦）" },
+            { id: "j2a", indent: 1, text: "原始差异表已导出在桌面目录，周四例会前发给老王。" },
+            { id: "j3", indent: 0, todo: true, done: true, text: "确认测试环境证书自动续期日志正常。" },
+            { id: "j-free", indent: 0, role: "free", text: "自由随记" },
+            { id: "j-free-1", indent: 1, freeChild: true, text: "16:30 顺手把旧配置加载脚本拆干净了，看着顺眼很多。" }
+          ]
+        },
+        "block-reconcile": {
+          title: "整理本周对账异常样本",
+          isWork: true,
+          sourceKind: "block",
+          parentPageKey: "journal",
+          parentPageTitle: "2026-11-25",
+          props: ["块级事务 · 位于今日日记内", "下午推进"],
+          anchorBlockId: "br2",
+          blocks: [
+            { id: "br1", indent: 0, text: "范围：筛选 11 月第 3 周金额差额 > 10 元的 3 组异常订单。" },
+            { id: "br2", indent: 0, text: "已导出的原始对照表在 ~/Desktop/reconcile-w47.xlsx，还差标注退款延迟那一组。" },
+            { id: "br3", indent: 0, text: "整理完把 3 行结论发老王，准备周四例会直接过。" },
+            { id: "br-free", indent: 0, role: "free", text: "自由随记" },
+            { id: "br-free-1", indent: 1, freeChild: true, text: "退款回调延迟导致的假差异可以单独加一列状态过滤掉。" }
+          ]
+        },
+        "block-rollback": {
+          title: "灰度回滚边界核查",
+          isWork: true,
+          sourceKind: "block",
+          parentPageKey: "project",
+          parentPageTitle: "发布校验自动化",
+          props: ["块级事务 · 位于「发布校验自动化」页内", "上午深潜"],
+          anchorBlockId: "bk2",
+          blocks: [
+            { id: "bk-stop", indent: 0, role: "stop", tag: "上次停点", text: "直接补 release-guard.test.ts 第 84 行历史空版本用例" },
+            { id: "bk1", indent: 0, text: "主链路 dry-run 差异输出已经跑通，没有改动原业务代码。" },
+            { id: "bk2", indent: 0, text: "待补第 84 行「历史空版本字段」边界样本，避免老项目回滚触发空指针。" },
+            { id: "bk3", indent: 0, text: "旧网关高峰期响应偶尔到 42 秒，超时阈值放宽至 45 秒。" },
+            { id: "bk-free", indent: 0, role: "free", text: "自由随记" },
+            { id: "bk-free-1", indent: 1, freeChild: true, text: "只聚焦这一个块子树时，父页其他背景完全不干扰视线。" }
+          ]
+        },
+        reading: {
+          title: "数据密集型应用 · 笔记",
+          isWork: false,
+          sourceKind: "page",
+          props: ["普通读书笔记", "个人成长"],
+          anchorBlockId: "r2",
+          blocks: [
+            { id: "r1", indent: 0, text: "第 4 章：编码与演化" },
+            { id: "r2", indent: 1, text: "向前兼容（旧代码读新数据）往往比向后兼容更棘手，老程序必须能安静忽略它不认识的新字段。" },
+            { id: "r3", indent: 1, text: "这一点正好印证今天 [[发布校验自动化]] 里老项目空版本字段的坑。" },
+            { id: "r4", indent: 0, text: "普通笔记没有任何工作按钮打扰，想怎么记就怎么记。" }
+          ]
+        }
+      };
+
+      const state = {
+        view: "overview",
+        surfaceIdx: 0,
+        surfaces: [
+          { key: "paper-light", label: "暖白宣纸" },
+          { key: "paper-dark", label: "暗纸深色" }
+        ],
+        scheduleTab: "today", // week | today | tomorrow
+        lastPlacedId: null,
+        weekMoves: [
+          { id: "w1", title: "跑通发布校验自动化端到端灰度回滚", project: "发布校验自动化", ctx: "本周核心主线 · 已累计投入 2h 10m", targetPage: "block-rollback", main: true },
+          { id: "w2", title: "整理周四例会用的对账异常样本对照", project: "日常运维", ctx: "块级事务 · 周四上午前发给老王", targetPage: "block-reconcile" },
+          { id: "w3", title: "补齐高频运维工单的 2 份 3 行避坑小抄", project: "运维工单小抄", ctx: "覆盖权限加白与证书续期两类常见工单", targetPage: "journal" }
+        ],
+        days: {
+          today: {
+            label: "11 月 25 日 · 周三",
+            calMorning: "10:00 – 10:45   发布网关架构评审",
+            calAfternoon: "15:00 – 15:30   跨组接口字段对齐",
+            slots: {
+              morning: [
+                { id: "m1", title: "灰度回滚边界核查 · 补空字段用例", project: "发布校验自动化", kind: "块", targetPage: "block-rollback", ctx: "主链路已跑通，还差老项目「历史空版本」这组边界用例，评审后合入", main: true }
+              ],
+              afternoon: [
+                { id: "a1", title: "整理本周对账异常样本（3 组差异表）", project: "日常运维", kind: "块", targetPage: "block-reconcile", ctx: "周四例会给老王看的结果对照，原始表已导出在桌面目录" },
+                { id: "a2", title: "17:15 清扫今日小尾巴与工单小抄", project: "日终收口", kind: "日记", targetPage: "journal", ctx: "暂存 1 份报表缺字段工单（命中 11-12 小抄，约 3 分钟）" }
+              ],
+              evening: [
+                { id: "e1", title: "翻完《数据密集型应用》第 4 章笔记", project: "个人成长", kind: "笔记", targetPage: "reading", ctx: "昨晚看到编码演进那一节，顺手摘两句放进 Logseq" }
+              ]
+            }
+          },
+          tomorrow: {
+            label: "11 月 26 日 · 周四",
+            calMorning: "09:30 – 10:30   业务对账周例会",
+            calAfternoon: "14:00 – 15:00   压测方案评审",
+            slots: {
+              morning: [
+                { id: "tm1", title: "合入灰度回滚脚本并在测试集群演练", project: "发布校验自动化", kind: "页", targetPage: "project", ctx: "接续周三补完的空版本用例，完成全流程干跑", main: true }
+              ],
+              afternoon: [],
+              evening: []
+            }
+          }
+        },
+        pendingFriction: null,
+        readyPool: [
+          { id: "p1", title: "核对生产只读库权限到期清单", project: "运维安全", kind: "块", targetPage: "journal", ctx: "周五前确认 4 个账号是否续期，列表已在邮件里" },
+          { id: "p2", title: "回复发布网关评审的 2 条评论", project: "发布校验自动化", kind: "块", targetPage: "project", ctx: "架构师问了降级开关默认值和超时告警阈值" },
+          { id: "p3", title: "起草下周组内分享的 3 页结构草图", project: "团队沉淀", kind: "页", targetPage: "journal", ctx: "讲这次把人工核对做成旁路脚本的思路" },
+          { id: "p4", title: "确认测试环境证书自动续期日志", project: "日常运维", kind: "块", targetPage: "journal", ctx: "上周改完 cron 脚本，看一眼续期日志即可" }
+        ],
+        fuzzyPromises: [
+          { id: "f1", raw: "周二午饭时答应老张帮忙看一眼导出任务慢的问题，没约具体时间。", when: "11-23 · 随口记", clarifiedTitle: "花 20 分钟帮老张查导出慢的 SQL 索引并给结论", clarifiedCtx: "回应周二午饭口头承诺，查完发他优化建议" },
+          { id: "f2", raw: "得给新来的同学写一份本地环境搭建避坑说明，不然每次都要口头讲一遍。", when: "11-21 · 日记", clarifiedTitle: "整理 5 条新人本地环境搭建最常踩的坑", clarifiedCtx: "写清 Node 版本、代理和只读库配置三处" },
+          { id: "f3", raw: "群里跟测试小李说过，这周找空一起过一下压测数据造数脚本。", when: "11-22 · 随口记", clarifiedTitle: "约小李 15 分钟过一遍压测造数脚本参数", clarifiedCtx: "定明天下午空档，免得周五提测前堵车" }
+        ],
+        projects: [
+          { id: "pr1", name: "发布校验自动化", role: "主线", main: true, status: "主链路已通，卡在灰度回滚空版本边界与超时收敛；本周目标跑通端到端。" },
+          { id: "pr2", name: "运维工单小抄沉淀", role: "支线", main: false, status: "已攒 4 份高频工单 3 行步骤，还缺权限加白与证书续期两类。" },
+          { id: "pr3", name: "个人写作与复盘", role: "维护", main: false, status: "每周保底记 1 篇短心得，把踩过的坑讲透即可。" }
+        ],
+        currentPage: "project",
+        activeBlockId: "b3",
+        collapsedIds: new Set(),
+        paraFocus: true,
+        inFlow: false,
+        flowTimer: null,
+        freeMarkedForAgent: false,
+        freePoppedOut: false,
+        tickets: [
+          {
+            id: "t-known",
+            title: "运营月度报表字段缺失工单",
+            known: true,
+            source: "11-12 小抄",
+            lines: [
+              "1. 去运维台 -> 报表导出 -> 补数页",
+              "2. 账期填 YYYYMM，勾选「含历史空值」",
+              "3. 坑：必须先切「生产只读库」，不然导出来少两列"
+            ]
+          }
+        ],
+        deckStep: 0,
+        promptIdx: 0,
+        gentlePrompts: [
+          "今天哪一件事做完之后，心里最松了一口气？",
+          "下午突然去重构旧脚本那半小时，当时心里其实在想什么？",
+          "中午烦起来的那一下，如果重来一次，你想怎么回对方？"
+        ],
+        lastUndo: null,
+        toastTimer: null,
+        activeSlip: false
+      };
+
+      function showToast(text, undoFn) {
+        const el = document.getElementById("toast");
+        document.getElementById("toastText").textContent = text;
+        const ub = document.getElementById("toastUndo");
+        state.lastUndo = undoFn || null;
+        ub.style.display = undoFn ? "inline-flex" : "none";
+        el.classList.add("show");
+        clearTimeout(state.toastTimer);
+        state.toastTimer = setTimeout(() => el.classList.remove("show"), 3600);
+      }
+      document.getElementById("toastUndo").addEventListener("click", () => {
+        if (typeof state.lastUndo === "function") { state.lastUndo(); state.lastUndo = null; showToast("已撤销"); }
+      });
+
+      function exitFlow() {
+        clearTimeout(state.flowTimer);
+        state.inFlow = false;
+        app.classList.remove("in-flow");
+        document.getElementById("lsCol").classList.remove("typing-dim");
+        document.getElementById("flowIndicator").textContent = "";
+      }
+
+      function enterFlowSoon() {
+        if (state.view !== "workspace") return;
+        clearTimeout(state.flowTimer);
+        state.flowTimer = setTimeout(() => {
+          state.inFlow = true;
+          app.classList.add("in-flow");
+          if (state.paraFocus) document.getElementById("lsCol").classList.add("typing-dim");
+          document.getElementById("breatheBar").classList.remove("show");
+          document.getElementById("flowIndicator").textContent = "心流中";
+        }, 1000);
+      }
+
+      function switchView(v, opts) {
+        state.view = v;
+        exitFlow();
+        closeSlip();
+        closeBlindBar();
+        document.getElementById("demoPop").classList.remove("open");
+        document.querySelectorAll(".proto-tab").forEach(b => b.classList.toggle("active", b.dataset.view === v));
+        document.querySelectorAll(".view-panel").forEach(p => p.classList.toggle("active", p.id === "view-" + v));
+        if (v === "workspace" && opts && opts.focusAnchor) {
+          setTimeout(() => jumpToAnchorBlock(true), 60);
+        }
+      }
+      document.querySelectorAll(".proto-tab").forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+
+      document.getElementById("cycleSurface").addEventListener("click", (e) => {
+        state.surfaceIdx = (state.surfaceIdx + 1) % state.surfaces.length;
+        const cur = state.surfaces[state.surfaceIdx];
+        app.setAttribute("data-surface", cur.key);
+        e.currentTarget.textContent = cur.label;
+      });
+
+      /* ------------------ 1. 日程模块（本周 | 今日 | 明日） ------------------ */
+      function renderCapDots(id, count, limit, main) {
+        const total = Math.max(count, limit);
+        let html = "";
+        for (let i = 0; i < total; i++) {
+          const cls = i < count ? (i >= limit ? "cap-dot over" : (main ? "cap-dot filled" : "cap-dot filled soft")) : "cap-dot";
+          html += `<span class="${cls}"></span>`;
+        }
+        document.getElementById(id).innerHTML = html;
+      }
+
+      function renderSchedule() {
+        const tab = state.scheduleTab;
+        document.getElementById("modeWeek").classList.toggle("active", tab === "week");
+        document.getElementById("modeToday").classList.toggle("active", tab === "today");
+        document.getElementById("modeTomorrow").classList.toggle("active", tab === "tomorrow");
+
+        const isWeek = tab === "week";
+        document.getElementById("weekPanel").style.display = isWeek ? "block" : "none";
+        document.getElementById("dayPanel").style.display = isWeek ? "none" : "grid";
+        document.getElementById("btnStartMorningFocus").style.display = tab === "today" ? "inline-flex" : "none";
+
+        if (isWeek) {
+          document.getElementById("leftDayLabel").textContent = "第 48 周 · 11 月 23 日 – 29 日";
+          renderCapDots("cap-week", state.weekMoves.length, 4, true);
+          document.getElementById("weekMovesList").innerHTML = state.weekMoves.map(w => `
+            <div class="ov-row ${w.main ? "is-main" : ""}">
+              <div style="min-width:0;">
+                <div class="ov-row-title">${w.title}</div>
+                <div class="ov-row-ctx"><span class="ov-row-proj">${w.project}</span>${w.ctx}</div>
+              </div>
+              <span class="ov-hover-acts">
+                <button class="t-btn accent" data-week-to="today" data-wid="${w.id}">放今天</button>
+                <button class="t-btn" data-week-to="tomorrow" data-wid="${w.id}">放明天</button>
+              </span>
+            </div>
+          `).join("");
+          document.getElementById("seasonHintList").innerHTML = state.projects.map(pr => `
+            <div class="r-proj">
+              <div class="r-proj-head">
+                <span class="r-proj-name">${pr.name}</span>
+                <span class="r-proj-role ${pr.main ? "main" : ""}">${pr.role}</span>
+              </div>
+              <div class="ov-row-ctx" style="margin-top:4px;">${pr.status}</div>
+            </div>
+          `).join("");
+          return;
+        }
+
+        const dayKey = tab === "tomorrow" ? "tomorrow" : "today";
+        const dayObj = state.days[dayKey];
+        document.getElementById("leftDayLabel").textContent = dayObj.label;
+        document.getElementById("carryoverStrip").style.display = dayKey === "today" && !state.carryoverDone ? "flex" : "none";
+        document.getElementById("cal-morning").textContent = dayObj.calMorning;
+        document.getElementById("cal-afternoon").textContent = dayObj.calAfternoon;
+        document.getElementById("readyPoolTitle").textContent = dayKey === "today" ? "今日待办" : "明日候选";
+        document.getElementById("morningQuietFold").style.display = dayKey === "today" ? "block" : "none";
+        document.getElementById("tomorrowOnlyZones").style.display = dayKey === "tomorrow" ? "block" : "none";
+
+        renderCapDots("cap-morning", dayObj.slots.morning.length, 1, true);
+        renderCapDots("cap-afternoon", dayObj.slots.afternoon.length, 2, false);
+        renderCapDots("cap-evening", dayObj.slots.evening.length, 1, false);
+
+        ["morning", "afternoon", "evening"].forEach(k => {
+          const box = document.getElementById("slot-" + k);
+          const list = dayObj.slots[k];
+          if (!list.length) { box.innerHTML = `<div class="ov-empty">${k === "evening" ? "留白" : "—"}</div>`; return; }
+          box.innerHTML = list.map(it => `
+            <div class="ov-row ${it.main ? "is-main" : ""} ${state.lastPlacedId === it.id ? "beacon-flash" : ""}">
+              <div style="min-width:0;">
+                <div class="ov-row-title">${it.title}${it.kind ? `<span class="ov-kind-tag">${it.kind}</span>` : ""}</div>
+                <div class="ov-row-ctx">${it.project ? `<span class="ov-row-proj">${it.project}</span>` : ""}${it.ctx || ""}</div>
+              </div>
+              <span class="ov-hover-acts">
+                <button class="t-btn accent" data-open-target="${it.targetPage || "project"}">进入</button>
+                <button class="t-btn" data-remove-slot="${k}" data-id="${it.id}">移回</button>
+              </span>
+            </div>
+          `).join("");
+        });
+
+        const fr = document.getElementById("friction-morning");
+        if (state.pendingFriction) {
+          fr.innerHTML = `
+            <div class="ov-friction">
+              <span style="color:var(--p-muted);">上午已有 1 项主线</span>
+              <div style="display:flex; gap:4px;">
+                <button class="t-btn accent" data-fric="replace">替换</button>
+                <button class="t-btn" data-fric="afternoon">放下午</button>
+                <button class="t-btn" data-fric="tomorrow">顺延明天</button>
+                <button class="t-btn" data-fric="cancel">取消</button>
+              </div>
+            </div>
+          `;
+        } else fr.innerHTML = "";
+
+        document.getElementById("readyPoolList").innerHTML = state.readyPool.map(p => `
+          <div class="ov-row ${state.lastPlacedId === p.id ? "beacon-flash" : ""}">
+            <div style="min-width:0;">
+              <div class="ov-row-title" style="font-size:14px;">${p.title}</div>
+              <div class="ov-row-ctx">${p.project ? `<span class="ov-row-proj">${p.project}</span>` : ""}${p.ctx || ""}</div>
+            </div>
+            <span class="ov-hover-acts">
+              <button class="t-btn" data-place="morning" data-id="${p.id}">上</button>
+              <button class="t-btn" data-place="afternoon" data-id="${p.id}">下</button>
+              <button class="t-btn" data-place="evening" data-id="${p.id}">晚</button>
+            </span>
+          </div>
+        `).join("") || `<div class="ov-empty">—</div>`;
+
+        document.getElementById("fuzzyPromiseList").innerHTML = state.fuzzyPromises.map(f => `
+          <div class="r-quote">
+            <div class="r-quote-meta">${f.when}</div>
+            <div class="r-quote-text">${f.raw}</div>
+            <div style="margin-top:4px;"><button class="t-btn accent" style="padding-left:0;" data-clarify="${f.id}">整理成明天待办</button></div>
+          </div>
+        `).join("") || `<div class="ov-empty">—</div>`;
+
+        document.getElementById("projectDirectionsList").innerHTML = state.projects.map(pr => `
+          <div class="r-proj">
+            <div class="r-proj-head">
+              <span class="r-proj-name">${pr.name}</span>
+              <span class="r-proj-role ${pr.main ? "main" : ""}">${pr.role}</span>
+            </div>
+            <div class="ov-row-ctx" style="margin:4px 0 8px;">${pr.status}</div>
+            <input class="line-input" data-proj-input="${pr.id}" placeholder="写一条明天能做的事，回车加入..." />
+          </div>
+        `).join("");
+
+        state.lastPlacedId = null;
+      }
+
+      document.getElementById("view-overview").addEventListener("mouseover", (e) => {
+        const pb = e.target.closest("[data-place]");
+        ["morning", "afternoon", "evening"].forEach(k => {
+          document.getElementById("slotWrap-" + k).classList.toggle("slot-target-hint", pb && pb.dataset.place === k);
+        });
+      });
+      document.getElementById("view-overview").addEventListener("mouseout", (e) => {
+        if (!e.relatedTarget || !e.relatedTarget.closest("[data-place]")) {
+          ["morning", "afternoon", "evening"].forEach(k => document.getElementById("slotWrap-" + k).classList.remove("slot-target-hint"));
+        }
+      });
+
+      document.getElementById("modeWeek").addEventListener("click", () => { state.scheduleTab = "week"; state.pendingFriction = null; renderSchedule(); });
+      document.getElementById("modeToday").addEventListener("click", () => { state.scheduleTab = "today"; state.pendingFriction = null; renderSchedule(); });
+      document.getElementById("modeTomorrow").addEventListener("click", () => { state.scheduleTab = "tomorrow"; state.pendingFriction = null; renderSchedule(); });
+      document.getElementById("btnPeekTomorrow").addEventListener("click", () => { state.scheduleTab = "tomorrow"; renderSchedule(); });
+      document.getElementById("btnStartMorningFocus").addEventListener("click", () => { openPage("block-rollback"); switchView("workspace", { focusAnchor: true }); });
+
+      document.getElementById("view-overview").addEventListener("click", (e) => {
+        const curDayKey = state.scheduleTab === "tomorrow" ? "tomorrow" : "today";
+        const curDay = state.days[curDayKey];
+
+        const wBtn = e.target.closest("[data-week-to]");
+        if (wBtn) {
+          const w = state.weekMoves.find(x => x.id === wBtn.dataset.wid);
+          if (!w) return;
+          const targetDay = wBtn.dataset.weekTo;
+          const nid = "wk-" + Date.now();
+          state.lastPlacedId = nid;
+          state.days[targetDay].slots.afternoon.push({ id: nid, title: w.title, project: w.project, kind: "块", targetPage: w.targetPage, ctx: w.ctx });
+          state.scheduleTab = targetDay;
+          renderSchedule();
+          showToast(`已从本周排入「${targetDay === "today" ? "今日" : "明日"} · 下午」`);
+          return;
+        }
+
+        const cb = e.target.closest("[data-carry]");
+        if (cb) {
+          state.carryoverDone = true;
+          if (cb.dataset.carry === "afternoon") {
+            state.lastPlacedId = "c1";
+            state.days.today.slots.afternoon.unshift({ id: "c1", title: "补齐接口超时日志字段", project: "昨日遗留", kind: "块", targetPage: "journal", ctx: "把网关 traceId 补进告警日志" });
+          } else showToast(cb.dataset.carry === "week" ? "已退回本周" : "已撤掉");
+          renderSchedule();
+          return;
+        }
+
+        const pb = e.target.closest("[data-place]");
+        if (pb) {
+          const slot = pb.dataset.place;
+          const idx = state.readyPool.findIndex(x => x.id === pb.dataset.id);
+          if (idx === -1) return;
+          const item = state.readyPool[idx];
+          if (slot === "morning" && curDay.slots.morning.length >= 1) { state.pendingFriction = item; renderSchedule(); return; }
+          state.readyPool.splice(idx, 1);
+          state.lastPlacedId = item.id;
+          curDay.slots[slot].push({ ...item, main: slot === "morning" });
+          ["morning", "afternoon", "evening"].forEach(k => document.getElementById("slotWrap-" + k).classList.remove("slot-target-hint"));
+          renderSchedule();
+          return;
+        }
+
+        const fb = e.target.closest("[data-fric]");
+        if (fb && state.pendingFriction) {
+          const item = state.pendingFriction;
+          const idx = state.readyPool.findIndex(x => x.id === item.id);
+          if (fb.dataset.fric === "replace") {
+            const old = curDay.slots.morning.shift();
+            if (old) state.readyPool.unshift({ ...old, main: false });
+            if (idx > -1) state.readyPool.splice(idx, 1);
+            state.lastPlacedId = item.id;
+            curDay.slots.morning.push({ ...item, main: true });
+          } else if (fb.dataset.fric === "afternoon") {
+            if (idx > -1) state.readyPool.splice(idx, 1);
+            state.lastPlacedId = item.id;
+            curDay.slots.afternoon.push({ ...item, main: false });
+          } else if (fb.dataset.fric === "tomorrow") {
+            if (idx > -1) state.readyPool.splice(idx, 1);
+            state.lastPlacedId = item.id;
+            state.days.tomorrow.slots.afternoon.push({ ...item, main: false });
+            showToast("已顺延至明日下午");
+          }
+          state.pendingFriction = null;
+          renderSchedule();
+          return;
+        }
+
+        const rb = e.target.closest("[data-remove-slot]");
+        if (rb) {
+          const s = rb.dataset.removeSlot;
+          const idx = curDay.slots[s].findIndex(x => x.id === rb.dataset.id);
+          if (idx > -1) {
+            const [it] = curDay.slots[s].splice(idx, 1);
+            state.lastPlacedId = it.id;
+            state.readyPool.unshift({ ...it, main: false });
+            renderSchedule();
+          }
+          return;
+        }
+
+        const openT = e.target.closest("[data-open-target]");
+        if (openT) {
+          openPage(openT.dataset.openTarget);
+          switchView("workspace", { focusAnchor: true });
+          return;
+        }
+
+        const cl = e.target.closest("[data-clarify]");
+        if (cl) {
+          const idx = state.fuzzyPromises.findIndex(x => x.id === cl.dataset.clarify);
+          if (idx > -1) {
+            const [f] = state.fuzzyPromises.splice(idx, 1);
+            const nid = "c-" + Date.now();
+            state.lastPlacedId = nid;
+            state.readyPool.unshift({ id: nid, title: f.clarifiedTitle, project: "已澄清", kind: "块", targetPage: "journal", ctx: f.clarifiedCtx });
+            renderSchedule();
+            showToast("已转入明日候选，原话保留");
+          }
+        }
+      });
+
+      document.getElementById("view-overview").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && e.target.matches("[data-proj-input]")) {
+          const val = e.target.value.trim();
+          if (!val) return;
+          const pr = state.projects.find(x => x.id === e.target.dataset.projInput);
+          const nid = "pa-" + Date.now();
+          state.lastPlacedId = nid;
+          state.readyPool.unshift({ id: nid, title: val, project: pr ? pr.name : "", kind: "块", targetPage: "journal", ctx: "明天具体动作" });
+          e.target.value = "";
+          renderSchedule();
+        }
+      });
+
+      /* ------------------ 2. 原生 Logseq 笔记现场（Page + Block Zoom-in） ------------------ */
+      function formatLinks(text) {
+        return text
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\[\[([^\]]+)\]\]/g, `<span class="ls-link" data-link="$1">$1</span>`);
+      }
+      function getCurrentPageObj() { return PAGES[state.currentPage]; }
+
+      function syncFloatFromBlocks() {
+        const pg = getCurrentPageObj();
+        const freeIdx = pg.blocks.findIndex(b => b.role === "free");
+        if (freeIdx === -1) return;
+        const lines = [];
+        for (let i = freeIdx + 1; i < pg.blocks.length; i++) {
+          if (pg.blocks[i].indent > pg.blocks[freeIdx].indent) lines.push(pg.blocks[i].text);
+          else break;
+        }
+        document.getElementById("floatFreeText").value = lines.join("\n");
+      }
+
+      function syncBlocksFromFloat(rawText) {
+        const pg = getCurrentPageObj();
+        const freeIdx = pg.blocks.findIndex(b => b.role === "free");
+        if (freeIdx === -1) return;
+        let end = freeIdx + 1;
+        while (end < pg.blocks.length && pg.blocks[end].indent > pg.blocks[freeIdx].indent) end++;
+        const lines = rawText.split("\n").filter((l, idx, arr) => l.trim() !== "" || arr.length === 1);
+        const newChildren = lines.map((l, i) => ({
+          id: "fc-" + Date.now() + "-" + i,
+          indent: pg.blocks[freeIdx].indent + 1,
+          freeChild: true,
+          text: l
+        }));
+        pg.blocks.splice(freeIdx + 1, end - freeIdx - 1, ...newChildren);
+        renderBlocks();
+      }
+
+      function renderBlocks(focusId, placeAtEnd, beaconId) {
+        const pg = getCurrentPageObj();
+        const box = document.getElementById("lsBlocks");
+        box.innerHTML = "";
+        let hideIndentAbove = null;
+
+        pg.blocks.forEach((blk, idx) => {
+          if (hideIndentAbove !== null) {
+            if (blk.indent > hideIndentAbove) return;
+            else hideIndentAbove = null;
+          }
+          const hasChildren = pg.blocks[idx + 1] && pg.blocks[idx + 1].indent > blk.indent;
+          const isCollapsed = hasChildren && state.collapsedIds.has(blk.id);
+          if (isCollapsed) hideIndentAbove = blk.indent;
+
+          const div = document.createElement("div");
+          div.className = "ls-block"
+            + (blk.role ? " role-" + blk.role : "")
+            + (state.activeBlockId === blk.id ? " is-active" : "")
+            + (isCollapsed ? " is-collapsed" : "")
+            + (blk.role === "free" && state.freeMarkedForAgent ? " marked-agent" : "")
+            + (beaconId === blk.id ? " beacon-flash" : "");
+          div.dataset.bid = blk.id;
+          div.style.marginLeft = (blk.indent * 24) + "px";
+
+          const row = document.createElement("div");
+          row.className = "ls-block-row";
+
+          const bulletBtn = document.createElement("button");
+          bulletBtn.className = "ls-bullet-btn";
+          bulletBtn.title = blk.zoomTarget ? "点圆点可聚焦此块，或折叠子块" : (hasChildren ? "折叠/展开子块" : "块");
+          bulletBtn.innerHTML = `<span class="ls-bullet"></span>`;
+          bulletBtn.addEventListener("click", () => {
+            if (hasChildren) {
+              if (state.collapsedIds.has(blk.id)) state.collapsedIds.delete(blk.id);
+              else state.collapsedIds.add(blk.id);
+              renderBlocks();
+            }
+          });
+          row.appendChild(bulletBtn);
+
+          if (blk.todo) {
+            const chk = document.createElement("span");
+            chk.className = "ls-todo-chk" + (blk.done ? " done" : "");
+            chk.addEventListener("click", () => { blk.done = !blk.done; renderBlocks(); });
+            row.appendChild(chk);
+          }
+
+          const content = document.createElement("div");
+          content.className = "ls-block-text";
+          content.contentEditable = "true";
+          content.spellcheck = false;
+          content.dataset.bid = blk.id;
+          content.dataset.placeholder = "写点什么...";
+          if (blk.done) { content.style.textDecoration = "line-through"; content.style.color = "var(--p-muted)"; }
+
+          if (blk.role === "stop") {
+            content.contentEditable = "false";
+            content.innerHTML = `<span class="ls-inline-tag">${blk.tag || "停点"}</span>${formatLinks(blk.text)}`;
+            row.addEventListener("click", () => jumpToAnchorBlock(true));
+          } else if (blk.role === "free") {
+            content.contentEditable = "false";
+            content.style.color = "var(--p-muted)";
+            content.style.fontSize = "13.5px";
+            content.textContent = blk.text + (state.freeMarkedForAgent ? " · 已标记供 Agent 加工" : "");
+          } else {
+            content.innerHTML = formatLinks(blk.text);
+          }
+
+          content.addEventListener("focus", () => {
+            state.activeBlockId = blk.id;
+            if (blk.role !== "stop" && blk.role !== "free") pg.anchorBlockId = blk.id;
+            box.querySelectorAll(".ls-block").forEach(el => el.classList.toggle("is-active", el.dataset.bid === blk.id));
+          });
+
+          content.addEventListener("input", () => {
+            blk.text = content.textContent;
+            if (blk.freeChild) syncFloatFromBlocks();
+            enterFlowSoon();
+          });
+
+          content.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              const curIdx = pg.blocks.findIndex(x => x.id === blk.id);
+              const newId = "blk-" + Date.now();
+              pg.blocks.splice(curIdx + 1, 0, { id: newId, indent: blk.indent, freeChild: Boolean(blk.freeChild), text: "" });
+              state.activeBlockId = newId;
+              renderBlocks(newId, false);
+              enterFlowSoon();
+            } else if (e.key === "Tab") {
+              e.preventDefault();
+              blk.indent = e.shiftKey ? Math.max(0, blk.indent - 1) : Math.min(4, blk.indent + 1);
+              renderBlocks(blk.id, true);
+            } else if (e.key === "Backspace" && content.textContent === "" && pg.blocks.length > 1) {
+              e.preventDefault();
+              const curIdx = pg.blocks.findIndex(x => x.id === blk.id);
+              const prev = pg.blocks[Math.max(0, curIdx - 1)];
+              pg.blocks.splice(curIdx, 1);
+              state.activeBlockId = prev.id;
+              renderBlocks(prev.id, true);
+            }
+          });
+
+          row.appendChild(content);
+
+          // 若该块本身是一个块级事务，悬停露出「聚焦此块 (Zoom-in)」
+          if (blk.zoomTarget) {
+            const zTools = document.createElement("span");
+            zTools.className = "ls-block-tools";
+            zTools.innerHTML = `<button class="t-btn accent">聚焦此块</button>`;
+            zTools.addEventListener("click", () => { exitFlow(); openPage(blk.zoomTarget); jumpToAnchorBlock(true); });
+            row.appendChild(zTools);
+          }
+
+          if (blk.role === "free") {
+            const tools = document.createElement("span");
+            tools.className = "ls-block-tools";
+            tools.innerHTML = `
+              <button class="t-btn ${state.freeMarkedForAgent ? "active" : ""}" data-free-act="mark">${state.freeMarkedForAgent ? "已标给 Agent" : "标给 Agent"}</button>
+              <button class="t-btn" data-free-act="float">${state.freePoppedOut ? "悬浮中" : "悬浮"}</button>
+            `;
+            tools.addEventListener("click", (e) => {
+              const btn = e.target.closest("[data-free-act]");
+              if (!btn) return;
+              if (btn.dataset.freeAct === "mark") toggleAgentMark();
+              if (btn.dataset.freeAct === "float") toggleFloatPad(true);
+            });
+            row.appendChild(tools);
+          }
+
+          div.appendChild(row);
+          box.appendChild(div);
+        });
+
+        if (focusId) {
+          const target = box.querySelector(`.ls-block-text[data-bid="${focusId}"]`);
+          if (target && target.isContentEditable) {
+            target.focus();
+            if (placeAtEnd && target.childNodes.length) {
+              const r = document.createRange();
+              r.selectNodeContents(target);
+              r.collapse(false);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(r);
+            }
+          }
+        }
+      }
+
+      function jumpToAnchorBlock(withBeacon) {
+        const pg = getCurrentPageObj();
+        const anchor = pg.anchorBlockId || pg.blocks[0].id;
+        state.activeBlockId = anchor;
+        renderBlocks(anchor, true, withBeacon ? anchor : null);
+        const el = document.querySelector(`.ls-block[data-bid="${anchor}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function openPage(pageKey) {
+        state.currentPage = PAGES[pageKey] ? pageKey : "project";
+        const pg = getCurrentPageObj();
+        state.activeBlockId = pg.anchorBlockId;
+        document.querySelectorAll(".ls-page-btn").forEach(b => b.classList.toggle("active", b.dataset.page === state.currentPage));
+        document.getElementById("ribbonPageName").textContent = pg.title;
+        document.getElementById("lsTitle").textContent = pg.title;
+        document.getElementById("lsProps").innerHTML = pg.props.map(p => `<span>${p}</span>`).join("");
+
+        const crumb = document.getElementById("lsCrumb");
+        if (pg.sourceKind === "block" && pg.parentPageKey) {
+          document.getElementById("lsCrumbParent").textContent = pg.parentPageTitle;
+          document.getElementById("lsCrumbSelf").textContent = pg.title;
+          crumb.classList.add("show");
+        } else {
+          crumb.classList.remove("show");
+        }
+
+        document.getElementById("wsRibbon").classList.toggle("is-ordinary", !pg.isWork);
+        document.getElementById("workOnlyActions").style.display = pg.isWork ? "flex" : "none";
+        document.getElementById("breatheBar").classList.remove("show");
+        syncFloatFromBlocks();
+        renderBlocks();
+      }
+
+      document.getElementById("lsCrumbParent").addEventListener("click", () => {
+        const pg = getCurrentPageObj();
+        if (pg.parentPageKey) { exitFlow(); openPage(pg.parentPageKey); }
+      });
+
+      document.querySelectorAll(".ls-page-btn").forEach(b => b.addEventListener("click", () => { exitFlow(); openPage(b.dataset.page); }));
+      document.getElementById("btnToggleLeft").addEventListener("click", (e) => {
+        const closed = document.getElementById("lsLeft").classList.toggle("closed");
+        e.currentTarget.classList.toggle("active", !closed);
+      });
+      document.getElementById("wsRibbon").addEventListener("mouseenter", () => { if (state.inFlow) exitFlow(); });
+
+      document.getElementById("btnParaFocus").addEventListener("click", (e) => {
+        state.paraFocus = !state.paraFocus;
+        document.getElementById("lsCol").classList.toggle("para-focus", state.paraFocus);
+        if (!state.paraFocus) document.getElementById("lsCol").classList.remove("typing-dim");
+        e.currentTarget.classList.toggle("active", state.paraFocus);
+      });
+
+      document.getElementById("btnBreathe").addEventListener("click", () => {
+        exitFlow();
+        const bar = document.getElementById("breatheBar");
+        const count = state.tickets.length;
+        document.getElementById("breatheSummary").textContent = count
+          ? `本轮已专注 34 分钟 · 后台备好 ${count} 份工单小抄`
+          : "本轮已专注 34 分钟 · 后台暂无待清工单";
+        document.getElementById("btnOpenTicketFromBreathe").style.display = count ? "inline-flex" : "none";
+        bar.classList.toggle("show");
+      });
+      document.getElementById("btnResumeFlow").addEventListener("click", () => {
+        document.getElementById("breatheBar").classList.remove("show");
+        jumpToAnchorBlock(true);
+      });
+      document.getElementById("btnOpenTicketFromBreathe").addEventListener("click", () => openTicketSlip(0));
+
+      function toggleAgentMark() {
+        state.freeMarkedForAgent = !state.freeMarkedForAgent;
+        document.getElementById("btnMarkAgentFloat").classList.toggle("active", state.freeMarkedForAgent);
+        document.getElementById("btnMarkAgentFloat").textContent = state.freeMarkedForAgent ? "已标给 Agent" : "标给 Agent";
+        renderBlocks();
+        showToast(state.freeMarkedForAgent ? "「自由随记」已标供 Agent 加工" : "已取消标记");
+      }
+      function toggleFloatPad(open) {
+        state.freePoppedOut = open;
+        if (open) syncFloatFromBlocks();
+        document.getElementById("floatPad").classList.toggle("open", open);
+        renderBlocks();
+        if (open) document.getElementById("floatFreeText").focus();
+      }
+      document.getElementById("btnMarkAgentFloat").addEventListener("click", toggleAgentMark);
+      document.getElementById("btnDockScratch").addEventListener("click", () => toggleFloatPad(false));
+      document.getElementById("floatFreeText").addEventListener("input", (e) => syncBlocksFromFloat(e.target.value));
+
+      function openBlindBar() {
+        const b = document.getElementById("blindBar");
+        const inp = document.getElementById("blindInput");
+        b.classList.add("open");
+        inp.value = "";
+        inp.focus();
+      }
+      function closeBlindBar() { document.getElementById("blindBar").classList.remove("open"); }
+      document.getElementById("blindInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const v = e.target.value.trim();
+          if (v) {
+            const pg = getCurrentPageObj();
+            let freeIdx = pg.blocks.findIndex(b => b.role === "free");
+            if (freeIdx === -1) { pg.blocks.push({ id: "free-" + Date.now(), indent: 0, role: "free", text: "自由随记" }); freeIdx = pg.blocks.length - 1; }
+            let insertAt = freeIdx + 1;
+            while (insertAt < pg.blocks.length && pg.blocks[insertAt].indent > pg.blocks[freeIdx].indent) insertAt++;
+            const nid = "fc-" + Date.now();
+            pg.blocks.splice(insertAt, 0, { id: nid, indent: pg.blocks[freeIdx].indent + 1, freeChild: true, text: v });
+            syncFloatFromBlocks();
+            renderBlocks(state.activeBlockId, true, nid);
+            showToast("已写入当前「自由随记」子块");
+          }
+          closeBlindBar();
+        } else if (e.key === "Escape") closeBlindBar();
+      });
+
+      document.getElementById("btnToggleWb").addEventListener("click", (e) => {
+        exitFlow();
+        const open = document.getElementById("wbPane").classList.toggle("open");
+        e.currentTarget.classList.toggle("active", open);
+      });
+      document.getElementById("btnCloseWb").addEventListener("click", () => {
+        document.getElementById("wbPane").classList.remove("open");
+        document.getElementById("btnToggleWb").classList.remove("active");
+      });
+      document.querySelectorAll("[data-wbtab]").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll("[data-wbtab]").forEach(x => x.classList.toggle("active", x === b));
+          document.getElementById("wb-article").style.display = b.dataset.wbtab === "article" ? "block" : "none";
+          document.getElementById("wb-materials").style.display = b.dataset.wbtab === "materials" ? "flex" : "none";
+        });
+      });
+      document.querySelectorAll(".wb-phrase").forEach(ph => ph.addEventListener("click", () => document.getElementById(ph.dataset.expand).classList.toggle("open")));
+      document.getElementById("btnOpenDsh").addEventListener("click", () => showToast("已携带当前块/页上下文切入 DSH，与 Agent 对话完成收尾与沉淀"));
+
+      function applyPause(text) {
+        const pg = getCurrentPageObj();
+        let sb = pg.blocks.find(b => b.role === "stop");
+        if (!sb) { sb = { id: "b-stop", indent: 0, role: "stop", tag: "当前停点", text }; pg.blocks.unshift(sb); }
+        else { sb.tag = "当前停点"; sb.text = text; }
+        renderBlocks(null, false, sb.id);
+      }
+
+      document.getElementById("btnQuickPause").addEventListener("click", () => {
+        exitFlow();
+        openSlip({
+          title: "暂停 · 留一句停点",
+          meta: "写入顶部停点块",
+          bodyHtml: `<input id="pauseInp" class="line-input" style="font-size:14px;" placeholder="写清做到哪、下一步..." />`,
+          actions: [
+            {
+              label: "先走（后台补写）",
+              cls: "t-btn",
+              onClick: () => {
+                closeSlip();
+                showToast("已放行，后台稍后补齐停点");
+                setTimeout(() => applyPause("主链路已跑通，回来补第 84 行「历史空版本」用例（后台补写）"), 700);
+              }
+            },
+            {
+              label: "保存",
+              cls: "t-solid",
+              onClick: () => {
+                applyPause((document.getElementById("pauseInp").value || "").trim() || "写完历史空版本前置条件，回来直接跑第 84 行用例");
+                closeSlip();
+                showToast("已更新停点块");
+              }
+            }
+          ]
+        });
+        setTimeout(() => {
+          const inp = document.getElementById("pauseInp");
+          if (inp) {
+            inp.focus();
+            inp.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") { applyPause(inp.value.trim() || "写完历史空版本前置条件，回来直接跑第 84 行用例"); closeSlip(); showToast("已更新停点块"); }
+            });
+          }
+        }, 20);
+      });
+
+      function openTicketSlip(i = 0) {
+        const tk = state.tickets[i];
+        if (!tk) return;
+        openSlip({
+          title: tk.title,
+          meta: tk.source,
+          bodyHtml: `<div style="font-size:13.5px; line-height:1.75; color:var(--p-fg);">${tk.lines.map(l => `<div>${l}</div>`).join("")}</div>`,
+          actions: [
+            { label: "稍后", cls: "t-btn", onClick: () => { closeSlip(); jumpToAnchorBlock(true); } },
+            {
+              label: tk.known ? "做完了" : "做完并存成小抄",
+              cls: "t-solid",
+              onClick: () => {
+                state.tickets = state.tickets.filter(x => x.id !== tk.id);
+                closeSlip();
+                document.getElementById("breatheBar").classList.remove("show");
+                jumpToAnchorBlock(true);
+                showToast(tk.known ? "工单已划掉，光标已回到刚写的那一行" : "已存成下次 3 行小抄，光标已回到原行");
+              }
+            }
+          ]
+        });
+      }
+
+      const demoPop = document.getElementById("demoPop");
+      document.getElementById("demoCornerBtn").addEventListener("click", (e) => { e.stopPropagation(); demoPop.classList.toggle("open"); });
+      document.addEventListener("click", (e) => { if (!e.target.closest(".demo-corner")) demoPop.classList.remove("open"); });
+      document.getElementById("simBlindCapture").addEventListener("click", () => { demoPop.classList.remove("open"); openBlindBar(); });
+      document.getElementById("simDropNewTicket").addEventListener("click", () => {
+        state.tickets.unshift({
+          id: "tn-" + Date.now(),
+          title: "临时跨域白名单加白工单",
+          known: false,
+          source: "没做过 · 仅列待确认点",
+          lines: ["诉求：给 api-b.internal 放通测试网关白名单", "待确认 1：走网关台直接配，还是先走审批单？", "待确认 2：要不要同步通知安全组备案？"]
+        });
+        demoPop.classList.remove("open");
+        showToast("新工单已静默收进后台，点「抬头换气」可看");
+      });
+      document.getElementById("simMiddayMood").addEventListener("click", () => {
+        demoPop.classList.remove("open");
+        openSlip({
+          title: "记一句感受",
+          meta: "仅存给晚上看",
+          bodyHtml: `<input id="moodInp" class="line-input" style="font-size:14px;" value="刚被临时插了个活，一下子很烦，直接冷着脸回绝了。" />`,
+          actions: [
+            { label: "算了", cls: "t-btn", onClick: closeSlip },
+            { label: "记下", cls: "t-solid", onClick: () => { closeSlip(); showToast("已放进晚间手记参考"); } }
+          ]
+        });
+      });
+
+      function openSlip({ title, meta, bodyHtml, actions }) {
+        state.activeSlip = true;
+        document.getElementById("slipTitle").textContent = title;
+        document.getElementById("slipMeta").textContent = meta || "";
+        document.getElementById("slipBody").innerHTML = bodyHtml;
+        const box = document.getElementById("slipActions");
+        box.innerHTML = "";
+        actions.forEach(a => {
+          const b = document.createElement("button");
+          b.className = a.cls;
+          b.textContent = a.label;
+          b.addEventListener("click", a.onClick);
+          box.appendChild(b);
+        });
+        document.getElementById("slipDock").classList.add("open");
+      }
+      function closeSlip() { state.activeSlip = false; document.getElementById("slipDock").classList.remove("open"); }
+
+      /* ------------------ 3. 冷启动恢复 ------------------ */
+      const slides = [
+        {
+          title: "发布校验自动化",
+          body: `
+            <div class="rs-quote"><span class="rs-meta">目标</span>把上线前人工核对做成 <span class="kw-focus">旁路自动化脚本</span>，每次发布省下 <span class="kw-strong">40 分钟</span> 重复排查。</div>
+            <div class="rs-note"><span class="rs-meta">边界</span>不做通用平台，只覆盖当前 <span class="kw-strong">核心发布链路</span>。</div>
+          `
+        },
+        {
+          title: "最近选型与变化",
+          body: `
+            <div class="rs-note">
+              <span class="rs-meta">过去 9 天</span>
+              <div>不改原业务代码，采用 <span class="kw-focus">只读校验 + dry-run</span> 输出差异。</div>
+              <div style="margin-top:8px;">11-22 你语音记过：旧网关高峰期需把 <span class="kw-risk">超时放宽到 45 秒</span>。</div>
+            </div>
+          `
+        },
+        {
+          title: "上次落脚点",
+          body: `
+            <div class="rs-quote"><span class="rs-meta">11-16 17:42 · 你留的停点</span>主链路已经跑通，回来直接补 <span class="kw-risk">「历史空版本字段」边界用例</span>，不用重读前面的配置代码。</div>
+            <div class="rs-note"><span class="rs-meta">直接下手</span>打开 <span class="kw-focus">release-guard.test.ts 第 84 行</span> 补上 1 组空版本样本即可。</div>
+          `
+        }
+      ];
+
+      function renderDeck() {
+        const s = slides[state.deckStep];
+        document.getElementById("deckSlideContent").innerHTML = `<div class="rs-slide-anim"><h2 class="rs-title">${s.title}</h2><div class="rs-body">${s.body}</div></div>`;
+        document.querySelectorAll(".rs-bar").forEach(el => {
+          const i = Number(el.dataset.step);
+          el.classList.toggle("active", i === state.deckStep);
+          el.classList.toggle("passed", i < state.deckStep);
+        });
+        document.getElementById("deckCounter").textContent = `${state.deckStep + 1} / 3`;
+        document.getElementById("deckPrev").style.visibility = state.deckStep === 0 ? "hidden" : "visible";
+        document.getElementById("deckNext").textContent = state.deckStep === 2 ? "直达上次那一行" : "下一页";
+      }
+      document.getElementById("deckPrev").addEventListener("click", () => { if (state.deckStep > 0) { state.deckStep--; renderDeck(); } });
+      document.getElementById("deckNext").addEventListener("click", () => {
+        if (state.deckStep < 2) { state.deckStep++; renderDeck(); }
+        else { openPage("block-rollback"); switchView("workspace", { focusAnchor: true }); }
+      });
+      document.querySelectorAll(".rs-bar").forEach(el => el.addEventListener("click", () => { state.deckStep = Number(el.dataset.step); renderDeck(); }));
+      document.getElementById("resumeLongBtn").addEventListener("click", () => {
+        document.getElementById("resumeLongBtn").classList.add("active");
+        document.getElementById("resumeShortBtn").classList.remove("active");
+        document.getElementById("resumeLongView").style.display = "block";
+        document.getElementById("deckFoot").style.display = "flex";
+        document.getElementById("resumeShortView").style.display = "none";
+      });
+      document.getElementById("resumeShortBtn").addEventListener("click", () => {
+        document.getElementById("resumeShortBtn").classList.add("active");
+        document.getElementById("resumeLongBtn").classList.remove("active");
+        document.getElementById("resumeLongView").style.display = "none";
+        document.getElementById("deckFoot").style.display = "none";
+        document.getElementById("resumeShortView").style.display = "block";
+      });
+      document.getElementById("btnShortEnter").addEventListener("click", () => { openPage("block-rollback"); switchView("workspace", { focusAnchor: true }); });
+
+      /* ------------------ 4. 安静回望室 ------------------ */
+      document.querySelectorAll("[data-src]").forEach(btn => {
+        btn.addEventListener("click", () => document.getElementById("src-" + btn.dataset.src).classList.toggle("open"));
+      });
+      const traceList = document.getElementById("rfTraceList");
+      function clearCompanion() {
+        traceList.classList.remove("has-focus");
+        traceList.querySelectorAll(".rf-trace").forEach(el => el.classList.remove("is-companion"));
+        document.getElementById("rfCompanionChip").classList.remove("show");
+      }
+      document.querySelectorAll("[data-follow]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const li = traceList.querySelector(`.rf-trace[data-tid="${btn.dataset.follow}"]`);
+          if (!li) return;
+          traceList.classList.add("has-focus");
+          traceList.querySelectorAll(".rf-trace").forEach(el => el.classList.toggle("is-companion", el === li));
+          document.getElementById("rfCompanionText").textContent = "对照着写：" + li.dataset.summary;
+          document.getElementById("rfCompanionChip").classList.add("show");
+          document.getElementById("myJournalInput").focus();
+        });
+      });
+      document.getElementById("btnClearCompanion").addEventListener("click", clearCompanion);
+
+      function showGentlePrompt() {
+        document.getElementById("gentlePromptText").textContent = state.gentlePrompts[state.promptIdx];
+        document.getElementById("gentlePromptLine").classList.add("show");
+      }
+      document.getElementById("btnAskOneQuestion").addEventListener("click", showGentlePrompt);
+      document.getElementById("btnNextPrompt").addEventListener("click", () => { state.promptIdx = (state.promptIdx + 1) % state.gentlePrompts.length; showGentlePrompt(); });
+      document.getElementById("btnHidePrompt").addEventListener("click", () => document.getElementById("gentlePromptLine").classList.remove("show"));
+      document.getElementById("btnSaveMyJournal").addEventListener("click", () => {
+        const val = document.getElementById("myJournalInput").value.trim();
+        showToast(val ? "已原样存进今天日记（仅保留你自己的文字）" : "没写也没关系，今天脚印已存好");
+      });
+
+      function appendIdea() {
+        const inp = document.getElementById("ideaAppendInput");
+        const val = inp.value.trim();
+        if (!val) return;
+        const row = document.createElement("div");
+        row.className = "idea-line beacon-flash";
+        row.innerHTML = `<span class="idea-date">11-25</span>${val}`;
+        document.getElementById("ideaTimeline").appendChild(row);
+        inp.value = "";
+        showToast("已补充进这条想法", () => row.remove());
+      }
+      document.getElementById("btnAppendIdea").addEventListener("click", appendIdea);
+      document.getElementById("ideaAppendInput").addEventListener("keydown", (e) => { if (e.key === "Enter") appendIdea(); });
+
+      /* ------------------ 全局快捷键 ------------------ */
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === ".") {
+          if (state.view === "workspace") { e.preventDefault(); openBlindBar(); }
+          return;
+        }
+        const tag = (e.target.tagName || "").toLowerCase();
+        const editing = tag === "input" || tag === "textarea" || e.target.isContentEditable;
+        if (e.key === "Escape") {
+          if (document.getElementById("blindBar").classList.contains("open")) { closeBlindBar(); return; }
+          if (state.activeSlip) { closeSlip(); return; }
+          if (state.inFlow) { exitFlow(); return; }
+          if (state.view === "resume") { openPage("block-rollback"); switchView("workspace", { focusAnchor: true }); }
+          return;
+        }
+        if (editing) return;
+        if (state.view === "resume" && document.getElementById("resumeLongView").style.display !== "none") {
+          if (e.key === " " || e.key === "ArrowRight") { e.preventDefault(); if (state.deckStep < 2) { state.deckStep++; renderDeck(); } }
+          else if (e.key === "ArrowLeft") { e.preventDefault(); if (state.deckStep > 0) { state.deckStep--; renderDeck(); } }
+          else if (e.key === "Enter" && state.deckStep === 2) { openPage("block-rollback"); switchView("workspace", { focusAnchor: true }); }
+        }
+      });
+
+      renderSchedule();
+      openPage("project");
+      renderDeck();
+    })();
+  </script>
+</body>
+</html>

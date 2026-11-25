@@ -3,6 +3,7 @@
 ## 第一组：产品总览与原则
 
 - [`01-产品总览.md`](01-产品总览.md)：产品定位、系统角色、三个工作尺度、共同原则、核心用户路径和范围。
+- [`02-全天动线与产品表现设计.md`](02-全天动线与产品表现设计.md)：2026-11-25 `/grill-me` 定稿的全天真实动线闭环、四条极简产品哲学、四态使用心智模型与四原语统一表现系统（`D-64 ~ D-68`）。
 - [`SOURCE-AND-STATUS.md`](SOURCE-AND-STATUS.md)：如何区分用户原话、当前倾向、代码事实、设计建议和未决项。
 - [`DECISION-REGISTER.md`](DECISION-REGISTER.md)：当前工作基线与仍待明确的具体边界。
 
@@ -34,6 +35,8 @@
 - [Capture 7b49d00e 独立审查](planning/04-Capture-7b49d00e审查.md)：固定提交的 Standards / Spec 六项复现与 G2 阻塞，区分模块测试和真实宿主证据。
 - [个人主力工作台演进交接简报（`feat/personal-time-stage-v1`）](planning/personal-time-stage-v1/HANDOFF-BRIEF.md)：2026-11-21 定稿的四层纯语义时间容器、Apple 日历轻协同、iCloud 语音捕获、类 PPT 重启与三段冲刺规划。
 - [Attention Navigator Skill 产品规格（v1.0）](planning/personal-time-stage-v1/ATTENTION-NAVIGATOR-SKILL-SPEC.md)：结合社区避坑与用户定稿（直接点破、先口述再对照补全、工作与生活轻样式区分）的顶层注意力参谋规格。
+- [实施 Goal 04：Logseq 全天无盒纸面与心流体验（Codex 跨机推进包）](planning/goals/04-Logseq全天无盒纸面与心流体验-Codex实施Goal.md)：2026-11-25 定稿的四阶段实施规格（M1–M4）、跨机自检、技术坑位护栏与一键开工提示词。
+- [离线高保真交互表现原型（HTML）](prototypes/full-day-workbench-prototype.html)：零外部 CDN 依赖，供跨机浏览器审阅与 Codex 对照视觉/微交互基准。
 
 ## 来源与参考材料
 
