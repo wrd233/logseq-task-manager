@@ -1,7 +1,7 @@
 /* global fetch, setTimeout, AbortController, Response */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,8 +72,9 @@ function createFakeDshHost(sessionsById) {
   const routes = new Map();
   const tools = new Map();
   const disposeHandlers = [];
-  let promptAssembler = null;
-  let promptContextFn = null;
+  const promptAssemblers = [];
+  const promptContexts = new Map();
+  const workspaces = new Map();
   let promptInstructions = '';
   const ctx = {
     connection: {
@@ -94,13 +95,21 @@ function createFakeDshHost(sessionsById) {
         return { items: [...sessionsById.keys()].map(sessionId => ({ sessionId })) };
       },
       async openWorkspacePath() { return { opened: true }; },
-      async create({ workspaceId, sessionId }) { return { sessionId: sessionId ?? 'sess-new', workspaceId }; },
-      async rename() {},
+      async create({ workspaceId, sessionId }) {
+        const id = sessionId ?? 'sess-new';
+        sessionsById.set(id, { sessionId: id, meta: { cwd: workspaces.get(workspaceId).path } });
+        return { sessionId: id, workspaceId };
+      },
+      async rename({ sessionId, title }) { sessionsById.get(sessionId).title = title; },
     },
     workspaceController: {
-      async create({ path }) { return { workspace: { workspaceId: `ws:${path}` }, created: false }; },
+      async create({ path }) {
+        const workspaceId = `ws:${path}`, created = !workspaces.has(workspaceId);
+        if (created) workspaces.set(workspaceId, { workspaceId, path });
+        return { workspace: workspaces.get(workspaceId), created };
+      },
       async initializeDefault() { return { workspace: { workspaceId: 'ws:default' }, created: false }; },
-      async rename() {},
+      async rename({ workspaceId, title }) { workspaces.get(workspaceId).title = title; },
     },
     workspaceRegistry: {
       archivedSessionIds: [],
@@ -116,7 +125,7 @@ function createFakeDshHost(sessionsById) {
         if (spec.name === 'logseq-workbench:instructions') promptInstructions = spec.text;
       },
       context(spec) {
-        if (spec.name === 'logseq-workbench:current') promptContextFn = spec.text;
+        promptContexts.set(spec.name, spec.text);
       },
     },
     get() { return null; },
@@ -126,7 +135,7 @@ function createFakeDshHost(sessionsById) {
     },
     on(event, fn) {
       if (event === 'dispose') disposeHandlers.push(fn);
-      if (event === 'system-prompt/assemble') promptAssembler = fn;
+      if (event === 'system-prompt/assemble') promptAssemblers.push(fn);
     },
   };
   async function rpc(endpoint, payload) {
@@ -144,11 +153,16 @@ function createFakeDshHost(sessionsById) {
     assert.ok(tool, `missing tool ${name}`);
     return tool.execute(args, { agent: { session: { id: sessionId } }, signal: new AbortController().signal });
   }
-  async function assemblePrompt(sessionId) {
-    const agent = { session: { id: sessionId } };
-    const result = await promptAssembler({}, { scope: agent }, async () => ({ contexts: [] }));
+  async function assemblePrompt(sessionId, agent = { session: { id: sessionId } }) {
+    agent.session.id = sessionId;
+    const context = { scope: agent };
+    const initial = { contexts: [...promptContexts].map(([name, provider]) => ({ name, text: provider(context) })).filter(c => c.text) };
+    const assemble = index => promptAssemblers[index]
+      ? promptAssemblers[index](initial, context, () => assemble(index + 1))
+      : Promise.resolve(initial);
+    const result = await assemble(0);
     const entry = result.contexts.find(c => c.name === 'logseq-workbench:current');
-    return { text: entry?.text ?? promptContextFn?.({ scope: agent }) ?? '', instructions: promptInstructions };
+    return { text: entry?.text ?? '', instructions: promptInstructions, contexts: result.contexts };
   }
   async function dispose() {
     for (const fn of disposeHandlers.splice(0)) await fn();
@@ -165,6 +179,16 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
   });
   const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-closed-loop-')));
   t.after(() => rm(root, { recursive: true, force: true }));
+  const previousInbox = process.env.PERSONAL_INBOX_HOME;
+  const previousStageDirectory = process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+  process.env.PERSONAL_INBOX_HOME = join(root, 'inbox');
+  delete process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+  t.after(() => {
+    if (previousInbox === undefined) delete process.env.PERSONAL_INBOX_HOME;
+    else process.env.PERSONAL_INBOX_HOME = previousInbox;
+    if (previousStageDirectory === undefined) delete process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+    else process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR = previousStageDirectory;
+  });
 
   const stateDir = join(root, 'companion-state');
   const bindingDir = join(root, 'dsh-bindings');
@@ -239,6 +263,10 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
 
   const server = await startWorkspaceServer({
     stateDirectory: stateDir,
+    inboxDirectory: join(root, 'inbox'),
+    icloudInboxDirectory: join(root, 'icloud'),
+    watchIcloud: false,
+    appleCalendar: { disabled: true },
     offlineMs: 60_000,
     reading: {
       env: { DEEPSEEK_API_KEY: 'sk-test-dsh-closed-loop' },
@@ -399,6 +427,69 @@ test('DSH closed loop: D-41 privacy & sensitive blocking, writeback FLIP proposa
     scope: scopeA,
     privacyMode: 'default',
   });
+
+  // D-62: the global conversation must never inherit the old project's binding or model context.
+  const graphPath = join(root, 'graph');
+  await mkdir(graphPath);
+  await pluginPost(server.descriptor, '/plugin/stage/graph', { graphId: scopeA.graphId, graphPath });
+  const stageDirectory = join(graphPath, 'pages', 'stage-reviews');
+  const beforeGlobal = await readFile(join(bindingDir, 'bindings.json'), 'utf8');
+  const sharedAgent = { session: { id: 'sess-a' } };
+  const projectPrompt = await host.assemblePrompt('sess-a', sharedAgent);
+  assert.match(projectPrompt.text, /120ms/);
+  const globalEntry = await host.rpc('stage-enter-global', {});
+  assert.equal(globalEntry.ok, true, JSON.stringify(globalEntry));
+  const { sessionId: globalId } = globalEntry.value;
+  assert.notEqual(globalId, 'sess-a');
+  assert.equal(globalEntry.value.directory, stageDirectory);
+  assert.equal((await host.rpc('opened', { sessionId: globalId })).ok, true);
+  assert.equal((await host.rpc('status', { sessionId: globalId })).value.bound, false);
+  assert.equal((await host.rpc('bind', { sessionId: globalId })).error.code, 'STAGE_SESSION_UNBOUND');
+  assert.equal((await host.rpc('unbind', { sessionId: globalId })).error.code, 'STAGE_SESSION_UNBOUND');
+  assert.equal(await readFile(join(bindingDir, 'bindings.json'), 'utf8'), beforeGlobal);
+  assert.equal((await host.rpc('stage-workspace', { sessionId: globalId })).value.active, true);
+  assert.equal((await host.rpc('stage-workspace', { sessionId: 'sess-a' })).value.active, false);
+
+  await host.rpc('stage-visibility', { open: true });
+  const globalPrompt = await host.assemblePrompt(globalId, sharedAgent);
+  assert.equal(globalPrompt.contexts.some(c => c.name === 'logseq-workbench:current'), false);
+  const stageContext = globalPrompt.contexts.find(c => c.name === 'logseq-stage:viewport').text;
+  assert.ok(stageContext.includes(stageDirectory));
+  for (const phrase of ['全局导航台', '复盘___YYYY-Www.md', '季度星图___YYYY-Qq.md', '"- "', '[[Area/...]]', '[[项目名]]',
+    'PARA:: [[PARA/Area]]', 'PARA:: [[PARA/Project]]', '禁止越界', '星图卡片', '磁盘读取最新内容']) {
+    assert.ok(stageContext.includes(phrase), phrase);
+  }
+  assert.doesNotMatch(stageContext, /120ms|super-secret-value|TOPSECRET/u);
+  assert.doesNotMatch(stageContext, /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
+  await assert.rejects(host.invokeTool('logseq_source_read', { sourceId: 'src-1' }, globalId), { code: 'SESSION_NOT_BOUND' });
+  await assert.rejects(host.invokeTool('logseq_file_read', { path: '../design.md' }, globalId), { code: 'SESSION_NOT_BOUND' });
+  const projectAgain = await host.assemblePrompt('sess-a', sharedAgent);
+  assert.match(projectAgain.text, /120ms/);
+  assert.doesNotMatch(projectAgain.contexts.find(c => c.name === 'logseq-stage:viewport').text, /复盘___|全局导航台/);
+  await host.rpc('stage-visibility', { open: false });
+  const closedGlobal = await host.assemblePrompt(globalId, sharedAgent);
+  assert.equal(closedGlobal.contexts.some(c => c.name === 'logseq-stage:viewport' || c.name === 'logseq-workbench:current'), false);
+
+  // D-60 cards continue to enter the exact registered Area, Project and child directories.
+  const diveWorks = await Promise.all(['Area', 'Project', 'MiniProject'].map(async (objectType, index) => {
+    const directory = join(root, `dive-${index}`);
+    await mkdir(directory);
+    return {
+      workRef: { kind: 'logseq', graphId: scopeA.graphId, rootUuid: randomUUID(), sourceKind: index === 2 ? 'block' : 'page' },
+      title: `直跳工作 ${index}`, objectType, directory, location: '测试图谱', updatedAt: Date.now(),
+    };
+  }));
+  await pluginPost(server.descriptor, '/plugin/catalog', {
+    schemaVersion: 1, graphId: scopeA.graphId, graphName: '测试图谱', refreshedAt: Date.now(), works: diveWorks,
+  });
+  for (const work of diveWorks) {
+    const dive = await host.rpc('enterWork', { workRef: work.workRef, operationId: randomUUID() });
+    assert.equal(dive.ok, true, JSON.stringify(dive));
+    assert.equal(sessions.get(dive.value.sessionId).meta.cwd, work.directory);
+    assert.notEqual(dive.value.sessionId, globalId);
+    assert.equal((await host.rpc('opened', { sessionId: dive.value.sessionId })).ok, true);
+  }
+  assert.equal(JSON.parse(await readFile(join(bindingDir, 'bindings.json'), 'utf8')).bindings.some(row => row.sessionId === globalId), false);
 
   // Protected target (TODO) rejected
   await assert.rejects(

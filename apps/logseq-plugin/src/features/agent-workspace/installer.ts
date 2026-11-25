@@ -8,6 +8,7 @@ import type { Materials } from "../materials/controller.ts";
 import type { MaterialResult } from "../materials/service.ts";
 import type { WorkView } from "../work-view/controller.ts";
 import { graphIdentity } from "../../graph-adapter.ts";
+import { stageGraphMetadata } from "./stage-graph.ts";
 import { AgentWorkspaceRouter, type WorkspaceBindingPort, type OptionalStagePort, type WorkspaceSourcePort } from "./router.ts";
 import type { WorkspaceContextService } from "../../workspace/context-service.ts";
 import { GuidanceService } from "./guidance.ts";
@@ -283,10 +284,14 @@ export function installAgentWorkspace(options: {
         const response=await post(descriptor,"/plugin/stage/anchor",{workKey,source:"logseq"},10000);
         return response.value as StageSnapshot;
     };
-    const stageOpenDsh=async():Promise<{url:string;gaze?:string}>=>{
-        const descriptor=await currentDescriptor();
-        const response=await post(descriptor,"/plugin/stage/open-dsh",{},10000);
-        return response.value as {url:string;gaze?:string};
+    const stageOpenDsh=async():Promise<{url:string;gaze?:string;stageWorkspaceDir:string}>=>{
+        const epoch=graphGeneration;
+        const check=()=>{if(disposed||graphGeneration!==epoch)throw new WorkspaceError("GRAPH_SCOPE_CHANGED");};
+        const graph=await logseq.App.getCurrentGraph();check();
+        const metadata=await stageGraphMetadata(graph,logseq.App);check();
+        const {descriptor}=await readDescriptor(metadata.graphId??"");check();
+        const response=await post(descriptor,"/plugin/stage/open-dsh",metadata,10000);check();
+        return response.value as {url:string;gaze?:string;stageWorkspaceDir:string};
     };
     const allow = async (explicitTarget?: string|ScopeLease["scope"], organize=false, readOnly=false, preserveUI=false, resume?: NonNullable<typeof recovery>) => {
         if (!router || !binding)

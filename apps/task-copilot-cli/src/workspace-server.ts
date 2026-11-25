@@ -12,6 +12,7 @@ import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTarget
 import { activateRunningBrowser, activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
 import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
+import { stageGraphFields, stageGraphLocation } from "./stage-workspace.ts";
 import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
 import type { IcloudInboxFsOps } from "./icloud-inbox.ts";
 import { compactGazeSummary, type StageUserAction, type StageViewportSource, type TimeUserAction } from "@task-copilot/stage-runtime";
@@ -149,12 +150,12 @@ async function body(request: IncomingMessage): Promise<unknown> {
 function send(response: ServerResponse, status: number, value: unknown): void { response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" }); response.end(JSON.stringify(value)); }
 export async function startWorkspaceServer(options: {
     stateDirectory: string;
+    stageWorkspaceDirectory?: string;
     port?: number;
     offlineMs?: number;
     timeoutMs?: number;
     inboxDirectory?: string;
     icloudInboxDirectory?: string;
-    stageWorkspaceDirectory?: string;
     icloudFsOps?: Partial<IcloudInboxFsOps>;
     watchIcloud?: boolean;
     appleCalendar?: TimeHubOptions["appleCalendar"];
@@ -179,6 +180,7 @@ export async function startWorkspaceServer(options: {
     });
     const stageHub = new StageHub({
         stateDirectory: state,
+        ...(options.stageWorkspaceDirectory ? { stageWorkspaceDirectory: options.stageWorkspaceDirectory } : {}),
         timeHub,
         ...(options.inboxDirectory ? { inboxDirectory: options.inboxDirectory } : {}),
         ...(options.icloudInboxDirectory ? { icloudInboxDirectory: options.icloudInboxDirectory } : {}),
@@ -566,6 +568,17 @@ export async function startWorkspaceServer(options: {
                 send(response, 200, { instanceId, value: await stageHub.snapshot() });
                 return;
             }
+            if (request.url === "/plugin/stage/graph") {
+                const graph = stageGraphLocation(workRecord(input, stageGraphFields));
+                await stageHub.reportActiveGraph(graph);
+                send(response, 200, { instanceId, value: { reported: true } });
+                return;
+            }
+            if (request.url === "/stage/workspace") {
+                workRecord(input, []);
+                send(response, 200, { instanceId, value: await stageHub.workspace() });
+                return;
+            }
             if (request.url === "/plugin/stage/inbox-status" || request.url === "/stage/inbox-status") {
                 workRecord(input, []);
                 send(response, 200, { instanceId, value: await stageHub.inboxStatus() });
@@ -693,7 +706,8 @@ export async function startWorkspaceServer(options: {
                 return;
             }
             if (request.url === "/plugin/stage/open-dsh" || request.url === "/stage/open-dsh") {
-                workRecord(input, ["prompt"]);
+                const raw = workRecord(input, pluginRoute ? ["prompt", ...stageGraphFields] : ["prompt"]);
+                const workspace = await stageHub.workspace(pluginRoute ? stageGraphLocation(raw) : undefined);
                 let browser: { url: string; pid: number };
                 try {
                     browser = JSON.parse(await readFile(browserDescriptor(state), "utf8")) as { url: string; pid: number };
@@ -709,6 +723,7 @@ export async function startWorkspaceServer(options: {
                 send(response, 200, {
                     instanceId,
                     value: {
+                        ...workspace,
                         url: url.href,
                         gaze: compactGazeSummary(snap),
                         viewport: snap.viewport,

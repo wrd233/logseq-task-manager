@@ -678,13 +678,13 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           <button type="button" class="tcs-tab" role="tab" data-tcs-tab="week">本周容器</button>
           <button type="button" class="tcs-tab" role="tab" data-tcs-tab="today">今日容器</button>
         </div>
-        <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>← 拉远</button>
+        <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>拉远</button>
         <div class="tcs-bc" data-tcs-bc></div>
       </div>
       <div class="tcs-bar-right">
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-discuss>${port.onDiscussInDsh ? "在 DSH 讨论当前画面" : "向 Agent 讨论当前画面"}</button>
         <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
-        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">↶ 撤销</button>
+        <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">撤销</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>小尾巴 0 · 别忘 0 · 想法 0</button>
         ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">独立窗</button>` : ""}
         ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">✕</button>` : ""}
@@ -837,12 +837,12 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
 
     const linkHtml =
       slide.directLinkLabel && deck.projectWorkKey && (port.onOpenInLogseq || port.onOpenWork)
-        ? `<button type="button" class="tcs-restart-link" data-restart-open-source>${esc(slide.directLinkLabel)} →</button>`
+        ? `<button type="button" class="tcs-restart-link" data-restart-open-source>${esc(slide.directLinkLabel)}</button>`
         : "";
 
     const actionsHtml = isLast
       ? `
-        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>← 上一页</button>` : ""}
+        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>上一页</button>` : ""}
         ${deck.canSettleCarryover ? `<button type="button" class="tcs-btn tcs-btn-sm" data-restart-settle-carryover>旧遗留退回本周</button>` : ""}
         ${
           deck.exitAreaId
@@ -853,8 +853,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-start>${esc(deck.primaryActionLabel)}</button>
       `
       : `
-        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>← 上一页</button>` : ""}
-        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-next>下一页 →</button>
+        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>上一页</button>` : ""}
+        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-next>下一页</button>
       `;
 
     restartEl.style.display = "flex";
@@ -873,7 +873,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           ${linkHtml}
         </div>
         <div class="tcs-restart-foot">
-          <span class="tcs-restart-kbd">${isLast ? "← 上一页 · Esc 跳过" : "空格 / → 下一页 · Esc 跳过"}</span>
+          <span class="tcs-restart-kbd">${isLast ? "方向左键 上一页 · Esc 跳过" : "空格 / 方向右键 下一页 · Esc 跳过"}</span>
           <div class="tcs-restart-actions">${actionsHtml}</div>
         </div>
       </div>
@@ -1149,7 +1149,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                         <span class="tcs-dot" style="background:${dot}"></span>
                         <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.title)}</span>
                       </div>
-                      <span style="font-size:11px;color:var(--tcs-muted)">→</span>
+                      <span style="font-size:11px;color:var(--tcs-muted)">查看</span>
                     </div>`;
                 })
                 .join("")}
@@ -1166,7 +1166,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                     </div>`
                   : areaGhosts.length > 0
                     ? `<div class="tcs-tone-ghost" style="margin-top:7px;padding:4px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;">
-                        <span>${areaGhosts.length} 条虚态推演待定</span><span>进入 →</span>
+                        <span>${areaGhosts.length} 条虚态推演待定</span><span>进入</span>
                       </div>`
                     : ""
               }
@@ -1339,7 +1339,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                       <span>${esc(p.pulseLabel)}${p.childWorks.length > 0 ? ` · ${p.childWorks.length} 子项` : activeAdvCount > 0 ? ` · ${activeAdvCount} 项推进` : ""}</span>
                       ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-dsh-proj="${esc(area.id)}|${esc(p.workKey)}">${esc(dshLabel)}</button>` : `<span>${activeAdvCount} 项推进</span>`}
                     </div>
-                    ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>${pGhosts.length} 条虚态分支待定</span><span>进入 L2 →</span></div>` : ""}
+                    ${pGhosts.length > 0 ? `<div class="tcs-tone-ghost" style="margin-top:8px;padding:5px 8px;border-radius:7px;font-size:11.5px;color:var(--tcs-primary);display:flex;justify-content:space-between;"><span>${pGhosts.length} 条虚态分支待定</span><span>进入 L2</span></div>` : ""}
                   </div>
                   ${renderPresence(p.workKey)}
                 </div>
@@ -1403,7 +1403,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                           </div>
                           <div class="tcs-card-foot" style="padding-top:6px;">
                             <span>${esc(ref.pulseLabel)}${ref.childCount > 0 ? ` · ${ref.childCount} 子项` : ""}</span>
-                            ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-dsh-cross="${esc(ref.primaryAreaId)}|${esc(ref.workKey)}">${esc(dshLabel)}</button>` : `<span>查看 L2 →</span>`}
+                            ${port.onOpenInDsh ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-open-dsh-cross="${esc(ref.primaryAreaId)}|${esc(ref.workKey)}">${esc(dshLabel)}</button>` : `<span>查看 L2</span>`}
                           </div>
                         </div>`;
                     })
@@ -1528,7 +1528,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
                   </div>
                   <div style="margin-top:5px;padding-left:14px;font-size:11.5px;color:var(--tcs-muted);display:flex;align-items:center;justify-content:space-between;gap:8px;">
                     <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(adv.reason || "轻量推进项")}</span>
-                    <span style="color:var(--tcs-primary);flex-shrink:0;">L3 入口 →</span>
+                    <span style="color:var(--tcs-primary);flex-shrink:0;">L3 入口</span>
                   </div>
                 </div>`,
               )
@@ -1855,7 +1855,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             <div style="font-size:11.5px;color:var(--tcs-muted)">L3 执行入口 · ${esc(area?.name ?? "")} / ${esc(proj.title)}</div>
             <div style="font-size:15.5px;font-weight:600;margin-top:3px;">${esc(adv.title)}</div>
           </div>
-          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l3-back>← 回 L2</button>
+          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-l3-back>返回 L2</button>
         </div>
         <div style="border-radius:10px;background:var(--tcs-bg);border:1px solid var(--tcs-card-border);padding:11px 13px;">
           <div style="font-size:11px;color:var(--tcs-muted);margin-bottom:4px;">推进说明（方案 A 轻量运营态）</div>
@@ -2307,7 +2307,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       radarEl.style.display = "block";
       radarEl.innerHTML = `
         <button type="button" class="tcs-btn tcs-btn-pill tcs-anim-sprout" style="background:var(--tcs-card);border-color:var(--tcs-warning);box-shadow:var(--tcs-shadow-md);" data-radar-go="${esc(snap.edgeRadar.targetAreaId)}|${esc(snap.edgeRadar.targetProjectWorkKey ?? "")}">
-          <span style="color:var(--tcs-warning)">→</span>
+          <span style="color:var(--tcs-warning)">关联</span>
           <span>${esc(snap.edgeRadar.label)}</span>
           <span style="color:var(--tcs-muted)">滑过去</span>
         </button>

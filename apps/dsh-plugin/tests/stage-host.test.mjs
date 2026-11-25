@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, realpath, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { workKey } from '@task-copilot/contracts';
@@ -8,6 +8,9 @@ import { publishCatalog } from '../../task-copilot-cli/src/work-catalog.ts';
 import { startWorkspaceServer } from '../../task-copilot-cli/src/workspace-server.ts';
 import { PersonalInboxStore } from '../src/personal-inbox/store.mjs';
 import { installStageHost } from '../src/stage/host.mjs';
+import { isoWeekKey } from '../src/stage/global-session.mjs';
+import { BindingStore } from '../src/service.mjs';
+import process from 'node:process';
 
 test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when window is open, and syncs PersonalInboxStore', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'tc-dsh-stage-')));
@@ -160,6 +163,152 @@ test('DSH stage host registers 13 stage_*/time_* tools, injects gaze only when w
   } finally {
     stage.dispose();
     await server.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('ISO weekly conversations use local calendar dates including the ISO week-year boundary', () => {
+  const dates = [
+    [new Date(2020, 11, 28), '2020-W53'],
+    [new Date(2021, 0, 3, 23, 59, 59), '2020-W53'],
+    [new Date(2021, 0, 4), '2021-W01'],
+    [new Date(2024, 11, 29, 23, 59, 59), '2024-W52'],
+    [new Date(2024, 11, 30), '2025-W01'],
+    [new Date(2026, 10, 22), '2026-W47'],
+    [new Date(2026, 10, 23), '2026-W48'],
+  ];
+  for (const [date, key] of dates) assert.equal(isoWeekKey(date), key);
+});
+
+test('stage-enter-global serializes weekly native sessions, recovers invalid entries, and remains independent of BindingStore', async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'tc-stage-sessions-')));
+  const stateDir = join(root, 'state'), graph = join(root, 'graph'), graphB = join(root, 'graph-b');
+  const graphDirectory = join(graph, 'pages', 'stage-reviews'), graphDirectoryB = join(graphB, 'pages', 'stage-reviews');
+  await Promise.all([mkdir(graph), mkdir(graphB)]);
+  const store = new BindingStore(join(root, 'bindings'));
+  await store.load();
+  const workspaces = new Map(), sessions = new Map(), archivedSessionIds = [];
+  let now = new Date(2020, 11, 31), creates = 0, loseReply = false;
+  const ctx = {
+    workspaceController: {
+      async create({ path }) {
+        const workspaceId = path, created = !workspaces.has(path);
+        if (created) workspaces.set(path, { workspaceId, path });
+        return { workspace: workspaces.get(path), created };
+      },
+      async rename({ workspaceId, title }) {
+        if ([...workspaces.values()].some(workspace => workspace.workspaceId !== workspaceId && workspace.title === title)) {
+          throw Object.assign(Error('duplicate native workspace title'), { code: 'workspace/name-conflict' });
+        }
+        workspaces.get(workspaceId).title = title;
+      },
+    },
+    workspaceRegistry: { archivedSessionIds, list: () => [...workspaces.values()] },
+    sessionController: {
+      async list() { return { items: [...sessions].map(([sessionId, session]) => ({ sessionId, cwd: session.meta.cwd })) }; },
+      async inspect(id) {
+        if (!sessions.has(id)) throw Object.assign(Error('missing'), { code: 'SESSION_NOT_FOUND' });
+        return sessions.get(id);
+      },
+      async create({ workspaceId, sessionId }) {
+        creates++;
+        sessions.set(sessionId, { meta: { cwd: workspaces.get(workspaceId).path } });
+        if (loseReply) { loseReply = false; throw Error('lost native reply'); }
+        return { sessionId };
+      },
+      async rename({ sessionId, title }) { sessions.get(sessionId).title = title; },
+    },
+  };
+  const server = await startWorkspaceServer({
+    stateDirectory: stateDir, inboxDirectory: join(root, 'inbox'), icloudInboxDirectory: join(root, 'icloud'),
+    watchIcloud: false, appleCalendar: { disabled: true },
+  });
+  const oldOverride = process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+  delete process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+  const stage = installStageHost(ctx, { service: { transport: { stateDirectory: stateDir }, store }, now: () => now });
+  const enter = () => stage.routes['stage-enter-global']({});
+  let stopped = false;
+  try {
+    await server.stageHub.reportActiveGraph({ graphId: 'g', graphPath: graph });
+    const [first, parallel] = await Promise.all([enter(), enter()]);
+    assert.equal(first.created, true);
+    assert.deepEqual(parallel, { ...first, created: false });
+    assert.equal(creates, 1);
+    assert.equal(first.directory, graphDirectory);
+    assert.equal(workspaces.get(graphDirectory).title, '全局导航台');
+    assert.equal(sessions.get(first.sessionId).title, '2020-W53 · 全局导航');
+    workspaces.delete(graphDirectory);
+    assert.equal((await enter()).sessionId, first.sessionId, 'recreate a deleted workspace registration without losing its valid weekly session');
+    assert.equal(workspaces.get(graphDirectory).title, '全局导航台');
+    now = new Date(2021, 0, 3, 23, 59);
+    assert.equal((await enter()).sessionId, first.sessionId);
+
+    now = new Date(2021, 0, 4);
+    const nextWeek = await enter();
+    assert.equal(nextWeek.weekKey, '2021-W01');
+    assert.notEqual(nextWeek.sessionId, first.sessionId);
+    archivedSessionIds.push(nextWeek.sessionId);
+    const afterArchive = await enter();
+    assert.notEqual(afterArchive.sessionId, nextWeek.sessionId);
+    sessions.delete(afterArchive.sessionId);
+    const afterDelete = await enter();
+    assert.notEqual(afterDelete.sessionId, afterArchive.sessionId);
+    sessions.get(afterDelete.sessionId).meta.cwd = root;
+    const afterCwdChange = await enter();
+    assert.notEqual(afterCwdChange.sessionId, afterDelete.sessionId);
+    assert.equal(sessions.get(afterCwdChange.sessionId).meta.cwd, graphDirectory);
+
+    await server.stageHub.reportActiveGraph({ graphId: 'g-b', graphPath: graphB });
+    const afterGraphChange = await enter();
+    assert.notEqual(afterGraphChange.sessionId, afterCwdChange.sessionId);
+    assert.equal(afterGraphChange.directory, graphDirectoryB);
+    assert.equal(workspaces.get(graphDirectoryB).title, '全局导航台 · graph-b');
+    assert.equal(workspaces.get(graphDirectory).title, '全局导航台');
+    assert.equal(await stage.ownsSession(first.sessionId), true);
+    assert.equal(await stage.ownsSession(afterCwdChange.sessionId), true);
+
+    // Restart the plugin (read index from disk) and reuse without consulting any binding.
+    const restarted = installStageHost(ctx, { service: { transport: { stateDirectory: stateDir }, store }, now: () => now });
+    assert.equal((await restarted.routes['stage-enter-global']({})).sessionId, afterGraphChange.sessionId);
+    restarted.dispose();
+
+    now = new Date(2021, 0, 11);
+    loseReply = true;
+    await assert.rejects(enter(), /lost native reply/);
+    const countAfterLostReply = creates;
+    const recovered = await enter();
+    assert.equal(creates, countAfterLostReply);
+    assert.equal(sessions.get(recovered.sessionId).title, '2021-W02 · 全局导航');
+
+    // Companion is authoritative when reachable, including its configured override.
+    const override = join(root, 'override');
+    process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR = override;
+    assert.equal((await enter()).directory, override);
+    await server.close(); stopped = true;
+    const companionOverride = join(root, 'companion-reviews');
+    const configuredServer = await startWorkspaceServer({
+      stateDirectory: stateDir, stageWorkspaceDirectory: companionOverride, inboxDirectory: join(root, 'inbox'),
+      icloudInboxDirectory: join(root, 'icloud'), watchIcloud: false, appleCalendar: { disabled: true },
+    });
+    try {
+      assert.equal((await enter()).directory, companionOverride, 'the live Companion takes precedence over the DSH environment');
+    } finally { await configuredServer.close(); }
+    assert.equal((await enter()).directory, override);
+    delete process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+    const offline = await enter();
+    assert.equal(offline.directory, join(stateDir, 'stage-workspace'));
+    assert.ok((await lstat(offline.directory)).isDirectory());
+    assert.equal(store.bindings.size, 0);
+    assert.equal(store.associations.size, 0);
+    await assert.rejects(lstat(join(store.directory, 'bindings.json')), { code: 'ENOENT' });
+    const persisted = JSON.parse(await readFile(join(store.directory, 'stage-sessions.json'), 'utf8'));
+    assert.equal(persisted.sessions.at(-1).sessionId, offline.sessionId);
+    assert.ok(persisted.sessions.every(row => !row.pending && !row.workRef && !row.binding));
+  } finally {
+    stage.dispose();
+    if (!stopped) await server.close();
+    if (oldOverride === undefined) delete process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR;
+    else process.env.TASK_COPILOT_STAGE_WORKSPACE_DIR = oldOverride;
     await rm(root, { recursive: true, force: true });
   }
 });

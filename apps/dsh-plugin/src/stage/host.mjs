@@ -1,6 +1,8 @@
 /* global AbortSignal, fetch, setTimeout, clearTimeout */
 import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { workRecord, workText } from '@task-copilot/contracts';
 import {
   StageEngine,
   TimeEngine,
@@ -11,7 +13,9 @@ import {
 import { readCatalog } from '../../../task-copilot-cli/src/work-catalog.ts';
 import { privateDescriptor } from '../../../task-copilot-cli/src/workspace-cli.ts';
 import { atomicJson } from '../../../task-copilot-cli/src/workspace-files.ts';
+import { ensureStageWorkspaceDirectory, resolveStageWorkspace } from '../../../task-copilot-cli/src/stage-workspace.ts';
 import { blockUrl } from '../reader-model.mjs';
+import { GlobalStageSessions } from './global-session.mjs';
 
 const SOURCE_LABELS = {
   'ios-shortcut': 'iPhone 随口记',
@@ -180,7 +184,7 @@ const STAGE_TOOL_SPECS = [
  * DSH host integration for the independent Floating Semantic-Zoom Shared Stage.
  * Proxies to Companion /stage/* & /mcp/call when online; fails open to local StageEngine when offline.
  */
-export function installStageHost(ctx, { service, inboxStore }) {
+export function installStageHost(ctx, { service, inboxStore, now }) {
   const stateDir = service.transport.stateDirectory;
   const registryPath = join(stateDir, 'stage-areas.json');
   const timeRegistryPath = join(stateDir, 'time-stage.json');
@@ -191,6 +195,13 @@ export function installStageHost(ctx, { service, inboxStore }) {
   let stageOpen = false;
   let lastGazeText = '';
   let lastViewportCtx = null;
+  const globalSessions = new GlobalStageSessions({
+    ctx,
+    service,
+    indexDirectory: service.store?.directory ?? join(homedir(), '.dsh', 'logseq-workbench'),
+    resolveWorkspace: signal => stageWorkspace(signal),
+    now,
+  });
 
   function extractViewportContext(snap) {
     if (!snap?.viewport) return null;
@@ -253,6 +264,17 @@ export function installStageHost(ctx, { service, inboxStore }) {
       ? `当前层次：${lastViewportCtx.layer}；当前焦点对象：${lastViewportCtx.focusObject}。`
       : '';
     return `[全局共视活画布已打开] 用户当前视角：${lastGazeText}。${detail}当你回答用户关于「当前画面 / 这个领域 / 这个项目 / 这一层」的问题时，直接基于上述层次与对象回答；需要更多细节时可用 stage_get_view / stage_get_pulse / time_get_overview，用 stage_highlight 点亮节点（视野外自动转为边缘雷达不抢镜头），用 stage_propose_area_role / stage_sprout_branches / time_propose_plan 生成虚态提议，经用户拍板后用 stage_resolve_proposals / time_resolve_proposals 凝固落盘。`;
+  }
+
+  function formatGlobalPrompt(directory) {
+    return [
+      '[全局导航台] 当前会话是独立的全局注意力导航与复盘现场。',
+      `当前复盘目录为 ${JSON.stringify(directory)}。经用户确认后，在此目录内沉淀 Logseq Page。`,
+      '周复盘文件使用 复盘___YYYY-Www.md（ISO 自然周），季度星图使用 季度星图___YYYY-Qq.md（自然季度）；命名中的三个下划线对应 Logseq 命名空间。',
+      '正文使用标准 "- " 大纲体，可自然使用 [[Area/...]] 与 [[项目名]] 双链。不得添加 PARA:: [[PARA/Area]] 或 PARA:: [[PARA/Project]] 等 PARA:: 标记。',
+      '每次更新之前先从磁盘读取最新内容，保留用户已有记录并合并；若期间发现并发更新，重新读取后再写，禁止覆盖新内容。',
+      '文件读写仅限当前复盘目录内的上述复盘与季度星图 Page，禁止越界读取或修改 Graph 内其他 Markdown 文件，禁止读取敏感凭据或仅本地（禁止上云）工作的正文。深入具体项目正文或文件时，引导用户点击星图卡片切换至对应专属工作区。',
+    ].join('\n');
   }
 
   async function ensureLocalLoaded() {
@@ -342,6 +364,21 @@ export function installStageHost(ctx, { service, inboxStore }) {
       // Companion unreachable -> fail open to local engine.
       return null;
     }
+  }
+
+  async function stageWorkspace(signal, timeoutMs = 1500) {
+    let remote;
+    try {
+      remote = await companionPost('/stage/workspace', {}, signal, timeoutMs);
+    } catch (error) {
+      if (error.code !== 'UNKNOWN_ROUTE') throw error;
+    }
+    signal?.throwIfAborted();
+    if (remote) {
+      const stageWorkspaceDir = await ensureStageWorkspaceDirectory(remote.stageWorkspaceDir, stateDir);
+      return { stageWorkspaceDir, source: remote.source };
+    }
+    return resolveStageWorkspace(stateDir);
   }
 
   async function notifyLocalWaiters() {
@@ -618,7 +655,8 @@ export function installStageHost(ctx, { service, inboxStore }) {
     });
   }
   if (typeof ctx?.on === 'function') {
-    ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
+    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      let globalPrompt = '';
       if (stageOpen) {
         try {
           const remote = await companionPost('/stage/state', {}, undefined, 800);
@@ -626,9 +664,18 @@ export function installStageHost(ctx, { service, inboxStore }) {
         } catch {
           // Keep last known snapshot on timeout or offline fallback.
         }
+        const sessionId = context.scope?.session?.id;
+        if (sessionId) {
+          try {
+            const { stageWorkspaceDir } = await stageWorkspace(context.signal, 800);
+            if (await globalSessions.isInDirectory(sessionId, stageWorkspaceDir, context.signal)) globalPrompt = formatGlobalPrompt(stageWorkspaceDir);
+          } catch {
+            // A directory that cannot be verified must not grant review-file access.
+          }
+        }
       }
       const formed = await next();
-      const text = formatViewportPrompt();
+      const text = [formatViewportPrompt(), stageOpen ? globalPrompt : ''].filter(Boolean).join('\n');
       const others = (formed.contexts ?? []).filter(c => c.name !== 'logseq-stage:viewport');
       return text
         ? { ...formed, contexts: [...others, { name: 'logseq-stage:viewport', text, interpolate: false }] }
@@ -638,6 +685,16 @@ export function installStageHost(ctx, { service, inboxStore }) {
 
   const routes = {
     'stage-state': async (_input, signal) => readState(signal),
+    'stage-workspace': async (input, signal) => {
+      const raw = workRecord(input, ['sessionId']);
+      const sessionId = raw.sessionId === undefined ? undefined : workText(raw.sessionId);
+      const workspace = await stageWorkspace(signal);
+      return { ...workspace, active: await globalSessions.isInDirectory(sessionId, workspace.stageWorkspaceDir, signal) };
+    },
+    'stage-enter-global': (input, signal) => {
+      workRecord(input, []);
+      return globalSessions.enter(signal);
+    },
     'stage-action': async (input, signal) => {
       if (!input || typeof input !== 'object' || !input.action) throw Object.assign(Error('INVALID_STAGE_ACTION'), { code: 'INVALID_INPUT' });
       return runAction(input.action, signal);
@@ -667,5 +724,5 @@ export function installStageHost(ctx, { service, inboxStore }) {
     localWaiters.clear();
   };
 
-  return { routes, dispose, executeStageTool };
+  return { routes, dispose, executeStageTool, ownsSession: sessionId => globalSessions.ownsSession(sessionId) };
 }

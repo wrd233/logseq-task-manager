@@ -1,5 +1,5 @@
 /* global window, localStorage, AbortController, setTimeout, clearTimeout, URLSearchParams */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { compactGazeSummary, mountSharedStageView } from '@task-copilot/stage-runtime';
 
 const STORAGE_KEY = 'tc-dsh-stage-window-v1';
@@ -188,7 +188,7 @@ export const stageWindowStyles = `
  * Creates DSH's independent floating Semantic-Zoom Stage window controller & components.
  * Mode: 'closed' | 'floating' | 'peek' | 'full'
  */
-export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQuote, flash }) {
+export function createStageWindow({ rpc, enterWork, refreshSessions, openSession, getActiveSessionId, subscribeActiveSession, insertQuote, flash }) {
   let mode = 'closed';
   let latestSnapshot = null;
   const listeners = new Set();
@@ -200,8 +200,9 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
     mode = next;
     // Keep live Agent co-view active across floating, full, and peek (minimized) modes;
     // only explicitly closing ('closed') turns off viewport context injection.
-    void rpc('stage-visibility', { open: next !== 'closed' }).catch(() => {});
+    const visibility = rpc('stage-visibility', { open: next !== 'closed' }).catch(() => {});
     emit();
+    return visibility;
   };
 
   const toggle = () => {
@@ -255,13 +256,57 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
     const viewRef = useRef(null);
     const versionRef = useRef(0);
     const enterOpsRef = useRef(new Map());
+    const enteringGlobalRef = useRef(false);
+    const [enteringGlobal, setEnteringGlobal] = useState(false);
+    const [globalWorkspace, setGlobalWorkspace] = useState(null);
+    const activeSessionId = useSyncExternalStore(subscribeActiveSession, getActiveSessionId, () => null);
 
     useEffect(() => subscribe(() => {
       setCurMode(mode);
       setSnap(latestSnapshot);
     }), []);
 
-    // Auto-open floating Stage window when jumped from Logseq "在 DSH 讨论当前画面" (#stage-discuss=1)
+    useEffect(() => {
+      if (curMode === 'closed') return;
+      let alive = true;
+      void rpc('stage-workspace', activeSessionId ? { sessionId: activeSessionId } : {})
+        .then(workspace => { if (alive) setGlobalWorkspace({ sessionId: activeSessionId, ...workspace }); })
+        .catch(() => { if (alive) setGlobalWorkspace(null); });
+      return () => { alive = false; };
+    }, [curMode, activeSessionId, snap]);
+
+    const enterGlobal = async (nextMode = 'floating') => {
+      if (enteringGlobalRef.current) return;
+      enteringGlobalRef.current = true;
+      setEnteringGlobal(true);
+      try {
+        const result = await rpc('stage-enter-global', {});
+        await refreshSessions();
+        if (await openSession(result.sessionId) === false) return;
+        setGlobalWorkspace({ sessionId: result.sessionId, active: true });
+        await setMode(nextMode);
+        try {
+          const res = await rpc('stage-state', {});
+          if (res?.snapshot) {
+            latestSnapshot = res.snapshot;
+            versionRef.current = res.snapshot.version;
+            setSnap(res.snapshot);
+            viewRef.current?.update(res.snapshot);
+            emit();
+          }
+          flash?.(`已进入 ${result.weekKey} 全局导航台 · ${shortGazeLabel(latestSnapshot) || '星图'}`);
+        } catch {
+          flash?.('已进入全局导航台，正在同步星图画面。');
+        }
+      } catch (error) {
+        flash?.(error?.code === 'STAGE_WORKSPACE_PATH_INVALID' ? '全局导航台需要独立的复盘目录，请检查路径。' : '无法进入全局导航台，请重试。', 'error');
+      } finally {
+        enteringGlobalRef.current = false;
+        setEnteringGlobal(false);
+      }
+    };
+
+    // A Logseq discuss link explicitly enters the current week's global conversation.
     useEffect(() => {
       const checkDiscussHash = () => {
         const params = new URLSearchParams(window.location.hash.slice(1));
@@ -273,24 +318,7 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
           '',
           window.location.pathname + window.location.search + (nextHash ? `#${nextHash}` : ''),
         );
-        setMode('floating');
-        void rpc('stage-state', {})
-          .then(res => {
-            if (res?.snapshot) {
-              latestSnapshot = res.snapshot;
-              versionRef.current = res.snapshot.version;
-              setSnap(res.snapshot);
-              viewRef.current?.update(res.snapshot);
-              emit();
-              const label = shortGazeLabel(res.snapshot) || '星图';
-              flash?.(`已同步当前画面共视：${label}（DSH Agent 已看到当前层次与对象）`);
-            } else {
-              flash?.('已打开星图悬浮窗（DSH Agent 正在实时共视当前画面）');
-            }
-          })
-          .catch(() => {
-            flash?.('已打开星图悬浮窗（DSH Agent 正在实时共视当前画面）');
-          });
+        void enterGlobal();
       };
       checkDiscussHash();
       window.addEventListener('hashchange', checkDiscussHash);
@@ -519,6 +547,11 @@ export function createStageWindow({ rpc, enterWork, getActiveSessionId, insertQu
             </span>
           </div>
           <div className="tcs-dsh-titlebar-right">
+            {globalWorkspace?.sessionId === activeSessionId && globalWorkspace?.active ? null : (
+              <button type="button" className="tcs-dsh-win-btn" disabled={enteringGlobal} onClick={() => { void enterGlobal(curMode); }}>
+                {enteringGlobal ? '切换中' : '切到全局导航台'}
+              </button>
+            )}
             <button type="button" className="tcs-dsh-win-btn" onClick={() => setMode('peek')}>收为胶囊</button>
             <button type="button" className="tcs-dsh-win-btn" onClick={() => setMode(curMode === 'full' ? 'floating' : 'full')}>
               {curMode === 'full' ? '还原浮窗' : '全景鸟瞰'}

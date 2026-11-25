@@ -25,6 +25,7 @@ const errorText = error => ({
   INPUT_BUSY: '输入框正在提交，请稍后再引用。', BINDING_CHANGED: '会话关联已改变，请重新读取。',
   SESSION_CWD_MISMATCH: '会话目录与工作目录不同。原对话和输入已保留，请在工作目录新开对话。',
   SESSION_WORK_CONFLICT: '此会话已属于另一件工作，请新开工作对话。',
+  STAGE_SESSION_UNBOUND: '全局导航台使用独立复盘目录。需要深入工作原文时，请从星图进入该工作对话。',
   WORK_REF_MISMATCH: '连接来源与此会话工作不一致，请在 Logseq 对目标工作显式只读重连。',
   SCOPE_MISMATCH: '来源范围不一致，已停止读取。',
   DSH_HANDOFF_EXPIRED: '这次协作入口已过期，请在 Logseq 再点一次 DSH 协作。',
@@ -261,7 +262,16 @@ export function apply(ctx) {
   const stageWindow = createStageWindow({
     rpc,
     enterWork,
+    refreshSessions: () => ctx.sessions.refresh(),
+    openSession: sessionId => {
+      if (disposed) return false;
+      handoffController?.abort();
+      if (ctx.sidebarRight.mounted.getSnapshot() !== sessionId) ctx.uiWorkspace.openSession(sessionId);
+      clearHandoff();
+      return true;
+    },
     getActiveSessionId: () => ctx.sidebarRight.mounted.getSnapshot(),
+    subscribeActiveSession: listener => ctx.sidebarRight.mounted.subscribe(listener),
     insertQuote: (sessionId, text) => {
       void ctx.sessions.using(sessionId, { source: 'controllerOperation' }, async retained => {
         const binding = await retained.ready;

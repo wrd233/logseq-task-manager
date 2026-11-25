@@ -81,7 +81,7 @@ test("Logseq GlobalStageOverlay fails open offline, anchors zoom-out, and promot
     await offlineOverlay.open(obsKey);
     assert.equal(offlineOverlay.isOpen, true);
     assert.match(document.body.textContent ?? "", /尚未建立季节领域星图/);
-    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, "Stage overlay UI must stay zero-emoji");
+    assert.doesNotMatch(document.body.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u, "Stage overlay UI must stay zero-emoji");
 
     // Trigger cold-start & solidify locally
     const csBtn = document.querySelector<HTMLButtonElement>("[data-tcs-empty-coldstart]");
@@ -221,7 +221,7 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     weekTab.click();
     await new Promise((r) => setTimeout(r, 20));
     assert.match(document.body.textContent ?? "", /本周推进块/);
-    assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u);
+    assert.doesNotMatch(document.body.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
 
     const todayTab = document.querySelector<HTMLButtonElement>('[data-tcs-tab="today"]');
     assert.ok(todayTab);
@@ -257,7 +257,7 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
 
     const capsuleEl = document.querySelector<HTMLElement>(".tcs-lsq-focus-bar");
     assert.ok(capsuleEl, "QuietFocusCapsule should mount when focus is active");
-    assert.doesNotMatch(capsuleEl.textContent ?? "", /\p{Extended_Pictographic}/u);
+    assert.doesNotMatch(capsuleEl.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
     assert.match(capsuleEl.textContent ?? "", /上午 · .*完成核心告警降噪闭环 · 已进行 \d+m/);
 
     // Verify titlebar clickability CSS (-webkit-app-region: no-drag) and Zen focus mode activation
@@ -523,7 +523,7 @@ test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/E
     assert.ok(card1, "Workbench >3d gap should open Restart Flip-Card");
     assert.equal(card1.dataset.restartKind, "workbench-gap");
     assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
-    assert.doesNotMatch(card1.textContent ?? "", /\p{Extended_Pictographic}/u);
+    assert.doesNotMatch(card1.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
 
     // Space advances to slide 2 / 2
     window.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }));
