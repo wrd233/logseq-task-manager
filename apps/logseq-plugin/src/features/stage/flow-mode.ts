@@ -147,7 +147,8 @@ export class FlowMode {
 
   async jump(anchor: PaperAnchor, edit: (anchor: PaperAnchor) => Promise<void>, onThisRoute: () => boolean, beacon = true): Promise<boolean> {
     const version = ++this.version;
-    const original = this.readAnchor(this.document?.activeElement ?? null);
+    const origin = this.document?.activeElement ?? null;
+    const original = this.readAnchor(origin);
     const ready = () => version === this.version && !this.composing && !this.disposed;
     for (let attempt = 0; attempt <= 20 && ready(); attempt++) {
       const block = onThisRoute() ? this.findBlock(anchor.uuid) : undefined;
@@ -163,15 +164,19 @@ export class FlowMode {
         }
         if (!ready()) return false;
         if (editing?.uuid !== anchor.uuid) await edit(anchor);
-        if (anchor.start !== undefined && ready() && onThisRoute()) {
-          for (let tries = 0; tries < 8 && ready(); tries++) {
+        for (let tries = 0; tries < 8 && ready() && onThisRoute(); tries++) {
+          const input: HTMLTextAreaElement | null = block.querySelector(".editor-wrapper textarea");
+          if (input && input.closest(".ls-block") === block) {
             const active = this.document?.activeElement ?? null;
-            if (isTextarea(active) && this.readAnchor(active)?.uuid === anchor.uuid) {
-              active.setSelectionRange(anchor.start, anchor.end ?? anchor.start, anchor.direction);
-              break;
+            if (active !== input && active !== origin && active !== this.document?.body) {
+              const activeAnchor = this.readAnchor(active);
+              if (!activeAnchor || activeAnchor.uuid !== original?.uuid) return false;
             }
-            await new Promise<void>((resolve) => setTimeout(resolve, 20));
+            if (active !== input) input.focus({ preventScroll: true });
+            if (anchor.start !== undefined) input.setSelectionRange(anchor.start, anchor.end ?? anchor.start, anchor.direction);
+            break;
           }
+          await new Promise<void>((resolve) => setTimeout(resolve, 20));
         }
         return true;
       }

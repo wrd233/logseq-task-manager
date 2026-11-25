@@ -67,6 +67,10 @@ test("native anchor waits for the requested route, does not steal composition an
     assert.equal(edits, 1);
     const input = block.querySelector("textarea")!;
     assert.deepEqual([input.selectionStart, input.selectionEnd], [1, 4]);
+    input.blur();
+    assert.equal(await flow.jump({ uuid, start: 2, end: 5 }, async () => undefined, () => true, false), true);
+    assert.equal(doc.activeElement, input);
+    assert.deepEqual([input.selectionStart, input.selectionEnd], [2, 5]);
     input.dispatchEvent(new host.CompositionEvent("compositionstart", { bubbles: true }) as unknown as Event);
     assert.equal(await flow.jump({ uuid }, edit, () => true), false);
     assert.equal(edits, 1);

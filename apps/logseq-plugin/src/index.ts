@@ -6,6 +6,7 @@ import { WorkspaceError, sameWorkScope, workKey, workRecord, type AgentWorkScope
 import type { ActiveFocusSession, StageWorkTarget } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "./features/stage/overlay.ts";
 import { QuietFocusCapsule } from "./features/stage/focus-capsule.ts";
+import { FreeNotesController } from "./features/stage/free-notes.ts";
 import { FlowMode } from "./features/stage/flow-mode.ts";
 import { PaperSceneController } from "./features/stage/paper-scene.ts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
@@ -38,6 +39,7 @@ logseq.useSettingsSchema([
   { key: "workCatalogProjectTags", type: "string", default: "", title: "已有项目标签", description: "自动发现会识别页面的「项目」和「Project」标签。可补充你已经在用的标签，用逗号分隔。" },
   { key: "kernelDescriptorJson", type: "string", default: "", title: "Kernel descriptor JSON", description: "连接正式任务管理使用的本地 Kernel。工作视图和材料可独立使用。" },
   { key: "agentWorkspaceDescriptor", type: "string", default: "", title: "DSH 协作连接", description: "仅在需要配置协作服务时填写。通过「在 DSH 继续」连接当前工作，阅读不依赖此设置。" },
+  { key: "freeNotesShortcut", type: "string", default: "mod+.", title: "自由随记快捷键", description: "mod+. 对应 Ctrl+. 或 Cmd+.，也可设为 ctrl+alt+.。留空关闭快捷键。" },
   { key: "workViewEnabled", type: "boolean", default: true, title: "启用工作视图", description: "从任意块进入工作范围，排列只保存在视图中。修改后重载插件。" },
   { key: "materialsEnabled", type: "boolean", default: true, title: "启用材料", description: "按工作收纳、关联和阅读材料，Markdown 按授权编辑。修改后重载插件。" },
   { key: "tasksEnabled", type: "boolean", default: false, title: "启用任务管理", description: "按需启用正式任务，需要本地 Kernel。已有配置继续保留。" },
@@ -61,6 +63,7 @@ async function main(): Promise<void> {
   let focusCapsule: QuietFocusCapsule | null = null;
   const paperFlow = new FlowMode(hostDocument(), anchor => paper.remember(anchor));
   const paper = new PaperSceneController(paperFlow, () => catalog.read(), (scene, stop) => focusCapsule?.setScene(scene, stop));
+  const freeNotes = new FreeNotesController(paper, error => report(error));
   let removeStageCommand: () => void = () => undefined;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
@@ -70,6 +73,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
+    await freeNotes.dispose();
     paper.dispose(); focusCapsule?.dispose(); paperFlow.dispose(); globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
@@ -583,6 +587,7 @@ async function main(): Promise<void> {
   publishedApi = api;
   host.taskCopilotWorkbench = api;
   paper.start();
+  freeNotes.start();
   focusCapsule.start();
   await work?.restoreReadingSession();
 }
