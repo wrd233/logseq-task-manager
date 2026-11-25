@@ -3,9 +3,11 @@ import { WorkCatalogView } from './features/agent-workspace/catalog-view.ts';
 import { ensureDshWork } from "./features/agent-workspace/dsh-work.ts";
 import { dshFormalTarget, setDshObjectEntry } from "./features/task-center/controller.ts";
 import { WorkspaceError, sameWorkScope, workKey, workRecord, type AgentWorkScope } from "@task-copilot/contracts";
-import type { StageWorkTarget } from "@task-copilot/stage-runtime";
+import type { ActiveFocusSession, StageWorkTarget } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "./features/stage/overlay.ts";
 import { QuietFocusCapsule } from "./features/stage/focus-capsule.ts";
+import { FlowMode } from "./features/stage/flow-mode.ts";
+import { PaperSceneController } from "./features/stage/paper-scene.ts";
 import { LogseqContentAdapter } from "./features/content-writeback/logseq-adapter.ts";
 import { pluginRuntime } from "./plugin-runtime.ts";
 import { startTaskCenter, openTaskCenter } from "./features/task-center/controller.ts";
@@ -57,6 +59,8 @@ async function main(): Promise<void> {
   let workSearch: WorkCatalogView | null = null;
   let globalStage: GlobalStageOverlay | null = null;
   let focusCapsule: QuietFocusCapsule | null = null;
+  const paperFlow = new FlowMode(hostDocument(), anchor => paper.remember(anchor));
+  const paper = new PaperSceneController(paperFlow, () => catalog.read(), (scene, stop) => focusCapsule?.setScene(scene, stop));
   let removeStageCommand: () => void = () => undefined;
   let disposed = false;
   const host = window as Window & {taskCopilotWorkbench?: unknown};
@@ -66,7 +70,7 @@ async function main(): Promise<void> {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    focusCapsule?.dispose(); globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
+    paper.dispose(); focusCapsule?.dispose(); paperFlow.dispose(); globalStage?.dispose(); removeStageCommand(); workSearch?.dispose(); removeCatalog(); setDshObjectEntry(null); materials?.setWorkChrome(null); agentWorkspace?.dispose(); stages?.dispose(); workspace.dispose(); content?.dispose(); work?.dispose(); materials?.dispose(); pluginRuntime.stop(); removeNavigation(); removeReadingEntries();
     if (host.taskCopilotWorkbench === publishedApi) delete host.taskCopilotWorkbench;
     await stopTasks?.();
   };
@@ -228,29 +232,25 @@ async function main(): Promise<void> {
     return null;
   };
 
-  const applyZenDistractionHide = async (enabled: boolean) => {
-    if (enabled) {
-      if (panels.active) await panels.closeActive().catch(() => undefined);
-      try { logseq.App.setLeftSidebarVisible(false); } catch { /* ignore */ }
-      try { logseq.App.setRightSidebarVisible(false); } catch { /* ignore */ }
-      return;
-    }
-    if (preFocusScene) {
-      try { logseq.App.setLeftSidebarVisible(preFocusScene.leftSidebarOpen); } catch { /* ignore */ }
-      try { logseq.App.setRightSidebarVisible(preFocusScene.rightSidebarOpen); } catch { /* ignore */ }
-    }
+  const hideFocusSurroundings = async () => {
+    if (panels.active) await panels.closeActive().catch(() => undefined);
+    if (paperFlow.isComposing) return;
+    try { logseq.App.setLeftSidebarVisible(false); } catch { /* The sidebar may be unavailable. */ }
+    try { logseq.App.setRightSidebarVisible(false); } catch { /* The sidebar may be unavailable. */ }
   };
 
   const enterFocusMode = (session: { id: string }): Promise<void> => {
+    if (paperFlow.isComposing) return Promise.resolve();
     if (enteredFocusSessionId === session.id && pendingEnterFocus) return pendingEnterFocus;
     enteredFocusSessionId = session.id;
+    paperFlow.showChrome();
     const task = (async () => {
       if (!preFocusScene) {
         const doc = hostDocument();
         const leftSidebarOpen =
           isHostSidebarVisible("#left-sidebar") ||
           Boolean(doc?.querySelector("#main-container.is-left-sidebar-open"));
-        const rightSidebarOpen = isHostSidebarVisible(".cp__right-sidebar");
+        const rightSidebarOpen = Boolean(doc?.querySelector(".cp__right-sidebar:not(.closed)")) || isHostSidebarVisible(".cp__right-sidebar");
         const workbenchPanel = panels.active;
         const page = await captureCurrentPage();
         preFocusScene = {
@@ -261,7 +261,7 @@ async function main(): Promise<void> {
           navigatedByFocus: false,
         };
       }
-      await applyZenDistractionHide(true);
+      if (!paperFlow.isComposing) await hideFocusSurroundings();
     })();
     pendingEnterFocus = task;
     return task;
@@ -274,6 +274,18 @@ async function main(): Promise<void> {
     const scene = preFocusScene;
     preFocusScene = null;
     if (!scene || disposed) return;
+    if (paperFlow.isComposing) {
+      const doc = paperFlow.document;
+      const route = doc?.defaultView?.location.hash;
+      const restore = () => {
+        if (!disposed && !enteredFocusSessionId && doc?.defaultView?.location.hash === route) {
+          preFocusScene = scene;
+          void restorePreFocusScene();
+        }
+      };
+      doc?.addEventListener("compositionend", restore, { once: true });
+      return;
+    }
     try { logseq.App.setLeftSidebarVisible(scene.leftSidebarOpen); } catch { /* ignore */ }
     try { logseq.App.setRightSidebarVisible(scene.rightSidebarOpen); } catch { /* ignore */ }
     if (scene.navigatedByFocus && scene.page) {
@@ -301,30 +313,39 @@ async function main(): Promise<void> {
     }
   };
 
-  const navigateFocusWork = async (session: { id: string; workRef?: { kind: string; rootUuid?: string; sourceKind?: string } | null; title: string }) => {
-    await enterFocusMode(session);
-    if (session.workRef?.kind !== "logseq" || !session.workRef.rootUuid) return;
-    if (preFocusScene) preFocusScene.navigatedByFocus = true;
-    try {
-      if (session.workRef.sourceKind === "page") {
-        logseq.App.pushState("page", { name: session.title });
-        return;
-      }
-      const blk = await logseq.Editor.getBlock(session.workRef.rootUuid);
-      const pageEntity = blk?.page?.id ? await logseq.Editor.getPage(blk.page.id) : null;
-      const pageName =
-        (pageEntity as { originalName?: string; name?: string } | null)?.originalName ??
-        (pageEntity as { name?: string } | null)?.name;
-      if (pageName) {
-        logseq.Editor.scrollToBlockInPage(pageName, session.workRef.rootUuid);
-      } else {
-        logseq.App.pushState("page", { name: session.workRef.rootUuid });
-      }
-    } catch {
-      // Fallback gracefully if block cannot be navigated natively
-    }
+  let focusNavigation: { id: string; pending: Promise<boolean> } | undefined;
+  const navigateFocusWork = (session: ActiveFocusSession): Promise<boolean> => {
+    if (paperFlow.isComposing || disposed) return Promise.resolve(false);
+    if (focusNavigation?.id === session.id) return focusNavigation.pending;
+    const pending = (async () => {
+      await enterFocusMode(session);
+      if (paperFlow.isComposing || enteredFocusSessionId !== session.id || disposed) return false;
+      const project = session.projectWorkKey
+        ? (await catalog.read()).works.find(entry => workKey(entry.workRef) === session.projectWorkKey)
+        : undefined;
+      if (paperFlow.isComposing || enteredFocusSessionId !== session.id || disposed) return false;
+      const ref = session.workRef ?? project?.workRef;
+      const opened = ref?.kind === "logseq"
+        ? await paper.open({
+            workRef: ref,
+            title: session.title,
+            ...(project ? { pageTitle: project.title } : {}),
+            ...(session.lastBlockUuid ? { lastBlockUuid: session.lastBlockUuid } : {}),
+          })
+        : await paper.openJournal();
+      if (opened && preFocusScene) preFocusScene.navigatedByFocus = true;
+      return opened;
+    })();
+    focusNavigation = { id: session.id, pending };
+    void pending.then(opened => {
+      if (!opened && focusNavigation?.id === session.id) focusNavigation = undefined;
+    }, () => {
+      if (focusNavigation?.id === session.id) focusNavigation = undefined;
+    });
+    return pending;
   };
   focusCapsule = new QuietFocusCapsule({
+    flow: paperFlow,
     fetchSnapshot: async () => {
       try {
         return await agentWorkspace!.local.stageState();
@@ -339,14 +360,13 @@ async function main(): Promise<void> {
     onOpenStage: () => {
       if (!disposed) void globalStage?.open(currentAnchorKey()).catch(report);
     },
-    onNavigateWork: async session => {
-      await navigateFocusWork(session);
-    },
+    onNavigateWork: navigateFocusWork,
+    onOpenWorkbench: () => { if (!paperFlow.isComposing) void work?.openToolbar().catch(report); },
+    onSaveStop: (scene, text, anchor) => paper.saveStop(scene, text, anchor),
+    onReadAnchor: (uuid, scene) => paper.prepareDraft(uuid, scene),
+    onReturnToAnchor: async (anchor, scene) => { await paper.returnToAnchor(anchor, scene); },
     onEnterFocusMode: async session => {
       await enterFocusMode(session);
-    },
-    onZenModeChange: async enabled => {
-      await applyZenDistractionHide(enabled);
     },
     onExitFocusMode: async () => {
       await restorePreFocusScene();
@@ -379,13 +399,8 @@ async function main(): Promise<void> {
     await agentWorkspace!.local.openWork(scope, "continue", false, undefined, "dsh");
   };
   const openStageTargetInLogseq = async (target: StageWorkTarget): Promise<void> => {
-    if (!work) return;
-    if (target.workRef.kind === "logseq") {
-      if (target.workRef.sourceKind === "page") await work.openPage(target.title);
-      else await work.open(target.workRef.rootUuid);
-      return;
-    }
-    await work.openPage(target.title);
+    if (target.workRef.kind === "logseq") await paper.open(target);
+    else await work?.openPage(target.title);
   };
   globalStage = new GlobalStageOverlay({
     remote: {
@@ -427,6 +442,7 @@ async function main(): Promise<void> {
       await copyMaterialLink(summary).catch(() => undefined);
       throw new Error("未能取得 DSH 入口，已复制当前画面摘要到剪贴板。");
     },
+    openJournal: async () => { await paper.openJournal(); },
     openFocusWork: async session => {
       await navigateFocusWork(session);
     },
@@ -566,6 +582,7 @@ async function main(): Promise<void> {
   };
   publishedApi = api;
   host.taskCopilotWorkbench = api;
+  paper.start();
   focusCapsule.start();
   await work?.restoreReadingSession();
 }

@@ -258,6 +258,8 @@ export interface StageAgentPresence {
 
 export interface StageWorkTarget {
   workRef: WorkRef;
+  pageTitle?: string;
+  lastBlockUuid?: string;
   workKey?: string;
   title: string;
   directory?: string;

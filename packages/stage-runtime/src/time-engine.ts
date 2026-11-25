@@ -103,6 +103,7 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
       const createdAt = typeof rec.createdAt === "number" && Number.isFinite(rec.createdAt) ? rec.createdAt : now;
       const updatedAt = typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : createdAt;
       const lastStopNote = cleanText(rec.lastStopNote, 240);
+      const lastBlockUuid = cleanText(rec.lastBlockUuid, 128);
       const sourceAdvancementId = cleanText(rec.sourceAdvancementId, 128);
       const sourceInboxId = cleanText(rec.sourceInboxId, 128);
       const workRef = safeWorkRef(rec.workRef);
@@ -118,6 +119,7 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
         state,
         actualMinutes: typeof rec.actualMinutes === "number" && Number.isFinite(rec.actualMinutes) ? Math.max(0, Math.round(rec.actualMinutes)) : 0,
         ...(lastStopNote ? { lastStopNote } : {}),
+        ...(lastBlockUuid ? { lastBlockUuid } : {}),
         createdAt,
         updatedAt,
       });
@@ -139,6 +141,7 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
     const createdAt = typeof rec.createdAt === "number" && Number.isFinite(rec.createdAt) ? rec.createdAt : now;
     const updatedAt = typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : createdAt;
     const lastStopNote = cleanText(rec.lastStopNote, 240);
+    const lastBlockUuid = cleanText(rec.lastBlockUuid, 128);
     const lastCarryoverDate = validDate(rec.lastCarryoverDate) ? rec.lastCarryoverDate : undefined;
     const workRef = safeWorkRef(rec.workRef);
     let calendarShield: CalendarShieldInfo | undefined;
@@ -173,6 +176,7 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
       carryoverCount: typeof rec.carryoverCount === "number" && Number.isFinite(rec.carryoverCount) ? Math.max(0, Math.floor(rec.carryoverCount)) : 0,
       ...(lastCarryoverDate ? { lastCarryoverDate } : {}),
       ...(lastStopNote ? { lastStopNote } : {}),
+      ...(lastBlockUuid ? { lastBlockUuid } : {}),
       ...(calendarShield ? { calendarShield } : {}),
       createdAt,
       updatedAt,
@@ -192,6 +196,8 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
       const startedAt = typeof af.startedAt === "number" && Number.isFinite(af.startedAt) ? af.startedAt : now;
       const resumedAt = typeof af.resumedAt === "number" && Number.isFinite(af.resumedAt) ? af.resumedAt : startedAt;
       const workRef = safeWorkRef(af.workRef);
+      const stopNote = cleanText(af.stopNote, 240);
+      const lastBlockUuid = cleanText(af.lastBlockUuid, 128);
       activeFocus = {
         id,
         title,
@@ -208,6 +214,8 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
         resumedAt,
         ...(typeof af.pausedAt === "number" && Number.isFinite(af.pausedAt) ? { pausedAt: af.pausedAt } : {}),
         accumulatedSeconds: typeof af.accumulatedSeconds === "number" && Number.isFinite(af.accumulatedSeconds) ? Math.max(0, Math.floor(af.accumulatedSeconds)) : 0,
+        ...(stopNote ? { stopNote } : {}),
+        ...(lastBlockUuid ? { lastBlockUuid } : {}),
         ...(typeof af.pendingNavigationAt === "number" && Number.isFinite(af.pendingNavigationAt) ? { pendingNavigationAt: af.pendingNavigationAt } : {}),
       };
     }
@@ -226,6 +234,8 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
       const startedAt = typeof rec.startedAt === "number" && Number.isFinite(rec.startedAt) ? rec.startedAt : now;
       const endedAt = typeof rec.endedAt === "number" && Number.isFinite(rec.endedAt) ? rec.endedAt : startedAt;
       const stopNote = cleanText(rec.stopNote, 240);
+      const lastBlockUuid = cleanText(rec.lastBlockUuid, 128);
+      const workRef = safeWorkRef(rec.workRef);
       const footprintEventId = cleanText(rec.footprintEventId, 200);
       focusHistory.push({
         id,
@@ -241,6 +251,8 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
         endedAt,
         durationMinutes: typeof rec.durationMinutes === "number" && Number.isFinite(rec.durationMinutes) ? Math.max(0, Math.round(rec.durationMinutes)) : 0,
         ...(stopNote ? { stopNote } : {}),
+        ...(lastBlockUuid ? { lastBlockUuid } : {}),
+        ...(workRef ? { workRef } : {}),
         ...(footprintEventId ? { footprintEventId } : {}),
       });
     }
@@ -675,6 +687,7 @@ export class TimeEngine {
       projectWorkKey?: string | null;
       workRef?: WorkRef | null;
       focusRole?: StageFocusRole;
+      lastBlockUuid?: string;
     },
     now = Date.now(),
   ): { session: ActiveFocusSession; autoFinished?: CompletedFocusRecord } {
@@ -699,6 +712,7 @@ export class TimeEngine {
     const projectWorkKey = input.projectWorkKey ?? dayItem?.projectWorkKey ?? weekMove?.projectWorkKey ?? null;
     const areaId = input.areaId ?? dayItem?.areaId ?? weekMove?.areaId ?? null;
 
+    const lastBlockUuid = input.lastBlockUuid ?? dayItem?.lastBlockUuid ?? weekMove?.lastBlockUuid;
     const session: ActiveFocusSession = {
       id: makeId("focus", this.seq++, now),
       title,
@@ -714,7 +728,8 @@ export class TimeEngine {
       startedAt: now,
       resumedAt: now,
       accumulatedSeconds: 0,
-      ...(workRef || projectWorkKey ? { pendingNavigationAt: now } : {}),
+      ...(lastBlockUuid ? { lastBlockUuid } : {}),
+      ...(workRef || projectWorkKey || dayItem ? { pendingNavigationAt: now } : {}),
     };
 
     this.registry.activeFocus = session;
@@ -726,13 +741,26 @@ export class TimeEngine {
     };
   }
 
-  pauseFocus(now = Date.now()): ActiveFocusSession | null {
+  pauseFocus(now = Date.now(), input: { stopNote?: string; lastBlockUuid?: string; sessionId?: string } = {}): ActiveFocusSession | null {
     const active = this.registry.activeFocus;
-    if (!active || active.status === "paused") return active ? structuredClone(active) : null;
-    const deltaSec = Math.max(0, Math.floor((now - active.resumedAt) / 1000));
-    active.accumulatedSeconds += deltaSec;
-    active.status = "paused";
-    active.pausedAt = now;
+    if (!active || (input.sessionId && input.sessionId !== active.id)) return null;
+    if (active.status === "running") {
+      active.accumulatedSeconds += Math.max(0, Math.floor((now - active.resumedAt) / 1000));
+      active.status = "paused";
+      active.pausedAt = now;
+    }
+    const stopNote = cleanText(input.stopNote, 240);
+    const lastBlockUuid = cleanText(input.lastBlockUuid, 128);
+    if (stopNote) active.stopNote = stopNote;
+    if (lastBlockUuid) active.lastBlockUuid = lastBlockUuid;
+    for (const item of [
+      this.registry.dayItems.find((entry) => entry.id === active.dayItemId),
+      this.registry.weekMoves.find((entry) => entry.id === active.weekMoveId),
+    ]) {
+      if (!item) continue;
+      if (stopNote) item.lastStopNote = stopNote;
+      if (lastBlockUuid) item.lastBlockUuid = lastBlockUuid;
+    }
     this.registry.updatedAt = now;
     return structuredClone(active);
   }
@@ -747,9 +775,9 @@ export class TimeEngine {
     return structuredClone(active);
   }
 
-  ackFocusNavigation(): boolean {
+  ackFocusNavigation(sessionId?: string): boolean {
     const active = this.registry.activeFocus;
-    if (!active || active.pendingNavigationAt === undefined) return false;
+    if (!active || (sessionId && active.id !== sessionId) || active.pendingNavigationAt === undefined) return false;
     delete active.pendingNavigationAt;
     return true;
   }
@@ -763,7 +791,7 @@ export class TimeEngine {
     const runningSec = active.status === "running" ? Math.max(0, Math.floor((now - active.resumedAt) / 1000)) : 0;
     const totalSeconds = active.accumulatedSeconds + runningSec;
     const durationMinutes = totalSeconds >= 30 ? Math.max(1, Math.round(totalSeconds / 60)) : 0;
-    const stopNote = cleanText(input.stopNote, 240);
+    const stopNote = cleanText(input.stopNote, 240) ?? active.stopNote;
 
     const record: CompletedFocusRecord = {
       id: makeId("flog", this.seq++, now),
@@ -779,6 +807,8 @@ export class TimeEngine {
       endedAt: Math.max(now, active.startedAt),
       durationMinutes,
       ...(stopNote ? { stopNote } : {}),
+      ...(active.lastBlockUuid ? { lastBlockUuid: active.lastBlockUuid } : {}),
+      ...(active.workRef ? { workRef: active.workRef } : {}),
     };
 
     if (active.dayItemId) {
@@ -1082,7 +1112,7 @@ export class TimeEngine {
         };
       }
       case "pause-focus":
-        return { mutatedRegistry: this.pauseFocus(now) !== null };
+        return { mutatedRegistry: this.pauseFocus(now, action) !== null };
       case "resume-focus":
         return { mutatedRegistry: this.resumeFocus(now) !== null };
       case "finish-focus": {
@@ -1096,7 +1126,7 @@ export class TimeEngine {
         return { mutatedRegistry: finished !== null, ...(finished ? { finishedFocus: finished } : {}) };
       }
       case "ack-focus-navigation":
-        return { mutatedRegistry: this.ackFocusNavigation() };
+        return { mutatedRegistry: this.ackFocusNavigation(action.sessionId) };
       case "set-footprint-calendar":
         this.setFootprintCalendar(action.enabled, action.calendarName, now);
         return { mutatedRegistry: true };

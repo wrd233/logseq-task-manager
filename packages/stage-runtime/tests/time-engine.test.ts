@@ -216,3 +216,22 @@ test("weekly moves, deferred morning work and tomorrow candidates project into t
   assert.deepEqual(after.todaySlots[1]?.hardEvents, before.tomorrowSlots[1]?.hardEvents);
   assert.equal(after.todaySlots[2]?.items[0]?.id, candidate.id);
 });
+
+test("quick pause stores a user's stop and exact block for the next native return", () => {
+  const engine = new TimeEngine(undefined, TODAY_MS);
+  const workRef = { kind: "logseq", graphId: "graph", sourceKind: "block", rootUuid: "work" } as const;
+  const move = engine.addWeekMove({ title: "修订样本", workRef }, TODAY_MS);
+  const item = engine.placeDayItem({ title: move.title, slotId: "morning", weekMoveId: move.id }, TODAY_MS).item;
+  const { session } = engine.startFocus({ dayItemId: item.id }, TODAY_MS);
+  assert.equal(engine.pauseFocus(TODAY_MS + 65_000, { sessionId: "stale", stopNote: "其他会话的文字" }), null);
+  engine.pauseFocus(TODAY_MS + 65_000, { sessionId: session.id, stopNote: "下一步重跑样本", lastBlockUuid: "last-line" });
+  const restored = new TimeEngine(parseTimeRegistry(engine.getRegistry(), TODAY_MS));
+  assert.equal(restored.buildSnapshot(TODAY_MS).todaySlots[0]?.items[0]?.lastBlockUuid, "last-line");
+  assert.equal(restored.buildSnapshot(TODAY_MS).weekMoves[0]?.lastStopNote, "下一步重跑样本");
+  assert.equal(restored.getActiveFocus()?.accumulatedSeconds, 65);
+  const record = restored.finishFocus({}, TODAY_MS + 120_000)!;
+  assert.equal(record.stopNote, "下一步重跑样本");
+  assert.deepEqual(record.workRef, workRef);
+  assert.equal(record.lastBlockUuid, "last-line");
+  assert.equal(restored.startFocus({ dayItemId: item.id }, TODAY_MS + 130_000).session.lastBlockUuid, "last-line");
+});

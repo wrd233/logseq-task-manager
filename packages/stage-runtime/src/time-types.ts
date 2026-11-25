@@ -61,6 +61,7 @@ export interface WeekMoveItem {
   state: "open" | "done" | "dropped";
   actualMinutes: number;
   lastStopNote?: string;
+  lastBlockUuid?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,6 +83,7 @@ export interface DayCandidate extends DayPlanSubject {
   carryoverCount: number;
   lastCarryoverDate?: string;
   lastStopNote?: string;
+  lastBlockUuid?: string;
   calendarShield?: CalendarShieldInfo;
   createdAt: number;
   updatedAt: number;
@@ -109,6 +111,8 @@ export interface ActiveFocusSession {
   pausedAt?: number;
   accumulatedSeconds: number;
   pendingNavigationAt?: number;
+  stopNote?: string;
+  lastBlockUuid?: string;
 }
 
 export interface CompletedFocusRecord {
@@ -125,6 +129,8 @@ export interface CompletedFocusRecord {
   endedAt: number;
   durationMinutes: number;
   stopNote?: string;
+  lastBlockUuid?: string;
+  workRef?: WorkRef;
   footprintEventId?: string;
 }
 
@@ -285,11 +291,12 @@ export type TimeUserAction =
       projectWorkKey?: string | null;
       workRef?: WorkRef | null;
       focusRole?: StageFocusRole;
+      lastBlockUuid?: string;
     }
-  | { type: "pause-focus" }
+  | { type: "pause-focus"; stopNote?: string; lastBlockUuid?: string; sessionId?: string }
   | { type: "resume-focus" }
   | { type: "finish-focus"; stopNote?: string; markDayItemDone?: boolean; writeFootprint?: boolean }
-  | { type: "ack-focus-navigation" }
+  | { type: "ack-focus-navigation"; sessionId?: string }
   | { type: "set-footprint-calendar"; enabled: boolean; calendarName?: string }
   | { type: "create-calendar-shield"; itemId: string; startTime?: string; endTime?: string }
   | { type: "resolve-time-proposals"; decisions: TimeResolveDecision[] }

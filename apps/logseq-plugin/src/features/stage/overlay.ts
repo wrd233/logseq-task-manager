@@ -25,6 +25,7 @@ export interface GlobalStageHostPort {
   openInDsh?(target: StageWorkTarget): Promise<void>;
   openTargetInLogseq?(target: StageWorkTarget): Promise<void>;
   discussInDsh?(summary: string, snapshot: StageSnapshot): Promise<void>;
+  openJournal?(): Promise<void>;
   openFocusWork?(session: ActiveFocusSession): Promise<void>;
   onSnapshot?(snapshot: StageSnapshot): void;
   promoteTodo(item: StageAdvancementItem, project: StageProjectNode | null): Promise<void>;
@@ -143,7 +144,7 @@ export class GlobalStageOverlay {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape" && this.backdrop) {
+    if (event.key === "Escape" && !event.isComposing && this.backdrop) {
       event.preventDefault();
       event.stopPropagation();
       this.mounted?.focusZoomOut();
@@ -210,6 +211,10 @@ export class GlobalStageOverlay {
         onOpenStandalone: (url) => {
           void this.port.openExternalUrl(url);
         },
+        ...(this.port.openJournal ? { onOpenJournal: async () => {
+          this.close();
+          await this.port.openJournal!();
+        } } : {}),
         onFocusStarted: async (session) => {
           this.close();
           if (this.port.openFocusWork) {

@@ -2359,7 +2359,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         const project = scheduleProject(snapshot, item.projectWorkKey);
         const child = project?.childWorks.find((entry) => entry.workKey === item.projectWorkKey);
         const workRef = item.workRef ?? child?.workRef ?? project?.workRef;
-        const open = workRef?.kind === "logseq" ? port.onOpenTargetInLogseq?.({ workRef, title: item.title, ...(item.projectWorkKey ? { workKey: item.projectWorkKey } : {}) }) : port.onOpenJournal?.();
+        const open = workRef?.kind === "logseq" ? port.onOpenTargetInLogseq?.({ workRef, title: item.title,
+          ...(item.projectWorkKey ? { workKey: item.projectWorkKey } : {}),
+          ...(project ? { pageTitle: child?.title ?? project.title } : {}),
+          ...(item.lastBlockUuid ? { lastBlockUuid: item.lastBlockUuid } : {}),
+        }) : port.onOpenJournal?.();
         void Promise.resolve(open).catch((error) => showToast(error instanceof Error ? error.message : "打开 Logseq 失败"));
       }
       return;
@@ -2388,12 +2392,15 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       const found = snapshot.time.todaySlots.flatMap((s) => s.items).find((i) => i.id === dayFocus);
       if (found) {
         const area = found.areaId ? snapshot.areas.find((a) => a.id === found.areaId) : undefined;
+        const project = scheduleProject(snapshot, found.projectWorkKey);
+        const workRef = found.workRef ?? project?.childWorks.find((child) => child.workKey === found.projectWorkKey)?.workRef ?? project?.workRef;
         void Promise.resolve(
           port.dispatch({
             type: "time",
             action: {
               type: "start-focus",
               dayItemId: found.id,
+              ...(workRef ? { workRef } : {}),
               ...(area ? { focusRole: area.focusRole } : {}),
             },
           }),

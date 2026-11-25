@@ -4,7 +4,7 @@ import { Window } from "happy-dom";
 import { workKey, type CatalogSnapshot } from "@task-copilot/contracts";
 import { StageEngine, TimeEngine, parseTimeRegistry, type StageSnapshot } from "@task-copilot/stage-runtime";
 import { GlobalStageOverlay } from "../src/features/stage/overlay.ts";
-import { QuietFocusCapsule, formatFocusStatusLine } from "../src/features/stage/focus-capsule.ts";
+import { QuietFocusCapsule, elapsedFocusMinutes } from "../src/features/stage/focus-capsule.ts";
 
 function installDom() {
   const win = new Window({ url: "http://localhost/" });
@@ -185,13 +185,14 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
         return buildSnap();
       },
       onOpenStage: () => { openedStageCount++; },
-      onNavigateWork: async (session) => { navigated.push(session.title); },
+      onNavigateWork: async (session) => { navigated.push(session.title); return true; },
       onEnterFocusMode: (session) => { lifecycleEvents.push(`enter:${session.title}`); },
-      onZenModeChange: (enabled) => { lifecycleEvents.push(`zen:${enabled}`); },
+      onSaveStop: async (_scene, text) => { lifecycleEvents.push(`stop:${text}`); },
       onExitFocusMode: (prev) => { lifecycleEvents.push(`exit:${prev?.title ?? ""}`); },
       notify: (m) => { notices.push(m); },
     });
 
+    capsule.setScene({ kind: "block", uuid: "blk-obs-1", routeName: "blk-obs-1", graphId: catalog.graphId, title: "工作现场" });
     const overlay = new GlobalStageOverlay({
       remote: {
         stageState: async () => buildSnap(),
@@ -269,67 +270,52 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     assert.ok(navigated.includes("完成核心告警降噪闭环"));
 
     const capsuleEl = document.querySelector<HTMLElement>(".tcs-lsq-focus-bar");
-    assert.ok(capsuleEl, "QuietFocusCapsule should mount when focus is active");
-    assert.doesNotMatch(capsuleEl.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
-    assert.match(capsuleEl.textContent ?? "", /上午 · .*完成核心告警降噪闭环 · 已进行 \d+m/);
-
-    // Verify titlebar clickability CSS (-webkit-app-region: no-drag) and Zen focus mode activation
+    assert.ok(capsuleEl, "Work ribbon should be visible on the paper scene");
+    assert.doesNotMatch(capsuleEl.textContent ?? "", /[\p{Extended_Pictographic}←-⇿]/u);
+    assert.doesNotMatch(capsuleEl.textContent ?? "", /已专注|今日小尾巴/);
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-breathe]")!.click();
+    assert.match(capsuleEl.textContent ?? "", /已专注 \d+ 分钟 · 今日小尾巴 0 项/);
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-return]")!.click();
+    assert.doesNotMatch(capsuleEl.textContent ?? "", /已专注|今日小尾巴/);
     const capsuleStyleText = document.getElementById("tcs-lsq-focus-style")?.textContent ?? "";
     assert.match(capsuleStyleText, /-webkit-app-region:\s*no-drag/);
     assert.match(capsuleStyleText, /pointer-events:\s*auto/);
-    assert.equal(document.body.classList.contains("tc-focus-zen"), true, "Zen class should activate on running focus");
+    assert.equal(document.body.classList.contains("tc-focus-zen"), true);
     assert.ok(lifecycleEvents.includes("enter:完成核心告警降噪闭环"));
 
-    // Toggle 静心 off and back on without stopping focus
-    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zen]")!.click();
-    assert.equal(document.body.classList.contains("tc-focus-zen"), false);
-    assert.ok(lifecycleEvents.includes("zen:false"));
-    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zen]")!.click();
-    assert.equal(document.body.classList.contains("tc-focus-zen"), true);
-    assert.ok(lifecycleEvents.includes("zen:true"));
-
-    // Pause lifts Zen dimming cleanly; resume restores it
     capsuleEl.querySelector<HTMLButtonElement>("[data-fc-pause]")!.click();
+    const stopInput = capsuleEl.querySelector<HTMLInputElement>('input[name="stopNote"]')!;
+    stopInput.value = "已写完核心验证，明日继续收尾";
+    capsule.syncFromSnapshot(buildSnap());
+    assert.equal(document.activeElement, stopInput);
+    stopInput.form!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
     await new Promise((r) => setTimeout(r, 20));
     assert.equal(document.body.classList.contains("tc-focus-zen"), false);
-    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-pause]")!.click();
+    assert.equal(timeEngine.buildSnapshot().activeFocus?.status, "paused");
+    assert.ok(lifecycleEvents.includes("stop:已写完核心验证，明日继续收尾"));
+
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-resume]")!.click();
     await new Promise((r) => setTimeout(r, 20));
     assert.equal(document.body.classList.contains("tc-focus-zen"), true);
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-pause]")!.click();
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-leave]")!.click();
+    assert.equal(capsuleEl.querySelector("form"), null);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(timeEngine.buildSnapshot().activeFocus?.status, "paused");
 
-    // Verify exact 28m count-up formatting helper
-    const sampleLine = formatFocusStatusLine(
-      {
-        id: "f-1",
-        title: "架构梳理",
-        slotId: "morning",
-        roleLabel: "主线",
-        date: "2026-11-21",
-        status: "running",
-        startedAt: 0,
-        resumedAt: 1000,
-        accumulatedSeconds: 28 * 60,
-      },
-      1000,
-    );
-    assert.equal(sampleLine, "上午 · 主线：架构梳理 · 已进行 28m");
-
-    // 4. Zoom-out button on capsule opens Stage
+    assert.equal(elapsedFocusMinutes({
+      id: "f-1", title: "架构梳理", slotId: "morning", roleLabel: "主线", date: "2026-11-21",
+      status: "running", startedAt: 0, resumedAt: 1000, accumulatedSeconds: 28 * 60,
+    }, 1000), 28);
     capsuleEl.querySelector<HTMLButtonElement>("[data-fc-zoom]")!.click();
     assert.equal(openedStageCount, 1);
-
-    // 5. Finish focus with stop note removes capsule, lifts Zen class, restores scene, and records stopNote
-    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-finish-open]")!.click();
-    const stopInput = document.querySelector<HTMLInputElement>("[data-fc-stop-input]")!;
-    assert.ok(stopInput);
-    stopInput.value = "已写完核心验证，明日继续收尾";
-    const finishForm = document.querySelector<HTMLFormElement>("[data-fc-finish-form]")!;
-    finishForm.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 30));
-
-    assert.equal(document.querySelector(".tcs-lsq-focus-bar"), null);
+    capsuleEl.querySelector<HTMLButtonElement>("[data-fc-finish]")!.click();
+    await new Promise((r) => setTimeout(r, 20));
     assert.equal(document.body.classList.contains("tc-focus-zen"), false);
     assert.ok(lifecycleEvents.includes("exit:完成核心告警降噪闭环"));
     assert.equal(timeEngine.buildSnapshot().recentFocusRecords[0]!.stopNote, "已写完核心验证，明日继续收尾");
+    capsule.setScene(null);
+    assert.equal(document.querySelector(".tcs-lsq-focus-bar"), null);
 
     capsule.dispose();
     overlay.dispose();
