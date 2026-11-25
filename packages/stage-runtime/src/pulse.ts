@@ -247,6 +247,7 @@ export function matchInboxLocally(
         ...(item.carryoverDays ? { carryoverDays: item.carryoverDays } : {}),
         ...(item.pendingJournalFlush ? { pendingJournalFlush: true } : {}),
         ...(item.blockUuid ? { blockUuid: item.blockUuid } : {}),
+        ...(item.workRef ? { workRef: item.workRef } : {}),
         ...(item.journalDate ? { journalDate: item.journalDate } : {}),
         ...(item.originRef ? { originRef: item.originRef } : {}),
         ...(item.aiHint ? { aiHint: item.aiHint } : {}),

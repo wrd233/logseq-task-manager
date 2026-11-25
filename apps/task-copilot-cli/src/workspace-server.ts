@@ -1,3 +1,4 @@
+import { renderStandaloneStageHtml } from "./stage-app.ts";
 import { publishCatalog } from './work-catalog.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from "node:crypto";
@@ -11,7 +12,7 @@ import { isDshRunning, ReadingJobHub, type ReadingHubOptions, type StagedReading
 import { createCollaborateHandoff, dismissWritebackProposal, isCollaborateTargetId, listCollaborateTargets, listWritebackProposals, resolveWorkPrivacy, saveCollaborateConfig, setWorkPrivacy, workKeyForScope } from "./collaborate.ts";
 import { activateRunningBrowser, activateRunningLogseq } from "./macos-focus.ts";
 import { executeMcpTool, MCP_TOOLS, type ActiveConnectionMeta, type McpRuntimeContext } from "./mcp-handler.ts";
-import { StageHub, renderStandaloneStageHtml } from "./stage-hub.ts";
+import { StageHub } from "./stage-hub.ts";
 import { stageGraphFields, stageGraphLocation } from "./stage-workspace.ts";
 import { TimeHub, type TimeHubOptions } from "./time-hub.ts";
 import type { IcloudInboxFsOps } from "./icloud-inbox.ts";
@@ -359,8 +360,9 @@ export async function startWorkspaceServer(options: {
             if (request.method === "GET" && pathname === "/stage/app") {
                 if (origin && origin !== baseUrl) throw new WorkspaceError("ORIGIN_REJECTED");
                 if (!equal(reqUrl.searchParams.get("token"), token)) throw new WorkspaceError("AUTHENTICATION_REQUIRED");
+                const html = await renderStandaloneStageHtml(token, instanceId);
                 response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-                response.end(renderStandaloneStageHtml(token, instanceId));
+                response.end(html);
                 return;
             }
             if (request.method === "GET" && pathname === "/stage/events") {

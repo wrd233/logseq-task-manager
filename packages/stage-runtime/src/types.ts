@@ -130,6 +130,7 @@ export interface StageInboxRawItem {
   sourceLabel?: string;
   sourcePath?: string;
   blockUuid?: string;
+  workRef?: WorkRef;
   journalDate?: string;
   pageName?: string;
   links?: string[];
@@ -165,6 +166,7 @@ export interface StageInboxViewItem {
   carryoverDays?: number;
   pendingJournalFlush?: boolean;
   blockUuid?: string;
+  workRef?: WorkRef;
   journalDate?: string;
   originRef?: string;
   aiHint?: StageInboxAiHint;

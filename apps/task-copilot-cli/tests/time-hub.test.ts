@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { dateKeyFromMs } from "@task-copilot/stage-runtime";
 import { AppleCalendarBridge, MACOS_CALENDAR_TCC_GUIDANCE } from "../src/apple-calendar.ts";
 import { startWorkspaceServer } from "../src/workspace-server.ts";
+import { TimeHub } from "../src/time-hub.ts";
 
 test("AppleCalendarBridge reads timed events, creates single shield, writes opt-in footprint, and fails open on TCC denial", async () => {
   const today = dateKeyFromMs(Date.now());
@@ -154,12 +155,13 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
   };
 
   try {
-    // 1. Standalone /stage/app renders 3-tab switcher with zero emojis
+    // 1. Standalone /stage/app serves the shared three-day switcher and the season view
     const htmlRes = await fetch(`${baseUrl}/stage/app?token=${token}`);
     const html = await htmlRes.text();
     assert.match(html, /季节星区/);
-    assert.match(html, /本周容器/);
-    assert.match(html, /今日容器/);
+    assert.match(html, /data-tcs-tab="week">本周/);
+    assert.match(html, /data-tcs-tab="today">今日 · 早间拍板/);
+    assert.match(html, /data-tcs-tab="tomorrow">明日 · 前晚构思/);
     assert.doesNotMatch(html, /\p{Extended_Pictographic}/u);
 
     // 2. /stage/calendar-status exposes Apple Calendar read status
@@ -278,6 +280,32 @@ test("Companion TimeHub serves time_* MCP tools, Apple Calendar 3-layer synergy,
     assert.equal(snap.recentFocusRecords.length, 1);
   } finally {
     await restarted.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("TimeHub asks Apple Calendar for next Monday on Sunday without changing the seven-day week", async () => {
+  const root = await mkdtemp(join(tmpdir(), "tc-time-sunday-"));
+  try {
+    const sunday = new Date(2026, 10, 29, 17);
+    const hub = new TimeHub({
+      stateDirectory: root,
+      appleCalendar: {
+        platform: "darwin", disabled: false,
+        runOsascript: async (_script, args) => {
+          assert.deepEqual(args.slice(0, 2), ["2026-11-23", "2026-11-30"]);
+          return JSON.stringify([
+            { id: "monday", title: "周一评审", calendarName: "工作", date: "2026-11-30", startTime: "09:00", endTime: "10:00", durationMinutes: 60 },
+          ]);
+        },
+      },
+    });
+    const snapshot = await hub.snapshot(sunday.getTime());
+    assert.equal(snapshot.weekCapacity.dailyOverview.length, 7);
+    assert.equal(snapshot.weekCapacity.totalHardEventMinutes, 0);
+    assert.equal(snapshot.tomorrowDate, "2026-11-30");
+    assert.equal(snapshot.tomorrowSlots[0]?.hardEvents[0]?.title, "周一评审");
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

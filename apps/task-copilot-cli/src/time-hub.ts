@@ -5,7 +5,7 @@ import {
   TimeEngine,
   dateKeyFromMs,
   parseTimeRegistry,
-  weekDatesFor,
+  scheduleCalendarRange,
   weekKeyFor,
   type ActiveFocusSession,
   type CalendarDiagnostics,
@@ -37,7 +37,7 @@ export class TimeHub {
   private readonly engine = new TimeEngine();
   private readonly calendar: AppleCalendarBridge;
   private readonly activateLogseqFn: NonNullable<TimeHubOptions["activateLogseq"]>;
-  private loaded = false;
+  private loadPromise: Promise<void> | undefined;
   private writeQueue: Promise<unknown> = Promise.resolve();
 
   constructor(options: TimeHubOptions) {
@@ -47,9 +47,11 @@ export class TimeHub {
     this.activateLogseqFn = options.activateLogseq ?? activateRunningLogseq;
   }
 
-  private async ensureLoaded(): Promise<void> {
-    if (this.loaded) return;
-    this.loaded = true;
+  private ensureLoaded(): Promise<void> {
+    return this.loadPromise ??= this.loadRegistry();
+  }
+
+  private async loadRegistry(): Promise<void> {
     try {
       const raw = JSON.parse(await readFile(this.registryPath, "utf8")) as unknown;
       this.engine.replaceRegistry(parseTimeRegistry(raw));
@@ -69,11 +71,9 @@ export class TimeHub {
 
   private async readWeekCalendar(now: number, forceRefresh = false) {
     const today = dateKeyFromMs(now);
-    const dates = weekDatesFor(today);
     const reg = this.engine.getRegistry();
     return this.calendar.readHardEvents({
-      startDate: dates[0]!,
-      endDate: dates[6]!,
+      ...scheduleCalendarRange(today),
       footprintCalendarName: reg.footprintCalendarName,
       footprintCalendarEnabled: reg.footprintCalendarEnabled,
       now,
@@ -194,22 +194,27 @@ export class TimeHub {
   // ==================== TIME MCP OPERATIONS ====================
 
   private formatOverview(snap: TimeSnapshot) {
+    const formatSlots = (slots: TimeSnapshot["todaySlots"]) => slots.map((s) => ({
+      slotId: s.spec.id,
+      name: s.spec.name,
+      softCap: s.spec.softCap,
+      items: s.items,
+      hardEvents: s.hardEvents,
+      busyMinutes: s.busyMinutes,
+      remainingMinutes: s.remainingMinutes,
+      overSoftCap: s.overSoftCap,
+      ...(s.frictionMessage ? { frictionMessage: s.frictionMessage } : {}),
+    }));
     return {
       today: snap.today,
       weekKey: snap.weekKey,
       weekCapacity: snap.weekCapacity,
       weekMoves: snap.weekMoves,
-      todaySlots: snap.todaySlots.map((s) => ({
-        slotId: s.spec.id,
-        name: s.spec.name,
-        softCap: s.spec.softCap,
-        items: s.items,
-        hardEvents: s.hardEvents,
-        busyMinutes: s.busyMinutes,
-        remainingMinutes: s.remainingMinutes,
-        overSoftCap: s.overSoftCap,
-        ...(s.frictionMessage ? { frictionMessage: s.frictionMessage } : {}),
-      })),
+      todaySlots: formatSlots(snap.todaySlots),
+      tomorrowDate: snap.tomorrowDate,
+      tomorrowSlots: formatSlots(snap.tomorrowSlots),
+      todayCandidates: snap.todayCandidates,
+      tomorrowCandidates: snap.tomorrowCandidates,
       carryoverItems: snap.carryoverItems,
       repeatCarryoverItems: snap.repeatCarryoverItems,
       activeFocus: snap.activeFocus,

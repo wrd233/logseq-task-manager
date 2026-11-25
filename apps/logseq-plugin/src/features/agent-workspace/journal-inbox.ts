@@ -38,7 +38,6 @@ export function formatJournalDayToIso(journalDay?: number): string | null {
   }
   const s = String(journalDay);
   if (s.length !== 8) return null;
-  const year = Number(s.slice(0, 4));
   const month = Number(s.slice(4, 6));
   const day = Number(s.slice(6, 8));
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;

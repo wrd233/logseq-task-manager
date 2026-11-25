@@ -230,7 +230,8 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
     assert.match(document.body.textContent ?? "", /上午 · 深潜/);
     assert.match(document.body.textContent ?? "", /下午 · 推进/);
     assert.match(document.body.textContent ?? "", /晚上 · 轻放/);
-    assert.match(document.body.textContent ?? "", /允许留白/);
+    assert.match(document.body.textContent ?? "", /留白/);
+    assert.equal(document.querySelectorAll("[data-drop-slot] .cap-dots").length, 3);
 
     // 2. Place 1st morning item, then verify Gentle Friction appears when attempting a 2nd morning item
     timeEngine.placeDayItem({
@@ -239,13 +240,25 @@ test("Stage 3-tab switcher (Season/Week/Today), gentle friction, and Logseq Quie
       workRef: catalog.works[0]!.workRef,
     });
     await overlay.open();
-    const morningForm = document.querySelector<HTMLFormElement>('[data-slot-add-form="morning"]')!;
-    const morningInput = morningForm.querySelector<HTMLInputElement>('input[name="title"]')!;
-    morningInput.value = "临时塞进来的第二件事";
-    morningForm.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    const candidateForm = document.querySelector<HTMLFormElement>('[data-add-day-candidate]')!;
+    candidateForm.querySelector<HTMLInputElement>('input[name="title"]')!.value = "临时塞进来的第二件事";
+    candidateForm.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
     await new Promise((r) => setTimeout(r, 20));
-    assert.match(document.body.textContent ?? "", /替换当前/);
-    assert.match(document.body.textContent ?? "", /顺延至明天/);
+    const candidate = timeEngine.buildSnapshot().todayCandidates[0]!;
+    const putInMorning = document.querySelector<HTMLButtonElement>(`[data-ready-key="${candidate.id}"][data-ready-slot="morning"]`)!;
+    putInMorning.focus();
+    assert.ok(document.querySelector('[data-drop-slot="morning"].slot-target-hint'));
+    putInMorning.click();
+    assert.match(document.body.textContent ?? "", /顺延明天/);
+    document.querySelector<HTMLButtonElement>('[data-friction-resolve="defer-tomorrow"]')!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(engine.getViewport().activeTab, "tomorrow");
+    assert.equal(timeEngine.buildSnapshot().tomorrowSlots[0]?.items[0]?.id, candidate.id);
+    assert.ok(document.querySelector('.beacon-flash'));
+    assert.match(document.body.textContent ?? "", /承诺原话/);
+    todayTab.click();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.doesNotMatch(document.body.textContent ?? "", /承诺原话/);
 
     // 3. Click "开始专注" -> closes overlay, navigates Logseq work, and shows QuietFocusCapsule!
     const startFocusBtn = document.querySelector<HTMLButtonElement>("[data-day-focus]")!;

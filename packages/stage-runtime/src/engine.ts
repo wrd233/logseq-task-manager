@@ -228,7 +228,7 @@ export class StageEngine {
 
   setViewport(patch: Partial<StageViewport>, source?: StageViewportSource, now = Date.now()): StageViewport {
     const activeTab: StageViewTab =
-      patch.activeTab === "season" || patch.activeTab === "week" || patch.activeTab === "today"
+      patch.activeTab === "season" || patch.activeTab === "week" || patch.activeTab === "today" || patch.activeTab === "tomorrow"
         ? patch.activeTab
         : this.viewport.activeTab ?? "season";
     const level: StageZoomLevel =

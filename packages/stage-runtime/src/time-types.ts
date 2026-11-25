@@ -1,7 +1,7 @@
 import type { WorkRef } from "@task-copilot/contracts";
 import type { StageFocusRole } from "./types.ts";
 
-export type StageViewTab = "season" | "week" | "today";
+export type StageViewTab = "season" | "week" | "today" | "tomorrow";
 export type TimeSlotId = "morning" | "afternoon" | "evening";
 
 export interface SemanticSlotSpec {
@@ -65,16 +65,19 @@ export interface WeekMoveItem {
   updatedAt: number;
 }
 
-export interface DaySlotItem {
+export interface DayPlanSubject {
+  title: string;
+  weekMoveId?: string | null | undefined;
+  areaId?: string | null | undefined;
+  projectWorkKey?: string | null | undefined;
+  workRef?: WorkRef | null | undefined;
+  context?: string | undefined;
+  sourceInboxId?: string | undefined;
+}
+
+export interface DayCandidate extends DayPlanSubject {
   id: string;
   date: string; // YYYY-MM-DD
-  slotId: TimeSlotId;
-  title: string;
-  weekMoveId?: string | null;
-  areaId?: string | null;
-  projectWorkKey?: string | null;
-  workRef?: WorkRef | null;
-  state: "open" | "done" | "dropped";
   actualMinutes: number;
   carryoverCount: number;
   lastCarryoverDate?: string;
@@ -82,6 +85,11 @@ export interface DaySlotItem {
   calendarShield?: CalendarShieldInfo;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface DaySlotItem extends DayCandidate {
+  slotId: TimeSlotId;
+  state: "open" | "done" | "dropped";
 }
 
 export interface ActiveFocusSession {
@@ -152,6 +160,7 @@ export interface TimeRegistryFile {
   schemaVersion: 1;
   weekMoves: WeekMoveItem[];
   dayItems: DaySlotItem[];
+  dayCandidates?: DayCandidate[];
   activeFocus: ActiveFocusSession | null;
   focusHistory: CompletedFocusRecord[];
   footprintCalendarEnabled: boolean;
@@ -200,6 +209,10 @@ export interface TimeSnapshot {
   weekCapacity: WeekCapacitySummary;
   weekMoves: WeekMoveItem[];
   todaySlots: SlotSnapshot[];
+  tomorrowDate: string;
+  tomorrowSlots: SlotSnapshot[];
+  todayCandidates: DayCandidate[];
+  tomorrowCandidates: DayCandidate[];
   carryoverItems: DaySlotItem[];
   repeatCarryoverItems: DaySlotItem[]; // carryoverCount >= 3
   activeFocus: ActiveFocusSession | null;
@@ -240,18 +253,17 @@ export type TimeUserAction =
     }
   | { type: "toggle-week-move-state"; moveId: string; state?: "open" | "done" | "dropped" }
   | { type: "remove-week-move"; moveId: string }
-  | {
+  | ({ type: "add-day-candidate"; date: string } & DayPlanSubject)
+  | { type: "return-day-item"; itemId: string }
+  | { type: "remove-day-candidate"; candidateId: string }
+  | ({
       type: "place-day-item";
-      title: string;
       date?: string;
       slotId: TimeSlotId;
-      weekMoveId?: string | null;
-      areaId?: string | null;
-      projectWorkKey?: string | null;
-      workRef?: WorkRef | null;
+      candidateId?: string;
       overflowMode?: "stack" | "replace" | "defer-tomorrow";
       replaceItemId?: string;
-    }
+    } & DayPlanSubject)
   | {
       type: "move-day-item";
       itemId: string;

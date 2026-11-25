@@ -1,3 +1,7 @@
+import {
+  SCHEDULE_PAPER_CSS, escapeStageText as esc, readyForDay, renderDayPaper, renderWeekPaper,
+  scheduleProject, scheduleSlots, scheduleTabDate,
+} from "./schedule-paper.ts";
 import { DEFAULT_SWEEP_WINDOW_TIME, pocketLabel } from "./inbox-classifier.ts";
 import { areaDomainLabel, defaultAreaPositionForRole, focusRoleLabel } from "./pulse.ts";
 import {
@@ -7,14 +11,11 @@ import {
 } from "./restart-deck.ts";
 import {
   buildSlotFrictionPrompt,
-  compactHours,
-  compactMinutes,
-  dateLabel,
-  slotDisplayLabel,
   slotShortLabel,
 } from "./time-model.ts";
 import type {
   ActiveFocusSession,
+  DayPlanSubject,
   StageViewTab,
   TimeSlotId,
 } from "./time-types.ts";
@@ -48,6 +49,8 @@ export interface StageViewPort {
   onOpenStandalone?(url: string): void;
   onRequestClose?(): void;
   onFocusStarted?(session: ActiveFocusSession): void | Promise<void>;
+  onOpenJournal?(): void | Promise<void>;
+  showThemeSwitch?: boolean;
   /** Optional header label for open-work button (e.g. "在 DSH 打开" / "回到 Logseq 原文"). */
   openWorkLabel?: string;
   /** Optional label for the direct DSH handoff button (defaults to "在 DSH 打开"). */
@@ -361,71 +364,7 @@ export const STAGE_VIEW_CSS = `
   box-shadow: var(--tcs-shadow-sm);
 }
 .tcs-inbox-pane.is-collapsed { display: none; }
-.tcs-time-wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 64px; }
-.tcs-cal-strip {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--tcs-card-border);
-  background: var(--tcs-card); font-size: 11.5px; color: var(--tcs-muted);
-}
-.tcs-cal-days { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.tcs-cal-day {
-  padding: 2px 7px; border-radius: 6px; background: var(--tcs-bg); border: 1px solid var(--tcs-card-border);
-  font-size: 11px; color: var(--tcs-muted);
-}
-.tcs-cal-day.is-today { border-color: var(--tcs-primary); color: var(--tcs-fg); font-weight: 600; }
-.tcs-cal-day.is-busy { color: var(--tcs-fg); }
-.tcs-week-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(240px, 1fr); gap: 14px; align-items: start; }
-@media (max-width: 760px) { .tcs-week-grid { grid-template-columns: 1fr; } }
-.tcs-panel {
-  border-radius: 13px; border: 1px solid var(--tcs-border); background: var(--tcs-card);
-  padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--tcs-shadow-sm);
-}
-.tcs-move-row {
-  border-radius: 10px; border: 1px solid var(--tcs-card-border); background: var(--tcs-bg);
-  padding: 9px 11px; display: flex; flex-direction: column; gap: 6px;
-}
-.tcs-move-row.is-done { opacity: 0.6; }
-.tcs-slot-card {
-  border-radius: 13px; border: 1px solid var(--tcs-border); background: var(--tcs-card);
-  padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--tcs-shadow-sm);
-  transition: border-color 150ms, background 150ms;
-}
-.tcs-slot-card.is-morning { border-color: color-mix(in srgb, var(--tcs-primary) 42%, var(--tcs-border)); }
-.tcs-hard-event {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 6px 10px; border-radius: 8px; font-size: 12px;
-  background: color-mix(in srgb, var(--tcs-muted) 8%, var(--tcs-bg));
-  border-left: 3px solid color-mix(in srgb, var(--tcs-muted) 56%, transparent);
-}
-.tcs-hard-event.is-shield {
-  border-left-color: var(--tcs-primary);
-  background: color-mix(in srgb, var(--tcs-primary) 8%, var(--tcs-bg));
-}
-.tcs-carryover-tray {
-  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-warning) 36%, var(--tcs-card-border));
-  background: color-mix(in srgb, var(--tcs-warning) 6%, var(--tcs-card));
-  padding: 9px 12px; display: flex; flex-direction: column; gap: 7px;
-}
-.tcs-friction-bar {
-  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-warning) 44%, var(--tcs-border));
-  background: color-mix(in srgb, var(--tcs-warning) 9%, var(--tcs-card));
-  padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  font-size: 12px;
-}
-.tcs-focus-strip {
-  border-radius: 11px; border: 1px solid color-mix(in srgb, var(--tcs-primary) 48%, var(--tcs-border));
-  background: color-mix(in srgb, var(--tcs-primary) 7%, var(--tcs-card));
-  padding: 9px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-}
-.tcs-inline-input {
-  flex: 1; min-width: 140px; border: 1px solid var(--tcs-card-border); border-radius: 7px;
-  background: var(--tcs-bg); color: var(--tcs-fg); padding: 5px 9px; font-size: 12px; font-family: inherit;
-  outline: none;
-}
-.tcs-inline-input:focus { border-color: var(--tcs-primary); }
-.tcs-inline-form { display: flex; align-items: center; gap: 6px; }
-.tcs-blank-hint { font-size: 12px; color: var(--tcs-muted); padding: 4px 2px; }
-
+${SCHEDULE_PAPER_CSS}
 .tcs-amber-resonate {
   border-color: var(--tcs-warning) !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--tcs-warning) 32%, transparent),
@@ -636,14 +575,7 @@ export const STAGE_VIEW_CSS = `
 }
 `;
 
-function esc(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+
 
 function detectDarkTheme(): boolean {
   if (typeof document !== "undefined") {
@@ -675,8 +607,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       <div class="tcs-bar-left">
         <div class="tcs-tabs" role="tablist" aria-label="时间视野切换">
           <button type="button" class="tcs-tab is-active" role="tab" data-tcs-tab="season">季节星区</button>
-          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="week">本周容器</button>
-          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="today">今日容器</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="week">本周</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="today">今日 · 早间拍板</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="tomorrow">明日 · 前晚构思</button>
         </div>
         <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>拉远</button>
         <div class="tcs-bc" data-tcs-bc></div>
@@ -686,8 +619,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <button type="button" class="tcs-btn" data-tcs-coldstart>生成初始星图</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-undo style="display:none">撤销</button>
         <button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-toggle-inbox>小尾巴 0 · 别忘 0 · 想法 0</button>
+        ${port.showThemeSwitch ? `<button type="button" class="tcs-paper-btn" data-tcs-theme>切换纸色</button>` : ""}
         ${port.showStandaloneButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-popout title="在独立浏览器窗口打开">独立窗</button>` : ""}
-        ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">✕</button>` : ""}
+        ${port.showCloseButton ? `<button type="button" class="tcs-btn tcs-btn-ghost" data-tcs-close title="关闭 / Esc">关闭</button>` : ""}
       </div>
     </div>
     <div class="tcs-body">
@@ -722,6 +656,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     </div>
   `;
 
+  const hostStyle = container.ownerDocument.defaultView?.getComputedStyle(container);
+  const hostPaper = hostStyle?.getPropertyValue("--ls-primary-background-color").trim();
+  const hostInk = hostStyle?.getPropertyValue("--ls-primary-text-color").trim();
+  if (hostPaper) root.style.setProperty("--tcs-host-paper", hostPaper);
+  if (hostInk) root.style.setProperty("--tcs-host-ink", hostInk);
   container.replaceChildren(root);
 
   const zoomOutBtn = root.querySelector<HTMLButtonElement>("[data-tcs-zoom-out]")!;
@@ -756,19 +695,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   let hoveredInboxId: string | null = null;
   let draggingInboxId: string | null = null;
   let inboxCollapsed = false;
+  let scheduleInboxOpen = false;
   let activeInboxTab: "sweep" | "commit" | "spark" | "ledger" = "sweep";
   let userPickedInboxTab = false;
   let refiningAi = false;
   let finishingFocusInline = false;
-  let pendingFriction: {
-    slotId: TimeSlotId;
-    title: string;
-    message: string;
-    weekMoveId?: string | null;
-    areaId?: string | null;
-    projectWorkKey?: string | null;
-    inboxId?: string;
-  } | null = null;
+  type PlaceRequest = DayPlanSubject & { slotId: TimeSlotId; candidateId?: string; inboxId?: string; tab?: "today" | "tomorrow" };
+  let pendingFriction: (PlaceRequest & { tab: "today" | "tomorrow"; date: string; openCount: number }) | null = null;
+  let placing = false;
+  let scheduleFlashIds = new Set<string>();
+  let scheduleFlashTimer: ReturnType<typeof setTimeout> | undefined;
   let recentlySolidifiedIds = new Set<string>();
   let activeRestartDeck: RestartDeck | null = null;
   let restartSlideIndex = 0;
@@ -791,8 +727,10 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       const res = await port.dispatch(action);
       if (res && !disposed) update(res);
       if (toast) showToast(toast);
+      return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : "操作失败，请稍后重试");
+      return false;
     }
   };
 
@@ -1874,430 +1812,21 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     `;
   };
 
-  const renderWeekView = (snap: StageSnapshot, animCls: string) => {
-    const time = snap.time;
-    if (!time) {
-      stageEl.innerHTML = `<div class="tcs-empty ${animCls}"><strong>本周容器尚未就绪</strong><div style="font-size:12px;color:var(--tcs-muted)">当前运行在离线降级视图，未连接到 Companion 时间服务。</div></div>`;
+  const renderSchedule = (snap: StageSnapshot, animation = "") => {
+    if (snap.viewport.activeTab === "week") {
+      stageEl.innerHTML = renderWeekPaper(snap, animation);
       return;
     }
-    const cap = time.weekCapacity;
-    const areaNameById = new Map(snap.areas.map((a) => [a.id, a.name]));
-    const weekGhosts = time.ghostProposals.filter((g) => g.kind === "week-add-move");
-    const existingKeys = new Set(time.weekMoves.map((m) => m.projectWorkKey).filter(Boolean));
-    const existingTitles = new Set(time.weekMoves.map((m) => m.title));
-
-    // Pull candidate items from season main & side Areas
-    const candidates: Array<{
-      areaId: string;
-      areaName: string;
-      roleLabel: string;
-      title: string;
-      projectWorkKey?: string;
-    }> = [];
-    const orderedAreas = [...snap.areas].sort((a, b) => {
-      const rank = (r: StageFocusRole) => (r === "main" ? 0 : r === "side" ? 1 : 2);
-      return rank(a.focusRole) - rank(b.focusRole);
+    const friction = pendingFriction?.tab === snap.viewport.activeTab ? pendingFriction : null;
+    stageEl.innerHTML = renderDayPaper(snap, animation, {
+      canOpenWork: Boolean(port.onOpenTargetInLogseq),
+      canOpenJournal: Boolean(port.onOpenJournal),
+      finishingFocus: finishingFocusInline,
+      flashIds: scheduleFlashIds,
+      ...(friction ? { friction: { slotId: friction.slotId, openCount: friction.openCount, canDefer: friction.tab === "today" } } : {}),
+      sweepTime: snap.inboxPockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME,
+      sweepReady: isSweepWindowActive(snap.inboxPockets?.sweepWindowTime),
     });
-    for (const area of orderedAreas) {
-      if (area.focusRole !== "main" && area.focusRole !== "side") continue;
-      for (const proj of area.projects) {
-        if (existingKeys.has(proj.workKey) || existingTitles.has(proj.title)) continue;
-        candidates.push({
-          areaId: area.id,
-          areaName: area.name,
-          roleLabel: focusRoleLabel(area.focusRole),
-          title: proj.title,
-          projectWorkKey: proj.workKey,
-        });
-      }
-      for (const adv of area.areaAdvancements) {
-        if (adv.state === "done" || existingTitles.has(adv.title)) continue;
-        candidates.push({
-          areaId: area.id,
-          areaName: area.name,
-          roleLabel: focusRoleLabel(area.focusRole),
-          title: adv.title,
-        });
-      }
-    }
-
-    const calDiag = time.calendarDiagnostics;
-    const calNotice =
-      calDiag && calDiag.status === "permission-denied"
-        ? `<div class="tcs-diag-notice" style="margin:0;"><strong>Apple 日历暂未授权</strong><div style="color:var(--tcs-muted);margin-top:2px;">${esc(calDiag.guidance ?? calDiag.message ?? "")}</div></div>`
-        : "";
-
-    stageEl.innerHTML = `
-      <div class="tcs-time-wrap ${animCls}" data-drop-week="true">
-        <div class="tcs-cal-strip">
-          <div class="tcs-cal-days">
-            ${cap.dailyOverview
-              .map(
-                (d) =>
-                  `<span class="tcs-cal-day ${d.isToday ? "is-today" : ""} ${d.busyMinutes > 0 ? "is-busy" : ""}">${esc(d.summary)}</span>`,
-              )
-              .join("")}
-          </div>
-          <span>${esc(cap.summary)}</span>
-        </div>
-        ${calNotice}
-        ${
-          cap.overCapacity
-            ? `<div class="tcs-friction-bar">
-                <span>本周已装入 ${cap.openMoveCount} 块，超出建议上限（${cap.recommendedMax} 块）。建议先收窄范围或退回 1 项，保住主线完成度。</span>
-              </div>`
-            : ""
-        }
-        <div class="tcs-week-grid">
-          <div class="tcs-panel">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <div>
-                <strong style="font-size:14px;">本周推进块</strong>
-                <span style="font-size:11.5px;color:var(--tcs-muted);margin-left:6px;">${cap.openMoveCount} / ${cap.recommendedMax} 建议上限</span>
-              </div>
-              <span class="tcs-badge ${cap.overCapacity ? "tcs-badge-amber" : "tcs-badge-mist"}">周起始 ${esc(cap.weekKey)}</span>
-            </div>
-            <form class="tcs-inline-form" data-week-add-form>
-              <input class="tcs-inline-input" type="text" name="title" placeholder="输入本周真正承诺的推进块，回车装盒…" maxlength="200" />
-              <button type="submit" class="tcs-btn tcs-btn-sm tcs-btn-primary">装入本周</button>
-            </form>
-            ${
-              weekGhosts.length > 0
-                ? weekGhosts
-                    .map(
-                      (g) => `
-                  <div class="tcs-tone-ghost" style="border-radius:10px;padding:9px 11px;">
-                    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                      <strong style="font-size:12.5px;">${esc(g.title)}</strong>
-                      <span class="tcs-badge tcs-badge-ghost">${esc(g.agent)} 虚态装盒</span>
-                    </div>
-                    <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px;">${esc(g.reason)}</div>
-                    ${g.frictionWarning ? `<div style="font-size:11.5px;color:var(--tcs-warning);margin-top:3px;">${esc(g.frictionWarning)}</div>` : ""}
-                    <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:7px;">
-                      <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-time-dismiss="${esc(g.id)}">× 散去</button>
-                      <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-time-accept="${esc(g.id)}">✓ 装入本周</button>
-                    </div>
-                  </div>`,
-                    )
-                    .join("")
-                : ""
-            }
-            ${
-              time.weekMoves.length === 0
-                ? `<div class="tcs-blank-hint">本周尚未装入推进块。可从右侧本季主线/支线一键拉入，或直接输入 1–3 件最重要的推进项。</div>`
-                : time.weekMoves
-                    .map((m) => {
-                      const areaName = m.areaId ? areaNameById.get(m.areaId) : undefined;
-                      return `
-                        <div class="tcs-move-row ${m.state === "done" ? "is-done" : ""}">
-                          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-                            <div style="min-width:0;">
-                              <div style="font-size:13px;font-weight:500;${m.state === "done" ? "text-decoration:line-through;" : ""}">${esc(m.title)}</div>
-                              <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
-                                ${areaName ? `${esc(areaName)} · ` : ""}已投入 ${compactMinutes(m.actualMinutes)}
-                              </div>
-                            </div>
-                            <span class="tcs-badge ${m.state === "done" ? "tcs-badge-mist" : "tcs-badge-teal"}">${m.state === "done" ? "已完成" : "推进中"}</span>
-                          </div>
-                          ${m.lastStopNote ? `<div style="font-size:11.5px;color:var(--tcs-muted);">停点：${esc(m.lastStopNote)}</div>` : ""}
-                          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-                            <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                              ${
-                                m.state === "open"
-                                  ? `<button type="button" class="tcs-btn tcs-btn-sm" data-week-to-day="${esc(m.id)}|morning">排今日上午</button>
-                                     <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-to-day="${esc(m.id)}|afternoon">排今日下午</button>`
-                                  : ""
-                              }
-                            </div>
-                            <div style="display:flex;gap:5px;">
-                              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-toggle="${esc(m.id)}">${m.state === "done" ? "重开" : "完成"}</button>
-                              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-week-remove="${esc(m.id)}">移除</button>
-                            </div>
-                          </div>
-                        </div>`;
-                    })
-                    .join("")
-            }
-          </div>
-
-          <div class="tcs-panel">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <strong style="font-size:13px;">本季主线 / 支线待选</strong>
-              <span style="font-size:11px;color:var(--tcs-muted)">${candidates.length} 项</span>
-            </div>
-            ${
-              candidates.length === 0
-                ? `<div class="tcs-blank-hint">暂无未装入本周的主线/支线待选项。</div>`
-                : candidates
-                    .slice(0, 14)
-                    .map(
-                      (c, idx) => `
-                  <div class="tcs-move-row" style="padding:7px 9px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                      <div style="min-width:0;">
-                        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
-                        <div style="font-size:11px;color:var(--tcs-muted);">${esc(c.roleLabel)} · ${esc(c.areaName)}</div>
-                      </div>
-                      <button type="button" class="tcs-btn tcs-btn-sm" data-candidate-to-week="${idx}">装入</button>
-                    </div>
-                  </div>`,
-                    )
-                    .join("")
-            }
-          </div>
-        </div>
-      </div>
-    `;
-    // Keep candidate list accessible for click handler
-    stageEl.dataset.weekCandidates = JSON.stringify(candidates.slice(0, 14));
-  };
-
-  const renderTodayView = (snap: StageSnapshot, animCls: string) => {
-    const time = snap.time;
-    if (!time) {
-      stageEl.innerHTML = `<div class="tcs-empty ${animCls}"><strong>今日容器尚未就绪</strong><div style="font-size:12px;color:var(--tcs-muted)">当前运行在离线降级视图，未连接到 Companion 时间服务。</div></div>`;
-      return;
-    }
-
-    const activeFocus = time.activeFocus;
-    const focusElapsedMin = activeFocus
-      ? Math.floor(
-          (activeFocus.accumulatedSeconds +
-            (activeFocus.status === "running" ? Math.max(0, Math.floor((Date.now() - activeFocus.resumedAt) / 1000)) : 0)) /
-            60,
-        )
-      : 0;
-
-    const focusHtml = activeFocus
-      ? `
-      <div class="tcs-focus-strip">
-        <div style="font-size:12.5px;">
-          <strong>${esc(slotShortLabel(activeFocus.slotId))} · ${esc(activeFocus.roleLabel)}：${esc(activeFocus.title)}</strong>
-          <span style="color:var(--tcs-muted);margin-left:8px;">已进行 ${focusElapsedMin}m${activeFocus.status === "paused" ? "（已暂停）" : ""}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${
-            finishingFocusInline
-              ? `<form class="tcs-inline-form" data-focus-finish-form>
-                  <input class="tcs-inline-input" type="text" name="stopNote" placeholder="可选：留一句停点便条，回车结束" maxlength="240" />
-                  <button type="submit" class="tcs-btn tcs-btn-sm tcs-btn-primary">确认结束</button>
-                  <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-focus-finish-cancel>取消</button>
-                </form>`
-              : `<button type="button" class="tcs-btn tcs-btn-sm" data-focus-toggle-pause>${activeFocus.status === "paused" ? "继续" : "暂停"}</button>
-                 <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-focus-finish-open>结束</button>`
-          }
-        </div>
-      </div>`
-      : "";
-
-    const carryoverHtml =
-      time.carryoverItems.length > 0
-        ? `
-      <div class="tcs-carryover-tray">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;">
-          <strong>昨日遗留托盘（${time.carryoverItems.length}）</strong>
-          <span style="color:var(--tcs-muted);font-size:11px;">未完成项不自动滚雪球挤爆今天</span>
-        </div>
-        ${time.carryoverItems
-          .map(
-            (c) => `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 8px;border-radius:8px;background:var(--tcs-card);border:1px solid var(--tcs-card-border);">
-            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-              <span style="font-size:12.5px;font-weight:500;">${esc(c.title)}</span>
-              ${c.carryoverCount >= 3 ? `<span class="tcs-badge tcs-badge-mismatch">连续 ${c.carryoverCount} 次遗留</span>` : `<span class="tcs-badge tcs-badge-mist">${esc(c.date)}</span>`}
-            </div>
-            <div style="display:flex;gap:5px;">
-              <button type="button" class="tcs-btn tcs-btn-sm" data-carryover="${esc(c.id)}|to-today">放入今日</button>
-              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-carryover="${esc(c.id)}|to-week">退回本周</button>
-              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-carryover="${esc(c.id)}|drop">撤掉</button>
-            </div>
-          </div>`,
-          )
-          .join("")}
-      </div>`
-        : "";
-
-    const frictionHtml = pendingFriction
-      ? `
-      <div class="tcs-friction-bar">
-        <span>${esc(pendingFriction.message)}</span>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-friction-resolve="replace">替换当前</button>
-          <button type="button" class="tcs-btn tcs-btn-sm" data-friction-resolve="defer-tomorrow">顺延至明天</button>
-          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-friction-resolve="stack">仍然叠加</button>
-          <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-friction-resolve="cancel">取消</button>
-        </div>
-      </div>`
-      : "";
-
-    const dayGhosts = time.ghostProposals.filter((g) => g.kind !== "week-add-move");
-    const ghostHtml =
-      dayGhosts.length > 0
-        ? dayGhosts
-            .map(
-              (g) => `
-          <div class="tcs-tone-ghost" style="border-radius:11px;padding:10px 12px;">
-            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-              <strong style="font-size:12.5px;">${esc(g.title)}</strong>
-              <span class="tcs-badge tcs-badge-ghost">${esc(g.agent)} 虚态排期${g.slotId ? ` · ${esc(slotDisplayLabel(g.slotId))}` : ""}</span>
-            </div>
-            <div style="font-size:11.5px;color:var(--tcs-muted);margin-top:3px;">${esc(g.reason)}</div>
-            ${g.frictionWarning ? `<div style="font-size:11.5px;color:var(--tcs-warning);margin-top:3px;">${esc(g.frictionWarning)}</div>` : ""}
-            <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:7px;">
-              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-time-dismiss="${esc(g.id)}">× 散去</button>
-              <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-time-accept="${esc(g.id)}">✓ 确认落盘</button>
-            </div>
-          </div>`,
-            )
-            .join("")
-        : "";
-
-    const calDiag = time.calendarDiagnostics;
-    const calNotice =
-      calDiag && calDiag.status === "permission-denied"
-        ? `<div class="tcs-diag-notice" style="margin:0;"><strong>Apple 日历暂未授权</strong><div style="color:var(--tcs-muted);margin-top:2px;">${esc(calDiag.guidance ?? calDiag.message ?? "")}</div></div>`
-        : "";
-
-    const slotsHtml = time.todaySlots
-      .map((slot) => {
-        const openCount = slot.items.filter((i) => i.state === "open").length;
-        const spaceText =
-          slot.busyMinutes > 0
-            ? `硬日程 ${compactHours(slot.busyMinutes)} · 剩余约 ${compactHours(slot.remainingMinutes)}`
-            : `无硬日程 · 约 ${slot.spec.nominalHours}h 可用`;
-        return `
-          <div class="tcs-slot-card ${slot.spec.id === "morning" ? "is-morning" : ""}" data-drop-slot="${slot.spec.id}">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <div>
-                <strong style="font-size:14px;">${esc(slot.spec.name)}</strong>
-                <span style="font-size:11.5px;color:var(--tcs-muted);margin-left:8px;">${esc(slot.spec.subtitle)}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:11.5px;color:var(--tcs-muted);">${esc(spaceText)}</span>
-                <span class="tcs-badge ${slot.overSoftCap ? "tcs-badge-amber" : "tcs-badge-mist"}">${openCount}/${slot.spec.softCap}</span>
-              </div>
-            </div>
-            ${slot.frictionMessage ? `<div style="font-size:11.5px;color:var(--tcs-warning);">${esc(slot.frictionMessage)}</div>` : ""}
-            ${slot.hardEvents
-              .map(
-                (ev) => `
-              <div class="tcs-hard-event ${ev.isShield ? "is-shield" : ""}">
-                <div>
-                  <span style="font-weight:600;margin-right:8px;">${esc(ev.startTime)}–${esc(ev.endTime)}</span>
-                  <span>${esc(ev.title)}</span>
-                </div>
-                <span style="font-size:11px;color:var(--tcs-muted);">${esc(ev.calendarName)}</span>
-              </div>`,
-              )
-              .join("")}
-            ${
-              slot.items.length === 0 && slot.hardEvents.length === 0 && slot.spec.allowEmptyHint
-                ? `<div class="tcs-blank-hint">${esc(slot.spec.allowEmptyHint)}</div>`
-                : ""
-            }
-            ${slot.items
-              .map(
-                (item) => `
-              <div class="tcs-move-row ${item.state === "done" ? "is-done" : ""}">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-                  <div style="min-width:0;">
-                    <div style="font-size:13px;font-weight:500;${item.state === "done" ? "text-decoration:line-through;" : ""}">${esc(item.title)}</div>
-                    <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
-                      已投入 ${compactMinutes(item.actualMinutes)}
-                      ${item.calendarShield ? ` · 已设日历护盾 ${esc(item.calendarShield.startTime)}–${esc(item.calendarShield.endTime)}` : ""}
-                    </div>
-                  </div>
-                  <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
-                    ${
-                      item.state === "open"
-                        ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-day-focus="${esc(item.id)}">开始专注</button>`
-                        : ""
-                    }
-                    ${
-                      slot.spec.id === "morning" && item.state === "open" && !item.calendarShield
-                        ? `<button type="button" class="tcs-btn tcs-btn-sm" data-day-shield="${esc(item.id)}">写入日历护盾</button>`
-                        : ""
-                    }
-                    <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-day-toggle="${esc(item.id)}">${item.state === "done" ? "重开" : "完成"}</button>
-                    <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-day-remove="${esc(item.id)}">移除</button>
-                  </div>
-                </div>
-                ${item.lastStopNote ? `<div style="font-size:11.5px;color:var(--tcs-muted);">上次停点：${esc(item.lastStopNote)}</div>` : ""}
-              </div>`,
-              )
-              .join("")}
-            <form class="tcs-inline-form" data-slot-add-form="${slot.spec.id}">
-              <input class="tcs-inline-input" type="text" name="title" placeholder="放入「${esc(slot.spec.name)}」，回车确认…" maxlength="200" />
-              <button type="submit" class="tcs-btn tcs-btn-sm">放入</button>
-            </form>
-          </div>`;
-      })
-      .join("");
-
-    const sweepItems = snap.inbox.filter((i) => !i.cooled && i.pocket === "sweep");
-    const sweepWindowTime = snap.inboxPockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME;
-    const sweepReady = isSweepWindowActive(sweepWindowTime) && sweepItems.length > 0;
-    const sweepStripHtml = `
-      <details class="tcs-sweep-strip ${sweepReady ? "is-ready" : ""}" ${sweepReady ? "open" : ""}>
-        <summary>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <strong style="font-size:13px;">下午清扫时刻（${esc(sweepWindowTime)}）</strong>
-            <span class="tcs-badge ${sweepReady ? "tcs-badge-amber" : "tcs-badge-mist"}">今日小尾巴 ${sweepItems.length} 条</span>
-          </div>
-          <span style="font-size:11.5px;color:var(--tcs-muted);">${
-            sweepReady
-              ? "已到清扫窗口，一次收尾清空大脑工作记忆"
-              : "平时静默不打扰 · 间隙可随时展开顺手拉出 1 条"
-          }</span>
-        </summary>
-        <div class="tcs-sweep-body">
-          ${
-            sweepItems.length === 0
-              ? `<div class="tcs-blank-hint">当前没有挂起的今日小尾巴。</div>`
-              : sweepItems
-                  .map(
-                    (item) => `
-                  <div class="tcs-move-row">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                      <div style="min-width:0;flex:1;">
-                        <div style="font-size:12.5px;font-weight:500;">${esc(item.text)}</div>
-                        <div style="font-size:11px;color:var(--tcs-muted);margin-top:2px;">
-                          ${esc(item.sourceLabel)}${(item.carryoverDays ?? 0) >= 2 ? ` · 已顺延 ${item.carryoverDays} 天（建议超过 15 分钟转别忘）` : item.failSafe ? " · 兜底防漏" : ""}
-                        </div>
-                      </div>
-                      <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-sweep-done="${esc(item.id)}">办完划掉</button>
-                        <button type="button" class="tcs-btn tcs-btn-sm" data-sweep-tomorrow="${esc(item.id)}">锁进明日</button>
-                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-move-pocket="${esc(item.id)}|commit">转别忘</button>
-                        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-move-pocket="${esc(item.id)}|spark">退回想法</button>
-                      </div>
-                    </div>
-                  </div>`,
-                  )
-                  .join("")
-          }
-        </div>
-      </details>
-    `;
-
-    stageEl.innerHTML = `
-      <div class="tcs-time-wrap ${animCls}">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <strong style="font-size:14.5px;">${esc(dateLabel(time.today))} · 今日语义容器</strong>
-          <label style="font-size:11.5px;color:var(--tcs-muted);display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-            <input type="checkbox" data-toggle-footprint ${time.footprintCalendarEnabled ? "checked" : ""} />
-            <span>专注结束后静默写入「${esc(time.footprintCalendarName)}」</span>
-          </label>
-        </div>
-        ${focusHtml}
-        ${calNotice}
-        ${carryoverHtml}
-        ${frictionHtml}
-        ${ghostHtml}
-        ${slotsHtml}
-        ${sweepStripHtml}
-      </div>
-    `;
   };
 
   const renderOverlays = (snap: StageSnapshot) => {
@@ -2350,6 +1879,21 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     lastRenderSignature = sig;
 
+    if (snapshot?.time && next.time) {
+      const timeEntries = (time: NonNullable<StageSnapshot["time"]>) => [
+        ...time.todaySlots.flatMap((slot) => slot.items),
+        ...(time.tomorrowSlots ?? []).flatMap((slot) => slot.items),
+        ...(time.todayCandidates ?? []), ...(time.tomorrowCandidates ?? []),
+      ];
+      const previous = new Map(timeEntries(snapshot.time).map((item) => [item.id, `${item.date}|${"slotId" in item ? item.slotId : ""}`]));
+      const moved = timeEntries(next.time).filter((item) => previous.get(item.id) !== `${item.date}|${"slotId" in item ? item.slotId : ""}`);
+      if (moved.length) {
+        scheduleFlashIds = new Set(moved.map((item) => item.id));
+        clearTimeout(scheduleFlashTimer);
+        scheduleFlashTimer = setTimeout(() => scheduleFlashIds.clear(), 1500);
+      }
+    }
+
     const prevAdvIds = new Set(
       (snapshot?.areas ?? []).flatMap((a) => [
         ...a.areaAdvancements.map((x) => x.id),
@@ -2395,10 +1939,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       "is-sweep-ready",
       isSweepWindowActive(pockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME) && sweepCnt > 0,
     );
-    inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
+    inboxPaneEl.classList.toggle("is-collapsed", activeTab === "season" ? inboxCollapsed : !scheduleInboxOpen);
 
     // Header contextual controls
     const isSeason = activeTab === "season";
+    root.toggleAttribute("data-paper-view", !isSeason);
     zoomOutBtn.style.display = isSeason ? "inline-flex" : "none";
     zoomOutBtn.disabled = next.viewport.zoomLevel === 0 && !coldProposal && !port.onRequestClose;
     coldStartBtn.style.display = isSeason ? "inline-flex" : "none";
@@ -2427,10 +1972,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       bcEl.innerHTML = "";
     }
 
-    if (activeTab === "week") {
-      renderWeekView(next, animCls);
-    } else if (activeTab === "today") {
-      renderTodayView(next, animCls);
+    if (!isSeason) {
+      renderSchedule(next, animCls);
     } else if (coldProposal) {
       renderColdStart(coldProposal);
     } else if (next.viewport.zoomLevel === 0) {
@@ -2481,6 +2024,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     if (tab === "week" && snap.time) {
       return `当前在「本周容器」（${snap.time.weekCapacity.summary}，已装入 ${snap.time.weekCapacity.openMoveCount} 块）。请结合 stage_get_pulse 与 time_get_overview 帮我检视本周容量与推进块优先级。`;
     }
+    if (tab === "tomorrow" && snap.time) {
+      return `当前在「明日」（${snap.time.tomorrowDate}）。请结合 time_get_overview 核对具体动作与日程。`;
+    }
     if (tab === "today" && snap.time) {
       const carry = snap.time.carryoverItems.length;
       return `当前在「今日容器」（${snap.time.today}，昨日遗留 ${carry} 项）。请结合 time_get_overview 帮我确认今天「上午·深潜」的主线切口并做减法。`;
@@ -2496,53 +2042,48 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     return `当前在「季节星区」，请先调用 stage_get_pulse 与 time_get_overview 帮我做一次简短事实核对。`;
   };
 
-  const requestPlaceIntoSlot = (input: {
-    slotId: TimeSlotId;
-    title: string;
-    weekMoveId?: string | null;
-    areaId?: string | null;
-    projectWorkKey?: string | null;
-    inboxId?: string;
-  }) => {
-    if (!snapshot) return;
-    const slotSnap = snapshot.time?.todaySlots.find((s) => s.spec.id === input.slotId);
-    const openTitles = (slotSnap?.items ?? []).filter((i) => i.state === "open").map((i) => i.title);
-    const friction = buildSlotFrictionPrompt(input.slotId, openTitles);
-    if (friction) {
-      pendingFriction = {
-        slotId: input.slotId,
-        title: input.title,
-        message: friction.message,
-        ...(input.weekMoveId !== undefined ? { weekMoveId: input.weekMoveId } : {}),
-        ...(input.areaId !== undefined ? { areaId: input.areaId } : {}),
-        ...(input.projectWorkKey !== undefined ? { projectWorkKey: input.projectWorkKey } : {}),
-        ...(input.inboxId ? { inboxId: input.inboxId } : {}),
-      };
-      if ((snapshot.viewport.activeTab ?? "season") !== "today") {
-        void runAction({ type: "set-viewport", source: port.source, viewport: { activeTab: "today" } });
-      } else {
-        renderTodayView(snapshot, "");
-      }
-      return;
-    }
-    void runAction(
-      {
+  const switchScheduleTab = (activeTab: StageViewTab) =>
+    runAction({ type: "set-viewport", source: port.source, viewport: { activeTab } });
+
+  const placeIntoSlot = async (
+    request: PlaceRequest, date: string, tab: "today" | "tomorrow",
+    overflowMode?: "replace" | "defer-tomorrow" | "stack",
+  ) => {
+    if (placing) return;
+    placing = true;
+    const { inboxId, ...input } = request;
+    try {
+      const ok = await runAction({
         type: "time",
         action: {
-          type: "place-day-item",
-          title: input.title,
-          slotId: input.slotId,
-          ...(input.weekMoveId !== undefined ? { weekMoveId: input.weekMoveId } : {}),
-          ...(input.areaId !== undefined ? { areaId: input.areaId } : {}),
-          ...(input.projectWorkKey !== undefined ? { projectWorkKey: input.projectWorkKey } : {}),
+          type: "place-day-item", date, slotId: input.slotId, title: input.title,
+          areaId: input.areaId, projectWorkKey: input.projectWorkKey, weekMoveId: input.weekMoveId,
+          workRef: input.workRef, context: input.context, sourceInboxId: input.sourceInboxId,
+          ...(input.candidateId ? { candidateId: input.candidateId } : {}),
+          ...(overflowMode ? { overflowMode } : {}),
         },
-      },
-      `已放入「${slotDisplayLabel(input.slotId)}」`,
-    ).then(() => {
-      if (input.inboxId) {
-        void runAction({ type: "archive-inbox-items", inboxIds: [input.inboxId] });
-      }
-    });
+      }, overflowMode === "defer-tomorrow" ? "已顺延明天" : `已排入${tab === "today" ? "今天" : "明天"}${slotShortLabel(input.slotId)}`);
+      if (ok && inboxId) await runAction({ type: "archive-inbox-items", inboxIds: [inboxId] });
+      const destination = overflowMode === "defer-tomorrow" ? "tomorrow" : tab;
+      if (ok && snapshot?.viewport.activeTab !== destination) await switchScheduleTab(destination);
+    } finally {
+      placing = false;
+    }
+  };
+
+  const requestPlaceIntoSlot = (input: PlaceRequest) => {
+    if (!snapshot?.time || placing) return;
+    const tab = input.tab ?? (snapshot.viewport.activeTab === "tomorrow" ? "tomorrow" : "today");
+    const date = scheduleTabDate(snapshot.time, tab);
+    const slot = scheduleSlots(snapshot.time, tab)?.find((entry) => entry.spec.id === input.slotId);
+    const titles = (slot?.items ?? []).filter((item) => item.state === "open").map((item) => item.title);
+    if (buildSlotFrictionPrompt(input.slotId, titles)) {
+      pendingFriction = { ...input, tab, date, openCount: titles.length };
+      if (snapshot.viewport.activeTab !== tab) void switchScheduleTab(tab);
+      else renderSchedule(snapshot);
+      return;
+    }
+    void placeIntoSlot(input, date, tab);
   };
 
   zoomOutBtn.addEventListener("click", zoomOut);
@@ -2575,14 +2116,19 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     showToast(text);
   });
   inboxToggleBtn.addEventListener("click", () => {
-    inboxCollapsed = !inboxCollapsed;
-    inboxPaneEl.classList.toggle("is-collapsed", inboxCollapsed);
+    const isSeason = (snapshot?.viewport.activeTab ?? "season") === "season";
+    if (isSeason) inboxCollapsed = !inboxCollapsed;
+    else scheduleInboxOpen = !scheduleInboxOpen;
+    inboxPaneEl.classList.toggle("is-collapsed", isSeason ? inboxCollapsed : !scheduleInboxOpen);
     drawTethers();
   });
   popoutBtn?.addEventListener("click", () => {
     if (snapshot?.appUrl) port.onOpenStandalone?.(snapshot.appUrl);
   });
   closeBtn?.addEventListener("click", () => port.onRequestClose?.());
+  root.querySelector("[data-tcs-theme]")?.addEventListener("click", () => {
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  });
 
   root.addEventListener("submit", (event) => {
     const form = event.target as HTMLFormElement | null;
@@ -2596,14 +2142,22 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       void runAction({ type: "time", action: { type: "add-week-move", title } }, "已装入本周容器");
       return;
     }
-    const slotId = form.dataset.slotAddForm as TimeSlotId | undefined;
-    if (slotId) {
+    if (form.hasAttribute("data-add-day-candidate") && snapshot.time) {
       event.preventDefault();
-      const input = form.querySelector<HTMLInputElement>('input[name="title"]');
-      const title = input?.value.trim() ?? "";
+      const title = form.querySelector<HTMLInputElement>('input[name="title"]')?.value.trim();
       if (!title) return;
-      if (input) input.value = "";
-      requestPlaceIntoSlot({ slotId, title });
+      const project = findProject(form.dataset.scheduleArea ?? null, form.dataset.planProject ?? null);
+      const original = snapshot.inbox.find((item) => item.id === form.dataset.clarifyInbox);
+      const sourceProject = scheduleProject(snapshot, original?.matchProjectWorkKeys[0]);
+      const date = scheduleTabDate(snapshot.time, snapshot.viewport.activeTab ?? "today");
+      void runAction({ type: "time", action: {
+        type: "add-day-candidate", date, title,
+        projectWorkKey: project?.workKey ?? sourceProject?.workKey,
+        areaId: form.dataset.scheduleArea ?? original?.matchAreaIds[0],
+        workRef: project?.workRef ?? original?.workRef ?? sourceProject?.workRef,
+        context: original?.sourceLabel,
+        sourceInboxId: original?.id,
+      } }, date === snapshot.time.today ? "已加入今日待办" : "已加入明日候选");
       return;
     }
     if (form.hasAttribute("data-focus-finish-form")) {
@@ -2737,11 +2291,11 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       return;
     }
 
-    const tabBtn = target.closest<HTMLElement>("[data-tcs-tab]");
-    if (tabBtn?.dataset.tcsTab) {
-      const nextTab = tabBtn.dataset.tcsTab as StageViewTab;
+    const tabBtn = target.closest<HTMLElement>("[data-tcs-tab], [data-schedule-tab]");
+    const nextTab = tabBtn?.dataset.tcsTab ?? tabBtn?.dataset.scheduleTab;
+    if (nextTab) {
       pendingFriction = null;
-      void runAction({ type: "set-viewport", source: port.source, viewport: { activeTab: nextTab } });
+      void switchScheduleTab(nextTab as StageViewTab);
       return;
     }
     if (target.closest("[data-bc-l0]")) {
@@ -2750,78 +2304,63 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     const frictionChoice = target.closest<HTMLElement>("[data-friction-resolve]")?.dataset.frictionResolve;
     if (frictionChoice && pendingFriction) {
-      const req = pendingFriction;
+      const { date, tab, ...request } = pendingFriction;
       pendingFriction = null;
-      if (frictionChoice === "cancel") {
-        renderTodayView(snapshot, "");
-        return;
+      renderSchedule(snapshot);
+      if (frictionChoice === "afternoon") requestPlaceIntoSlot({ ...request, tab, slotId: "afternoon" });
+      if (frictionChoice === "replace" || frictionChoice === "stack" || frictionChoice === "defer-tomorrow") {
+        void placeIntoSlot(request, date, tab, frictionChoice);
       }
-      const mode = frictionChoice as "replace" | "defer-tomorrow" | "stack";
-      const label =
-        mode === "replace"
-          ? `已替换「${slotDisplayLabel(req.slotId)}」当前项`
-          : mode === "defer-tomorrow"
-            ? `已顺延至明天「${slotDisplayLabel(req.slotId)}」`
-            : `已叠加放入「${slotDisplayLabel(req.slotId)}」`;
-      void runAction(
-        {
-          type: "time",
-          action: {
-            type: "place-day-item",
-            title: req.title,
-            slotId: req.slotId,
-            overflowMode: mode,
-            ...(req.weekMoveId !== undefined ? { weekMoveId: req.weekMoveId } : {}),
-            ...(req.areaId !== undefined ? { areaId: req.areaId } : {}),
-            ...(req.projectWorkKey !== undefined ? { projectWorkKey: req.projectWorkKey } : {}),
-          },
-        },
-        label,
-      ).then(() => {
-        if (req.inboxId) void runAction({ type: "archive-inbox-items", inboxIds: [req.inboxId] });
-      });
       return;
     }
-    const candIdx = target.closest<HTMLElement>("[data-candidate-to-week]")?.dataset.candidateToWeek;
-    if (candIdx !== undefined) {
-      try {
-        const list = JSON.parse(stageEl.dataset.weekCandidates ?? "[]") as Array<{
-          areaId: string;
-          title: string;
-          projectWorkKey?: string;
-        }>;
-        const item = list[Number(candIdx)];
-        if (item) {
-          void runAction(
-            {
-              type: "time",
-              action: {
-                type: "add-week-move",
-                title: item.title,
-                areaId: item.areaId,
-                ...(item.projectWorkKey ? { projectWorkKey: item.projectWorkKey } : {}),
-              },
-            },
-            `已装入本周：${item.title}`,
-          );
-        }
-      } catch {
-        // ignore malformed dataset
-      }
+    const direction = target.closest<HTMLElement>("[data-candidate-to-week], [data-advancement-to-week]");
+    if (direction) {
+      const area = findArea(direction.dataset.scheduleArea ?? null);
+      const project = area?.projects.find((item) => item.workKey === direction.dataset.candidateToWeek);
+      const advancement = area?.areaAdvancements.find((item) => item.id === direction.dataset.advancementToWeek);
+      const title = project?.title ?? advancement?.title;
+      if (title) void runAction({ type: "time", action: {
+        type: "add-week-move", title, areaId: area?.id ?? null,
+        ...(project ? { projectWorkKey: project.workKey, workRef: project.workRef } : {}),
+        ...(advancement ? { sourceAdvancementId: advancement.id } : {}),
+      } }, "已加入本周");
       return;
     }
     const weekToDay = target.closest<HTMLElement>("[data-week-to-day]")?.dataset.weekToDay;
     if (weekToDay && snapshot.time) {
-      const [moveId, slotId] = weekToDay.split("|");
-      const move = snapshot.time.weekMoves.find((m) => m.id === moveId);
-      if (move && (slotId === "morning" || slotId === "afternoon" || slotId === "evening")) {
-        requestPlaceIntoSlot({
-          slotId,
-          title: move.title,
-          weekMoveId: move.id,
-          areaId: move.areaId ?? null,
-          projectWorkKey: move.projectWorkKey ?? null,
-        });
+      const [moveId, tab] = weekToDay.split("|");
+      const move = snapshot.time.weekMoves.find((item) => item.id === moveId);
+      if (move && (tab === "today" || tab === "tomorrow")) {
+        requestPlaceIntoSlot({ ...move, workRef: move.workRef ?? scheduleProject(snapshot, move.projectWorkKey)?.workRef,
+          context: move.lastStopNote, weekMoveId: move.id, slotId: "afternoon", tab });
+      }
+      return;
+    }
+    const place = target.closest<HTMLElement>("[data-ready-slot]");
+    if (place) {
+      const ready = readyForDay(snapshot, snapshot.viewport.activeTab ?? "today").find((item) => item.key === place.dataset.readyKey);
+      if (ready) requestPlaceIntoSlot({ ...ready, slotId: place.dataset.readySlot as TimeSlotId });
+      return;
+    }
+    const candidateRemove = target.closest<HTMLElement>("[data-candidate-remove]")?.dataset.candidateRemove;
+    if (candidateRemove) {
+      void runAction({ type: "time", action: { type: "remove-day-candidate", candidateId: candidateRemove } });
+      return;
+    }
+    const returnDay = target.closest<HTMLElement>("[data-day-return]")?.dataset.dayReturn;
+    if (returnDay) {
+      void runAction({ type: "time", action: { type: "return-day-item", itemId: returnDay } });
+      return;
+    }
+    const openDay = target.closest<HTMLElement>("[data-day-open]")?.dataset.dayOpen;
+    if (openDay && snapshot.time) {
+      const item = scheduleSlots(snapshot.time, snapshot.viewport.activeTab ?? "today")?.flatMap((slot) => slot.items).find((entry) => entry.id === openDay);
+      if (item) {
+        const project = scheduleProject(snapshot, item.projectWorkKey);
+        const child = project?.childWorks.find((entry) => entry.workKey === item.projectWorkKey);
+        const workRef = item.workRef ?? child?.workRef ?? project?.workRef;
+        const open = workRef?.kind === "logseq" ? port.onOpenTargetInLogseq?.({ workRef, title: item.title, ...(item.projectWorkKey ? { workKey: item.projectWorkKey } : {}) }) : port.onOpenJournal?.();
+        void Promise.resolve(open).catch((error) => showToast(error instanceof Error ? error.message : "打开 Logseq 失败"));
       }
       return;
     }
@@ -2840,7 +2379,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       const [itemId, decision] = carryover.split("|");
       if (itemId && (decision === "to-today" || decision === "to-week" || decision === "drop")) {
         const msg = decision === "to-today" ? "已放入今日" : decision === "to-week" ? "已退回本周容器" : "已撤掉该遗留项";
-        void runAction({ type: "time", action: { type: "triage-carryover", itemId, decision } }, msg);
+        void runAction({ type: "time", action: { type: "triage-carryover", itemId, decision, ...(decision === "to-today" ? { slotId: "afternoon" } : {}) } }, msg);
       }
       return;
     }
@@ -2894,12 +2433,12 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     if (target.closest("[data-focus-finish-open]")) {
       finishingFocusInline = true;
-      renderTodayView(snapshot, "");
+      renderSchedule(snapshot);
       return;
     }
     if (target.closest("[data-focus-finish-cancel]")) {
       finishingFocusInline = false;
-      renderTodayView(snapshot, "");
+      renderSchedule(snapshot);
       return;
     }
     const timeAccept = target.closest<HTMLElement>("[data-time-accept]")?.dataset.timeAccept;
@@ -3090,7 +2629,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
             },
           },
           "已装入本周容器",
-        ).then(() => void runAction({ type: "archive-inbox-items", inboxIds: [inboxItem.id] }));
+        ).then((ok) => { if (ok) void runAction({ type: "archive-inbox-items", inboxIds: [inboxItem.id] }); });
       }
       return;
     }
@@ -3328,6 +2867,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
   });
 
+  const hintScheduleSlot = (target: EventTarget | null) => {
+    const slot = (target as HTMLElement | null)?.closest?.<HTMLElement>("[data-ready-slot]")?.dataset.readySlot;
+    stageEl.querySelectorAll<HTMLElement>("[data-drop-slot]").forEach((element) =>
+      element.classList.toggle("slot-target-hint", element.dataset.dropSlot === slot));
+  };
+  stageEl.addEventListener("mouseover", (event) => hintScheduleSlot(event.target));
+  stageEl.addEventListener("mouseout", (event) => hintScheduleSlot(event.relatedTarget));
+  stageEl.addEventListener("focusin", (event) => hintScheduleSlot(event.target));
+  stageEl.addEventListener("focusout", (event) => hintScheduleSlot(event.relatedTarget));
+
   // Hover resonance on Inbox band (0ms local)
   inboxListEl.addEventListener("mouseover", (event) => {
     const card = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-inbox-id]");
@@ -3407,6 +2956,8 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           areaId: inboxItem.matchAreaIds[0] ?? null,
           projectWorkKey: inboxItem.matchProjectWorkKeys[0] ?? null,
           inboxId: inboxItem.id,
+          workRef: inboxItem.workRef,
+          context: inboxItem.sourceLabel,
         });
       }
       return;
@@ -3516,6 +3067,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     dispose() {
       disposed = true;
       if (toastTimer) clearTimeout(toastTimer);
+      clearTimeout(scheduleFlashTimer);
       if (typeof window !== "undefined") {
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);

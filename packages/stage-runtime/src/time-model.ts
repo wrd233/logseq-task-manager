@@ -83,6 +83,12 @@ export function weekDatesFor(today: string): string[] {
   return Array.from({ length: 7 }, (_, index) => offsetDate(monday, index));
 }
 
+export function scheduleCalendarRange(today: string): { startDate: string; endDate: string } {
+  const dates = weekDatesFor(today);
+  const tomorrow = offsetDate(today, 1);
+  return { startDate: dates[0]!, endDate: tomorrow > dates[6]! ? tomorrow : dates[6]! };
+}
+
 export function weekKeyFor(date: string): string {
   return weekDatesFor(date)[0]!;
 }

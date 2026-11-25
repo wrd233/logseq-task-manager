@@ -261,8 +261,8 @@ export async function appendToWeeklyReview(options: {
   }
 
   const links: string[] = [];
-  if (options.areaName) links.push(`[[Area/${options.areaName.replace(/[\[\]]/gu, "")}]]`);
-  if (options.projectTitle) links.push(`[[${options.projectTitle.replace(/[\[\]]/gu, "")}]]`);
+  if (options.areaName) links.push(`[[Area/${options.areaName.replace(/[[\]]/gu, "")}]]`);
+  if (options.projectTitle) links.push(`[[${options.projectTitle.replace(/[[\]]/gu, "")}]]`);
   const cleanSummary = options.summary.replace(/\r?\n/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 280);
   const line = `- ${cleanSummary}${links.length > 0 ? ` ${links.join(" ")}` : ""}（来源：${options.sourceLabel}，${dateStr}）\n`;
 

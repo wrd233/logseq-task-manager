@@ -174,3 +174,45 @@ test("TimeEngine handles 3 semantic slots, gentle friction, carryover tray (>=3 
   assert.equal(reparsed.focusHistory.length, 1);
   assert.equal(reparsed.weekMoves.length, engine.getRegistry().weekMoves.length);
 });
+
+test("weekly moves, deferred morning work and tomorrow candidates project into the same dated day plan", () => {
+  const engine = new TimeEngine(undefined, TODAY_MS);
+  const workRef = { kind: "logseq", graphId: "graph:paper", sourceKind: "block", rootUuid: "report" } as const;
+  const move = engine.addWeekMove({ title: "核对报表", workRef }, TODAY_MS);
+  const todayItem = engine.placeDayItem({ title: move.title, weekMoveId: move.id, slotId: "afternoon", date: TODAY }, TODAY_MS).item;
+  const tomorrowItem = engine.placeDayItem({ title: move.title, weekMoveId: move.id, slotId: "afternoon", date: TOMORROW }, TODAY_MS).item;
+  engine.placeDayItem({ title: "今天的主线", slotId: "morning" }, TODAY_MS);
+  const deferred = engine.placeDayItem({ title: "补测", slotId: "morning", date: TODAY, overflowMode: "defer-tomorrow" }, TODAY_MS).item;
+
+  const action = { date: TOMORROW, title: "核对缺失的三条记录", sourceInboxId: "logseq-block:report", context: "周五的承诺", workRef };
+  assert.equal(engine.addDayCandidate(action, TODAY_MS), true);
+  assert.equal(engine.addDayCandidate(action, TODAY_MS), false);
+  const reload = new TimeEngine(parseTimeRegistry(JSON.parse(JSON.stringify(engine.getRegistry())), TODAY_MS));
+  const calendar = [makeHardEvent(TOMORROW, "14:00", "15:30", 90)];
+  const before = reload.buildSnapshot(TODAY_MS, calendar);
+  const [candidate] = before.tomorrowCandidates;
+  assert.equal(before.tomorrowDate, TOMORROW);
+  assert.deepEqual(before.todayCandidates, []);
+  assert.deepEqual(before.todaySlots[1]?.items.map((item) => item.id), [todayItem.id]);
+  assert.deepEqual(before.todaySlots[1]?.hardEvents, []);
+  assert.deepEqual(before.tomorrowSlots[1]?.hardEvents, calendar);
+  assert.equal(before.tomorrowSlots[1]?.items[0]?.id, tomorrowItem.id);
+  assert.deepEqual(before.tomorrowSlots[1]?.items[0]?.workRef, workRef);
+  assert.equal(before.tomorrowSlots[0]?.items[0]?.id, deferred.id);
+  assert.equal(candidate?.title, action.title);
+
+  assert.ok(candidate);
+  const placed = reload.placeDayItem({ title: candidate.title, candidateId: candidate.id, date: TOMORROW, slotId: "evening" }, TODAY_MS).item;
+  assert.equal(placed.id, candidate.id);
+  assert.equal(placed.context, action.context);
+  assert.equal(reload.buildSnapshot(TODAY_MS).tomorrowCandidates.length, 0);
+  assert.equal(reload.returnDayItem(placed.id, TODAY_MS), true);
+  assert.equal(reload.buildSnapshot(TODAY_MS).tomorrowCandidates[0]?.id, placed.id);
+  assert.equal(reload.undoLastCommit(), true);
+
+  const nextMorning = new Date(`${TOMORROW}T08:00:00`).getTime();
+  const after = reload.buildSnapshot(nextMorning, calendar);
+  assert.deepEqual(after.todaySlots[0]?.items, before.tomorrowSlots[0]?.items);
+  assert.deepEqual(after.todaySlots[1]?.hardEvents, before.tomorrowSlots[1]?.hardEvents);
+  assert.equal(after.todaySlots[2]?.items[0]?.id, candidate.id);
+});

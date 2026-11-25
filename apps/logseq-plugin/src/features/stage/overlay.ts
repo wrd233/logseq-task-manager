@@ -57,6 +57,18 @@ const OVERLAY_CSS = `
   display: flex;
   flex-direction: column;
 }
+.tcs-lsq-backdrop:has(.tcs-root[data-paper-view]) {
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.tcs-lsq-dialog:has(.tcs-root[data-paper-view]) {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 `;
 
 export class GlobalStageOverlay {

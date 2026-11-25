@@ -18,6 +18,8 @@ import type {
   CalendarHardEvent,
   CalendarShieldInfo,
   CompletedFocusRecord,
+  DayCandidate,
+  DayPlanSubject,
   DaySlotItem,
   GentleFrictionInfo,
   SlotSnapshot,
@@ -123,56 +125,60 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
   }
 
   const dayItems: DaySlotItem[] = [];
-  if (Array.isArray(raw.dayItems)) {
-    for (const item of raw.dayItems) {
-      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-      const rec = item as Record<string, unknown>;
-      const id = cleanText(rec.id, 128);
-      const title = cleanText(rec.title, 200);
-      const date = validDate(rec.date) ? rec.date : null;
-      const slotId = isSlotId(rec.slotId) ? rec.slotId : null;
-      if (!id || !title || !date || !slotId) continue;
-      const state = rec.state === "done" || rec.state === "dropped" ? rec.state : "open";
-      const createdAt = typeof rec.createdAt === "number" && Number.isFinite(rec.createdAt) ? rec.createdAt : now;
-      const updatedAt = typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : createdAt;
-      const lastStopNote = cleanText(rec.lastStopNote, 240);
-      const lastCarryoverDate = validDate(rec.lastCarryoverDate) ? rec.lastCarryoverDate : undefined;
-      const workRef = safeWorkRef(rec.workRef);
-      let calendarShield: CalendarShieldInfo | undefined;
-      if (rec.calendarShield && typeof rec.calendarShield === "object" && !Array.isArray(rec.calendarShield)) {
-        const sh = rec.calendarShield as Record<string, unknown>;
-        const eventId = cleanText(sh.eventId, 200);
-        const calendarName = cleanText(sh.calendarName, 120);
-        if (eventId && calendarName && validDate(sh.date) && validClockTime(sh.startTime) && validClockTime(sh.endTime)) {
-          calendarShield = {
-            eventId,
-            calendarName,
-            date: sh.date,
-            startTime: sh.startTime,
-            endTime: sh.endTime,
-            createdAt: typeof sh.createdAt === "number" && Number.isFinite(sh.createdAt) ? sh.createdAt : updatedAt,
-          };
-        }
+  const dayCandidates: DayCandidate[] = [];
+  const dayEntries = [...(Array.isArray(raw.dayItems) ? raw.dayItems : []), ...(Array.isArray(raw.dayCandidates) ? raw.dayCandidates : [])];
+  for (const item of dayEntries) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const rec = item as Record<string, unknown>;
+    const id = cleanText(rec.id, 128);
+    const title = cleanText(rec.title, 200);
+    const date = validDate(rec.date) ? rec.date : null;
+    const slotId = isSlotId(rec.slotId) ? rec.slotId : null;
+    if (!id || !title || !date) continue;
+    const state = rec.state === "done" || rec.state === "dropped" ? rec.state : "open";
+    const createdAt = typeof rec.createdAt === "number" && Number.isFinite(rec.createdAt) ? rec.createdAt : now;
+    const updatedAt = typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : createdAt;
+    const lastStopNote = cleanText(rec.lastStopNote, 240);
+    const lastCarryoverDate = validDate(rec.lastCarryoverDate) ? rec.lastCarryoverDate : undefined;
+    const workRef = safeWorkRef(rec.workRef);
+    let calendarShield: CalendarShieldInfo | undefined;
+    if (rec.calendarShield && typeof rec.calendarShield === "object" && !Array.isArray(rec.calendarShield)) {
+      const sh = rec.calendarShield as Record<string, unknown>;
+      const eventId = cleanText(sh.eventId, 200);
+      const calendarName = cleanText(sh.calendarName, 120);
+      if (eventId && calendarName && validDate(sh.date) && validClockTime(sh.startTime) && validClockTime(sh.endTime)) {
+        calendarShield = {
+          eventId,
+          calendarName,
+          date: sh.date,
+          startTime: sh.startTime,
+          endTime: sh.endTime,
+          createdAt: typeof sh.createdAt === "number" && Number.isFinite(sh.createdAt) ? sh.createdAt : updatedAt,
+        };
       }
-      dayItems.push({
-        id,
-        date,
-        slotId,
-        title,
-        weekMoveId: typeof rec.weekMoveId === "string" ? rec.weekMoveId : null,
-        areaId: typeof rec.areaId === "string" ? rec.areaId : null,
-        projectWorkKey: typeof rec.projectWorkKey === "string" ? rec.projectWorkKey : null,
-        ...(workRef ? { workRef } : {}),
-        state,
-        actualMinutes: typeof rec.actualMinutes === "number" && Number.isFinite(rec.actualMinutes) ? Math.max(0, Math.round(rec.actualMinutes)) : 0,
-        carryoverCount: typeof rec.carryoverCount === "number" && Number.isFinite(rec.carryoverCount) ? Math.max(0, Math.floor(rec.carryoverCount)) : 0,
-        ...(lastCarryoverDate ? { lastCarryoverDate } : {}),
-        ...(lastStopNote ? { lastStopNote } : {}),
-        ...(calendarShield ? { calendarShield } : {}),
-        createdAt,
-        updatedAt,
-      });
     }
+    const context = cleanText(rec.context, 400);
+    const sourceInboxId = cleanText(rec.sourceInboxId, 256);
+    const entry: DayCandidate = {
+      id,
+      date,
+      title,
+      weekMoveId: typeof rec.weekMoveId === "string" ? rec.weekMoveId : null,
+      areaId: typeof rec.areaId === "string" ? rec.areaId : null,
+      projectWorkKey: typeof rec.projectWorkKey === "string" ? rec.projectWorkKey : null,
+      ...(workRef ? { workRef } : {}),
+      ...(context ? { context } : {}),
+      ...(sourceInboxId ? { sourceInboxId } : {}),
+      actualMinutes: typeof rec.actualMinutes === "number" && Number.isFinite(rec.actualMinutes) ? Math.max(0, Math.round(rec.actualMinutes)) : 0,
+      carryoverCount: typeof rec.carryoverCount === "number" && Number.isFinite(rec.carryoverCount) ? Math.max(0, Math.floor(rec.carryoverCount)) : 0,
+      ...(lastCarryoverDate ? { lastCarryoverDate } : {}),
+      ...(lastStopNote ? { lastStopNote } : {}),
+      ...(calendarShield ? { calendarShield } : {}),
+      createdAt,
+      updatedAt,
+    };
+    if (slotId) dayItems.push({ ...entry, slotId, state });
+    else if (rec.slotId === undefined) dayCandidates.push(entry);
   }
 
   let activeFocus: ActiveFocusSession | null = null;
@@ -250,6 +256,7 @@ export function parseTimeRegistry(input: unknown, now = Date.now()): TimeRegistr
     schemaVersion: 1,
     weekMoves,
     dayItems,
+    dayCandidates,
     activeFocus,
     focusHistory,
     footprintCalendarEnabled: raw.footprintCalendarEnabled === true,
@@ -395,33 +402,91 @@ export class TimeEngine {
     return true;
   }
 
+  addDayCandidate(input: DayPlanSubject & { date: string }, now = Date.now()): boolean {
+    const title = cleanText(input.title, 200);
+    if (!title || !validDate(input.date)) throw new Error("DAY_CANDIDATE_INVALID");
+    const candidates = this.registry.dayCandidates ??= [];
+    const sourceInboxId = cleanText(input.sourceInboxId, 256);
+    if (sourceInboxId && (
+      candidates.some((item) => item.sourceInboxId === sourceInboxId) ||
+      this.registry.dayItems.some((item) => item.sourceInboxId === sourceInboxId && item.state !== "dropped")
+    )) return false;
+
+    const context = cleanText(input.context, 400);
+    const workRef = safeWorkRef(input.workRef);
+    this.captureUndo();
+    candidates.push({
+      id: makeId("dcand", this.seq++, now),
+      date: input.date,
+      title,
+      areaId: input.areaId ?? null,
+      projectWorkKey: input.projectWorkKey ?? null,
+      ...(workRef ? { workRef } : {}),
+      ...(context ? { context } : {}),
+      ...(sourceInboxId ? { sourceInboxId } : {}),
+      actualMinutes: 0,
+      carryoverCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    this.registry.lastWorkbenchActiveAt = now;
+    this.registry.updatedAt = now;
+    return true;
+  }
+
+  returnDayItem(itemId: string, now = Date.now()): boolean {
+    const index = this.registry.dayItems.findIndex((item) => item.id === itemId && item.state === "open");
+    if (index < 0 || this.registry.activeFocus?.dayItemId === itemId) return false;
+    this.captureUndo();
+    const entry: Partial<DaySlotItem> & DayCandidate = { ...this.registry.dayItems[index]! };
+    delete entry.slotId;
+    delete entry.state;
+    this.registry.dayItems.splice(index, 1);
+    (this.registry.dayCandidates ??= []).push({ ...entry, updatedAt: now });
+    this.registry.updatedAt = now;
+    return true;
+  }
+
+  removeDayCandidate(candidateId: string, now = Date.now()): boolean {
+    const candidates = this.registry.dayCandidates ?? [];
+    const index = candidates.findIndex((item) => item.id === candidateId);
+    if (index < 0) return false;
+    this.captureUndo();
+    candidates.splice(index, 1);
+    this.registry.updatedAt = now;
+    return true;
+  }
+
   placeDayItem(
-    input: {
-      title: string;
+    input: DayPlanSubject & {
+      candidateId?: string;
       date?: string;
       slotId: TimeSlotId;
-      weekMoveId?: string | null;
-      areaId?: string | null;
-      projectWorkKey?: string | null;
-      workRef?: WorkRef | null;
       overflowMode?: "stack" | "replace" | "defer-tomorrow";
       replaceItemId?: string;
     },
     now = Date.now(),
     recordUndo = true,
   ): { item: DaySlotItem; friction: GentleFrictionInfo | null; displacedItemId?: string } {
-    const title = cleanText(input.title, 200);
+    const candidates = this.registry.dayCandidates ?? [];
+    const candidate = input.candidateId ? candidates.find((item) => item.id === input.candidateId) : undefined;
+    if (input.candidateId && !candidate) throw new Error("DAY_CANDIDATE_UNAVAILABLE");
+    const subject = candidate ?? input;
+    const title = cleanText(subject.title, 200);
     if (!title) throw new Error("DAY_ITEM_TITLE_REQUIRED");
-    if (recordUndo) this.captureUndo();
-
     const baseDate = input.date && validDate(input.date) ? input.date : dateKeyFromMs(now);
     const targetDate = input.overflowMode === "defer-tomorrow" ? offsetDate(baseDate, 1) : baseDate;
+    const existingPlacement = subject.sourceInboxId
+      ? this.registry.dayItems.find((item) => item.sourceInboxId === subject.sourceInboxId && item.state !== "dropped")
+      : undefined;
     const friction = this.checkSlotFriction(targetDate, input.slotId);
+    if (existingPlacement && !candidate) return { item: structuredClone(existingPlacement), friction };
+    if (recordUndo) this.captureUndo();
     let displacedItemId: string | undefined;
 
     if (input.overflowMode === "replace") {
       const existing = input.replaceItemId
-        ? this.registry.dayItems.find((i) => i.id === input.replaceItemId && i.state === "open")
+        ? this.registry.dayItems.find((i) => i.id === input.replaceItemId && i.date === targetDate && i.slotId === input.slotId && i.state === "open")
         : this.registry.dayItems.find((i) => i.state === "open" && i.date === targetDate && i.slotId === input.slotId);
       if (existing) {
         displacedItemId = existing.id;
@@ -435,22 +500,29 @@ export class TimeEngine {
       }
     }
 
-    const linkedMove = input.weekMoveId ? this.registry.weekMoves.find((m) => m.id === input.weekMoveId) : undefined;
+    const linkedMove = subject.weekMoveId ? this.registry.weekMoves.find((m) => m.id === subject.weekMoveId) : undefined;
+    const workRef = safeWorkRef(subject.workRef ?? linkedMove?.workRef);
+    const context = cleanText(subject.context, 400);
+    const sourceInboxId = cleanText(subject.sourceInboxId, 256);
     const item: DaySlotItem = {
-      id: makeId("ditem", this.seq++, now),
+      ...candidate,
+      id: candidate?.id ?? makeId("ditem", this.seq++, now),
       date: targetDate,
       slotId: input.slotId,
       title,
-      weekMoveId: input.weekMoveId ?? null,
-      areaId: input.areaId ?? linkedMove?.areaId ?? null,
-      projectWorkKey: input.projectWorkKey ?? linkedMove?.projectWorkKey ?? null,
-      ...(input.workRef ?? linkedMove?.workRef ? { workRef: (input.workRef ?? linkedMove?.workRef)! } : {}),
+      weekMoveId: subject.weekMoveId ?? null,
+      areaId: subject.areaId ?? linkedMove?.areaId ?? null,
+      projectWorkKey: subject.projectWorkKey ?? linkedMove?.projectWorkKey ?? null,
+      ...(workRef ? { workRef } : {}),
+      ...(context ? { context } : {}),
+      ...(sourceInboxId ? { sourceInboxId } : {}),
       state: "open",
-      actualMinutes: 0,
-      carryoverCount: 0,
-      createdAt: now,
+      actualMinutes: candidate?.actualMinutes ?? 0,
+      carryoverCount: candidate?.carryoverCount ?? 0,
+      createdAt: candidate?.createdAt ?? now,
       updatedAt: now,
     };
+    if (candidate) candidates.splice(candidates.indexOf(candidate), 1);
     this.registry.dayItems.push(item);
     this.registry.lastWorkbenchActiveAt = now;
     this.registry.updatedAt = now;
@@ -984,6 +1056,12 @@ export class TimeEngine {
         return { mutatedRegistry: this.toggleWeekMoveState(action.moveId, action.state, now) };
       case "remove-week-move":
         return { mutatedRegistry: this.removeWeekMove(action.moveId, now) };
+      case "add-day-candidate":
+        return { mutatedRegistry: this.addDayCandidate(action, now) };
+      case "return-day-item":
+        return { mutatedRegistry: this.returnDayItem(action.itemId, now) };
+      case "remove-day-candidate":
+        return { mutatedRegistry: this.removeDayCandidate(action.candidateId, now) };
       case "place-day-item":
         this.placeDayItem(action, now);
         return { mutatedRegistry: true };
@@ -1067,14 +1145,13 @@ export class TimeEngine {
       openMoveCount,
     });
 
-    const todayHardEvents = hardEvents.filter((e) => e.date === today);
-    const todaySlots: SlotSnapshot[] = DEFAULT_SEMANTIC_SLOTS.map((spec) => {
+    const slotsForDate = (date: string): SlotSnapshot[] => DEFAULT_SEMANTIC_SLOTS.map((spec) => {
       const items = this.registry.dayItems
-        .filter((i) => i.date === today && i.slotId === spec.id && i.state !== "dropped")
+        .filter((i) => i.date === date && i.slotId === spec.id && i.state !== "dropped")
         .map((i) => structuredClone(i));
       const openItems = items.filter((i) => i.state === "open");
-      const slotEvents = todayHardEvents
-        .filter((e) => e.slotId === spec.id)
+      const slotEvents = hardEvents
+        .filter((e) => e.date === date && e.slotId === spec.id)
         .sort((a, b) => a.startTime.localeCompare(b.startTime));
       const { busyMinutes, remainingMinutes } = computeSlotRemainingMinutes(spec, slotEvents);
       const overSoftCap = openItems.length > spec.softCap;
@@ -1091,6 +1168,9 @@ export class TimeEngine {
         ...(frictionMessage ? { frictionMessage } : {}),
       };
     });
+
+    const tomorrowDate = offsetDate(today, 1);
+    const candidates = this.registry.dayCandidates ?? [];
 
     const carryoverItems = this.registry.dayItems
       .filter((i) => i.state === "open" && i.date < today)
@@ -1124,7 +1204,11 @@ export class TimeEngine {
       weekKey: wk,
       weekCapacity,
       weekMoves,
-      todaySlots,
+      todaySlots: slotsForDate(today),
+      tomorrowDate,
+      tomorrowSlots: slotsForDate(tomorrowDate),
+      todayCandidates: candidates.filter((item) => item.date <= today).map((item) => structuredClone(item)),
+      tomorrowCandidates: candidates.filter((item) => item.date === tomorrowDate).map((item) => structuredClone(item)),
       carryoverItems,
       repeatCarryoverItems,
       activeFocus: this.registry.activeFocus ? structuredClone(this.registry.activeFocus) : null,
