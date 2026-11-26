@@ -12,6 +12,12 @@ import {
   compactGazeSummary,
   dateKeyFromMs,
   formatRecencyLabel,
+  growIdea,
+  reflectToday,
+  validDate,
+  type GrowingIdea,
+  type JournalTraceSource,
+  type ReflectionAction,
   parseStageRegistry,
   recencyDays,
   type StageAreaDomain,
@@ -75,6 +81,7 @@ interface Waiter {
 }
 
 interface PendingCapturePollWaiter {
+  graphId: string | undefined;
   resolve: (captures: PendingJournalCapture[]) => void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -211,12 +218,14 @@ export class StageHub {
   private calibrationLog: StageInboxCalibrationRecord[] = [];
   private sweepWindowTime = DEFAULT_SWEEP_WINDOW_TIME;
   private journalSignals: JournalSignalsFile | null = null;
+  private reflectionJournal: { date: string; graphId: string; blocks: JournalTraceSource[] } | undefined;
+  private growingIdeas: GrowingIdea[] = [];
   private pendingCaptures: PendingJournalCapture[] = [];
   private readonly pendingPollWaiters = new Set<PendingCapturePollWaiter>();
   private readonly pendingCaptureAckWaiters = new Map<string, (ack: CaptureAckResult) => void>();
   private lastPluginHeartbeatAt = 0;
   private icloudWatcher: { close(): void } | null = null;
-  private loaded = false;
+  private loadPromise: Promise<void> | undefined;
   private writeQueue: Promise<unknown> = Promise.resolve();
   private workspaceQueue: Promise<unknown> = Promise.resolve();
   private activeGraph: StageGraphLocation | undefined;
@@ -309,9 +318,11 @@ export class StageHub {
     });
   }
 
-  private async ensureLoaded(): Promise<void> {
-    if (this.loaded) return;
-    this.loaded = true;
+  private ensureLoaded(): Promise<void> {
+    return this.loadPromise ??= this.loadRegistry();
+  }
+
+  private async loadRegistry(): Promise<void> {
     try {
       const raw = JSON.parse(await readFile(this.registryPath, "utf8")) as unknown;
       const parsed = parseStageRegistry(raw);
@@ -324,10 +335,11 @@ export class StageHub {
         // Corrupt registry falls back cleanly to empty operational state; never blocks Companion.
       }
     }
-    const [inboxState, journalSignals, pendingCaptures] = await Promise.all([
+    const [inboxState, journalSignals, pendingCaptures, growingIdeas] = await Promise.all([
       readStageInboxState(this.inboxStatePath),
       readJournalSignals(this.stateDirectory),
       readPendingJournalCaptures(this.stateDirectory),
+      readFile(join(this.stateDirectory, "stage-growing-ideas.json"), "utf8").then(text => JSON.parse(text) as GrowingIdea[]).catch(() => []),
     ]);
     for (const id of inboxState.archivedIds) this.consumedInboxIds.add(id);
     for (const sig of inboxState.archivedSignatures) this.archivedInboxSignatures.add(sig);
@@ -340,6 +352,7 @@ export class StageHub {
     this.sweepWindowTime = inboxState.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME;
     this.journalSignals = journalSignals;
     this.pendingCaptures = pendingCaptures;
+    if (Array.isArray(growingIdeas)) this.growingIdeas = growingIdeas;
 
     if (this.shouldWatchIcloud && !this.icloudWatcher) {
       this.icloudWatcher = watchIcloudInbox(this.icloudInboxDirectory, () => {
@@ -482,6 +495,7 @@ export class StageHub {
   private buildPendingCaptureItems(): StageInboxRawItem[] {
     const out: StageInboxRawItem[] = [];
     for (const cap of this.pendingCaptures) {
+      if (cap.captureId.startsWith("evening:")) continue;
       // Anti-echo: if already flushed to a known blockUuid, skip pending shadow
       if (this.captureToBlockMap.has(cap.captureId)) continue;
       const id = `capture:${cap.captureId}`;
@@ -516,6 +530,7 @@ export class StageHub {
         directory: this.icloudInboxDirectory,
         archivedIds: this.consumedInboxIds,
         archivedSignatures: this.archivedInboxSignatures,
+        collectTodayVoice: this.engine.getViewport().activeTab === "reflect",
         now,
         ...(this.icloudFsOps ? { fsOps: this.icloudFsOps } : {}),
       }),
@@ -563,7 +578,7 @@ export class StageHub {
           : {}),
       },
     };
-    return { catalog, inbox, inboxDiagnostics };
+    return { catalog, inbox, inboxDiagnostics, voice: icloud.todayVoice ?? [] };
   }
 
   async inboxStatus(): Promise<StageInboxDiagnostics> {
@@ -573,17 +588,31 @@ export class StageHub {
 
   async snapshot(): Promise<StageSnapshot> {
     const now = Date.now();
-    const [{ catalog, inbox, inboxDiagnostics }, timeSnapshot] = await Promise.all([
+    const [{ catalog, inbox, inboxDiagnostics, voice }, timeSnapshot] = await Promise.all([
       this.loadSources(now),
       this.timeHub.snapshot(now),
     ]);
     const cutoff = now - FLOW_LEDGER_RETENTION_MS;
     const recentLedger = this.flowLedger.filter((entry) => entry.at >= cutoff).slice(0, 50);
-    return this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics, timeSnapshot, {
+    const snapshot = this.engine.buildSnapshot(catalog, inbox, now, this.appUrl, inboxDiagnostics, timeSnapshot, {
       trackOverrides: Object.fromEntries(this.trackOverrides.entries()),
       flowLedger: recentLedger,
       sweepWindowTime: this.sweepWindowTime,
     });
+    if (snapshot.viewport.activeTab === "reflect") {
+      const date = timeSnapshot.today;
+      const graphId = (await this.readActiveGraph()).graphId ?? this.journalSignals?.graphId;
+      const journal = this.reflectionJournal?.date === date && this.reflectionJournal.graphId === graphId ? this.reflectionJournal : undefined;
+      snapshot.reflection = reflectToday({
+        date, focus: await this.timeHub.reflectionFocus(date), voice, ledger: recentLedger,
+        ...(graphId ? { graphId } : {}),
+        ...(journal ? { journal } : {}),
+        ideas: this.growingIdeas,
+        pendingNoteIds: this.pendingCaptures.filter(item => item.captureId.startsWith("evening:") && item.graphId === graphId && !this.captureToBlockMap.has(item.captureId))
+          .map(item => item.captureId.slice("evening:".length)),
+      });
+    }
+    return snapshot;
   }
 
   private async broadcast(): Promise<StageSnapshot> {
@@ -652,6 +681,43 @@ export class StageHub {
     });
   }
 
+  private async applyReflection(action: ReflectionAction, now: number): Promise<void> {
+    await this.ensureLoaded();
+    const text = action.text;
+    if (typeof text !== "string" || !text.trim() || (action.type === "append-idea-note" && text.length > 600)) {
+      throw new WorkspaceError("INVALID_INPUT", "请填写要保存的文字");
+    }
+    const id = action.type === "save-evening-note" ? action.requestId : action.entryId;
+    if (typeof id !== "string" || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(id)) {
+      throw new WorkspaceError("INVALID_INPUT", "保存标识无效");
+    }
+    const date = dateKeyFromMs(now);
+    if (action.type === "append-idea-note") {
+      this.growingIdeas = growIdea(this.growingIdeas, {
+        id, date, text, ...(action.ideaId ? { ideaId: action.ideaId } : {}),
+      });
+      const next = this.growingIdeas;
+      const pending = this.writeQueue.then(() => atomicJson(join(this.stateDirectory, "stage-growing-ideas.json"), next));
+      this.writeQueue = pending.catch(() => undefined);
+      await pending;
+      return;
+    }
+    const captureId = `evening:${id}`;
+    const graphId = (await this.readActiveGraph()).graphId ?? this.journalSignals?.graphId;
+    if (action.graphId !== undefined && action.graphId !== graphId) throw new WorkspaceError("INVALID_INPUT", "当前图谱已切换，请重新保存");
+    if (this.captureToBlockMap.has(captureId)) return;
+    if (this.pendingCaptures.some(item => item.captureId === captureId)) {
+      await this.persistPendingCaptures();
+      this.wakePendingPollWaiters();
+      return;
+    }
+    if (!graphId) throw new WorkspaceError("INVALID_INPUT", "请先在 Logseq 打开要保存的图谱");
+    if (!validDate(action.date) || action.date > date) throw new WorkspaceError("INVALID_INPUT", "日记日期无效");
+    this.pendingCaptures.push({ captureId, graphId, text, formattedLine: "", sourceAgent: "user", journalDate: action.date, createdAt: now });
+    await this.persistPendingCaptures();
+    this.wakePendingPollWaiters();
+  }
+
   async applyAction(action: StageUserAction): Promise<{
     snapshot: StageSnapshot;
     archivedInboxIds: string[];
@@ -660,6 +726,11 @@ export class StageHub {
     activatedLogseq?: { activated: boolean; appPath: string | null; pid: number | null };
   }> {
     const now = Date.now();
+    if (action.type === "save-evening-note" || action.type === "append-idea-note") {
+      await this.applyReflection(action, now);
+      this.engine.touchVersion();
+      return { snapshot: await this.broadcast(), archivedInboxIds: [] };
+    }
     if (action.type === "time") {
       await this.ensureLoaded();
       const timeResult = await this.timeHub.applyAction(action.action, now);
@@ -928,13 +999,16 @@ export class StageHub {
     graphName: string;
     graphPath?: string;
     signals: JournalInboxSignalRecord[];
+    todayJournal?: { date: string; blocks: JournalTraceSource[] };
   }): Promise<{ accepted: number; pendingCaptures: number }> {
     await this.ensureLoaded();
     this.lastPluginHeartbeatAt = Date.now();
     const prevSig = this.journalSignals ? JSON.stringify(this.journalSignals.signals) : "";
+    const prevJournal = JSON.stringify(this.reflectionJournal);
+    if (input.todayJournal) this.reflectionJournal = { ...input.todayJournal, graphId: input.graphId };
     const normalized: JournalSignalsFile = {
       schemaVersion: 1,
-      graphId: input.graphId.slice(0, 128),
+      graphId: input.graphId.slice(0, 2048),
       graphName: input.graphName.slice(0, 128),
       ...(input.graphPath && input.graphPath.startsWith("/") ? { graphPath: input.graphPath } : {}),
       updatedAt: Date.now(),
@@ -949,29 +1023,34 @@ export class StageHub {
     };
     this.journalSignals = normalized;
     await this.persistJournalSignals();
-    if (JSON.stringify(normalized.signals) !== prevSig) {
+    if (JSON.stringify(normalized.signals) !== prevSig || JSON.stringify(this.reflectionJournal) !== prevJournal) {
       this.engine.touchVersion();
       void this.broadcast();
     }
     return {
       accepted: normalized.signals.length,
-      pendingCaptures: this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId)).length,
+      pendingCaptures: this.pendingForGraph(input.graphId).length,
     };
   }
 
-  async getPendingJournalCaptures(): Promise<PendingJournalCapture[]> {
-    await this.ensureLoaded();
-    this.lastPluginHeartbeatAt = Date.now();
-    return structuredClone(this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId)));
+  private pendingForGraph(graphId?: string): PendingJournalCapture[] {
+    return this.pendingCaptures.filter(item => !this.captureToBlockMap.has(item.captureId) && (!item.graphId || item.graphId === graphId));
   }
 
-  async waitForPendingJournalCaptures(signal?: AbortSignal, timeoutMs = 20_000): Promise<PendingJournalCapture[]> {
+  async getPendingJournalCaptures(graphId?: string): Promise<PendingJournalCapture[]> {
     await this.ensureLoaded();
     this.lastPluginHeartbeatAt = Date.now();
-    const immediate = this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId));
+    return structuredClone(this.pendingForGraph(graphId));
+  }
+
+  async waitForPendingJournalCaptures(signal?: AbortSignal, timeoutMs = 20_000, graphId?: string): Promise<PendingJournalCapture[]> {
+    await this.ensureLoaded();
+    this.lastPluginHeartbeatAt = Date.now();
+    const immediate = this.pendingForGraph(graphId);
     if (immediate.length > 0) return structuredClone(immediate);
     return await new Promise<PendingJournalCapture[]>((resolveWait) => {
       const waiter: PendingCapturePollWaiter = {
+        graphId,
         resolve: resolveWait,
         timer: setTimeout(() => {
           this.pendingPollWaiters.delete(waiter);
@@ -993,9 +1072,9 @@ export class StageHub {
   }
 
   private wakePendingPollWaiters(): void {
-    const active = this.pendingCaptures.filter((c) => !this.captureToBlockMap.has(c.captureId));
-    if (active.length === 0) return;
     for (const waiter of [...this.pendingPollWaiters]) {
+      const active = this.pendingForGraph(waiter.graphId);
+      if (!active.length) continue;
       clearTimeout(waiter.timer);
       this.pendingPollWaiters.delete(waiter);
       waiter.resolve(structuredClone(active));
@@ -1007,10 +1086,31 @@ export class StageHub {
     blockUuid: string;
     pageName: string;
     journalDate: string;
+    graphId?: string;
   }): Promise<{ acknowledged: boolean; remaining: number }> {
     await this.ensureLoaded();
     this.lastPluginHeartbeatAt = Date.now();
     const idx = this.pendingCaptures.findIndex((c) => c.captureId === input.captureId);
+    if (input.captureId.startsWith("evening:")) {
+      if (this.captureToBlockMap.get(input.captureId) === input.blockUuid) {
+        return { acknowledged: true, remaining: this.pendingForGraph(input.graphId).length };
+      }
+      const note = this.pendingCaptures[idx];
+      if (!note || note.graphId !== input.graphId || note.journalDate !== input.journalDate ||
+          input.blockUuid !== input.captureId.slice("evening:".length)) {
+        throw new WorkspaceError("INVALID_INPUT", "手记写入回执不匹配");
+      }
+      this.captureToBlockMap.set(input.captureId, input.blockUuid);
+      this.consumedInboxIds.add(`logseq-block:${input.blockUuid}`);
+      await this.persistInboxState();
+      const current = this.pendingCaptures.indexOf(note);
+      if (current >= 0) this.pendingCaptures.splice(current, 1);
+      await this.persistPendingCaptures();
+      this.engine.touchVersion();
+      void this.broadcast();
+      return { acknowledged: true, remaining: this.pendingForGraph(input.graphId).length };
+    }
+
     const oldInboxId = `capture:${input.captureId}`;
     const newInboxId = `logseq-block:${input.blockUuid}`;
     this.captureToBlockMap.set(input.captureId, input.blockUuid);

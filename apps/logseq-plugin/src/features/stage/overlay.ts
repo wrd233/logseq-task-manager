@@ -58,12 +58,12 @@ const OVERLAY_CSS = `
   display: flex;
   flex-direction: column;
 }
-.tcs-lsq-backdrop:has(.tcs-root[data-paper-view]) {
+.tcs-lsq-backdrop:has(.tcs-root:is([data-paper-view], [data-restart-view])) {
   padding: 0;
   background: transparent;
   backdrop-filter: none;
 }
-.tcs-lsq-dialog:has(.tcs-root[data-paper-view]) {
+.tcs-lsq-dialog:has(.tcs-root:is([data-paper-view], [data-restart-view])) {
   width: 100%;
   height: 100%;
   border: 0;
@@ -120,16 +120,21 @@ export class GlobalStageOverlay {
   }
 
   private async dispatchAction(action: StageUserAction): Promise<StageSnapshot> {
-    if (!this.usingLocal && this.port.remote) {
+    const reflectionWrite = action.type === "save-evening-note" || action.type === "append-idea-note";
+    if ((!this.usingLocal || reflectionWrite) && this.port.remote) {
       try {
         const out = await this.port.remote.stageAction(action);
         if (out.warning) this.port.notify(out.warning, "warning");
+        this.usingLocal = false;
+        this.ensurePolling();
         this.port.onSnapshot?.(out.snapshot);
         return out.snapshot;
-      } catch {
+      } catch (error) {
+        if (reflectionWrite) throw error;
         this.usingLocal = true;
       }
     }
+    if (reflectionWrite) throw new Error("Companion 当前未连接");
     const now = Date.now();
     const catalog = await this.port.readLocalCatalog();
     if (action.type === "time") {
@@ -144,7 +149,7 @@ export class GlobalStageOverlay {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape" && !event.isComposing && this.backdrop) {
+    if (event.key === "Escape" && !event.isComposing && !(event.target as Element | null)?.closest?.(".tcs-reflection textarea, .tcs-reflection input") && this.backdrop) {
       event.preventDefault();
       event.stopPropagation();
       this.mounted?.focusZoomOut();
@@ -232,21 +237,21 @@ export class GlobalStageOverlay {
     this.lastPollSignature = JSON.stringify({ ...snap, generatedAt: 0 });
     this.mounted?.update(snap);
 
-    if (this.pollTimer === null && !this.usingLocal && this.port.remote) {
-      this.pollTimer = window.setInterval(() => {
-        if (!this.backdrop || this.disposed || this.usingLocal || !this.port.remote) return;
-        void this.port.remote
-          .stageState()
-          .then((latest) => {
-            if (this.disposed || !this.backdrop) return;
-            const sig = JSON.stringify({ ...latest, generatedAt: 0 });
-            if (sig === this.lastPollSignature) return;
-            this.lastPollSignature = sig;
-            this.mounted?.update(latest);
-          })
-          .catch(() => undefined);
-      }, 2400);
-    }
+    this.ensurePolling();
+  }
+
+  private ensurePolling(): void {
+    if (this.pollTimer !== null || this.usingLocal || !this.port.remote || !this.backdrop) return;
+    this.pollTimer = window.setInterval(() => {
+      if (!this.backdrop || this.disposed || this.usingLocal || !this.port.remote) return;
+      void this.port.remote.stageState().then(latest => {
+        if (this.disposed || !this.backdrop) return;
+        const signature = JSON.stringify({ ...latest, generatedAt: 0 });
+        if (signature === this.lastPollSignature) return;
+        this.lastPollSignature = signature;
+        this.mounted?.update(latest);
+      }).catch(() => undefined);
+    }, 2400);
   }
 
   close(): void {

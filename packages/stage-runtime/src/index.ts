@@ -3,6 +3,7 @@ export * from "./time-types.ts";
 export * from "./time-model.ts";
 export * from "./time-engine.ts";
 export * from "./restart-deck.ts";
+export * from "./reflection.ts";
 export * from "./inbox-classifier.ts";
 export * from "./pulse.ts";
 export * from "./engine.ts";

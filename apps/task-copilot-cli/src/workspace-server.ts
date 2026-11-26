@@ -622,8 +622,8 @@ export async function startWorkspaceServer(options: {
                 return;
             }
             if (request.url === "/plugin/stage/journal-signals") {
-                const raw = workRecord(input, ["graphId", "graphName", "graphPath", "signals"]);
-                const graphId = workText(raw.graphId, 128);
+                const raw = workRecord(input, ["graphId", "graphName", "graphPath", "signals", "todayJournal"]);
+                const graphId = workText(raw.graphId, 2048);
                 const graphName = raw.graphName !== undefined ? workText(raw.graphName, 128) : graphId;
                 const graphPath = typeof raw.graphPath === "string" && raw.graphPath.startsWith("/") ? raw.graphPath : undefined;
                 if (!Array.isArray(raw.signals)) {
@@ -641,37 +641,50 @@ export async function startWorkspaceServer(options: {
                             : {}),
                         updatedAt: typeof rec.updatedAt === "number" && Number.isFinite(rec.updatedAt) ? rec.updatedAt : Date.now(),
                     }));
+                const todayRaw = raw.todayJournal === undefined ? undefined : workRecord(raw.todayJournal, ["date", "blocks"]);
+                const todayJournal = todayRaw && typeof todayRaw.date === "string" && Array.isArray(todayRaw.blocks)
+                    ? { date: todayRaw.date, blocks: todayRaw.blocks.slice(0, 80).map((item) => {
+                        const block = workRecord(item, ["blockUuid", "text", "at"]);
+                        return {
+                            blockUuid: workText(block.blockUuid, 128),
+                            text: typeof block.text === "string" ? block.text.slice(0, 8000) : "",
+                            ...(typeof block.at === "number" && Number.isFinite(block.at) ? { at: block.at } : {}),
+                        };
+                    }).filter(item => item.text.trim()) }
+                    : undefined;
                 const value = await stageHub.publishJournalSignals({
                     graphId,
                     graphName,
                     ...(graphPath ? { graphPath } : {}),
                     signals,
+                    ...(todayJournal ? { todayJournal } : {}),
                 });
                 send(response, 200, { instanceId, value });
                 return;
             }
             if (request.url === "/plugin/stage/pending-captures") {
-                workRecord(input, []);
-                const captures = await stageHub.getPendingJournalCaptures();
+                const raw = workRecord(input, ["graphId"]);
+                const captures = await stageHub.getPendingJournalCaptures(raw.graphId === undefined ? undefined : workText(raw.graphId, 2048));
                 send(response, 200, { instanceId, value: { captures } });
                 return;
             }
             if (request.url === "/plugin/stage/pending-captures/wait") {
-                const raw = workRecord(input, ["timeoutMs"]);
+                const raw = workRecord(input, ["timeoutMs", "graphId"]);
                 const timeoutMs =
                     typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs)
                         ? Math.min(25_000, Math.max(500, raw.timeoutMs))
                         : 20_000;
                 const cancellation = new AbortController();
                 response.once("close", () => { if (!response.writableEnded) cancellation.abort(); });
-                const captures = await stageHub.waitForPendingJournalCaptures(cancellation.signal, timeoutMs);
+                const captures = await stageHub.waitForPendingJournalCaptures(cancellation.signal, timeoutMs, raw.graphId === undefined ? undefined : workText(raw.graphId, 2048));
                 if (!response.destroyed) send(response, 200, { instanceId, value: { captures } });
                 return;
             }
             if (request.url === "/plugin/stage/pending-captures/ack") {
-                const raw = workRecord(input, ["captureId", "blockUuid", "pageName", "journalDate"]);
+                const raw = workRecord(input, ["captureId", "blockUuid", "pageName", "journalDate", "graphId"]);
                 const value = await stageHub.ackPendingJournalCapture({
                     captureId: workText(raw.captureId, 128),
+                    ...(raw.graphId === undefined ? {} : { graphId: workText(raw.graphId, 2048) }),
                     blockUuid: workText(raw.blockUuid, 128),
                     pageName: typeof raw.pageName === "string" ? raw.pageName.slice(0, 128) : "",
                     journalDate: typeof raw.journalDate === "string" ? raw.journalDate.slice(0, 16) : "",

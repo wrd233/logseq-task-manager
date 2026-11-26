@@ -6,6 +6,7 @@ import {
   TimeEngine,
   buildWorkRestartDeck,
   buildWorkbenchRestartDeck,
+  restartSlides,
   parseTimeRegistry,
   type StageInboxRawItem,
 } from "../src/index.ts";
@@ -38,7 +39,7 @@ function makeCatalog(obsAgeDays: number, netAgeDays = 1): CatalogSnapshot {
   };
 }
 
-test("Single work untouched >= 7d compresses to 2 slides when no changes happened, expands to 3 when voice/state updates exist", () => {
+test("Single-work recovery uses three paper pages and carries the exact native anchor", () => {
   const catalog = makeCatalog(10, 12);
   const obsKey = workKey(catalog.works[0]!.workRef);
   const engine = new StageEngine();
@@ -62,12 +63,13 @@ test("Single work untouched >= 7d compresses to 2 slides when no changes happene
     { title: "核心告警降噪升级", areaId: engine.getRegistry().areas[0]!.id, projectWorkKey: obsKey, slotId: "morning" },
     BASE_NOW - 10 * DAY_MS,
   );
+  timeEngine.pauseFocus(BASE_NOW - 10 * DAY_MS + 25 * 60_000, { stopNote: "已完成阈值压测，下一步写回滚清单", lastBlockUuid: "last-native-line" });
   timeEngine.finishFocus(
-    { stopNote: "已完成阈值压测，下一步写回滚清单" },
+    {},
     BASE_NOW - 10 * DAY_MS + 25 * 60_000,
   );
 
-  // Case A: zero objective changes since leaving -> strictly 2 slides!
+  // The middle page records the absence of changes without adding filler.
   const snapQuiet = engine.buildSnapshot([catalog], [], BASE_NOW, undefined, undefined, timeEngine.buildSnapshot(BASE_NOW));
   const areaQuiet = snapQuiet.areas[0]!;
   const projQuiet = areaQuiet.projects[0]!;
@@ -76,17 +78,19 @@ test("Single work untouched >= 7d compresses to 2 slides when no changes happene
   assert.ok(deckQuiet);
   assert.equal(deckQuiet.kind, "work-resume");
   assert.equal(deckQuiet.hasObjectiveChanges, false);
-  assert.equal(deckQuiet.slides.length, 2, "Must auto-compress to 2 slides when no objective changes occurred");
-  assert.equal(deckQuiet.slides[0]!.total, 2);
-  assert.equal(deckQuiet.slides[0]!.directLinkLabel, "直达 Logseq 原块");
-  assert.ok(deckQuiet.slides[0]!.lines.some((l) => l.includes("已完成阈值压测")));
-  assert.equal(deckQuiet.primaryActionLabel, "进入现场，开始专注");
+  assert.equal(deckQuiet.slides.length, 3);
+  assert.equal(deckQuiet.slides[0]!.total, 3);
+  assert.match(deckQuiet.slides[1]!.lines.join(" "), /没有新增相关记录/);
+  assert.equal(deckQuiet.lastBlockUuid, "last-native-line");
+  assert.ok(deckQuiet.slides[2]!.lines.some((l) => l.includes("已完成阈值压测")));
+  assert.equal(deckQuiet.slides[2]!.emphasis?.[0]?.source, "user");
+  assert.equal(deckQuiet.primaryActionLabel, "直达上次那一行");
   for (const slide of deckQuiet.slides) {
     assert.ok(slide.lines.length <= 3, `Slide ${slide.index} must have <= 3 lines`);
     assert.doesNotMatch(`${slide.kicker} ${slide.heading} ${slide.lines.join(" ")}`, /\p{Extended_Pictographic}/u);
   }
 
-  // Case B: iPhone voice fragment arrived during the 10-day gap -> expands to 3 slides!
+  // Keep the recorded voice snippet on the objective-changes page.
   const voiceInbox: StageInboxRawItem[] = [
     {
       id: "icloud-voice-1",
@@ -116,14 +120,14 @@ test("Single work untouched >= 7d compresses to 2 slides when no changes happene
   assert.ok(deckWithVoice);
   assert.equal(deckWithVoice.hasObjectiveChanges, true);
   assert.equal(deckWithVoice.slides.length, 3);
-  assert.match(deckWithVoice.slides[1]!.lines.join(" "), /手机语音/);
+  assert.match(deckWithVoice.slides[1]!.lines.join(" "), /iPhone 随口记/);
   for (const slide of deckWithVoice.slides) {
     assert.ok(slide.lines.length <= 3);
     assert.doesNotMatch(`${slide.kicker} ${slide.heading} ${slide.lines.join(" ")}`, /\p{Extended_Pictographic}/u);
   }
 });
 
-test("Workbench gap >= 3d builds restartDeck (2 or 3 slides), does not trigger on fresh install, and settles cleanly on ack", () => {
+test("Workbench gap >= 3d builds restartDeck (3 slides), does not trigger on fresh install, and settles cleanly on ack", () => {
   const catalog = makeCatalog(1, 2);
   const obsKey = workKey(catalog.works[0]!.workRef);
   const engine = new StageEngine();
@@ -188,10 +192,10 @@ test("Workbench gap >= 3d builds restartDeck (2 or 3 slides), does not trigger o
   assert.equal(gappedSnap.restartDeck!.kind, "workbench-gap");
   assert.equal(gappedSnap.restartDeck!.slides.length, 3, "Carryover + catalog updates produce 3 slides");
   assert.equal(gappedSnap.restartDeck!.canSettleCarryover, true);
-  assert.ok(gappedSnap.restartDeck!.slides[0]!.lines.some((l) => l.includes("留了一个待核对指标表")));
-  assert.ok(gappedSnap.restartDeck!.slides[1]!.lines.some((l) => l.includes("遗留托盘")));
+  assert.ok(gappedSnap.restartDeck!.slides[2]!.lines.some((l) => l.includes("留了一个待核对指标表")));
+  assert.ok(gappedSnap.restartDeck!.slides[1]!.lines.some((l) => l.includes("昨日遗留")));
 
-  // 3. Test 2-slide compression for workbench-gap when zero changes occurred
+  // 3. A quiet interval keeps the middle page available.
   const quietCatalog = makeCatalog(10, 12);
   const quietTime = new TimeEngine(
     parseTimeRegistry(
@@ -214,7 +218,7 @@ test("Workbench gap >= 3d builds restartDeck (2 or 3 slides), does not trigger o
   const quietWbDeck = buildWorkbenchRestartDeck({ snapshot: quietWbSnap, now: BASE_NOW });
   assert.ok(quietWbDeck);
   assert.equal(quietWbDeck.hasObjectiveChanges, false);
-  assert.equal(quietWbDeck.slides.length, 2, "Workbench-gap with zero changes must compress to 2 slides");
+  assert.equal(quietWbDeck.slides.length, 3);
 
   // 4. Acknowledge with settleCarryoverToWeek clears carryover to week and suppresses deck for today
   gappedTime.applyAction({ type: "ack-workbench-restart", settleCarryoverToWeek: true }, BASE_NOW);
@@ -228,4 +232,18 @@ test("Workbench gap >= 3d builds restartDeck (2 or 3 slides), does not trigger o
   // 1-step Undo restores carryover cleanly
   assert.equal(gappedTime.undoLastCommit(), true);
   assert.equal(gappedTime.buildSnapshot(BASE_NOW).carryoverItems.length, 1);
+});
+
+
+test("restart emphasis never exceeds three fragments per page and recomposes exact slide text", () => {
+  const repeated = {
+    heading: "恢复",
+    lines: Array.from({ length: 4 }, (_, index) => ({ text: `目标${index}卡点`, focus: "目标", risk: "卡点" })),
+  };
+  for (const page of restartSlides(repeated, repeated, repeated)) {
+    assert.equal(page.lines.length, 3);
+    const fragments = page.emphasis!.flatMap(line => line.fragments.filter(fragment => fragment.tone));
+    assert.equal(fragments.length, 3);
+    assert.deepEqual(page.emphasis!.map(line => line.fragments.map(fragment => fragment.text).join("")), page.lines);
+  }
 });

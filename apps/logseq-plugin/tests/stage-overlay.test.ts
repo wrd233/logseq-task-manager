@@ -443,7 +443,7 @@ test("Stage overlay supports direct zero-copy DSH jump across Area/Project/Neste
   }
 });
 
-test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/Esc keyboard nav, start focus, and legitimate exit", async () => {
+test("Restart paper has three bars, keyboard paging, native anchor and an optional exit", async () => {
   const restore = installDom();
   const DAY_MS = 86_400_000;
   const now = Date.now();
@@ -471,7 +471,7 @@ test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/E
   });
   engine.resolveProposals([{ proposalId: draft.id, action: "accept" }], now - 9 * DAY_MS);
 
-  // Workbench untouched for 5 days with zero external changes -> 2-slide compressed workbench-gap deck!
+  // A five-day gap with a saved anchor and a quiet interval.
   const timeEngine = new TimeEngine(
     parseTimeRegistry(
       {
@@ -479,7 +479,12 @@ test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/E
         weekMoves: [],
         dayItems: [],
         activeFocus: null,
-        focusHistory: [],
+        focusHistory: [{
+          id: "earlier-focus", title: "沉睡九天的架构重整", slotId: "morning",
+          date: "2026-11-20", weekKey: "2026-11-16", projectWorkKey: staleKey,
+          workRef: staleCatalog.works[0]!.workRef, lastBlockUuid: "last-line-id", stopNote: "下次核对边界",
+          startedAt: now - 5 * DAY_MS, endedAt: now - 5 * DAY_MS + 120000, durationMinutes: 2,
+        }],
         footprintCalendarEnabled: false,
         footprintCalendarName: "Task Copilot 足迹",
         lastWorkbenchActiveAt: now - 5 * DAY_MS,
@@ -494,44 +499,46 @@ test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/E
   const buildSnap = (): StageSnapshot =>
     engine.buildSnapshot([staleCatalog], [], now, undefined, undefined, timeEngine.buildSnapshot(now));
 
-  try {
-    const overlay = new GlobalStageOverlay({
-      remote: {
-        stageState: async () => buildSnap(),
-        stageAction: async (action) => {
-          if (action.type === "time") timeEngine.applyAction(action.action, now);
-          else engine.applyUserAction(action, { catalog: [staleCatalog], inbox: [], now });
-          return { snapshot: buildSnap(), archivedInboxIds: [] };
-        },
-        stageAnchor: async (key) => {
-          engine.anchorFromWorkKey(key, "logseq", now);
-          return buildSnap();
-        },
+  const overlay = new GlobalStageOverlay({
+    remote: {
+      stageState: async () => buildSnap(),
+      stageAction: async (action) => {
+        if (action.type === "time") timeEngine.applyAction(action.action, now);
+        else engine.applyUserAction(action, { catalog: [staleCatalog], inbox: [], now });
+        return { snapshot: buildSnap(), archivedInboxIds: [] };
       },
-      readLocalCatalog: async () => staleCatalog,
-      openProject: async () => undefined,
-      openFocusWork: async (session) => { navigated.push(session.title); },
-      promoteTodo: async () => undefined,
-      openExternalUrl: async () => undefined,
-      notify: () => undefined,
-    });
+      stageAnchor: async (key) => {
+        engine.anchorFromWorkKey(key, "logseq", now);
+        return buildSnap();
+      },
+    },
+    readLocalCatalog: async () => staleCatalog,
+    openProject: async () => undefined,
+    openTargetInLogseq: async target => { if (target.lastBlockUuid) navigated.push(target.lastBlockUuid); },
+    promoteTodo: async () => undefined,
+    openExternalUrl: async () => undefined,
+    notify: () => undefined,
+  });
 
-    // 1. Opening Stage triggers 2-slide workbench-gap deck
+  try {
+    const currentSlide = () => document.querySelector<HTMLElement>(".tcs-restart-card")?.dataset.restartSlide;
+    // 1. Opening Stage triggers workbench-gap recovery.
     await overlay.open();
     const card1 = document.querySelector<HTMLElement>(".tcs-restart-card");
     assert.ok(card1, "Workbench >3d gap should open Restart Flip-Card");
     assert.equal(card1.dataset.restartKind, "workbench-gap");
-    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+    assert.equal(currentSlide(), "1");
     assert.doesNotMatch(card1.textContent ?? "", /[\p{Extended_Pictographic}\u2190-\u21ff]/u);
 
-    // Space advances to slide 2 / 2
+    assert.equal(document.querySelectorAll("[data-restart-bar]").length, 3);
+    // Space advances to the middle page.
     window.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }));
-    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "2 / 2");
-    assert.match(document.querySelector(".tcs-restart-card")?.textContent ?? "", /进入现场，开始专注/);
+    assert.equal(currentSlide(), "2");
+    assert.match(document.querySelector(".tcs-restart-card")?.textContent ?? "", /没有新增记录/);
 
-    // ArrowLeft steps back to 1 / 2
+    // ArrowLeft steps back to the first page.
     window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
-    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+    assert.equal(currentSlide(), "1");
 
     // Esc skips restart deck WITHOUT closing the Stage overlay!
     window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -547,33 +554,78 @@ test("Restart Flip-Card Deck supports 2-slide/3-slide compression, Space/Arrow/E
     const workCard = document.querySelector<HTMLElement>(".tcs-restart-card");
     assert.ok(workCard, "Stale >7d project should open work-resume flip-card");
     assert.equal(workCard.dataset.restartKind, "work-resume");
-    assert.equal(document.querySelector("[data-restart-counter]")?.textContent, "1 / 2");
+    assert.equal(currentSlide(), "1");
     assert.match(workCard.textContent ?? "", /沉睡九天的架构重整/);
 
-    // ArrowRight to final slide -> test "进入现场，开始专注"
+    // ArrowRight to the last page, with the exact saved line.
     window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    assert.equal(currentSlide(), "3");
+    assert.ok(document.querySelectorAll(".tcs-restart-line strong").length <= 3);
     const startBtn = document.querySelector<HTMLButtonElement>("[data-restart-start]");
     assert.ok(startBtn);
     startBtn.click();
     await new Promise((r) => setTimeout(r, 30));
-    assert.equal(overlay.isOpen, false, "Starting focus from restart card closes overlay");
-    assert.ok(navigated.includes("沉睡九天的架构重整"));
-    assert.equal(timeEngine.buildSnapshot(now).activeFocus?.title, "沉睡九天的架构重整");
+    assert.equal(overlay.isOpen, false);
+    assert.deepEqual(navigated, ["last-line-id"]);
 
     // 3. Re-open L2 and click explicit "久别重启" button -> test legitimate exit "不再重要 · 移入搁置"
     await overlay.open();
     const reopenRestart = document.querySelector<HTMLButtonElement>("[data-l2-restart]");
     assert.ok(reopenRestart, "L2 stale project should offer manual 久别重启 trigger");
     reopenRestart.click();
-    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    document.querySelector<HTMLButtonElement>('[data-restart-bar="2"]')!.click();
     const parkExitBtn = document.querySelector<HTMLButtonElement>('[data-restart-exit="parked"]');
     assert.ok(parkExitBtn);
     parkExitBtn.click();
     await new Promise((r) => setTimeout(r, 30));
     assert.equal(engine.getRegistry().areas[0]!.focusRole, "parked");
-
-    overlay.dispose();
   } finally {
+    overlay.dispose();
+    restore();
+  }
+});
+
+test("reflection follows a trace and submits only the textarea's original input", async () => {
+  const restore = installDom();
+  const catalog = makeCatalog();
+  const engine = new StageEngine();
+  engine.setViewport({ activeTab: "reflect" });
+  const time = new TimeEngine().buildSnapshot();
+  const reflection = {
+    date: time.today, journalAvailable: true, ideas: [], pendingNoteIds: [],
+    traces: [{ id: "voice", label: "随口记", summary: "试走一遍", original: "一字未删的原话" },
+      { id: "sweep", label: "清扫", summary: "核对工单", original: "核对工单原记录" }],
+  };
+  const snapshot = () => ({ ...engine.buildSnapshot([catalog], [], Date.now(), undefined, undefined, time), reflection });
+  const writes: unknown[] = [];
+  const overlay = new GlobalStageOverlay({
+    remote: {
+      stageState: async () => snapshot(), stageAnchor: async () => snapshot(),
+      stageAction: async action => { writes.push(action); return { snapshot: snapshot(), archivedInboxIds: [] }; },
+    },
+    readLocalCatalog: async () => catalog,
+    openProject: async () => undefined, promoteTodo: async () => undefined,
+    openExternalUrl: async () => undefined, notify: () => undefined,
+  });
+  try {
+    await overlay.open();
+    const note = document.querySelector<HTMLTextAreaElement>(".tcs-reflection-editor")!;
+    document.querySelector<HTMLButtonElement>('[data-rf-follow="voice"]')!.click();
+    assert.equal(document.activeElement, note);
+    assert.ok(document.querySelector('[data-rf-trace="voice"].is-follow'));
+    assert.ok(document.querySelector(".has-follow"));
+    document.querySelector<HTMLButtonElement>("[data-rf-ask]")!.click();
+    assert.match(document.querySelector<HTMLElement>("[data-rf-question]")!.textContent ?? "", /今天/);
+    const text = "  第一行用自己的话\n\n第二行";
+    note.value = text;
+    note.form!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    assert.equal(writes.length, 1);
+    assert.deepEqual(Object.keys(writes[0] as object).sort(), ["date", "requestId", "text", "type"]);
+    assert.equal((writes[0] as { text: string }).text, text);
+  } finally {
+    overlay.dispose();
     restore();
   }
 });

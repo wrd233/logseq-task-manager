@@ -1,6 +1,8 @@
+import { createReflectionView, REFLECTION_CSS } from "./reflection-view.ts";
+import { reflectToday } from "./reflection.ts";
 import {
   SCHEDULE_PAPER_CSS, escapeStageText as esc, readyForDay, renderDayPaper, renderWeekPaper,
-  scheduleProject, scheduleSlots, scheduleTabDate,
+  paperButton, scheduleProject, scheduleSlots, scheduleTabDate,
 } from "./schedule-paper.ts";
 import { DEFAULT_SWEEP_WINDOW_TIME, pocketLabel } from "./inbox-classifier.ts";
 import { areaDomainLabel, defaultAreaPositionForRole, focusRoleLabel } from "./pulse.ts";
@@ -11,6 +13,7 @@ import {
 } from "./restart-deck.ts";
 import {
   buildSlotFrictionPrompt,
+  dateKeyFromMs,
   slotShortLabel,
 } from "./time-model.ts";
 import type {
@@ -365,6 +368,7 @@ export const STAGE_VIEW_CSS = `
 }
 .tcs-inbox-pane.is-collapsed { display: none; }
 ${SCHEDULE_PAPER_CSS}
+${REFLECTION_CSS}
 .tcs-amber-resonate {
   border-color: var(--tcs-warning) !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--tcs-warning) 32%, transparent),
@@ -500,50 +504,27 @@ ${SCHEDULE_PAPER_CSS}
   display: flex; flex-direction: column; gap: 14px;
 }
 .tcs-restart-overlay {
-  position: absolute; inset: 0; z-index: 18; display: flex; align-items: center; justify-content: center;
-  padding: 24px; background: color-mix(in srgb, var(--tcs-bg) 92%, transparent); backdrop-filter: blur(4px);
+  position: absolute; inset: 0; z-index: 18; overflow: auto;
+  background: var(--tcs-paper); color: var(--tcs-paper-ink); padding: 42px 28px 56px; user-select: text;
 }
-.tcs-restart-card {
-  max-width: 560px; width: 100%; min-height: 292px; border-radius: 14px;
-  border: 1px solid var(--tcs-border); background: #ffffff; color: #14171a;
-  padding: 28px 32px 24px; box-shadow: var(--tcs-shadow-lg);
-  display: flex; flex-direction: column; justify-content: space-between; gap: 22px;
+.tcs-restart-card { max-width: 660px; margin: 0 auto; width: 100%; }
+.tcs-restart-bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 42px; }
+.tcs-root .tcs-restart-bar {
+  border: 0; border-top: 1.5px solid var(--tcs-paper-hair); padding: 7px 0 0; background: transparent; cursor: pointer;
+  font-size: 12px; text-align: left; color: var(--tcs-paper-muted);
 }
-.tcs-root[data-theme="dark"] .tcs-restart-card {
-  background: #1b1f25; color: #eceff4; border-color: #343b46;
-}
-.tcs-restart-meta {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  font-size: 11.5px; color: var(--tcs-muted);
-}
-.tcs-restart-main {
-  display: flex; flex-direction: column; gap: 14px;
-}
-.tcs-restart-heading {
-  font-size: 18px; font-weight: 600; line-height: 1.38; letter-spacing: -0.01em;
-}
-.tcs-restart-lines {
-  display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.65;
-}
-.tcs-restart-line {
-  padding-left: 11px; border-left: 2px solid var(--tcs-border);
-}
-.tcs-restart-link {
-  align-self: flex-start; border: none; background: transparent; padding: 0;
-  color: var(--tcs-primary); font-size: 12.5px; cursor: pointer; text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.tcs-restart-link:hover { opacity: 0.8; }
-.tcs-restart-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding-top: 14px; border-top: 1px solid var(--tcs-card-border);
-}
-.tcs-restart-actions {
-  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;
-}
-.tcs-restart-kbd {
-  font-size: 11.5px; color: var(--tcs-muted);
-}
+.tcs-root .tcs-restart-bar.is-passed, .tcs-root .tcs-restart-bar[aria-current="step"] { border-top-color: var(--tcs-paper-ink); }
+.tcs-root .tcs-restart-bar[aria-current="step"] { font-weight: 600; color: var(--tcs-paper-ink); }
+.tcs-restart-heading { margin: 0 0 22px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.tcs-restart-lines { display: grid; gap: 20px; font-size: 16px; line-height: 1.82; }
+.tcs-restart-line { margin: 0; border-left: 1px dashed var(--tcs-paper-hair); padding-left: 14px; overflow-wrap: anywhere; }
+.tcs-restart-line.is-user { border-left: 2px solid var(--tcs-paper-ink); }
+.tcs-restart-line strong[data-tone="focus"] { color: var(--tcs-paper-blue); }
+.tcs-restart-line strong[data-tone="risk"] { color: var(--tcs-paper-amber); }
+.tcs-restart-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--tcs-paper-hair); margin-top: 54px; padding-top: 14px; }
+.tcs-restart-main { animation: tcs-restart-enter 220ms ease-out; }
+@keyframes tcs-restart-enter { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tcs-restart-main { animation: none; } }
 .tcs-tether-svg { pointer-events: none; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; overflow: visible; }
 .tcs-empty {
   max-width: 520px; margin: 44px auto; text-align: center; padding: 26px;
@@ -610,6 +591,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
           <button type="button" class="tcs-tab" role="tab" data-tcs-tab="week">本周</button>
           <button type="button" class="tcs-tab" role="tab" data-tcs-tab="today">今日 · 早间拍板</button>
           <button type="button" class="tcs-tab" role="tab" data-tcs-tab="tomorrow">明日 · 前晚构思</button>
+          <button type="button" class="tcs-tab" role="tab" data-tcs-tab="reflect">安静回望室</button>
         </div>
         <button type="button" class="tcs-btn" data-tcs-zoom-out disabled>拉远</button>
         <div class="tcs-bc" data-tcs-bc></div>
@@ -756,66 +738,45 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
   };
 
   const renderRestartDeck = () => {
+    root.toggleAttribute("data-restart-view", Boolean(activeRestartDeck));
     if (!activeRestartDeck || activeRestartDeck.slides.length === 0) {
       restartEl.style.display = "none";
       restartEl.innerHTML = "";
       return;
     }
     const deck = activeRestartDeck;
-    const clampedIndex = Math.max(0, Math.min(deck.slides.length - 1, restartSlideIndex));
-    restartSlideIndex = clampedIndex;
-    const slide = deck.slides[clampedIndex]!;
-    const isFirst = clampedIndex === 0;
-    const isLast = clampedIndex === deck.slides.length - 1;
+    restartSlideIndex = Math.max(0, Math.min(deck.slides.length - 1, restartSlideIndex));
+    const slide = deck.slides[restartSlideIndex]!;
+    const isFirst = restartSlideIndex === 0;
+    const isLast = restartSlideIndex === deck.slides.length - 1;
+    let emphasized = 0;
+    const linesHtml = slide.emphasis?.slice(0, 3).map(line => {
+      const fragments = line.fragments.map(fragment => fragment.tone && emphasized++ < 3
+        ? `<strong data-tone="${fragment.tone === "risk" ? "risk" : "focus"}">${esc(fragment.text)}</strong>`
+        : esc(fragment.text)).join("");
+      return `<p class="tcs-restart-line${line.source === "user" ? " is-user" : ""}">${fragments}</p>`;
+    }).join("") ?? slide.lines.slice(0, 3).map(line => `<p class="tcs-restart-line">${esc(line)}</p>`).join("");
+    const bars = deck.slides.map((page, index) => `<button type="button" class="tcs-restart-bar${index < restartSlideIndex ? " is-passed" : ""}" data-restart-bar="${index}" ${index === restartSlideIndex ? 'aria-current="step"' : ""}>${esc(page.kicker)}</button>`).join("");
+    const exits = isLast
+      ? (deck.canSettleCarryover ? paperButton("旧遗留退回本周", "data-restart-settle-carryover") : "") +
+        (deck.exitAreaId ? paperButton("转入维护", 'data-restart-exit="maintenance"') + paperButton("移入搁置", 'data-restart-exit="parked"') : "")
+      : "";
 
-    const linesHtml = slide.lines
-      .slice(0, 3)
-      .map((line) => `<div class="tcs-restart-line">${esc(line)}</div>`)
-      .join("");
-
-    const linkHtml =
-      slide.directLinkLabel && deck.projectWorkKey && (port.onOpenInLogseq || port.onOpenWork)
-        ? `<button type="button" class="tcs-restart-link" data-restart-open-source>${esc(slide.directLinkLabel)}</button>`
-        : "";
-
-    const actionsHtml = isLast
-      ? `
-        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>上一页</button>` : ""}
-        ${deck.canSettleCarryover ? `<button type="button" class="tcs-btn tcs-btn-sm" data-restart-settle-carryover>旧遗留退回本周</button>` : ""}
-        ${
-          deck.exitAreaId
-            ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-exit="maintenance">转入维护</button>
-               <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-exit="parked">不再重要 · 移入搁置</button>`
-            : ""
-        }
-        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-start>${esc(deck.primaryActionLabel)}</button>
-      `
-      : `
-        ${!isFirst ? `<button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-prev>上一页</button>` : ""}
-        <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-primary" data-restart-next>下一页</button>
-      `;
-
-    restartEl.style.display = "flex";
-    restartEl.innerHTML = `
-      <div class="tcs-restart-card tcs-anim-in" role="dialog" aria-modal="true" aria-label="${esc(deck.title)}" data-restart-kind="${esc(deck.kind)}" data-restart-slide="${slide.index}">
-        <div class="tcs-restart-meta">
-          <span>${esc(slide.kicker)}</span>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span data-restart-counter>${slide.index} / ${slide.total}</span>
-            <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-ghost" data-restart-skip>Esc 跳过</button>
-          </div>
-        </div>
-        <div class="tcs-restart-main">
-          <div class="tcs-restart-heading">${esc(slide.heading)}</div>
-          <div class="tcs-restart-lines">${linesHtml}</div>
-          ${linkHtml}
-        </div>
-        <div class="tcs-restart-foot">
-          <span class="tcs-restart-kbd">${isLast ? "方向左键 上一页 · Esc 跳过" : "空格 / 方向右键 下一页 · Esc 跳过"}</span>
-          <div class="tcs-restart-actions">${actionsHtml}</div>
-        </div>
+    restartEl.style.display = "block";
+    restartEl.innerHTML = `<div class="tcs-restart-card" role="dialog" aria-modal="true" aria-label="${esc(deck.title)}" data-restart-kind="${esc(deck.kind)}" data-restart-slide="${slide.index}">
+      <nav class="tcs-restart-bars" aria-label="恢复页">${bars}</nav>
+      <div class="tcs-restart-main">
+        <h2 class="tcs-restart-heading">${esc(slide.heading)}</h2>
+        <div class="tcs-restart-lines">${linesHtml}</div>
       </div>
-    `;
+      <footer class="tcs-restart-foot">
+        ${paperButton("跳过", 'data-restart-skip title="Esc"')}
+        <div class="tcs-paper-actions">
+          ${!isFirst ? paperButton("上一页", "data-restart-prev") : ""}${exits}
+          ${isLast ? paperButton(esc(port.source !== "logseq" && deck.workRef ? "进入现场并专注" : deck.primaryActionLabel), "data-restart-start", true) : paperButton("下一页", "data-restart-next", true)}
+        </div>
+      </footer>
+    </div>`;
   };
 
   const openRestartDeck = (deck: RestartDeck) => {
@@ -1812,6 +1773,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     `;
   };
 
+  let reflectionView: ReturnType<typeof createReflectionView> | undefined;
+  const renderReflection = (snap: StageSnapshot) => {
+    reflectionView ??= createReflectionView(root.ownerDocument, {
+      dispatch: action => runAction(action),
+      ...(port.onOpenTargetInLogseq ? { onOpen: port.onOpenTargetInLogseq } : {}),
+    });
+    if (reflectionView.element.parentElement !== stageEl) stageEl.replaceChildren(reflectionView.element);
+    reflectionView.update(snap.reflection ?? reflectToday({ date: snap.time?.today ?? dateKeyFromMs(Date.now()) }));
+  };
+
   const renderSchedule = (snap: StageSnapshot, animation = "") => {
     if (snap.viewport.activeTab === "week") {
       stageEl.innerHTML = renderWeekPaper(snap, animation);
@@ -1857,7 +1828,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-primary" data-pill-accept-all>全部留下</button>
         <button type="button" class="tcs-btn tcs-btn-sm tcs-btn-pill tcs-btn-ghost" data-pill-dismiss-all>全部散去</button>
       `;
-    } else if (activeTab !== "season" && timeGhosts.length > 0) {
+    } else if (activeTab !== "season" && activeTab !== "reflect" && timeGhosts.length > 0) {
       const firstAgent = timeGhosts[0]?.agent ?? "Agent";
       pillEl.style.display = "flex";
       pillEl.innerHTML = `
@@ -1939,16 +1910,18 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       "is-sweep-ready",
       isSweepWindowActive(pockets?.sweepWindowTime ?? DEFAULT_SWEEP_WINDOW_TIME) && sweepCnt > 0,
     );
-    inboxPaneEl.classList.toggle("is-collapsed", activeTab === "season" ? inboxCollapsed : !scheduleInboxOpen);
+    inboxPaneEl.classList.toggle("is-collapsed", activeTab === "reflect" || (activeTab === "season" ? inboxCollapsed : !scheduleInboxOpen));
 
     // Header contextual controls
     const isSeason = activeTab === "season";
     root.toggleAttribute("data-paper-view", !isSeason);
+    discussBtn.style.display = activeTab === "reflect" ? "none" : "";
+    inboxToggleBtn.style.display = activeTab === "reflect" ? "none" : "";
     zoomOutBtn.style.display = isSeason ? "inline-flex" : "none";
     zoomOutBtn.disabled = next.viewport.zoomLevel === 0 && !coldProposal && !port.onRequestClose;
     coldStartBtn.style.display = isSeason ? "inline-flex" : "none";
     legendEl.style.display = isSeason ? "flex" : "none";
-    undoBtn.style.display = (isSeason ? next.canUndo : Boolean(next.time?.canUndo)) ? "inline-flex" : "none";
+    undoBtn.style.display = activeTab !== "reflect" && (isSeason ? next.canUndo : Boolean(next.time?.canUndo)) ? "inline-flex" : "none";
     if (popoutBtn) popoutBtn.style.display = next.appUrl ? "inline-flex" : "none";
 
     if (isSeason) {
@@ -1972,7 +1945,9 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       bcEl.innerHTML = "";
     }
 
-    if (!isSeason) {
+    if (activeTab === "reflect") {
+      renderReflection(next);
+    } else if (!isSeason) {
       renderSchedule(next, animCls);
     } else if (coldProposal) {
       renderColdStart(coldProposal);
@@ -1991,7 +1966,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     renderOverlays(next);
     renderL3(next);
 
-    if (!activeRestartDeck) {
+    if (!activeRestartDeck && activeTab !== "reflect") {
       if (next.restartDeck && !dismissedRestartIds.has(next.restartDeck.id)) {
         openRestartDeck(next.restartDeck);
       } else if (activeTab === "season" && next.viewport.zoomLevel === 2 && next.viewport.projectWorkKey) {
@@ -2202,14 +2177,10 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
       renderRestartDeck();
       return;
     }
-    if (target.closest("[data-restart-open-source]") && activeRestartDeck) {
-      const deck = activeRestartDeck;
-      const proj = findProject(deck.areaId ?? null, deck.projectWorkKey ?? null);
-      dismissRestartDeck(true);
-      if (proj) {
-        if (port.onOpenInLogseq) void port.onOpenInLogseq(proj);
-        else if (port.onOpenWork) void port.onOpenWork(proj);
-      }
+    const restartBar = target.closest<HTMLElement>("[data-restart-bar]")?.dataset.restartBar;
+    if (restartBar !== undefined && activeRestartDeck) {
+      restartSlideIndex = Number(restartBar);
+      renderRestartDeck();
       return;
     }
     if (target.closest("[data-restart-settle-carryover]") && activeRestartDeck) {
@@ -2249,35 +2220,30 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     }
     if (target.closest("[data-restart-start]") && activeRestartDeck) {
       const deck = activeRestartDeck;
-      dismissedRestartIds.add(deck.id);
-      activeRestartDeck = null;
-      restartSlideIndex = 0;
-      renderRestartDeck();
-      const launchFocus = async () => {
-        if (deck.kind === "workbench-gap") {
-          await port.dispatch({ type: "time", action: { type: "ack-workbench-restart" } });
+      dismissRestartDeck(false);
+      const open = async () => {
+        if (deck.kind === "workbench-gap") await runAction({ type: "time", action: { type: "ack-workbench-restart" } });
+        if (deck.workRef?.kind === "logseq" && port.source === "logseq" && port.onOpenTargetInLogseq) {
+          await port.onOpenTargetInLogseq({
+            workRef: deck.workRef, title: deck.title,
+            ...(deck.projectWorkKey ? { workKey: deck.projectWorkKey } : {}),
+            ...(deck.pageTitle ? { pageTitle: deck.pageTitle } : {}),
+            ...(deck.lastBlockUuid ? { lastBlockUuid: deck.lastBlockUuid } : {}),
+          });
+          return;
         }
-        const res = await port.dispatch({
-          type: "time",
-          action: {
-            type: "start-focus",
-            title: deck.suggestedActionTitle,
-            slotId: "morning",
-            areaId: deck.areaId ?? null,
-            projectWorkKey: deck.projectWorkKey ?? null,
-            workRef: deck.workRef ?? null,
-            ...(deck.focusRole ? { focusRole: deck.focusRole } : {}),
-          },
-        });
-        if (res && !disposed) update(res);
-        const active = res?.time?.activeFocus ?? snapshot?.time?.activeFocus;
-        if (active && port.onFocusStarted) {
-          await port.onFocusStarted(active);
-        } else {
-          showToast(`已进入现场并开始专注：${deck.suggestedActionTitle}`);
-        }
+        if (!deck.workRef && port.onOpenJournal) { await port.onOpenJournal(); return; }
+        const next = await port.dispatch({ type: "time", action: {
+          type: "start-focus", title: deck.suggestedActionTitle, slotId: "morning",
+          areaId: deck.areaId ?? null, projectWorkKey: deck.projectWorkKey ?? null, workRef: deck.workRef ?? null,
+          ...(deck.lastBlockUuid ? { lastBlockUuid: deck.lastBlockUuid } : {}),
+          ...(deck.focusRole ? { focusRole: deck.focusRole } : {}),
+        } });
+        if (next && !disposed) update(next);
+        const focus = next?.time?.activeFocus;
+        if (focus) await port.onFocusStarted?.(focus);
       };
-      void launchFocus().catch((e) => showToast(e instanceof Error ? e.message : "启动专注失败"));
+      void open().catch(error => showToast(error instanceof Error ? error.message : "无法进入现场"));
       return;
     }
     const l2RestartKey = target.closest<HTMLElement>("[data-l2-restart]")?.dataset.l2Restart;
@@ -2359,6 +2325,16 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
         const project = scheduleProject(snapshot, item.projectWorkKey);
         const child = project?.childWorks.find((entry) => entry.workKey === item.projectWorkKey);
         const workRef = item.workRef ?? child?.workRef ?? project?.workRef;
+        const area = snapshot.areas.find(entry => entry.projects.some(work => work.workKey === project?.workKey));
+        if (project && area && (child || (workRef?.kind === "logseq" && project.workRef.kind === "logseq" && workRef.rootUuid === project.workRef.rootUuid))) {
+          const target = child ? { ...project, ...child, advancements: [] } : project;
+          const deck = buildWorkRestartDeck({ project: target, area, snapshot });
+          if (deck && !dismissedRestartIds.has(deck.id)) {
+            openRestartDeck(deck);
+            return;
+          }
+        }
+
         const open = workRef?.kind === "logseq" ? port.onOpenTargetInLogseq?.({ workRef, title: item.title,
           ...(item.projectWorkKey ? { workKey: item.projectWorkKey } : {}),
           ...(project ? { pageTitle: child?.title ?? project.title } : {}),
@@ -3035,7 +3011,7 @@ export function mountSharedStageView(container: HTMLElement, port: StageViewPort
     drawTethers();
   };
   const onRestartKeyDown = (event: KeyboardEvent) => {
-    if (!activeRestartDeck) return;
+    if (!activeRestartDeck || event.defaultPrevented || event.isComposing) return;
     const tag = (event.target as HTMLElement | null)?.tagName ?? "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (event.key === "Escape") {

@@ -7,10 +7,13 @@ import { readSelectedPages, saveSelectedPages, resolveSelectedPage } from "./cat
 import type { SourceScope } from "../../workspace/source-protocol.ts";
 import { collectCatalog, type CatalogBlock, type CatalogFormal } from "./work-catalog.ts";
 import { buildPageMetaMap, catalogChoiceKeys, catalogContext, explainBlockWork, isIncluded, readCatalogBlocks, readCatalogPages, readDiscovery, selectedPageFor, writeDiscovery } from "./catalog-local.ts";
+import { appendEveningNote, collectJournalFootprints } from "../stage/evening-journal.ts";
 import { appendCaptureToJournalDate, collectJournalInboxSignals, readRecentJournalBlocks } from "./journal-inbox.ts";
 
 interface PendingJournalCapturePayload {
   captureId: string;
+  text?: string;
+  graphId?: string;
   formattedLine: string;
   journalDate: string;
 }
@@ -20,6 +23,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
   let disposed = false, generation = 0, publishing = false, publishAgain = false, timer: number;
   let preferencesQueue = Promise.resolve();
   let captureLoopRunning = false;
+  let graphScopedQueue = false;
   let captureLoopAbort: AbortController | null = null;
   const processedCaptureIds = new Set<string>();
   const listeners = new Set<() => void>();
@@ -136,21 +140,20 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
         }
       }
       const signals = collectJournalInboxSignals({ blocks: journalBlocks, archivedPageNames: archivedNames });
-      const sigRes = await fetch(`${descriptor.baseUrl}/plugin/stage/journal-signals`, {
+      const postJournal = (payload: object) => fetch(`${descriptor.baseUrl}/plugin/stage/journal-signals`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           "x-workspace-plugin": descriptor.pluginToken,
           "x-workspace-instance": descriptor.instanceId,
         },
-        body: JSON.stringify({
-          graphId,
-          graphName: scope.graphName,
-          ...(graphPath ? { graphPath } : {}),
-          signals,
-        }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(8000),
       });
+      const journal = { graphId, graphName: scope.graphName, ...(graphPath ? { graphPath } : {}), signals };
+      let sigRes = await postJournal({ ...journal, todayJournal: collectJournalFootprints(journalBlocks) });
+      graphScopedQueue = sigRes.ok;
+      if (sigRes.status === 400) sigRes = await postJournal(journal);
       if (sigRes.ok) {
         const parsedSig = (await sigRes.json()) as { value?: { pendingCaptures?: number } };
         if ((parsedSig.value?.pendingCaptures ?? 0) > 0) {
@@ -165,22 +168,28 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
 
   const flushCaptures = async (descriptor: WorkspacePluginDescriptor, captures: readonly PendingJournalCapturePayload[]) => {
     if (disposed || captures.length === 0) return;
-    if (!await logseq.App.getCurrentGraph()) return;
+    const graph = await logseq.App.getCurrentGraph();
+    if (!graph) return;
+    const graphId = graphIdentity(graph);
     const allPages = (await logseq.Editor.getAllPages()) ?? [];
     for (const cap of captures) {
-      if (disposed || processedCaptureIds.has(cap.captureId)) continue;
+      if (disposed || processedCaptureIds.has(cap.captureId) || (cap.graphId && cap.graphId !== graphId)) continue;
       processedCaptureIds.add(cap.captureId);
       try {
-        const appended = await appendCaptureToJournalDate({
-          journalDate: cap.journalDate,
-          formattedLine: cap.formattedLine,
-          allPages,
-        });
+        const evening = cap.captureId.startsWith("evening:");
+        const appended = evening && cap.graphId && typeof cap.text === "string"
+          ? await appendEveningNote({
+            uuid: cap.captureId.slice("evening:".length), text: cap.text, journalDate: cap.journalDate,
+            graphId: cap.graphId, pages: allPages,
+          })
+          : !evening ? await appendCaptureToJournalDate({
+            journalDate: cap.journalDate, formattedLine: cap.formattedLine, allPages,
+          }) : null;
         if (!appended) {
           processedCaptureIds.delete(cap.captureId);
           continue;
         }
-        await fetch(`${descriptor.baseUrl}/plugin/stage/pending-captures/ack`, {
+        const ack = await fetch(`${descriptor.baseUrl}/plugin/stage/pending-captures/ack`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -192,9 +201,11 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
             blockUuid: appended.blockUuid,
             pageName: appended.pageName,
             journalDate: appended.journalDate,
+            ...(evening ? { graphId } : {}),
           }),
           signal: AbortSignal.timeout(8000),
         });
+        if (evening && !ack.ok) throw new Error("手记回执尚未保存");
       } catch {
         processedCaptureIds.delete(cap.captureId);
       }
@@ -203,6 +214,8 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
 
   const drainPendingCaptures = async (descriptor: WorkspacePluginDescriptor) => {
     try {
+      const graph = await logseq.App.getCurrentGraph();
+      if (!graph) return;
       const res = await fetch(`${descriptor.baseUrl}/plugin/stage/pending-captures`, {
         method: "POST",
         headers: {
@@ -210,7 +223,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
           "x-workspace-plugin": descriptor.pluginToken,
           "x-workspace-instance": descriptor.instanceId,
         },
-        body: "{}",
+        body: JSON.stringify(graphScopedQueue ? { graphId: graphIdentity(graph) } : {}),
         signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) return;
@@ -235,6 +248,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
         const controller = new AbortController();
         captureLoopAbort = controller;
         try {
+          const graph = await logseq.App.getCurrentGraph();
           const res = await fetch(`${activeDesc.baseUrl}/plugin/stage/pending-captures/wait`, {
             method: "POST",
             headers: {
@@ -242,7 +256,7 @@ export function installCatalogPublisher(formal: () => Promise<CatalogFormal[]>, 
               "x-workspace-plugin": activeDesc.pluginToken,
               "x-workspace-instance": activeDesc.instanceId,
             },
-            body: JSON.stringify({ timeoutMs: 20_000 }),
+            body: JSON.stringify({ timeoutMs: 20_000, ...(graphScopedQueue && graph ? { graphId: graphIdentity(graph) } : {}) }),
             signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25_000)]),
           });
           if (disposed) break;

@@ -81,6 +81,11 @@ export class TimeHub {
     });
   }
 
+  async reflectionFocus(date: string): Promise<CompletedFocusRecord[]> {
+    await this.ensureLoaded();
+    return this.engine.getRegistry().focusHistory.filter(record => dateKeyFromMs(record.endedAt) === date);
+  }
+
   async calendarStatus(forceRefresh = true): Promise<CalendarDiagnostics> {
     await this.ensureLoaded();
     const { diagnostics } = await this.readWeekCalendar(Date.now(), forceRefresh);

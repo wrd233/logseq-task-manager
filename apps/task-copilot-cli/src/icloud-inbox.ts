@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   COOLED_INBOX_DAYS,
+  dateKeyFromMs,
   recencyDays,
   type StageInboxAiHint,
   type StageInboxFlowLedgerEntry,
@@ -67,6 +68,7 @@ export interface IcloudInboxFsOps {
 }
 
 export interface IcloudInboxScanResult {
+  todayVoice?: StageInboxRawItem[];
   items: StageInboxRawItem[];
   signatureById: Map<string, string>;
   diagnostic: StageInboxSourceDiagnostic;
@@ -263,10 +265,10 @@ export function parseShortcutFilenameTimestamp(filename: string): number | null 
 function parseSourceAndText(
   filename: string,
   rawContent: string,
-): { sourceType: string; sourceLabel: string; text: string } {
+): { sourceType: string; sourceLabel: string; text: string; original: string } {
   const stripped = rawContent.replace(/^\uFEFF/u, "").trim();
   if (!stripped) {
-    return { sourceType: "ios-shortcut", sourceLabel: "iPhone 随口记", text: "" };
+    return { sourceType: "ios-shortcut", sourceLabel: "iPhone 随口记", text: "", original: "" };
   }
 
   let sourceType = "ios-shortcut";
@@ -292,7 +294,7 @@ function parseSourceAndText(
   }
 
   const normalized = body.replace(/\s+/gu, " ").trim().slice(0, 400);
-  return { sourceType, sourceLabel, text: normalized };
+  return { sourceType, sourceLabel, text: normalized, original: body };
 }
 
 function isPermissionError(code: string | undefined): boolean {
@@ -303,6 +305,7 @@ export async function scanIcloudInbox(options: {
   directory: string;
   archivedIds: ReadonlySet<string>;
   archivedSignatures: ReadonlySet<string>;
+  collectTodayVoice?: boolean;
   now?: number;
   fsOps?: Partial<IcloudInboxFsOps>;
 }): Promise<IcloudInboxScanResult> {
@@ -310,6 +313,8 @@ export async function scanIcloudInbox(options: {
   const dir = resolve(options.directory);
   const fsOps: IcloudInboxFsOps = { ...DEFAULT_FS_OPS, ...options.fsOps };
   const signatureById = new Map<string, string>();
+  const todayVoice = new Map<string, StageInboxRawItem>();
+  const today = dateKeyFromMs(now);
 
   let entries: string[];
   try {
@@ -410,7 +415,7 @@ export async function scanIcloudInbox(options: {
       if (info.size === 0 || info.size > 256 * 1024) continue;
 
       const rawContent = String(await fsOps.readFile(fullPath, "utf8"));
-      const { sourceType, sourceLabel, text } = parseSourceAndText(name, rawContent);
+      const { sourceType, sourceLabel, text, original } = parseSourceAndText(name, rawContent);
       if (!text) continue;
 
       const contentHash = createHash("sha256").update(text).digest("hex").slice(0, 16);
@@ -420,6 +425,15 @@ export async function scanIcloudInbox(options: {
 
       signatureById.set(id, signature);
 
+      const parsedTs = parseShortcutFilenameTimestamp(name);
+      const mtimeMs = Number.isFinite(info.mtimeMs) && info.mtimeMs > 0 ? info.mtimeMs : now;
+      const birthtimeMs = Number.isFinite(info.birthtimeMs) && info.birthtimeMs > 0 ? info.birthtimeMs : mtimeMs;
+      const createdAt = parsedTs ?? birthtimeMs;
+      const effectiveUpdatedAt = parsedTs ?? mtimeMs;
+      if (options.collectTodayVoice && sourceType === "ios-shortcut" && dateKeyFromMs(createdAt) === today && !todayVoice.has(id)) {
+        todayVoice.set(id, { id, text: original.slice(0, 4000), status: "open", createdAt, updatedAt: effectiveUpdatedAt, sourceType, sourceLabel, sourcePath: name });
+      }
+
       if (options.archivedIds.has(id) || options.archivedSignatures.has(signature)) continue;
       if (seenSignatures.has(signature)) continue;
       // Deduplicate identical-content conflict copies in the same scan
@@ -427,12 +441,6 @@ export async function scanIcloudInbox(options: {
 
       seenSignatures.add(signature);
       seenContentHashes.add(contentHash);
-
-      const parsedTs = parseShortcutFilenameTimestamp(name);
-      const mtimeMs = Number.isFinite(info.mtimeMs) && info.mtimeMs > 0 ? info.mtimeMs : now;
-      const birthtimeMs = Number.isFinite(info.birthtimeMs) && info.birthtimeMs > 0 ? info.birthtimeMs : mtimeMs;
-      const createdAt = parsedTs ?? birthtimeMs;
-      const effectiveUpdatedAt = parsedTs ?? mtimeMs;
 
       if (recencyDays(effectiveUpdatedAt, now) >= COOLED_INBOX_DAYS) {
         cooledCount++;
@@ -460,6 +468,7 @@ export async function scanIcloudInbox(options: {
 
   return {
     items,
+    ...(options.collectTodayVoice ? { todayVoice: [...todayVoice.values()] } : {}),
     signatureById,
     diagnostic: {
       source: "icloud",

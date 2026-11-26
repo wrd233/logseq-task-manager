@@ -228,7 +228,7 @@ export class StageEngine {
 
   setViewport(patch: Partial<StageViewport>, source?: StageViewportSource, now = Date.now()): StageViewport {
     const activeTab: StageViewTab =
-      patch.activeTab === "season" || patch.activeTab === "week" || patch.activeTab === "today" || patch.activeTab === "tomorrow"
+      patch.activeTab === "season" || patch.activeTab === "week" || patch.activeTab === "today" || patch.activeTab === "tomorrow" || patch.activeTab === "reflect"
         ? patch.activeTab
         : this.viewport.activeTab ?? "season";
     const level: StageZoomLevel =
@@ -1151,6 +1151,8 @@ export class StageEngine {
       case "clear-radar":
         this.clearRadar();
         return { mutatedRegistry: false, archivedInboxIds: [] };
+      case "save-evening-note":
+      case "append-idea-note":
       case "time":
         return { mutatedRegistry: false, archivedInboxIds: [] };
       case "undo":

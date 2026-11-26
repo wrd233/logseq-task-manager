@@ -35,6 +35,7 @@ export interface JournalSignalsFile {
 }
 
 export interface PendingJournalCapture {
+  graphId?: string;
   captureId: string;
   text: string;
   formattedLine: string;
@@ -122,7 +123,8 @@ export async function readPendingJournalCaptures(stateDir: string): Promise<Pend
           : undefined;
       out.push({
         captureId: rec.captureId,
-        text: rec.text.slice(0, 400),
+        ...(typeof rec.graphId === "string" ? { graphId: rec.graphId } : {}),
+        text: rec.captureId.startsWith("evening:") ? rec.text : rec.text.slice(0, 400),
         formattedLine: rec.formattedLine.slice(0, 500),
         sourceAgent: typeof rec.sourceAgent === "string" && rec.sourceAgent ? rec.sourceAgent.slice(0, 64) : "agent",
         ...(typeof rec.contextTitle === "string" && rec.contextTitle ? { contextTitle: rec.contextTitle.slice(0, 120) } : {}),

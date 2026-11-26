@@ -1,7 +1,7 @@
 import type { WorkRef } from "@task-copilot/contracts";
 import type { StageFocusRole } from "./types.ts";
 
-export type StageViewTab = "season" | "week" | "today" | "tomorrow";
+export type StageViewTab = "season" | "week" | "today" | "tomorrow" | "reflect";
 export type TimeSlotId = "morning" | "afternoon" | "evening";
 
 export interface SemanticSlotSpec {

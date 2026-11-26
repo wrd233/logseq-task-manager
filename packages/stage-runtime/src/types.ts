@@ -1,4 +1,5 @@
 import type { CatalogWork, WorkRef } from "@task-copilot/contracts";
+import type { ReflectionAction, ReflectionSnapshot } from "./reflection.ts";
 import type { RestartDeck } from "./restart-deck.ts";
 import type { StageViewTab, TimeSnapshot, TimeUserAction } from "./time-types.ts";
 
@@ -393,6 +394,7 @@ export interface StageSnapshot {
   inboxDiagnostics?: StageInboxDiagnostics;
   time?: TimeSnapshot;
   restartDeck?: RestartDeck | null;
+  reflection?: ReflectionSnapshot;
   ghostProposals: StageGhostProposal[];
   highlights: StageHighlight[];
   edgeRadar: StageEdgeRadar | null;
@@ -424,6 +426,7 @@ export interface StageResolveResult {
 }
 
 export type StageUserAction =
+  | ReflectionAction
   | { type: "set-viewport"; viewport: Partial<StageViewport>; source?: StageViewportSource }
   | { type: "move-area"; areaId: string; pos: StagePoint }
   | { type: "toggle-park-area"; areaId: string; parked: boolean; reason?: string }
